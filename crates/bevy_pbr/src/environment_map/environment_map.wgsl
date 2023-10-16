@@ -2,7 +2,7 @@
 
 #import bevy_pbr::mesh_view_bindings as bindings
 
-#import bevy_pbr::mesh_view_bindings       light_probes, environment_map_index
+#import bevy_pbr::mesh_view_bindings       light_probes,
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -22,18 +22,21 @@ fn environment_map_light(
 ) -> EnvironmentMapLight {
     // Search for a reflection probe in range.
     var cubemap_index: i32 = -1;
-    for (var light_probe_index: i32 = 0; light_probe_index < light_probes.count; light_probe_index += 1) {
-        let light_probe = light_probes.data[light_probe_index];
-        let probe_space_pos = (light_probe.inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
-        if (all(abs(probe_space_pos) <= light_probe.half_extents)) {
-            cubemap_index = light_probe.cubemap_index;
+    for (var reflection_probe_index: i32 = 0;
+            reflection_probe_index < light_probes.reflection_probe_count;
+            reflection_probe_index += 1) {
+        let reflection_probe = light_probes.reflection_probes[reflection_probe_index];
+        let probe_space_pos =
+            (reflection_probe.inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
+        if (all(abs(probe_space_pos) <= reflection_probe.half_extents)) {
+            cubemap_index = reflection_probe.cubemap_index;
             break;
         }
     }
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
     if (cubemap_index < 0) {
-        cubemap_index = environment_map_index;
+        cubemap_index = light_probes.view_cubemap_index;
     }
 
     var out: EnvironmentMapLight;

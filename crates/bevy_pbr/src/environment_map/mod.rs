@@ -6,24 +6,22 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
-    entity::Entity,
     prelude::Component,
     query::{Or, With},
-    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_math::vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
         BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType,
-        CommandEncoderDescriptor, DynamicUniformBuffer, Extent3d, FilterMode, ImageCopyTexture,
-        Origin3d, SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, Texture,
-        TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-        TextureUsages, TextureViewDescriptor, TextureViewDimension,
+        CommandEncoderDescriptor, Extent3d, FilterMode, ImageCopyTexture, Origin3d,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, Texture, TextureAspect,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImage, GpuImage, Image},
@@ -65,16 +63,9 @@ impl Plugin for EnvironmentMapPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderEnvironmentMaps>()
-                .init_resource::<EnvironmentMapMeta>()
                 .add_systems(
                     Render,
                     prepare_environment_maps.in_set(RenderSet::PrepareResources),
-                )
-                .add_systems(
-                    Render,
-                    prepare_view_environment_map
-                        .after(prepare_environment_maps)
-                        .in_set(RenderSet::PrepareResources),
                 );
         }
     }
@@ -153,26 +144,6 @@ enum EnvironmentMapKind {
     Diffuse,
     /// The environment map represents the specular contribution.
     Specular,
-}
-
-/// The indices of the cubemap arrays associated with each camera in the scene.
-#[derive(Default, Resource)]
-pub struct EnvironmentMapMeta {
-    // The indices of the view environment map in the diffuse and specular
-    // cubemap arrays. The index will be -1 if not present.
-    pub(crate) view_environment_map_indices: DynamicUniformBuffer<i32>,
-}
-
-/// Stores the index in the [EnvironmentMapMeta] buffer of the index of the
-/// cubemap for the single environment map associated with the camera. This is
-/// the "world" environment map that isn't associated with any given reflection
-/// probe and serves as a fallback if the object isn't in range of any probe.
-#[derive(Component, Reflect, Default)]
-#[reflect(Component, Default)]
-pub struct ViewEnvironmentMapUniformOffset {
-    /// The index within `view_environment_map_indices` of [EnvironmentMapMeta]
-    /// of the index of the cubemap in the cubemap array.
-    pub index: u32,
 }
 
 impl EnvironmentMapLight {
@@ -591,49 +562,5 @@ impl RenderEnvironmentMaps {
                 resource: BindingResource::Sampler(&diffuse_map.sampler),
             },
         ]
-    }
-}
-
-/// Records the index of the cubemap for the single environment map associated
-/// with the camera. This is the "world" environment map that isn't associated
-/// with any given reflection probe and serves as a fallback if the object isn't
-/// in range of any probe.
-pub fn prepare_view_environment_map(
-    mut commands: Commands,
-    mut environment_map_meta: ResMut<EnvironmentMapMeta>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    render_environment_maps: ResMut<RenderEnvironmentMaps>,
-    views: Query<(Entity, Option<&EnvironmentMapLight>)>,
-) {
-    let views_iter = views.iter();
-    let view_count = views_iter.len();
-
-    // Build up a list of indices. Note that this is double-indirect: the offset
-    // points to an index within the [EnvironmentMapMeta] buffer, which itself
-    // specifies the index of a cubemap in the array.
-    let Some(mut writer) = environment_map_meta
-        .view_environment_map_indices
-        .get_writer(view_count, &render_device, &render_queue)
-    else {
-        return;
-    };
-
-    for (view_entity, environment_map_light) in views_iter {
-        // Determine the index of the environment map for the view, if any.
-        let environment_map_index = match environment_map_light {
-            None => -1,
-            Some(environment_map_light) => {
-                render_environment_maps.get_index(&environment_map_light.id())
-            }
-        };
-
-        // Write the index in the cubemap array, and record the dynamic uniform
-        // offset of that index.
-        commands
-            .entity(view_entity)
-            .insert(ViewEnvironmentMapUniformOffset {
-                index: writer.write(&environment_map_index),
-            });
     }
 }

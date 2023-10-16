@@ -112,13 +112,14 @@ struct ClusterOffsetsAndCounts {
 };
 #endif
 
-struct LightProbe {
+struct ReflectionProbe {
     inverse_transform: mat4x4<f32>,
     half_extents: vec3<f32>,
     cubemap_index: i32,
 };
 
 struct LightProbes {
-    data: array<LightProbe, 64u>,
-    count: i32,
+    reflection_probes: array<ReflectionProbe, 4u>,
+    reflection_probe_count: i32,
+    view_cubemap_index: i32,
 };

@@ -1,12 +1,11 @@
 use crate::{
-    environment_map::{
-        self, EnvironmentMapMeta, RenderEnvironmentMaps, ViewEnvironmentMapUniformOffset,
-    },
+    environment_map::{self, RenderEnvironmentMaps},
     prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers,
-    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
@@ -496,25 +495,14 @@ impl FromWorld for MeshPipeline {
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(LightProbesUniform::min_size()),
-                    },
-                    count: None,
-                },
-                // The index of the environment map associated with the view
-                BindGroupLayoutEntry {
-                    binding: 12,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: Some(i32::min_size()),
+                        min_binding_size: Some(LightProbesUniform::min_size()),
                     },
                     count: None,
                 },
                 // Screen space ambient occlusion texture
                 BindGroupLayoutEntry {
-                    binding: 13,
+                    binding: 12,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
@@ -527,18 +515,18 @@ impl FromWorld for MeshPipeline {
 
             // EnvironmentMapLight
             let environment_map_entries =
-                environment_map::get_bind_group_layout_entries([14, 15, 16]);
+                environment_map::get_bind_group_layout_entries([13, 14, 15]);
             entries.extend_from_slice(&environment_map_entries);
 
             // Tonemapping
-            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([17, 18]);
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([16, 17]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [19, 20, 21, 22],
+                    [18, 19, 20, 21],
                     multisampled,
                 ));
             }
@@ -641,7 +629,7 @@ impl GetBatchData for MeshPipeline {
             .get(entity)
             .expect("Failed to find render mesh instance");
         (
-            MeshUniform::new(&mesh_instance),
+            MeshUniform::new(mesh_instance),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
@@ -1113,7 +1101,6 @@ pub fn prepare_mesh_view_bind_groups(
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     fog_meta: Res<FogMeta>,
-    environment_map_meta: Res<EnvironmentMapMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(
         Entity,
@@ -1141,15 +1128,13 @@ pub fn prepare_mesh_view_bind_groups(
         Some(globals),
         Some(fog_binding),
         Some(light_probes_binding),
-        Some(environment_map_index_binding),
     ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
         fog_meta.gpu_fogs.binding(),
-        light_probes_buffer.buffer.binding(),
-        environment_map_meta.view_environment_map_indices.binding(),
+        light_probes_buffer.binding(),
     ) {
         for (
             entity,
@@ -1226,10 +1211,6 @@ pub fn prepare_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 12,
-                    resource: environment_map_index_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 13,
                     resource: BindingResource::TextureView(
                         ssao_textures
                             .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
@@ -1238,11 +1219,11 @@ pub fn prepare_mesh_view_bind_groups(
                 },
             ];
 
-            let env_map = environment_maps.get_bindings(&fallback, &[14, 15, 16]);
+            let env_map = environment_maps.get_bindings(&fallback, &[13, 14, 15]);
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [17, 18]);
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [16, 17]);
             entries.extend_from_slice(&tonemapping_luts);
 
             let label = Some("mesh_view_bind_group");
@@ -1253,7 +1234,7 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 let prepass_bindings =
                     prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
-                entries.extend_from_slice(&prepass_bindings.get_entries([19, 20, 21, 22]));
+                entries.extend_from_slice(&prepass_bindings.get_entries([18, 19, 20, 21]));
                 commands.entity(entity).insert(MeshViewBindGroup {
                     value: render_device.create_bind_group(&BindGroupDescriptor {
                         entries: &entries,
@@ -1281,7 +1262,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
-        Read<ViewEnvironmentMapUniformOffset>,
+        Read<ViewLightProbesUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemWorldQuery = ();
@@ -1289,7 +1270,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_environment_map, mesh_view_bind_group): ROQueryItem<
+        (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
             'w,
             Self::ViewWorldQuery,
         >,
@@ -1304,7 +1285,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_uniform.offset,
                 view_lights.offset,
                 view_fog.offset,
-                view_environment_map.index,
+                **view_light_probes,
             ],
         );
 

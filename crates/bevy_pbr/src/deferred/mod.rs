@@ -1,4 +1,4 @@
-use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings};
+use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
@@ -151,6 +151,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
+        &'static ViewLightProbesUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static DeferredLightingIdDepthTexture,
@@ -166,6 +167,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             view_uniform_offset,
             view_lights_offset,
             view_fog_offset,
+            view_light_probes_offset,
             mesh_view_bind_group,
             target,
             deferred_lighting_id_depth_texture,
@@ -232,6 +234,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
                 view_fog_offset.offset,
+                **view_light_probes_offset,
             ],
         );
         render_pass.set_bind_group(1, &bind_group_1, &[]);
