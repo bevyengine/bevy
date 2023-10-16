@@ -78,6 +78,7 @@ fn par_for_each(
 fn setup(parallel: bool, setup: impl FnOnce(&mut Schedule)) -> (World, Schedule) {
     let mut world = World::new();
     let mut schedule = Schedule::default();
+    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
     if parallel {
         world.insert_resource(ComputeTaskPool(TaskPool::default()));
     }

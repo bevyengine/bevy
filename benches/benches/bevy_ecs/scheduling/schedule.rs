@@ -1,5 +1,6 @@
 use bevy_app::{App, Update};
 use bevy_ecs::prelude::*;
+use bevy_ecs::schedule::ExecutorKind;
 use criterion::Criterion;
 
 pub fn schedule(c: &mut Criterion) {
@@ -47,6 +48,7 @@ pub fn schedule(c: &mut Criterion) {
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
         let mut schedule = Schedule::default();
+        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         schedule.add_systems((ab, cd, ce));
         schedule.run(&mut world);
 
