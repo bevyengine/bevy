@@ -136,12 +136,18 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
     /// will be used.
+    ///
+    /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
+    /// required for shadow mapping.
     fn prepass_vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the default prepass fragment shader
     /// will be used.
+    ///
+    /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
+    /// required for shadow mapping.
     #[allow(unused_variables)]
     fn prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
