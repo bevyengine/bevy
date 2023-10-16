@@ -1,6 +1,6 @@
 use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::Reflect;
-use bevy_utils::{tracing::warn, Duration};
+use bevy_utils::{tracing::debug, Duration};
 
 use crate::{real::Real, time::Time};
 
@@ -229,7 +229,7 @@ impl Time<Virtual> {
     fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
         let max_delta = self.context().max_delta;
         let clamped_delta = if raw_delta > max_delta {
-            warn!(
+            debug!(
                 "delta time larger than maximum delta, clamping delta to {:?} and skipping {:?}",
                 max_delta,
                 raw_delta - max_delta
