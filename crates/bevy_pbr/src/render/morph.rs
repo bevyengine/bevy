@@ -1,23 +1,31 @@
 use std::{iter, mem};
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, BufferVec},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
     Extract,
 };
+use bevy_utils::EntityHashMap;
 use bytemuck::Pod;
 
 #[derive(Component)]
 pub struct MorphIndex {
     pub(super) index: u32,
 }
+
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct MorphIndices(EntityHashMap<Entity, MorphIndex>);
+
 #[derive(Resource)]
 pub struct MorphUniform {
     pub buffer: BufferVec<f32>,
 }
+
 impl Default for MorphUniform {
     fn default() -> Self {
         Self {
@@ -27,21 +35,22 @@ impl Default for MorphUniform {
 }
 
 pub fn prepare_morphs(
-    device: Res<RenderDevice>,
-    queue: Res<RenderQueue>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     mut uniform: ResMut<MorphUniform>,
 ) {
     if uniform.buffer.is_empty() {
         return;
     }
-    let buffer = &mut uniform.buffer;
-    buffer.reserve(buffer.len(), &device);
-    buffer.write_buffer(&device, &queue);
+    let len = uniform.buffer.len();
+    uniform.buffer.reserve(len, &render_device);
+    uniform.buffer.write_buffer(&render_device, &render_queue);
 }
 
 const fn can_align(step: usize, target: usize) -> bool {
     step % target == 0 || target % step == 0
 }
+
 const WGPU_MIN_ALIGN: usize = 256;
 
 /// Align a [`BufferVec`] to `N` bytes by padding the end with `T::default()` values.
@@ -68,15 +77,15 @@ fn add_to_alignment<T: Pod + Default>(buffer: &mut BufferVec<T>) {
     buffer.extend(iter::repeat_with(T::default).take(ts_to_add));
 }
 
+// Notes on implementation: see comment on top of the extract_skins system in skin module.
+// This works similarly, but for `f32` instead of `Mat4`
 pub fn extract_morphs(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
+    mut morph_indices: ResMut<MorphIndices>,
     mut uniform: ResMut<MorphUniform>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
 ) {
+    morph_indices.clear();
     uniform.buffer.clear();
-
-    let mut values = Vec::with_capacity(*previous_len);
 
     for (entity, view_visibility, morph_weights) in &query {
         if !view_visibility.get() {
@@ -89,8 +98,17 @@ pub fn extract_morphs(
         add_to_alignment::<f32>(&mut uniform.buffer);
 
         let index = (start * mem::size_of::<f32>()) as u32;
-        values.push((entity, MorphIndex { index }));
+        morph_indices.insert(entity, MorphIndex { index });
     }
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+}
+
+// NOTE: Because morph targets require per-morph target texture bindings, they cannot
+// currently be batched.
+pub fn no_automatic_morph_batching(
+    mut commands: Commands,
+    query: Query<Entity, (With<MeshMorphWeights>, Without<NoAutomaticBatching>)>,
+) {
+    for entity in &query {
+        commands.entity(entity).insert(NoAutomaticBatching);
+    }
 }

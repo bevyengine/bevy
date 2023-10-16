@@ -2,6 +2,10 @@
 //! change some settings or quit. There is no actual game, it will just display the current
 //! settings for 5 seconds before going back to the menu.
 
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use bevy::prelude::*;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
@@ -84,6 +88,7 @@ mod splash {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -151,6 +156,7 @@ mod game {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         // center children
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -421,6 +427,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -546,6 +553,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -611,6 +619,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -714,6 +723,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()

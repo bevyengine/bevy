@@ -1,19 +1,13 @@
-use crate::UiRect;
+use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    color::Color,
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
-};
+use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::{
-    num::{NonZeroI16, NonZeroU16},
-    ops::{Div, DivAssign, Mul, MulAssign},
-};
+use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
 /// Describes the size of a UI node
@@ -23,6 +17,15 @@ pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
+    /// The width of this node's outline
+    /// If this value is `Auto`, negative or `0.` then no outline will be rendered
+    /// automatically calculated by [`super::layout::resolve_outlines_system`]
+    pub(crate) outline_width: f32,
+    // The amount of space between the outline and the edge of the node
+    pub(crate) outline_offset: f32,
+    /// The unrounded size of the node as width and height in logical pixels
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub(crate) unrounded_size: Vec2,
 }
 
 impl Node {
@@ -30,6 +33,12 @@ impl Node {
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// The calculated node size as width and height in logical pixels before rounding
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub const fn unrounded_size(&self) -> Vec2 {
+        self.unrounded_size
     }
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
@@ -67,190 +76,27 @@ impl Node {
             ),
         }
     }
+
+    #[inline]
+    /// Returns the thickness of the UI node's outline.
+    /// If this value is negative or `0.` then no outline will be rendered.
+    pub fn outline_width(&self) -> f32 {
+        self.outline_width
+    }
 }
 
 impl Node {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
+        outline_width: 0.,
+        outline_offset: 0.,
+        unrounded_size: Vec2::ZERO,
     };
 }
 
 impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
-    }
-}
-
-/// Represents the possible value types for layout properties.
-///
-/// This enum allows specifying values for various [`Style`] properties in different units,
-/// such as logical pixels, percentages, or automatically determined values.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
-pub enum Val {
-    /// Automatically determine the value based on the context and other [`Style`] properties.
-    Auto,
-    /// Set this value in logical pixels.
-    Px(f32),
-    /// Set the value as a percentage of its parent node's length along a specific axis.
-    ///
-    /// If the UI node has no parent, the percentage is calculated based on the window's length
-    /// along the corresponding axis.
-    ///
-    /// The chosen axis depends on the `Style` field set:
-    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
-    /// * For `gap`, `min_size`, `size`, and `max_size`:
-    ///   - `width` is relative to the parent's width.
-    ///   - `height` is relative to the parent's height.
-    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
-    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-    Percent(f32),
-    /// Set this value in percent of the viewport width
-    Vw(f32),
-    /// Set this value in percent of the viewport height
-    Vh(f32),
-    /// Set this value in percent of the viewport's smaller dimension.
-    VMin(f32),
-    /// Set this value in percent of the viewport's larger dimension.
-    VMax(f32),
-}
-
-impl PartialEq for Val {
-    fn eq(&self, other: &Self) -> bool {
-        let same_unit = matches!(
-            (self, other),
-            (Self::Auto, Self::Auto)
-                | (Self::Px(_), Self::Px(_))
-                | (Self::Percent(_), Self::Percent(_))
-                | (Self::Vw(_), Self::Vw(_))
-                | (Self::Vh(_), Self::Vh(_))
-                | (Self::VMin(_), Self::VMin(_))
-                | (Self::VMax(_), Self::VMax(_))
-        );
-
-        let left = match self {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        let right = match other {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        match (same_unit, left, right) {
-            (true, a, b) => a == b,
-            // All zero-value variants are considered equal.
-            (false, Some(&a), Some(&b)) => a == 0. && b == 0.,
-            _ => false,
-        }
-    }
-}
-
-impl Val {
-    pub const DEFAULT: Self = Self::Auto;
-    pub const ZERO: Self = Self::Px(0.0);
-}
-
-impl Default for Val {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl Mul<f32> for Val {
-    type Output = Val;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
-        }
-    }
-}
-
-impl MulAssign<f32> for Val {
-    fn mul_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value *= rhs,
-        }
-    }
-}
-
-impl Div<f32> for Val {
-    type Output = Val;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
-        }
-    }
-}
-
-impl DivAssign<f32> for Val {
-    fn div_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value /= rhs,
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
-pub enum ValArithmeticError {
-    #[error("the variants of the Vals don't match")]
-    NonIdenticalVariants,
-    #[error("the given variant of Val is not evaluateable (non-numeric)")]
-    NonEvaluateable,
-}
-
-impl Val {
-    /// Resolves a [`Val`] to its value in logical pixels and returns this as an [`f32`].
-    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to resolve into a concrete value.
-    ///
-    /// **Note:** If a [`Val::Px`] is resolved, it's inner value is returned unchanged.
-    pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
-        match self {
-            Val::Percent(value) => Ok(parent_size * value / 100.0),
-            Val::Px(value) => Ok(value),
-            Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
-            Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
-            Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
-            Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
-            Val::Auto => Err(ValArithmeticError::NonEvaluateable),
-        }
     }
 }
 
@@ -261,18 +107,18 @@ impl Val {
 ///
 /// ### Flexbox
 ///
-/// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
+/// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
 /// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
-/// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flebox in a fun engaging way.
+/// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flexbox in a fun engaging way.
 ///
 /// ### CSS Grid
 ///
-/// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
+/// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
-#[derive(Component, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[derive(Component, Clone, PartialEq, Debug, Deserialize, Serialize, Reflect)]
+#[reflect(Component, Default, PartialEq, Deserialize, Serialize)]
 pub struct Style {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
@@ -366,7 +212,7 @@ pub struct Style {
     /// - For Flexbox containers, sets default cross-axis alignment of the child items.
     /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`AlignSelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
@@ -374,7 +220,7 @@ pub struct Style {
     /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
     /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
@@ -1561,7 +1407,7 @@ fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementErro
     ))
 }
 
-/// Errors that occur when setting contraints for a `GridPlacement`
+/// Errors that occur when setting constraints for a `GridPlacement`
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum GridPlacementError {
     #[error("Zero is not a valid grid position")]
@@ -1574,8 +1420,8 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 /// When combined with [`UiImage`], tints the provided texture.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
+#[reflect(Component, Default, Deserialize, Serialize)]
 pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
@@ -1607,8 +1453,8 @@ pub struct UiTextureAtlasImage {
 }
 
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
+#[reflect(Component, Default, Deserialize, Serialize)]
 pub struct BorderColor(pub Color);
 
 impl From<Color> for BorderColor {
@@ -1627,8 +1473,87 @@ impl Default for BorderColor {
     }
 }
 
+#[derive(Component, Copy, Clone, Default, Debug, Deserialize, Serialize, Reflect)]
+#[reflect(Component, Default, Deserialize, Serialize)]
+/// The [`Outline`] component adds an outline outside the edge of a UI node.
+/// Outlines do not take up space in the layout
+///
+/// To add an [`Outline`] to a ui node you can spawn a `(NodeBundle, Outline)` tuple bundle:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
+/// fn setup_ui(mut commands: Commands) {
+///     commands.spawn((
+///         NodeBundle {
+///             style: Style {
+///                 width: Val::Px(100.),
+///                 height: Val::Px(100.),
+///                 ..Default::default()
+///             },
+///             background_color: Color::BLUE.into(),
+///             ..Default::default()
+///         },
+///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
+///     ));
+/// }
+/// ```
+///
+/// [`Outline`] components can also be added later to existing UI nodes:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
+/// fn outline_hovered_button_system(
+///     mut commands: Commands,
+///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+/// ) {
+///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
+///         let outline_color =
+///             if matches!(*interaction, Interaction::Hovered) {
+///                 Color::WHITE    
+///             } else {
+///                 Color::NONE
+///             };
+///         if let Some(mut outline) = maybe_outline {
+///             outline.color = outline_color;
+///         } else {
+///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline_color));
+///         }
+///     }
+/// }
+/// ```
+/// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
+/// set `Outline::color` to `Color::NONE` to hide an outline.
+pub struct Outline {
+    /// The width of the outline.
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
+    pub width: Val,
+    /// The amount of space between a node's outline the edge of the node
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
+    pub offset: Val,
+    /// Color of the outline
+    ///
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// This avoids the table moves that would occcur from the repeated insertion and removal of the `Outline` component.
+    pub color: Color,
+}
+
+impl Outline {
+    /// Create a new outline
+    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
+        Self {
+            width,
+            offset,
+            color,
+        }
+    }
+}
+
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture
@@ -1637,16 +1562,6 @@ pub struct UiImage {
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
-}
-
-impl Default for UiImage {
-    fn default() -> UiImage {
-        UiImage {
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
-            flip_x: false,
-            flip_y: false,
-        }
-    }
 }
 
 impl UiImage {
@@ -1717,84 +1632,7 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
-    use super::Val;
     use crate::GridPlacement;
-    use crate::ValArithmeticError;
-    use bevy_math::vec2;
-
-    #[test]
-    fn val_evaluate() {
-        let size = 250.;
-        let viewport_size = vec2(1000., 500.);
-        let result = Val::Percent(80.).resolve(size, viewport_size).unwrap();
-
-        assert_eq!(result, size * 0.8);
-    }
-
-    #[test]
-    fn val_resolve_px() {
-        let size = 250.;
-        let viewport_size = vec2(1000., 500.);
-        let result = Val::Px(10.).resolve(size, viewport_size).unwrap();
-
-        assert_eq!(result, 10.);
-    }
-
-    #[test]
-    fn val_resolve_viewport_coords() {
-        let size = 250.;
-        let viewport_size = vec2(500., 500.);
-
-        for value in (-10..10).map(|value| value as f32) {
-            // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
-            assert_eq!(
-                Val::Vw(value).resolve(size, viewport_size),
-                Val::Vh(value).resolve(size, viewport_size)
-            );
-            assert_eq!(
-                Val::VMin(value).resolve(size, viewport_size),
-                Val::VMax(value).resolve(size, viewport_size)
-            );
-            assert_eq!(
-                Val::VMin(value).resolve(size, viewport_size),
-                Val::Vw(value).resolve(size, viewport_size)
-            );
-        }
-
-        let viewport_size = vec2(1000., 500.);
-        assert_eq!(Val::Vw(100.).resolve(size, viewport_size).unwrap(), 1000.);
-        assert_eq!(Val::Vh(100.).resolve(size, viewport_size).unwrap(), 500.);
-        assert_eq!(Val::Vw(60.).resolve(size, viewport_size).unwrap(), 600.);
-        assert_eq!(Val::Vh(40.).resolve(size, viewport_size).unwrap(), 200.);
-        assert_eq!(Val::VMin(50.).resolve(size, viewport_size).unwrap(), 250.);
-        assert_eq!(Val::VMax(75.).resolve(size, viewport_size).unwrap(), 750.);
-    }
-
-    #[test]
-    fn val_auto_is_non_resolveable() {
-        let size = 250.;
-        let viewport_size = vec2(1000., 500.);
-        let resolve_auto = Val::Auto.resolve(size, viewport_size);
-
-        assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluateable));
-    }
-
-    #[test]
-    fn val_arithmetic_error_messages() {
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonIdenticalVariants),
-            "the variants of the Vals don't match"
-        );
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonEvaluateable),
-            "the given variant of Val is not evaluateable (non-numeric)"
-        );
-    }
-
-    #[test]
-    fn default_val_equals_const_default_val() {
-        assert_eq!(Val::default(), Val::DEFAULT);
-    }
 
     #[test]
     fn invalid_grid_placement_values() {

@@ -174,7 +174,7 @@ impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     fn from(value: EntityMut<'w>) -> Self {
         // SAFETY:
-        // - `EntityMut` gurantees exclusive access to all of the entity's components.
+        // - `EntityMut` guarantees exclusive access to all of the entity's components.
         unsafe { EntityRef::new(value.0) }
     }
 }
@@ -182,7 +182,7 @@ impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
 impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
     fn from(value: &'a EntityMut<'_>) -> Self {
         // SAFETY:
-        // - `EntityMut` gurantees exclusive access to all of the entity's components.
+        // - `EntityMut` guarantees exclusive access to all of the entity's components.
         // - `&value` ensures there are no mutable accesses.
         unsafe { EntityRef::new(value.0) }
     }
@@ -576,7 +576,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,
-            &mut self.world.components,
+            &self.world.components,
             &mut self.world.storages,
             self.location.archetype_id,
             change_tick,
@@ -613,7 +613,7 @@ impl<'w> EntityWorldMut<'w> {
         let bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,
-            &mut self.world.components,
+            &self.world.components,
             &mut self.world.storages,
             self.location.archetype_id,
             change_tick,
@@ -656,7 +656,7 @@ impl<'w> EntityWorldMut<'w> {
         let bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,
-            &mut self.world.components,
+            &self.world.components,
             &mut self.world.storages,
             self.location.archetype_id,
             change_tick,
@@ -1084,7 +1084,7 @@ unsafe fn insert_dynamic_bundle<
 unsafe fn remove_bundle_from_archetype(
     archetypes: &mut Archetypes,
     storages: &mut Storages,
-    components: &mut Components,
+    components: &Components,
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
     intersection: bool,

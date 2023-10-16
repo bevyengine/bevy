@@ -1,89 +1,80 @@
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
-    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    GpuPointLights, LightMeta, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
-use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
+use bevy_app::{Plugin, PostUpdate};
+use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    query::ROQueryItem,
+    query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
-use bevy_reflect::TypeUuid;
+use bevy_math::{Affine3, Vec2, Vec4};
 use bevy_render::{
+    batching::{
+        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
+        NoAutomaticBatching,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
-        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
         VertexAttributeDescriptor,
     },
     prelude::Msaa,
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
-        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImageMsaa, GpuImage, Image,
+        ImageSampler, TextureFormatPixelInfo,
     },
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, HashMap, Hashed};
-use fixedbitset::FixedBitSet;
+use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
+use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 use crate::render::{
-    morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
+    morph::{
+        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
+    },
+    skin::{extract_skins, no_automatic_skin_batching, prepare_skins, SkinUniform},
     MeshLayouts,
 };
+
+use super::skin::SkinIndices;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-/// Maximum number of joints supported for skinned meshes.
-pub const MAX_JOINTS: usize = 256;
-const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
-pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
-
-pub const MESH_VERTEX_OUTPUT: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
-pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
-pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
-pub const MESH_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
-pub const MESH_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16831548636314682308);
-pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6300874327833745635);
-pub const MESH_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
-pub const SKINNING_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13215291596265391738);
-pub const MORPH_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 970982813587607345);
+pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
+pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
+pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
+pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
+pub const MESH_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16831548636314682308);
+pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874327833745635);
+pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
+pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
+pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(970982813587607345);
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(
-            app,
-            MESH_VERTEX_OUTPUT,
-            "mesh_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
+        load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             MESH_VIEW_TYPES_HANDLE,
@@ -117,20 +108,38 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
 
+        app.add_systems(
+            PostUpdate,
+            (no_automatic_skin_batching, no_automatic_morph_batching),
+        );
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<SkinnedMeshUniform>()
+                .init_resource::<RenderMeshInstances>()
                 .init_resource::<MeshBindGroups>()
+                .init_resource::<SkinUniform>()
+                .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
+                .init_resource::<MorphIndices>()
                 .add_systems(
                     ExtractSchedule,
-                    (extract_meshes, extract_skinned_meshes, extract_morphs),
+                    (extract_meshes, extract_skins, extract_morphs),
                 )
                 .add_systems(
                     Render,
                     (
-                        prepare_mesh_uniforms.in_set(RenderSet::PrepareResources),
-                        prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
+                        (
+                            batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
+                            batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
+                        )
+                            .in_set(RenderSet::PrepareResources),
+                        write_batched_instance_buffer::<MeshPipeline>
+                            .in_set(RenderSet::PrepareResourcesFlush),
+                        prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
@@ -194,48 +203,13 @@ pub struct MeshUniform {
 
 impl From<&MeshTransforms> for MeshUniform {
     fn from(mesh_transforms: &MeshTransforms) -> Self {
-        let transpose_model_3x3 = mesh_transforms.transform.matrix3.transpose();
-        let transpose_previous_model_3x3 = mesh_transforms.previous_transform.matrix3.transpose();
-        let inverse_transpose_model_3x3 = Affine3A::from(&mesh_transforms.transform)
-            .inverse()
-            .matrix3
-            .transpose();
+        let (inverse_transpose_model_a, inverse_transpose_model_b) =
+            mesh_transforms.transform.inverse_transpose_3x3();
         Self {
-            transform: [
-                transpose_model_3x3
-                    .x_axis
-                    .extend(mesh_transforms.transform.translation.x),
-                transpose_model_3x3
-                    .y_axis
-                    .extend(mesh_transforms.transform.translation.y),
-                transpose_model_3x3
-                    .z_axis
-                    .extend(mesh_transforms.transform.translation.z),
-            ],
-            previous_transform: [
-                transpose_previous_model_3x3
-                    .x_axis
-                    .extend(mesh_transforms.previous_transform.translation.x),
-                transpose_previous_model_3x3
-                    .y_axis
-                    .extend(mesh_transforms.previous_transform.translation.y),
-                transpose_previous_model_3x3
-                    .z_axis
-                    .extend(mesh_transforms.previous_transform.translation.z),
-            ],
-            inverse_transpose_model_a: [
-                (
-                    inverse_transpose_model_3x3.x_axis,
-                    inverse_transpose_model_3x3.y_axis.x,
-                )
-                    .into(),
-                (
-                    inverse_transpose_model_3x3.y_axis.yz(),
-                    inverse_transpose_model_3x3.z_axis.xy(),
-                )
-                    .into(),
-            ],
-            inverse_transpose_model_b: inverse_transpose_model_3x3.z_axis.z,
+            transform: mesh_transforms.transform.to_transpose(),
+            previous_transform: mesh_transforms.previous_transform.to_transpose(),
+            inverse_transpose_model_a,
+            inverse_transpose_model_b,
             flags: mesh_transforms.flags,
         }
     }
@@ -244,7 +218,7 @@ impl From<&MeshTransforms> for MeshUniform {
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
-    struct MeshFlags: u32 {
+    pub struct MeshFlags: u32 {
         const SHADOW_RECEIVER            = (1 << 0);
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
@@ -254,10 +228,25 @@ bitflags::bitflags! {
     }
 }
 
+pub struct RenderMeshInstance {
+    pub transforms: MeshTransforms,
+    pub mesh_asset_id: AssetId<Mesh>,
+    pub material_bind_group_id: MaterialBindGroupId,
+    pub shadow_caster: bool,
+    pub automatic_batching: bool,
+}
+
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
+
+#[derive(Component)]
+pub struct Mesh3d;
+
 pub fn extract_meshes(
     mut commands: Commands,
-    mut prev_caster_commands_len: Local<usize>,
-    mut prev_not_caster_commands_len: Local<usize>,
+    mut previous_len: Local<usize>,
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -265,180 +254,67 @@ pub fn extract_meshes(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
-            Option<With<NotShadowReceiver>>,
-            Option<With<NotShadowCaster>>,
+            Has<NotShadowReceiver>,
+            Has<NotShadowCaster>,
+            Has<NoAutomaticBatching>,
         )>,
     >,
 ) {
-    let mut caster_commands = Vec::with_capacity(*prev_caster_commands_len);
-    let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
-    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
-
-    for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
-        visible_meshes
-    {
-        let transform = transform.affine();
-        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-        let mut flags = if not_receiver.is_some() {
-            MeshFlags::empty()
-        } else {
-            MeshFlags::SHADOW_RECEIVER
-        };
-        if transform.matrix3.determinant().is_sign_positive() {
-            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
-        }
-        let transforms = MeshTransforms {
-            transform: (&transform).into(),
-            previous_transform: (&previous_transform).into(),
-            flags: flags.bits(),
-        };
-        if not_caster.is_some() {
-            not_caster_commands.push((entity, (handle.clone_weak(), transforms, NotShadowCaster)));
-        } else {
-            caster_commands.push((entity, (handle.clone_weak(), transforms)));
-        }
-    }
-    *prev_caster_commands_len = caster_commands.len();
-    *prev_not_caster_commands_len = not_caster_commands.len();
-    commands.insert_or_spawn_batch(caster_commands);
-    commands.insert_or_spawn_batch(not_caster_commands);
-}
-
-#[derive(Component)]
-pub struct SkinnedMeshJoints {
-    pub index: u32,
-}
-
-impl SkinnedMeshJoints {
-    #[inline]
-    pub fn build(
-        skin: &SkinnedMesh,
-        inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
-        joints: &Query<&GlobalTransform>,
-        buffer: &mut BufferVec<Mat4>,
-    ) -> Option<Self> {
-        let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
-        let start = buffer.len();
-        let target = start + skin.joints.len().min(MAX_JOINTS);
-        buffer.extend(
-            joints
-                .iter_many(&skin.joints)
-                .zip(inverse_bindposes.iter())
-                .take(MAX_JOINTS)
-                .map(|(joint, bindpose)| joint.affine() * *bindpose),
-        );
-        // iter_many will skip any failed fetches. This will cause it to assign the wrong bones,
-        // so just bail by truncating to the start.
-        if buffer.len() != target {
-            buffer.truncate(start);
-            return None;
-        }
-
-        // Pad to 256 byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(Mat4::ZERO);
-        }
-        Some(Self {
-            index: start as u32,
-        })
-    }
-
-    /// Updated index to be in address space based on [`SkinnedMeshUniform`] size.
-    pub fn to_buffer_index(mut self) -> Self {
-        self.index *= std::mem::size_of::<Mat4>() as u32;
-        self
-    }
-}
-
-pub fn extract_skinned_meshes(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    mut uniform: ResMut<SkinnedMeshUniform>,
-    query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
-    inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
-    joint_query: Extract<Query<&GlobalTransform>>,
-) {
-    uniform.buffer.clear();
-    let mut values = Vec::with_capacity(*previous_len);
-    let mut last_start = 0;
-
-    for (entity, view_visibility, skin) in &query {
-        if !view_visibility.get() {
-            continue;
-        }
-        // PERF: This can be expensive, can we move this to prepare?
-        if let Some(skinned_joints) =
-            SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut uniform.buffer)
-        {
-            last_start = last_start.max(skinned_joints.index as usize);
-            values.push((entity, skinned_joints.to_buffer_index()));
-        }
-    }
-
-    // Pad out the buffer to ensure that there's enough space for bindings
-    while uniform.buffer.len() - last_start < MAX_JOINTS {
-        uniform.buffer.push(Mat4::ZERO);
-    }
-
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_mesh_uniforms(
-    mut seen: Local<FixedBitSet>,
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
-    views: Query<(
-        &RenderPhase<Opaque3d>,
-        &RenderPhase<Transparent3d>,
-        &RenderPhase<AlphaMask3d>,
-    )>,
-    shadow_views: Query<&RenderPhase<Shadow>>,
-    meshes: Query<(Entity, &MeshTransforms)>,
-) {
-    gpu_array_buffer.clear();
-    seen.clear();
-
-    let mut indices = Vec::with_capacity(*previous_len);
-    let mut push_indices = |(mesh, mesh_uniform): (Entity, &MeshTransforms)| {
-        let index = mesh.index() as usize;
-        if !seen.contains(index) {
-            if index >= seen.len() {
-                seen.grow(index + 1);
+    meshes_query.par_iter().for_each(
+        |(
+            entity,
+            view_visibility,
+            transform,
+            previous_transform,
+            handle,
+            not_receiver,
+            not_caster,
+            no_automatic_batching,
+        )| {
+            if !view_visibility.get() {
+                return;
             }
-            seen.insert(index);
-            indices.push((mesh, gpu_array_buffer.push(mesh_uniform.into())));
-        }
-    };
+            let transform = transform.affine();
+            let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
+            let mut flags = if not_receiver {
+                MeshFlags::empty()
+            } else {
+                MeshFlags::SHADOW_RECEIVER
+            };
+            if transform.matrix3.determinant().is_sign_positive() {
+                flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+            }
+            let transforms = MeshTransforms {
+                transform: (&transform).into(),
+                previous_transform: (&previous_transform).into(),
+                flags: flags.bits(),
+            };
+            let tls = thread_local_queues.get_or_default();
+            let mut queue = tls.take();
+            queue.push((
+                entity,
+                RenderMeshInstance {
+                    mesh_asset_id: handle.id(),
+                    transforms,
+                    shadow_caster: !not_caster,
+                    material_bind_group_id: MaterialBindGroupId::default(),
+                    automatic_batching: !no_automatic_batching,
+                },
+            ));
+            tls.set(queue);
+        },
+    );
 
-    for (opaque_phase, transparent_phase, alpha_phase) in &views {
-        meshes
-            .iter_many(opaque_phase.iter_entities())
-            .for_each(&mut push_indices);
-
-        meshes
-            .iter_many(transparent_phase.iter_entities())
-            .for_each(&mut push_indices);
-
-        meshes
-            .iter_many(alpha_phase.iter_entities())
-            .for_each(&mut push_indices);
+    render_mesh_instances.clear();
+    let mut entities = Vec::with_capacity(*previous_len);
+    for queue in thread_local_queues.iter_mut() {
+        // FIXME: Remove this - it is just a workaround to enable rendering to work as
+        // render commands require an entity to exist at the moment.
+        entities.extend(queue.get_mut().iter().map(|(e, _)| (*e, Mesh3d)));
+        render_mesh_instances.extend(queue.get_mut().drain(..));
     }
-
-    for shadow_phase in &shadow_views {
-        meshes
-            .iter_many(shadow_phase.iter_entities())
-            .for_each(&mut push_indices);
-    }
-
-    *previous_len = indices.len();
-    commands.insert_or_spawn_batch(indices);
-
-    gpu_array_buffer.write_buffer(&render_device, &render_queue);
+    *previous_len = entities.len();
+    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]
@@ -455,11 +331,9 @@ pub struct MeshPipeline {
     /// Use code like this in custom shaders:
     /// ```wgsl
     /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-    /// @group(2) @binding(0)
-    /// var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
+    /// @group(2) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
     /// ##else
-    /// @group(2) @binding(0)
-    /// var<storage> mesh: array<Mesh>;
+    /// @group(2) @binding(0) var<storage> mesh: array<Mesh>;
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
@@ -637,7 +511,7 @@ impl FromWorld for MeshPipeline {
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [17, 18, 19],
+                    [17, 18, 19, 20],
                     multisampled,
                 ));
             }
@@ -725,6 +599,30 @@ impl MeshPipeline {
     }
 }
 
+impl GetBatchData for MeshPipeline {
+    type Param = SRes<RenderMeshInstances>;
+    type Query = Entity;
+    type QueryFilter = With<Mesh3d>;
+    type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
+    type BufferData = MeshUniform;
+
+    fn get_batch_data(
+        mesh_instances: &SystemParamItem<Self::Param>,
+        entity: &QueryItem<Self::Query>,
+    ) -> (Self::BufferData, Option<Self::CompareData>) {
+        let mesh_instance = mesh_instances
+            .get(entity)
+            .expect("Failed to find render mesh instance");
+        (
+            (&mesh_instance.transforms).into(),
+            mesh_instance.automatic_batching.then_some((
+                mesh_instance.material_bind_group_id,
+                mesh_instance.mesh_asset_id,
+            )),
+        )
+    }
+}
+
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
@@ -737,14 +635,15 @@ bitflags::bitflags! {
         const DEBAND_DITHER                     = (1 << 2);
         const DEPTH_PREPASS                     = (1 << 3);
         const NORMAL_PREPASS                    = (1 << 4);
-        const MOTION_VECTOR_PREPASS             = (1 << 5);
-        const MAY_DISCARD                       = (1 << 6); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const DEFERRED_PREPASS                  = (1 << 5);
+        const MOTION_VECTOR_PREPASS             = (1 << 6);
+        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = (1 << 7);
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 8);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 9);
-        const TAA                               = (1 << 10);
-        const MORPH_TARGETS                     = (1 << 11);
+        const ENVIRONMENT_MAP                   = (1 << 8);
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
+        const TAA                               = (1 << 11);
+        const MORPH_TARGETS                     = (1 << 12);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -759,23 +658,34 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE     = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC      = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_CASTANO_13    = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_JIMENEZ_14    = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
         Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+
     const BLEND_MASK_BITS: u32 = 0b11;
     const BLEND_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
+
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+
+    const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
+    const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -879,14 +789,19 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
+        if layout.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS_1".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
         let mut bind_group_layout = match key.msaa_samples() {
@@ -900,7 +815,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
-            5,
+            6,
             &key,
             &mut shader_defs,
             &mut vertex_attributes,
@@ -946,7 +861,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_write_enabled = false;
         } else {
             label = "opaque_mesh_pipeline".into();
-            blend = Some(BlendState::REPLACE);
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
+            blend = None;
             // For the opaque and alpha mask passes, fragments that are closer will replace
             // the current fragment value in the output and the depth is written to the
             // depth buffer
@@ -957,6 +873,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
+
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
@@ -999,6 +918,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("TAA".into());
         }
 
+        let shadow_filter_method =
+            key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
+        if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
+            shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
+            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
+            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        }
+
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -1025,13 +954,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MESH_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: MESH_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -1052,7 +981,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -1082,7 +1011,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<BindGroup>,
-    morph_targets: HashMap<HandleId, BindGroup>,
+    morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
 }
 impl MeshBindGroups {
     pub fn reset(&mut self) {
@@ -1091,9 +1020,14 @@ impl MeshBindGroups {
         self.morph_targets.clear();
     }
     /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
-    pub fn get(&self, handle_id: HandleId, is_skinned: bool, morph: bool) -> Option<&BindGroup> {
+    pub fn get(
+        &self,
+        asset_id: AssetId<Mesh>,
+        is_skinned: bool,
+        morph: bool,
+    ) -> Option<&BindGroup> {
         match (is_skinned, morph) {
-            (_, true) => self.morph_targets.get(&handle_id),
+            (_, true) => self.morph_targets.get(&asset_id),
             (true, false) => self.skinned.as_ref(),
             (false, false) => self.model_only.as_ref(),
         }
@@ -1106,7 +1040,7 @@ pub fn prepare_mesh_bind_group(
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
-    skinned_mesh_uniform: Res<SkinnedMeshUniform>,
+    skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
 ) {
     groups.reset();
@@ -1116,7 +1050,7 @@ pub fn prepare_mesh_bind_group(
     };
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
-    let skin = skinned_mesh_uniform.buffer.buffer();
+    let skin = skins_uniform.buffer.buffer();
     if let Some(skin) = skin {
         groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
     }
@@ -1129,45 +1063,10 @@ pub fn prepare_mesh_bind_group(
                 } else {
                     layouts.morphed(&render_device, &model, weights, targets)
                 };
-                groups.morph_targets.insert(id.id(), group);
+                groups.morph_targets.insert(id, group);
             }
         }
     }
-}
-
-// NOTE: This is using BufferVec because it is using a trick to allow a fixed-size array
-// in a uniform buffer to be used like a variable-sized array by only writing the valid data
-// into the buffer, knowing the number of valid items starting from the dynamic offset, and
-// ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
-// be supported later in encase, and then we should make use of it.
-
-#[derive(Resource)]
-pub struct SkinnedMeshUniform {
-    pub buffer: BufferVec<Mat4>,
-}
-
-impl Default for SkinnedMeshUniform {
-    fn default() -> Self {
-        Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
-        }
-    }
-}
-
-pub fn prepare_skinned_meshes(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut skinned_mesh_uniform: ResMut<SkinnedMeshUniform>,
-) {
-    if skinned_mesh_uniform.buffer.is_empty() {
-        return;
-    }
-
-    let len = skinned_mesh_uniform.buffer.len();
-    skinned_mesh_uniform.buffer.reserve(len, &render_device);
-    skinned_mesh_uniform
-        .buffer
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Component)]
@@ -1194,10 +1093,11 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&EnvironmentMapLight>,
         &Tonemapping,
     )>,
-    images: Res<RenderAssets<Image>>,
-    mut fallback_images: FallbackImagesMsaa,
-    mut fallback_depths: FallbackImagesDepth,
-    fallback_cubemap: Res<FallbackImageCubemap>,
+    (images, mut fallback_images, fallback_cubemap): (
+        Res<RenderAssets<Image>>,
+        FallbackImageMsaa,
+        Res<FallbackImageCubemap>,
+    ),
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
@@ -1226,7 +1126,7 @@ pub fn prepare_mesh_view_bind_groups(
         ) in &views
         {
             let fallback_ssao = fallback_images
-                .image_for_samplecount(1)
+                .image_for_samplecount(1, TextureFormat::bevy_default())
                 .texture_view
                 .clone();
 
@@ -1307,28 +1207,31 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
             entries.extend_from_slice(&tonemapping_luts);
 
+            let label = Some("mesh_view_bind_group");
+
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
-                entries.extend_from_slice(&prepass::get_bindings(
-                    prepass_textures,
-                    &mut fallback_images,
-                    &mut fallback_depths,
-                    &msaa,
-                    [17, 18, 19],
-                ));
+                let prepass_bindings =
+                    prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
+                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
+                commands.entity(entity).insert(MeshViewBindGroup {
+                    value: render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &entries,
+                        label,
+                        layout,
+                    }),
+                });
+            } else {
+                commands.entity(entity).insert(MeshViewBindGroup {
+                    value: render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &entries,
+                        label,
+                        layout,
+                    }),
+                });
             }
-
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &entries,
-                label: Some("mesh_view_bind_group"),
-                layout,
-            });
-
-            commands.entity(entity).insert(MeshViewBindGroup {
-                value: view_bind_group,
-            });
         }
     }
 }
@@ -1367,28 +1270,44 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
 
 pub struct SetMeshBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
-    type Param = SRes<MeshBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = (
-        Read<Handle<Mesh>>,
-        Read<GpuArrayBufferIndex<MeshUniform>>,
-        Option<Read<SkinnedMeshJoints>>,
-        Option<Read<MorphIndex>>,
+    type Param = (
+        SRes<MeshBindGroups>,
+        SRes<RenderMeshInstances>,
+        SRes<SkinIndices>,
+        SRes<MorphIndices>,
     );
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        (mesh, batch_indices, skin_index, morph_index): ROQueryItem<Self::ItemWorldQuery>,
-        bind_groups: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: (),
+        (bind_groups, mesh_instances, skin_indices, morph_indices): SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let bind_groups = bind_groups.into_inner();
+        let mesh_instances = mesh_instances.into_inner();
+        let skin_indices = skin_indices.into_inner();
+        let morph_indices = morph_indices.into_inner();
+
+        let entity = &item.entity();
+
+        let Some(mesh) = mesh_instances.get(entity) else {
+            return RenderCommandResult::Success;
+        };
+        let skin_index = skin_indices.get(entity);
+        let morph_index = morph_indices.get(entity);
+
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();
 
-        let Some(bind_group) = bind_groups.get(mesh.id(), is_skinned, is_morphed) else {
+        let Some(bind_group) = bind_groups.get(mesh.mesh_asset_id, is_skinned, is_morphed) else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the queue_mesh_bind_group system.\n\
@@ -1398,20 +1317,20 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         };
 
         let mut dynamic_offsets: [u32; 3] = Default::default();
-        let mut index_count = 0;
-        if let Some(mesh_index) = batch_indices.dynamic_offset {
-            dynamic_offsets[index_count] = mesh_index;
-            index_count += 1;
+        let mut offset_count = 0;
+        if let Some(dynamic_offset) = item.dynamic_offset() {
+            dynamic_offsets[offset_count] = dynamic_offset.get();
+            offset_count += 1;
         }
         if let Some(skin_index) = skin_index {
-            dynamic_offsets[index_count] = skin_index.index;
-            index_count += 1;
+            dynamic_offsets[offset_count] = skin_index.index;
+            offset_count += 1;
         }
         if let Some(morph_index) = morph_index {
-            dynamic_offsets[index_count] = morph_index.index;
-            index_count += 1;
+            dynamic_offsets[offset_count] = morph_index.index;
+            offset_count += 1;
         }
-        pass.set_bind_group(I, bind_group, &dynamic_offsets[0..index_count]);
+        pass.set_bind_group(I, bind_group, &dynamic_offsets[0..offset_count]);
 
         RenderCommandResult::Success
     }
@@ -1419,45 +1338,50 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
     type ViewWorldQuery = ();
-    type ItemWorldQuery = (Read<GpuArrayBufferIndex<MeshUniform>>, Read<Handle<Mesh>>);
+    type ItemWorldQuery = ();
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        (batch_indices, mesh_handle): ROQueryItem<'_, Self::ItemWorldQuery>,
-        meshes: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: (),
+        (meshes, mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            pass.set_push_constants(
-                ShaderStages::VERTEX,
-                0,
-                &(batch_indices.index as i32).to_le_bytes(),
-            );
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
-                    index_format,
-                    count,
-                } => {
-                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, batch_indices.index..batch_indices.index + 1);
-                }
-                GpuBufferInfo::NonIndexed => {
-                    pass.draw(
-                        0..gpu_mesh.vertex_count,
-                        batch_indices.index..batch_indices.index + 1,
-                    );
-                }
+        let meshes = meshes.into_inner();
+        let mesh_instances = mesh_instances.into_inner();
+
+        let Some(mesh_instance) = mesh_instances.get(&item.entity()) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(gpu_mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
+
+        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+
+        let batch_range = item.batch_range();
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        pass.set_push_constants(
+            ShaderStages::VERTEX,
+            0,
+            &(batch_range.start as i32).to_le_bytes(),
+        );
+        match &gpu_mesh.buffer_info {
+            GpuBufferInfo::Indexed {
+                buffer,
+                index_format,
+                count,
+            } => {
+                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(0..*count, 0, batch_range.clone());
             }
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
+            GpuBufferInfo::NonIndexed => {
+                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+            }
         }
+        RenderCommandResult::Success
     }
 }
 

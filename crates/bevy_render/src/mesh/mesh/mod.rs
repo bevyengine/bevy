@@ -9,12 +9,13 @@ use crate::{
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
-use bevy_asset::Handle;
+use bevy_asset::{Asset, Handle};
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_log::warn;
 use bevy_math::*;
-use bevy_reflect::{TypePath, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
@@ -48,32 +49,32 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
 /// fn create_simple_parallelogram() -> Mesh {
-///     // Create a new mesh, add 4 vertices, each with its own position attribute (coordinate in
-///     // 3D space), for each of the corners of the parallelogram.
-///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-///     mesh.insert_attribute(
-///         Mesh::ATTRIBUTE_POSITION,
-///         vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
-///     );
-///     // Assign a UV coordinate to each vertex.
-///     mesh.insert_attribute(
-///         Mesh::ATTRIBUTE_UV_0,
-///         vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
-///     );
-///     // Assign normals (everything points outwards)
-///     mesh.insert_attribute(
-///        Mesh::ATTRIBUTE_NORMAL,
-///        vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
-///     );
-///     // After defining all the vertices and their attributes, build each triangle using the
-///     // indices of the vertices that make it up in a counter-clockwise order.
-///     mesh.set_indices(Some(Indices::U32(vec![
-///         // First triangle
-///         0, 3, 1,
-///         // Second triangle
-///         1, 3, 2
-///     ])));
-///     mesh
+///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
+///     Mesh::new(PrimitiveTopology::TriangleList)
+///         // Add 4 vertices, each with its own position attribute (coordinate in
+///         // 3D space), for each of the corners of the parallelogram.
+///         .with_inserted_attribute(
+///             Mesh::ATTRIBUTE_POSITION,
+///             vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
+///         )
+///         // Assign a UV coordinate to each vertex.
+///         .with_inserted_attribute(
+///             Mesh::ATTRIBUTE_UV_0,
+///             vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
+///         )
+///         // Assign normals (everything points outwards)
+///         .with_inserted_attribute(
+///             Mesh::ATTRIBUTE_NORMAL,
+///             vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
+///         )
+///         // After defining all the vertices and their attributes, build each triangle using the
+///         // indices of the vertices that make it up in a counter-clockwise order.
+///         .with_indices(Some(Indices::U32(vec![
+///             // First triangle
+///             0, 3, 1,
+///             // Second triangle
+///             1, 3, 2
+///         ])))
 /// }
 /// ```
 ///
@@ -109,14 +110,15 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Debug, TypeUuid, TypePath, Clone)]
-#[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
+#[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
+    #[reflect(ignore)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
     /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    #[reflect(ignore)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
@@ -124,16 +126,18 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
 
     /// The direction the vertex normal is facing in.
-    /// Use in conjunction with [`Mesh::insert_attribute`].
+    /// Use in conjunction with [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_NORMAL: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Normal", 1, VertexFormat::Float32x3);
 
-    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     ///
     /// Values are generally between 0. and 1., with `StandardMaterial` and `ColorMaterial`
     /// `[0.,0.]` is the top left of the texture, and [1.,1.] the bottom-right.
@@ -144,22 +148,34 @@ impl Mesh {
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
+    /// Alternate texture coordinates for the vertex. Use in conjunction with
+    /// [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
+    ///
+    /// Typically, these are used for lightmaps, textures that provide
+    /// precomputed illumination.
+    pub const ATTRIBUTE_UV_1: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
+
     /// The direction of the vertex tangent. Used for normal mapping.
-    /// Usually generated with [`generate_tangents`](Mesh::generate_tangents).
+    /// Usually generated with [`generate_tangents`](Mesh::generate_tangents) or
+    /// [`with_generated_tangents`](Mesh::with_generated_tangents).
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Tangent", 3, VertexFormat::Float32x4);
+        MeshVertexAttribute::new("Vertex_Tangent", 4, VertexFormat::Float32x4);
 
-    /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Float32x4);
+        MeshVertexAttribute::new("Vertex_Color", 5, VertexFormat::Float32x4);
 
-    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_JointWeight", 5, VertexFormat::Float32x4);
+        MeshVertexAttribute::new("Vertex_JointWeight", 6, VertexFormat::Float32x4);
 
-    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint16x4);
+        MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
@@ -214,6 +230,24 @@ impl Mesh {
             .insert(attribute.id, MeshAttributeData { attribute, values });
     }
 
+    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal etc.).
+    /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics when the format of the values does not match the attribute's format.
+    #[must_use]
+    #[inline]
+    pub fn with_inserted_attribute(
+        mut self,
+        attribute: MeshVertexAttribute,
+        values: impl Into<VertexAttributeValues>,
+    ) -> Self {
+        self.insert_attribute(attribute, values);
+        self
+    }
+
     /// Removes the data for a vertex attribute
     pub fn remove_attribute(
         &mut self,
@@ -222,6 +256,15 @@ impl Mesh {
         self.attributes
             .remove(&attribute.into())
             .map(|data| data.values)
+    }
+
+    /// Consumes the mesh and returns a mesh without the data for a vertex attribute
+    ///
+    /// (Alternatively, you can use [`Mesh::remove_attribute`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_removed_attribute(mut self, attribute: impl Into<MeshVertexAttributeId>) -> Self {
+        self.remove_attribute(attribute);
+        self
     }
 
     #[inline]
@@ -271,6 +314,18 @@ impl Mesh {
     #[inline]
     pub fn set_indices(&mut self, indices: Option<Indices>) {
         self.indices = indices;
+    }
+
+    /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
+    /// are constructed out of the vertex attributes and are therefore only useful for the
+    /// [`PrimitiveTopology`] variants that use triangles.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    #[inline]
+    pub fn with_indices(mut self, indices: Option<Indices>) -> Self {
+        self.set_indices(indices);
+        self
     }
 
     /// Retrieves the vertex `indices` of the mesh.
@@ -323,17 +378,20 @@ impl Mesh {
 
     /// Counts all vertices of the mesh.
     ///
-    /// # Panics
-    /// Panics if the attributes have different vertex counts.
+    /// If the attributes have different vertex counts, the smallest is returned.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
         for (attribute_id, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
-                assert_eq!(previous_vertex_count, attribute_len,
-                        "{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
+                if previous_vertex_count != attribute_len {
+                    warn!("{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
+                        all attributes will be truncated to match the smallest.");
+                    vertex_count = Some(std::cmp::min(previous_vertex_count, attribute_len));
+                }
+            } else {
+                vertex_count = Some(attribute_len);
             }
-            vertex_count = Some(attribute_len);
         }
 
         vertex_count.unwrap_or(0)
@@ -343,8 +401,8 @@ impl Mesh {
     /// Therefore the attributes are located in the order of their [`MeshVertexAttribute::id`].
     /// This is used to transform the vertex data into a GPU friendly format.
     ///
-    /// # Panics
-    /// Panics if the attributes have different vertex counts.
+    /// If the vertex attributes have different lengths, they are all truncated to
+    /// the length of the smallest.
     pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
         let mut vertex_size = 0;
         for attribute_data in self.attributes.values() {
@@ -356,7 +414,7 @@ impl Mesh {
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_data in self.attributes.values() {
+        for attribute_data in self.attributes.values().take(vertex_count) {
             let attribute_size = attribute_data.attribute.format.get_size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in
@@ -423,6 +481,18 @@ impl Mesh {
         }
     }
 
+    /// Consumes the mesh and returns a mesh with no shared vertices.
+    ///
+    /// This can dramatically increase the vertex count, so make sure this is what you want.
+    /// Does nothing if no [Indices] are set.
+    ///
+    /// (Alternatively, you can use [`Mesh::duplicate_vertices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_duplicated_vertices(mut self) -> Self {
+        self.duplicate_vertices();
+        self
+    }
+
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
     ///
     /// # Panics
@@ -452,6 +522,20 @@ impl Mesh {
         self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     }
 
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_flat_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
+    /// if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Consider calling [`Mesh::with_duplicated_vertices`] or export your mesh with normal attributes.
+    #[must_use]
+    pub fn with_computed_flat_normals(mut self) -> Self {
+        self.compute_flat_normals();
+        self
+    }
+
     /// Generate tangents for the mesh using the `mikktspace` algorithm.
     ///
     /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
@@ -460,6 +544,18 @@ impl Mesh {
         let tangents = generate_tangents_for_mesh(self)?;
         self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
+    }
+
+    /// Consumes the mesh and returns a mesh with tangents generated using the `mikktspace` algorithm.
+    ///
+    /// The resulting mesh will have the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    ///
+    /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
+    ///
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
+        self.generate_tangents()?;
+        Ok(self)
     }
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
@@ -485,9 +581,32 @@ impl Mesh {
         self.morph_targets = Some(morph_targets);
     }
 
+    /// Consumes the mesh and returns a mesh with the given [morph targets].
+    ///
+    /// This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[must_use]
+    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
+        self.set_morph_targets(morph_targets);
+        self
+    }
+
     /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
     pub fn set_morph_target_names(&mut self, names: Vec<String>) {
         self.morph_target_names = Some(names);
+    }
+
+    /// Consumes the mesh and returns a mesh with morph target names.
+    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
+        self.set_morph_target_names(names);
+        self
     }
 
     /// Gets a list of all morph target names, if they exist.
@@ -831,7 +950,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
 /// An array of indices into the [`VertexAttributeValues`] for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
@@ -976,7 +1095,7 @@ impl RenderAsset for Mesh {
 }
 
 struct MikktspaceGeometryHelper<'a> {
-    indices: &'a Indices,
+    indices: Option<&'a Indices>,
     positions: &'a Vec<[f32; 3]>,
     normals: &'a Vec<[f32; 3]>,
     uvs: &'a Vec<[f32; 2]>,
@@ -988,15 +1107,19 @@ impl MikktspaceGeometryHelper<'_> {
         let index_index = face * 3 + vert;
 
         match self.indices {
-            Indices::U16(indices) => indices[index_index] as usize,
-            Indices::U32(indices) => indices[index_index] as usize,
+            Some(Indices::U16(indices)) => indices[index_index] as usize,
+            Some(Indices::U32(indices)) => indices[index_index] as usize,
+            None => index_index,
         }
     }
 }
 
 impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     fn num_faces(&self) -> usize {
-        self.indices.len() / 3
+        self.indices
+            .map(Indices::len)
+            .unwrap_or_else(|| self.positions.len())
+            / 3
     }
 
     fn num_vertices_of_face(&self, _: usize) -> usize {
@@ -1075,14 +1198,11 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
             ))
         }
     };
-    let indices = mesh
-        .indices()
-        .ok_or(GenerateTangentsError::MissingIndices)?;
 
     let len = positions.len();
     let tangents = vec![[0., 0., 0., 0.]; len];
     let mut mikktspace_mesh = MikktspaceGeometryHelper {
-        indices,
+        indices: mesh.indices(),
         positions,
         normals,
         uvs,
@@ -1109,7 +1229,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn panic_invalid_format() {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+        let _mesh = Mesh::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
 }

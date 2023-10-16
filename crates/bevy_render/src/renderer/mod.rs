@@ -88,9 +88,16 @@ pub fn render_system(world: &mut World) {
 
     // update the time and send it to the app world
     let time_sender = world.resource::<TimeSender>();
-    time_sender.0.try_send(Instant::now()).expect(
-        "The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",
-    );
+    if let Err(error) = time_sender.0.try_send(Instant::now()) {
+        match error {
+            bevy_time::TrySendError::Full(_) => {
+                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
+            }
+            bevy_time::TrySendError::Disconnected(_) => {
+                // ignore disconnected errors, the main world probably just got dropped during shutdown
+            }
+        }
+    }
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
@@ -104,8 +111,8 @@ pub struct RenderAdapter(pub Arc<Adapter>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderInstance(pub Instance);
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct RenderInstance(pub Arc<Instance>);
 
 /// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]

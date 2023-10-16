@@ -35,8 +35,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
-        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
-        SpatialAudioSourceBundle, SpatialPitchBundle, SpatialSettings,
+        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink, SpatialListener,
     };
 }
 
@@ -50,8 +49,9 @@ pub use rodio::Sample;
 pub use sinks::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Asset};
+use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::prelude::*;
+use bevy_transform::TransformSystem;
 
 use audio_output::*;
 
@@ -61,17 +61,26 @@ struct AudioPlaySet;
 
 /// Adds support for audio playback to a Bevy Application
 ///
-/// Insert an [`AudioBundle`] or [`SpatialAudioBundle`] onto your entities to play audio.
+/// Insert an [`AudioBundle`] onto your entities to play audio.
 #[derive(Default)]
 pub struct AudioPlugin {
     /// The global volume for all audio entities with a [`Volume::Relative`] volume.
     pub global_volume: GlobalVolume,
+    /// The scale factor applied to the positions of audio sources and listeners for
+    /// spatial audio.
+    pub spatial_scale: SpatialScale,
 }
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.global_volume)
-            .configure_set(PostUpdate, AudioPlaySet.run_if(audio_output_available))
+            .insert_resource(self.spatial_scale)
+            .configure_sets(
+                PostUpdate,
+                AudioPlaySet
+                    .run_if(audio_output_available)
+                    .after(TransformSystem::TransformPropagate), // For spatial audio transforms
+            )
             .init_resource::<AudioOutput>();
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
@@ -90,11 +99,13 @@ impl AddAudioSource for App {
         T: Decodable + Asset,
         f32: rodio::cpal::FromSample<T::DecoderItem>,
     {
-        self.add_asset::<T>().add_systems(
+        self.init_asset::<T>().add_systems(
             PostUpdate,
             play_queued_audio_system::<T>.in_set(AudioPlaySet),
         );
         self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet));
+        self.add_systems(PostUpdate, update_emitter_positions.in_set(AudioPlaySet));
+        self.add_systems(PostUpdate, update_listener_positions.in_set(AudioPlaySet));
         self
     }
 }

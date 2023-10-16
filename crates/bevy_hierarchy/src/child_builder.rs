@@ -664,12 +664,12 @@ mod tests {
     };
 
     /// Assert the (non)existence and state of the child's [`Parent`] component.
-    fn assert_parent(world: &mut World, child: Entity, parent: Option<Entity>) {
+    fn assert_parent(world: &World, child: Entity, parent: Option<Entity>) {
         assert_eq!(world.get::<Parent>(child).map(|p| p.get()), parent);
     }
 
     /// Assert the (non)existence and state of the parent's [`Children`] component.
-    fn assert_children(world: &mut World, parent: Entity, children: Option<&[Entity]>) {
+    fn assert_children(world: &World, parent: Entity, children: Option<&[Entity]>) {
         assert_eq!(world.get::<Children>(parent).map(|c| &**c), children);
     }
 
@@ -904,7 +904,7 @@ mod tests {
     fn push_and_clear_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -942,7 +942,7 @@ mod tests {
     fn push_and_replace_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
