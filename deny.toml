@@ -30,7 +30,7 @@ default = "deny"
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
-# Certain crates/versions that will be skipped when doing duplicate detection.
+# Certain crates that we don't want multiple versions of in the dependency tree
 deny = [
     { name = "ahash", deny-multiple-versions = true },
     { name = "android-activity", deny-multiple-versions = true },
