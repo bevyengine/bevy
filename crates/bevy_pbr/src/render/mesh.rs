@@ -212,7 +212,7 @@ impl From<&MeshTransforms> for MeshUniform {
             previous_transform: mesh_transforms.previous_transform.to_transpose(),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
-            flags: mesh_instance.transforms.flags,
+            flags: mesh_transforms.flags,
         }
     }
 }
