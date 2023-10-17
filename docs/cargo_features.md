@@ -34,7 +34,7 @@ The default feature set enables most of the expected features of a game engine, 
 |png|PNG image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
 |vorbis|OGG/VORBIS audio format support|
-|webgl2|Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm|
+|webgl2|Given the fact that WebGPU support in Bevy is experimental, this feature will enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Keep in mind that that WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds (e.g. `RUSTFLAGS=--cfg=web_sys_unstable_apis cargo run ...`). Check `wasm-bindgen` [docs on Unstable APIs](https://rustwasm.github.io/wasm-bindgen/web-sys/unstable-apis.html) for more details.|
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
 
