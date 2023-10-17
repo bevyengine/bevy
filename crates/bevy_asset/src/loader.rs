@@ -516,7 +516,7 @@ impl<'a> LoadContext<'a> {
         let loaded_asset = {
             let (meta, loader, mut reader) = self
                 .asset_server
-                .get_meta_loader_and_reader(&path)
+                .get_meta_loader_and_reader(&path, None)
                 .await
                 .map_err(to_error)?;
             self.asset_server

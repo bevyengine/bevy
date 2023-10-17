@@ -68,19 +68,23 @@ fn main() {
 #[derive(Resource, Default)]
 struct State {
     handle: Handle<CustomAsset>,
+    other_handle: Handle<CustomAsset>,
     printed: bool,
 }
 
 fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
     state.handle = asset_server.load("data/asset.custom");
+    state.other_handle = asset_server.load("data/asset_no_extension");
 }
 
 fn print_on_load(mut state: ResMut<State>, custom_assets: ResMut<Assets<CustomAsset>>) {
     let custom_asset = custom_assets.get(&state.handle);
-    if state.printed || custom_asset.is_none() {
+    let other_custom_asset = custom_assets.get(&state.other_handle);
+    if state.printed || custom_asset.is_none() || other_custom_asset.is_none() {
         return;
     }
 
     info!("Custom asset loaded: {:?}", custom_asset.unwrap());
+    info!("Custom asset loaded: {:?}", other_custom_asset.unwrap());
     state.printed = true;
 }
