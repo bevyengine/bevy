@@ -1,5 +1,5 @@
 use crate::{loader::ErasedAssetLoader, AssetLoader};
-use bevy_log::{info, warn};
+use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::HashMap;
 use futures_lite::Future;
@@ -44,8 +44,6 @@ impl AssetLoaders {
         &self,
         type_id: TypeId,
     ) -> impl Future<Output = Option<AssetLoaderSmartPointer>> + 'static {
-        info!("Called for: {:?}", type_id);
-
         let loader = self.values.get(&type_id).cloned();
 
         async {
