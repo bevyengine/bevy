@@ -64,6 +64,8 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        // TODO: Need to load color/depth attachments if MainMeshletOpaquePass3dNode ran...
+
         let load = if !deferred_prepass {
             match camera_3d.clear_color {
                 ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
