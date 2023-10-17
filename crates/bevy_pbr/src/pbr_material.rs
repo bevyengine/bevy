@@ -621,7 +621,7 @@ mod tests {
     use serde::de::DeserializeSeed;
 
     #[test]
-    fn reflect_material() {
+    fn reflect_material_without_cloning() {
         let orig = StandardMaterial {
             base_color: Color::RED,
             ..StandardMaterial::default()
@@ -635,8 +635,42 @@ mod tests {
         registry.register::<Option<Handle<Image>>>();
         registry.register::<AlphaMode>();
         registry.register::<ParallaxMappingMethod>();
+        registry.register::<OpaqueRendererMethod>();
 
-        let serializer = ReflectSerializer::new(&orig, &registry);
+        let serializer = ReflectSerializer::new(orig.as_reflect(), &registry);
+        let result = DefaultOptions::new()
+            .with_fixint_encoding()
+            .allow_trailing_bytes()
+            .serialize(&serializer)
+            .unwrap();
+
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let binoptions = DefaultOptions::new()
+            .with_fixint_encoding()
+            .allow_trailing_bytes();
+        let mut deserializer = bincode::Deserializer::from_slice(&result, binoptions);
+        let _ = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+    }
+
+    #[test]
+    fn reflect_material_with_cloning() {
+        let orig = StandardMaterial {
+            base_color: Color::RED,
+            ..StandardMaterial::default()
+        };
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<StandardMaterial>();
+        registry.register::<Color>();
+        registry.register::<Image>();
+        registry.register::<Handle<Image>>();
+        registry.register::<Option<Handle<Image>>>();
+        registry.register::<AlphaMode>();
+        registry.register::<ParallaxMappingMethod>();
+        registry.register::<OpaqueRendererMethod>();
+
+        let orig = orig.clone_value();
+        let serializer = ReflectSerializer::new(orig.as_reflect(), &registry);
         let result = DefaultOptions::new()
             .with_fixint_encoding()
             .allow_trailing_bytes()
