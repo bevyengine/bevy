@@ -38,7 +38,7 @@ use bevy_utils::{
     Duration, Instant,
 };
 use bevy_window::{
-    exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, Lifetime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
     WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
@@ -279,6 +279,7 @@ struct WindowAndInputEventWriters<'w> {
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
     window_destroyed: EventWriter<'w, WindowDestroyed>,
+    lifetime: EventWriter<'w, Lifetime>,
     keyboard_input: EventWriter<'w, KeyboardInput>,
     character_input: EventWriter<'w, ReceivedCharacter>,
     mouse_button_input: EventWriter<'w, MouseButtonInput>,
@@ -298,8 +299,8 @@ struct WindowAndInputEventWriters<'w> {
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
 struct WinitAppRunnerState {
-    /// Is `true` if the app is running and not suspended.
-    is_active: bool,
+    /// Current active state of the app.
+    active: ActiveState,
     /// Is `true` if a new [`WindowEvent`] has been received since the last update.
     window_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
@@ -312,10 +313,30 @@ struct WinitAppRunnerState {
     scheduled_update: Option<Instant>,
 }
 
+#[derive(PartialEq, Eq)]
+enum ActiveState {
+    NotYetStarted,
+    Active,
+    Suspended,
+    WillSuspend,
+}
+
+impl ActiveState {
+    #[inline]
+    fn should_run(&self) -> bool {
+        match self {
+            ActiveState::NotYetStarted => false,
+            ActiveState::Active => true,
+            ActiveState::Suspended => false,
+            ActiveState::WillSuspend => true,
+        }
+    }
+}
+
 impl Default for WinitAppRunnerState {
     fn default() -> Self {
         Self {
-            is_active: false,
+            active: ActiveState::NotYetStarted,
             window_event_received: false,
             redraw_requested: false,
             wait_elapsed: false,
@@ -703,19 +724,20 @@ pub fn winit_runner(mut app: App) {
                 });
             }
             event::Event::Suspended => {
-                runner_state.is_active = false;
-                #[cfg(target_os = "android")]
-                {
-                    // Remove the `RawHandleWrapper` from the primary window.
-                    // This will trigger the surface destruction.
-                    let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
-                    let entity = query.single(&app.world);
-                    app.world.entity_mut(entity).remove::<RawHandleWrapper>();
-                    *control_flow = ControlFlow::Wait;
-                }
+                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                event_writers.lifetime.send(Lifetime::Suspended);
+                // Mark the state as `WillSuspend`. This will let the schedule run one last time
+                // before actually suspending to let the application react
+                runner_state.active = ActiveState::WillSuspend;
             }
             event::Event::Resumed => {
-                runner_state.is_active = true;
+                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                match runner_state.active {
+                    ActiveState::NotYetStarted => event_writers.lifetime.send(Lifetime::Started),
+                    ActiveState::Suspended => event_writers.lifetime.send(Lifetime::Resumed),
+                    _ => unreachable!(),
+                }
+                runner_state.active = ActiveState::Active;
                 #[cfg(target_os = "android")]
                 {
                     // Get windows that are cached but without raw handles. Those window were already created, but got their
@@ -757,7 +779,20 @@ pub fn winit_runner(mut app: App) {
                 }
             }
             event::Event::MainEventsCleared => {
-                if runner_state.is_active {
+                if runner_state.active.should_run() {
+                    if runner_state.active == ActiveState::WillSuspend {
+                        runner_state.active = ActiveState::Suspended;
+                        #[cfg(target_os = "android")]
+                        {
+                            // Remove the `RawHandleWrapper` from the primary window.
+                            // This will trigger the surface destruction.
+                            let mut query =
+                                app.world.query_filtered::<Entity, With<PrimaryWindow>>();
+                            let entity = query.single(&app.world);
+                            app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+                            *control_flow = ControlFlow::Wait;
+                        }
+                    }
                     let (config, windows) = focused_windows_state.get(&app.world);
                     let focused = windows.iter().any(|window| window.focused);
                     let should_update = match config.update_mode(focused) {
