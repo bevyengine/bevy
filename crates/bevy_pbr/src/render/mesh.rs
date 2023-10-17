@@ -319,8 +319,7 @@ pub fn extract_meshes(
 
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
-    pub view_layout: BindGroupLayout,
-    pub view_layout_multisampled: BindGroupLayout,
+    view_layouts: [BindGroupLayout; 32],
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -354,6 +353,10 @@ impl FromWorld for MeshPipeline {
         fn layout_entries(
             clustered_forward_buffer_binding_type: BufferBindingType,
             multisampled: bool,
+            depth_prepass: bool,
+            normal_prepass: bool,
+            motion_vector_prepass: bool,
+            deferred_prepass: bool,
         ) -> Vec<BindGroupLayoutEntry> {
             let mut entries = vec![
                 // View
@@ -513,22 +516,47 @@ impl FromWorld for MeshPipeline {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
                     [17, 18, 19, 20],
                     multisampled,
+                    depth_prepass,
+                    normal_prepass,
+                    motion_vector_prepass,
+                    deferred_prepass,
                 ));
             }
 
             entries
         }
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("mesh_view_layout"),
-            entries: &layout_entries(clustered_forward_buffer_binding_type, false),
-        });
-
-        let view_layout_multisampled =
+        let mut i = 0;
+        let view_layouts = [(); 32].map(|_| {
+            let multisampled = i & (1 as usize) != 0;
+            let depth_prepass = i & (2 as usize) != 0;
+            let normal_prepass = i & (4 as usize) != 0;
+            let motion_vector_prepass = i & (8 as usize) != 0;
+            let deferred_prepass = i & (16 as usize) != 0;
+            i += 1;
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("mesh_view_layout_multisampled"),
-                entries: &layout_entries(clustered_forward_buffer_binding_type, true),
-            });
+                label: Some(
+                    format!(
+                        // Build a unique name for each layout based on the prepass flags
+                        "mesh_view_layout{}{}{}{}{}",
+                        if multisampled { "_multisampled" } else { "" },
+                        if depth_prepass { "_depth" } else { "" },
+                        if normal_prepass { "_normal" } else { "" },
+                        if motion_vector_prepass { "_motion" } else { "" },
+                        if deferred_prepass { "_deferred" } else { "" },
+                    )
+                    .as_str(),
+                ),
+                entries: &layout_entries(
+                    clustered_forward_buffer_binding_type,
+                    multisampled,
+                    depth_prepass,
+                    normal_prepass,
+                    motion_vector_prepass,
+                    deferred_prepass,
+                ),
+            })
+        });
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
@@ -571,8 +599,7 @@ impl FromWorld for MeshPipeline {
         };
 
         MeshPipeline {
-            view_layout,
-            view_layout_multisampled,
+            view_layouts,
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
@@ -596,6 +623,32 @@ impl MeshPipeline {
                 &self.dummy_white_gpu_image.sampler,
             ))
         }
+    }
+
+    pub fn get_view_layout(
+        &self,
+        multisampled: bool,
+        depth_prepass: bool,
+        normal_prepass: bool,
+        motion_vector_prepass: bool,
+        deferred_prepass: bool,
+    ) -> &BindGroupLayout {
+        let index = (multisampled as usize)
+            | (depth_prepass as usize) << 1
+            | (normal_prepass as usize) << 2
+            | (motion_vector_prepass as usize) << 3
+            | (deferred_prepass as usize) << 4;
+        &self.view_layouts[index]
+    }
+
+    pub fn get_view_layout_from_key(&self, key: MeshPipelineKey) -> &BindGroupLayout {
+        self.get_view_layout(
+            key.msaa_samples() > 1,
+            key.contains(MeshPipelineKey::DEPTH_PREPASS),
+            key.contains(MeshPipelineKey::NORMAL_PREPASS),
+            key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
+            key.contains(MeshPipelineKey::DEFERRED_PREPASS),
+        )
     }
 }
 
@@ -807,12 +860,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
-        let mut bind_group_layout = match key.msaa_samples() {
-            1 => vec![self.view_layout.clone()],
-            _ => {
-                shader_defs.push("MULTISAMPLED".into());
-                vec![self.view_layout_multisampled.clone()]
-            }
+        let mut bind_group_layout = vec![self.get_view_layout_from_key(key).clone()];
+
+        if key.msaa_samples() > 1 {
+            shader_defs.push("MULTISAMPLED".into());
         };
 
         bind_group_layout.push(setup_morph_and_skinning_defs(
@@ -1149,11 +1200,13 @@ pub fn prepare_mesh_view_bind_groups(
                 .texture_view
                 .clone();
 
-            let layout = if msaa.samples() > 1 {
-                &mesh_pipeline.view_layout_multisampled
-            } else {
-                &mesh_pipeline.view_layout
-            };
+            let layout = &mesh_pipeline.get_view_layout(
+                msaa.samples() > 1,
+                prepass_textures.is_some_and(|t| t.depth.is_some()),
+                prepass_textures.is_some_and(|t| t.normal.is_some()),
+                prepass_textures.is_some_and(|t| t.motion_vectors.is_some()),
+                prepass_textures.is_some_and(|t| t.deferred.is_some()),
+            );
 
             let mut entries = vec![
                 BindGroupEntry {
@@ -1229,28 +1282,29 @@ pub fn prepare_mesh_view_bind_groups(
             let label = Some("mesh_view_bind_group");
 
             // When using WebGL, we can't have a depth texture with multisampling
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+            let prepass_bindings = if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
-                let prepass_bindings =
-                    prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
-                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
-                commands.entity(entity).insert(MeshViewBindGroup {
-                    value: render_device.create_bind_group(&BindGroupDescriptor {
-                        entries: &entries,
-                        label,
-                        layout,
-                    }),
-                });
+                Some(prepass::get_bindings(prepass_textures))
             } else {
-                commands.entity(entity).insert(MeshViewBindGroup {
-                    value: render_device.create_bind_group(&BindGroupDescriptor {
-                        entries: &entries,
-                        label,
-                        layout,
-                    }),
-                });
+                None
+            };
+
+            // This if statement is here to make the borrow checker happy.
+            // Ideally we could just have `entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));`
+            // in the existing if statement above, but that either doesn't allow `prepass_bindings` to live long enough,
+            // as its used when creating the bind group at the end of the function, or causes a `cannot move out of` error.
+            if let Some(prepass_bindings) = &prepass_bindings {
+                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
             }
+
+            commands.entity(entity).insert(MeshViewBindGroup {
+                value: render_device.create_bind_group(&BindGroupDescriptor {
+                    entries: &entries,
+                    label,
+                    layout,
+                }),
+            });
         }
     }
 }

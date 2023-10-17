@@ -93,11 +93,10 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             TextureFormat::bevy_default()
         };
 
-        let view_layout = if key.mesh_key.msaa_samples() == 1 {
-            self.mesh_pipeline.view_layout.clone()
-        } else {
-            self.mesh_pipeline.view_layout_multisampled.clone()
-        };
+        let view_layout = self
+            .mesh_pipeline
+            .get_view_layout_from_key(key.mesh_key)
+            .clone();
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
 

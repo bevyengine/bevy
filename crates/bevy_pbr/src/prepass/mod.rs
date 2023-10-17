@@ -37,11 +37,10 @@ use bevy_render::{
         FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
         PushConstantRange, RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilState, TextureAspect, TextureFormat, TextureSampleType,
-        TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
+        StencilFaceState, StencilState, TextureAspect, TextureSampleType, TextureView,
+        TextureViewDescriptor, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, FallbackImageMsaa},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -637,126 +636,152 @@ where
 pub fn get_bind_group_layout_entries(
     bindings: [u32; 4],
     multisampled: bool,
-) -> [BindGroupLayoutEntry; 4] {
-    [
-        // Depth texture
-        BindGroupLayoutEntry {
-            binding: bindings[0],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                multisampled,
-                sample_type: TextureSampleType::Depth,
-                view_dimension: TextureViewDimension::D2,
+    depth_prepass: bool,
+    normal_prepass: bool,
+    motion_vector_prepass: bool,
+    deferred_prepass: bool,
+) -> Vec<BindGroupLayoutEntry> {
+    let mut result = vec![];
+
+    if depth_prepass {
+        result.push(
+            // Depth texture
+            BindGroupLayoutEntry {
+                binding: bindings[0],
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    multisampled,
+                    sample_type: TextureSampleType::Depth,
+                    view_dimension: TextureViewDimension::D2,
+                },
+                count: None,
             },
-            count: None,
-        },
-        // Normal texture
-        BindGroupLayoutEntry {
-            binding: bindings[1],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                multisampled,
-                sample_type: TextureSampleType::Float { filterable: false },
-                view_dimension: TextureViewDimension::D2,
+        );
+    }
+
+    if normal_prepass {
+        result.push(
+            // Normal texture
+            BindGroupLayoutEntry {
+                binding: bindings[1],
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    multisampled,
+                    sample_type: TextureSampleType::Float { filterable: false },
+                    view_dimension: TextureViewDimension::D2,
+                },
+                count: None,
             },
-            count: None,
-        },
-        // Motion Vectors texture
-        BindGroupLayoutEntry {
-            binding: bindings[2],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                multisampled,
-                sample_type: TextureSampleType::Float { filterable: false },
-                view_dimension: TextureViewDimension::D2,
+        );
+    }
+
+    if motion_vector_prepass {
+        result.push(
+            // Motion Vectors texture
+            BindGroupLayoutEntry {
+                binding: bindings[2],
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    multisampled,
+                    sample_type: TextureSampleType::Float { filterable: false },
+                    view_dimension: TextureViewDimension::D2,
+                },
+                count: None,
             },
-            count: None,
-        },
-        // Deferred texture
-        BindGroupLayoutEntry {
-            binding: bindings[3],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                multisampled: false,
-                sample_type: TextureSampleType::Uint,
-                view_dimension: TextureViewDimension::D2,
+        );
+    }
+
+    if deferred_prepass {
+        result.push(
+            // Deferred texture
+            BindGroupLayoutEntry {
+                binding: bindings[3],
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    multisampled: false,
+                    sample_type: TextureSampleType::Uint,
+                    view_dimension: TextureViewDimension::D2,
+                },
+                count: None,
             },
-            count: None,
-        },
-    ]
+        );
+    }
+
+    result
 }
 
 // Needed so the texture views can live long enough.
-pub struct PrepassBindingsSet([TextureView; 4]);
+pub struct PrepassBindingsSet {
+    depth_view: Option<TextureView>,
+    normal_view: Option<TextureView>,
+    motion_vectors_view: Option<TextureView>,
+    deferred_view: Option<TextureView>,
+}
 
 impl PrepassBindingsSet {
-    pub fn get_entries(&self, bindings: [u32; 4]) -> [BindGroupEntry; 4] {
-        [
-            BindGroupEntry {
+    pub fn get_entries(&self, bindings: [u32; 4]) -> Vec<BindGroupEntry> {
+        let mut result: Vec<BindGroupEntry> = vec![];
+
+        if let Some(ref depth_view) = self.depth_view {
+            result.push(BindGroupEntry {
                 binding: bindings[0],
-                resource: BindingResource::TextureView(&self.0[0]),
-            },
-            BindGroupEntry {
+                resource: BindingResource::TextureView(depth_view),
+            });
+        }
+
+        if let Some(ref normal_view) = self.normal_view {
+            result.push(BindGroupEntry {
                 binding: bindings[1],
-                resource: BindingResource::TextureView(&self.0[1]),
-            },
-            BindGroupEntry {
+                resource: BindingResource::TextureView(normal_view),
+            });
+        }
+
+        if let Some(ref motion_vectors_view) = self.motion_vectors_view {
+            result.push(BindGroupEntry {
                 binding: bindings[2],
-                resource: BindingResource::TextureView(&self.0[2]),
-            },
-            BindGroupEntry {
+                resource: BindingResource::TextureView(motion_vectors_view),
+            });
+        }
+
+        if let Some(ref deferred_view) = self.deferred_view {
+            result.push(BindGroupEntry {
                 binding: bindings[3],
-                resource: BindingResource::TextureView(&self.0[3]),
-            },
-        ]
+                resource: BindingResource::TextureView(deferred_view),
+            });
+        }
+
+        result
     }
 }
 
-pub fn get_bindings(
-    prepass_textures: Option<&ViewPrepassTextures>,
-    fallback_images: &mut FallbackImageMsaa,
-    msaa: &Msaa,
-) -> PrepassBindingsSet {
+pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> PrepassBindingsSet {
     let depth_desc = TextureViewDescriptor {
         label: Some("prepass_depth"),
         aspect: TextureAspect::DepthOnly,
         ..default()
     };
-    let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
-        Some(texture) => texture.texture.create_view(&depth_desc),
-        None => fallback_images
-            .image_for_samplecount(msaa.samples(), CORE_3D_DEPTH_FORMAT)
-            .texture
-            .create_view(&depth_desc),
-    };
+    let depth_view = prepass_textures
+        .and_then(|x| x.depth.as_ref())
+        .map(|texture| texture.texture.create_view(&depth_desc));
 
-    let normal_motion_vectors_fallback = &fallback_images
-        .image_for_samplecount(msaa.samples(), TextureFormat::bevy_default())
-        .texture_view;
+    let normal_view = prepass_textures
+        .and_then(|x| x.normal.as_ref())
+        .map(|texture| texture.default_view.clone());
 
-    let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
-        Some(texture) => &texture.default_view,
-        None => normal_motion_vectors_fallback,
+    let motion_vectors_view = prepass_textures
+        .and_then(|x| x.motion_vectors.as_ref())
+        .map(|texture| texture.default_view.clone());
+
+    let deferred_view = prepass_textures
+        .and_then(|x| x.deferred.as_ref())
+        .map(|texture| texture.default_view.clone());
+
+    PrepassBindingsSet {
+        depth_view,
+        normal_view,
+        motion_vectors_view,
+        deferred_view,
     }
-    .clone();
-
-    let motion_vectors_view = match prepass_textures.and_then(|x| x.motion_vectors.as_ref()) {
-        Some(texture) => &texture.default_view,
-        None => normal_motion_vectors_fallback,
-    }
-    .clone();
-
-    let deferred_fallback = &fallback_images
-        .image_for_samplecount(1, TextureFormat::Rgba32Uint)
-        .texture_view;
-
-    let deferred_view = match prepass_textures.and_then(|x| x.deferred.as_ref()) {
-        Some(texture) => &texture.default_view,
-        None => deferred_fallback,
-    }
-    .clone();
-
-    PrepassBindingsSet([depth_view, normal_view, motion_vectors_view, deferred_view])
 }
 
 // Extract the render phases for the prepass
