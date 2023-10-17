@@ -12,6 +12,13 @@ struct Mesh {
     // Use bevy_pbr::mesh_functions::mat2x4_f32_to_mat3x3_unpack to unpack
     inverse_transpose_model_a: mat2x4<f32>,
     inverse_transpose_model_b: f32,
+    // The index of the lightmap in `lightmaps.data`. This is different from the
+    // index of the lightmap texture in the lightmap array, because two
+    // lightmaps may refer to the same array slice but have different UV rects.
+    //
+    // This will be `0xffffffff` if there's no lightmap. This can happen if, for
+    // example, some instances of a mesh have lightmaps and others don't.
+    lightmap_index: u32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
 };

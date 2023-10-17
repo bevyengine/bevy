@@ -66,7 +66,7 @@ fn apply_normal_mapping(
     world_tangent: vec4<f32>,
 #endif
 #endif
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     uv: vec2<f32>,
 #endif
     mip_bias: f32,
@@ -91,7 +91,7 @@ fn apply_normal_mapping(
 #endif
 
 #ifdef VERTEX_TANGENTS
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, mip_bias).rgb;
@@ -225,6 +225,10 @@ fn apply_pbr_lighting(
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
+#endif
+
+#ifdef LIGHTMAP
+    indirect_light += in.lightmap_light * diffuse_color;
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;

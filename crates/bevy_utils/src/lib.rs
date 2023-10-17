@@ -251,7 +251,7 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 }
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct EntityHash;
 
 impl BuildHasher for EntityHash {

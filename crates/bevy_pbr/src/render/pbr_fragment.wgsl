@@ -8,6 +8,7 @@
     mesh_bindings::mesh,
     mesh_view_bindings::view,
     parallax_mapping::parallaxed_uv,
+    lightmaps::lightmap,
 }
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
@@ -67,8 +68,8 @@ fn pbr_input_from_standard_material(
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
-#ifdef VERTEX_UVS
-    var uv = in.uv;
+#ifdef VERTEX_UVS_A
+    var uv = in.uv_a;
 
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
@@ -94,7 +95,7 @@ fn pbr_input_from_standard_material(
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         pbr_input.material.base_color *= textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
     }
-#endif // VERTEX_UVS
+#endif // VERTEX_UVS_A
 
     pbr_input.material.flags = pbr_bindings::material.flags;
 
@@ -107,7 +108,7 @@ fn pbr_input_from_standard_material(
         // emissive       
         // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
             emissive = vec4<f32>(emissive.rgb * textureSampleBias(pbr_bindings::emissive_texture, pbr_bindings::emissive_sampler, uv, view.mip_bias).rgb, 1.0);
         }
@@ -117,7 +118,7 @@ fn pbr_input_from_standard_material(
         // metallic and perceptual roughness
         var metallic: f32 = pbr_bindings::material.metallic;
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
             let metallic_roughness = textureSampleBias(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, uv, view.mip_bias);
             // Sampling from GLTF standard channels for now
@@ -131,7 +132,7 @@ fn pbr_input_from_standard_material(
         // occlusion
         // TODO: Split into diffuse/specular occlusion?
         var occlusion: vec3<f32> = vec3(1.0);
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
             occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
         }
@@ -153,11 +154,17 @@ fn pbr_input_from_standard_material(
             in.world_tangent,
 #endif
 #endif
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
             uv,
 #endif
             view.mip_bias,
         );
+#endif
+
+#ifdef LIGHTMAP
+        pbr_input.lightmap_light = lightmap(in.uv_b, in.instance_index);
+#else
+        pbr_input.lightmap_light = vec3<f32>(0.0);
 #endif
     }
 

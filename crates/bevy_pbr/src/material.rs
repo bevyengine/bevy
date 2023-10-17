@@ -1,7 +1,8 @@
 use crate::{
-    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow, ShadowFilteringMethod,
+    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, Lightmap, MeshPipeline,
+    MeshPipelineKey, PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances,
+    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    ShadowFilteringMethod,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
@@ -442,6 +443,7 @@ pub fn queue_material_meshes<M: Material>(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
+    lightmaps: Query<&Lightmap>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -564,6 +566,10 @@ pub fn queue_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::MORPH_TARGETS;
             }
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+
+            if lightmaps.contains(*visible_entity) {
+                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,

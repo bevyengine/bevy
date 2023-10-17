@@ -16,7 +16,7 @@ struct Vertex {
 #ifdef VERTEX_NORMALS
     @location(1) normal: vec3<f32>,
 #endif
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     @location(2) uv: vec2<f32>,
 #endif
 #ifdef VERTEX_TANGENTS
@@ -30,8 +30,8 @@ struct Vertex {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
-#ifdef VERTEX_UVS
-    out.uv = vertex.uv;
+#ifdef VERTEX_UVS_A
+    out.uv_a = vertex.uv_a;
 #endif
 
 #ifdef VERTEX_POSITIONS

@@ -1,9 +1,9 @@
 use crate::{
-    generate_view_layouts, prepare_mesh_view_bind_groups, MaterialBindGroupId,
-    MeshPipelineViewLayout, MeshPipelineViewLayoutKey, MeshViewBindGroup, NotShadowCaster,
-    NotShadowReceiver, PreviousGlobalTransform, Shadow, ViewFogUniformOffset,
-    ViewLightsUniformOffset, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
+    generate_view_layouts, prepare_mesh_view_bind_groups, Lightmap, LightmapUniform,
+    MaterialBindGroupId, MeshPipelineViewLayout, MeshPipelineViewLayoutKey, MeshViewBindGroup,
+    NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, RenderLightmaps, Shadow,
+    ViewFogUniformOffset, ViewLightsUniformOffset, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
@@ -32,13 +32,14 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
+        TextureFormatPixelInfo,
     },
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
+use bevy_utils::{nonmax::NonMaxU32, tracing::error, EntityHashMap, HashMap, Hashed};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -59,7 +60,7 @@ use crate::render::{
     MeshLayouts,
 };
 
-use super::skin::SkinIndices;
+use super::{mesh_bindings::MeshLayoutKey, skin::SkinIndices};
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -149,9 +150,9 @@ impl Plugin for MeshRenderPlugin {
                             batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
                         )
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSet::PrepareBatches),
                         write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
+                            .in_set(RenderSet::PrepareBatchesFlush),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -211,11 +212,12 @@ pub struct MeshUniform {
     //   [2].z
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
+    pub lightmap_index: u32,
     pub flags: u32,
 }
 
-impl From<&MeshTransforms> for MeshUniform {
-    fn from(mesh_transforms: &MeshTransforms) -> Self {
+impl MeshUniform {
+    fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_index: Option<NonMaxU32>) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
@@ -223,6 +225,10 @@ impl From<&MeshTransforms> for MeshUniform {
             previous_transform: mesh_transforms.previous_transform.to_transpose(),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
+            lightmap_index: match maybe_lightmap_index {
+                Some(maybe_lightmap_index) => maybe_lightmap_index.into(),
+                None => u32::MAX,
+            },
             flags: mesh_transforms.flags,
         }
     }
@@ -457,21 +463,25 @@ impl MeshPipeline {
 }
 
 impl GetBatchData for MeshPipeline {
-    type Param = SRes<RenderMeshInstances>;
+    type Param = (SRes<RenderMeshInstances>, SRes<LightmapUniform>);
     type Query = Entity;
     type QueryFilter = With<Mesh3d>;
     type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        mesh_instances: &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmap_uniform): &SystemParamItem<Self::Param>,
         entity: &QueryItem<Self::Query>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
             .expect("Failed to find render mesh instance");
+
         (
-            (&mesh_instance.transforms).into(),
+            MeshUniform::new(
+                &mesh_instance.transforms,
+                lightmap_uniform.uniform_indices.get(entity).cloned(),
+            ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
@@ -501,6 +511,7 @@ bitflags::bitflags! {
         const DEPTH_CLAMP_ORTHO                 = (1 << 10);
         const TAA                               = (1 << 11);
         const MORPH_TARGETS                     = (1 << 12);
+        const LIGHTMAPPED                       = (1 << 13);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -586,6 +597,7 @@ impl MeshPipelineKey {
 fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
+
 pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
@@ -594,28 +606,25 @@ pub fn setup_morph_and_skinning_defs(
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
-    let mut add_skin_data = || {
+    let mut mesh_layout_key = MeshLayoutKey::empty();
+
+    if is_skinned(layout) {
+        mesh_layout_key.insert(MeshLayoutKey::SKINNED);
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
-    };
-    let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
-    match (is_skinned(layout), is_morphed) {
-        (true, false) => {
-            add_skin_data();
-            mesh_layouts.skinned.clone()
-        }
-        (true, true) => {
-            add_skin_data();
-            shader_defs.push("MORPH_TARGETS".into());
-            mesh_layouts.morphed_skinned.clone()
-        }
-        (false, true) => {
-            shader_defs.push("MORPH_TARGETS".into());
-            mesh_layouts.morphed.clone()
-        }
-        (false, false) => mesh_layouts.model_only.clone(),
     }
+
+    if key.intersects(MeshPipelineKey::MORPH_TARGETS) {
+        mesh_layout_key.insert(MeshLayoutKey::MORPHED);
+        shader_defs.push("MORPH_TARGETS".into());
+    }
+
+    if key.intersects(MeshPipelineKey::LIGHTMAPPED) {
+        mesh_layout_key.insert(MeshLayoutKey::LIGHTMAPPED);
+    }
+
+    (*mesh_layouts.get_layout(mesh_layout_key)).clone()
 }
 
 impl SpecializedMeshPipeline for MeshPipeline {
@@ -645,12 +654,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
-            shader_defs.push("VERTEX_UVS".into());
+            shader_defs.push("VERTEX_UVS_A".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_1) {
-            shader_defs.push("VERTEX_UVS_1".into());
+            shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
 
@@ -788,6 +797,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
+        if key.contains(MeshPipelineKey::LIGHTMAPPED) {
+            shader_defs.push("LIGHTMAP".into());
+        }
+
         if key.contains(MeshPipelineKey::TAA) {
             shader_defs.push("TAA".into());
         }
@@ -883,27 +896,31 @@ impl SpecializedMeshPipeline for MeshPipeline {
 /// Bind groups for meshes currently loaded.
 #[derive(Resource, Default)]
 pub struct MeshBindGroups {
-    model_only: Option<BindGroup>,
-    skinned: Option<BindGroup>,
-    morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
+    // Bind groups that can be shared among all meshes with the same
+    // [MeshLayoutKey].
+    generic_bind_groups: HashMap<MeshLayoutKey, BindGroup>,
+    // Bind groups that are associated with a specific mesh.
+    mesh_specific_bind_groups: HashMap<(AssetId<Mesh>, MeshLayoutKey), BindGroup>,
 }
+
 impl MeshBindGroups {
+    /// Clears out all mesh bind groups.
     pub fn reset(&mut self) {
-        self.model_only = None;
-        self.skinned = None;
-        self.morph_targets.clear();
+        self.generic_bind_groups.clear();
+        self.mesh_specific_bind_groups.clear();
     }
-    /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
-    pub fn get(
+
+    /// Gets the `BindGroup` for the `GpuMesh` with the given `handle_id`.
+    pub(crate) fn get(
         &self,
         asset_id: AssetId<Mesh>,
-        is_skinned: bool,
-        morph: bool,
+        mesh_layout_key: MeshLayoutKey,
     ) -> Option<&BindGroup> {
-        match (is_skinned, morph) {
-            (_, true) => self.morph_targets.get(&asset_id),
-            (true, false) => self.skinned.as_ref(),
-            (false, false) => self.model_only.as_ref(),
+        if mesh_layout_key.bind_group_is_mesh_specific() {
+            self.mesh_specific_bind_groups
+                .get(&(asset_id, mesh_layout_key))
+        } else {
+            self.generic_bind_groups.get(&mesh_layout_key)
         }
     }
 }
@@ -912,33 +929,93 @@ pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
+    fallback: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
+    render_lightmaps: Res<RenderLightmaps>,
+    lightmaps_uniform: Res<LightmapUniform>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
     let Some(model) = mesh_uniforms.binding() else {
         return;
     };
-    groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     let skin = skins_uniform.buffer.buffer();
-    if let Some(skin) = skin {
-        groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
-    }
+    let weights = weights_uniform.buffer.buffer();
+    let lightmaps = lightmaps_uniform.buffer.buffer();
 
-    if let Some(weights) = weights_uniform.buffer.buffer() {
-        for (id, gpu_mesh) in meshes.iter() {
-            if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
-                let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
-                    layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
-                } else {
-                    layouts.morphed(&render_device, &model, weights, targets)
-                };
-                groups.morph_targets.insert(id, group);
+    // Create all combinations of bind groups that might apply to this mesh. We
+    // have several optimizations to avoid generating bind groups we don't need.
+    // First, we use a *key mask*, which specifies the set of bind groups that
+    // might possibly be needed by any mesh in the scene. If, for example, no
+    // meshes have skins, then we don't need to generate any skinned bind
+    // groups.
+    let mut key_mask = MeshLayoutKey::empty();
+    key_mask.set(MeshLayoutKey::SKINNED, skin.is_some());
+    key_mask.set(MeshLayoutKey::MORPHED, weights.is_some());
+    key_mask.set(MeshLayoutKey::LIGHTMAPPED, lightmaps.is_some());
+
+    // Now loop over every valid combination of bits.
+    for key_bits in 0..=MeshLayoutKey::all().bits() {
+        // Skip mesh layouts that aren't in the key mask.
+        let key = MeshLayoutKey::from_bits_truncate(key_bits);
+        if !key_mask.contains(key) {
+            continue;
+        }
+
+        // If the bind group is generic, generate it here. We don't need to
+        // iterate through meshes.
+        if !key.bind_group_is_mesh_specific() {
+            groups.generic_bind_groups.insert(
+                key,
+                layouts.create_generic_bind_group(&render_device, &model, skin, key),
+            );
+            continue;
+        }
+
+        // For mesh-specific layout keys, loop over every mesh and generate the
+        // bind groups. Again, we have a set of optimizations to avoid
+        // generating bind groups that don't apply to each mesh.
+        for (mesh_id, mesh) in meshes.iter() {
+            // Skip layouts that don't apply to this mesh.
+            if key.contains(MeshLayoutKey::MORPHED) && mesh.morph_targets.is_none() {
+                continue;
             }
+            if key.contains(MeshLayoutKey::SKINNED) && !is_skinned(&mesh.layout) {
+                continue;
+            }
+            if key.contains(MeshLayoutKey::LIGHTMAPPED)
+                && !mesh.layout.contains(Mesh::ATTRIBUTE_UV_1)
+            {
+                continue;
+            }
+
+            let morph = match (weights, &mesh.morph_targets) {
+                (Some(weights), &Some(ref targets)) => Some((weights, targets)),
+                _ => None,
+            };
+
+            let lightmap_image = render_lightmaps
+                .get(&mesh_id)
+                .map(|lightmap| &lightmap.image);
+
+            // Create the bind group.
+            groups.mesh_specific_bind_groups.insert(
+                (mesh_id, key),
+                layouts.create_mesh_specific_bind_group(
+                    &render_device,
+                    &fallback,
+                    &model,
+                    skin,
+                    morph,
+                    lightmap_image,
+                    lightmaps,
+                    key,
+                ),
+            );
         }
     }
 }
@@ -984,13 +1061,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<MorphIndices>,
     );
     type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ItemWorldQuery = Option<Read<Lightmap>>;
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        lightmap: ROQueryItem<'w, Self::ItemWorldQuery>,
         (bind_groups, mesh_instances, skin_indices, morph_indices): SystemParamItem<
             'w,
             '_,
@@ -1008,13 +1085,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let Some(mesh) = mesh_instances.get(entity) else {
             return RenderCommandResult::Success;
         };
+
         let skin_index = skin_indices.get(entity);
         let morph_index = morph_indices.get(entity);
 
-        let is_skinned = skin_index.is_some();
-        let is_morphed = morph_index.is_some();
+        let mut mesh_layout_key = MeshLayoutKey::empty();
+        mesh_layout_key.set(MeshLayoutKey::SKINNED, skin_index.is_some());
+        mesh_layout_key.set(MeshLayoutKey::MORPHED, morph_index.is_some());
+        mesh_layout_key.set(MeshLayoutKey::LIGHTMAPPED, lightmap.is_some());
 
-        let Some(bind_group) = bind_groups.get(mesh.mesh_asset_id, is_skinned, is_morphed) else {
+        let Some(bind_group) = bind_groups.get(mesh.mesh_asset_id, mesh_layout_key) else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the queue_mesh_bind_group system.\n\

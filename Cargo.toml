@@ -829,6 +829,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "lightmaps"
+path = "examples/3d/lightmaps.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.lightmaps]
+name = "Lightmaps"
+description = "Displays the Cornell Box with lightmaps"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "no_prepass"
 path = "tests/3d/no_prepass.rs"
 doc-scrape-examples = true

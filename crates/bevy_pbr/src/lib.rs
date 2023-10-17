@@ -87,6 +87,8 @@ pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
 pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
 pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(72019026415438599);
 pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
+pub const LIGHTMAPS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(285484768317531991932943596447919767152);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -200,6 +202,12 @@ impl Plugin for PbrPlugin {
             "render/parallax_mapping.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            LIGHTMAPS_SHADER_HANDLE,
+            "render/lightmaps.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AlphaMode>()
@@ -238,6 +246,7 @@ impl Plugin for PbrPlugin {
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                LightmapPlugin,
             ))
             .configure_sets(
                 PostUpdate,

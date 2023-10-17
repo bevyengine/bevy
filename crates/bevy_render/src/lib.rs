@@ -102,8 +102,12 @@ pub enum RenderSet {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBatches'](RenderSet::PrepareBatches).
     PrepareResourcesFlush,
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) that prepares batches of meshes.
+    PrepareBatches,
+    /// The copy of [`apply_deferred`] that runs between [`PrepareBatches`](RenderSet::PrepareBatches) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    PrepareBatchesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
     /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
@@ -137,6 +141,7 @@ impl Render {
         schedule.add_systems((
             apply_deferred.in_set(ManageViewsFlush),
             apply_deferred.in_set(PrepareResourcesFlush),
+            apply_deferred.in_set(PrepareBatchesFlush),
             apply_deferred.in_set(RenderFlush),
             apply_deferred.in_set(PrepareFlush),
             apply_deferred.in_set(CleanupFlush),
@@ -166,7 +171,13 @@ impl Render {
                 .after(prepare_assets::<Mesh>),
         );
         schedule.configure_sets(
-            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
+            (
+                PrepareResources,
+                PrepareResourcesFlush,
+                PrepareBatches,
+                PrepareBatchesFlush,
+                PrepareBindGroups,
+            )
                 .chain()
                 .in_set(Prepare),
         );
