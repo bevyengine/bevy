@@ -701,7 +701,6 @@ pub fn get_bindings<'a>(
         Some(texture) => texture.texture.create_view(&depth_desc),
         None => fallback_images
             .image_for_samplecount(msaa.samples(), CORE_3D_DEPTH_FORMAT)
-            .clone()
             .texture
             .create_view(&depth_desc),
     };
