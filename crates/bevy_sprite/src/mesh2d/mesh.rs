@@ -178,7 +178,7 @@ impl From<&Mesh2dTransforms> for Mesh2dUniform {
 // NOTE: These must match the bit flags in bevy_sprite/src/mesh2d/mesh2d.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
-    struct MeshFlags: u32 {
+    pub struct MeshFlags: u32 {
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -536,6 +536,13 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
@@ -555,7 +562,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 })],
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

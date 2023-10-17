@@ -126,8 +126,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .add_render_graph_edges(
                 CORE_3D,
                 &[
-                    // PREPASS -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
-                    bevy_core_pipeline::core_3d::graph::node::PREPASS,
+                    // END_PRE_PASSES -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
+                    bevy_core_pipeline::core_3d::graph::node::END_PREPASSES,
                     draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
                     bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
                 ],

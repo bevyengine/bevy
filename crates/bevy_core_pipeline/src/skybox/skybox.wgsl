@@ -7,7 +7,7 @@
 
 fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
-    // break down at large translations. This code only needs to know the ray direction.
+    // breaks down at large translations. This code only needs to know the ray direction.
     // The ray direction is along the direction from the camera to the fragment position.
     // In view space, the camera is at the origin, so the view space ray direction is
     // along the direction of the fragment position - (0,0,0) which is just the

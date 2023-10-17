@@ -10,7 +10,10 @@ use bevy_utils::{default, tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::PoisonError,
+};
 use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
 
 pub mod screenshot;
@@ -106,6 +109,8 @@ fn extract_windows(
     screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closed: Extract<EventReader<WindowClosed>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
+    mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
+    mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
     for (entity, window, handle, primary) in windows.iter() {
         if primary.is_some() {
@@ -163,12 +168,22 @@ fn extract_windows(
 
     for closed_window in closed.read() {
         extracted_windows.remove(&closed_window.window);
+        window_surfaces.remove(&closed_window.window);
+    }
+    for removed_window in removed.read() {
+        extracted_windows.remove(&removed_window);
+        window_surfaces.remove(&removed_window);
     }
     // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
     // Even if a user had multiple copies of this system, since the system has a mutable resource access the two systems would never run
     // at the same time
     // TODO: since this is guaranteed, should the lock be replaced with an UnsafeCell to remove the overhead, or is it minor enough to be ignored?
-    for (window, screenshot_func) in screenshot_manager.callbacks.lock().drain() {
+    for (window, screenshot_func) in screenshot_manager
+        .callbacks
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .drain()
+    {
         if let Some(window) = extracted_windows.get_mut(&window) {
             window.screenshot_func = Some(screenshot_func);
         }
@@ -185,6 +200,13 @@ pub struct WindowSurfaces {
     surfaces: HashMap<Entity, SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
+}
+
+impl WindowSurfaces {
+    fn remove(&mut self, window: &Entity) {
+        self.surfaces.remove(window);
+        self.configured_windows.remove(window);
+    }
 }
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
@@ -322,7 +344,9 @@ pub fn prepare_windows(
                 .enumerate_adapters(wgpu::Backends::VULKAN)
                 .any(|adapter| {
                     let name = adapter.get_info().name;
-                    name.starts_with("AMD") || name.starts_with("Intel")
+                    name.starts_with("Radeon")
+                        || name.starts_with("AMD")
+                        || name.starts_with("Intel")
                 })
         };
 

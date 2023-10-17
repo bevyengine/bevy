@@ -2,9 +2,9 @@ use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
-use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption};
 use crate::utility::{extend_where_clause, ident_or_index, WhereClauseOptions};
 use crate::{ReflectMeta, ReflectStruct};
+use bevy_macro_utils::fq_std::{FQAny, FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
@@ -73,7 +73,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     match #bevy_reflect_path::Enum::variant_name(#ref_value) {
                         #(#variant_names => #fqoption::Some(#variant_constructors),)*
-                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, ::core::any::type_name::<Self>()),
+                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                     }
                 } else {
                     #FQOption::None

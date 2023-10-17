@@ -29,7 +29,7 @@ use super::IntoBinding;
 /// Other options for storing GPU-accessible data are:
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
@@ -120,8 +120,8 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.changed = true;
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue), if a GPU-side backing buffer already exists.
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`], if a GPU-side backing buffer already exists.
     ///
     /// If a GPU-side buffer does not already exist for this data, such a buffer is initialized with currently
     /// available data.
@@ -155,8 +155,8 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 /// Other options for storing GPU-accessible data are:
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`UniformBuffer`]
+/// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
@@ -251,7 +251,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     ///
     /// `max_count` *must* be greater than or equal to the number of elements that are to be written to the buffer, or
     /// the writer will panic while writing.  Dropping the writer will schedule the buffer write into the provided
-    /// [`RenderQueue`](crate::renderer::RenderQueue).
+    /// [`RenderQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity to hold `max_count` elements, a new GPU-side buffer is created.
@@ -306,8 +306,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         }
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.

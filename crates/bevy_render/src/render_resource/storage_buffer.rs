@@ -22,7 +22,7 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// is automatically enforced by this structure.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicStorageBuffer`]
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
@@ -114,8 +114,8 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         self.changed = true;
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
@@ -152,7 +152,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 /// will additionally be aligned to meet dynamic offset alignment requirements.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`StorageBuffer`]
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
