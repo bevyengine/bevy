@@ -1,8 +1,9 @@
 #import bevy_pbr::pbr_fragment          pbr_input_from_standard_material
 #import bevy_pbr::pbr_functions         alpha_discard
 
-#ifdef DEFERRED_PREPASS
+#ifdef PREPASS_PIPELINE
 #import bevy_pbr::prepass_io            VertexOutput, FragmentOutput
+#import bevy_pbr::pbr_deferred_functions  deferred_output
 #else
 #import bevy_pbr::forward_io            VertexOutput, FragmentOutput
 #import bevy_pbr::pbr_functions         apply_pbr_lighting, main_pass_post_lighting_processing

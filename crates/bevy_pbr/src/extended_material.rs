@@ -28,29 +28,42 @@ pub struct MaterialExtensionKey<E: MaterialExtension> {
 /// A subset of the `Material` trait for defining extensions to a base `Material`, such as the builtin `StandardMaterial`.
 /// A user type implementing the trait should be used as the `E` generic param in an `ExtendedMaterial` struct.
 pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
-    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
+    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the base material mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
+    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the base material mesh fragment shader
     /// will be used.
     #[allow(unused_variables)]
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
+    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
     /// will be used.
     fn prepass_vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the default prepass fragment shader
+    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the base material prepass fragment shader
     /// will be used.
     #[allow(unused_variables)]
     fn prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's deferred vertex shader. If [`ShaderRef::Default`] is returned, the base material deferred vertex shader
+    /// will be used.
+    fn deferred_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the base material deferred fragment shader
+    /// will be used.
+    #[allow(unused_variables)]
+    fn deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -150,14 +163,6 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
-    fn alpha_mode(&self) -> crate::AlphaMode {
-        B::alpha_mode(&self.base)
-    }
-
-    fn depth_bias(&self) -> f32 {
-        B::depth_bias(&self.base)
-    }
-
     fn prepass_vertex_shader() -> bevy_render::render_resource::ShaderRef {
         match E::prepass_vertex_shader() {
             ShaderRef::Default => B::prepass_vertex_shader(),
@@ -170,6 +175,37 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             ShaderRef::Default => B::prepass_fragment_shader(),
             specified => specified,
         }
+    }
+
+    fn deferred_vertex_shader() -> bevy_render::render_resource::ShaderRef {
+        match E::deferred_vertex_shader() {
+            ShaderRef::Default => B::deferred_vertex_shader(),
+            specified => specified,
+        }
+    }
+
+    fn deferred_fragment_shader() -> bevy_render::render_resource::ShaderRef {
+        match E::deferred_fragment_shader() {
+            ShaderRef::Default => B::deferred_fragment_shader(),
+            specified => {
+                println!("specified");
+                specified
+            }
+        }
+    }
+
+    fn alpha_mode(&self) -> crate::AlphaMode {
+        B::alpha_mode(&self.base)
+    }
+
+    fn depth_bias(&self) -> f32 {
+        B::depth_bias(&self.base)
+    }
+
+    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
+        let method = B::opaque_render_method(&self.base);
+        println!("method: {method:?}");
+        method
     }
 
     fn specialize(
