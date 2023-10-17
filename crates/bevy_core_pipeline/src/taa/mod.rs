@@ -167,6 +167,7 @@ impl Default for TemporalAntiAliasSettings {
     }
 }
 
+/// Render [bevy_render::render_graph::Node] used by temporal anti-aliasing.
 #[derive(Default)]
 pub struct TemporalAntiAliasNode;
 
