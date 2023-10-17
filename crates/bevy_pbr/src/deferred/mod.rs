@@ -427,9 +427,9 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&ShadowFilteringMethod>,
             Option<&ScreenSpaceAmbientOcclusionSettings>,
             (
-                Option<&NormalPrepass>,
-                Option<&DepthPrepass>,
-                Option<&MotionVectorPrepass>,
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
             ),
         ),
         With<DeferredPrepass>,
@@ -449,15 +449,15 @@ pub fn prepare_deferred_lighting_pipelines(
     {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
 
-        if normal_prepass.is_some() {
+        if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
 
-        if depth_prepass.is_some() {
+        if depth_prepass {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
 
-        if motion_vector_prepass.is_some() {
+        if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 

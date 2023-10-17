@@ -445,10 +445,10 @@ pub fn queue_material_meshes<M: Material>(
         Option<&ShadowFilteringMethod>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
         (
-            Option<&NormalPrepass>,
-            Option<&DepthPrepass>,
-            Option<&MotionVectorPrepass>,
-            Option<&DeferredPrepass>,
+            Has<NormalPrepass>,
+            Has<DepthPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
         ),
         Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
@@ -480,19 +480,19 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
-        if normal_prepass.is_some() {
+        if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
 
-        if depth_prepass.is_some() {
+        if depth_prepass {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
 
-        if motion_vector_prepass.is_some() {
+        if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        if deferred_prepass.is_some() {
+        if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
