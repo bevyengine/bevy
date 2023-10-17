@@ -6,7 +6,7 @@ use futures_lite::Future;
 use std::{any::TypeId, sync::Arc};
 
 /// Storage for [`AssetLoader`]'s, providing helper methods for efficient access.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AssetLoaders {
     values: HashMap<TypeId, MaybeAssetLoader>,
     extension_to_type_id: HashMap<String, TypeId>,
