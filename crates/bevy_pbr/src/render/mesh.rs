@@ -1184,19 +1184,17 @@ pub fn prepare_mesh_view_bind_groups(
             let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
             entries = entries.extend_with_indices(((15, lut_bindings.0), (16, lut_bindings.1)));
 
+            let prepass_bindings;
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
             {
-                let prepass_bindings = prepass::get_bindings(
-                    prepass_textures,
-                    &mut fallback_images,
-                    &msaa,
-                );
+                prepass_bindings =
+                    prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
                 entries = entries.extend_with_indices((
-                    (17, prepass_bindings.0),
-                    (18, prepass_bindings.1),
-                    (19, prepass_bindings.2),
-                    (20, prepass_bindings.3),
+                    (17, &prepass_bindings[0]),
+                    (18, &prepass_bindings[1]),
+                    (19, &prepass_bindings[2]),
+                    (20, &prepass_bindings[3]),
                 ));
             }
 

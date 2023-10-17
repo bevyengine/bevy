@@ -32,12 +32,12 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
-        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
-        PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor, Shader,
-        ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureAspect, TextureFormat, TextureSampleType,
+        BindGroupLayoutEntry, BindingType, BufferBindingType, ColorTargetState, ColorWrites,
+        CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer, FragmentState,
+        FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PushConstantRange,
+        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        StencilFaceState, StencilState, TextureAspect, TextureFormat, TextureSampleType,
         TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
@@ -688,9 +688,9 @@ pub fn get_bind_group_layout_entries(
 
 pub fn get_bindings<'a>(
     prepass_textures: Option<&'a ViewPrepassTextures>,
-    fallback_images: &'a mut FallbackImagesMsaa,
+    fallback_images: &'a mut FallbackImageMsaa,
     msaa: &'a Msaa,
-) -> (&'a TextureView, &'a TextureView, &'a TextureView, &'a TextureView) {
+) -> [TextureView; 4] {
     let depth_desc = TextureViewDescriptor {
         label: Some("prepass_depth"),
         aspect: TextureAspect::DepthOnly,
@@ -701,6 +701,7 @@ pub fn get_bindings<'a>(
         Some(texture) => texture.texture.create_view(&depth_desc),
         None => fallback_images
             .image_for_samplecount(msaa.samples(), CORE_3D_DEPTH_FORMAT)
+            .clone()
             .texture
             .create_view(&depth_desc),
     };
@@ -712,12 +713,14 @@ pub fn get_bindings<'a>(
     let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
         Some(texture) => &texture.default_view,
         None => normal_motion_vectors_fallback,
-    };
+    }
+    .clone();
 
     let motion_vectors_view = match prepass_textures.and_then(|x| x.motion_vectors.as_ref()) {
         Some(texture) => &texture.default_view,
         None => normal_motion_vectors_fallback,
-    };
+    }
+    .clone();
 
     let deferred_fallback = &fallback_images
         .image_for_samplecount(1, TextureFormat::Rgba32Uint)
@@ -727,8 +730,9 @@ pub fn get_bindings<'a>(
         Some(texture) => &texture.default_view,
         None => deferred_fallback,
     }
+    .clone();
 
-    (depth_view, normal_view, motion_vectors_view, deferred_view)
+    [depth_view, normal_view, motion_vectors_view, deferred_view]
 }
 
 // Extract the render phases for the prepass
