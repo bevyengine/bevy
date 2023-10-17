@@ -21,7 +21,7 @@ use bevy::{
         texture::ImageSampler,
     },
 };
-use bevy_internal::{
+use bevy::{
     math::vec3,
     render::{
         mesh::VertexAttributeValues,
