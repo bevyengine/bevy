@@ -132,7 +132,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     return pbr;
 }
 
-#ifdef DEFERRED_PREPASS
+#ifdef PREPASS_PIPELINE
 fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
     var out: FragmentOutput;
 

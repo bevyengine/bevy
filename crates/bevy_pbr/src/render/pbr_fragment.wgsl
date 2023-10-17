@@ -13,7 +13,7 @@
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
-#ifdef DEFERRED_PREPASS
+#ifdef PREPASS_PIPELINE
 #import bevy_pbr::prepass_io VertexOutput
 #else
 #import bevy_pbr::forward_io VertexOutput
