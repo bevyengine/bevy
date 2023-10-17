@@ -187,10 +187,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     fn deferred_fragment_shader() -> bevy_render::render_resource::ShaderRef {
         match E::deferred_fragment_shader() {
             ShaderRef::Default => B::deferred_fragment_shader(),
-            specified => {
-                println!("specified");
-                specified
-            }
+            specified => specified,
         }
     }
 
@@ -203,9 +200,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     }
 
     fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
-        let method = B::opaque_render_method(&self.base);
-        println!("method: {method:?}");
-        method
+        B::opaque_render_method(&self.base)
     }
 
     fn specialize(
