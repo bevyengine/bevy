@@ -1,9 +1,9 @@
 use crate::{loader::ErasedAssetLoader, AssetLoader};
-use bevy_log::warn;
+use bevy_log::{info, warn};
 use bevy_tasks::IoTaskPool;
 use bevy_utils::HashMap;
 use futures_lite::Future;
-use std::{any::TypeId, sync::Arc};
+use std::{any::TypeId, fmt::Debug, sync::Arc};
 
 /// Storage for [`AssetLoader`]'s, providing helper methods for efficient access.
 #[derive(Debug, Default)]
@@ -26,11 +26,26 @@ enum MaybeAssetLoader {
     },
 }
 
+impl Debug for MaybeAssetLoader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ready(loader) => f.debug_tuple("Ready").field(&loader.type_name()).finish(),
+            Self::Pending { .. } => f.debug_struct("Pending").finish(),
+        }
+    }
+}
+
 impl AssetLoaders {
+    /// Get an [`AssetLoader`] by the [`TypeId`] of the [`Asset`](`crate::Asset`) it can load. This
+    /// resolves to `None` immediately if no loader has been registered for this [`Asset`](`crate::Asset`) type.
+    ///
+    /// If a loader has been pre-registered for this type, then it will resolve once it is available.
     pub fn get_by_asset_type_id(
         &self,
         type_id: TypeId,
     ) -> impl Future<Output = Option<AssetLoaderSmartPointer>> + 'static {
+        info!("Called for: {:?}", type_id);
+
         let loader = self.values.get(&type_id).cloned();
 
         async {
@@ -43,6 +58,10 @@ impl AssetLoaders {
         }
     }
 
+    /// Get an [`AssetLoader`] by its [`std::any::type_name`]. This resolves to `None` immediately if
+    /// no loader has been registered by that name.
+    ///
+    /// If a loader has been pre-registered for this name, then it will resolve once it is available.
     pub fn get_by_loader_type_name(
         &self,
         name: &str,
@@ -53,6 +72,10 @@ impl AssetLoaders {
         async { loader?.await }
     }
 
+    /// Get an [`AssetLoader`] by a file extension it supports. This resolves to `None` immediately if
+    /// no loader has been registered for that extension.
+    ///
+    /// If a loader has been pre-registered for this extension, then it will resolve once it is available.
     pub fn get_by_extension(
         &self,
         extension: &str,

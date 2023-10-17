@@ -61,7 +61,7 @@ impl AssetInfo {
 
 #[derive(Default)]
 pub(crate) struct AssetInfos {
-    path_to_id: HashMap<AssetPath<'static>, UntypedAssetId>,
+    path_to_id: HashMap<(AssetPath<'static>, TypeId), UntypedAssetId>,
     infos: HashMap<UntypedAssetId, AssetInfo>,
     /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for changes (such as `load_dependants`)
     /// This should only be set at startup.
@@ -198,7 +198,7 @@ impl AssetInfos {
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
     ) -> Result<(UntypedHandle, bool), MissingHandleProviderError> {
-        match self.path_to_id.entry(path.clone()) {
+        match self.path_to_id.entry((path.clone(), type_id)) {
             Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists
@@ -268,9 +268,12 @@ impl AssetInfos {
         self.infos.get_mut(&id)
     }
 
-    pub(crate) fn get_path_handle(&self, path: AssetPath) -> Option<UntypedHandle> {
-        let id = *self.path_to_id.get(&path)?;
-        self.get_id_handle(id)
+    pub(crate) fn get_path_handles(&self, path: AssetPath) -> Vec<UntypedHandle> {
+        self.path_to_id
+            .iter()
+            .filter(move |((key_path, _), _)| key_path == &path)
+            .filter_map(move |((_, _), id)| self.get_id_handle(*id))
+            .collect()
     }
 
     pub(crate) fn get_id_handle(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
@@ -282,12 +285,12 @@ impl AssetInfos {
     /// Returns `true` if the asset this path points to is still alive
     pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
         let path = path.into();
-        if let Some(id) = self.path_to_id.get(&path) {
-            if let Some(info) = self.infos.get(id) {
-                return info.weak_handle.strong_count() > 0;
-            }
-        }
-        false
+
+        self.path_to_id
+            .iter()
+            .filter(move |((key_path, _), _)| key_path == &path)
+            .filter_map(move |((_, _), id)| self.infos.get(id))
+            .any(|info| info.weak_handle.strong_count() > 0)
     }
 
     /// Returns `true` if the asset at this path should be reloaded
@@ -556,7 +559,7 @@ impl AssetInfos {
 
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
-        path_to_id: &mut HashMap<AssetPath<'static>, UntypedAssetId>,
+        path_to_id: &mut HashMap<(AssetPath<'static>, TypeId), UntypedAssetId>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
         watching_for_changes: bool,
@@ -591,7 +594,8 @@ impl AssetInfos {
                                 };
                             }
                         }
-                        path_to_id.remove(&path);
+
+                        path_to_id.remove(&(path, id.type_id()));
                     }
                     true
                 }

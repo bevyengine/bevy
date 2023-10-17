@@ -580,7 +580,10 @@ impl AssetServer {
     /// or is still "alive".
     pub fn get_handle<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Option<Handle<A>> {
         self.get_handle_untyped(path)
+            .into_iter()
+            .filter(|handle| handle.type_id() == TypeId::of::<A>())
             .map(|h| h.typed_debug_checked())
+            .next()
     }
 
     pub fn get_id_handle<A: Asset>(&self, id: AssetId<A>) -> Option<Handle<A>> {
@@ -593,10 +596,10 @@ impl AssetServer {
 
     /// Returns an active untyped handle for the given path, if the asset at the given path has already started loading,
     /// or is still "alive".
-    pub fn get_handle_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Option<UntypedHandle> {
+    pub fn get_handle_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Vec<UntypedHandle> {
         let infos = self.data.infos.read();
         let path = path.into();
-        infos.get_path_handle(path)
+        infos.get_path_handles(path)
     }
 
     /// Returns the path for the given `id`, if it has one.
@@ -701,6 +704,7 @@ impl AssetServer {
                 let loader = if let Some(loader) = loader {
                     loader
                 } else {
+                    bevy_log::warn!("Could not load asset via type_id");
                     // Fallback to using the file extension to choose the loader.
                     self.get_path_asset_loader(asset_path).await?
                 };
@@ -913,24 +917,24 @@ pub enum AssetLoadError {
 }
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 #[error("no `AssetLoader` found{}", format_missing_asset_ext(.extensions))]
 pub struct MissingAssetLoaderForExtensionError {
-    extensions: Vec<String>,
+    pub extensions: Vec<String>,
 }
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given [`std::any::type_name`].
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 #[error("no `AssetLoader` found with the name '{type_name}'")]
 pub struct MissingAssetLoaderForTypeNameError {
-    type_name: String,
+    pub type_name: String,
 }
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given [`Asset`] [`TypeId`].
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 #[error("no `AssetLoader` found with the ID '{type_id:?}'")]
 pub struct MissingAssetLoaderForTypeIdError {
-    type_id: TypeId,
+    pub type_id: TypeId,
 }
 
 fn format_missing_asset_ext(exts: &[String]) -> String {
