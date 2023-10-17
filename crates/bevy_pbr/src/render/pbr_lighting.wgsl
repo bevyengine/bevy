@@ -222,7 +222,7 @@ fn point_light(
     // where
     // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
     // Φ is luminous power in lumens
-    // our rangeAttentuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
+    // our rangeAttenuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
 
     // For a point light, luminous intensity, I, in lumens per steradian is given by:
     // I = Φ / 4 π

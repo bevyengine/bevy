@@ -1,10 +1,10 @@
 # [![Bevy](assets/branding/bevy_logo_light_dark_and_dimmed.svg)](https://bevyengine.org)
 
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy)
-[![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
-[![Crates.io](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
-[![Rust](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/bevyengine/bevy/actions)
-![iOS cron CI](https://github.com/bevyengine/bevy/workflows/iOS%20cron%20CI/badge.svg)
+[![Downloads](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
+[![Docs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy/latest/bevy/)
+[![CI](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/bevyengine/bevy/actions)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 ## What is Bevy?
@@ -87,7 +87,7 @@ Bevy can be built just fine using default configuration on stable Rust. However 
 
 Bevy is only possible because of the hard work put into these foundational technologies:
 
-* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library inspired by Vulkan
+* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library based on the [WebGPU](https://gpuweb.github.io/gpuweb/) API.
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
 

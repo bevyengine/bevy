@@ -1,10 +1,8 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader  FullscreenVertexOutput
 #import bevy_core_pipeline::fxaa_functions fxaa
 
-@group(0) @binding(0)
-var view_target: texture_2d<f32>;
-@group(0) @binding(1)
-var linear_sampler: sampler;
+@group(0) @binding(0) var view_target: texture_2d<f32>;
+@group(0) @binding(1) var linear_sampler: sampler;
 
 // Trims the algorithm from processing darks.
 #ifdef EDGE_THRESH_MIN_LOW

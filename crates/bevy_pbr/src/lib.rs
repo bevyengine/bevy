@@ -4,6 +4,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+pub mod deferred;
 mod environment_map;
 mod fog;
 mod light;
@@ -52,56 +53,52 @@ pub mod draw_3d_graph {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::CameraUpdateSystem,
-    extract_resource::ExtractResourcePlugin,
-    prelude::Color,
-    render_graph::RenderGraph,
-    render_phase::sort_phase_system,
-    render_resource::Shader,
-    view::{ViewSet, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin,
+    extract_resource::ExtractResourcePlugin, prelude::Color, render_asset::prepare_assets,
+    render_graph::RenderGraph, render_phase::sort_phase_system, render_resource::Shader,
+    texture::Image, view::VisibilitySystems, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
 
-pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
-pub const PBR_BINDINGS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5635987986427308186);
-pub const UTILS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1900548483293416725);
-pub const CLUSTERED_FORWARD_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 166852093121196815);
-pub const PBR_LIGHTING_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14170772752254856967);
-pub const SHADOWS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11350275143789590502);
-pub const PBR_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
-pub const PBR_PREPASS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9407115064344201137);
-pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
-pub const PBR_AMBIENT_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2441520459096337034);
-pub const PARALLAX_MAPPING_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17035894873630133905);
+use crate::deferred::DeferredPbrLightingPlugin;
+
+pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
+pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
+pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416725);
+pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
+pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
+pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
+pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(3145627513789590502);
+pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
+pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
+pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
+pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
+pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(17035894873630133905);
+pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(73204817249182637);
+pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
+pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(72019026415438599);
+pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
     /// Controls if the prepass is enabled for the StandardMaterial.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     pub prepass_enabled: bool,
+    /// Controls if [`DeferredPbrLightingPlugin`] is added.
+    pub add_default_deferred_lighting_plugin: bool,
 }
 
 impl Default for PbrPlugin {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
+            add_default_deferred_lighting_plugin: true,
         }
     }
 }
@@ -141,8 +138,32 @@ impl Plugin for PbrPlugin {
         );
         load_internal_asset!(
             app,
+            PBR_DEFERRED_TYPES_HANDLE,
+            "deferred/pbr_deferred_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_DEFERRED_FUNCTIONS_HANDLE,
+            "deferred/pbr_deferred_functions.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            SHADOW_SAMPLING_HANDLE,
+            "render/shadow_sampling.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             PBR_FUNCTIONS_HANDLE,
             "render/pbr_functions.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            RGB9E5_FUNCTIONS_HANDLE,
+            "render/rgb9e5.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -152,6 +173,12 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            PBR_PREPASS_FUNCTIONS_SHADER_HANDLE,
+            "render/pbr_prepass_functions.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             PBR_PREPASS_SHADER_HANDLE,
@@ -166,6 +193,7 @@ impl Plugin for PbrPlugin {
         );
 
         app.register_asset_reflect::<StandardMaterial>()
+            .register_type::<AlphaMode>()
             .register_type::<AmbientLight>()
             .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
@@ -182,10 +210,13 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
+            .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
+            .register_type::<DefaultOpaqueRendererMethod>()
+            .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin,
                 MaterialPlugin::<StandardMaterial> {
@@ -196,6 +227,8 @@ impl Plugin for PbrPlugin {
                 EnvironmentMapPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
+                ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
             ))
             .configure_sets(
                 PostUpdate,
@@ -222,7 +255,7 @@ impl Plugin for PbrPlugin {
                         .after(CameraUpdateSystem),
                     update_directional_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                        // This must run after CheckVisibility because it relies on `ViewVisibility`
                         .after(VisibilitySystems::CheckVisibility)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateDirectionalLightCascades)
@@ -244,22 +277,24 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                        // because that resets entity ComputedVisibility for the first view
+                        // because that resets entity `ViewVisibility` for the first view
                         // which would override any results from this otherwise
                         .after(VisibilitySystems::CheckVisibility),
                 ),
             );
 
-        app.world
-            .resource_mut::<Assets<StandardMaterial>>()
-            .set_untracked(
-                Handle::<StandardMaterial>::default(),
-                StandardMaterial {
-                    base_color: Color::rgb(1.0, 0.0, 0.5),
-                    unlit: true,
-                    ..Default::default()
-                },
-            );
+        if self.add_default_deferred_lighting_plugin {
+            app.add_plugins(DeferredPbrLightingPlugin);
+        }
+
+        app.world.resource_mut::<Assets<StandardMaterial>>().insert(
+            Handle::<StandardMaterial>::default(),
+            StandardMaterial {
+                base_color: Color::rgb(1.0, 0.0, 0.5),
+                unlit: true,
+                ..Default::default()
+            },
+        );
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -268,37 +303,18 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .configure_sets(
-                Render,
-                (
-                    RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare),
-                    RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare),
-                    RenderLightSystems::QueueShadows.in_set(RenderSet::Queue),
-                ),
-            )
             .add_systems(
                 ExtractSchedule,
-                (
-                    render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
-                    render::extract_lights.in_set(RenderLightSystems::ExtractLights),
-                ),
+                (render::extract_clusters, render::extract_lights),
             )
             .add_systems(
                 Render,
                 (
                     render::prepare_lights
-                        .before(ViewSet::PrepareUniforms)
-                        .in_set(RenderLightSystems::PrepareLights),
-                    // A sync is needed after prepare_lights, before prepare_view_uniforms,
-                    // because prepare_lights creates new views for shadow mapping
-                    apply_deferred
-                        .in_set(RenderSet::Prepare)
-                        .after(RenderLightSystems::PrepareLights)
-                        .before(ViewSet::PrepareUniforms),
-                    render::prepare_clusters
-                        .after(render::prepare_lights)
-                        .in_set(RenderLightSystems::PrepareClusters),
+                        .in_set(RenderSet::ManageViews)
+                        .after(prepare_assets::<Image>),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
+                    render::prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();

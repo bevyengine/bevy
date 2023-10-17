@@ -4,6 +4,10 @@
 //! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
 //! You should change the provided font with another one to test other languages input.
 
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 fn main() {
@@ -142,7 +146,7 @@ fn listen_ime_events(
     mut status_text: Query<&mut Text, With<Node>>,
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
                 status_text.single_mut().sections[5].value = format!("IME buffer: {value}");
@@ -168,7 +172,7 @@ fn listen_received_character_events(
     mut events: EventReader<ReceivedCharacter>,
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         edit_text.single_mut().sections[0].value.push(event.char);
     }
 }
@@ -178,7 +182,7 @@ fn listen_keyboard_input_events(
     mut events: EventReader<KeyboardInput>,
     mut edit_text: Query<(Entity, &mut Text), (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match event.key_code {
             Some(KeyCode::Return) => {
                 let (entity, text) = edit_text.single();

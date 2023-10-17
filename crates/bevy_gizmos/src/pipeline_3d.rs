@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_3d::Transparent3d;
+use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
-    render_asset::RenderAssets,
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
@@ -25,16 +25,25 @@ use bevy_render::{
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .add_systems(Render, queue_line_gizmos_3d.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                queue_line_gizmos_3d
+                    .in_set(RenderSet::Queue)
+                    .after(prepare_assets::<LineGizmo>),
+            );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app.init_resource::<LineGizmoPipeline>();
     }
@@ -94,13 +103,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -112,7 +121,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             layout,
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::Greater,
                 stencil: StencilState::default(),
@@ -164,7 +173,9 @@ fn queue_line_gizmos_3d(
             | MeshPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else { continue };
+            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+                continue;
+            };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
@@ -181,6 +192,8 @@ fn queue_line_gizmos_3d(
                 draw_function,
                 pipeline,
                 distance: 0.,
+                batch_range: 0..1,
+                dynamic_offset: None,
             });
         }
     }

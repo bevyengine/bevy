@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Vec2;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
 use taffy::{node::MeasureFunc, prelude::Size as TaffySize};
@@ -46,8 +46,8 @@ impl Measure for FixedMeasure {
 
 /// A node with a `ContentSize` component is a node where its size
 /// is based on its content.
-#[derive(Component, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
 pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
@@ -55,7 +55,7 @@ pub struct ContentSize {
 }
 
 impl ContentSize {
-    /// Set a `Measure` for this function
+    /// Set a `Measure` for the UI node entity with this component
     pub fn set(&mut self, measure: impl Measure) {
         let measure_func = move |size: TaffySize<_>, available: TaffySize<_>| {
             let size = measure.measure(size.width, size.height, available.width, available.height);
@@ -66,12 +66,11 @@ impl ContentSize {
         };
         self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
     }
-}
 
-impl Default for ContentSize {
-    fn default() -> Self {
-        Self {
-            measure_func: Some(MeasureFunc::Raw(|_, _| TaffySize::ZERO)),
-        }
+    /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.
+    pub fn fixed_size(size: Vec2) -> ContentSize {
+        let mut content_size = Self::default();
+        content_size.set(FixedMeasure { size });
+        content_size
     }
 }

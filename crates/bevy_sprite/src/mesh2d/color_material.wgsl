@@ -1,5 +1,5 @@
 #import bevy_sprite::mesh2d_types          Mesh2d
-#import bevy_sprite::mesh2d_vertex_output  MeshVertexOutput
+#import bevy_sprite::mesh2d_vertex_output  VertexOutput
 #import bevy_sprite::mesh2d_view_bindings  view
 
 #ifdef TONEMAP_IN_SHADER
@@ -13,16 +13,13 @@ struct ColorMaterial {
 };
 const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32 = 1u;
 
-@group(1) @binding(0)
-var<uniform> material: ColorMaterial;
-@group(1) @binding(1)
-var texture: texture_2d<f32>;
-@group(1) @binding(2)
-var texture_sampler: sampler;
+@group(1) @binding(0) var<uniform> material: ColorMaterial;
+@group(1) @binding(1) var texture: texture_2d<f32>;
+@group(1) @binding(2) var texture_sampler: sampler;
 
 @fragment
 fn fragment(
-    mesh: MeshVertexOutput,
+    mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.color;
 #ifdef VERTEX_COLORS

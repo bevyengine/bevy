@@ -6,6 +6,7 @@ pub mod clear_color;
 pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
+pub mod deferred;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;
@@ -40,6 +41,7 @@ use crate::{
     contrast_adaptive_sharpening::CASPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
+    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::{FxaaPlugin, FXAA_FUNCTIONS_SHADER_HANDLE},
     msaa_writeback::MsaaWritebackPlugin,
@@ -78,6 +80,7 @@ impl Plugin for CorePipelinePlugin {
                 ExtractResourcePlugin::<ClearColor>::default(),
                 Core2dPlugin,
                 Core3dPlugin,
+                CopyDeferredLightingIdPlugin,
                 BlitPlugin,
                 MsaaWritebackPlugin,
                 TonemappingPlugin,

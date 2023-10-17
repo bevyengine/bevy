@@ -1,15 +1,3 @@
-//! Definitions for a few common task pools that we want. Generally the determining factor for what
-//! kind of work should go in each pool is latency requirements.
-//!
-//! For CPU-intensive work (tasks that generally spin until completion) we have a standard
-//! [`ComputeTaskPool`]  and an [`AsyncComputeTaskPool`]. Work that does not need to be completed to
-//! present the next frame should go to the [`AsyncComputeTaskPool`]
-//!
-//! For IO-intensive work (tasks that spend very little time in a "woken" state) we have an IO
-//! task pool. The tasks here are expected to complete very quickly. Generally they should just
-//! await receiving data from somewhere (i.e. disk) and signal other systems when the data is ready
-//! for consumption. (likely via channels)
-
 use super::TaskPool;
 use std::{ops::Deref, sync::OnceLock};
 
@@ -17,8 +5,12 @@ static COMPUTE_TASK_POOL: OnceLock<ComputeTaskPool> = OnceLock::new();
 static ASYNC_COMPUTE_TASK_POOL: OnceLock<AsyncComputeTaskPool> = OnceLock::new();
 static IO_TASK_POOL: OnceLock<IoTaskPool> = OnceLock::new();
 
-/// A newtype for a task pool for CPU-intensive work that must be completed to deliver the next
-/// frame
+/// A newtype for a task pool for CPU-intensive work that must be completed to
+/// deliver the next frame
+///
+/// See [`TaskPool`] documentation for details on Bevy tasks.
+/// [`AsyncComputeTaskPool`] should be preferred if the work does not have to be
+/// completed before the next frame.
 #[derive(Debug)]
 pub struct ComputeTaskPool(TaskPool);
 
@@ -49,6 +41,9 @@ impl Deref for ComputeTaskPool {
 }
 
 /// A newtype for a task pool for CPU-intensive work that may span across multiple frames
+///
+/// See [`TaskPool`] documentation for details on Bevy tasks. Use [`ComputeTaskPool`] if
+/// the work must be complete before advancing to the next frame.
 #[derive(Debug)]
 pub struct AsyncComputeTaskPool(TaskPool);
 
