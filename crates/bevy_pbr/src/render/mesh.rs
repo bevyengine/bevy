@@ -49,6 +49,15 @@ use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
+#[cfg(debug_assertions)]
+use bevy_utils::tracing::warn;
+
+#[cfg(debug_assertions)]
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
 use crate::render::{
     morph::{
         extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
@@ -71,6 +80,17 @@ pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874
 pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
 pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
 pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(970982813587607345);
+
+/// How many textures are allowed in the view bind group layout (`@group(0)`) before
+/// broader compatibility with WebGL and WebGPU is at risk, due to the minimum guaranteed
+/// values for `MAX_TEXTURE_IMAGE_UNITS` (in WebGL) and `maxSampledTexturesPerShaderStage` (in WebGPU),
+/// currently both at 16.
+///
+/// We use 10 here because it still leaves us, in a worst case scenario, with 6 textures for the other bind groups.
+///
+/// See: https://gpuweb.github.io/gpuweb/#limits
+#[cfg(debug_assertions)]
+pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -317,9 +337,17 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(entities);
 }
 
+#[derive(Clone)]
+struct MeshPipelineViewLayout {
+    pub bind_group_layout: BindGroupLayout,
+
+    #[cfg(debug_assertions)]
+    pub texture_count: usize,
+}
+
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
-    view_layouts: [BindGroupLayout; 32],
+    view_layouts: [MeshPipelineViewLayout; 32],
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -336,6 +364,9 @@ pub struct MeshPipeline {
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
+
+    #[cfg(debug_assertions)]
+    pub did_warn_about_too_many_textures: Arc<AtomicBool>,
 }
 
 impl FromWorld for MeshPipeline {
@@ -534,28 +565,49 @@ impl FromWorld for MeshPipeline {
             let motion_vector_prepass = i & (8 as usize) != 0;
             let deferred_prepass = i & (16 as usize) != 0;
             i += 1;
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some(
-                    format!(
-                        // Build a unique name for each layout based on the prepass flags
-                        "mesh_view_layout{}{}{}{}{}",
-                        if multisampled { "_multisampled" } else { "" },
-                        if depth_prepass { "_depth" } else { "" },
-                        if normal_prepass { "_normal" } else { "" },
-                        if motion_vector_prepass { "_motion" } else { "" },
-                        if deferred_prepass { "_deferred" } else { "" },
-                    )
-                    .as_str(),
+
+            let entries = layout_entries(
+                clustered_forward_buffer_binding_type,
+                multisampled,
+                depth_prepass,
+                normal_prepass,
+                motion_vector_prepass,
+                deferred_prepass,
+            );
+
+            #[cfg(debug_assertions)]
+            let texture_count: usize = entries
+                .iter()
+                .filter(|entry| {
+                    if let BindingType::Texture { .. } = entry.ty {
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .count();
+
+            MeshPipelineViewLayout {
+                bind_group_layout: render_device.create_bind_group_layout(
+                    &BindGroupLayoutDescriptor {
+                        label: Some(
+                            format!(
+                                // Build a unique name for each layout based on the prepass flags
+                                "mesh_view_layout{}{}{}{}{}",
+                                if multisampled { "_multisampled" } else { "" },
+                                if depth_prepass { "_depth" } else { "" },
+                                if normal_prepass { "_normal" } else { "" },
+                                if motion_vector_prepass { "_motion" } else { "" },
+                                if deferred_prepass { "_deferred" } else { "" },
+                            )
+                            .as_str(),
+                        ),
+                        entries: &entries,
+                    },
                 ),
-                entries: &layout_entries(
-                    clustered_forward_buffer_binding_type,
-                    multisampled,
-                    depth_prepass,
-                    normal_prepass,
-                    motion_vector_prepass,
-                    deferred_prepass,
-                ),
-            })
+                #[cfg(debug_assertions)]
+                texture_count,
+            }
         });
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
@@ -604,6 +656,8 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            #[cfg(debug_assertions)]
+            did_warn_about_too_many_textures: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -638,7 +692,21 @@ impl MeshPipeline {
             | (normal_prepass as usize) << 2
             | (motion_vector_prepass as usize) << 3
             | (deferred_prepass as usize) << 4;
-        &self.view_layouts[index]
+
+        let layout = &self.view_layouts[index];
+
+        #[cfg(debug_assertions)]
+        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES
+            && !self.did_warn_about_too_many_textures.load(Ordering::SeqCst)
+        {
+            self.did_warn_about_too_many_textures
+                .store(true, Ordering::SeqCst);
+
+            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
+            warn!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
+        }
+
+        &layout.bind_group_layout
     }
 
     pub fn get_view_layout_from_key(&self, key: MeshPipelineKey) -> &BindGroupLayout {
