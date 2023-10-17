@@ -50,7 +50,9 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 #ifdef WEBGL2
     frag_coord.z = deferred_types::unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
 #else
+#ifdef DEPTH_PREPASS
     frag_coord.z = bevy_pbr::prepass_utils::prepass_depth(in.position, 0u);
+#endif
 #endif
 
     var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);

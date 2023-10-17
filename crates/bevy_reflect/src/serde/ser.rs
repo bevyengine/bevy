@@ -68,7 +68,22 @@ impl<'a> Serialize for ReflectSerializer<'a> {
     {
         let mut state = serializer.serialize_map(Some(1))?;
         state.serialize_entry(
-            self.value.reflect_type_path(),
+            self.value
+                .get_represented_type_info()
+                .ok_or_else(|| {
+                    if self.value.is_dynamic() {
+                        Error::custom(format_args!(
+                            "cannot serialize dynamic value without represented type: {}",
+                            self.value.reflect_type_path()
+                        ))
+                    } else {
+                        Error::custom(format_args!(
+                            "cannot get type info for {}",
+                            self.value.reflect_type_path()
+                        ))
+                    }
+                })?
+                .type_path(),
             &TypedReflectSerializer::new(self.value, self.registry),
         )?;
         state.end()

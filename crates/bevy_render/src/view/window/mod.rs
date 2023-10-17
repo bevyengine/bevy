@@ -344,7 +344,9 @@ pub fn prepare_windows(
                 .enumerate_adapters(wgpu::Backends::VULKAN)
                 .any(|adapter| {
                     let name = adapter.get_info().name;
-                    name.starts_with("AMD") || name.starts_with("Intel")
+                    name.starts_with("Radeon")
+                        || name.starts_with("AMD")
+                        || name.starts_with("Intel")
                 })
         };
 
