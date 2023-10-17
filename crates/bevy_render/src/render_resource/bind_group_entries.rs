@@ -135,6 +135,13 @@ impl<'a> IntoBinding<'a> for BindingResource<'a> {
     }
 }
 
+impl<'a> IntoBinding<'a> for wgpu::BufferBinding<'a> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::Buffer(self)
+    }
+}
+
 pub trait IntoBindingArray<'b, const N: usize> {
     fn into_array(self) -> [BindingResource<'b>; N];
 }

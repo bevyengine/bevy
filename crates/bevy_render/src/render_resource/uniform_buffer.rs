@@ -141,6 +141,17 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     }
 }
 
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::Buffer(
+            self.buffer()
+                .expect("Failed to get buffer")
+                .as_entire_buffer_binding(),
+        )
+    }
+}
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic uniform buffer.
 ///
 /// Dynamic uniform buffers are available to shaders on a read-only basis. Dynamic uniform buffers are commonly used to make
