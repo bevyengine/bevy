@@ -693,7 +693,13 @@ impl AssetServer {
             Err(AssetReaderError::NotFound(_)) => {
                 let loader = if let Some(type_id) = asset_type_id {
                     // If provided a TypeId for the Asset to be loaded, use that to select the loader.
-                    self.get_asset_type_id_asset_loader(type_id).await?
+                    self.get_asset_type_id_asset_loader(type_id).await.ok()
+                } else {
+                    None
+                };
+
+                let loader = if let Some(loader) = loader {
+                    loader
                 } else {
                     // Fallback to using the file extension to choose the loader.
                     self.get_path_asset_loader(asset_path).await?
