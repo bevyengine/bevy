@@ -325,10 +325,8 @@ impl ActiveState {
     #[inline]
     fn should_run(&self) -> bool {
         match self {
-            ActiveState::NotYetStarted => false,
-            ActiveState::Active => true,
-            ActiveState::Suspended => false,
-            ActiveState::WillSuspend => true,
+            ActiveState::NotYetStarted | ActiveState::Suspended => false,
+            ActiveState::Active | ActiveState::WillSuspend => true,
         }
     }
 }
