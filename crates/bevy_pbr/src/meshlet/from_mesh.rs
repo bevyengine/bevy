@@ -55,6 +55,7 @@ impl MeshletMesh {
             })
             .collect();
 
+        // TODO: Meshoptimzer seems to pad the buffers themselves?
         // Buffer copies need to be in multiples of 4 bytes
         let padding = ((meshlets.triangles.len() + 3) & !0x3) - meshlets.triangles.len();
         meshlets.triangles.extend(iter::repeat(0).take(padding));
@@ -69,7 +70,7 @@ impl MeshletMesh {
                 .map(|m| Meshlet {
                     start_vertex_id: m.vertex_offset,
                     start_index_id: m.triangle_offset,
-                    vertex_count: m.vertex_count,
+                    vertex_count: m.vertex_count, // TODO: We don't actually need this, remove to save space
                     triangle_count: m.triangle_count,
                 })
                 .collect(),
