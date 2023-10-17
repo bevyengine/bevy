@@ -88,7 +88,7 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 ///
 /// We use 10 here because it still leaves us, in a worst case scenario, with 6 textures for the other bind groups.
 ///
-/// See: https://gpuweb.github.io/gpuweb/#limits
+/// See: <https://gpuweb.github.io/gpuweb/#limits>
 #[cfg(debug_assertions)]
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
@@ -559,11 +559,11 @@ impl FromWorld for MeshPipeline {
 
         let mut i = 0;
         let view_layouts = [(); 32].map(|_| {
-            let multisampled = i & (1 as usize) != 0;
-            let depth_prepass = i & (2 as usize) != 0;
-            let normal_prepass = i & (4 as usize) != 0;
-            let motion_vector_prepass = i & (8 as usize) != 0;
-            let deferred_prepass = i & (16 as usize) != 0;
+            let multisampled = i & 1_usize != 0;
+            let depth_prepass = i & 2_usize != 0;
+            let normal_prepass = i & 4_usize != 0;
+            let motion_vector_prepass = i & 8_usize != 0;
+            let deferred_prepass = i & 16_usize != 0;
             i += 1;
 
             let entries = layout_entries(
@@ -578,13 +578,7 @@ impl FromWorld for MeshPipeline {
             #[cfg(debug_assertions)]
             let texture_count: usize = entries
                 .iter()
-                .filter(|entry| {
-                    if let BindingType::Texture { .. } = entry.ty {
-                        true
-                    } else {
-                        false
-                    }
-                })
+                .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
                 .count();
 
             MeshPipelineViewLayout {
