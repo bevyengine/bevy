@@ -67,7 +67,7 @@ use super::{Sampler, TextureView};
 ///     ],
 /// );
 /// ```
-/// 
+///
 /// or
 ///
 /// ```ignore
