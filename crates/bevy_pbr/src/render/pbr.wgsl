@@ -1,7 +1,7 @@
 #import bevy_pbr::pbr_functions           alpha_discard
 #import bevy_pbr::pbr_fragment            pbr_input_from_standard_material
 
-#ifdef DEFERRED_PREPASS
+#ifdef PREPASS_PIPELINE
 #import bevy_pbr::prepass_io              VertexOutput, FragmentOutput
 #import bevy_pbr::pbr_deferred_functions  deferred_output
 #else
@@ -21,7 +21,7 @@ fn fragment(
     // alpha discard
     pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
 
-#ifdef DEFERRED_PREPASS
+#ifdef PREPASS_PIPELINE
     // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
     let out = deferred_output(in, pbr_input);
 #else
