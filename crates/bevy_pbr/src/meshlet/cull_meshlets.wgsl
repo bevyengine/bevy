@@ -8,7 +8,8 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id.x];
     let meshlet = meshlets[meshlet_id];
 
-    let meshlet_visible = true; // TODO
+    let meshlet_visible = true;
+    // TODO: Frustum culling - https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
 
     if meshlet_visible {
         let meshlet_vertex_count = meshlet.triangle_count * 3u;
