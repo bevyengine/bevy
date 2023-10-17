@@ -66,9 +66,33 @@ use super::{Sampler, TextureView};
 ///         },
 ///     ],
 /// );
+///
+/// or
+///
+/// ```ignore
+/// render_device.create_bind_group(
+///     "my_bind_group",
+///     &my_layout,
+///     &BindGroupEntries::single(my_uniform),
+/// );
+/// ```
+///
+/// instead of
+///
+/// ```ignore
+/// render_device.create_bind_group(
+///     "my_bind_group",
+///     &my_layout,
+///     &[
+///         BindGroupEntry {
+///             binding: 0,
+///             resource: my_uniform,
+///         },
+///     ],
+/// );
 /// ```
 
-pub struct BindGroupEntries<'b, const N: usize> {
+pub struct BindGroupEntries<'b, const N: usize = 1> {
     entries: [BindGroupEntry<'b>; N],
 }
 
@@ -92,6 +116,15 @@ impl<'b, const N: usize> BindGroupEntries<'b, N> {
                 .into_array()
                 .map(|(binding, resource)| BindGroupEntry { binding, resource }),
         }
+    }
+}
+
+impl<'b> BindGroupEntries<'b, 1> {
+    pub fn single(resource: impl IntoBinding<'b>) -> [BindGroupEntry<'b>; 1] {
+        [BindGroupEntry {
+            binding: 0,
+            resource: resource.into_binding(),
+        }]
     }
 }
 

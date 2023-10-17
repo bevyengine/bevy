@@ -626,10 +626,7 @@ pub fn prepare_sprites(
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(
             "sprite_view_bind_group",
             &sprite_pipeline.view_layout,
-            &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
+            &BindGroupEntries::single(view_binding),
         ));
 
         // Index buffer indices

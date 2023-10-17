@@ -599,10 +599,7 @@ pub fn prepare_mesh2d_bind_group(
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",
                 &mesh2d_pipeline.mesh_layout,
-                &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
+                &BindGroupEntries::single(binding),
             ),
         });
     }

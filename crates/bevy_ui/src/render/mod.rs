@@ -815,10 +815,7 @@ pub fn prepare_uinodes(
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_view_bind_group",
             &ui_pipeline.view_layout,
-            &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
+            &BindGroupEntries::single(view_binding),
         ));
 
         // Vertex buffer index

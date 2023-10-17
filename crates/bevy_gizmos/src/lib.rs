@@ -52,7 +52,7 @@ use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
         BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
         VertexFormat, VertexStepMode,
@@ -425,10 +425,7 @@ fn prepare_line_gizmo_bind_group(
             bindgroup: render_device.create_bind_group(
                 "LineGizmoUniform bindgroup",
                 &line_gizmo_uniform_layout.layout,
-                &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
+                &BindGroupEntries::single(binding),
             ),
         });
     }
