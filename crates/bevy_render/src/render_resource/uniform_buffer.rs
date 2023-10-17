@@ -147,7 +147,7 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
         self.buffer()
             .expect("Failed to get buffer")
             .as_entire_buffer_binding()
-            .into_binding(),
+            .into_binding()
     }
 }
 
