@@ -23,7 +23,7 @@ fn help() {
     println!("  q: Quit the app.");
     println!("  f: Set speed to fast, 2x");
     println!("  n: Set speed to normal, 1x");
-    println!("  n: Set speed to slow, 0.5x");
+    println!("  s: Set speed to slow, 0.5x");
     println!("  p: Pause");
     println!("  u: Unpause");
 }
