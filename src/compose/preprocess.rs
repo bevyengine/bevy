@@ -273,10 +273,12 @@ impl Preprocessor {
                         final_string.extend(std::iter::repeat(" ").take(line.len()));
                         offset += line.len() + 1;
 
+                        // PERF: Ideally we don't do multiple `match_indices` passes over `line`
+                        // in addition to the final pass for the import parse
                         open_count += line.match_indices('{').count();
                         open_count = open_count.saturating_sub(line.match_indices('}').count());
 
-                        // TODO: it's bad that we allocate here. ideally we would use something like
+                        // PERF: it's bad that we allocate here. ideally we would use something like
                         //     let import_lines = &shader_str[initial_offset..offset]
                         // but we need the comments removed, and the iterator approach doesn't make that easy
                         import_lines.push_str(&line);
@@ -410,10 +412,12 @@ impl Preprocessor {
                 let initial_offset = offset;
 
                 loop {
+                    // PERF: Ideally we don't do multiple `match_indices` passes over `line`
+                    // in addition to the final pass for the import parse
                     open_count += line.match_indices('{').count();
                     open_count = open_count.saturating_sub(line.match_indices('}').count());
 
-                    // TODO: it's bad that we allocate here. ideally we would use something like
+                    // PERF: it's bad that we allocate here. ideally we would use something like
                     //     let import_lines = &shader_str[initial_offset..offset]
                     // but we need the comments removed, and the iterator approach doesn't make that easy
                     import_lines.push_str(&line);
