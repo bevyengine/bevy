@@ -8,15 +8,16 @@ repository = "https://github.com/bevyengine/naga_oil/"
 readme = "README.md"
 
 [features]
-default = ["test_shader"]
+default = ["test_shader", "glsl"]
 # enable tests that need a graphical card
 test_shader = []
-prune = []
+glsl = ["naga/glsl-in", "naga/glsl-out"]
 override_any = []
+prune = []
 allow_deprecated = []
 
 [dependencies]
-naga = { version = "0.13", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "clone", "span"] }
+naga = { version = "0.13", features = ["wgsl-in", "wgsl-out", "clone", "span"] }
 tracing = "0.1"
 regex = "1.8"
 regex-syntax = "0.7"

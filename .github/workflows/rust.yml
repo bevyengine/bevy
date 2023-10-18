@@ -10,7 +10,9 @@ jobs:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
       - name: Check
-        run: cargo check
+        run: |
+          cargo check
+          cargo check --no-default-features
 
   check-wasm:
     name: Check (Wasm)
@@ -21,7 +23,9 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - name: Check wasm
-        run: cargo check --target wasm32-unknown-unknown
+        run: |
+          cargo check --target wasm32-unknown-unknown
+          cargo check --target wasm32-unknown-unknown --no-default-features
 
   test-windows:
     name: Test Suite (Windows)
