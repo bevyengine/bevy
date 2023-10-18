@@ -736,7 +736,7 @@ impl App {
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type_data<
-        T: bevy_reflect::Reflect + 'static,
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
         D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
     >(
         &mut self,
@@ -869,7 +869,7 @@ impl App {
     }
 
     /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
-    /// ignores systems that are ambiguious on [`Component`] T.
+    /// ignores systems that are ambiguous on [`Component`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
     /// [corresponding method](World::allow_ambiguous_component) on World
@@ -907,7 +907,7 @@ impl App {
     }
 
     /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
-    /// ignores systems that are ambiguious on [`Resource`] T.
+    /// ignores systems that are ambiguous on [`Resource`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
     /// [corresponding method](World::allow_ambiguous_resource) on World

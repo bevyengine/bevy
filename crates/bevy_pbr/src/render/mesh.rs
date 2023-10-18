@@ -8,7 +8,8 @@ use crate::{
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -37,8 +38,8 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
-        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImageMsaa, GpuImage, Image,
+        ImageSampler, TextureFormatPixelInfo,
     },
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -61,7 +62,7 @@ use super::skin::SkinIndices;
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-pub const MESH_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
+pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
 pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
 pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
@@ -73,12 +74,7 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(
-            app,
-            MESH_VERTEX_OUTPUT,
-            "mesh_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
+        load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             MESH_VIEW_TYPES_HANDLE,
@@ -137,6 +133,8 @@ impl Plugin for MeshRenderPlugin {
                             batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
+                            batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
                         )
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
@@ -513,7 +511,7 @@ impl FromWorld for MeshPipeline {
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [17, 18, 19],
+                    [17, 18, 19, 20],
                     multisampled,
                 ));
             }
@@ -637,14 +635,15 @@ bitflags::bitflags! {
         const DEBAND_DITHER                     = (1 << 2);
         const DEPTH_PREPASS                     = (1 << 3);
         const NORMAL_PREPASS                    = (1 << 4);
-        const MOTION_VECTOR_PREPASS             = (1 << 5);
-        const MAY_DISCARD                       = (1 << 6); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const DEFERRED_PREPASS                  = (1 << 5);
+        const MOTION_VECTOR_PREPASS             = (1 << 6);
+        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = (1 << 7);
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 8);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 9);
-        const TAA                               = (1 << 10);
-        const MORPH_TARGETS                     = (1 << 11);
+        const ENVIRONMENT_MAP                   = (1 << 8);
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
+        const TAA                               = (1 << 11);
+        const MORPH_TARGETS                     = (1 << 12);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -773,6 +772,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
+        // Let the shader code know that it's running in a mesh pipeline.
+        shader_defs.push("MESH_PIPELINE".into());
+
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
@@ -862,7 +864,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_write_enabled = false;
         } else {
             label = "opaque_mesh_pipeline".into();
-            blend = Some(BlendState::REPLACE);
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
+            blend = None;
             // For the opaque and alpha mask passes, fragments that are closer will replace
             // the current fragment value in the output and the depth is written to the
             // depth buffer
@@ -870,9 +873,28 @@ impl SpecializedMeshPipeline for MeshPipeline {
             is_opaque = true;
         }
 
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+            shader_defs.push("NORMAL_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+            shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+            shader_defs.push("MOTION_VECTOR_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+            shader_defs.push("DEFERRED_PREPASS".into());
+        }
+
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
+
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
@@ -978,7 +1000,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -1090,10 +1112,9 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&EnvironmentMapLight>,
         &Tonemapping,
     )>,
-    (images, mut fallback_images, mut fallback_depths, fallback_cubemap): (
+    (images, mut fallback_images, fallback_cubemap): (
         Res<RenderAssets<Image>>,
-        FallbackImagesMsaa,
-        FallbackImagesDepth,
+        FallbackImageMsaa,
         Res<FallbackImageCubemap>,
     ),
     msaa: Res<Msaa>,
@@ -1124,7 +1145,7 @@ pub fn prepare_mesh_view_bind_groups(
         ) in &views
         {
             let fallback_ssao = fallback_images
-                .image_for_samplecount(1)
+                .image_for_samplecount(1, TextureFormat::bevy_default())
                 .texture_view
                 .clone();
 
@@ -1205,28 +1226,31 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
             entries.extend_from_slice(&tonemapping_luts);
 
+            let label = Some("mesh_view_bind_group");
+
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
-                entries.extend_from_slice(&prepass::get_bindings(
-                    prepass_textures,
-                    &mut fallback_images,
-                    &mut fallback_depths,
-                    &msaa,
-                    [17, 18, 19],
-                ));
+                let prepass_bindings =
+                    prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
+                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
+                commands.entity(entity).insert(MeshViewBindGroup {
+                    value: render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &entries,
+                        label,
+                        layout,
+                    }),
+                });
+            } else {
+                commands.entity(entity).insert(MeshViewBindGroup {
+                    value: render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &entries,
+                        label,
+                        layout,
+                    }),
+                });
             }
-
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &entries,
-                label: Some("mesh_view_bind_group"),
-                layout,
-            });
-
-            commands.entity(entity).insert(MeshViewBindGroup {
-                value: view_bind_group,
-            });
         }
     }
 }

@@ -1,0 +1,13 @@
+diff --git a/crates/bevy_window/src/window.rs b/crates/bevy_window/src/window.rs
+index 10bdd8fe8..dda272569 100644
+--- a/crates/bevy_window/src/window.rs
++++ b/crates/bevy_window/src/window.rs
+@@ -232,7 +232,7 @@ impl Default for Window {
+             cursor: Default::default(),
+             present_mode: Default::default(),
+             mode: Default::default(),
+-            position: Default::default(),
++            position: WindowPosition::Centered(MonitorSelection::Primary),
+             resolution: Default::default(),
+             internal: Default::default(),
+             composite_alpha_mode: Default::default(),
