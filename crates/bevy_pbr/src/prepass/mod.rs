@@ -378,6 +378,11 @@ where
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
+        // Let the shader code know that it's running in a prepass pipeline.
+        // (PBR code will use this to detect that it's running in deferred mode,
+        // since that's the only time it gets called from a prepass pipeline.)
+        shader_defs.push("PREPASS_PIPELINE".into());
+
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.insert(1, self.material_layout.clone());
@@ -886,18 +891,26 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    mut views: Query<(
-        &ExtractedView,
-        &VisibleEntities,
-        &mut RenderPhase<Opaque3dPrepass>,
-        &mut RenderPhase<AlphaMask3dPrepass>,
-        Option<&mut RenderPhase<Opaque3dDeferred>>,
-        Option<&mut RenderPhase<AlphaMask3dDeferred>>,
-        Option<&DepthPrepass>,
-        Option<&NormalPrepass>,
-        Option<&MotionVectorPrepass>,
-        Option<&DeferredPrepass>,
-    )>,
+    mut views: Query<
+        (
+            &ExtractedView,
+            &VisibleEntities,
+            Option<&mut RenderPhase<Opaque3dPrepass>>,
+            Option<&mut RenderPhase<AlphaMask3dPrepass>>,
+            Option<&mut RenderPhase<Opaque3dDeferred>>,
+            Option<&mut RenderPhase<AlphaMask3dDeferred>>,
+            Option<&DepthPrepass>,
+            Option<&NormalPrepass>,
+            Option<&MotionVectorPrepass>,
+            Option<&DeferredPrepass>,
+        ),
+        Or<(
+            With<RenderPhase<Opaque3dPrepass>>,
+            With<RenderPhase<AlphaMask3dPrepass>>,
+            With<RenderPhase<Opaque3dDeferred>>,
+            With<RenderPhase<AlphaMask3dDeferred>>,
+        )>,
+    >,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1028,7 +1041,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 dynamic_offset: None,
                             });
                     } else {
-                        opaque_phase.add(Opaque3dPrepass {
+                        opaque_phase.as_mut().unwrap().add(Opaque3dPrepass {
                             entity: *visible_entity,
                             draw_function: opaque_draw_prepass,
                             pipeline_id,
@@ -1052,7 +1065,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 dynamic_offset: None,
                             });
                     } else {
-                        alpha_mask_phase.add(AlphaMask3dPrepass {
+                        alpha_mask_phase.as_mut().unwrap().add(AlphaMask3dPrepass {
                             entity: *visible_entity,
                             draw_function: alpha_mask_draw_prepass,
                             pipeline_id,

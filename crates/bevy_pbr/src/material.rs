@@ -10,7 +10,7 @@ use bevy_core_pipeline::{
         AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
         Transparent3d,
     },
-    prepass::{DeferredPrepass, NormalPrepass},
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -148,12 +148,18 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
     /// will be used.
+    ///
+    /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
+    /// required for shadow mapping.
     fn prepass_vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the default prepass fragment shader
     /// will be used.
+    ///
+    /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
+    /// required for shadow mapping.
     #[allow(unused_variables)]
     fn prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -304,7 +310,7 @@ pub struct MaterialPipeline<M: Material> {
     pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
-    marker: PhantomData<M>,
+    pub marker: PhantomData<M>,
 }
 
 impl<M: Material> Clone for MaterialPipeline<M> {
@@ -477,10 +483,14 @@ pub fn queue_material_meshes<M: Material>(
         Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
-        Option<&NormalPrepass>,
-        Option<&TemporalJitter>,
+        (
+            Has<NormalPrepass>,
+            Has<DepthPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
+        ),
         Option<&Camera3d>,
-        Option<&DeferredPrepass>,
+        Option<&TemporalJitter>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
@@ -497,10 +507,9 @@ pub fn queue_material_meshes<M: Material>(
         environment_map,
         shadow_filter_method,
         ssao,
-        normal_prepass,
-        temporal_jitter,
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         camera_3d,
-        deferred_prepass,
+        temporal_jitter,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transmissive_phase,
@@ -515,7 +524,19 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
-        if deferred_prepass.is_some() {
+        if normal_prepass {
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
@@ -581,24 +602,12 @@ pub fn queue_material_meshes<M: Material>(
 
             let mut mesh_key = view_key;
 
-            if normal_prepass.is_some()
-                && mesh_key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS)
-                    == MeshPipelineKey::BLEND_OPAQUE
-                && !material.properties.reads_view_transmission_texture
-            {
-                mesh_key |= MeshPipelineKey::NORMAL_PREPASS;
-            }
-
             mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
             if mesh.morph_targets.is_some() {
                 mesh_key |= MeshPipelineKey::MORPH_TARGETS;
             }
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
-
-            if deferred_prepass.is_some() && !forward {
-                mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
-            }
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
@@ -744,7 +753,7 @@ pub struct MaterialProperties {
 
 /// Data prepared for a [`Material`] instance.
 pub struct PreparedMaterial<T: Material> {
-    pub bindings: Vec<OwnedBindingResource>,
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub key: T::Data,
     pub properties: MaterialProperties,

@@ -1412,6 +1412,16 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "time"
+path = "examples/ecs/time.rs"
+
+[package.metadata.example.time]
+name = "Time handling"
+description = "Explains how Time is handled in ECS"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
 doc-scrape-examples = true
@@ -1720,6 +1730,16 @@ doc-scrape-examples = true
 [package.metadata.example.shader_material]
 name = "Material"
 description = "A shader and a material that uses it"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "extended_material"
+path = "examples/shader/extended_material.rs"
+
+[package.metadata.example.extended_material]
+name = "Extended Material"
+description = "A custom shader that builds on the standard material"
 category = "Shaders"
 wasm = true
 

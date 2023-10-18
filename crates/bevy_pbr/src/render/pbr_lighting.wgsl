@@ -413,7 +413,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // Calculate final offset position, with blur and spiral offset
         let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_checkboard) * 0.1);
 
-#ifndef DEPTH_PREPASS
+#ifdef DEPTH_PREPASS
 #ifndef WEBGL2
         // Use depth prepass data to reject values that are in front of the current fragment
         if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
