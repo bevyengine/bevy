@@ -54,9 +54,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
                             meta.span(),
                             "#[resource(auto_init)] may only be specified once per type.",
                         ));
-                    } else {
-                        auto_init = true;
                     }
+                    auto_init = true;
                 }
             }
             Ok(())
