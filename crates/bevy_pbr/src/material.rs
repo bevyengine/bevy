@@ -297,7 +297,7 @@ pub struct MaterialPipeline<M: Material> {
     pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
-    marker: PhantomData<M>,
+    pub marker: PhantomData<M>,
 }
 
 impl<M: Material> Clone for MaterialPipeline<M> {
@@ -693,7 +693,7 @@ pub struct MaterialProperties {
 
 /// Data prepared for a [`Material`] instance.
 pub struct PreparedMaterial<T: Material> {
-    pub bindings: Vec<OwnedBindingResource>,
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub key: T::Data,
     pub properties: MaterialProperties,
