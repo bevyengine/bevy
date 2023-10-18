@@ -1,4 +1,10 @@
+//! Systems and type definitions for gamepad handling in Bevy.
+//!
+//! This crate is built on top of [GilRs](gilrs), a library
+//! that handles abstracting over platform-specific gamepad APIs.
+
 #![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
 
 mod converter;
 mod gilrs_system;
@@ -12,6 +18,7 @@ use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 
+/// Plugin that provides gamepad handling to an [`App`].
 #[derive(Default)]
 pub struct GilrsPlugin;
 

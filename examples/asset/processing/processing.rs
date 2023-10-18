@@ -2,28 +2,21 @@
 
 use bevy::{
     asset::{
-        io::{AssetProviders, Reader, Writer},
+        embedded_asset,
+        io::{Reader, Writer},
         processor::LoadAndSave,
         saver::{AssetSaver, SavedAsset},
         AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
     },
     prelude::*,
     reflect::TypePath,
-    utils::BoxedFuture,
+    utils::{thiserror, BoxedFuture},
 };
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 fn main() {
     App::new()
-        .insert_resource(
-            // This is just overriding the default paths to scope this to the correct example folder
-            // You can generally skip this in your own projects
-            AssetProviders::default()
-                .with_default_file_source("examples/asset/processing/assets".to_string())
-                .with_default_file_destination(
-                    "examples/asset/processing/imported_assets".to_string(),
-                ),
-        )
         // Enabling `processed_dev` will configure the AssetPlugin to use asset processing.
         // This will run the AssetProcessor in the background, which will listen for changes to
         // the `assets` folder, run them through configured asset processors, and write the results
@@ -31,9 +24,18 @@ fn main() {
         //
         // The AssetProcessor will create `.meta` files automatically for assets in the `assets` folder,
         // which can then be used to configure how the asset will be processed.
-        .add_plugins((DefaultPlugins.set(AssetPlugin::processed_dev()), TextPlugin))
-        // This is what a deployed app should use
-        // .add_plugins((DefaultPlugins.set(AssetPlugin::processed()), TextPlugin))
+        .add_plugins((
+            DefaultPlugins.set(AssetPlugin {
+                // This is just overriding the default paths to scope this to the correct example folder
+                // You can generally skip this in your own projects
+                mode: AssetMode::ProcessedDev,
+                file_path: "examples/asset/processing/assets".to_string(),
+                processed_file_path: "examples/asset/processing/imported_assets/Default"
+                    .to_string(),
+                ..default()
+            }),
+            TextPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, print_text)
         .run();
@@ -50,6 +52,7 @@ pub struct TextPlugin;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
+        embedded_asset!(app, "examples/asset/processing/", "e.txt");
         app.init_asset::<CoolText>()
             .init_asset::<Text>()
             .register_asset_loader(CoolTextLoader)
@@ -75,12 +78,13 @@ struct TextSettings {
 impl AssetLoader for TextLoader {
     type Asset = Text;
     type Settings = TextSettings;
+    type Error = std::io::Error;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         settings: &'a TextSettings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Text, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Text, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -115,17 +119,29 @@ pub struct CoolText {
 #[derive(Default)]
 struct CoolTextLoader;
 
+#[derive(Debug, Error)]
+enum CoolTextLoaderError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    RonSpannedError(#[from] ron::error::SpannedError),
+    #[error(transparent)]
+    LoadDirectError(#[from] bevy::asset::LoadDirectError),
+}
+
 impl AssetLoader for CoolTextLoader {
     type Asset = CoolText;
 
     type Settings = ();
+
+    type Error = CoolTextLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<CoolText, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<CoolText, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -163,13 +179,14 @@ impl AssetSaver for CoolTextSaver {
     type Asset = CoolText;
     type Settings = CoolTextSaverSettings;
     type OutputLoader = TextLoader;
+    type Error = std::io::Error;
 
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TextSettings, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<TextSettings, Self::Error>> {
         Box::pin(async move {
             let text = format!("{}{}", asset.text.clone(), settings.appended);
             writer.write_all(text.as_bytes()).await?;
@@ -184,6 +201,7 @@ struct TextAssets {
     b: Handle<Text>,
     c: Handle<Text>,
     d: Handle<Text>,
+    e: Handle<Text>,
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
@@ -194,6 +212,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         b: assets.load("foo/b.cool.ron"),
         c: assets.load("foo/c.cool.ron"),
         d: assets.load("d.cool.ron"),
+        e: assets.load("embedded://asset_processing/e.txt"),
     });
 }
 
@@ -205,6 +224,7 @@ fn print_text(handles: Res<TextAssets>, texts: Res<Assets<Text>>) {
     println!("  b: {:?}", texts.get(&handles.b));
     println!("  c: {:?}", texts.get(&handles.c));
     println!("  d: {:?}", texts.get(&handles.d));
+    println!("  e: {:?}", texts.get(&handles.e));
     println!("(You can modify source assets and their .meta files to hot-reload changes!)");
     println!();
 }

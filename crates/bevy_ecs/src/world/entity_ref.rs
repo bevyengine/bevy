@@ -174,7 +174,7 @@ impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     fn from(value: EntityMut<'w>) -> Self {
         // SAFETY:
-        // - `EntityMut` gurantees exclusive access to all of the entity's components.
+        // - `EntityMut` guarantees exclusive access to all of the entity's components.
         unsafe { EntityRef::new(value.0) }
     }
 }
@@ -182,7 +182,7 @@ impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
 impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
     fn from(value: &'a EntityMut<'_>) -> Self {
         // SAFETY:
-        // - `EntityMut` gurantees exclusive access to all of the entity's components.
+        // - `EntityMut` guarantees exclusive access to all of the entity's components.
         // - `&value` ensures there are no mutable accesses.
         unsafe { EntityRef::new(value.0) }
     }

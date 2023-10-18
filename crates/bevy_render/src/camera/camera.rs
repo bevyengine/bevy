@@ -404,7 +404,7 @@ impl CameraRenderGraph {
     }
 }
 
-/// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
+/// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect)]
 pub enum RenderTarget {
@@ -784,7 +784,7 @@ pub fn sort_cameras(
     }
 }
 
-/// A subpixel offset to jitter a perspective camera's fustrum by.
+/// A subpixel offset to jitter a perspective camera's frustum by.
 ///
 /// Useful for temporal rendering techniques.
 ///

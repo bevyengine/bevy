@@ -34,14 +34,14 @@ pub(crate) enum ReflectDerive<'a> {
 /// //                          traits
 /// //        |----------------------------------------|
 /// #[reflect(PartialEq, Serialize, Deserialize, Default)]
-/// //            type_name       generics
+/// //            type_path       generics
 /// //     |-------------------||----------|
 /// struct ThingThatImReflecting<T1, T2, T3> {/* ... */}
 /// ```
 pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
     traits: ReflectTraits,
-    /// The name of this type.
+    /// The path to this type.
     type_path: ReflectTypePath<'a>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
@@ -389,7 +389,7 @@ impl<'a> ReflectMeta<'a> {
         self.traits.from_reflect_attrs()
     }
 
-    /// The name of this struct.
+    /// The path to this type.
     pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
     }
@@ -422,7 +422,7 @@ impl<'a> ReflectStruct<'a> {
 
     /// Access the data about which fields should be ignored during serialization.
     ///
-    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`](crate::utility::members_to_serialization_denylist) function.
+    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`] function.
     #[allow(dead_code)]
     pub fn serialization_denylist(&self) -> &BitSet<u32> {
         &self.serialization_denylist

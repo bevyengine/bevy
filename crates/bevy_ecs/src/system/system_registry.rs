@@ -43,7 +43,7 @@ pub struct SystemId(Entity);
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
-    /// It's possible to register the same systems more than once, they'll be stored seperately.
+    /// It's possible to register the same systems more than once, they'll be stored separately.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.

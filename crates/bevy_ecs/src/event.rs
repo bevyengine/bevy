@@ -103,7 +103,7 @@ struct EventInstance<E: Event> {
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
 ///
-/// [`Events::update_system`] is a system that does this, typically initialized automatically using
+/// [`event_update_system`] is a system that does this, typically initialized automatically using
 /// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 /// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
@@ -249,11 +249,6 @@ impl<E: Event> Events<E> {
         );
 
         iter.map(|e| e.event)
-    }
-
-    /// A system that calls [`Events::update`] once per frame.
-    pub fn update_system(mut events: ResMut<Self>) {
-        events.update();
     }
 
     #[inline]
@@ -752,6 +747,17 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
         self.unread
     }
+}
+
+/// A system that calls [`Events::update`] once per frame.
+pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
+    events.update();
+}
+
+/// A run condition that checks if the event's [`event_update_system`]
+/// needs to run or not.
+pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
+    !events.events_a.is_empty() || !events.events_b.is_empty()
 }
 
 #[cfg(test)]

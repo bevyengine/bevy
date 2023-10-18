@@ -12,7 +12,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::Instrument;
+use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
 use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
 
@@ -39,6 +39,8 @@ pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     pub(crate) matched_archetype_ids: Vec<ArchetypeId>,
     pub(crate) fetch_state: Q::State,
     pub(crate) filter_state: F::State,
+    #[cfg(feature = "trace")]
+    par_iter_span: Span,
 }
 
 impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> {
@@ -125,6 +127,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             archetype_component_access: Default::default(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                query = std::any::type_name::<Q>(),
+                filter = std::any::type_name::<F>(),
+            ),
         };
         state.update_archetypes(world);
         state
@@ -208,12 +216,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
         let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
+        let old_generation =
+            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
-        for archetype_index in archetype_index_range {
-            self.new_archetype(&archetypes[ArchetypeId::new(archetype_index)]);
+        for archetype in &archetypes[old_generation..] {
+            self.new_archetype(archetype);
         }
     }
 
@@ -330,10 +337,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
         self.update_archetypes(world);
 
-        // SAFETY: update_archetypes validates the `World` matches
+        // SAFETY:
+        // - We have read-only access to the entire world.
+        // - `update_archetypes` validates that the `World` matches.
         unsafe {
             self.get_many_read_only_manual(
-                world,
+                world.as_unsafe_world_cell_readonly(),
                 entities,
                 world.last_change_tick(),
                 world.read_change_tick(),
@@ -625,11 +634,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Safety
     ///
-    /// This must be called on the same `World` that the `Query` was generated from:
+    /// * `world` must have permission to read all of the components returned from this call.
+    /// No mutable references may coexist with any of the returned references.
+    /// * This must be called on the same `World` that the `Query` was generated from:
     /// use `QueryState::validate_world` to verify this.
     pub(crate) unsafe fn get_many_read_only_manual<'w, const N: usize>(
         &self,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         entities: [Entity; N],
         last_run: Tick,
         this_run: Tick,
@@ -639,12 +650,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         for (value, entity) in std::iter::zip(&mut values, entities) {
             // SAFETY: fetch is read-only
             // and world must be validated
-            let item = self.as_readonly().get_unchecked_manual(
-                world.as_unsafe_world_cell_readonly(),
-                entity,
-                last_run,
-                this_run,
-            )?;
+            let item = self
+                .as_readonly()
+                .get_unchecked_manual(world, entity, last_run, this_run)?;
             *value = MaybeUninit::new(item);
         }
 
@@ -1205,7 +1213,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                     while offset < table.entity_count() {
                         let func = func.clone();
                         let len = batch_size.min(table.entity_count() - offset);
-                        let task = async move {
+                        scope.spawn(async move {
+                            #[cfg(feature = "trace")]
+                            let _span = self.par_iter_span.enter();
                             let mut fetch =
                                 Q::init_fetch(world, &self.fetch_state, last_run, this_run);
                             let mut filter =
@@ -1223,17 +1233,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 }
                                 func(Q::fetch(&mut fetch, *entity, row));
                             }
-                        };
-                        #[cfg(feature = "trace")]
-                        let span = bevy_utils::tracing::info_span!(
-                            "par_for_each",
-                            query = std::any::type_name::<Q>(),
-                            filter = std::any::type_name::<F>(),
-                            count = len,
-                        );
-                        #[cfg(feature = "trace")]
-                        let task = task.instrument(span);
-                        scope.spawn(task);
+                        });
                         offset += batch_size;
                     }
                 }
@@ -1249,7 +1249,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                     while offset < archetype.len() {
                         let func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
-                        let task = async move {
+                        scope.spawn(async move {
+                            #[cfg(feature = "trace")]
+                            let _span = self.par_iter_span.enter();
                             let mut fetch =
                                 Q::init_fetch(world, &self.fetch_state, last_run, this_run);
                             let mut filter =
@@ -1277,19 +1279,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                     archetype_entity.table_row(),
                                 ));
                             }
-                        };
+                        });
 
-                        #[cfg(feature = "trace")]
-                        let span = bevy_utils::tracing::info_span!(
-                            "par_for_each",
-                            query = std::any::type_name::<Q>(),
-                            filter = std::any::type_name::<F>(),
-                            count = len,
-                        );
-                        #[cfg(feature = "trace")]
-                        let task = task.instrument(span);
-
-                        scope.spawn(task);
                         offset += batch_size;
                     }
                 }

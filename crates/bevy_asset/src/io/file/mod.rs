@@ -1,11 +1,12 @@
-#[cfg(feature = "filesystem_watcher")]
+#[cfg(feature = "file_watcher")]
 mod file_watcher;
+#[cfg(feature = "file_watcher")]
+pub use file_watcher::*;
 
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, AssetWriter, AssetWriterError,
-    PathStream, Reader, Writer,
+    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
+    Reader, Writer,
 };
-use anyhow::Result;
 use async_fs::{read_dir, File};
 use bevy_utils::BoxedFuture;
 use futures_lite::StreamExt;
@@ -164,23 +165,6 @@ impl AssetReader for FileAssetReader {
                 .map_err(|_e| AssetReaderError::NotFound(path.to_owned()))?;
             Ok(metadata.file_type().is_dir())
         })
-    }
-
-    fn watch_for_changes(
-        &self,
-        _event_sender: crossbeam_channel::Sender<super::AssetSourceEvent>,
-    ) -> Option<Box<dyn AssetWatcher>> {
-        #[cfg(feature = "filesystem_watcher")]
-        return Some(Box::new(
-            file_watcher::FileWatcher::new(
-                self.root_path.clone(),
-                _event_sender,
-                std::time::Duration::from_millis(300),
-            )
-            .unwrap(),
-        ));
-        #[cfg(not(feature = "filesystem_watcher"))]
-        return None;
     }
 }
 
