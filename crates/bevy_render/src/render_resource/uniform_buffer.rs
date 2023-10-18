@@ -265,8 +265,15 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         device: &RenderDevice,
         queue: &'a RenderQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        let alignment =
-            AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64);
+        let alignment = if cfg!(ios_simulator) {
+            // On iOS simulator on silicon macs, metal validation check that the host OS alignment
+            // is respected, but the device reports the correct value for iOS, which is smaller.
+            // Use the larger value.
+            AlignmentValue::new(256)
+        } else {
+            AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64)
+        };
+
         let mut capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = alignment
             .round_up(T::min_size().get())
