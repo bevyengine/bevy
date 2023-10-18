@@ -46,8 +46,8 @@ pub fn parse_imports<'a>(
 
                 // support deprecated #import mod item
                 if let Some(Token::Identifier(..)) = tokens.peek() {
-                    #[cfg(feature = "warn_deprecated")]
-                    warn!("item list imports are deprecated, please use `rust::style::item_imports;`\n| {}", input);
+                    #[cfg(not(feature = "allow_deprecated"))]
+                    warn!("item list imports are deprecated, please use `rust::style::item_imports; (or use feature `allow_deprecated`)`\n| {}", input);
 
                     is_deprecated_itemlist = true;
                     stack.push(format!("{}::", current));
