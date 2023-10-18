@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{input::mouse::MouseMotion, prelude::*};
+use bevy::{input::mouse::MouseMotion, pbr::ShadowFilteringMethod, prelude::*};
 
 fn main() {
     App::new()
@@ -11,6 +11,7 @@ fn main() {
         .add_systems(
             Update,
             (
+                cycle_filter_methods,
                 adjust_point_light_biases,
                 toggle_light,
                 adjust_directional_light_biases,
@@ -82,6 +83,7 @@ fn setup(
             ..default()
         },
         CameraController::default(),
+        ShadowFilteringMethod::Hardware2x2,
     ));
 
     for z_i32 in (-spawn_plane_depth as i32..=0).step_by(2) {
@@ -115,6 +117,9 @@ fn setup(
             ),
             TextSection::new("DirectionalLight", style.clone()),
             TextSection::new("]\n", style.clone()),
+            TextSection::new("F     - switch between filter methods [", style.clone()),
+            TextSection::new("Hardware2x2", style.clone()),
+            TextSection::new("]\n", style.clone()),
             TextSection::new("1/2   - change point light depth bias [", style.clone()),
             TextSection::new("0.00", style.clone()),
             TextSection::new("]\n", style.clone()),
@@ -129,7 +134,7 @@ fn setup(
                 style.clone(),
             ),
             TextSection::new("0.0", style.clone()),
-            TextSection::new("]", style),
+            TextSection::new("]\n", style.clone()),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -166,6 +171,33 @@ fn toggle_light(
     }
 }
 
+fn cycle_filter_methods(
+    input: Res<Input<KeyCode>>,
+    mut filter_methods: Query<&mut ShadowFilteringMethod>,
+    mut example_text: Query<&mut Text>,
+) {
+    if input.just_pressed(KeyCode::F) {
+        for mut filter_method in &mut filter_methods {
+            let filter_method_string;
+            *filter_method = match *filter_method {
+                ShadowFilteringMethod::Hardware2x2 => {
+                    filter_method_string = "Castano13".to_string();
+                    ShadowFilteringMethod::Castano13
+                }
+                ShadowFilteringMethod::Castano13 => {
+                    filter_method_string = "Jimenez14".to_string();
+                    ShadowFilteringMethod::Jimenez14
+                }
+                ShadowFilteringMethod::Jimenez14 => {
+                    filter_method_string = "Hardware2x2".to_string();
+                    ShadowFilteringMethod::Hardware2x2
+                }
+            };
+            example_text.single_mut().sections[7].value = filter_method_string;
+        }
+    }
+}
+
 fn adjust_point_light_biases(
     input: Res<Input<KeyCode>>,
     mut query: Query<&mut PointLight>,
@@ -176,20 +208,22 @@ fn adjust_point_light_biases(
     for mut light in &mut query {
         if input.just_pressed(KeyCode::Key1) {
             light.shadow_depth_bias -= depth_bias_step_size;
-            example_text.single_mut().sections[7].value = format!("{:.2}", light.shadow_depth_bias);
+            example_text.single_mut().sections[10].value =
+                format!("{:.2}", light.shadow_depth_bias);
         }
         if input.just_pressed(KeyCode::Key2) {
             light.shadow_depth_bias += depth_bias_step_size;
-            example_text.single_mut().sections[7].value = format!("{:.2}", light.shadow_depth_bias);
+            example_text.single_mut().sections[10].value =
+                format!("{:.2}", light.shadow_depth_bias);
         }
         if input.just_pressed(KeyCode::Key3) {
             light.shadow_normal_bias -= normal_bias_step_size;
-            example_text.single_mut().sections[10].value =
+            example_text.single_mut().sections[13].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
         if input.just_pressed(KeyCode::Key4) {
             light.shadow_normal_bias += normal_bias_step_size;
-            example_text.single_mut().sections[10].value =
+            example_text.single_mut().sections[13].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
     }
@@ -205,22 +239,22 @@ fn adjust_directional_light_biases(
     for mut light in &mut query {
         if input.just_pressed(KeyCode::Key5) {
             light.shadow_depth_bias -= depth_bias_step_size;
-            example_text.single_mut().sections[13].value =
+            example_text.single_mut().sections[16].value =
                 format!("{:.2}", light.shadow_depth_bias);
         }
         if input.just_pressed(KeyCode::Key6) {
             light.shadow_depth_bias += depth_bias_step_size;
-            example_text.single_mut().sections[13].value =
+            example_text.single_mut().sections[16].value =
                 format!("{:.2}", light.shadow_depth_bias);
         }
         if input.just_pressed(KeyCode::Key7) {
             light.shadow_normal_bias -= normal_bias_step_size;
-            example_text.single_mut().sections[16].value =
+            example_text.single_mut().sections[19].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
         if input.just_pressed(KeyCode::Key8) {
             light.shadow_normal_bias += normal_bias_step_size;
-            example_text.single_mut().sections[16].value =
+            example_text.single_mut().sections[19].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
     }
