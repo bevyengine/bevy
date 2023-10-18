@@ -240,7 +240,7 @@ Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
 
-Also, given the fact that WebGPU depends on unstable APIs you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
+WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
 
 ```sh
 RUSTFLAGS=--cfg=web_sys_unstable_apis cargo run ...
