@@ -12,6 +12,7 @@ fn main() {
             Update,
             (
                 cycle_filter_methods,
+                adjust_light_position,
                 adjust_point_light_biases,
                 toggle_light,
                 adjust_directional_light_biases,
@@ -20,6 +21,9 @@ fn main() {
         )
         .run();
 }
+
+#[derive(Component)]
+struct Lights;
 
 /// set up a 3D scene to test shadow biases and perspective projections
 fn setup(
@@ -44,36 +48,39 @@ fn setup(
         .unwrap(),
     );
 
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 0.0),
-        point_light: PointLight {
-            intensity: 0.0,
-            range: spawn_plane_depth,
-            color: Color::WHITE,
-            shadow_depth_bias: 0.0,
-            shadow_normal_bias: 0.0,
-            shadows_enabled: true,
-            ..default()
-        },
-        ..default()
-    });
-
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 100000.0,
-            shadow_depth_bias: 0.0,
-            shadow_normal_bias: 0.0,
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI / 2.,
-            -PI / 4.,
-        )),
-        ..default()
-    });
+    let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
+    commands
+        .spawn((
+            SpatialBundle {
+                transform: light_transform,
+                ..default()
+            },
+            Lights,
+        ))
+        .with_children(|builder| {
+            builder.spawn(PointLightBundle {
+                point_light: PointLight {
+                    intensity: 0.0,
+                    range: spawn_plane_depth,
+                    color: Color::WHITE,
+                    shadow_depth_bias: 0.0,
+                    shadow_normal_bias: 0.0,
+                    shadows_enabled: true,
+                    ..default()
+                },
+                ..default()
+            });
+            builder.spawn(DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    illuminance: 100000.0,
+                    shadow_depth_bias: 0.0,
+                    shadow_normal_bias: 0.0,
+                    shadows_enabled: true,
+                    ..default()
+                },
+                ..default()
+            });
+        });
 
     // camera
     commands.spawn((
@@ -111,6 +118,7 @@ fn setup(
             TextSection::new("Controls:\n", style.clone()),
             TextSection::new("WSAD  - forward/back/strafe left/right\n", style.clone()),
             TextSection::new("E / Q - up / down\n", style.clone()),
+            TextSection::new("R / Z - reset biases to default / zero\n", style.clone()),
             TextSection::new(
                 "L     - switch between directional and point lights [",
                 style.clone(),
@@ -135,6 +143,23 @@ fn setup(
             ),
             TextSection::new("0.0", style.clone()),
             TextSection::new("]\n", style.clone()),
+            TextSection::new(
+                "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) [",
+                style.clone(),
+            ),
+            TextSection::new(
+                format!("{:.1},", light_transform.translation.x),
+                style.clone(),
+            ),
+            TextSection::new(
+                format!(" {:.1},", light_transform.translation.y),
+                style.clone(),
+            ),
+            TextSection::new(
+                format!(" {:.1}", light_transform.translation.z),
+                style.clone(),
+            ),
+            TextSection::new("]\n", style.clone()),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -154,7 +179,7 @@ fn toggle_light(
     if input.just_pressed(KeyCode::L) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
-                example_text.single_mut().sections[4].value = "PointLight".to_string();
+                example_text.single_mut().sections[5].value = "PointLight".to_string();
                 100000000.0
             } else {
                 0.0
@@ -162,11 +187,47 @@ fn toggle_light(
         }
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
-                example_text.single_mut().sections[4].value = "DirectionalLight".to_string();
+                example_text.single_mut().sections[5].value = "DirectionalLight".to_string();
                 100000.0
             } else {
                 0.0
             };
+        }
+    }
+}
+
+fn adjust_light_position(
+    input: Res<Input<KeyCode>>,
+    mut lights: Query<&mut Transform, With<Lights>>,
+    mut example_text: Query<&mut Text>,
+) {
+    let mut offset = Vec3::ZERO;
+    if input.just_pressed(KeyCode::Left) {
+        offset.x -= 1.0;
+    }
+    if input.just_pressed(KeyCode::Right) {
+        offset.x += 1.0;
+    }
+    if input.just_pressed(KeyCode::Up) {
+        offset.z -= 1.0;
+    }
+    if input.just_pressed(KeyCode::Down) {
+        offset.z += 1.0;
+    }
+    if input.just_pressed(KeyCode::PageDown) {
+        offset.y -= 1.0;
+    }
+    if input.just_pressed(KeyCode::PageUp) {
+        offset.y += 1.0;
+    }
+    if offset != Vec3::ZERO {
+        let mut example_text = example_text.single_mut();
+        for mut light in &mut lights {
+            light.translation += offset;
+            light.look_at(Vec3::ZERO, Vec3::Y);
+            example_text.sections[23].value = format!("{:.1},", light.translation.x);
+            example_text.sections[24].value = format!(" {:.1},", light.translation.y);
+            example_text.sections[25].value = format!(" {:.1}", light.translation.z);
         }
     }
 }
@@ -193,7 +254,7 @@ fn cycle_filter_methods(
                     ShadowFilteringMethod::Hardware2x2
                 }
             };
-            example_text.single_mut().sections[7].value = filter_method_string;
+            example_text.single_mut().sections[8].value = filter_method_string;
         }
     }
 }
@@ -208,22 +269,38 @@ fn adjust_point_light_biases(
     for mut light in &mut query {
         if input.just_pressed(KeyCode::Key1) {
             light.shadow_depth_bias -= depth_bias_step_size;
-            example_text.single_mut().sections[10].value =
+            example_text.single_mut().sections[11].value =
                 format!("{:.2}", light.shadow_depth_bias);
         }
         if input.just_pressed(KeyCode::Key2) {
             light.shadow_depth_bias += depth_bias_step_size;
-            example_text.single_mut().sections[10].value =
+            example_text.single_mut().sections[11].value =
                 format!("{:.2}", light.shadow_depth_bias);
         }
         if input.just_pressed(KeyCode::Key3) {
             light.shadow_normal_bias -= normal_bias_step_size;
-            example_text.single_mut().sections[13].value =
+            example_text.single_mut().sections[14].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
         if input.just_pressed(KeyCode::Key4) {
             light.shadow_normal_bias += normal_bias_step_size;
-            example_text.single_mut().sections[13].value =
+            example_text.single_mut().sections[14].value =
+                format!("{:.1}", light.shadow_normal_bias);
+        }
+        if input.just_pressed(KeyCode::R) {
+            light.shadow_depth_bias = PointLight::DEFAULT_SHADOW_DEPTH_BIAS;
+            example_text.single_mut().sections[11].value =
+                format!("{:.2}", light.shadow_depth_bias);
+            light.shadow_normal_bias = PointLight::DEFAULT_SHADOW_NORMAL_BIAS;
+            example_text.single_mut().sections[14].value =
+                format!("{:.1}", light.shadow_normal_bias);
+        }
+        if input.just_pressed(KeyCode::Z) {
+            light.shadow_depth_bias = 0.0;
+            example_text.single_mut().sections[11].value =
+                format!("{:.2}", light.shadow_depth_bias);
+            light.shadow_normal_bias = 0.0;
+            example_text.single_mut().sections[14].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
     }
@@ -239,22 +316,38 @@ fn adjust_directional_light_biases(
     for mut light in &mut query {
         if input.just_pressed(KeyCode::Key5) {
             light.shadow_depth_bias -= depth_bias_step_size;
-            example_text.single_mut().sections[16].value =
+            example_text.single_mut().sections[17].value =
                 format!("{:.2}", light.shadow_depth_bias);
         }
         if input.just_pressed(KeyCode::Key6) {
             light.shadow_depth_bias += depth_bias_step_size;
-            example_text.single_mut().sections[16].value =
+            example_text.single_mut().sections[17].value =
                 format!("{:.2}", light.shadow_depth_bias);
         }
         if input.just_pressed(KeyCode::Key7) {
             light.shadow_normal_bias -= normal_bias_step_size;
-            example_text.single_mut().sections[19].value =
+            example_text.single_mut().sections[20].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
         if input.just_pressed(KeyCode::Key8) {
             light.shadow_normal_bias += normal_bias_step_size;
-            example_text.single_mut().sections[19].value =
+            example_text.single_mut().sections[20].value =
+                format!("{:.1}", light.shadow_normal_bias);
+        }
+        if input.just_pressed(KeyCode::R) {
+            light.shadow_depth_bias = DirectionalLight::DEFAULT_SHADOW_DEPTH_BIAS;
+            example_text.single_mut().sections[17].value =
+                format!("{:.2}", light.shadow_depth_bias);
+            light.shadow_normal_bias = DirectionalLight::DEFAULT_SHADOW_NORMAL_BIAS;
+            example_text.single_mut().sections[20].value =
+                format!("{:.1}", light.shadow_normal_bias);
+        }
+        if input.just_pressed(KeyCode::Z) {
+            light.shadow_depth_bias = 0.0;
+            example_text.single_mut().sections[17].value =
+                format!("{:.2}", light.shadow_depth_bias);
+            light.shadow_normal_bias = 0.0;
+            example_text.single_mut().sections[20].value =
                 format!("{:.1}", light.shadow_normal_bias);
         }
     }
