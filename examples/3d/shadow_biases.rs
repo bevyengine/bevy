@@ -97,7 +97,15 @@ fn setup(
         commands.spawn(PbrBundle {
             mesh: sphere_handle.clone(),
             material: white_handle.clone(),
-            transform: Transform::from_xyz(0.0, spawn_height, z_i32 as f32),
+            transform: Transform::from_xyz(
+                0.0,
+                if z_i32 % 4 == 0 {
+                    spawn_height
+                } else {
+                    sphere_radius
+                },
+                z_i32 as f32,
+            ),
             ..default()
         });
     }
@@ -111,67 +119,71 @@ fn setup(
 
     let style = TextStyle {
         font_size: 20.,
-        color: Color::rgb(1.0, 0.0, 0.5),
         ..default()
     };
-    commands.spawn(
-        TextBundle::from_sections([
-            TextSection::new("Controls:\n", style.clone()),
-            TextSection::new("WSAD  - forward/back/strafe left/right\n", style.clone()),
-            TextSection::new("E / Q - up / down\n", style.clone()),
-            TextSection::new("R / Z - reset biases to default / zero\n", style.clone()),
-            TextSection::new(
-                "L     - switch between directional and point lights [",
-                style.clone(),
-            ),
-            TextSection::new("DirectionalLight", style.clone()),
-            TextSection::new("]\n", style.clone()),
-            TextSection::new(
-                "F     - switch directional light filter methods [",
-                style.clone(),
-            ),
-            TextSection::new("Hardware2x2", style.clone()),
-            TextSection::new("]\n", style.clone()),
-            TextSection::new("1/2   - change point light depth bias [", style.clone()),
-            TextSection::new("0.00", style.clone()),
-            TextSection::new("]\n", style.clone()),
-            TextSection::new("3/4   - change point light normal bias [", style.clone()),
-            TextSection::new("0.0", style.clone()),
-            TextSection::new("]\n", style.clone()),
-            TextSection::new("5/6   - change direction light depth bias [", style.clone()),
-            TextSection::new("0.00", style.clone()),
-            TextSection::new("]\n", style.clone()),
-            TextSection::new(
-                "7/8   - change direction light normal bias [",
-                style.clone(),
-            ),
-            TextSection::new("0.0", style.clone()),
-            TextSection::new("]\n", style.clone()),
-            TextSection::new(
-                "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) [",
-                style.clone(),
-            ),
-            TextSection::new(
-                format!("{:.1},", light_transform.translation.x),
-                style.clone(),
-            ),
-            TextSection::new(
-                format!(" {:.1},", light_transform.translation.y),
-                style.clone(),
-            ),
-            TextSection::new(
-                format!(" {:.1}", light_transform.translation.z),
-                style.clone(),
-            ),
-            TextSection::new("]\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                padding: UiRect::all(Val::Px(5.0)),
+                ..default()
+            },
+            z_index: ZIndex::Global(i32::MAX),
+            background_color: Color::BLACK.with_a(0.75).into(),
             ..default()
-        }),
-    );
+        })
+        .with_children(|c| {
+            c.spawn(TextBundle::from_sections([
+                TextSection::new("Controls:\n", style.clone()),
+                TextSection::new("WSAD  - forward/back/strafe left/right\n", style.clone()),
+                TextSection::new("E / Q - up / down\n", style.clone()),
+                TextSection::new("R / Z - reset biases to default / zero\n", style.clone()),
+                TextSection::new(
+                    "L     - switch between directional and point lights [",
+                    style.clone(),
+                ),
+                TextSection::new("DirectionalLight", style.clone()),
+                TextSection::new("]\n", style.clone()),
+                TextSection::new(
+                    "F     - switch directional light filter methods [",
+                    style.clone(),
+                ),
+                TextSection::new("Hardware2x2", style.clone()),
+                TextSection::new("]\n", style.clone()),
+                TextSection::new("1/2   - change point light depth bias [", style.clone()),
+                TextSection::new("0.00", style.clone()),
+                TextSection::new("]\n", style.clone()),
+                TextSection::new("3/4   - change point light normal bias [", style.clone()),
+                TextSection::new("0.0", style.clone()),
+                TextSection::new("]\n", style.clone()),
+                TextSection::new("5/6   - change direction light depth bias [", style.clone()),
+                TextSection::new("0.00", style.clone()),
+                TextSection::new("]\n", style.clone()),
+                TextSection::new(
+                    "7/8   - change direction light normal bias [",
+                    style.clone(),
+                ),
+                TextSection::new("0.0", style.clone()),
+                TextSection::new("]\n", style.clone()),
+                TextSection::new(
+                    "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) [",
+                    style.clone(),
+                ),
+                TextSection::new(
+                    format!("{:.1},", light_transform.translation.x),
+                    style.clone(),
+                ),
+                TextSection::new(
+                    format!(" {:.1},", light_transform.translation.y),
+                    style.clone(),
+                ),
+                TextSection::new(
+                    format!(" {:.1}", light_transform.translation.z),
+                    style.clone(),
+                ),
+                TextSection::new("]\n", style.clone()),
+            ]));
+        });
 }
 
 fn toggle_light(
