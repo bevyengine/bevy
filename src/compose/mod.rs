@@ -883,7 +883,7 @@ impl Composer {
                                 },
                             }
                         };
-                
+
                         // ensure overrides are applied to virtual functions
                         let raw_module_name = Self::decode(&target_module);
                         let module_set = self.module_sets.get(&raw_module_name);
