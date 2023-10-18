@@ -276,6 +276,9 @@ impl Preprocessor {
                         open_count += line.match_indices('{').count();
                         open_count = open_count.saturating_sub(line.match_indices('}').count());
 
+                        // TODO: it's bad that we allocate here. ideally we would use something like
+                        //     let import_lines = &shader_str[initial_offset..offset]
+                        // but we need the comments removed, and the iterator approach doesn't make that easy
                         import_lines.push_str(&line);
                         import_lines.push('\n');
 
@@ -410,6 +413,9 @@ impl Preprocessor {
                     open_count += line.match_indices('{').count();
                     open_count = open_count.saturating_sub(line.match_indices('}').count());
 
+                    // TODO: it's bad that we allocate here. ideally we would use something like
+                    //     let import_lines = &shader_str[initial_offset..offset]
+                    // but we need the comments removed, and the iterator approach doesn't make that easy
                     import_lines.push_str(&line);
                     import_lines.push('\n');
 
