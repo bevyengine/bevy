@@ -372,17 +372,17 @@ impl_param_set!();
 /// # schedule.add_systems((read_resource_system, write_resource_system).chain());
 /// # schedule.run(&mut world);
 /// ```
-/// 
+///
 /// # Attributes
-/// 
+///
 /// If a resource type is annotated with the `#[resource(auto_init)]` attribute,
 /// then the resource will be given a default value (via the [`FromWorld`] trait) when
 /// any system that accesses the resource via [`Res`] or [`ResMut`] is initialized.
 /// This happens the first time the system or its containing schedule is run.
-/// 
+///
 /// This is meant to be used for resources that are expected to always have a value
 /// -- removing auto-initialized resources may lead to unexpectd behavior.
-/// 
+///
 /// ```
 /// # use bevy_ecs::{system::Resource, world::World, schedule::Schedule, change_detection::ResMut};
 /// # let mut world = World::new();
@@ -390,11 +390,11 @@ impl_param_set!();
 /// #[derive(Resource, Default)]
 /// #[resource(auto_init)]
 /// pub struct Score(u32);
-/// 
+///
 /// fn increment_score(mut score: ResMut<Score>) {
 ///     score.0 += 1;
 /// }
-/// 
+///
 /// // It is not necessary to call `init_resource`, as it will be called
 /// // automatically due to the `#[resource(auto_init)]` attribute.
 /// schedule.add_systems(increment_score);
