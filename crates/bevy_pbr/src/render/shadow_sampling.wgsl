@@ -24,7 +24,7 @@ fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i
 }
 
 // https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
-fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
+fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, receiver_plane_depth_bias: vec2<f32>, array_index: i32) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
     let inv_shadow_map_size = 1.0 / shadow_map_size;
 
@@ -53,17 +53,26 @@ fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, array_
 
     var sum = 0.0;
 
-    sum += uw0 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u0, v0) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u1, v0) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u2, v0) * inv_shadow_map_size), depth, array_index);
+    let sample_offset_u0_v0 = (vec2(u0, v0) * inv_shadow_map_size);
+    sum += uw0 * vw0 * sample_shadow_map_hardware(base_uv + sample_offset_u0_v0, depth + dot(sample_offset_u0_v0, receiver_plane_depth_bias), array_index);
+    let sample_offset_u1_v0 = (vec2(u1, v0) * inv_shadow_map_size);
+    sum += uw1 * vw0 * sample_shadow_map_hardware(base_uv + sample_offset_u1_v0, depth + dot(sample_offset_u1_v0, receiver_plane_depth_bias), array_index);
+    let sample_offset_u2_v0 = (vec2(u2, v0) * inv_shadow_map_size);
+    sum += uw2 * vw0 * sample_shadow_map_hardware(base_uv + sample_offset_u2_v0, depth + dot(sample_offset_u2_v0, receiver_plane_depth_bias), array_index);
 
-    sum += uw0 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u0, v1) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u1, v1) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u2, v1) * inv_shadow_map_size), depth, array_index);
+    let sample_offset_u0_v1 = (vec2(u0, v1) * inv_shadow_map_size);
+    sum += uw0 * vw1 * sample_shadow_map_hardware(base_uv + sample_offset_u0_v1, depth + dot(sample_offset_u0_v1, receiver_plane_depth_bias), array_index);
+    let sample_offset_u1_v1 = (vec2(u1, v1) * inv_shadow_map_size);
+    sum += uw1 * vw1 * sample_shadow_map_hardware(base_uv + sample_offset_u1_v1, depth + dot(sample_offset_u1_v1, receiver_plane_depth_bias), array_index);
+    let sample_offset_u2_v1 = (vec2(u2, v1) * inv_shadow_map_size);
+    sum += uw2 * vw1 * sample_shadow_map_hardware(base_uv + sample_offset_u2_v1, depth + dot(sample_offset_u2_v1, receiver_plane_depth_bias), array_index);
 
-    sum += uw0 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u0, v2) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u1, v2) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u2, v2) * inv_shadow_map_size), depth, array_index);
+    let sample_offset_u0_v2 = (vec2(u0, v2) * inv_shadow_map_size);
+    sum += uw0 * vw2 * sample_shadow_map_hardware(base_uv + sample_offset_u0_v2, depth + dot(sample_offset_u0_v2, receiver_plane_depth_bias), array_index);
+    let sample_offset_u1_v2 = (vec2(u1, v2) * inv_shadow_map_size);
+    sum += uw1 * vw2 * sample_shadow_map_hardware(base_uv + sample_offset_u1_v2, depth + dot(sample_offset_u1_v2, receiver_plane_depth_bias), array_index);
+    let sample_offset_u2_v2 = (vec2(u2, v2) * inv_shadow_map_size);
+    sum += uw2 * vw2 * sample_shadow_map_hardware(base_uv + sample_offset_u2_v2, depth + dot(sample_offset_u2_v2, receiver_plane_depth_bias), array_index);
 
     return sum * (1.0 / 144.0);
 }
@@ -79,7 +88,7 @@ fn map(min1: f32, max1: f32, min2: f32, max2: f32, value: f32) -> f32 {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
 
-fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_index: i32, texel_size: f32) -> f32 {
+fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, receiver_plane_depth_bias: vec2<f32>, array_index: i32, texel_size: f32) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
 
     let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size);
@@ -104,22 +113,85 @@ fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_
     let sample_offset8 = (rotation_matrix * vec2( 0.1250,  0.0000)) * uv_offset_scale;
 
     var sum = 0.0;
-    sum += sample_shadow_map_hardware(light_local + sample_offset1, depth, array_index);
-    sum += sample_shadow_map_hardware(light_local + sample_offset2, depth, array_index);
-    sum += sample_shadow_map_hardware(light_local + sample_offset3, depth, array_index);
-    sum += sample_shadow_map_hardware(light_local + sample_offset4, depth, array_index);
-    sum += sample_shadow_map_hardware(light_local + sample_offset5, depth, array_index);
-    sum += sample_shadow_map_hardware(light_local + sample_offset6, depth, array_index);
-    sum += sample_shadow_map_hardware(light_local + sample_offset7, depth, array_index);
-    sum += sample_shadow_map_hardware(light_local + sample_offset8, depth, array_index);
+    sum += sample_shadow_map_hardware(
+        light_local + sample_offset1,
+        depth + dot(sample_offset1, receiver_plane_depth_bias),
+        array_index,
+    );
+    sum += sample_shadow_map_hardware(
+        light_local + sample_offset2,
+        depth + dot(sample_offset2, receiver_plane_depth_bias),
+        array_index,
+    );
+    sum += sample_shadow_map_hardware(
+        light_local + sample_offset3,
+        depth + dot(sample_offset3, receiver_plane_depth_bias),
+        array_index,
+    );
+    sum += sample_shadow_map_hardware(
+        light_local + sample_offset4,
+        depth + dot(sample_offset4, receiver_plane_depth_bias),
+        array_index,
+    );
+    sum += sample_shadow_map_hardware(
+        light_local + sample_offset5,
+        depth + dot(sample_offset5, receiver_plane_depth_bias),
+        array_index,
+    );
+    sum += sample_shadow_map_hardware(
+        light_local + sample_offset6,
+        depth + dot(sample_offset6, receiver_plane_depth_bias),
+        array_index,
+    );
+    sum += sample_shadow_map_hardware(
+        light_local + sample_offset7,
+        depth + dot(sample_offset7, receiver_plane_depth_bias),
+        array_index,
+    );
+    sum += sample_shadow_map_hardware(
+        light_local + sample_offset8,
+        depth + dot(sample_offset8, receiver_plane_depth_bias),
+        array_index,
+    );
     return sum / 8.0;
 }
 
+// Receiver Plane Depth Bias
+// Isidoro06 - Slides 36-40 https://web.archive.org/web/20230309054654/http://developer.amd.com/wordpress/media/2012/10/Isidoro-ShadowMapping.pdf
+// This implementation is from https://github.com/TheRealMJP/Shadows/blob/1a6d90c92ea58ccddb0dcd32b035c58b8f7784f4/Shadows/Mesh.hlsl#L102
+fn compute_receiver_plane_depth_bias(tex_coord_dx: vec3<f32>, tex_coord_dy: vec3<f32>) -> vec2<f32> {
+    var bias_uv: vec2<f32> = vec2<f32>(
+        tex_coord_dy.y * tex_coord_dx.z - tex_coord_dx.y * tex_coord_dy.z,
+        tex_coord_dx.x * tex_coord_dy.z - tex_coord_dy.x * tex_coord_dx.z
+    );
+    bias_uv = bias_uv * 1.0 / ((tex_coord_dx.x * tex_coord_dy.y) - (tex_coord_dx.y * tex_coord_dy.x));
+    return bias_uv;
+}
+
 fn sample_shadow_map(light_local: vec2<f32>, depth: f32, array_index: i32, texel_size: f32) -> f32 {
+#ifndef SHADOW_FILTER_METHOD_HARDWARE_2X2
+    let shadow_pos = vec3(light_local, depth);
+    let receiver_plane_depth_bias = compute_receiver_plane_depth_bias(
+        dpdx(shadow_pos),
+        dpdy(shadow_pos),
+    );
+#endif
+
 #ifdef SHADOW_FILTER_METHOD_CASTANO_13
-    return sample_shadow_map_castano_thirteen(light_local, depth, array_index);
+    return sample_shadow_map_castano_thirteen(
+        light_local,
+        depth,
+        receiver_plane_depth_bias,
+        array_index,
+    );
 #else ifdef SHADOW_FILTER_METHOD_JIMENEZ_14
-    return sample_shadow_map_jimenez_fourteen(light_local, depth, array_index, texel_size);
+    return sample_shadow_map_jimenez_fourteen(
+        light_local,
+        depth,
+        receiver_plane_depth_bias,
+        array_index,
+        texel_size,
+    );
 #else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
     return sample_shadow_map_hardware(light_local, depth, array_index);
 #else
