@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use tracing::warn;
+
 use super::{
     tokenizer::{Token, Tokenizer},
     Composer, ImportDefWithOffset, ImportDefinition,
@@ -44,6 +46,9 @@ pub fn parse_imports<'a>(
 
                 // support deprecated #import mod item
                 if let Some(Token::Identifier(..)) = tokens.peek() {
+                    #[cfg(feature="warn_deprecated")]
+                    warn!("item list imports are deprecated, please use `rust::style::item_imports;`\n| {}", input);
+
                     is_deprecated_itemlist = true;
                     stack.push(format!("{}::", current));
                     current = String::default();
