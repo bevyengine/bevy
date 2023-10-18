@@ -7,9 +7,14 @@ use std::ops::Deref;
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
 pub trait AssetSaver: Send + Sync + 'static {
+    /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;
+    /// The settings type used by this [`AssetSaver`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
+    /// The type of [`AssetLoader`] used to load this [`Asset`]
     type OutputLoader: AssetLoader;
+    /// The type of [error](`std::error::Error`) which could be encountered by this saver.
+    type Error: std::error::Error + Send + Sync + 'static;
 
     /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
     /// `asset` is saved.  
@@ -18,7 +23,7 @@ pub trait AssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, anyhow::Error>>;
+    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>>;
 }
 
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
@@ -30,7 +35,7 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>>;
+    ) -> BoxedFuture<'a, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>>;
 
     /// The type name of the [`AssetSaver`].
     fn type_name(&self) -> &'static str;
@@ -42,7 +47,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
         Box::pin(async move {
             let settings = settings
                 .downcast_ref::<S::Settings>()

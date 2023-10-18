@@ -4,7 +4,7 @@
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of
 //! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
-//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`](winit::event_loop::EventLoop).
+//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
 pub mod accessibility;
@@ -43,6 +43,8 @@ use bevy_window::{
     WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
     WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
+#[cfg(target_os = "android")]
+use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
@@ -70,11 +72,51 @@ pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::n
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
-pub struct WinitPlugin;
+pub struct WinitPlugin {
+    /// Allows the window (and the event loop) to be created on any thread
+    /// instead of only the main thread.
+    ///
+    /// See [`EventLoopBuilder::build`] for more information on this.
+    ///
+    /// # Supported platforms
+    ///
+    /// Only works on Linux (X11/Wayland) and Windows.
+    /// This field is ignored on other platforms.
+    pub run_on_any_thread: bool,
+}
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+
+        // This is needed because the features checked in the inner
+        // block might be enabled on other platforms than linux.
+        #[cfg(target_os = "linux")]
+        {
+            #[cfg(feature = "x11")]
+            {
+                use winit::platform::x11::EventLoopBuilderExtX11;
+
+                // This allows a Bevy app to be started and ran outside of the main thread.
+                // A use case for this is to allow external applications to spawn a thread
+                // which runs a Bevy app without requiring the Bevy app to need to reside on
+                // the main thread, which can be problematic.
+                event_loop_builder.with_any_thread(self.run_on_any_thread);
+            }
+
+            #[cfg(feature = "wayland")]
+            {
+                use winit::platform::wayland::EventLoopBuilderExtWayland;
+                event_loop_builder.with_any_thread(self.run_on_any_thread);
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::EventLoopBuilderExtWindows;
+            event_loop_builder.with_any_thread(self.run_on_any_thread);
+        }
+
         #[cfg(target_os = "android")]
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
@@ -441,14 +483,6 @@ pub fn winit_runner(mut app: App) {
 
                 match event {
                     WindowEvent::Resized(size) => {
-                        // TODO: Remove this once we upgrade winit to a version with the fix
-                        #[cfg(target_os = "macos")]
-                        if size.width == u32::MAX || size.height == u32::MAX {
-                            // HACK to fix a bug on Macos 14
-                            // https://github.com/rust-windowing/winit/issues/2876
-                            return;
-                        }
-
                         window
                             .resolution
                             .set_physical_resolution(size.width, size.height);
@@ -672,16 +706,55 @@ pub fn winit_runner(mut app: App) {
                 runner_state.is_active = false;
                 #[cfg(target_os = "android")]
                 {
-                    // Android sending this event invalidates all render surfaces.
-                    // TODO
-                    // Upon resume, check if the new render surfaces are compatible with the
-                    // existing render device. If not (which should basically never happen),
-                    // then try to rebuild the renderer.
-                    *control_flow = ControlFlow::Exit;
+                    // Remove the `RawHandleWrapper` from the primary window.
+                    // This will trigger the surface destruction.
+                    let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
+                    let entity = query.single(&app.world);
+                    app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+                    *control_flow = ControlFlow::Wait;
                 }
             }
             event::Event::Resumed => {
                 runner_state.is_active = true;
+                #[cfg(target_os = "android")]
+                {
+                    // Get windows that are cached but without raw handles. Those window were already created, but got their
+                    // handle wrapper removed when the app was suspended.
+                    let mut query = app
+                        .world
+                        .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                    if let Ok((entity, window)) = query.get_single(&app.world) {
+                        use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+                        let window = window.clone();
+
+                        let (
+                            _,
+                            _,
+                            _,
+                            mut winit_windows,
+                            mut adapters,
+                            mut handlers,
+                            accessibility_requested,
+                        ) = create_window_system_state.get_mut(&mut app.world);
+
+                        let winit_window = winit_windows.create_window(
+                            event_loop,
+                            entity,
+                            &window,
+                            &mut adapters,
+                            &mut handlers,
+                            &accessibility_requested,
+                        );
+
+                        let wrapper = RawHandleWrapper {
+                            window_handle: winit_window.raw_window_handle(),
+                            display_handle: winit_window.raw_display_handle(),
+                        };
+
+                        app.world.entity_mut(entity).insert(wrapper);
+                    }
+                    *control_flow = ControlFlow::Poll;
+                }
             }
             event::Event::MainEventsCleared => {
                 if runner_state.is_active {

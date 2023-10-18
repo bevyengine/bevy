@@ -264,12 +264,6 @@ fn setup(
         ..default()
     });
 
-    let mut cube: Mesh = shape::Cube { size: 1.0 }.into();
-
-    // NOTE: for normal maps and depth maps to work, the mesh
-    // needs tangents generated.
-    cube.generate_tangents().unwrap();
-
     let parallax_depth_scale = TargetDepth::default().0;
     let max_parallax_layer_count = TargetLayers::default().0.exp2();
     let parallax_mapping_method = CurrentMethod::default();
@@ -287,16 +281,24 @@ fn setup(
     });
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(cube),
+            mesh: meshes.add(
+                // NOTE: for normal maps and depth maps to work, the mesh
+                // needs tangents generated.
+                Mesh::from(shape::Cube { size: 1.0 })
+                    .with_generated_tangents()
+                    .unwrap(),
+            ),
             material: parallax_material.clone_weak(),
             ..default()
         },
         Spin { speed: 0.3 },
     ));
 
-    let mut background_cube: Mesh = shape::Cube { size: 40.0 }.into();
-    background_cube.generate_tangents().unwrap();
-    let background_cube = meshes.add(background_cube);
+    let background_cube = meshes.add(
+        Mesh::from(shape::Cube { size: 40.0 })
+            .with_generated_tangents()
+            .unwrap(),
+    );
 
     let background_cube_bundle = |translation| {
         (

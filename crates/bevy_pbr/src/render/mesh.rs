@@ -8,7 +8,8 @@ use crate::{
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -37,14 +38,16 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
-        FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImageMsaa, GpuImage, Image,
+        ImageSampler, TextureFormatPixelInfo,
     },
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
+use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 use crate::render::{
     morph::{
@@ -59,7 +62,7 @@ use super::skin::SkinIndices;
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-pub const MESH_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
+pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
 pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
 pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
@@ -71,12 +74,7 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(
-            app,
-            MESH_VERTEX_OUTPUT,
-            "mesh_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
+        load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             MESH_VIEW_TYPES_HANDLE,
@@ -135,6 +133,8 @@ impl Plugin for MeshRenderPlugin {
                             batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
+                            batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
                         )
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
@@ -246,6 +246,7 @@ pub fn extract_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -253,56 +254,64 @@ pub fn extract_meshes(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
-            Option<With<NotShadowReceiver>>,
-            Option<With<NotShadowCaster>>,
+            Has<NotShadowReceiver>,
+            Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
         )>,
     >,
 ) {
+    meshes_query.par_iter().for_each(
+        |(
+            entity,
+            view_visibility,
+            transform,
+            previous_transform,
+            handle,
+            not_receiver,
+            not_caster,
+            no_automatic_batching,
+        )| {
+            if !view_visibility.get() {
+                return;
+            }
+            let transform = transform.affine();
+            let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
+            let mut flags = if not_receiver {
+                MeshFlags::empty()
+            } else {
+                MeshFlags::SHADOW_RECEIVER
+            };
+            if transform.matrix3.determinant().is_sign_positive() {
+                flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+            }
+            let transforms = MeshTransforms {
+                transform: (&transform).into(),
+                previous_transform: (&previous_transform).into(),
+                flags: flags.bits(),
+            };
+            let tls = thread_local_queues.get_or_default();
+            let mut queue = tls.take();
+            queue.push((
+                entity,
+                RenderMeshInstance {
+                    mesh_asset_id: handle.id(),
+                    transforms,
+                    shadow_caster: !not_caster,
+                    material_bind_group_id: MaterialBindGroupId::default(),
+                    automatic_batching: !no_automatic_batching,
+                },
+            ));
+            tls.set(queue);
+        },
+    );
+
     render_mesh_instances.clear();
     let mut entities = Vec::with_capacity(*previous_len);
-
-    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
-
-    for (
-        entity,
-        _,
-        transform,
-        previous_transform,
-        handle,
-        not_receiver,
-        not_caster,
-        no_automatic_batching,
-    ) in visible_meshes
-    {
-        let transform = transform.affine();
-        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-        let mut flags = if not_receiver.is_some() {
-            MeshFlags::empty()
-        } else {
-            MeshFlags::SHADOW_RECEIVER
-        };
-        if transform.matrix3.determinant().is_sign_positive() {
-            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
-        }
-        let transforms = MeshTransforms {
-            transform: (&transform).into(),
-            previous_transform: (&previous_transform).into(),
-            flags: flags.bits(),
-        };
+    for queue in thread_local_queues.iter_mut() {
         // FIXME: Remove this - it is just a workaround to enable rendering to work as
         // render commands require an entity to exist at the moment.
-        entities.push((entity, Mesh3d));
-        render_mesh_instances.insert(
-            entity,
-            RenderMeshInstance {
-                mesh_asset_id: handle.id(),
-                transforms,
-                shadow_caster: not_caster.is_none(),
-                material_bind_group_id: MaterialBindGroupId::default(),
-                automatic_batching: !no_automatic_batching,
-            },
-        );
+        entities.extend(queue.get_mut().iter().map(|(e, _)| (*e, Mesh3d)));
+        render_mesh_instances.extend(queue.get_mut().drain(..));
     }
     *previous_len = entities.len();
     commands.insert_or_spawn_batch(entities);
@@ -502,7 +511,7 @@ impl FromWorld for MeshPipeline {
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [17, 18, 19],
+                    [17, 18, 19, 20],
                     multisampled,
                 ));
             }
@@ -626,14 +635,15 @@ bitflags::bitflags! {
         const DEBAND_DITHER                     = (1 << 2);
         const DEPTH_PREPASS                     = (1 << 3);
         const NORMAL_PREPASS                    = (1 << 4);
-        const MOTION_VECTOR_PREPASS             = (1 << 5);
-        const MAY_DISCARD                       = (1 << 6); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const DEFERRED_PREPASS                  = (1 << 5);
+        const MOTION_VECTOR_PREPASS             = (1 << 6);
+        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = (1 << 7);
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 8);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 9);
-        const TAA                               = (1 << 10);
-        const MORPH_TARGETS                     = (1 << 11);
+        const ENVIRONMENT_MAP                   = (1 << 8);
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
+        const TAA                               = (1 << 11);
+        const MORPH_TARGETS                     = (1 << 12);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -648,23 +658,34 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE     = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC      = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_CASTANO_13    = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_JIMENEZ_14    = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
         Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+
     const BLEND_MASK_BITS: u32 = 0b11;
     const BLEND_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
+
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+
+    const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
+    const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -751,6 +772,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
+        // Let the shader code know that it's running in a mesh pipeline.
+        shader_defs.push("MESH_PIPELINE".into());
+
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
@@ -768,14 +792,19 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
+        if layout.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS_1".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
         let mut bind_group_layout = match key.msaa_samples() {
@@ -789,7 +818,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
-            5,
+            6,
             &key,
             &mut shader_defs,
             &mut vertex_attributes,
@@ -835,7 +864,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_write_enabled = false;
         } else {
             label = "opaque_mesh_pipeline".into();
-            blend = Some(BlendState::REPLACE);
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
+            blend = None;
             // For the opaque and alpha mask passes, fragments that are closer will replace
             // the current fragment value in the output and the depth is written to the
             // depth buffer
@@ -843,9 +873,28 @@ impl SpecializedMeshPipeline for MeshPipeline {
             is_opaque = true;
         }
 
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+            shader_defs.push("NORMAL_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+            shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+            shader_defs.push("MOTION_VECTOR_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+            shader_defs.push("DEFERRED_PREPASS".into());
+        }
+
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
+
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
@@ -886,6 +935,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::TAA) {
             shader_defs.push("TAA".into());
+        }
+
+        let shadow_filter_method =
+            key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
+        if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
+            shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
+            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
+            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -941,7 +1000,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -1053,10 +1112,11 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&EnvironmentMapLight>,
         &Tonemapping,
     )>,
-    images: Res<RenderAssets<Image>>,
-    mut fallback_images: FallbackImagesMsaa,
-    mut fallback_depths: FallbackImagesDepth,
-    fallback_cubemap: Res<FallbackImageCubemap>,
+    (images, mut fallback_images, fallback_cubemap): (
+        Res<RenderAssets<Image>>,
+        FallbackImageMsaa,
+        Res<FallbackImageCubemap>,
+    ),
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
@@ -1085,7 +1145,7 @@ pub fn prepare_mesh_view_bind_groups(
         ) in &views
         {
             let fallback_ssao = fallback_images
-                .image_for_samplecount(1)
+                .image_for_samplecount(1, TextureFormat::bevy_default())
                 .texture_view
                 .clone();
 
@@ -1166,28 +1226,31 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
             entries.extend_from_slice(&tonemapping_luts);
 
+            let label = Some("mesh_view_bind_group");
+
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
-                entries.extend_from_slice(&prepass::get_bindings(
-                    prepass_textures,
-                    &mut fallback_images,
-                    &mut fallback_depths,
-                    &msaa,
-                    [17, 18, 19],
-                ));
+                let prepass_bindings =
+                    prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
+                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
+                commands.entity(entity).insert(MeshViewBindGroup {
+                    value: render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &entries,
+                        label,
+                        layout,
+                    }),
+                });
+            } else {
+                commands.entity(entity).insert(MeshViewBindGroup {
+                    value: render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &entries,
+                        label,
+                        layout,
+                    }),
+                });
             }
-
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &entries,
-                label: Some("mesh_view_bind_group"),
-                layout,
-            });
-
-            commands.entity(entity).insert(MeshViewBindGroup {
-                value: view_bind_group,
-            });
         }
     }
 }

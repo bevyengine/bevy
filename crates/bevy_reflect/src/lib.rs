@@ -335,7 +335,7 @@
 //! The general entry point are the "untyped" versions of these structs.
 //! These will automatically extract the type information and pass them into their respective "typed" version.
 //!
-//! The output of the `ReflectSerializer` will be a map, where the key is the [type name]
+//! The output of the `ReflectSerializer` will be a map, where the key is the [type path]
 //! and the value is the serialized data.
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
@@ -456,7 +456,7 @@
 //! [`TypedReflectDeserializer`]: serde::TypedReflectDeserializer
 //! [registry]: TypeRegistry
 //! [type information]: TypeInfo
-//! [type name]: Reflect::type_name
+//! [type path]: TypePath
 //! [type registry]: TypeRegistry
 //! [`bevy_math`]: https://docs.rs/bevy_math/latest/bevy_math/
 //! [`glam`]: https://docs.rs/glam/latest/glam/
@@ -575,7 +575,7 @@ pub mod __macro_exports {
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     #[cfg(feature = "glam")]
-    use ::glam::{vec3, Vec3};
+    use ::glam::{quat, vec3, Quat, Vec3};
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
@@ -1131,28 +1131,28 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_names() {
+    fn not_dynamic_names() {
         let list = Vec::<usize>::new();
         let dyn_list = list.clone_dynamic();
-        assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+        assert_ne!(dyn_list.reflect_type_path(), Vec::<usize>::type_path());
 
         let array = [b'0'; 4];
         let dyn_array = array.clone_dynamic();
-        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
+        assert_ne!(dyn_array.reflect_type_path(), <[u8; 4]>::type_path());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
-        assert_eq!(
-            dyn_map.type_name(),
-            std::any::type_name::<HashMap<usize, String>>()
+        assert_ne!(
+            dyn_map.reflect_type_path(),
+            HashMap::<usize, String>::type_path()
         );
 
         let tuple = (0usize, "1".to_string(), 2.0f32);
         let mut dyn_tuple = tuple.clone_dynamic();
         dyn_tuple.insert::<usize>(3);
-        assert_eq!(
-            dyn_tuple.type_name(),
-            std::any::type_name::<(usize, String, f32, usize)>()
+        assert_ne!(
+            dyn_tuple.reflect_type_path(),
+            <(usize, String, f32, usize)>::type_path()
         );
 
         #[derive(Reflect)]
@@ -1161,16 +1161,25 @@ mod tests {
         }
         let struct_ = TestStruct { a: 0 };
         let dyn_struct = struct_.clone_dynamic();
-        assert_eq!(dyn_struct.type_name(), std::any::type_name::<TestStruct>());
+        assert_ne!(dyn_struct.reflect_type_path(), TestStruct::type_path());
 
         #[derive(Reflect)]
         struct TestTupleStruct(usize);
         let tuple_struct = TestTupleStruct(0);
         let dyn_tuple_struct = tuple_struct.clone_dynamic();
-        assert_eq!(
-            dyn_tuple_struct.type_name(),
-            std::any::type_name::<TestTupleStruct>()
+        assert_ne!(
+            dyn_tuple_struct.reflect_type_path(),
+            TestTupleStruct::type_path()
         );
+    }
+
+    macro_rules! assert_type_paths {
+        ($($ty:ty => $long:literal, $short:literal,)*) => {
+            $(
+                assert_eq!(<$ty as TypePath>::type_path(), $long);
+                assert_eq!(<$ty as TypePath>::short_type_path(), $short);
+            )*
+        };
     }
 
     #[test]
@@ -1214,62 +1223,57 @@ mod tests {
         struct MacroNameG<T>(PhantomData<T>);
         impl_type_path!((in my_alias as MyMacroNameG) MacroNameG<T>);
 
-        assert_eq!(Derive::type_path(), "bevy_reflect::tests::Derive");
-        assert_eq!(DerivePath::type_path(), "my_alias::DerivePath");
-        assert_eq!(DerivePathName::type_path(), "my_alias::MyDerivePathName");
+        assert_type_paths! {
+            Derive => "bevy_reflect::tests::Derive", "Derive",
+            DerivePath => "my_alias::DerivePath", "DerivePath",
+            DerivePathName => "my_alias::MyDerivePathName", "MyDerivePathName",
+            DeriveG<Param> => "bevy_reflect::tests::DeriveG<bevy_reflect::tests::Param>", "DeriveG<Param>",
+            DerivePathG<Param, 10> => "my_alias::DerivePathG<bevy_reflect::tests::Param, 10>", "DerivePathG<Param, 10>",
+            DerivePathNameG<Param> => "my_alias::MyDerivePathNameG<bevy_reflect::tests::Param>", "MyDerivePathNameG<Param>",
+            Macro => "my_alias::Macro", "Macro",
+            MacroName => "my_alias::MyMacroName", "MyMacroName",
+            MacroG<Param, 10> => "my_alias::MacroG<bevy_reflect::tests::Param, 10>", "MacroG<Param, 10>",
+            MacroNameG<Param> => "my_alias::MyMacroNameG<bevy_reflect::tests::Param>", "MyMacroNameG<Param>",
+        }
+    }
 
-        assert_eq!(
-            DeriveG::<Param>::type_path(),
-            "bevy_reflect::tests::DeriveG<bevy_reflect::tests::Param>"
-        );
-        assert_eq!(
-            DerivePathG::<Param, 10>::type_path(),
-            "my_alias::DerivePathG<bevy_reflect::tests::Param, 10>"
-        );
-        assert_eq!(
-            DerivePathNameG::<Param>::type_path(),
-            "my_alias::MyDerivePathNameG<bevy_reflect::tests::Param>"
-        );
+    #[test]
+    fn std_type_paths() {
+        #[derive(Clone)]
+        struct Type;
 
-        assert_eq!(Macro::type_path(), "my_alias::Macro");
-        assert_eq!(MacroName::type_path(), "my_alias::MyMacroName");
-        assert_eq!(
-            MacroG::<Param, 10>::type_path(),
-            "my_alias::MacroG<bevy_reflect::tests::Param, 10>"
-        );
-        assert_eq!(
-            MacroNameG::<Param>::type_path(),
-            "my_alias::MyMacroNameG<bevy_reflect::tests::Param>"
-        );
+        impl TypePath for Type {
+            fn type_path() -> &'static str {
+                // for brevity in tests
+                "Long"
+            }
 
-        assert_eq!(Derive::short_type_path(), "Derive");
-        assert_eq!(DerivePath::short_type_path(), "DerivePath");
-        assert_eq!(DerivePathName::short_type_path(), "MyDerivePathName");
+            fn short_type_path() -> &'static str {
+                "Short"
+            }
+        }
 
-        assert_eq!(DeriveG::<Param>::short_type_path(), "DeriveG<Param>");
-        assert_eq!(
-            DerivePathG::<Param, 10>::short_type_path(),
-            "DerivePathG<Param, 10>"
-        );
-        assert_eq!(
-            DerivePathNameG::<Param>::short_type_path(),
-            "MyDerivePathNameG<Param>"
-        );
-
-        assert_eq!(Macro::short_type_path(), "Macro");
-        assert_eq!(MacroName::short_type_path(), "MyMacroName");
-        assert_eq!(MacroG::<Param, 10>::short_type_path(), "MacroG<Param, 10>");
-        assert_eq!(
-            MacroNameG::<Param>::short_type_path(),
-            "MyMacroNameG<Param>"
-        );
+        assert_type_paths! {
+            u8 => "u8", "u8",
+            Type => "Long", "Short",
+            &Type => "&Long", "&Short",
+            [Type] => "[Long]", "[Short]",
+            &[Type] => "&[Long]", "&[Short]",
+            [Type; 0] => "[Long; 0]", "[Short; 0]",
+            [Type; 100] => "[Long; 100]", "[Short; 100]",
+            () => "()", "()",
+            (Type,) => "(Long,)", "(Short,)",
+            (Type, Type) => "(Long, Long)", "(Short, Short)",
+            (Type, Type, Type) => "(Long, Long, Long)", "(Short, Short, Short)",
+            Cow<'static, Type> => "alloc::borrow::Cow<Long>", "Cow<Short>",
+        }
     }
 
     #[test]
     fn reflect_type_info() {
         // TypeInfo
         let info = i32::type_info();
-        assert_eq!(std::any::type_name::<i32>(), info.type_name());
+        assert_eq!(i32::type_path(), info.type_path());
         assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
 
         // TypeInfo (unsized)
@@ -1293,21 +1297,15 @@ mod tests {
         let info = MyStruct::type_info();
         if let TypeInfo::Struct(info) = info {
             assert!(info.is::<MyStruct>());
-            assert_eq!(std::any::type_name::<MyStruct>(), info.type_name());
-            assert_eq!(
-                std::any::type_name::<i32>(),
-                info.field("foo").unwrap().type_name()
-            );
+            assert_eq!(MyStruct::type_path(), info.type_path());
+            assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
             assert_eq!(
                 std::any::TypeId::of::<i32>(),
                 info.field("foo").unwrap().type_id()
             );
             assert!(info.field("foo").unwrap().is::<i32>());
             assert_eq!("foo", info.field("foo").unwrap().name());
-            assert_eq!(
-                std::any::type_name::<usize>(),
-                info.field_at(1).unwrap().type_name()
-            );
+            assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
         } else {
             panic!("Expected `TypeInfo::Struct`");
         }
@@ -1326,19 +1324,10 @@ mod tests {
         let info = <MyGenericStruct<i32>>::type_info();
         if let TypeInfo::Struct(info) = info {
             assert!(info.is::<MyGenericStruct<i32>>());
-            assert_eq!(
-                std::any::type_name::<MyGenericStruct<i32>>(),
-                info.type_name()
-            );
-            assert_eq!(
-                std::any::type_name::<i32>(),
-                info.field("foo").unwrap().type_name()
-            );
+            assert_eq!(MyGenericStruct::<i32>::type_path(), info.type_path());
+            assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
             assert_eq!("foo", info.field("foo").unwrap().name());
-            assert_eq!(
-                std::any::type_name::<usize>(),
-                info.field_at(1).unwrap().type_name()
-            );
+            assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
         } else {
             panic!("Expected `TypeInfo::Struct`");
         }
@@ -1357,11 +1346,8 @@ mod tests {
         let info = MyTupleStruct::type_info();
         if let TypeInfo::TupleStruct(info) = info {
             assert!(info.is::<MyTupleStruct>());
-            assert_eq!(std::any::type_name::<MyTupleStruct>(), info.type_name());
-            assert_eq!(
-                std::any::type_name::<i32>(),
-                info.field_at(1).unwrap().type_name()
-            );
+            assert_eq!(MyTupleStruct::type_path(), info.type_path());
+            assert_eq!(i32::type_path(), info.field_at(1).unwrap().type_path());
             assert!(info.field_at(1).unwrap().is::<i32>());
         } else {
             panic!("Expected `TypeInfo::TupleStruct`");
@@ -1373,11 +1359,8 @@ mod tests {
         let info = MyTuple::type_info();
         if let TypeInfo::Tuple(info) = info {
             assert!(info.is::<MyTuple>());
-            assert_eq!(std::any::type_name::<MyTuple>(), info.type_name());
-            assert_eq!(
-                std::any::type_name::<f32>(),
-                info.field_at(1).unwrap().type_name()
-            );
+            assert_eq!(MyTuple::type_path(), info.type_path());
+            assert_eq!(f32::type_path(), info.field_at(1).unwrap().type_path());
         } else {
             panic!("Expected `TypeInfo::Tuple`");
         }
@@ -1393,8 +1376,8 @@ mod tests {
         if let TypeInfo::List(info) = info {
             assert!(info.is::<MyList>());
             assert!(info.item_is::<usize>());
-            assert_eq!(std::any::type_name::<MyList>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
+            assert_eq!(MyList::type_path(), info.type_path());
+            assert_eq!(usize::type_path(), info.item_type_path_table().path());
         } else {
             panic!("Expected `TypeInfo::List`");
         }
@@ -1412,8 +1395,8 @@ mod tests {
             if let TypeInfo::List(info) = info {
                 assert!(info.is::<MySmallVec>());
                 assert!(info.item_is::<String>());
-                assert_eq!(std::any::type_name::<MySmallVec>(), info.type_name());
-                assert_eq!(std::any::type_name::<String>(), info.item_type_name());
+                assert_eq!(MySmallVec::type_path(), info.type_path());
+                assert_eq!(String::type_path(), info.item_type_path_table().path());
             } else {
                 panic!("Expected `TypeInfo::List`");
             }
@@ -1431,8 +1414,8 @@ mod tests {
         if let TypeInfo::Array(info) = info {
             assert!(info.is::<MyArray>());
             assert!(info.item_is::<usize>());
-            assert_eq!(std::any::type_name::<MyArray>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
+            assert_eq!(MyArray::type_path(), info.type_path());
+            assert_eq!(usize::type_path(), info.item_type_path_table().path());
             assert_eq!(3, info.capacity());
         } else {
             panic!("Expected `TypeInfo::Array`");
@@ -1448,7 +1431,7 @@ mod tests {
         let info = MyCowStr::type_info();
         if let TypeInfo::Value(info) = info {
             assert!(info.is::<MyCowStr>());
-            assert_eq!(std::any::type_name::<MyCowStr>(), info.type_name());
+            assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
         } else {
             panic!("Expected `TypeInfo::Value`");
         }
@@ -1464,8 +1447,11 @@ mod tests {
         if let TypeInfo::List(info) = info {
             assert!(info.is::<MyCowSlice>());
             assert!(info.item_is::<u8>());
-            assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_name());
-            assert_eq!(std::any::type_name::<u8>(), info.item_type_name());
+            assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
+            assert_eq!(
+                std::any::type_name::<u8>(),
+                info.item_type_path_table().path()
+            );
         } else {
             panic!("Expected `TypeInfo::List`");
         }
@@ -1482,9 +1468,9 @@ mod tests {
             assert!(info.is::<MyMap>());
             assert!(info.key_is::<usize>());
             assert!(info.value_is::<f32>());
-            assert_eq!(std::any::type_name::<MyMap>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.key_type_name());
-            assert_eq!(std::any::type_name::<f32>(), info.value_type_name());
+            assert_eq!(MyMap::type_path(), info.type_path());
+            assert_eq!(usize::type_path(), info.key_type_path_table().path());
+            assert_eq!(f32::type_path(), info.value_type_path_table().path());
         } else {
             panic!("Expected `TypeInfo::Map`");
         }
@@ -1499,7 +1485,7 @@ mod tests {
         let info = MyValue::type_info();
         if let TypeInfo::Value(info) = info {
             assert!(info.is::<MyValue>());
-            assert_eq!(std::any::type_name::<MyValue>(), info.type_name());
+            assert_eq!(MyValue::type_path(), info.type_path());
         } else {
             panic!("Expected `TypeInfo::Value`");
         }
@@ -1793,7 +1779,7 @@ mod tests {
 
         let reflected: &dyn Reflect = &test;
         let expected = r#"
-bevy_reflect::tests::should_reflect_debug::Test {
+bevy_reflect::tests::Test {
     value: 123,
     list: [
         "A",
@@ -1808,10 +1794,10 @@ bevy_reflect::tests::should_reflect_debug::Test {
     map: {
         123: 1.23,
     },
-    a_struct: bevy_reflect::tests::should_reflect_debug::SomeStruct {
+    a_struct: bevy_reflect::tests::SomeStruct {
         foo: "A Struct!",
     },
-    a_tuple_struct: bevy_reflect::tests::should_reflect_debug::SomeTupleStruct(
+    a_tuple_struct: bevy_reflect::tests::SomeTupleStruct(
         "A Tuple Struct!",
     ),
     enum_unit: A,
@@ -1941,12 +1927,74 @@ bevy_reflect::tests::should_reflect_debug::Test {
         registry.register::<Foo<NotTypePath>>();
 
         let registration = registry.get(TypeId::of::<Foo<NotTypePath>>()).unwrap();
-        assert_eq!("Foo<NotTypePath>", registration.short_name());
+        assert_eq!(
+            "Foo<NotTypePath>",
+            registration.type_info().type_path_table().short_path()
+        );
     }
 
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
+
+        #[test]
+        fn quat_serialization() {
+            let q = quat(1.0, 2.0, 3.0, 4.0);
+
+            let mut registry = TypeRegistry::default();
+            registry.register::<f32>();
+            registry.register::<Quat>();
+
+            let ser = ReflectSerializer::new(&q, &registry);
+
+            let config = PrettyConfig::default()
+                .new_line(String::from("\n"))
+                .indentor(String::from("    "));
+            let output = to_string_pretty(&ser, config).unwrap();
+            let expected = r#"
+{
+    "glam::Quat": (
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+        w: 4.0,
+    ),
+}"#;
+
+            assert_eq!(expected, format!("\n{output}"));
+        }
+
+        #[test]
+        fn quat_deserialization() {
+            let data = r#"
+{
+    "glam::Quat": (
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+        w: 4.0,
+    ),
+}"#;
+
+            let mut registry = TypeRegistry::default();
+            registry.register::<Quat>();
+            registry.register::<f32>();
+
+            let de = UntypedReflectDeserializer::new(&registry);
+
+            let mut deserializer =
+                ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
+
+            let dynamic_struct = de
+                .deserialize(&mut deserializer)
+                .expect("Failed to deserialize");
+
+            let mut result = Quat::default();
+
+            result.apply(&*dynamic_struct);
+
+            assert_eq!(result, quat(1.0, 2.0, 3.0, 4.0));
+        }
 
         #[test]
         fn vec3_serialization() {
@@ -1964,7 +2012,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
             let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
-    "glam::f32::vec3::Vec3": (
+    "glam::Vec3": (
         x: 12.0,
         y: 3.0,
         z: -6.9,
@@ -1978,7 +2026,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         fn vec3_deserialization() {
             let data = r#"
 {
-    "glam::f32::vec3::Vec3": (
+    "glam::Vec3": (
         x: 12.0,
         y: 3.0,
         z: -6.9,
