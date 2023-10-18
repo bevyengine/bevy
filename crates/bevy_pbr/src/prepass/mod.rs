@@ -51,8 +51,8 @@ use bevy_utils::tracing::error;
 use crate::{
     prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
     MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    OpaqueRendererMethod, RenderMaterialInstances, RenderMaterials, RenderMeshInstances,
-    SetMaterialBindGroup, SetMeshBindGroup,
+    MeshPipelineViewLayoutKey, OpaqueRendererMethod, RenderMaterialInstances, RenderMaterials,
+    RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -635,15 +635,13 @@ where
 
 pub fn get_bind_group_layout_entries(
     bindings: [u32; 4],
-    multisampled: bool,
-    depth_prepass: bool,
-    normal_prepass: bool,
-    motion_vector_prepass: bool,
-    deferred_prepass: bool,
+    layout_key: MeshPipelineViewLayoutKey,
 ) -> Vec<BindGroupLayoutEntry> {
     let mut result = vec![];
 
-    if depth_prepass {
+    let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
+
+    if layout_key.contains(MeshPipelineViewLayoutKey::DEPTH_PREPASS) {
         result.push(
             // Depth texture
             BindGroupLayoutEntry {
@@ -659,7 +657,7 @@ pub fn get_bind_group_layout_entries(
         );
     }
 
-    if normal_prepass {
+    if layout_key.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS) {
         result.push(
             // Normal texture
             BindGroupLayoutEntry {
@@ -675,7 +673,7 @@ pub fn get_bind_group_layout_entries(
         );
     }
 
-    if motion_vector_prepass {
+    if layout_key.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS) {
         result.push(
             // Motion Vectors texture
             BindGroupLayoutEntry {
@@ -691,7 +689,7 @@ pub fn get_bind_group_layout_entries(
         );
     }
 
-    if deferred_prepass {
+    if layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
         result.push(
             // Deferred texture
             BindGroupLayoutEntry {

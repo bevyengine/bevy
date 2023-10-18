@@ -95,7 +95,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         let view_layout = self
             .mesh_pipeline
-            .get_view_layout_from_key(key.mesh_key)
+            .get_view_layout(key.mesh_key.into())
             .clone();
 
         let layout = vec![view_layout, self.uniform_layout.clone()];

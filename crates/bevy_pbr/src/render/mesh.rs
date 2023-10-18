@@ -337,6 +337,113 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(entities);
 }
 
+bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[repr(transparent)]
+    pub struct MeshPipelineViewLayoutKey: u32 {
+        const MULTISAMPLED                = (1 << 0);
+        const DEPTH_PREPASS               = (1 << 1);
+        const NORMAL_PREPASS              = (1 << 2);
+        const MOTION_VECTOR_PREPASS       = (1 << 3);
+        const DEFERRED_PREPASS            = (1 << 4);
+    }
+}
+
+impl MeshPipelineViewLayoutKey {
+    const COUNT: usize = Self::all().bits() as usize + 1;
+
+    /// Builds a unique label for each layout based on the flags
+    pub fn label(&self) -> String {
+        format!(
+            "mesh_view_layout{}{}{}{}{}",
+            if self.contains(MeshPipelineViewLayoutKey::MULTISAMPLED) {
+                "_multisampled"
+            } else {
+                ""
+            },
+            if self.contains(MeshPipelineViewLayoutKey::DEPTH_PREPASS) {
+                "_depth"
+            } else {
+                ""
+            },
+            if self.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS) {
+                "_normal"
+            } else {
+                ""
+            },
+            if self.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS) {
+                "_motion"
+            } else {
+                ""
+            },
+            if self.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
+                "_deferred"
+            } else {
+                ""
+            },
+        )
+    }
+}
+
+impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
+    fn from(value: MeshPipelineKey) -> Self {
+        let mut result = MeshPipelineViewLayoutKey::empty();
+
+        if value.msaa_samples() > 1 {
+            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
+        }
+        if value.contains(MeshPipelineKey::DEPTH_PREPASS) {
+            result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
+        }
+        if value.contains(MeshPipelineKey::NORMAL_PREPASS) {
+            result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
+        }
+        if value.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+            result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
+        }
+        if value.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+            result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+        }
+
+        result
+    }
+}
+
+impl From<Msaa> for MeshPipelineViewLayoutKey {
+    fn from(value: Msaa) -> Self {
+        let mut result = MeshPipelineViewLayoutKey::empty();
+
+        if value.samples() > 1 {
+            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
+        }
+
+        result
+    }
+}
+
+impl From<Option<&ViewPrepassTextures>> for MeshPipelineViewLayoutKey {
+    fn from(value: Option<&ViewPrepassTextures>) -> Self {
+        let mut result = MeshPipelineViewLayoutKey::empty();
+
+        if let Some(prepass_textures) = value {
+            if prepass_textures.depth.is_some() {
+                result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
+            }
+            if prepass_textures.normal.is_some() {
+                result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
+            }
+            if prepass_textures.motion_vectors.is_some() {
+                result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
+            }
+            if prepass_textures.deferred.is_some() {
+                result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+            }
+        }
+
+        result
+    }
+}
+
 #[derive(Clone)]
 struct MeshPipelineViewLayout {
     pub bind_group_layout: BindGroupLayout,
@@ -383,11 +490,7 @@ impl FromWorld for MeshPipeline {
         /// Returns the appropriate bind group layout vec based on the parameters
         fn layout_entries(
             clustered_forward_buffer_binding_type: BufferBindingType,
-            multisampled: bool,
-            depth_prepass: bool,
-            normal_prepass: bool,
-            motion_vector_prepass: bool,
-            deferred_prepass: bool,
+            layout_key: MeshPipelineViewLayoutKey,
         ) -> Vec<BindGroupLayoutEntry> {
             let mut entries = vec![
                 // View
@@ -542,38 +645,24 @@ impl FromWorld for MeshPipeline {
             entries.extend_from_slice(&tonemapping_lut_entries);
 
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32"))
+                    && !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED))
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
                     [17, 18, 19, 20],
-                    multisampled,
-                    depth_prepass,
-                    normal_prepass,
-                    motion_vector_prepass,
-                    deferred_prepass,
+                    layout_key,
                 ));
             }
 
             entries
         }
 
-        let mut i = 0;
-        let view_layouts = [(); 32].map(|_| {
-            let multisampled = i & 1_usize != 0;
-            let depth_prepass = i & 2_usize != 0;
-            let normal_prepass = i & 4_usize != 0;
-            let motion_vector_prepass = i & 8_usize != 0;
-            let deferred_prepass = i & 16_usize != 0;
-            i += 1;
+        let mut i: u32 = 0;
+        let view_layouts = [(); MeshPipelineViewLayoutKey::COUNT].map(|_| {
+            let key = MeshPipelineViewLayoutKey::from_bits_truncate(i);
+            let entries = layout_entries(clustered_forward_buffer_binding_type, key);
 
-            let entries = layout_entries(
-                clustered_forward_buffer_binding_type,
-                multisampled,
-                depth_prepass,
-                normal_prepass,
-                motion_vector_prepass,
-                deferred_prepass,
-            );
+            i += 1;
 
             #[cfg(debug_assertions)]
             let texture_count: usize = entries
@@ -584,18 +673,7 @@ impl FromWorld for MeshPipeline {
             MeshPipelineViewLayout {
                 bind_group_layout: render_device.create_bind_group_layout(
                     &BindGroupLayoutDescriptor {
-                        label: Some(
-                            format!(
-                                // Build a unique name for each layout based on the prepass flags
-                                "mesh_view_layout{}{}{}{}{}",
-                                if multisampled { "_multisampled" } else { "" },
-                                if depth_prepass { "_depth" } else { "" },
-                                if normal_prepass { "_normal" } else { "" },
-                                if motion_vector_prepass { "_motion" } else { "" },
-                                if deferred_prepass { "_deferred" } else { "" },
-                            )
-                            .as_str(),
-                        ),
+                        label: Some(key.label().as_str()),
                         entries: &entries,
                     },
                 ),
@@ -673,20 +751,8 @@ impl MeshPipeline {
         }
     }
 
-    pub fn get_view_layout(
-        &self,
-        multisampled: bool,
-        depth_prepass: bool,
-        normal_prepass: bool,
-        motion_vector_prepass: bool,
-        deferred_prepass: bool,
-    ) -> &BindGroupLayout {
-        let index = (multisampled as usize)
-            | (depth_prepass as usize) << 1
-            | (normal_prepass as usize) << 2
-            | (motion_vector_prepass as usize) << 3
-            | (deferred_prepass as usize) << 4;
-
+    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
+        let index = layout_key.bits() as usize;
         let layout = &self.view_layouts[index];
 
         #[cfg(debug_assertions)]
@@ -701,16 +767,6 @@ impl MeshPipeline {
         }
 
         &layout.bind_group_layout
-    }
-
-    pub fn get_view_layout_from_key(&self, key: MeshPipelineKey) -> &BindGroupLayout {
-        self.get_view_layout(
-            key.msaa_samples() > 1,
-            key.contains(MeshPipelineKey::DEPTH_PREPASS),
-            key.contains(MeshPipelineKey::NORMAL_PREPASS),
-            key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
-            key.contains(MeshPipelineKey::DEFERRED_PREPASS),
-        )
     }
 }
 
@@ -922,7 +978,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
-        let mut bind_group_layout = vec![self.get_view_layout_from_key(key).clone()];
+        let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
         if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
@@ -1263,11 +1319,8 @@ pub fn prepare_mesh_view_bind_groups(
                 .clone();
 
             let layout = &mesh_pipeline.get_view_layout(
-                msaa.samples() > 1,
-                prepass_textures.is_some_and(|t| t.depth.is_some()),
-                prepass_textures.is_some_and(|t| t.normal.is_some()),
-                prepass_textures.is_some_and(|t| t.motion_vectors.is_some()),
-                prepass_textures.is_some_and(|t| t.deferred.is_some()),
+                MeshPipelineViewLayoutKey::from(*msaa)
+                    | MeshPipelineViewLayoutKey::from(prepass_textures),
             );
 
             let mut entries = vec![
