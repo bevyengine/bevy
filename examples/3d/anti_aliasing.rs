@@ -1,4 +1,6 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
+//!
+//! Add the `--screenshot_taa` to save a TAA motion test screenshot.
 
 // This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
 // type aliases tends to obfuscate code while offering no improvement in code cleanliness.
@@ -6,6 +8,7 @@
 
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
+use bevy::math::uvec2;
 use bevy::{
     core_pipeline::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
@@ -28,16 +31,59 @@ use bevy::{
         render_resource::{AddressMode, FilterMode},
     },
 };
-use rand::Rng;
+
+use bevy_internal::app::AppExit;
+use bevy_internal::core::FrameCount;
+use bevy_internal::render::view::screenshot::ScreenshotManager;
+use bevy_internal::window::{PrimaryWindow, WindowResized};
+use image::imageops::FilterType;
+
+#[derive(Resource)]
+struct ScreenshotTaa;
 
 fn main() {
-    App::new()
-        .insert_resource(Msaa::Off)
-        .insert_resource(CameraMovementSettings::default())
+    let mut app = App::new();
+    let mut movement_settings = CameraMovementSettings::default();
+    if std::env::args().nth(1).unwrap_or_default() == "--screenshot_taa" {
+        app.insert_resource(ScreenshotTaa);
+        app.add_systems(PostUpdate, screenshot);
+        movement_settings.rotate_camera = true;
+        movement_settings.circle_look_camera = true;
+    }
+    app.insert_resource(Msaa::Off)
+        .insert_resource(movement_settings)
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
-        .add_systems(Startup, setup)
-        .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
+        .add_systems(Startup, setup_scene)
+        .add_systems(
+            Update,
+            (
+                modify_aa,
+                modify_sharpening,
+                update_ui,
+                update_uv_scale,
+                rotate_camera,
+            ),
+        )
         .run();
+}
+
+fn screenshot(
+    main_window: Query<Entity, With<PrimaryWindow>>,
+    mut screenshot_manager: ResMut<ScreenshotManager>,
+    mut counter: Local<u32>,
+    frame_count: Res<FrameCount>,
+    mut app_exit_events: EventWriter<AppExit>,
+) {
+    if frame_count.0 == 436 {
+        let path = format!("./taa_screenshot-{}.png", *counter);
+        *counter += 1;
+        screenshot_manager
+            .save_screenshot_to_disk(main_window.single(), path)
+            .unwrap();
+    }
+    if frame_count.0 == 600 {
+        app_exit_events.send(AppExit);
+    }
 }
 
 #[derive(Resource, Default)]
@@ -167,10 +213,8 @@ fn modify_sharpening(
 }
 
 fn update_ui(
-    time: Res<Time>,
     mut camera: Query<
         (
-            &mut Transform,
             Option<&Fxaa>,
             Option<&TemporalAntiAliasSettings>,
             &ContrastAdaptiveSharpeningSettings,
@@ -181,7 +225,7 @@ fn update_ui(
     mut ui: Query<&mut Text>,
     camera_movement_settings: Res<CameraMovementSettings>,
 ) {
-    let (mut transform, fxaa, taa, cas_settings) = camera.single_mut();
+    let (fxaa, taa, cas_settings) = camera.single_mut();
 
     let mut ui = ui.single_mut();
     let ui = &mut ui.sections[0].value;
@@ -294,17 +338,33 @@ fn update_ui(
     } else {
         ui.push_str("(L) Rotate Camera\n");
     }
+}
 
+fn rotate_camera(
+    time: Res<Time>,
+    frame_count: Res<FrameCount>,
+    mut camera: Query<&mut Transform, With<Camera>>,
+    camera_movement_settings: Res<CameraMovementSettings>,
+    screenshot_taa: Option<Res<ScreenshotTaa>>,
+) {
+    let elapsed_time = if screenshot_taa.is_some() {
+        // Use a fix time step for animation when taking screenshot so TAA and movement is consistent across frame rates
+        frame_count.0 as f32 / 60.0
+    } else {
+        time.elapsed_seconds()
+    };
+
+    let mut transform = camera.single_mut();
     if camera_movement_settings.rotate_camera {
         let speed = 1.0;
-        let t = (time.elapsed_seconds() * speed) % TAU;
+        let t = (elapsed_time * speed) % TAU;
         let radius = 2.0;
         transform.translation = vec3(t.cos() * radius, 0.5, t.sin() * radius);
     }
 
     if camera_movement_settings.circle_look_camera {
         let speed = 5.0;
-        let t = (time.elapsed_seconds() * speed) % TAU;
+        let t = (elapsed_time * speed) % TAU;
         let radius = 0.3;
         transform.look_at(
             vec3(t.cos() * radius, 0.2, t.sin() * radius),
@@ -315,13 +375,18 @@ fn update_ui(
     }
 }
 
+#[derive(Resource)]
+struct NoisePlaneMesh(Handle<Mesh>);
+
 /// Set up a simple 3D scene
-fn setup(
+fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
+    main_window: Query<&Window, With<PrimaryWindow>>,
+    screenshot_taa: Option<Res<ScreenshotTaa>>,
 ) {
     let checker_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
@@ -342,19 +407,17 @@ fn setup(
     });
 
     // Plane 2
-    let mut plane2: Mesh = shape::Plane::from_size(5.0).into();
+    let mut noise_mesh: Mesh = shape::Plane::from_size(5.0).into();
 
-    // modify the uvs so the texture repeats on the plane
-    if let Some(VertexAttributeValues::Float32x2(uvs)) = plane2.attribute_mut(Mesh::ATTRIBUTE_UV_0)
-    {
-        for uv in uvs {
-            uv[0] *= 20.0;
-            uv[1] *= 20.0;
-        }
-    }
+    let height = main_window.single().resolution.physical_height();
+
+    set_noise_mesh_uv_scale(height, &mut noise_mesh);
+
+    let mesh_h = meshes.add(noise_mesh);
+    commands.insert_resource(NoisePlaneMesh(mesh_h.clone()));
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(plane2),
+        mesh: mesh_h,
         material: noise_material,
         transform: Transform::from_xyz(0.0, 1.0, -1.5).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
@@ -377,9 +440,17 @@ fn setup(
         });
     }
 
+    let helmet = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+
     // Flight Helmet
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+        scene: helmet.clone(),
+        ..default()
+    });
+    commands.spawn(SceneBundle {
+        scene: helmet,
+        transform: Transform::from_translation(vec3(0.6, 0.0, 0.0))
+            .with_rotation(Quat::from_rotation_y(FRAC_PI_2)),
         ..default()
     });
 
@@ -405,13 +476,13 @@ fn setup(
     });
 
     // Camera
-    commands.spawn((
+    let mut camera = commands.spawn((
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
                 ..default()
             },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
+            transform: Transform::from_xyz(1.0, 0.7, 1.2)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
@@ -420,6 +491,9 @@ fn setup(
             ..default()
         },
     ));
+    if screenshot_taa.is_some() {
+        camera.insert(TemporalAntiAliasBundle::default());
+    }
 
     // example instructions
     commands.spawn(
@@ -437,6 +511,37 @@ fn setup(
             ..default()
         }),
     );
+}
+
+fn update_uv_scale(
+    main_window: Query<&Window, With<PrimaryWindow>>,
+    noise_plane_mesh: Res<NoisePlaneMesh>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    resize_events: EventReader<WindowResized>,
+) {
+    if resize_events.is_empty() {
+        return;
+    }
+    let window_height = main_window.single().resolution.physical_height();
+    let noise_mesh = meshes.get_mut(noise_plane_mesh.0.clone()).unwrap();
+    set_noise_mesh_uv_scale(window_height, noise_mesh);
+}
+
+fn set_noise_mesh_uv_scale(window_height: u32, noise_mesh: &mut Mesh) {
+    // modify the uvs so the texture repeats on the plane relative to the window height
+    let uvscale = (window_height as f32 / 720.0) * 10.0;
+    if let Some(VertexAttributeValues::Float32x2(uvs)) =
+        noise_mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0)
+    {
+        for uv in uvs {
+            if uv[0] > 0.0 {
+                uv[0] = uvscale;
+            }
+            if uv[1] > 0.0 {
+                uv[1] = uvscale;
+            }
+        }
+    }
 }
 
 /// Creates a colorful test pattern
@@ -469,15 +574,41 @@ fn uv_debug_texture() -> Image {
     img
 }
 
+pub fn uhash(a: u32, b: u32) -> u32 {
+    let mut x = (a.overflowing_mul(1597334673u32).0) ^ (b.overflowing_mul(3812015801u32).0);
+    // from https://nullprogram.com/blog/2018/07/31/
+    x = x ^ (x >> 16u32);
+    x = x.overflowing_mul(0x7feb352du32).0;
+    x = x ^ (x >> 15u32);
+    x = x.overflowing_mul(0x846ca68bu32).0;
+    x = x ^ (x >> 16u32);
+    x
+}
+
+pub fn unormf(n: u32) -> f32 {
+    n as f32 * (1.0 / 0xffffffffu32 as f32)
+}
+
+pub fn hash_noise(ufrag_coord: UVec2, frame: u32) -> f32 {
+    let urnd = uhash(ufrag_coord.x, (ufrag_coord.y << 11u32) + frame);
+    unormf(urnd)
+}
+
 /// Creates a noise texture
 fn noise_debug_texture() -> Image {
     const TEXTURE_SIZE: usize = 256;
 
-    let mut rng = rand::thread_rng();
-
     let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
-    for val in &mut texture_data {
-        *val = (rng.gen_range(0.0..=1.0f32).powf(2.2) * 255.0 + 0.5) as u8;
+    for (i, val) in texture_data.iter_mut().enumerate() {
+        if i % 4 == 3 {
+            // Make all pixels opaque
+            *val = 255;
+        } else {
+            let x = (i % (TEXTURE_SIZE * 4)) as u32;
+            let y = (i / (TEXTURE_SIZE * 4)) as u32;
+            let urand = hash_noise(uvec2(x, y), 0);
+            *val = (urand.powf(2.2) * 255.0 + 0.5) as u8;
+        }
     }
 
     let mut img = Image::new_fill(
@@ -490,12 +621,29 @@ fn noise_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     );
+
+    // Generate mips
+    let mut dyn_image = img.clone().try_into_dynamic().unwrap();
+    let mut image_data = dyn_image.as_bytes().to_vec();
+    let mut size = TEXTURE_SIZE as u32;
+    let mut mip_count = 1;
+    while size / 2 >= 2 {
+        size /= 2;
+        dyn_image = dyn_image.resize_exact(size, size, FilterType::Triangle);
+        image_data.append(&mut dyn_image.as_bytes().to_vec());
+        mip_count += 1;
+    }
+
+    img.data = image_data;
+    img.texture_descriptor.mip_level_count = mip_count;
     img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
         address_mode_u: AddressMode::Repeat,
         address_mode_v: AddressMode::Repeat,
         address_mode_w: AddressMode::Repeat,
         mag_filter: FilterMode::Linear,
         min_filter: FilterMode::Linear,
+        mipmap_filter: FilterMode::Linear,
+        anisotropy_clamp: 16,
         ..default()
     });
     img
