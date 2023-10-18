@@ -243,7 +243,7 @@ To build for WebGPU, you'll need to disable default features and add all those y
 WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
 
 ```sh
-RUSTFLAGS=--cfg=web_sys_unstable_apis cargo run ...
+RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build ...
 ```
 
 Check `wasm-bindgen` [docs on Unstable APIs](https://rustwasm.github.io/wasm-bindgen/web-sys/unstable-apis.html) for more details.
