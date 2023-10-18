@@ -1,7 +1,9 @@
 #define_import_path bevy_pbr::ambient
 
-#import bevy_pbr::lighting  EnvBRDFApprox, F_AB
-#import bevy_pbr::mesh_view_bindings  lights
+#import bevy_pbr::{
+    lighting::{EnvBRDFApprox, F_AB},
+    mesh_view_bindings::lights,
+}
 
 // A precomputed `NdotV` is provided because it is computed regardless,
 // but `world_normal` and the view vector `V` are provided separately for more advanced uses.
