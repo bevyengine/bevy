@@ -2,16 +2,20 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
+pub use downsampling_pipeline::BloomDownsamplingMipmapper;
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{
     core_2d::{self, CORE_2D},
     core_3d::{self, CORE_3D},
+    mipmap_generator::{
+        self, MipmapBindGroups, MipmapPipeline, MipmapPipelineIds, MipmapPlugin, MipmappedTexture,
+    },
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_math::UVec2;
+use bevy_math::{uvec2, UVec2};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{
@@ -21,21 +25,18 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
-    texture::{CachedTexture, TextureCache},
+    texture::TextureCache,
     view::ViewTarget,
     Render, RenderApp, RenderSet,
 };
-use downsampling_pipeline::{
-    prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
-    BloomUniforms,
-};
+use downsampling_pipeline::{prepare_downsampling_pipeline, BloomUniforms};
 use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
 
 const BLOOM_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(929599476923908);
 
-const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
+pub const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
 
 // Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
 // 512 behaves well with the UV offset of 0.004 used in bloom.wgsl
@@ -53,6 +54,7 @@ impl Plugin for BloomPlugin {
         app.add_plugins((
             ExtractComponentPlugin::<BloomSettings>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),
+            MipmapPlugin::<BloomDownsamplingMipmapper>::default(),
         ));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
@@ -61,7 +63,6 @@ impl Plugin for BloomPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
                 Render,
@@ -106,9 +107,7 @@ impl Plugin for BloomPlugin {
             Err(_) => return,
         };
 
-        render_app
-            .init_resource::<BloomDownsamplingPipeline>()
-            .init_resource::<BloomUpsamplingPipeline>();
+        render_app.init_resource::<BloomUpsamplingPipeline>();
     }
 }
 
@@ -118,12 +117,12 @@ impl ViewNode for BloomNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
-        &'static BloomTexture,
+        &'static MipmappedTexture<BloomDownsamplingMipmapper>,
         &'static BloomBindGroups,
         &'static DynamicUniformIndex<BloomUniforms>,
         &'static BloomSettings,
         &'static UpsamplingPipelineIds,
-        &'static BloomDownsamplingPipelineIds,
+        &'static MipmapPipelineIds<BloomDownsamplingMipmapper>,
     );
 
     // Atypically for a post-processing effect, we do not need to
@@ -145,96 +144,37 @@ impl ViewNode for BloomNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
+        let downsampling_pipeline_res =
+            world.resource::<MipmapPipeline<BloomDownsamplingMipmapper>>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
 
-        let (
-            Some(uniforms),
-            Some(downsampling_first_pipeline),
-            Some(downsampling_pipeline),
-            Some(upsampling_pipeline),
-            Some(upsampling_final_pipeline),
-        ) = (
+        let (Some(uniforms), Some(upsampling_pipeline), Some(upsampling_final_pipeline)) = (
             uniforms.binding(),
-            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.first),
-            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
-        )
-        else {
+        ) else {
             return Ok(());
         };
 
         render_context.command_encoder().push_debug_group("bloom");
 
-        // First downsample pass
-        {
-            let downsampling_first_bind_group =
-                render_context
-                    .render_device()
-                    .create_bind_group(&BindGroupDescriptor {
-                        label: Some("bloom_downsampling_first_bind_group"),
-                        layout: &downsampling_pipeline_res.bind_group_layout,
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                // Read from main texture directly
-                                resource: BindingResource::TextureView(
-                                    view_target.main_texture_view(),
-                                ),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::Sampler(&bind_groups.sampler),
-                            },
-                            BindGroupEntry {
-                                binding: 2,
-                                resource: uniforms.clone(),
-                            },
-                        ],
-                    });
-
-            let view = &bloom_texture.view(0);
-            let mut downsampling_first_pass =
-                render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                    label: Some("bloom_downsampling_first_pass"),
-                    color_attachments: &[Some(RenderPassColorAttachment {
-                        view,
-                        resolve_target: None,
-                        ops: Operations::default(),
-                    })],
-                    depth_stencil_attachment: None,
-                });
-            downsampling_first_pass.set_render_pipeline(downsampling_first_pipeline);
-            downsampling_first_pass.set_bind_group(
-                0,
-                &downsampling_first_bind_group,
-                &[uniform_index.index()],
-            );
-            downsampling_first_pass.draw(0..3, 0..1);
-        }
-
-        // Other downsample passes
-        for mip in 1..bloom_texture.mip_count {
-            let view = &bloom_texture.view(mip);
-            let mut downsampling_pass =
-                render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                    label: Some("bloom_downsampling_pass"),
-                    color_attachments: &[Some(RenderPassColorAttachment {
-                        view,
-                        resolve_target: None,
-                        ops: Operations::default(),
-                    })],
-                    depth_stencil_attachment: None,
-                });
-            downsampling_pass.set_render_pipeline(downsampling_pipeline);
-            downsampling_pass.set_bind_group(
-                0,
-                &bind_groups.downsampling_bind_groups[mip as usize - 1],
-                &[uniform_index.index()],
-            );
-            downsampling_pass.draw(0..3, 0..1);
+        // Downsample passes
+        if !mipmap_generator::generate_mipmaps(
+            render_context,
+            pipeline_cache,
+            downsampling_pipeline_res,
+            downsampling_pipeline_ids,
+            &bind_groups.downsampling_bind_groups,
+            bloom_texture,
+            view_target.main_texture_view(),
+            &[BindGroupEntry {
+                binding: 2,
+                resource: uniforms.clone(),
+            }],
+            &[uniform_index.index()],
+        ) {
+            return Ok(());
         }
 
         // Upsample passes except the final one
@@ -304,38 +244,6 @@ impl ViewNode for BloomNode {
     }
 }
 
-#[derive(Component)]
-struct BloomTexture {
-    // First mip is half the screen resolution, successive mips are half the previous
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
-    texture: CachedTexture,
-    // WebGL does not support binding specific mip levels for sampling, fallback to separate textures instead
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-    texture: Vec<CachedTexture>,
-    mip_count: u32,
-}
-
-impl BloomTexture {
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
-    fn view(&self, base_mip_level: u32) -> TextureView {
-        self.texture.texture.create_view(&TextureViewDescriptor {
-            base_mip_level,
-            mip_level_count: Some(1u32),
-            ..Default::default()
-        })
-    }
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-    fn view(&self, base_mip_level: u32) -> TextureView {
-        self.texture[base_mip_level as usize]
-            .texture
-            .create_view(&TextureViewDescriptor {
-                base_mip_level: 0,
-                mip_level_count: Some(1u32),
-                ..Default::default()
-            })
-    }
-}
-
 fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -348,65 +256,38 @@ fn prepare_bloom_textures(
             y: height,
         }) = camera.physical_viewport_size
         {
-            // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;
-            let mip_height_ratio = MAX_MIP_DIMENSION as f32 / height as f32;
-
-            let texture_descriptor = TextureDescriptor {
-                label: Some("bloom_texture"),
-                size: Extent3d {
-                    width: ((width as f32 * mip_height_ratio).round() as u32).max(1),
-                    height: ((height as f32 * mip_height_ratio).round() as u32).max(1),
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: mip_count,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: BLOOM_TEXTURE_FORMAT,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+            let aspect_ratio = width as f32 / height as f32;
+            let size = if aspect_ratio >= 1.0 {
+                uvec2(
+                    MAX_MIP_DIMENSION,
+                    (MAX_MIP_DIMENSION as f32 / aspect_ratio).round() as u32,
+                )
+            } else {
+                uvec2(
+                    (MAX_MIP_DIMENSION as f32 * aspect_ratio).round() as u32,
+                    MAX_MIP_DIMENSION,
+                )
             };
 
-            #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
-            let texture = texture_cache.get(&render_device, texture_descriptor);
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            let texture: Vec<CachedTexture> = (0..mip_count)
-                .map(|mip| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            size: Extent3d {
-                                width: (texture_descriptor.size.width >> mip).max(1),
-                                height: (texture_descriptor.size.height >> mip).max(1),
-                                depth_or_array_layers: 1,
-                            },
-                            mip_level_count: 1,
-                            ..texture_descriptor.clone()
-                        },
-                    )
-                })
-                .collect();
-
-            commands
-                .entity(entity)
-                .insert(BloomTexture { texture, mip_count });
+            let texture: MipmappedTexture<BloomDownsamplingMipmapper> =
+                MipmappedTexture::new(&render_device, &mut texture_cache, size);
+            commands.entity(entity).insert(texture);
         }
     }
 }
 
 #[derive(Component)]
 struct BloomBindGroups {
-    downsampling_bind_groups: Box<[BindGroup]>,
+    downsampling_bind_groups: MipmapBindGroups<BloomDownsamplingMipmapper>,
     upsampling_bind_groups: Box<[BindGroup]>,
-    sampler: Sampler,
 }
 
 fn prepare_bloom_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    downsampling_pipeline: Res<BloomDownsamplingPipeline>,
+    downsampling_pipeline: Res<MipmapPipeline<BloomDownsamplingMipmapper>>,
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &BloomTexture)>,
+    views: Query<(Entity, &MipmappedTexture<BloomDownsamplingMipmapper>)>,
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
 ) {
     let sampler = &downsampling_pipeline.sampler;
@@ -414,27 +295,15 @@ fn prepare_bloom_bind_groups(
     for (entity, bloom_texture) in &views {
         let bind_group_count = bloom_texture.mip_count as usize - 1;
 
-        let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
-        for mip in 1..bloom_texture.mip_count {
-            downsampling_bind_groups.push(render_device.create_bind_group(&BindGroupDescriptor {
-                label: Some("bloom_downsampling_bind_group"),
-                layout: &downsampling_pipeline.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&bloom_texture.view(mip - 1)),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: uniforms.binding().unwrap(),
-                    },
-                ],
-            }));
-        }
+        let downsampling_bind_groups = MipmapBindGroups::new(
+            &render_device,
+            &downsampling_pipeline,
+            bloom_texture,
+            &[BindGroupEntry {
+                binding: 2,
+                resource: uniforms.binding().unwrap(),
+            }],
+        );
 
         let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in (0..bloom_texture.mip_count).rev() {
@@ -459,9 +328,8 @@ fn prepare_bloom_bind_groups(
         }
 
         commands.entity(entity).insert(BloomBindGroups {
-            downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
+            downsampling_bind_groups,
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
-            sampler: sampler.clone(),
         });
     }
 }

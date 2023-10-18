@@ -9,6 +9,7 @@ pub mod core_3d;
 pub mod deferred;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
+pub mod mipmap_generator;
 pub mod msaa_writeback;
 pub mod prepass;
 mod skybox;
