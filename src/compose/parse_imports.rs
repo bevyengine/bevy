@@ -351,7 +351,7 @@ fn import_tokens() {
     assert!(test_parse(input).is_err());
 
     let input = r"
-        #import a::b::{c}}
+        #import a::b::{{c}
     ";
     assert!(test_parse(input).is_err());
 
