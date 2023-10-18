@@ -540,7 +540,7 @@ ruby -run -ehttpd examples/wasm
 
 #### WebGL2 and WebGPU
 
-Bevy ships with WebGPU by default, but it is being worked on and is currently experimental.
+Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
 
