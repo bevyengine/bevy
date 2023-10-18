@@ -828,17 +828,6 @@ impl Composer {
         source: &str,
         imports: Vec<ImportDefWithOffset>,
     ) -> Result<ComposableModule, ComposerError> {
-        let wrap_err = |inner: ComposerErrorInner| -> ComposerError {
-            ComposerError {
-                inner,
-                source: ErrSource::Module {
-                    name: module_definition.name.to_owned(),
-                    offset: 0,
-                    defs: shader_defs.clone(),
-                },
-            }
-        };
-
         let mut imports: Vec<_> = imports
             .into_iter()
             .map(|import_with_offset| import_with_offset.definition)
@@ -884,6 +873,17 @@ impl Composer {
 
                     #[cfg(not(feature = "override_any"))]
                     {
+                        let wrap_err = |inner: ComposerErrorInner| -> ComposerError {
+                            ComposerError {
+                                inner,
+                                source: ErrSource::Module {
+                                    name: module_definition.name.to_owned(),
+                                    offset: 0,
+                                    defs: shader_defs.clone(),
+                                },
+                            }
+                        };
+                
                         // ensure overrides are applied to virtual functions
                         let raw_module_name = Self::decode(&target_module);
                         let module_set = self.module_sets.get(&raw_module_name);
