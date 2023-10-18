@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 pub struct Camera3d {
     /// The clear color operation to perform for the main 3d pass.
     ///
-    /// **Note:** When [`Camera3d::transmissive_steps`] > `0`, a fully opaque clear
+    /// **Note:** When [`Camera3d::screen_space_specular_transmission_steps`] > `0`, a fully opaque clear
     /// color will “cover” the environment map light's texture, preventing it from
     /// being refracted “through” transmissive objects, even if there are no opaque
     /// objects behind them. To work around this issue, consider using a clear color

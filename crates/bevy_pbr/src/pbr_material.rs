@@ -184,10 +184,10 @@ pub struct StandardMaterial {
     ///
     /// Transmission is implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material.
     ///
-    /// - [`Camera3d::transmissive_steps`](bevy_core_pipeline::core_3d::Camera3d::transmissive_steps) can be used to enable transmissive objects
+    /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
     /// to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
     ///     - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
-    /// [`Camera3d::transmissive_steps`](bevy_core_pipeline::core_3d::Camera3d::transmissive_steps) to `0`.
+    /// [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     /// for a much less expensive effect.
     #[doc(alias = "refraction")]
