@@ -1,3 +1,3 @@
-#import wgsl_parse_err
-
-fn ok() {}
+fn ok() {
+    wgsl_parse_err::woops();
+}

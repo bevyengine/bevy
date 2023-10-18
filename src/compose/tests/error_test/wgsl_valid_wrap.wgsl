@@ -1,3 +1,3 @@
-#import valid_inc
-
-fn whatever() {}
+fn whatever() {
+    valid_inc::main();
+}

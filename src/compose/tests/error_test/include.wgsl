@@ -6,4 +6,7 @@ or here, just moving lines around a bit
 
 #import missing
 
-fn sub() {}
+fn sub() {
+    // have to use something for it to be declared missing
+    let x = missing::y();
+}

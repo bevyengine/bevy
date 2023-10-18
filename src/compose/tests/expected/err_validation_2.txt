@@ -1,10 +1,10 @@
-error: failed to build a valid final module: Function [2] 'valid_inc::func' is invalid
+error: failed to build a valid final module: Function [1] 'valid_inc::func' is invalid
   ┌─ tests/error_test/wgsl_valid_err.wgsl:7:1
   │  
 7 │ ╭ fn func() -> f32 {
 8 │ │     return 1u;
   │ │            ^^ naga::Expression [1]
-  │ ╰──────────────^ naga::Function [2]
+  │ ╰──────────────^ naga::Function [1]
   │  
   = The `return` value Some([1]) does not match the function return value
 

@@ -13,6 +13,7 @@ default = ["test_shader"]
 test_shader = []
 prune = []
 override_any = []
+allow_deprecated = []
 
 [dependencies]
 naga = { version = "0.13", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "clone", "span"] }

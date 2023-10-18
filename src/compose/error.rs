@@ -8,10 +8,7 @@ use codespan_reporting::{
 use thiserror::Error;
 use tracing::trace;
 
-use super::{
-    preprocess::{PreprocessOutput, PreprocessorMetaData},
-    Composer, ShaderDefValue,
-};
+use super::{preprocess::PreprocessOutput, Composer, ShaderDefValue};
 use crate::{compose::SPAN_SHIFT, redirect::RedirectError};
 
 #[derive(Debug)]
@@ -42,15 +39,11 @@ impl ErrSource {
                 let raw_source = &composer.module_sets.get(name).unwrap().sanitized_source;
                 let Ok(PreprocessOutput {
                     preprocessed_source: source,
-                    meta: PreprocessorMetaData { imports, .. },
+                    ..
                 }) = composer
                     .preprocessor
                     .preprocess(raw_source, defs, composer.validate)
                 else {
-                    return Default::default();
-                };
-
-                let Ok(source) = composer.substitute_shader_string(&source, &imports) else {
                     return Default::default();
                 };
 
@@ -77,6 +70,8 @@ pub struct ComposerError {
 
 #[derive(Debug, Error)]
 pub enum ComposerErrorInner {
+    #[error("{0}")]
+    ImportParseError(String, usize),
     #[error("required import '{0}' not found")]
     ImportNotFound(String, usize),
     #[error("{0}")]
@@ -214,6 +209,10 @@ impl ComposerError {
             ComposerErrorInner::ImportNotFound(msg, pos) => (
                 vec![Label::primary((), *pos..*pos)],
                 vec![format!("missing import '{msg}'")],
+            ),
+            ComposerErrorInner::ImportParseError(msg, pos) => (
+                vec![Label::primary((), *pos..*pos)],
+                vec![format!("invalid import spec: '{msg}'")],
             ),
             ComposerErrorInner::WgslParseError(e) => (
                 e.labels()
