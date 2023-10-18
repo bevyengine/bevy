@@ -642,17 +642,15 @@ pub fn queue_material_meshes<M: Material>(
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
-                    } else {
-                        if forward {
-                            opaque_phase.add(Opaque3d {
-                                entity: *visible_entity,
-                                draw_function: draw_opaque_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                                batch_range: 0..1,
-                                dynamic_offset: None,
-                            });
-                        }
+                    } else if forward {
+                        opaque_phase.add(Opaque3d {
+                            entity: *visible_entity,
+                            draw_function: draw_opaque_pbr,
+                            pipeline: pipeline_id,
+                            distance,
+                            batch_range: 0..1,
+                            dynamic_offset: None,
+                        });
                     }
                 }
                 AlphaMode::Mask(_) => {
