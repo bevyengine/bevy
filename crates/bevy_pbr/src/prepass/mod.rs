@@ -47,6 +47,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::default;
 use bevy_utils::tracing::error;
+use smallvec::SmallVec;
 
 use crate::{
     prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
@@ -636,8 +637,8 @@ where
 pub fn get_bind_group_layout_entries(
     bindings: [u32; 4],
     layout_key: MeshPipelineViewLayoutKey,
-) -> Vec<BindGroupLayoutEntry> {
-    let mut result = vec![];
+) -> SmallVec<[BindGroupLayoutEntry; 4]> {
+    let mut result = SmallVec::<[BindGroupLayoutEntry; 4]>::new();
 
     let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
 
@@ -717,8 +718,8 @@ pub struct PrepassBindingsSet {
 }
 
 impl PrepassBindingsSet {
-    pub fn get_entries(&self, bindings: [u32; 4]) -> Vec<BindGroupEntry> {
-        let mut result: Vec<BindGroupEntry> = vec![];
+    pub fn get_entries(&self, bindings: [u32; 4]) -> SmallVec<[BindGroupEntry; 4]> {
+        let mut result = SmallVec::<[BindGroupEntry; 4]>::new();
 
         if let Some(ref depth_view) = self.depth_view {
             result.push(BindGroupEntry {
