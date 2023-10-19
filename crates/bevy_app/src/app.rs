@@ -333,8 +333,7 @@ impl App {
     }
 
     /// Run [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
-    /// plugins are [`App::ready`], but can be useful for situations where you want to use
-    /// [`App::update`].
+    /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let plugin_registry = std::mem::take(&mut self.plugin_registry);
