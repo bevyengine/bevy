@@ -183,6 +183,10 @@ impl fmt::Debug for TypePathTable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TypePathVtable")
             .field("type_path", &self.type_path)
+            .field("short_type_path", &(self.short_type_path)())
+            .field("type_ident", &(self.type_ident)())
+            .field("crate_name", &(self.crate_name)())
+            .field("module_path", &(self.module_path)())
             .finish()
     }
 }

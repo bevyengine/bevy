@@ -7,6 +7,7 @@ mod alpha;
 mod bundle;
 pub mod deferred;
 mod environment_map;
+mod extended_material;
 mod fog;
 mod light;
 mod material;
@@ -19,6 +20,7 @@ mod ssao;
 pub use alpha::*;
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
+pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
 pub use material::*;
@@ -74,6 +76,7 @@ pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(1668
 pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
 pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
 pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(3145627513789590502);
+pub const PBR_FRAGMENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2295049283805286543);
 pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
 pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
@@ -171,6 +174,12 @@ impl Plugin for PbrPlugin {
             app,
             PBR_AMBIENT_HANDLE,
             "render/pbr_ambient.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_FRAGMENT_HANDLE,
+            "render/pbr_fragment.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);

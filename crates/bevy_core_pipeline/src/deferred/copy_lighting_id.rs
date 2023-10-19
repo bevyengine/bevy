@@ -60,7 +60,7 @@ impl Plugin for CopyDeferredLightingIdPlugin {
 #[derive(Default)]
 pub struct CopyDeferredLightingIdNode;
 impl CopyDeferredLightingIdNode {
-    pub const NAME: &str = "copy_deferred_lighting_id";
+    pub const NAME: &'static str = "copy_deferred_lighting_id";
 }
 
 impl ViewNode for CopyDeferredLightingIdNode {
