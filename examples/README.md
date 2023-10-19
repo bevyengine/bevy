@@ -234,8 +234,6 @@ Example | Description
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
-[Time handling](../examples/ecs/time.rs) | Explains how Time is handled in ECS
-[Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games
 
@@ -330,6 +328,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[Time handling](../examples/time/time.rs) | Explains how Time is handled in ECS
+[Timers](../examples/time/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 [Virtual time](../examples/time/virtual_time.rs) | Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game.
 
 ## Tools
