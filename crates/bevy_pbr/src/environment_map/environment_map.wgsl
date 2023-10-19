@@ -25,12 +25,17 @@ fn environment_map_light(
     let irradiance = textureSample(bindings::environment_map_diffuse, bindings::environment_map_sampler, vec3(N.xy, -N.z)).rgb;
     let radiance = textureSampleLevel(bindings::environment_map_specular, bindings::environment_map_sampler, vec3(R.xy, -R.z), radiance_level).rgb;
 
+    // No real world material has specular values under 0.02, so we use this range as a
+    // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.
+    // See: https://google.github.io/filament/Filament.html#specularocclusion
+    let specular_occlusion = saturate(dot(F0, vec3(50.0 * 0.33)));
+
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
     // Useful reference: https://bruop.github.io/ibl
     let Fr = max(vec3(1.0 - roughness), F0) - F0;
     let kS = F0 + Fr * pow(1.0 - NdotV, 5.0);
-    let FssEss = kS * f_ab.x + f_ab.y;
     let Ess = f_ab.x + f_ab.y;
+    let FssEss = kS * Ess * specular_occlusion;
     let Ems = 1.0 - Ess;
     let Favg = F0 + (1.0 - F0) / 21.0;
     let Fms = FssEss * Favg / (1.0 - Ems * Favg);
