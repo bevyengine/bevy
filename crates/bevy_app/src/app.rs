@@ -315,7 +315,7 @@ impl App {
         (runner)(app);
     }
 
-    /// Check that [`Plugin::ready`] of all plugins returns true. This is usually called by the
+    /// Check the state of all plugins already added to this app. This is usually called by the
     /// event loop, but can be useful for situations where you want to use [`App::update`]
     #[inline]
     pub fn plugins_state(&self) -> PluginsState {
