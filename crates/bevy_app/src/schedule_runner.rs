@@ -74,7 +74,7 @@ impl Plugin for ScheduleRunnerPlugin {
         app.set_runner(move |mut app: App| {
             let plugins_state = app.plugins_state();
             if plugins_state != PluginsState::Cleaned {
-                while app.plugins_state() != PluginsState::Ready {
+                while app.plugins_state() == PluginsState::Adding {
                     #[cfg(not(target_arch = "wasm32"))]
                     bevy_tasks::tick_global_task_pools_on_main_thread();
                 }
