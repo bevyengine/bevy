@@ -35,7 +35,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - Reusability across multiple systems.
 /// - Filters can be composed together to create a more complex filter.
 ///
-/// This trait can only be derived for structs, if each field also implements `WorldQueryFilter`.
+/// This trait can only be derived for structs if each field also implements `WorldQueryFilter`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -847,7 +847,7 @@ impl<T: Component> WorldQueryFilter for Changed<T> {
 /// This is needed to implement [`ExactSizeIterator`](std::iter::ExactSizeIterator) for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implement for filters where its corresponding [`WorldQueryFilter::IS_ARCHETYPAL`](crate::query::WorldQueryFilter::IS_ARCHETYPAL)
+/// The trait must only be implemented for filters where its corresponding [`WorldQueryFilter::IS_ARCHETYPAL`](crate::query::WorldQueryFilter::IS_ARCHETYPAL)
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.

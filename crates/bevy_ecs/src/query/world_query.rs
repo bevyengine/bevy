@@ -11,7 +11,6 @@ use bevy_utils::all_tuples;
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`WorldQueryData`] or [`WorldQueryFilter`]
 ///
-///
 /// # Safety
 ///
 /// Implementor must ensure that
