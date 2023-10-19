@@ -1537,7 +1537,7 @@ pub struct Outline {
     /// Color of the outline
     ///
     /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
-    /// This avoids the table moves that would occcur from the repeated insertion and removal of the `Outline` component.
+    /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
     pub color: Color,
 }
 
