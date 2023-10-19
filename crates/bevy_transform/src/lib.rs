@@ -6,6 +6,7 @@
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
+pub mod helper;
 /// Systems responsible for transform propagation
 pub mod systems;
 
@@ -13,8 +14,8 @@ pub mod systems;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        commands::BuildChildrenTransformExt, components::*, TransformBundle, TransformPlugin,
-        TransformPoint,
+        commands::BuildChildrenTransformExt, components::*, helper::TransformHelper,
+        TransformBundle, TransformPlugin, TransformPoint,
     };
 }
 
