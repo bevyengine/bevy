@@ -378,7 +378,7 @@ pub fn winit_runner(mut app: App) {
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
-    let mut finished_and_setup_done = false;
+    let mut finished_and_setup_done = app.ready();
 
     // setup up the event loop
     let event_handler = move |event: Event<()>,

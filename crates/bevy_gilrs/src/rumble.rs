@@ -5,7 +5,7 @@ use bevy_ecs::{
 };
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_log::{debug, warn};
-use bevy_time::Time;
+use bevy_time::{Real, Time};
 use bevy_utils::{Duration, HashMap};
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
@@ -120,12 +120,12 @@ fn handle_rumble_request(
     Ok(())
 }
 pub(crate) fn play_gilrs_rumble(
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     mut gilrs: NonSendMut<Gilrs>,
     mut requests: EventReader<GamepadRumbleRequest>,
     mut running_rumbles: NonSendMut<RunningRumbleEffects>,
 ) {
-    let current_time = time.raw_elapsed();
+    let current_time = time.elapsed();
     // Remove outdated rumble effects.
     for rumbles in running_rumbles.rumbles.values_mut() {
         // `ff::Effect` uses RAII, dropping = deactivating
