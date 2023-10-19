@@ -35,7 +35,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - Reusability across multiple systems.
 /// - Filters can be composed together to create a more complex filter.
 ///
-/// This trait can only be derived for structs, if each field also implements `WorldQueryFilter`.
+/// This trait can only be derived for structs if each field also implements `WorldQueryFilter`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
