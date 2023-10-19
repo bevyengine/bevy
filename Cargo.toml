@@ -259,6 +259,7 @@ rand = "0.8.0"
 ron = "0.8.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
+image = { version = "0.24", default-features = false }
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
