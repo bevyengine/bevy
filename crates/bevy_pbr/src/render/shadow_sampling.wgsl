@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::shadow_sampling
 
 #import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::utils PI
+#import bevy_pbr::utils PI, interleaved_gradient_noise
 
 // Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
@@ -68,13 +68,6 @@ fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, array_
     return sum * (1.0 / 144.0);
 }
 
-// https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
-fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
-    let frame = f32(view_bindings::globals.frame_count % 64u);
-    let xy = pixel_coordinates + 5.588238 * frame;
-    return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
-}
-
 fn map(min1: f32, max1: f32, min2: f32, max2: f32, value: f32) -> f32 {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
@@ -82,7 +75,7 @@ fn map(min1: f32, max1: f32, min2: f32, max2: f32, value: f32) -> f32 {
 fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_index: i32, texel_size: f32) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
 
-    let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size);
+    let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size, view_bindings::globals.frame_count);
     let m = vec2(sin(random_angle), cos(random_angle));
     let rotation_matrix = mat2x2(
         m.y, -m.x,

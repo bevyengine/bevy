@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::transmission
 
 #import bevy_pbr::prepass_utils as prepass_utils
-#import bevy_pbr::utils PI
+#import bevy_pbr::utils PI, interleaved_gradient_noise
 #import bevy_pbr::mesh_view_bindings as view_bindings
 
 fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
@@ -38,18 +38,6 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     return specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
 }
 
-// https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
-fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
-#ifdef TEMPORAL_JITTER
-    let frame = f32(view_bindings::globals.frame_count % 64u);
-    let xy = pixel_coordinates + 5.588238 * frame;
-#else
-    // Don't vary noise per frame if TAA is not enabled
-    let xy = pixel_coordinates;
-#endif
-    return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
-}
-
 fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>) -> vec4<f32> {
     return textureSample(
         view_bindings::view_transmission_texture,
@@ -80,7 +68,11 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let num_taps = 8; // Fallback to 8 taps, if not specified
 #endif
     let num_spirals = i32(ceil(f32(num_taps) / 8.0));
-    let random_angle = interleaved_gradient_noise(frag_coord.xy);
+#ifdef TEMPORAL_JITTER
+    let random_angle = interleaved_gradient_noise(frag_coord.xy, view_bindings::globals.frame_count);
+#else
+    let random_angle = interleaved_gradient_noise(frag_coord.xy, 0u);
+#endif
 
     // Pixel checkerboard pattern (helps make the interleaved gradient noise pattern less visible)
     let pixel_checkboard = (
