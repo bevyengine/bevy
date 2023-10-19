@@ -326,11 +326,9 @@ impl App {
                         return PluginsState::Adding;
                     }
                 }
-                return PluginsState::Ready;
+                PluginsState::Ready
             }
-            state => {
-                return state;
-            }
+            state => state,
         }
     }
 
