@@ -77,7 +77,7 @@ where
 
 /// Labels for various `wgpu` objects.
 ///
-/// These show up in debugging tools like RenderDoc.
+/// These show up in debugging tools like `RenderDoc`.
 pub struct MipmapDebugNames {
     /// The label for the mipmapper's bind group layout.
     pub bind_group_layout: &'static str,
@@ -481,7 +481,7 @@ where
                 label: Some(M::debug_names().rest_bind_group),
                 layout: &pipeline.bind_group_layout,
                 entries: &bind_group_entries,
-            }))
+            }));
         }
 
         Self {
