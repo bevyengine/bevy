@@ -430,10 +430,7 @@ unsafe impl<'a> WorldQueryData for EntityRef<'a> {
     }
 }
 
-/// SAFETY:
-/// `fetch` accesses all components in a mutable way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` set write access for all components and panic when appropriate.
-/// Filters are unchanged.
+/// SAFETY: access is read only
 unsafe impl ReadOnlyWorldQueryData for EntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
