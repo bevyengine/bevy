@@ -14,8 +14,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     var meshlet_visible = true;
 
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
-    // TODO: Does using the mesh model for translation work here?
-    // TODO: Maybe need to multiply radius by the max model scale?
+    // TODO: Need to multiply radius by the instance scale
     let bounding_sphere = meshlet_bounding_spheres[meshlet_id];
     let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
     for (var i = 0u; i < 6u; i++) {
