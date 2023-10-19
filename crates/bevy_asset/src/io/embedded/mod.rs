@@ -191,7 +191,7 @@ macro_rules! embedded_asset {
 
     ($app: ident, $source_path: expr, $path: expr) => {{
         let mut embedded = $app
-            .world
+            .world_mut()
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
         #[cfg(feature = "embedded_watcher")]
