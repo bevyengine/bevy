@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::shadow_sampling
 
 #import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::utils PI, interleaved_gradient_noise
+#import bevy_pbr::utils PI, interleaved_gradient_noise, SPIRAL_OFFSET_0_, SPIRAL_OFFSET_1_, SPIRAL_OFFSET_2_, SPIRAL_OFFSET_3_, SPIRAL_OFFSET_4_, SPIRAL_OFFSET_5_, SPIRAL_OFFSET_6_, SPIRAL_OFFSET_7_
 
 // Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
@@ -87,14 +87,14 @@ fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_
     let uv_offset_scale = f / (texel_size * shadow_map_size);
 
     // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-    let sample_offset1 = (rotation_matrix * vec2(-0.7071,  0.7071)) * uv_offset_scale;
-    let sample_offset2 = (rotation_matrix * vec2(-0.0000, -0.8750)) * uv_offset_scale;
-    let sample_offset3 = (rotation_matrix * vec2( 0.5303,  0.5303)) * uv_offset_scale;
-    let sample_offset4 = (rotation_matrix * vec2(-0.6250, -0.0000)) * uv_offset_scale;
-    let sample_offset5 = (rotation_matrix * vec2( 0.3536, -0.3536)) * uv_offset_scale;
-    let sample_offset6 = (rotation_matrix * vec2(-0.0000,  0.3750)) * uv_offset_scale;
-    let sample_offset7 = (rotation_matrix * vec2(-0.1768, -0.1768)) * uv_offset_scale;
-    let sample_offset8 = (rotation_matrix * vec2( 0.1250,  0.0000)) * uv_offset_scale;
+    let sample_offset1 = (rotation_matrix * SPIRAL_OFFSET_0_) * uv_offset_scale;
+    let sample_offset2 = (rotation_matrix * SPIRAL_OFFSET_1_) * uv_offset_scale;
+    let sample_offset3 = (rotation_matrix * SPIRAL_OFFSET_2_) * uv_offset_scale;
+    let sample_offset4 = (rotation_matrix * SPIRAL_OFFSET_3_) * uv_offset_scale;
+    let sample_offset5 = (rotation_matrix * SPIRAL_OFFSET_4_) * uv_offset_scale;
+    let sample_offset6 = (rotation_matrix * SPIRAL_OFFSET_5_) * uv_offset_scale;
+    let sample_offset7 = (rotation_matrix * SPIRAL_OFFSET_6_) * uv_offset_scale;
+    let sample_offset8 = (rotation_matrix * SPIRAL_OFFSET_7_) * uv_offset_scale;
 
     var sum = 0.0;
     sum += sample_shadow_map_hardware(light_local + sample_offset1, depth, array_index);

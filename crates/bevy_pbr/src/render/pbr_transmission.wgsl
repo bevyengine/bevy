@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::transmission
 
 #import bevy_pbr::prepass_utils as prepass_utils
-#import bevy_pbr::utils PI, interleaved_gradient_noise
+#import bevy_pbr::utils PI, interleaved_gradient_noise, SPIRAL_OFFSET_0_, SPIRAL_OFFSET_1_, SPIRAL_OFFSET_2_, SPIRAL_OFFSET_3_, SPIRAL_OFFSET_4_, SPIRAL_OFFSET_5_, SPIRAL_OFFSET_6_, SPIRAL_OFFSET_7_
 #import bevy_pbr::mesh_view_bindings as view_bindings
 
 fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
@@ -103,14 +103,14 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             // seems to only allow constant indexes into constant arrays at the moment.
             // The downstream shader compiler should be able to optimize this into a single
             // constant when unrolling the for loop, but it's still not ideal.
-            case 0: { spiral_offset = vec2<f32>(-0.7071,  0.7071); }
-            case 1: { spiral_offset = vec2<f32>(-0.0000, -0.8750); }
-            case 2: { spiral_offset = vec2<f32>( 0.5303,  0.5303); }
-            case 3: { spiral_offset = vec2<f32>(-0.6250, -0.0000); }
-            case 4: { spiral_offset = vec2<f32>( 0.3536, -0.3536); }
-            case 5: { spiral_offset = vec2<f32>(-0.0000,  0.3750); }
-            case 6: { spiral_offset = vec2<f32>(-0.1768, -0.1768); }
-            case 7: { spiral_offset = vec2<f32>( 0.1250,  0.0000); }
+            case 0: { spiral_offset = SPIRAL_OFFSET_0_; }
+            case 1: { spiral_offset = SPIRAL_OFFSET_1_; }
+            case 2: { spiral_offset = SPIRAL_OFFSET_2_; }
+            case 3: { spiral_offset = SPIRAL_OFFSET_3_; }
+            case 4: { spiral_offset = SPIRAL_OFFSET_4_; }
+            case 5: { spiral_offset = SPIRAL_OFFSET_5_; }
+            case 6: { spiral_offset = SPIRAL_OFFSET_6_; }
+            case 7: { spiral_offset = SPIRAL_OFFSET_7_; }
             default: {}
         }
 
