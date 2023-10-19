@@ -26,7 +26,7 @@ fn fragment(
 #ifdef WEBGL2
         let depth = 0.0;
 #else
-        let depth = bevy_pbr::prepass_utils::prepass_depth(frag_coord, sample_index);
+        let depth = bevy_pbr::prepass_utils::prepass_depth(mesh.position, sample_index);
 #endif
         return vec4(depth, depth, depth, 1.0);
     } else if settings.show_normals == 1u {
