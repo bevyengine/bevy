@@ -242,6 +242,9 @@ pub trait AssetApp {
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
     /// Registers the given [`AssetSourceBuilder`] with the given `id`.
+    ///
+    /// Note that asset sources must be registered before adding [`AssetPlugin`] to your application,
+    /// since registered asset sources are built at that point and not after.
     fn register_asset_source(
         &mut self,
         id: impl Into<AssetSourceId<'static>>,
