@@ -52,7 +52,8 @@ struct VirtualTime;
 
 /// Setup the example
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMut<Time<Virtual>>) {
-    // start with double virtual time resulting in one of the sprites moving at twice the speed
+    // start with double `Virtual` time resulting in one of the sprites moving at twice the speed
+    // of the other sprite which moves based on `Real` (unscaled) time
     time.set_relative_speed(2.);
 
     commands.spawn(Camera2dBundle::default());
