@@ -232,6 +232,9 @@ accesskit_unix = ["bevy_internal/accesskit_unix"]
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
 
+# Enable assertions in debug builds to check the validity of parameters passed to glam
+debug_glam_assert = ["bevy_internal/debug_glam_assert"]
+
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
 
