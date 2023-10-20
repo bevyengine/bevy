@@ -51,7 +51,10 @@ struct RealTime;
 struct VirtualTime;
 
 /// Setup the example
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMut<Time<Virtual>>) {
+    // start with double virtual time resulting in one of the sprites moving at twice the speed
+    time.set_relative_speed(2.);
+
     commands.spawn(Camera2dBundle::default());
 
     let virtual_color = Color::GOLD;
