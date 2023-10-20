@@ -288,6 +288,14 @@ impl App {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
+        if app.ready() {
+            // If we're already ready, we finish up now and advance one frame.
+            // This prevents black frames during the launch transition on iOS.
+            app.finish();
+            app.cleanup();
+            app.update();
+        }
+
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
@@ -861,7 +869,7 @@ impl App {
     }
 
     /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
-    /// ignores systems that are ambiguious on [`Component`] T.
+    /// ignores systems that are ambiguous on [`Component`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
     /// [corresponding method](World::allow_ambiguous_component) on World
@@ -899,7 +907,7 @@ impl App {
     }
 
     /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
-    /// ignores systems that are ambiguious on [`Resource`] T.
+    /// ignores systems that are ambiguous on [`Resource`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
     /// [corresponding method](World::allow_ambiguous_resource) on World
