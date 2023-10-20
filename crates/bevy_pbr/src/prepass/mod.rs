@@ -210,7 +210,7 @@ pub fn update_previous_view_projections(
     query: Query<(Entity, &Camera, &GlobalTransform), (With<Camera3d>, With<MotionVectorPrepass>)>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        commands.entity(entity).insert(PreviousViewProjection {
+        commands.entity(entity).try_insert(PreviousViewProjection {
             view_proj: camera.projection_matrix() * camera_transform.compute_matrix().inverse(),
         });
     }
@@ -230,7 +230,7 @@ pub fn update_mesh_previous_global_transforms(
         for (entity, transform) in &meshes {
             commands
                 .entity(entity)
-                .insert(PreviousGlobalTransform(transform.affine()));
+                .try_insert(PreviousGlobalTransform(transform.affine()));
         }
     }
 }
