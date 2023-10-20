@@ -46,7 +46,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
-use std::cell::Cell;
+use std::{array, cell::Cell};
 use thread_local::ThreadLocal;
 
 #[cfg(debug_assertions)]
@@ -657,12 +657,9 @@ impl FromWorld for MeshPipeline {
             entries
         }
 
-        let mut i: u32 = 0;
-        let view_layouts = [(); MeshPipelineViewLayoutKey::COUNT].map(|_| {
-            let key = MeshPipelineViewLayoutKey::from_bits_truncate(i);
+        let view_layouts = array::from_fn(|i| {
+            let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
             let entries = layout_entries(clustered_forward_buffer_binding_type, key);
-
-            i += 1;
 
             #[cfg(debug_assertions)]
             let texture_count: usize = entries
