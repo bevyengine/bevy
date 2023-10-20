@@ -1,22 +1,33 @@
 use std::array;
 
 use bevy_core_pipeline::{
-    prepass::ViewPrepassTextures, tonemapping::get_lut_bind_group_layout_entries,
+    prepass::ViewPrepassTextures,
+    tonemapping::{
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+    },
+};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    system::{Commands, Query, Res},
 };
 use bevy_render::{
-    globals::GlobalsUniform,
+    globals::{GlobalsBuffer, GlobalsUniform},
+    render_asset::RenderAssets,
     render_resource::{
-        BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        BufferBindingType, SamplerBindingType, ShaderStages, ShaderType, TextureSampleType,
-        TextureViewDimension,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, SamplerBindingType,
+        ShaderStages, ShaderType, TextureFormat, TextureSampleType, TextureViewDimension,
     },
     renderer::RenderDevice,
-    view::{Msaa, ViewUniform},
+    texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, Image},
+    view::{Msaa, ViewUniform, ViewUniforms},
 };
 
 use crate::{
-    environment_map, prepass, GpuFog, GpuLights, GpuPointLights, MeshPipelineKey,
-    ViewClusterBindings,
+    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
+    GpuPointLights, LightMeta, MeshPipeline, MeshPipelineKey, ScreenSpaceAmbientOcclusionTextures,
+    ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
 };
 
 #[derive(Clone)]
@@ -322,4 +333,171 @@ pub fn generate_view_layouts(
             texture_count,
         }
     })
+}
+
+#[derive(Component)]
+pub struct MeshViewBindGroup {
+    pub value: BindGroup,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_mesh_view_bind_groups(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    mesh_pipeline: Res<MeshPipeline>,
+    shadow_samplers: Res<ShadowSamplers>,
+    light_meta: Res<LightMeta>,
+    global_light_meta: Res<GlobalLightMeta>,
+    fog_meta: Res<FogMeta>,
+    view_uniforms: Res<ViewUniforms>,
+    views: Query<(
+        Entity,
+        &ViewShadowBindings,
+        &ViewClusterBindings,
+        Option<&ScreenSpaceAmbientOcclusionTextures>,
+        Option<&ViewPrepassTextures>,
+        Option<&EnvironmentMapLight>,
+        &Tonemapping,
+    )>,
+    (images, mut fallback_images, fallback_cubemap): (
+        Res<RenderAssets<Image>>,
+        FallbackImageMsaa,
+        Res<FallbackImageCubemap>,
+    ),
+    msaa: Res<Msaa>,
+    globals_buffer: Res<GlobalsBuffer>,
+    tonemapping_luts: Res<TonemappingLuts>,
+) {
+    if let (
+        Some(view_binding),
+        Some(light_binding),
+        Some(point_light_binding),
+        Some(globals),
+        Some(fog_binding),
+    ) = (
+        view_uniforms.uniforms.binding(),
+        light_meta.view_gpu_lights.binding(),
+        global_light_meta.gpu_point_lights.binding(),
+        globals_buffer.buffer.binding(),
+        fog_meta.gpu_fogs.binding(),
+    ) {
+        for (
+            entity,
+            view_shadow_bindings,
+            view_cluster_bindings,
+            ssao_textures,
+            prepass_textures,
+            environment_map,
+            tonemapping,
+        ) in &views
+        {
+            let fallback_ssao = fallback_images
+                .image_for_samplecount(1, TextureFormat::bevy_default())
+                .texture_view
+                .clone();
+
+            let layout = &mesh_pipeline.get_view_layout(
+                MeshPipelineViewLayoutKey::from(*msaa)
+                    | MeshPipelineViewLayoutKey::from(prepass_textures),
+            );
+
+            let mut entries = vec![
+                BindGroupEntry {
+                    binding: 0,
+                    resource: view_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: light_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(
+                        &view_shadow_bindings.point_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(
+                        &view_shadow_bindings.directional_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: point_light_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
+                },
+                BindGroupEntry {
+                    binding: 8,
+                    resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+                },
+                BindGroupEntry {
+                    binding: 9,
+                    resource: globals.clone(),
+                },
+                BindGroupEntry {
+                    binding: 10,
+                    resource: fog_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 11,
+                    resource: BindingResource::TextureView(
+                        ssao_textures
+                            .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
+                            .unwrap_or(&fallback_ssao),
+                    ),
+                },
+            ];
+
+            let env_map = environment_map::get_bindings(
+                environment_map,
+                &images,
+                &fallback_cubemap,
+                [12, 13, 14],
+            );
+            entries.extend_from_slice(&env_map);
+
+            let tonemapping_luts =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
+            entries.extend_from_slice(&tonemapping_luts);
+
+            let label = Some("mesh_view_bind_group");
+
+            // When using WebGL, we can't have a depth texture with multisampling
+            let prepass_bindings = if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
+                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
+            {
+                Some(prepass::get_bindings(prepass_textures))
+            } else {
+                None
+            };
+
+            // This if statement is here to make the borrow checker happy.
+            // Ideally we could just have `entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));`
+            // in the existing if statement above, but that either doesn't allow `prepass_bindings` to live long enough,
+            // as its used when creating the bind group at the end of the function, or causes a `cannot move out of` error.
+            if let Some(prepass_bindings) = &prepass_bindings {
+                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
+            }
+
+            commands.entity(entity).insert(MeshViewBindGroup {
+                value: render_device.create_bind_group(&BindGroupDescriptor {
+                    entries: &entries,
+                    label,
+                    layout,
+                }),
+            });
+        }
+    }
 }
