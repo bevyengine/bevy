@@ -42,7 +42,6 @@ impl Default for TextFlags {
     }
 }
 
-#[derive(Clone)]
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
 }
@@ -72,8 +71,8 @@ impl Measure for TextMeasure {
             .map_or_else(
                 || match available_width {
                     AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.min_width_content_size.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max_width_content_size.y),
                 },
                 |y| Vec2::new(x, y),
             )
@@ -86,10 +85,17 @@ fn create_text_measure(
     fonts: &Assets<Font>,
     scale_factor: f32,
     text: Ref<Text>,
+    text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
 ) {
-    match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
+    match text_pipeline.create_text_measure(
+        fonts,
+        &text.sections,
+        scale_factor,
+        text.alignment,
+        text.linebreak_behavior,
+    ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
@@ -105,7 +111,7 @@ fn create_text_measure(
             // Try again next frame
             text_flags.needs_new_measure_func = true;
         }
-        Err(e @ TextError::FailedToAddGlyph(_)) => {
+        Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -135,6 +141,7 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
+    mut text_pipeline: ResMut<TextPipeline>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
@@ -159,7 +166,14 @@ pub fn measure_text_system(
             || text_flags.needs_new_measure_func
             || content_size.is_added()
         {
-            create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
+            create_text_measure(
+                &fonts,
+                scale_factor,
+                text,
+                &mut text_pipeline,
+                content_size,
+                text_flags,
+            );
         }
     }
     *last_scale_factors = scale_factors;
@@ -211,12 +225,12 @@ fn queue_text(
                 // There was an error processing the text layout, try again next frame
                 text_flags.needs_recompute = true;
             }
-            Err(e @ TextError::FailedToAddGlyph(_)) => {
+            Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(mut info) => {
-                info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
-                info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
+                info.size.x = scale_value(info.size.x, inverse_scale_factor);
+                info.size.y = scale_value(info.size.y, inverse_scale_factor);
                 *text_layout_info = info;
                 text_flags.needs_recompute = false;
             }

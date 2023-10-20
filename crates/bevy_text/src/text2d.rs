@@ -124,7 +124,7 @@ pub fn extract_text2d_sprite(
         }
 
         let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.logical_size * text_anchor;
+        let alignment_translation = text_layout_info.size * text_anchor;
         let transform = *global_transform
             * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
@@ -149,7 +149,7 @@ pub fn extract_text2d_sprite(
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
-                    rect: Some(atlas.textures[atlas_info.glyph_index].as_rect()),
+                    rect: Some(atlas.textures[atlas_info.location.glyph_index]),
                     custom_size: None,
                     image_handle_id: atlas_info.texture.id(),
                     flip_x: false,
@@ -222,12 +222,12 @@ pub fn update_text2d_layout(
                     // queue for further processing
                     queue.insert(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {
-                    info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
-                    info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
+                    info.size.x = scale_value(info.size.x, inverse_scale_factor);
+                    info.size.y = scale_value(info.size.y, inverse_scale_factor);
                     *text_layout_info = info;
                 }
             }

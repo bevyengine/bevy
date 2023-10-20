@@ -5,11 +5,20 @@ use bevy_reflect::prelude::*;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
+//use crate DEFAULT_FONT_HANDLE;
 use crate::Font;
+// TODO: reexport cosmic_text and these types in the prelude
+pub use cosmic_text::{
+    FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle, Weight as FontWeight,
+};
 
+/// A component that is the entry point for rendering text.
+///
+/// It contains all of the text value and styling information.
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct Text {
+    /// The text's sections
     pub sections: Vec<TextSection>,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
@@ -33,7 +42,7 @@ impl Text {
     ///     // Accepts a String or any type that converts into a String, such as &str.
     ///     "hello world!",
     ///     TextStyle {
-    ///         font: font_handle.clone(),
+    ///         font: font_handle.clone().into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
@@ -42,7 +51,7 @@ impl Text {
     /// let hello_bevy = Text::from_section(
     ///     "hello world\nand bevy!",
     ///     TextStyle {
-    ///         font: font_handle,
+    ///         font: font_handle.into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
@@ -70,7 +79,7 @@ impl Text {
     ///     TextSection::new(
     ///         "Hello, ",
     ///         TextStyle {
-    ///             font: font_handle.clone(),
+    ///             font: font_handle.clone().into(),
     ///             font_size: 60.0,
     ///             color: BLUE.into(),
     ///         },
@@ -78,7 +87,7 @@ impl Text {
     ///     TextSection::new(
     ///         "World!",
     ///         TextStyle {
-    ///             font: font_handle,
+    ///             font: font_handle.into(),
     ///             font_size: 60.0,
     ///             color: RED.into(),
     ///         },
@@ -106,6 +115,7 @@ impl Text {
     }
 }
 
+/// Contains the value of the text in a section and how it should be styled.
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct TextSection {
     pub value: String,
@@ -170,30 +180,9 @@ pub enum JustifyText {
     Right,
 }
 
-impl From<JustifyText> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: JustifyText) -> Self {
-        match val {
-            JustifyText::Left => glyph_brush_layout::HorizontalAlign::Left,
-            JustifyText::Center => glyph_brush_layout::HorizontalAlign::Center,
-            JustifyText::Right => glyph_brush_layout::HorizontalAlign::Right,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
-    /// If this is not specified, then
-    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///  `FiraMono-subset.ttf` compiled into the library is used.
-    /// * otherwise no text will be rendered.
-    pub font: Handle<Font>,
-    /// The vertical height of rasterized glyphs in the font atlas in pixels.
-    ///
-    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
-    /// transform or camera projection.
-    ///
-    /// A new font atlas is generated for every combination of font handle and scaled font size
-    /// which can have a strong performance impact.
+    pub font: FontRef,
     pub font_size: f32,
     pub color: Color,
 }
@@ -202,7 +191,7 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: 24.0,
+            font_size: 12.0,
             color: Color::WHITE,
         }
     }
@@ -226,15 +215,133 @@ pub enum BreakLineOn {
     NoWrap,
 }
 
-impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
-    fn from(val: BreakLineOn) -> Self {
-        match val {
-            // If `NoWrap` is set the choice of `BuiltInLineBreaker` doesn't matter as the text is given unbounded width and soft wrapping will never occur.
-            // But `NoWrap` does not disable hard breaks where a [`Text`] contains a newline character.
-            BreakLineOn::WordBoundary | BreakLineOn::NoWrap => {
-                glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker
-            }
-            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
+/// Identifies a font to use, which is either stored as an [`Asset`](bevy_asset::Asset) or loaded directly from the user's system.
+#[derive(Clone, Debug, Reflect)]
+pub enum FontRef {
+    /// A reference to a font loaded as a bevy asset.
+    Asset(Handle<Font>),
+    /// A reference to a font queried by font family and attributes.
+    /// This is useful for example for fonts that are not loaded as a bevy asset,
+    /// such as system fonts.
+    // TODO: Support Reflect?
+    Query(#[reflect(ignore)] FontQuery),
+}
+
+impl Default for FontRef {
+    fn default() -> Self {
+        Self::Asset(Default::default())
+    }
+}
+
+impl From<Handle<Font>> for FontRef {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Asset(handle)
+    }
+}
+
+/// Queries for a font from those already loaded.
+///
+/// ```
+/// # use bevy_text::{FontQuery, FontWeight, TextStyle};
+///
+/// let fira_sans_bold = FontQuery::family("FiraSans").weight(FontWeight::BOLD);
+///
+/// let text_style = TextStyle {
+///     font: fira_sans_bold.into(),
+///     ..Default::default()
+/// };
+/// ```
+#[derive(Clone, Debug)]
+pub struct FontQuery {
+    /// The font family. See [`cosmic_text::fontdb::Family`] for details.
+    pub family: FontFamily,
+    /// The stretch (or width) of the font face in this family, e.g. condensed.
+    /// See [`cosmic_text::fontdb::Stretch`] for details.
+    pub stretch: FontStretch,
+    /// The style of the font face in this family, e.g. italic.
+    /// See [`cosmic_text::fontdb::Style`] for details.
+    pub style: FontStyle,
+    /// The weight of the font face in this family, e.g. bold.
+    /// See [`cosmic_text::fontdb::Weight`] for details.
+    pub weight: FontWeight,
+}
+
+impl FontQuery {
+    pub fn sans_serif() -> Self {
+        Self {
+            family: FontFamily::SansSerif,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
         }
+    }
+
+    pub fn serif() -> Self {
+        Self {
+            family: FontFamily::Serif,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn fantasy() -> Self {
+        Self {
+            family: FontFamily::Fantasy,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn cursive() -> Self {
+        Self {
+            family: FontFamily::Cursive,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn monospace() -> Self {
+        Self {
+            family: FontFamily::Monospace,
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn family<S: AsRef<str>>(name: S) -> Self {
+        Self {
+            family: FontFamily::Name(name.as_ref().to_string()),
+            stretch: Default::default(),
+            style: Default::default(),
+            weight: Default::default(),
+        }
+    }
+
+    pub fn stretch(self, stretch: FontStretch) -> Self {
+        Self { stretch, ..self }
+    }
+
+    pub fn style(self, style: FontStyle) -> Self {
+        Self { style, ..self }
+    }
+
+    pub fn weight(self, weight: FontWeight) -> Self {
+        Self { weight, ..self }
+    }
+}
+
+impl Default for FontQuery {
+    fn default() -> Self {
+        Self::sans_serif()
+    }
+}
+
+impl From<FontQuery> for FontRef {
+    fn from(query: FontQuery) -> Self {
+        Self::Query(query)
     }
 }

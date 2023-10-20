@@ -268,9 +268,6 @@ wayland = ["bevy_internal/wayland"]
 # X11 display server support
 x11 = ["bevy_internal/x11"]
 
-# Enable rendering of font glyphs using subpixel accuracy
-subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
-
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
@@ -2725,6 +2722,16 @@ name = "Size Constraints"
 description = "Demonstrates how the to use the size constraints to control the size of a UI node."
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "system_fonts"
+path = "examples/ui/system_fonts.rs"
+
+[package.metadata.example.system_fonts]
+name = "System Fonts"
+description = "Demonstrates using system fonts."
+category = "UI (User Interface)"
+wasm = false
 
 [[example]]
 name = "text"

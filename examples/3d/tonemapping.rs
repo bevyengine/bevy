@@ -411,13 +411,14 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text: Query<&mut Text, Without<SceneNumber>>,
+    mut text_query: Query<&mut Text, Without<SceneNumber>>,
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
+<<<<<<< HEAD
     let (method, color_grading) = settings.single();
     let method = *method;
 
@@ -425,12 +426,27 @@ fn update_ui(
     let text = &mut text.sections[0].value;
 
     if keys.just_pressed(KeyCode::KeyH) {
+=======
+    if keys.just_pressed(KeyCode::H) {
+>>>>>>> d64259bcc (Copied each affected file from cosmic-text branch, to fix some weird issue with rebasing)
         *hide_ui = !*hide_ui;
     }
-    text.clear();
+
+    let old_text = &text_query.single().sections[0].value;
+
     if *hide_ui {
+        if !old_text.is_empty() {
+            // single_mut() always triggers change detection,
+            // so only access if text actually needs changing
+            text_query.single_mut().sections[0].value.clear();
+        }
         return;
     }
+
+    let (method, color_grading) = settings.single();
+    let method = *method;
+
+    let mut text = String::with_capacity(old_text.len());
 
     let scn = current_scene.0;
     text.push_str("(H) Hide UI\n\n");
@@ -534,6 +550,12 @@ fn update_ui(
 
     if current_scene.0 == 1 {
         text.push_str("(Enter) Reset all to scene recommendation\n");
+    }
+
+    if text != old_text.as_str() {
+        // single_mut() always triggers change detection,
+        // so only access if text actually changed
+        text_query.single_mut().sections[0].value = text;
     }
 }
 

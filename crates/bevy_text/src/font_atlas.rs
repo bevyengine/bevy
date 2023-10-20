@@ -1,6 +1,5 @@
-use ab_glyph::{GlyphId, Point};
 use bevy_asset::{Assets, Handle};
-use bevy_math::UVec2;
+use bevy_math::{IVec2, Vec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -9,58 +8,27 @@ use bevy_render::{
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlasLayout};
 use bevy_utils::HashMap;
 
-#[cfg(feature = "subpixel_glyph_atlas")]
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct SubpixelOffset {
-    x: u16,
-    y: u16,
-}
+use crate::GlyphAtlasLocation;
 
-#[cfg(feature = "subpixel_glyph_atlas")]
-impl From<Point> for SubpixelOffset {
-    fn from(p: Point) -> Self {
-        fn f(v: f32) -> u16 {
-            ((v % 1.) * (u16::MAX as f32)) as u16
-        }
-        Self {
-            x: f(p.x),
-            y: f(p.y),
-        }
-    }
-}
-
-#[cfg(not(feature = "subpixel_glyph_atlas"))]
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct SubpixelOffset;
-
-#[cfg(not(feature = "subpixel_glyph_atlas"))]
-impl From<Point> for SubpixelOffset {
-    fn from(_: Point) -> Self {
-        Self
-    }
-}
-
-/// A font glyph placed at a specific sub-pixel offset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PlacedGlyph {
-    /// The font glyph ID.
-    pub glyph_id: GlyphId,
-    /// The sub-pixel offset of the placed glyph.
-    pub subpixel_offset: SubpixelOffset,
-}
-
+/// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
+///
+/// A [`FontAtlasSet`](crate::FontAtlasSet) contains one or more `FontAtlas`es.
 pub struct FontAtlas {
+    /// Used to update the [`TextureAtlas`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
-    pub glyph_to_atlas_index: HashMap<PlacedGlyph, usize>,
+    /// A mapping between subpixel-binned glyphs and their [`GlyphAtlasLocation`].
+    pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, GlyphAtlasLocation>,
+    /// The handle to the [`TextureAtlas`] that holds the rasterized glyphs.
     pub texture_atlas: Handle<TextureAtlasLayout>,
+    /// the texture where this font atlas is located
     pub texture: Handle<Image>,
 }
 
 impl FontAtlas {
     pub fn new(
         textures: &mut Assets<Image>,
-        texture_atlases: &mut Assets<TextureAtlasLayout>,
-        size: UVec2,
+        texture_atlases_layout: &mut Assets<TextureAtlasLayout>,
+        size: Vec2,
     ) -> FontAtlas {
         let texture = textures.add(Image::new_fill(
             Extent3d {
@@ -74,21 +42,21 @@ impl FontAtlas {
             // Need to keep this image CPU persistent in order to add additional glyphs later on
             RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
         ));
-        let texture_atlas = TextureAtlasLayout::new_empty(size);
+        let texture_atlas = texture_atlases_layout.add(TextureAtlasLayout::new_empty(size));
         Self {
-            texture_atlas: texture_atlases.add(texture_atlas),
+            texture_atlas,
             glyph_to_atlas_index: HashMap::default(),
             dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 0),
             texture,
         }
     }
 
-    pub fn get_glyph_index(&self, glyph: &PlacedGlyph) -> Option<usize> {
-        self.glyph_to_atlas_index.get(glyph).copied()
+    pub fn get_glyph_index(&self, cache_key: cosmic_text::CacheKey) -> Option<GlyphAtlasLocation> {
+        self.glyph_to_atlas_index.get(&cache_key).copied()
     }
 
-    pub fn has_glyph(&self, glyph: &PlacedGlyph) -> bool {
-        self.glyph_to_atlas_index.contains_key(glyph)
+    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey) -> bool {
+        self.glyph_to_atlas_index.contains_key(&cache_key)
     }
 
     /// Add a glyph to the atlas, updating both its texture and layout.
@@ -104,23 +72,27 @@ impl FontAtlas {
     /// modified.
     pub fn add_glyph(
         &mut self,
-        textures: &mut Assets<Image>,
-        atlas_layouts: &mut Assets<TextureAtlasLayout>,
-        glyph: &PlacedGlyph,
-        glyph_texture: &Image,
+        textures: &mut Assets<Image>,crates/bevy_text/src/font_atlas_set.rs
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
+        cache_key: cosmcrates/bevy_text/src/font_atlas_set.rsic_text::CacheKey,
+        texture: &Image,
+        offset: IVec2,
     ) -> bool {
-        let Some(atlas_layout) = atlas_layouts.get_mut(&self.texture_atlas) else {
-            return false;
-        };
-        let Some(atlas_texture) = textures.get_mut(&self.texture) else {
-            return false;
-        };
-        if let Some(index) = self.dynamic_texture_atlas_builder.add_texture(
-            atlas_layout,
-            glyph_texture,
-            atlas_texture,
+        let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
+
+        if let Some(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
+            texture_atlas,
+            textures,
+            texture,
+            &self.texture,
         ) {
-            self.glyph_to_atlas_index.insert(*glyph, index);
+            self.glyph_to_atlas_index.insert(
+                cache_key,
+                GlyphAtlasLocation {
+                    glyph_index,
+                    offset,
+                },
+            );
             true
         } else {
             false

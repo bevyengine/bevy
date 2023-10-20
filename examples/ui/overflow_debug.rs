@@ -115,11 +115,43 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
+<<<<<<< HEAD
                         display: Display::Grid,
                         grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
                         grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
                         row_gap: Val::Px(80.),
                         column_gap: Val::Px(80.),
+=======
+                        height: Val::Px(32.),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        ..default()
+                    },
+                    background_color: Color::DARK_GRAY.into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        [
+                            "Toggle Overflow (O)",
+                            "Next Container Size (S)",
+                            "Toggle Animation (space)",
+                        ]
+                        .join("  ·  "),
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: 18.0,
+                            ..default()
+                        },
+                    ));
+                });
+
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        flex_grow: 1.,
+                        flex_direction: FlexDirection::Column,
+>>>>>>> d64259bcc (Copied each affected file from cosmic-text branch, to fix some weird issue with rebasing)
                         ..default()
                     },
                     ..default()
@@ -165,7 +197,7 @@ fn spawn_text(
         parent.spawn(TextBundle::from_section(
             "Bevy",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 120.0,
                 ..default()
             },

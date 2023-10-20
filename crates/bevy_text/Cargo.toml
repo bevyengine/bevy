@@ -9,7 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-subpixel_glyph_atlas = []
 default_font = []
 
 [dependencies]
@@ -29,8 +28,8 @@ bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
-ab_glyph = "0.2.6"
-glyph_brush_layout = "0.2.1"
+anyhow = "1.0.4"
+cosmic-text = "0.8.0"
 thiserror = "1.0"
 serde = { version = "1", features = ["derive"] }
 
@@ -43,3 +42,6 @@ workspace = true
 [package.metadata.docs.rs]
 rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
+serde = {version = "1", features = ["derive"]}
+sys-locale = "0.3.0"
+unicode-bidi = "0.3.13"

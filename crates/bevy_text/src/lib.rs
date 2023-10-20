@@ -1,18 +1,41 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
-#![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
-)]
+//! This crate provides the tools for positioning and rendering text in Bevy.
+//!
+//! # `Font`
+//!
+//! Fonts contain information for drawing glyphs, which are shapes that typically represent a single character,
+//! but in some cases part of a "character" (grapheme clusters) or more than one character (ligatures).
+//!
+//! A font *face* is part of a font family,
+//! and is distinguished by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
+//!
+//! In Bevy, [`Font`]s are loaded by the [`FontLoader`](FontLoader) as assets,
+//! or they can be loaded as system fonts through [`TextPipeline::load_system_fonts`].
+//!
+//! # `TextPipeline`
+//!
+//! The [`TextPipeline`] resource does all of the heavy lifting for rendering text.
+//!
+//! [`Text`](Text) is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
+//! which is called by a system.
+//!
+//! Note that text measurement is only relevant in a UI context.
+//!
+//! With the actual text bounds defined, another system passes it into [`TextPipeline::queue_text`], which:
+//!
+//! 1. creates a [`Buffer`](cosmic_text::Buffer) from the [`TextSection`]s, generating new [`FontAtlasSet`]s if necessary.
+//! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
+//!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`](FontAtlas) if necessary.
+//! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
+//! which contains all the information that downstream systems need for rendering.
+
+#![allow(clippy::type_complexity)]
 
 mod error;
 mod font;
 mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
-mod glyph_brush;
+mod glyph;
 mod pipeline;
 mod text;
 mod text2d;
@@ -22,7 +45,7 @@ pub use font::*;
 pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
-pub use glyph_brush::*;
+pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
@@ -120,7 +143,7 @@ impl Plugin for TextPlugin {
             app,
             Handle::default(),
             "FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec()) }
         );
     }
 }
