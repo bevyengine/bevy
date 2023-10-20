@@ -28,33 +28,25 @@ impl MeshPipelineViewLayoutKey {
 
     /// Builds a unique label for each layout based on the flags
     pub fn label(&self) -> String {
+        use MeshPipelineViewLayoutKey as Key;
+
         format!(
             "mesh_view_layout{}{}{}{}{}",
-            if self.contains(MeshPipelineViewLayoutKey::MULTISAMPLED) {
-                "_multisampled"
-            } else {
-                ""
-            },
-            if self.contains(MeshPipelineViewLayoutKey::DEPTH_PREPASS) {
-                "_depth"
-            } else {
-                ""
-            },
-            if self.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS) {
-                "_normal"
-            } else {
-                ""
-            },
-            if self.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS) {
-                "_motion"
-            } else {
-                ""
-            },
-            if self.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
-                "_deferred"
-            } else {
-                ""
-            },
+            self.contains(Key::MULTISAMPLED)
+                .then_some("_multisampled")
+                .unwrap_or_default(),
+            self.contains(Key::DEPTH_PREPASS)
+                .then_some("_depth")
+                .unwrap_or_default(),
+            self.contains(Key::NORMAL_PREPASS)
+                .then_some("_normal")
+                .unwrap_or_default(),
+            self.contains(Key::MOTION_VECTOR_PREPASS)
+                .then_some("_motion")
+                .unwrap_or_default(),
+            self.contains(Key::DEFERRED_PREPASS)
+                .then_some("_deferred")
+                .unwrap_or_default(),
         )
     }
 }
