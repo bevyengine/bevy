@@ -9,7 +9,10 @@ use crate::{
 pub use bevy_render_macros::AsBindGroup;
 use encase::ShaderType;
 use std::ops::Deref;
-use wgpu::BindingResource;
+use wgpu::{
+    BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+    BindingResource,
+};
 
 define_atomic_id!(BindGroupId);
 render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
@@ -123,7 +126,7 @@ impl Deref for BindGroup {
 /// | `visibility(...)`     | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
 ///
 /// * `sampler(BINDING_INDEX, arguments)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`](crate::render_resource::Sampler) GPU
+///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
 ///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
@@ -262,6 +265,11 @@ pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
     type Data: Send + Sync;
 
+    /// label
+    fn label() -> Option<&'static str> {
+        None
+    }
+
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
     fn as_bind_group(
         &self,
@@ -269,10 +277,56 @@ pub trait AsBindGroup {
         render_device: &RenderDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError>;
+    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
+        let UnpreparedBindGroup { bindings, data } =
+            Self::unprepared_bind_group(self, layout, render_device, images, fallback_image)?;
+
+        let entries = bindings
+            .iter()
+            .map(|(index, binding)| BindGroupEntry {
+                binding: *index,
+                resource: binding.get_binding(),
+            })
+            .collect::<Vec<_>>();
+
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Self::label(),
+            layout,
+            entries: &entries,
+        });
+
+        Ok(PreparedBindGroup {
+            bindings,
+            bind_group,
+            data,
+        })
+    }
+
+    /// Returns a vec of (binding index, `OwnedBindingResource`).
+    /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
+    /// an implementor may define `as_bind_group` directly. This may prevent certain features
+    /// from working correctly.
+    fn unprepared_bind_group(
+        &self,
+        layout: &BindGroupLayout,
+        render_device: &RenderDevice,
+        images: &RenderAssets<Image>,
+        fallback_image: &FallbackImage,
+    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    where
+        Self: Sized,
+    {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Self::label(),
+            entries: &Self::bind_group_layout_entries(render_device),
+        })
+    }
+
+    /// Returns a vec of bind group layout entries
+    fn bind_group_layout_entries(render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized;
 }
@@ -285,14 +339,21 @@ pub enum AsBindGroupError {
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
 pub struct PreparedBindGroup<T> {
-    pub bindings: Vec<OwnedBindingResource>,
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
+    pub data: T,
+}
+
+/// a map containing `OwnedBindingResource`s, keyed by the target binding index
+pub struct UnpreparedBindGroup<T> {
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub data: T,
 }
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
 /// This is used by types like [`PreparedBindGroup`] to hold a single list of all
 /// render resources used by bindings.
+#[derive(Debug)]
 pub enum OwnedBindingResource {
     Buffer(Buffer),
     TextureView(TextureView),

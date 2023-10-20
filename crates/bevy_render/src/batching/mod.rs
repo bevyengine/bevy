@@ -1,8 +1,8 @@
 use bevy_ecs::{
     component::Component,
     prelude::Res,
-    query::{Has, QueryItem, ReadOnlyWorldQueryData},
-    system::{Query, ResMut},
+    query::{QueryItem, ReadOnlyWorldQueryData, WorldQueryFilter},
+    system::{Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::nonmax::NonMaxU32;
 
@@ -56,7 +56,9 @@ impl<T: PartialEq> BatchMeta<T> {
 /// A trait to support getting data used for batching draw commands via phase
 /// items.
 pub trait GetBatchData {
+    type Param: SystemParam + 'static;
     type Query: ReadOnlyWorldQueryData;
+    type QueryFilter: WorldQueryFilter;
     /// Data used for comparison between phase items. If the pipeline id, draw
     /// function id, per-instance data buffer dynamic offset and this data
     /// matches, the draws can be batched.
@@ -65,10 +67,13 @@ pub trait GetBatchData {
     /// containing these data for all instances.
     type BufferData: GpuArrayBufferable + Sync + Send + 'static;
     /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
-    fn get_buffer_data(query_item: &QueryItem<Self::Query>) -> Self::BufferData;
-    /// Get the data used for comparison when deciding whether draws can be
-    /// batched.
-    fn get_compare_data(query_item: &QueryItem<Self::Query>) -> Self::CompareData;
+    /// If the instance can be batched, also return the data used for
+    /// comparison when deciding whether draws can be batched, else return None
+    /// for the `CompareData`.
+    fn get_batch_data(
+        param: &SystemParamItem<Self::Param>,
+        query_item: &QueryItem<Self::Query>,
+    ) -> (Self::BufferData, Option<Self::CompareData>);
 }
 
 /// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
@@ -76,24 +81,23 @@ pub trait GetBatchData {
 pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
     mut views: Query<&mut RenderPhase<I>>,
-    query: Query<(Has<NoAutomaticBatching>, F::Query)>,
+    query: Query<F::Query, F::QueryFilter>,
+    param: StaticSystemParam<F::Param>,
 ) {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
+    let system_param_item = param.into_inner();
 
     let mut process_item = |item: &mut I| {
-        let (no_auto_batching, batch_query_item) = query.get(item.entity()).ok()?;
+        let batch_query_item = query.get(item.entity()).ok()?;
 
-        let buffer_data = F::get_buffer_data(&batch_query_item);
+        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, &batch_query_item);
         let buffer_index = gpu_array_buffer.push(buffer_data);
 
         let index = buffer_index.index.get();
         *item.batch_range_mut() = index..index + 1;
         *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 
-        (!no_auto_batching).then(|| {
-            let compare_data = F::get_compare_data(&batch_query_item);
-            BatchMeta::new(item, compare_data)
-        })
+        compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
     };
 
     for mut phase in &mut views {

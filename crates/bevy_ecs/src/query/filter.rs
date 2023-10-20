@@ -569,14 +569,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .unsafe_world()
-                    .storages()
-                    .sparse_sets
-                    .get(id)
-                    .debug_checked_unwrap()
-            }),
+            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+                .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
         }
@@ -734,14 +728,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .unsafe_world()
-                    .storages()
-                    .sparse_sets
-                    .get(id)
-                    .debug_checked_unwrap()
-            }),
+            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+                .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
         }
@@ -844,10 +832,10 @@ impl<T: Component> WorldQueryFilter for Changed<T> {
 
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
-/// This is needed to implement [`ExactSizeIterator`](std::iter::ExactSizeIterator) for
+/// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implemented for filters where its corresponding [`WorldQueryFilter::IS_ARCHETYPAL`](crate::query::WorldQueryFilter::IS_ARCHETYPAL)
+/// The trait must only be implemented for filters where its corresponding [`WorldQueryFilter::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.

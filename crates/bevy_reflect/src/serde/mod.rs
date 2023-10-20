@@ -8,7 +8,7 @@ pub use type_data::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, DynamicTupleStruct};
+    use crate::{self as bevy_reflect, DynamicTupleStruct, Struct};
     use crate::{
         serde::{ReflectSerializer, UntypedReflectDeserializer},
         type_registry::TypeRegistry,
@@ -94,8 +94,10 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "cannot get type info for bevy_reflect::struct_trait::DynamicStruct")]
-    fn unproxied_dynamic_should_not_serialize() {
+    #[should_panic(
+        expected = "cannot serialize dynamic value without represented type: bevy_reflect::DynamicStruct"
+    )]
+    fn should_not_serialize_unproxied_dynamic() {
         let registry = TypeRegistry::default();
 
         let mut value = DynamicStruct::default();
@@ -103,5 +105,37 @@ mod tests {
 
         let serializer = ReflectSerializer::new(&value, &registry);
         ron::ser::to_string(&serializer).unwrap();
+    }
+
+    #[test]
+    fn should_roundtrip_proxied_dynamic() {
+        #[derive(Reflect)]
+        struct TestStruct {
+            a: i32,
+            b: i32,
+        }
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<TestStruct>();
+
+        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.clone_dynamic();
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+
+        let expected = r#"{"bevy_reflect::serde::tests::TestStruct":(a:123,b:456)}"#;
+        let result = ron::ser::to_string(&serializer).unwrap();
+        assert_eq!(expected, result);
+
+        let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+
+        let expected = value.clone_value();
+        let result = reflect_deserializer
+            .deserialize(&mut deserializer)
+            .unwrap()
+            .take::<DynamicStruct>()
+            .unwrap();
+
+        assert!(expected.reflect_partial_eq(&result).unwrap());
     }
 }
