@@ -454,7 +454,7 @@ struct MeshPipelineViewLayout {
 
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
-    view_layouts: [MeshPipelineViewLayout; 32],
+    view_layouts: [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT],
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
