@@ -352,7 +352,7 @@ impl AssetApp for App {
     ) -> &mut Self {
         let id = id.into();
         if self.world.get_resource::<AssetServer>().is_some() {
-            error!("{} must be registered before DefaultPlugins", id);
+            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
 
         {
