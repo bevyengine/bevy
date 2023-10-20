@@ -173,6 +173,9 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
         // Else reset
         history_confidence = 1.0;
     }
+    // Reject history when motion vectors point off screen
+    history_confidence *= f32(all(saturate(history_uv) == history_uv));
+    history_confidence = min(1.0, history_confidence);
 
     // Blend current and past sample
     // Use more of the history if we're confident in it (reduces noise when there is no motion)
