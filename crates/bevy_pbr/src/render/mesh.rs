@@ -518,6 +518,7 @@ impl FromWorld for MeshPipeline {
             let tonemapping_lut_entries = get_lut_bind_group_layout_entries([15, 16]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
+            // Prepass
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
@@ -527,6 +528,7 @@ impl FromWorld for MeshPipeline {
                 ));
             }
 
+            // View Transmission Texture
             entries.extend_from_slice(&[
                 BindGroupLayoutEntry {
                     binding: 21,
