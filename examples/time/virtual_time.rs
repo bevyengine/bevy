@@ -33,7 +33,7 @@ fn main() {
                     // `on_timer` run condition uses `Virtual` time meaning it's scaled
                     // and would result in the UI updating at different intervals based
                     // on `Time<Virtual>::relative_speed` and `Time<Virtual>::is_paused()`
-                    .run_if(on_real_timer(Duration::from_millis(1500))),
+                    .run_if(on_real_timer(Duration::from_millis(250))),
             ),
         )
         .run();
@@ -203,7 +203,7 @@ fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
 fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text, With<RealTime>>) {
     for mut text in &mut query {
         text.sections[0].value = format!(
-            "REAL TIME\nElapsed: {:.5}\nDelta: {:.5}\n",
+            "REAL TIME\nElapsed: {:.1}\nDelta: {:.5}\n",
             time.elapsed_seconds(),
             time.delta_seconds(),
         );
@@ -217,7 +217,7 @@ fn update_virtual_time_info_text(
 ) {
     for mut text in &mut query {
         text.sections[0].value = format!(
-            "VIRTUAL TIME\nElapsed: {:.5}\nDelta: {:.5}\nSpeed: {:.2}",
+            "VIRTUAL TIME\nElapsed: {:.1}\nDelta: {:.5}\nSpeed: {:.2}",
             time.elapsed_seconds(),
             time.delta_seconds(),
             time.relative_speed()
