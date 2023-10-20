@@ -53,6 +53,9 @@ pub unsafe trait WorldQuery {
     /// constructing [`Self::Fetch`](crate::query::WorldQuery::Fetch).
     type State: Send + Sync + Sized;
 
+    /// This function manually implements subtyping for the query items.
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
+
     /// Creates a new instance of this fetch.
     ///
     /// # Safety
@@ -154,8 +157,14 @@ macro_rules! impl_tuple_world_query {
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type Fetch<'w> = ($($name::Fetch<'w>,)*);
             type Item<'w> = ($($name::Item<'w>,)*);
-
             type State = ($($name::State,)*);
+
+            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+                let ($($name,)*) = item;
+                ($(
+                    $name::shrink($name),
+                )*)
+            }
 
             #[inline]
             #[allow(clippy::unused_unit)]
@@ -205,7 +214,6 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = state;
                 $($name::update_archetype_component_access($name, _archetype, _access);)*
             }
-
 
             fn init_state(_world: &mut World) -> Self::State {
                 ($($name::init_state(_world),)*)

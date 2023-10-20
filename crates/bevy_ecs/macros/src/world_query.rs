@@ -97,6 +97,16 @@ pub(crate) fn world_query_impl(
             type Fetch<'__w> = #fetch_struct_name #user_ty_generics_with_world;
             type State = #state_struct_name #user_ty_generics;
 
+            fn shrink<'__wlong: '__wshort, '__wshort>(
+                item: <#struct_name #user_ty_generics as #path::query::WorldQuery>::Item<'__wlong>
+            ) -> <#struct_name #user_ty_generics as #path::query::WorldQuery>::Item<'__wshort> {
+                #item_struct_name {
+                    #(
+                        #field_idents: <#field_types>::shrink(item.#field_idents),
+                    )*
+                }
+            }
+
             unsafe fn init_fetch<'__w>(
                 _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
                 state: &Self::State,

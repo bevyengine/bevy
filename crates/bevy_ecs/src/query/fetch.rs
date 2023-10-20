@@ -260,9 +260,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 pub unsafe trait WorldQueryData: WorldQuery {
     /// The read-only variant of this [`WorldQueryData`], which satisfies the [`ReadOnlyWorldQueryData`] trait.
     type ReadOnly: ReadOnlyWorldQueryData<State = <Self as WorldQuery>::State>;
-
-    /// This function manually implements subtyping for the query items.
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
 }
 
 /// A [`WorldQueryData`] that is read only.
@@ -284,6 +281,10 @@ unsafe impl WorldQuery for Entity {
     type Fetch<'w> = ();
     type Item<'w> = Entity;
     type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
 
     const IS_DENSE: bool = true;
 
@@ -339,10 +340,6 @@ unsafe impl WorldQuery for Entity {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl WorldQueryData for Entity {
     type ReadOnly = Self;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
-    }
 }
 
 /// SAFETY: access is read only
@@ -356,6 +353,10 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityRef<'w>;
     type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
 
     const IS_DENSE: bool = true;
 
@@ -424,10 +425,6 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> WorldQueryData for EntityRef<'a> {
     type ReadOnly = Self;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
-    }
 }
 
 /// SAFETY: access is read only
@@ -438,6 +435,10 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityMut<'w>;
     type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
 
     const IS_DENSE: bool = true;
 
@@ -506,10 +507,6 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> WorldQueryData for EntityMut<'a> {
     type ReadOnly = EntityRef<'a>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
-    }
 }
 
 #[doc(hidden)]
@@ -536,6 +533,10 @@ unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
     type Item<'w> = &'w T;
     type State = ComponentId;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
+        item
+    }
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -652,10 +653,6 @@ unsafe impl<T: Component> WorldQuery for &T {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> WorldQueryData for &T {
     type ReadOnly = Self;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
-        item
-    }
 }
 
 /// SAFETY: access is read only
@@ -692,6 +689,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     type Fetch<'w> = RefFetch<'w, T>;
     type Item<'w> = Ref<'w, T>;
     type State = ComponentId;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Ref<'wlong, T>) -> Ref<'wshort, T> {
+        item
+    }
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -819,10 +820,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> WorldQueryData for Ref<'__w, T> {
     type ReadOnly = Self;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Ref<'wlong, T>) -> Ref<'wshort, T> {
-        item
-    }
 }
 
 /// SAFETY: access is read only
@@ -859,6 +856,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
     type Item<'w> = Mut<'w, T>;
     type State = ComponentId;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
+        item
+    }
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -986,10 +987,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> WorldQueryData for &'__w mut T {
     type ReadOnly = &'__w T;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
-        item
-    }
 }
 
 #[doc(hidden)]
@@ -1015,6 +1012,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch<'w> = OptionFetch<'w, T>;
     type Item<'w> = Option<T::Item<'w>>;
     type State = T::State;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item.map(T::shrink)
+    }
 
     const IS_DENSE: bool = T::IS_DENSE;
 
@@ -1103,10 +1104,6 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 // SAFETY: defers to soundness of `T: WorldQuery` impl
 unsafe impl<T: WorldQueryData> WorldQueryData for Option<T> {
     type ReadOnly = Option<T::ReadOnly>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item.map(T::shrink)
-    }
 }
 
 /// SAFETY: [`OptionFetch`] is read only because `T` is read only
@@ -1174,6 +1171,10 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     type Fetch<'w> = bool;
     type Item<'w> = bool;
     type State = ComponentId;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -1243,10 +1244,6 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> WorldQueryData for Has<T> {
     type ReadOnly = Self;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
-    }
 }
 
 /// SAFETY: [`Has`] is read only
@@ -1267,13 +1264,6 @@ macro_rules! impl_tuple_world_query_data {
         // SAFETY: defers to soundness `$name: WorldQuery` impl
         unsafe impl<$($name: WorldQueryData),*> WorldQueryData for ($($name,)*) {
             type ReadOnly = ($($name::ReadOnly,)*);
-
-            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-                let ($($name,)*) = item;
-                ($(
-                    $name::shrink($name),
-                )*)
-            }
         }
 
         /// SAFETY: each item in the tuple is read only
@@ -1297,6 +1287,13 @@ macro_rules! impl_anytuple_fetch {
             type Item<'w> = ($(Option<$name::Item<'w>>,)*);
             type State = ($($name::State,)*);
 
+            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+                let ($($name,)*) = item;
+                ($(
+                    $name.map($name::shrink),
+                )*)
+            }
+
             #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
@@ -1305,8 +1302,6 @@ macro_rules! impl_anytuple_fetch {
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
-
-
 
             #[inline]
             unsafe fn set_archetype<'w>(
@@ -1394,13 +1389,6 @@ macro_rules! impl_anytuple_fetch {
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
         unsafe impl<$($name: WorldQueryData),*> WorldQueryData for AnyOf<($($name,)*)> {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
-
-            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-                let ($($name,)*) = item;
-                ($(
-                    $name.map($name::shrink),
-                )*)
-            }
         }
 
         /// SAFETY: each item in the tuple is read only
@@ -1423,6 +1411,8 @@ unsafe impl<Q: WorldQueryData> WorldQuery for NopWorldQuery<Q> {
     type Fetch<'w> = ();
     type Item<'w> = ();
     type State = Q::State;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(_: ()) {}
 
     const IS_DENSE: bool = Q::IS_DENSE;
 
@@ -1479,8 +1469,6 @@ unsafe impl<Q: WorldQueryData> WorldQuery for NopWorldQuery<Q> {
 /// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<Q: WorldQueryData> WorldQueryData for NopWorldQuery<Q> {
     type ReadOnly = Self;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(_: ()) {}
 }
 
 /// SAFETY: `NopFetch` never accesses any data
@@ -1494,6 +1482,8 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     type Fetch<'a> = ();
 
     type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     unsafe fn init_fetch<'w>(
         _world: UnsafeWorldCell<'w>,
@@ -1547,8 +1537,6 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 /// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<T: ?Sized> WorldQueryData for PhantomData<T> {
     type ReadOnly = Self;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 }
 
 /// SAFETY: `PhantomData` never accesses any world data.
