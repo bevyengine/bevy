@@ -393,6 +393,7 @@ Example | Description
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
+[System Fonts](../examples/ui/system_fonts.rs) | Demonstrates using system fonts.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping

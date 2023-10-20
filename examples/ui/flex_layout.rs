@@ -172,7 +172,7 @@ fn spawn_nested_text_bundle(
             builder.spawn(TextBundle::from_section(
                 text,
                 TextStyle {
-                    font,
+                    font: font.into(),
                     font_size: 24.0,
                     color: Color::BLACK,
                 },

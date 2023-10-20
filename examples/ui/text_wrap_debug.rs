@@ -49,7 +49,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
         font_size: 14.0,
         ..default()
     };

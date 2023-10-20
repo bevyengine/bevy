@@ -147,13 +147,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection::new(
                 "Contributor showcase",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                     font_size: 60.0,
                     ..default()
                 },
             ),
             TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: 60.0,
                 ..default()
             }),
