@@ -144,7 +144,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // very strong emissive meshes appear much dimmer, but the artifacts are noticeable enough to
         // warrant this treatment.
         let normalized_rgb = normalize(sample.rgb);
-        result += vec4(min(sample.rgb, normalized_rgb / clamp(blur_intensity / 2.0, 0.0, 1.0)), sample.a);
+        result += vec4(min(sample.rgb, normalized_rgb / saturate(blur_intensity / 2.0)), sample.a);
     }
 
     result /= f32(num_taps);
