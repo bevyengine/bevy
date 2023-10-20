@@ -19,8 +19,9 @@ fn main() {
     App::new()
         // Using the "processed" mode will configure the AssetPlugin to use asset processing.
         // If you also enable the `asset_processor` cargo feature, this will run the AssetProcessor
-        // in the background, which will listen for changes to the `assets` folder, run them through
-        // configured asset processors, and write the results to the `imported_assets` folder.
+        // in the background, run them through configured asset processors, and write the results to
+        // the `imported_assets` folder. If you also enable the `file_watcher` cargo feature, changes to the
+        // source assets will be detected and they will be reprocessed.
         //
         // The AssetProcessor will create `.meta` files automatically for assets in the `assets` folder,
         // which can then be used to configure how the asset will be processed.

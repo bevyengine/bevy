@@ -90,8 +90,6 @@ pub enum AssetMode {
     /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
     /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.  
     ///
-    /// In the future, we plan on providing a command line tool to run the processor separately, as well as the ability to run the processor from the (future) Bevy Editor.
-    ///
     /// [`AssetMeta`]: crate::meta::AssetMeta
     /// [`AssetSource`]: crate::io::AssetSource
     /// [`AssetReader`]: crate::io::AssetReader
