@@ -382,10 +382,7 @@ macro_rules! impl_query_filter_tuple {
             type Item<'w> = bool;
             type State = ($($filter::State,)*);
 
-
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
-
-
 
             #[inline]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
@@ -435,7 +432,6 @@ macro_rules! impl_query_filter_tuple {
                 false $(|| ($filter.matches && $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row)))*
             }
 
-
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
@@ -470,7 +466,6 @@ macro_rules! impl_query_filter_tuple {
                 false $(|| $filter::matches_component_set($filter, _set_contains_id))*
             }
         }
-
 
         impl<$($filter: WorldQueryFilter),*> WorldQueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
@@ -575,6 +570,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             this_run,
         }
     }
+
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
@@ -589,10 +585,11 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         table: &'w Table,
     ) {
         fetch.table_ticks = Some(
-            (Column::get_added_ticks_slice)(table.get_column(component_id).debug_checked_unwrap())
+            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
                 .into(),
         );
     }
+
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
@@ -604,6 +601,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             Self::set_table(fetch, component_id, table);
         }
     }
+
     #[inline(always)]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
@@ -634,6 +632,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         }
         access.add_read(id);
     }
+
     #[inline]
     fn update_archetype_component_access(
         &id: &ComponentId,
@@ -644,9 +643,11 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             access.add_read(archetype_component_id);
         }
     }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
+
     fn matches_component_set(
         &id: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -749,12 +750,11 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         table: &'w Table,
     ) {
         fetch.table_ticks = Some(
-            (Column::get_changed_ticks_slice)(
-                table.get_column(component_id).debug_checked_unwrap(),
-            )
-            .into(),
+            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+                .into(),
         );
     }
+
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
@@ -766,6 +766,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             Self::set_table(fetch, component_id, table);
         }
     }
+
     #[inline(always)]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
@@ -796,6 +797,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         }
         access.add_read(id);
     }
+
     #[inline]
     fn update_archetype_component_access(
         &id: &ComponentId,
@@ -806,9 +808,11 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             access.add_read(archetype_component_id);
         }
     }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
+
     fn matches_component_set(
         &id: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
