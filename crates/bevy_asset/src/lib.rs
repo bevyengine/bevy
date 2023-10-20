@@ -47,6 +47,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
     world::FromWorld,
 };
+use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use std::{any::TypeId, sync::Arc};
 
@@ -349,6 +350,11 @@ impl AssetApp for App {
         id: impl Into<AssetSourceId<'static>>,
         source: AssetSourceBuilder,
     ) -> &mut Self {
+        let id = id.into();
+        if self.world.get_resource::<AssetServer>().is_some() {
+            error!("{} must be registered before DefaultPlugins", id);
+        }
+
         {
             let mut sources = self
                 .world
