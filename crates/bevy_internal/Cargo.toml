@@ -102,6 +102,9 @@ glam_assert = ["bevy_math/glam_assert"]
 
 default_font = ["bevy_text?/default_font"]
 
+# Enables the built-in asset processor for processed assets.
+asset_processor = ["bevy_asset?/asset_processor"]
+
 # Enables watching the filesystem for Bevy Asset hot-reloading
 file_watcher = ["bevy_asset?/file_watcher"]
 

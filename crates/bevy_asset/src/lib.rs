@@ -41,7 +41,7 @@ use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
-use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate, Startup};
+use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
@@ -80,21 +80,21 @@ pub enum AssetMode {
     /// [`AssetReader`]: crate::io::AssetReader
     /// [`AssetSource`]: crate::io::AssetSource
     Unprocessed,
-    /// Loads assets from their final processed [`AssetReader`]. This should generally only be used when distributing apps.
-    /// Use [`AssetMode::ProcessedDev`] to develop apps that process assets, then switch to [`AssetMode::Processed`] when deploying the apps.
+    /// Assets will be "pre-processed". This enables assets to be imported / converted / optimized ahead of time.
     ///
-    /// [`AssetReader`]: crate::io::AssetReader
-    Processed,
-    /// Starts an [`AssetProcessor`] in the background that reads assets from their unprocessed [`AssetSource`] (defaults to the `assets` folder),
-    /// processes them according to their [`AssetMeta`], and writes them to their processed [`AssetSource`] (defaults to the `imported_assets/Default` folder).
+    /// Assets will be read from their unprocessed [`AssetSource`] (defaults to the `assets` folder),
+    /// processed according to their [`AssetMeta`], and written to their processed [`AssetSource`] (defaults to the `imported_assets/Default` folder).
     ///
-    /// Apps will load assets from the processed [`AssetSource`]. Asset loads will wait until the asset processor has finished processing the requested asset.
+    /// By default, this assumes the processor _has already been run_. It will load assets from their final processed [`AssetReader`].
     ///
-    /// This should generally be used in combination with the `file_watcher` cargo feature to support hot-reloading and re-processing assets.
+    /// When developing an app, you should enable the `asset_processor` cargo feature, which will run the asset processor at startup. This should generally
+    /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
+    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.  
     ///
     /// [`AssetMeta`]: crate::meta::AssetMeta
     /// [`AssetSource`]: crate::io::AssetSource
-    ProcessedDev,
+    /// [`AssetReader`]: crate::io::AssetReader
+    Processed,
 }
 
 impl Default for AssetPlugin {
@@ -146,28 +146,32 @@ impl Plugin for AssetPlugin {
                     ));
                 }
                 AssetMode::Processed => {
-                    let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
-                    let sources = builders.build_sources(false, watch);
-                    app.insert_resource(AssetServer::new(
-                        sources,
-                        AssetServerMode::Processed,
-                        watch,
-                    ));
-                }
-                AssetMode::ProcessedDev => {
-                    let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
-                    let processor = AssetProcessor::new(&mut builders);
-                    let mut sources = builders.build_sources(false, watch);
-                    sources.gate_on_processor(processor.data.clone());
-                    // the main asset server shares loaders with the processor asset server
-                    app.insert_resource(AssetServer::new_with_loaders(
-                        sources,
-                        processor.server().data.loaders.clone(),
-                        AssetServerMode::Processed,
-                        watch,
-                    ))
-                    .insert_resource(processor)
-                    .add_systems(Startup, AssetProcessor::start);
+                    #[cfg(feature = "asset_processor")]
+                    {
+                        let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                        let processor = AssetProcessor::new(&mut builders);
+                        let mut sources = builders.build_sources(false, watch);
+                        sources.gate_on_processor(processor.data.clone());
+                        // the main asset server shares loaders with the processor asset server
+                        app.insert_resource(AssetServer::new_with_loaders(
+                            sources,
+                            processor.server().data.loaders.clone(),
+                            AssetServerMode::Processed,
+                            watch,
+                        ))
+                        .insert_resource(processor)
+                        .add_systems(bevy_app::Startup, AssetProcessor::start);
+                    }
+                    #[cfg(not(feature = "asset_processor"))]
+                    {
+                        let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                        let sources = builders.build_sources(false, watch);
+                        app.insert_resource(AssetServer::new(
+                            sources,
+                            AssetServerMode::Processed,
+                            watch,
+                        ));
+                    }
                 }
             }
         }
