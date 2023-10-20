@@ -136,7 +136,7 @@ pub struct TemporalAntiAliasBundle {
 /// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
-/// Currently cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// [Currently](https://github.com/bevyengine/bevy/issues/8423) cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
 /// Currently does not support skinned meshes and morph targets.
 /// There will probably be ghosting artifacts if used with them.
