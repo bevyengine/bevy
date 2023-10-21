@@ -306,6 +306,17 @@ impl PhaseItem for Transmissive3d {
     // NOTE: Values increase towards the camera. Back-to-front ordering for transmissive means we need an ascending sort.
     type SortKey = FloatOrd;
 
+    /// For now, automatic batching is disabled for transmissive items because their rendering is
+    /// split into multiple steps depending on [`Camera3d::screen_space_specular_transmission_steps`],
+    /// which the batching system doesn't currently know about.
+    ///
+    /// Having batching enabled would cause the same item to be drawn multiple times across different
+    /// steps, whenever the batching range crossed a step boundary.
+    ///
+    /// Eventually, we could add support for this by having the batching system break up the batch ranges
+    /// using the same logic as the transmissive pass, but for now it's simpler to just disable batching.
+    const AUTOMATIC_BATCHING: bool = false;
+
     #[inline]
     fn entity(&self) -> Entity {
         self.entity
