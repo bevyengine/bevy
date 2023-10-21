@@ -23,7 +23,7 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        AsBindGroupError, BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        AsBindGroupError, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, BufferUsages, BufferVec,
         ColorTargetState, ColorWrites, FragmentState, FrontFace, MultisampleState,
         OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
@@ -461,10 +461,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_material_view_bind_group",
             &ui_material_pipeline.view_layout,
-            &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
+            &BindGroupEntries::single(view_binding),
         ));
         let mut index = 0;
 
