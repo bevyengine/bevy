@@ -1,5 +1,5 @@
 use crate::derive_data::StructField;
-use crate::field_attributes::ReflectIgnoreBehavior;
+use crate::field_attributes::{DefaultBehavior, ReflectIgnoreBehavior};
 use bevy_macro_utils::fq_std::{FQBox, FQDefault};
 use quote::quote;
 use std::collections::HashMap;
@@ -76,10 +76,16 @@ pub(crate) struct SkippedFieldDef {
 impl SkippedFieldDef {
     pub fn new(field: &StructField<'_>) -> Result<Self, syn::Error> {
         let ty = &field.data.ty;
-        Ok(Self {
-            default_fn: quote! {
+
+        let default_fn = match &field.attrs.default {
+            DefaultBehavior::Func(func) => quote! {
+              || { #FQBox::new(#func()) }
+            },
+            _ => quote! {
               || { #FQBox::new(<#ty as #FQDefault>::default()) }
             },
-        })
+        };
+
+        Ok(Self { default_fn })
     }
 }
