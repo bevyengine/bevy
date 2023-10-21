@@ -1364,7 +1364,51 @@ doc-scrape-examples = true
 
 [package.metadata.example.state]
 name = "State"
-description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
+description = "Illustrates how to use States to control transitioning from a Menu into a game, pausing it, and similar changes"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "nested_state"
+path = "examples/ecs/nested_state.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.nested_state]
+name = "Nested State"
+description = "Illustrates how to use Nested States and state matching to control transitioning from a Menu into a game, pausing it and similar changes in a more ergonomic way"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "struct_state"
+path = "examples/ecs/struct_state.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.struct_state]
+name = "Struct-based State"
+description = "Illustrates how to use Struct-based States and state matching to control transitioning from a Menu into a game, pausing it and similar changes in a more ergonomic way"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "state_transitions"
+path = "examples/ecs/state_transitions.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.state_transitions]
+name = "State Transitions"
+description = "Illustrates the various ways to handle robust state transitions"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "black_box_state"
+path = "examples/ecs/black_box_state.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.black_box_state]
+name = "Black Box State"
+description = "Building on top of the Struct State example to illustrate the creation of fully encapsulated states"
 category = "ECS (Entity Component System)"
 wasm = false
 

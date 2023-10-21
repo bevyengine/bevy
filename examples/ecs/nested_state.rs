@@ -1,7 +1,8 @@
-//! This example illustrates how to use [`States`] for high-level app control flow.
+//! This example illustrates how to use enum-based nested [`States`] for high-level app control flow.
 //! States are a powerful but intuitive tool for controlling which logic runs when.
-//! You can have multiple independent states, and the [`OnEnter`] and [`OnExit`] schedules
-//! can be used to great effect to ensure that you handle setup and teardown appropriately.
+//! You can have multiple independent states, and the `state_matches!` macro
+//! can be used to great effect to ensure that you handle setup and teardown appropriately with a
+//! variety of states.
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, which can be
 //! paused or not paused. When in game, we can move the bevy logo around with the arrow keys,
@@ -24,56 +25,65 @@ fn main() {
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        // The `OnEnter` struct can accept any valid state, including nested enums
-        .add_systems(OnEnter(AppState::InGame(GameState::Paused)), setup_paused)
-        // This will run every time we wnter the "AppState::InGame(GameState::Paused)", meaning it will
-        // also run whenever we pause the game. This is something we need to take into account within the function
-        // We are setting up the game here because we move directly from "AppState::Menu" to "AppState::InGame(GameState::Paused)".
-        // If we were to change that, we would have to change this as well.
-        .add_systems(OnEnter(AppState::InGame(GameState::Paused)), setup_game)
+        // You can achieve the same result using the `Entering` schedule & using the state as a run condition
         .add_systems(
-            OnEnter(AppState::InGame(GameState::Running)),
-            setup_in_game_ui,
+            Entering,
+            setup_paused.run_if(AppState::InGame(GameState::Paused)),
         )
-        // We can also uise `OnExit` to run the system whenever we leave a state.
-        // Note that, just like `OnEnter`, `OnExit` relies on the state's
-        // `Eq` implementation to determine whether it should run or not, so if we want to run
-        // a system in multiple situations, we need to add it to each schedule individually.
-        // The Nested State & Sturct State examples show a different approach.
-        .add_systems(OnExit(AppState::Menu), cleanup_ui)
-        .add_systems(OnExit(AppState::InGame(GameState::Running)), cleanup_ui)
-        .add_systems(OnExit(AppState::InGame(GameState::Paused)), cleanup_ui)
-        // In addition to `OnEnter` and `OnExit`, you can run systems any other schedule as well.
-        // To do so, you will want to add the state as a run condition, which will check
-        // if we're in the correct state every time the schedule runs. In this case - that's every frame.
+        // However, we can also use the `Entering` schedule with pattern matching
+        // to let us ensure the `setup_game` system runs whenever we enter the "InGame" state
+        // regardless of whether the game is paused or not!
+        // Instead of just passing in the state, we can use the `state_matches!` macro and pass in a pattern
+        .add_systems(Entering, setup_game.run_if(state_matches!(AppState, InGame(_))))
+        // You can also pass in a closure to the macro, like so
+        .add_systems(
+            Entering,
+            setup_in_game_ui.run_if(state_matches!(AppState, |state: &AppState| state
+                == &AppState::InGame(GameState::Running { inverted: true })
+                || state == &AppState::InGame(GameState::Running { inverted: false }))),
+        )
+        // We can also use `Exiting` to run the system whenever we leave a state with the help of pattern matching
+        //
+        // By default, pattern matching systems only run if the result of the match changes - so when exiting, it'll
+        // only run if the next state doesn't match the pattern.
+        //
+        // However, here we want the system to run in a more complex way:
+        // - if we are leaving the "GameState::Running" substate completely (so not when moving between GameState::Running { inverted: true} and GameState::Running { inverted: false })
+        // - whenever we leave any other state (AppState::Manu or GameState::Paused)
+        //
+        // To do so, we provide the `state_matches!` macro a sequence of conditions - the first works just like any other, but the second has the
+        // `every` key word at the start, meaning it will run whenever we exit a state that matches the pattern - regardless of the next state.
+        //
+        // The first pattern is checked first - and if the previous state doesn't match it we skip to the next pattern. However, if it does - we check whether the
+        // next state also matches and return false if it does.
+        .add_systems(
+            Exiting,
+            cleanup_ui.run_if(
+                state_matches!(AppState, InGame(GameState::Running { .. }), every |_: &AppState| true),
+            ),
+        )
+        // We can also use all the same options during any other schedule, like Update
         .add_systems(Update, menu.run_if(AppState::Menu))
         .add_systems(
             Update,
-            change_color.run_if(AppState::InGame(GameState::Running)),
+            change_color.run_if(state_matches!(AppState, InGame(_))),
+        )
+        // Lastly, for closures that implement [`StateMatcher`], we can actually pass them in directly as well
+        .add_systems(
+            Update,
+            invert_movement.run_if(|state: &AppState| matches!(state, AppState::InGame(GameState::Running { .. }))),
         )
         .add_systems(
             Update,
-            change_color.run_if(AppState::InGame(GameState::Paused)),
+            movement.run_if(AppState::InGame(GameState::Running {
+                inverted: false,
+            })),
         )
         .add_systems(
             Update,
-            invert_movement.run_if(AppState::InGame(GameState::Running)),
-        )
-        // We can also have more than one state type set up in an app.
-        // In this case, we are adding a Struct as our state type, instead of an enum.
-        .add_state::<MovementState>()
-        // And we can chain states just like any run condition, to check against multiple different states!
-        .add_systems(
-            Update,
-            movement.run_if(
-                AppState::InGame(GameState::Running).and_then(MovementState { inverted: false }),
-            ),
-        )
-        .add_systems(
-            Update,
-            inverted_movement.run_if(
-                AppState::InGame(GameState::Running).and_then(MovementState { inverted: true }),
-            ),
+            inverted_movement.run_if(AppState::InGame(GameState::Running {
+                inverted: true,
+            })),
         )
         .run();
 }
@@ -88,13 +98,10 @@ enum AppState {
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
 enum GameState {
     #[default]
-    Running,
     Paused,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
-struct MovementState {
-    inverted: bool,
+    Running {
+        inverted: bool,
+    },
 }
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
@@ -252,20 +259,20 @@ fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<App
         // Alternatively, you provide next_state with a setter function, which will take the current state, and output the new state, allowing for some degree of update-in-place
         next_state.setter(|state| match &state {
             AppState::InGame(state) => AppState::InGame(match state {
-                GameState::Running => GameState::Paused,
-                GameState::Paused => GameState::default(),
+                GameState::Running { .. } => GameState::Paused,
+                GameState::Paused => GameState::Running { inverted: false },
             }),
             _ => state,
         });
     }
 }
 
-fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<MovementState>>) {
+fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::ShiftLeft) {
-        next_state.set(MovementState { inverted: true });
+        next_state.set(AppState::InGame(GameState::Running { inverted: true }));
     }
     if input.just_released(KeyCode::ShiftLeft) {
-        next_state.set(MovementState { inverted: false });
+        next_state.set(AppState::InGame(GameState::Running { inverted: false }));
     }
 }
 
