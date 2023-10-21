@@ -23,13 +23,13 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        AsBindGroupError, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
-        BufferBindingType, BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState,
-        FrontFace, MultisampleState, OwnedBindingResource, PipelineCache, PolygonMode,
-        PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, Shader, ShaderRef,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+        AsBindGroupError, BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, BufferUsages, BufferVec,
+        ColorTargetState, ColorWrites, FragmentState, FrontFace, MultisampleState,
+        OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
+        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, VertexBufferLayout,
+        VertexFormat, VertexState, VertexStepMode,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
@@ -458,14 +458,14 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         let mut batches: Vec<(Entity, UiMaterialBatch<M>)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
-        ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
+        ui_meta.view_bind_group = Some(render_device.create_bind_group(
+            "ui_material_view_bind_group",
+            &ui_material_pipeline.view_layout,
+            &[BindGroupEntry {
                 binding: 0,
                 resource: view_binding,
             }],
-            label: Some("ui_material_view_bind_group"),
-            layout: &ui_material_pipeline.view_layout,
-        }));
+        ));
         let mut index = 0;
 
         for mut ui_phase in &mut phases {

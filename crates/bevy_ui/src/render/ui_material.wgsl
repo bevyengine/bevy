@@ -1,5 +1,5 @@
-#import bevy_render::view  View
-#import bevy_ui::ui_vertex_output UiVertexOutput
+#import bevy_render::view::View
+#import bevy_ui::ui_vertex_output::UiVertexOutput
 
 @group(0) @binding(0)
 var<uniform> view: View;
