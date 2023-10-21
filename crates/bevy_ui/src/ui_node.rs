@@ -595,7 +595,7 @@ pub enum AlignContent {
     /// The gap between the first and last items is exactly the same as the gap between items.
     /// The gaps are distributed evenly.
     SpaceEvenly,
-    /// Each line fills the space it needs, putting the remaining space, if any
+    /// Each line fills the space it needs, putting the remaining space, if any,
     /// around the lines.
     SpaceAround,
 }
