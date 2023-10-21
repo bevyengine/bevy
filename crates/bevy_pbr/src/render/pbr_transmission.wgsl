@@ -33,7 +33,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     var background_color: vec4<f32>;
     if perceptual_roughness == 0.0 {
         // If the material has zero roughness, we can use a faster approach without the blur
-        background_color = fetch_transmissive_background_non_rough(offset_position);
+        background_color = fetch_transmissive_background_non_rough(offset_position, frag_coord);
     } else {
         background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
     }
@@ -48,12 +48,23 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     return F * specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
 }
 
-fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>) -> vec4<f32> {
-    return textureSample(
+fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coord: vec3<f32>) -> vec4<f32> {
+    var background_color = textureSample(
         view_bindings::view_transmission_texture,
         view_bindings::view_transmission_sampler,
         offset_position,
     );
+
+#ifdef DEPTH_PREPASS
+#ifndef WEBGL2
+    // Use depth prepass data to reject values that are in front of the current fragment
+    if prepass_utils::prepass_depth(vec4<f32>(offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
+        background_color.a = 0.0;
+    }
+#endif
+#endif
+
+    return background_color;
 }
 
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, view_z: f32, perceptual_roughness: f32) -> vec4<f32> {
