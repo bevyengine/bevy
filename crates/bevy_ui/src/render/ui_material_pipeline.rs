@@ -5,7 +5,7 @@ use bevy_asset::{load_internal_asset, AssetApp, AssetEvent, AssetId, AssetServer
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{Component, Entity, EventReader},
-    query::ROQueryItem,
+    query::{ROQueryItem, With},
     schedule::IntoSystemConfigs,
     storage::SparseSet,
     system::{
@@ -40,11 +40,12 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    CalculatedClip, Node, RenderUiSystem, TransparentUi, UiMaterial, UiMaterialKey, UiStack,
-    QUAD_INDICES, QUAD_VERTEX_POSITIONS,
+    resolve_border_thickness, CalculatedClip, Node, RenderUiSystem, Style, TransparentUi,
+    UiMaterial, UiMaterialKey, UiScale, UiStack, QUAD_INDICES, QUAD_VERTEX_POSITIONS,
 };
 
 pub const MATERIAL_UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
@@ -136,6 +137,7 @@ impl<M: UiMaterial> Default for UiMaterialMeta<M> {
 pub struct UiMaterialVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
+    pub border_widths: [f32; 4],
 }
 
 /// in this [`UiMaterialPipeline`] there is (currently) no batching going on.
@@ -171,6 +173,8 @@ where
                 VertexFormat::Float32x3,
                 // uv
                 VertexFormat::Float32x2,
+                // border_widths
+                VertexFormat::Float32x4,
             ],
         );
         let shader_defs = Vec::new();
@@ -345,6 +349,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub stack_index: usize,
     pub transform: Mat4,
     pub rect: Rect,
+    pub border: [f32; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
 }
@@ -370,15 +375,25 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         Query<(
             Entity,
             &Node,
+            &Style,
             &GlobalTransform,
             &Handle<M>,
             &ViewVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    ui_scale: Extract<Res<UiScale>>,
 ) {
+    let ui_logical_viewport_size = windows
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO)
+        // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+        // so we have to divide by `UiScale` to get the size of the UI viewport.
+        / ui_scale.0 as f32;
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, transform, handle, view_visibility, clip)) =
+        if let Ok((entity, uinode, style, transform, handle, view_visibility, clip)) =
             uinode_query.get(*entity)
         {
             // skip invisible nodes
@@ -391,6 +406,26 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 continue;
             }
 
+            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+            let parent_width = uinode.size().x;
+            let left =
+                resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size)
+                    / uinode.size().x;
+            let right = resolve_border_thickness(
+                style.border.right,
+                parent_width,
+                ui_logical_viewport_size,
+            ) / uinode.size().y;
+            let top =
+                resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size)
+                    / uinode.size().y;
+            let bottom = resolve_border_thickness(
+                style.border.bottom,
+                parent_width,
+                ui_logical_viewport_size,
+            ) / uinode.size().y;
+
             extracted_uinodes.uinodes.insert(
                 entity,
                 ExtractedUiMaterialNode {
@@ -401,6 +436,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                         min: Vec2::ZERO,
                         max: uinode.calculated_size,
                     },
+                    border: [left, right, top, bottom],
                     clip: clip.map(|clip| clip.clip),
                 },
             );
@@ -533,10 +569,12 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         ),
                     ]
                     .map(|pos| pos / uinode_rect.max);
+
                     for i in QUAD_INDICES {
                         ui_meta.vertices.push(UiMaterialVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
+                            border_widths: extracted_uinode.border,
                         });
                     }
 
