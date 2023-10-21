@@ -12,8 +12,13 @@ const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ens
 
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
+#ifdef MULTISAMPLED
+@group(0) @binding(2) var motion_vectors: texture_multisampled_2d<f32>;
+@group(0) @binding(3) var depth: texture_depth_multisampled_2d;
+#else
 @group(0) @binding(2) var motion_vectors: texture_2d<f32>;
 @group(0) @binding(3) var depth: texture_depth_2d;
+#endif
 @group(0) @binding(4) var nearest_sampler: sampler;
 @group(0) @binding(5) var linear_sampler: sampler;
 
@@ -95,11 +100,11 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let d_uv_bl = uv + vec2(-offset.x, -offset.y);
     let d_uv_br = uv + vec2(offset.x, -offset.y);
     var closest_uv = uv;
-    let d_tl = textureSample(depth, nearest_sampler, d_uv_tl);
-    let d_tr = textureSample(depth, nearest_sampler, d_uv_tr);
-    var closest_depth = textureSample(depth, nearest_sampler, uv);
-    let d_bl = textureSample(depth, nearest_sampler, d_uv_bl);
-    let d_br = textureSample(depth, nearest_sampler, d_uv_br);
+    let d_tl = textureLoad(depth, vec2<i32>(d_uv_tl * texture_size), 0);
+    let d_tr = textureLoad(depth, vec2<i32>(d_uv_tr * texture_size), 0);
+    var closest_depth = textureLoad(depth, vec2<i32>(uv * texture_size), 0);
+    let d_bl = textureLoad(depth, vec2<i32>(d_uv_bl * texture_size), 0);
+    let d_br = textureLoad(depth, vec2<i32>(d_uv_br * texture_size), 0);
     if d_tl > closest_depth {
         closest_uv = d_uv_tl;
         closest_depth = d_tl;
@@ -115,7 +120,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     if d_br > closest_depth {
         closest_uv = d_uv_br;
     }
-    let closest_motion_vector = textureSample(motion_vectors, nearest_sampler, closest_uv).rg;
+    let closest_motion_vector = textureLoad(motion_vectors, vec2<i32>(closest_uv), 0).rg;
 
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
