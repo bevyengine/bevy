@@ -407,6 +407,7 @@ struct ExampleState {
     ior: f32,
     perceptual_roughness: f32,
     reflectance: f32,
+    auto_camera: bool,
 }
 
 #[derive(Component)]
@@ -421,6 +422,7 @@ impl Default for ExampleState {
             ior: 1.5,
             perceptual_roughness: 0.12,
             reflectance: 0.5,
+            auto_camera: true,
         }
     }
 }
@@ -568,9 +570,13 @@ fn example_control_system(
     }
 
     let rotation = if input.pressed(KeyCode::Right) {
+        state.auto_camera = false;
         time.delta_seconds()
     } else if input.pressed(KeyCode::Left) {
+        state.auto_camera = false;
         -time.delta_seconds()
+    } else if state.auto_camera {
+        time.delta_seconds() * 0.25
     } else {
         0.0
     };
