@@ -144,9 +144,10 @@ fn pbr_input_from_standard_material(
             thickness *= textureSample(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv).g;
         }
 #endif
-        // scale the thickness by the average length of basis vectors for the transform matrix
-        // this is a rough way to approximate the average “scale” applied to the mesh as a single scalar
-        thickness *= (length(mesh[in.instance_index].model[0].xyz) + length(mesh[in.instance_index].model[1].xyz) + length(mesh[in.instance_index].model[2].xyz)) / 3.0;
+        // scale thickness, accounting for non-uniform scaling (e.g. a “squished” mesh)
+        thickness *= length(
+            (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
+        );
         pbr_input.material.thickness = thickness;
 
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
