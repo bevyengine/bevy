@@ -140,8 +140,8 @@ pub struct UiMaterialVertex {
     pub border_widths: [f32; 4],
 }
 
-/// in this [`UiMaterialPipeline`] there is (currently) no batching going on.
-/// Therefore the [`UiMaterialBatch`] is more akin to a draw call.
+// in this [`UiMaterialPipeline`] there is (currently) no batching going on.
+// Therefore the [`UiMaterialBatch`] is more akin to a draw call.
 #[derive(Component)]
 pub struct UiMaterialBatch<M: UiMaterial> {
     /// The range of vertices inside the [`UiMaterialMeta`]
