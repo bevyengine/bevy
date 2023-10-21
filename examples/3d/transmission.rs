@@ -11,6 +11,7 @@
 //! | `A` / `S`          | Decrease / Increase Thickness                        |
 //! | `Z` / `X`          | Decrease / Increase IOR                              |
 //! | `E` / `R`          | Decrease / Increase Perceptual Roughness             |
+//! | `U` / `I`          | Decrease / Increase Reflectance                      |
 //! | Arrow Keys         | Control Camera                                       |
 //! | `C`                | Randomize Colors                                     |
 //! | `H`                | Toggle HDR                                           |
@@ -402,6 +403,7 @@ struct ExampleState {
     thickness: f32,
     ior: f32,
     perceptual_roughness: f32,
+    reflectance: f32,
 }
 
 #[derive(Component)]
@@ -415,6 +417,7 @@ impl Default for ExampleState {
             thickness: 1.8,
             ior: 1.5,
             perceptual_roughness: 0.12,
+            reflectance: 0.5,
         }
     }
 }
@@ -463,6 +466,12 @@ fn example_control_system(
         state.ior = (state.ior - time.delta_seconds()).max(1.0);
     }
 
+    if input.pressed(KeyCode::I) {
+        state.reflectance = (state.reflectance + time.delta_seconds()).min(1.0);
+    } else if input.pressed(KeyCode::U) {
+        state.reflectance = (state.reflectance - time.delta_seconds()).max(0.0);
+    }
+
     if input.pressed(KeyCode::R) {
         state.perceptual_roughness = (state.perceptual_roughness + time.delta_seconds()).min(1.0);
     } else if input.pressed(KeyCode::E) {
@@ -478,6 +487,7 @@ fn example_control_system(
             material.thickness = state.thickness;
             material.ior = state.ior;
             material.perceptual_roughness = state.perceptual_roughness;
+            material.reflectance = state.reflectance;
         }
 
         if controls.diffuse_transmission {
@@ -571,6 +581,7 @@ fn example_control_system(
             "         A / S  Thickness: {:.2}\n",
             "         Z / X  IOR: {:.2}\n",
             "         E / R  Perceptual Roughness: {:.2}\n",
+            "         U / I  Reflectance: {:.2}\n",
             "    Arrow Keys  Control Camera\n",
             "             C  Randomize Colors\n",
             "             H  HDR: {}\n",
@@ -583,6 +594,7 @@ fn example_control_system(
         state.thickness,
         state.ior,
         state.perceptual_roughness,
+        state.reflectance,
         if camera.hdr { "ON " } else { "OFF" },
         if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
