@@ -35,7 +35,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
         background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
     }
 
-    // Incidence vector of the refracted ray, relative to the exit normal (Note: We assume the exit normal is the entry normal but inverted)
+    // Dot product of the refracted direction with the exit normal (Note: We assume the exit normal is the entry normal but inverted)
     let MinusNdotT = dot(-N, T);
 
     // Calculate 1.0 - fresnel factor (how much light is _NOT_ reflected, i.e. how much is transmitted)
