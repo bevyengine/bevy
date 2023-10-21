@@ -13,7 +13,7 @@ use crate::{
     },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, Assets, DeserializeMetaError,
-    ErasedLoadedAsset, Handle, UntypedAssetId, UntypedHandle,
+    ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
@@ -286,6 +286,35 @@ impl AssetServer {
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = path.into();
         self.load_internal(None, path, false, None).await
+    }
+
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
+    pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
+        let handle = {
+            let mut infos = self.data.infos.write();
+            infos.create_loading_handle::<LoadedUntypedAsset>()
+        };
+        let id = handle.id().untyped();
+        let path = path.into().into_owned();
+
+        let server = self.clone();
+        IoTaskPool::get()
+            .spawn(async move {
+                match server.load_untyped_async(path).await {
+                    Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
+                        id,
+                        loaded_asset: LoadedAsset::new_with_dependencies(
+                            LoadedUntypedAsset { handle },
+                            None,
+                        )
+                        .into(),
+                    }),
+                    Err(_) => server.send_asset_event(InternalAssetEvent::Failed { id }),
+                }
+            })
+            .detach();
+
+        handle
     }
 
     /// Performs an async asset load.

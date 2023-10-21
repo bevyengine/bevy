@@ -660,7 +660,7 @@ impl AssetProcessor {
         source: &AssetSource,
         asset_path: &AssetPath<'static>,
     ) -> Result<ProcessResult, ProcessError> {
-        // TODO: The extension check was removed now tht AssetPath is the input. is that ok?
+        // TODO: The extension check was removed now that AssetPath is the input. is that ok?
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing {:?}", asset_path);
         let server = &self.server;
