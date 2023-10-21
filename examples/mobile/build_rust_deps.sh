@@ -49,7 +49,7 @@ for arch in $ARCHS; do
         cargo rustc --crate-type staticlib --lib $RELFLAG --target aarch64-apple-ios
       else
         # M1 iOS simulator
-        RUSTFLAGS=--cfg=ios_simulator cargo rustc --crate-type staticlib --lib $RELFLAG --target aarch64-apple-ios-sim 
+        cargo rustc --crate-type staticlib --lib $RELFLAG --target aarch64-apple-ios-sim 
       fi
   esac
 done
