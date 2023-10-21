@@ -3,7 +3,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event,
+    event::EventWriter,
     prelude::{Component, Event, With},
     query::WorldQuery,
     reflect::ReflectComponent,
@@ -152,7 +152,7 @@ pub fn ui_focus_system(
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
-    mut click_events: event::EventWriter<Clicked>,
+    mut click_events: EventWriter<Clicked>,
 ) {
     let primary_window = primary_window.iter().next();
 
