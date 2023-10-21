@@ -1,10 +1,11 @@
 #define_import_path bevy_pbr::transmission
 
+#import bevy_pbr::lighting as lighting
 #import bevy_pbr::prepass_utils as prepass_utils
 #import bevy_pbr::utils PI, interleaved_gradient_noise, SPIRAL_OFFSET_0_, SPIRAL_OFFSET_1_, SPIRAL_OFFSET_2_, SPIRAL_OFFSET_3_, SPIRAL_OFFSET_4_, SPIRAL_OFFSET_5_, SPIRAL_OFFSET_6_, SPIRAL_OFFSET_7_
 #import bevy_pbr::mesh_view_bindings as view_bindings
 
-fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
+fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
 
@@ -34,8 +35,14 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
         background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
     }
 
-    // Calculate final color by applying specular transmissive color to a mix of background color and transmitted specular environment light
-    return specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
+    // Incidence vector of the refracted ray, relative to the exit normal (Note: We assume the exit normal is the entry normal but inverted)
+    let MinusNdotT = dot(-N, T);
+
+    // Calculate 1.0 - fresnel factor (how much light is _NOT_ reflected, i.e. how much is transmitted)
+    let F = vec3(1.0) - lighting::fresnel(F0, MinusNdotT);
+
+    // Calculate final color by applying fresnel multiplied specular transmissive color to a mix of background color and transmitted specular environment light
+    return F * specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
 }
 
 fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>) -> vec4<f32> {
