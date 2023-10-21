@@ -644,7 +644,7 @@ impl Default for JustifyContent {
     }
 }
 
-/// Defines the text direction
+/// Defines the text direction.
 ///
 /// For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
