@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             // keybindings
             builder.spawn(
                 TextBundle::from_section(
-                    "CONTROLS\nUn/Pause: Space\nSpeed+: +/Up\nSpeed-: -/Down",
+                    "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
                     TextStyle {
                         font_size,
                         color: Color::rgb(0.85, 0.85, 0.85),
