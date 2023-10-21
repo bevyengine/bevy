@@ -438,6 +438,9 @@ pub enum TextureError {
     TranscodeError(String),
     #[error("format requires transcoding: {0:?}")]
     FormatRequiresTranscodingError(TranscodeFormat),
+    /// Only cubemaps with six faces are supported.
+    #[error("only cubemaps with six faces are supported")]
+    IncompleteCubemap,
 }
 
 /// The type of a raw image buffer.
