@@ -603,7 +603,7 @@ impl<T: UiMaterial> Default for RenderUiMaterials<T> {
 }
 
 pub struct PreparedUiMaterial<T: UiMaterial> {
-    pub bindings: Vec<OwnedBindingResource>,
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub key: T::Data,
 }
