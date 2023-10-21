@@ -255,33 +255,28 @@ impl Image {
     }
 
     /// Returns the aspect ratio (height/width) of a 2D image.
-    pub fn aspect_2d(&self) -> f32 {
+    pub fn aspect_ratio(&self) -> f32 {
         self.height() as f32 / self.width() as f32
     }
 
-    /// Returns the size of a 2D image as f32.
-    pub fn size_f32(&self) -> Vec2 {
-        Vec2::new(
-            self.texture_descriptor.size.width as f32,
-            self.texture_descriptor.size.height as f32,
-        )
-    }
-
-    /// Returns the size of a 2D image.
-    pub fn size(&self) -> UVec2 {
-        UVec2::new(
-            self.texture_descriptor.size.width,
-            self.texture_descriptor.size.height,
-        )
-    }
-
-    /// Returns the size of a 2D image.
+    /// Returns the width of a 2D image.
     pub fn width(&self) -> u32 {
         self.texture_descriptor.size.width
     }
 
+    /// Returns the height of a 2D image.
     pub fn height(&self) -> u32 {
         self.texture_descriptor.size.height
+    }
+
+    /// Returns the size of a 2D image as f32.
+    pub fn size_f32(&self) -> Vec2 {
+        Vec2::new(self.width() as f32, self.height() as f32)
+    }
+
+    /// Returns the size of a 2D image.
+    pub fn size(&self) -> UVec2 {
+        UVec2::new(self.width(), self.height())
     }
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
