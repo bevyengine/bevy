@@ -366,10 +366,10 @@ pub fn extract_camera_prepass_phase(
             (
                 Entity,
                 &Camera,
-                Option<&DepthPrepass>,
-                Option<&NormalPrepass>,
-                Option<&MotionVectorPrepass>,
-                Option<&DeferredPrepass>,
+                Has<DepthPrepass>,
+                Has<NormalPrepass>,
+                Has<MotionVectorPrepass>,
+                Has<DeferredPrepass>,
             ),
             With<Camera3d>,
         >,
@@ -381,33 +381,33 @@ pub fn extract_camera_prepass_phase(
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
 
-            if depth_prepass.is_some()
-                || normal_prepass.is_some()
-                || motion_vector_prepass.is_some()
-            {
+            // deferred requires depth
+            let depth_prepass = depth_prepass || deferred_prepass;
+
+            if depth_prepass || normal_prepass || motion_vector_prepass {
                 entity.insert((
                     RenderPhase::<Opaque3dPrepass>::default(),
                     RenderPhase::<AlphaMask3dPrepass>::default(),
                 ));
             }
 
-            if deferred_prepass.is_some() {
+            if deferred_prepass {
                 entity.insert((
                     RenderPhase::<Opaque3dDeferred>::default(),
                     RenderPhase::<AlphaMask3dDeferred>::default(),
                 ));
             }
 
-            if depth_prepass.is_some() {
+            if depth_prepass {
                 entity.insert(DepthPrepass);
             }
-            if normal_prepass.is_some() {
+            if normal_prepass {
                 entity.insert(NormalPrepass);
             }
-            if motion_vector_prepass.is_some() {
+            if motion_vector_prepass {
                 entity.insert(MotionVectorPrepass);
             }
-            if deferred_prepass.is_some() {
+            if deferred_prepass {
                 entity.insert(DeferredPrepass);
             }
         }
