@@ -374,6 +374,70 @@ impl From<ImageSamplerDescriptor> for wgpu::SamplerDescriptor<'static> {
     }
 }
 
+impl From<wgpu::AddressMode> for ImageAddressMode {
+    fn from(value: wgpu::AddressMode) -> Self {
+        match value {
+            wgpu::AddressMode::ClampToEdge => ImageAddressMode::ClampToEdge,
+            wgpu::AddressMode::Repeat => ImageAddressMode::Repeat,
+            wgpu::AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
+            wgpu::AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
+        }
+    }
+}
+
+impl From<wgpu::FilterMode> for ImageFilterMode {
+    fn from(value: wgpu::FilterMode) -> Self {
+        match value {
+            wgpu::FilterMode::Nearest => ImageFilterMode::Nearest,
+            wgpu::FilterMode::Linear => ImageFilterMode::Linear,
+        }
+    }
+}
+
+impl From<wgpu::CompareFunction> for ImageCompareFunction {
+    fn from(value: wgpu::CompareFunction) -> Self {
+        match value {
+            wgpu::CompareFunction::Never => ImageCompareFunction::Never,
+            wgpu::CompareFunction::Less => ImageCompareFunction::Less,
+            wgpu::CompareFunction::Equal => ImageCompareFunction::Equal,
+            wgpu::CompareFunction::LessEqual => ImageCompareFunction::LessEqual,
+            wgpu::CompareFunction::Greater => ImageCompareFunction::Greater,
+            wgpu::CompareFunction::NotEqual => ImageCompareFunction::NotEqual,
+            wgpu::CompareFunction::GreaterEqual => ImageCompareFunction::GreaterEqual,
+            wgpu::CompareFunction::Always => ImageCompareFunction::Always,
+        }
+    }
+}
+
+impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
+    fn from(value: wgpu::SamplerBorderColor) -> Self {
+        match value {
+            wgpu::SamplerBorderColor::TransparentBlack => ImageSamplerBorderColor::TransparentBlack,
+            wgpu::SamplerBorderColor::OpaqueBlack => ImageSamplerBorderColor::OpaqueBlack,
+            wgpu::SamplerBorderColor::OpaqueWhite => ImageSamplerBorderColor::OpaqueWhite,
+            wgpu::SamplerBorderColor::Zero => ImageSamplerBorderColor::Zero,
+        }
+    }
+}
+
+impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
+    fn from(value: wgpu::SamplerDescriptor) -> Self {
+        ImageSamplerDescriptor {
+            address_mode_u: value.address_mode_u.into(),
+            address_mode_v: value.address_mode_v.into(),
+            address_mode_w: value.address_mode_w.into(),
+            mag_filter: value.mag_filter.into(),
+            min_filter: value.min_filter.into(),
+            mipmap_filter: value.mipmap_filter.into(),
+            lod_min_clamp: value.lod_min_clamp,
+            lod_max_clamp: value.lod_max_clamp,
+            compare: value.compare.map(Into::into),
+            anisotropy_clamp: value.anisotropy_clamp,
+            border_color: value.border_color.map(Into::into),
+        }
+    }
+}
+
 impl Default for Image {
     /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
