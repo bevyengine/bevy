@@ -1,24 +1,23 @@
 #define_import_path bevy_pbr::pbr_functions
 
-#ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
-#endif
+#import bevy_pbr::{
+    pbr_types,
+    pbr_bindings,
+    mesh_view_bindings as view_bindings,
+    mesh_view_types,
+    lighting,
+    clustered_forward as clustering,
+    shadows,
+    ambient,
+    mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT,
+}
 
-#import bevy_pbr::pbr_types as pbr_types
-#import bevy_pbr::pbr_bindings as pbr_bindings
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::mesh_view_types as mesh_view_types
-#import bevy_pbr::lighting as lighting
-#import bevy_pbr::clustered_forward as clustering
-#import bevy_pbr::shadows as shadows
-#import bevy_pbr::fog
-#import bevy_pbr::ambient as ambient
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
 #endif
-#import bevy_core_pipeline::tonemapping    screen_space_dither, powsafe, tone_mapping
 
-#import bevy_pbr::mesh_types      MESH_FLAGS_SHADOW_RECEIVER_BIT
+#import bevy_core_pipeline::tonemapping::{screen_space_dither, powsafe, tone_mapping}
+
 
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
@@ -224,7 +223,7 @@ fn apply_pbr_lighting(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    let environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
+    let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 #endif
 

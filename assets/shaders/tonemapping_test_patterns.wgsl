@@ -1,10 +1,11 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
-#import bevy_pbr::forward_io  VertexOutput
-#import bevy_pbr::utils               PI
+#import bevy_pbr::{
+    mesh_view_bindings,
+    forward_io::VertexOutput,
+    utils::PI,
+}
 
 #ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping tone_mapping
+#import bevy_core_pipeline::tonemapping::tone_mapping
 #endif
 
 // Sweep across hues on y axis with value from 0.0 to +15EV across x axis 
@@ -55,7 +56,7 @@ fn fragment(
     }
     var color = vec4(out, 1.0);
 #ifdef TONEMAP_IN_SHADER
-    color = tone_mapping(color, bevy_pbr::mesh_view_bindings::view.color_grading);
+    color = tone_mapping(color, mesh_view_bindings::view.color_grading);
 #endif
     return color;
 }

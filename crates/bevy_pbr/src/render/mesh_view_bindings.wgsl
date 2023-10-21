@@ -1,8 +1,10 @@
 #define_import_path bevy_pbr::mesh_view_bindings
 
 #import bevy_pbr::mesh_view_types as types
-#import bevy_render::view  View
-#import bevy_render::globals  Globals
+#import bevy_render::{
+    view::View,
+    globals::Globals,
+}
 
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<uniform> lights: types::Lights;
