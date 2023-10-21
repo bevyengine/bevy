@@ -5,8 +5,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .add_systems(Update, (update_buttons, update_radio_buttons_colors))
+        .add_systems(Startup, setup_system)
+        .add_systems(Update, (hover_system, click_system))
         .run();
 }
 
@@ -34,7 +34,7 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2dBundle::default());
 
@@ -290,32 +290,14 @@ fn spawn_button(
         });
 }
 
-fn update_buttons(
-    mut button_query: Query<
-        (Entity, &Interaction, &Constraint, &ButtonValue),
-        Changed<Interaction>,
-    >,
-    mut bar_query: Query<&mut Style, With<Bar>>,
+fn hover_system(
+    mut button_query: Query<(Entity, &Interaction), Changed<Interaction>>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
-    let mut style = bar_query.single_mut();
-    for (button_id, interaction, constraint, value) in button_query.iter_mut() {
+    for (button_id, interaction) in button_query.iter_mut() {
         match interaction {
-            Interaction::Pressed => match constraint {
-                Constraint::FlexBasis => {
-                    style.flex_basis = value.0;
-                }
-                Constraint::Width => {
-                    style.width = value.0;
-                }
-                Constraint::MinWidth => {
-                    style.min_width = value.0;
-                }
-                Constraint::MaxWidth => {
-                    style.max_width = value.0;
-                }
-            },
+            Interaction::Pressed => (),
             Interaction::Hovered => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
@@ -350,40 +332,60 @@ fn update_buttons(
     }
 }
 
-fn update_radio_buttons_colors(
+fn click_system(
     mut click_events: EventReader<Clicked>,
+    clicked_query: Query<(&Constraint, &ButtonValue)>,
     button_query: Query<(Entity, &Constraint, &Interaction)>,
+    mut bar_query: Query<&mut Style, With<Bar>>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
     for &Clicked(button_id) in click_events.read() {
-        if let Ok(target_constraint) = button_query.get_component::<Constraint>(button_id) {
-            for (id, constraint, interaction) in button_query.iter() {
-                if target_constraint == constraint {
-                    let (border_color, inner_color, text_color) = if id == button_id {
-                        (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
-                    } else {
-                        (
-                            INACTIVE_BORDER_COLOR,
-                            INACTIVE_INNER_COLOR,
-                            if matches!(interaction, Interaction::Hovered) {
-                                HOVERED_TEXT_COLOR
-                            } else {
-                                UNHOVERED_TEXT_COLOR
-                            },
-                        )
-                    };
+        let Ok((target_constraint, value)) = clicked_query.get(button_id) else {
+            continue;
+        };
 
-                    color_query.get_mut(id).unwrap().0 = border_color;
-                    if let Ok(children) = children_query.get(id) {
-                        for &child in children {
-                            color_query.get_mut(child).unwrap().0 = inner_color;
-                            if let Ok(grand_children) = children_query.get(child) {
-                                for &grandchild in grand_children {
-                                    if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                        text.sections[0].style.color = text_color;
-                                    }
+        let mut style = bar_query.single_mut();
+        match target_constraint {
+            Constraint::FlexBasis => {
+                style.flex_basis = value.0;
+            }
+            Constraint::Width => {
+                style.width = value.0;
+            }
+            Constraint::MinWidth => {
+                style.min_width = value.0;
+            }
+            Constraint::MaxWidth => {
+                style.max_width = value.0;
+            }
+        }
+
+        for (id, constraint, interaction) in button_query.iter() {
+            if target_constraint == constraint {
+                let (border_color, inner_color, text_color) = if id == button_id {
+                    (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
+                } else {
+                    (
+                        INACTIVE_BORDER_COLOR,
+                        INACTIVE_INNER_COLOR,
+                        if matches!(interaction, Interaction::Hovered) {
+                            HOVERED_TEXT_COLOR
+                        } else {
+                            UNHOVERED_TEXT_COLOR
+                        },
+                    )
+                };
+
+                color_query.get_mut(id).unwrap().0 = border_color;
+                if let Ok(children) = children_query.get(id) {
+                    for &child in children {
+                        color_query.get_mut(child).unwrap().0 = inner_color;
+                        if let Ok(grand_children) = children_query.get(child) {
+                            for &grandchild in grand_children {
+                                if let Ok(mut text) = text_query.get_mut(grandchild) {
+                                    text.sections[0].style.color = text_color;
                                 }
                             }
                         }
