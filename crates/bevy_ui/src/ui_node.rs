@@ -1621,7 +1621,7 @@ pub struct CalculatedClip {
 ///
 /// UI nodes that have the same z-index will appear according to the order in which they
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
-/// will appear in front its siblings.
+/// will appear in front of its siblings.
 ///
 /// Internally, nodes with a global z-index share the stacking context of root UI nodes
 /// (nodes that have no parent). Because of this, there is no difference between using
