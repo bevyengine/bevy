@@ -35,7 +35,7 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, BufferBindingType, ColorTargetState, ColorWrites,
         CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer, FragmentState,
         FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PushConstantRange,
