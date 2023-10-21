@@ -162,7 +162,7 @@ fn move_virtual_time_sprites(
     for mut transform in sprite_query.iter_mut() {
         // move roughly half the screen in a `Virtual` second
         // when time is scaled using `Time<Virtual>::set_relative_speed` it's going
-        // to move at diffent pace and the sprite will stay still when time is
+        // to move at a different pace and the sprite will stay still when time is
         // `Time<Virtual>::is_paused()`
         transform.translation.x = get_sprite_translation_x(time.elapsed_seconds());
     }
