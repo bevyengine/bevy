@@ -58,7 +58,7 @@ impl Default for Interaction {
 
 /// Used to publish which entity was clicked
 ///
-/// Commonly used by creating a UI node and using [`EventReader<Clicked>`](event::EventReader)
+/// Commonly used by creating a UI node and using [`EventReader<Clicked>`](bevy_ecs::event::EventReader)
 /// to obtain the list of clicked UI nodes.
 ///
 /// **Note:** This captures the full click/press-release action, i.e. it is emitted after release.
