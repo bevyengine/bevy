@@ -23,7 +23,7 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::resolve_outlines_system`].
     pub(crate) outline_width: f32,
-    // The amount of space between the outline and the edge of the node.
+    /// The amount of space between the outline and the edge of the node.
     pub(crate) outline_offset: f32,
     /// The unrounded size of the node as width and height in logical pixels.
     ///
