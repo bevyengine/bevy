@@ -596,14 +596,11 @@ pub fn prepare_mesh2d_bind_group(
 ) {
     if let Some(binding) = mesh2d_uniforms.binding() {
         commands.insert_resource(Mesh2dBindGroup {
-            value: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("mesh2d_bind_group"),
-                layout: &mesh2d_pipeline.mesh_layout,
-            }),
+            value: render_device.create_bind_group(
+                "mesh2d_bind_group",
+                &mesh2d_pipeline.mesh_layout,
+                &BindGroupEntries::single(binding),
+            ),
         });
     }
 }
@@ -626,20 +623,11 @@ pub fn prepare_mesh2d_view_bind_groups(
         globals_buffer.buffer.binding(),
     ) {
         for entity in &views {
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: globals.clone(),
-                    },
-                ],
-                label: Some("mesh2d_view_bind_group"),
-                layout: &mesh2d_pipeline.view_layout,
-            });
+            let view_bind_group = render_device.create_bind_group(
+                "mesh2d_view_bind_group",
+                &mesh2d_pipeline.view_layout,
+                &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
+            );
 
             commands.entity(entity).insert(Mesh2dViewBindGroup {
                 value: view_bind_group,

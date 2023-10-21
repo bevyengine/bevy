@@ -10,13 +10,13 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-        DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
-        TextureFormat, TextureSampleType, TextureViewDimension, VertexState,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, BufferBindingType, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
+        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
+        SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
+        TextureSampleType, TextureViewDimension, VertexState,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
@@ -224,24 +224,15 @@ fn prepare_skybox_bind_groups(
         if let (Some(skybox), Some(view_uniforms)) =
             (images.get(&skybox.0), view_uniforms.uniforms.binding())
         {
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                label: Some("skybox_bind_group"),
-                layout: &pipeline.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&skybox.texture_view),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&skybox.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: view_uniforms,
-                    },
-                ],
-            });
+            let bind_group = render_device.create_bind_group(
+                "skybox_bind_group",
+                &pipeline.bind_group_layout,
+                &BindGroupEntries::sequential((
+                    &skybox.texture_view,
+                    &skybox.sampler,
+                    view_uniforms,
+                )),
+            );
 
             commands.entity(entity).insert(SkyboxBindGroup(bind_group));
         }

@@ -62,7 +62,7 @@ codespan-reporting = "0.11.0"
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
 wgpu = { version = "0.17.1", features = ["naga", "fragile-send-sync-non-atomic-wasm"] }
 naga = { version = "0.13.0", features = ["wgsl-in"] }
-naga_oil = "0.9"
+naga_oil = "0.10"
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
