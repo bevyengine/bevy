@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::environment_map
 
-#import bevy_pbr::mesh_view_bindings as bindings
+#import bevy_pbr::mesh_view_bindings as bindings;
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,

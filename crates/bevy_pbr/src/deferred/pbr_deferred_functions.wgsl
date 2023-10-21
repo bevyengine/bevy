@@ -1,16 +1,17 @@
 #define_import_path bevy_pbr::pbr_deferred_functions
 
-#import bevy_pbr::pbr_types PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT
-#import bevy_pbr::pbr_deferred_types as deferred_types
-#import bevy_pbr::pbr_functions as pbr_functions
-#import bevy_pbr::rgb9e5 as rgb9e5
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::mesh_view_bindings view
-#import bevy_pbr::utils octahedral_encode, octahedral_decode
-#import bevy_pbr::prepass_io VertexOutput, FragmentOutput
+#import bevy_pbr::{
+    pbr_types::{PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    pbr_deferred_types as deferred_types,
+    pbr_functions,
+    rgb9e5,
+    mesh_view_bindings::view,
+    utils::{octahedral_encode, octahedral_decode},
+    prepass_io::{VertexOutput, FragmentOutput},
+}
 
 #ifdef MOTION_VECTOR_PREPASS
-    #import bevy_pbr::pbr_prepass_functions calculate_motion_vector
+    #import bevy_pbr::pbr_prepass_functions::calculate_motion_vector
 #endif
 
 // ---------------------------

@@ -1,5 +1,5 @@
 // TODO use common view binding
-#import bevy_render::view View
+#import bevy_render::view::View
 
 @group(0) @binding(0) var<uniform> view: View;
 

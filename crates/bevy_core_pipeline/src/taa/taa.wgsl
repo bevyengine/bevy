@@ -10,8 +10,6 @@
 const DEFAULT_HISTORY_BLEND_RATE: f32 = 0.1; // Default blend rate to use when no confidence in history
 const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
-
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
 @group(0) @binding(2) var motion_vectors: texture_2d<f32>;
