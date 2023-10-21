@@ -1,20 +1,12 @@
 #define_import_path bevy_pbr::transmission
 
-#import bevy_pbr::lighting as lighting
-#import bevy_pbr::prepass_utils as prepass_utils
-#import bevy_pbr::utils::{
-    PI,
-    interleaved_gradient_noise,
-    SPIRAL_OFFSET_0_,
-    SPIRAL_OFFSET_1_,
-    SPIRAL_OFFSET_2_,
-    SPIRAL_OFFSET_3_,
-    SPIRAL_OFFSET_4_,
-    SPIRAL_OFFSET_5_,
-    SPIRAL_OFFSET_6_,
-    SPIRAL_OFFSET_7_,
-}
-#import bevy_pbr::mesh_view_bindings as view_bindings
+#import bevy_pbr::{
+    lighting,
+    prepass_utils,
+    utils::{PI, interleaved_gradient_noise},
+    utils,
+    mesh_view_bindings as view_bindings,
+};
 
 fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
@@ -120,14 +112,14 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             // seems to only allow constant indexes into constant arrays at the moment.
             // The downstream shader compiler should be able to optimize this into a single
             // constant when unrolling the for loop, but it's still not ideal.
-            case 0: { spiral_offset = SPIRAL_OFFSET_0_; } // Note: We go even first and then odd, so that the lowest
-            case 1: { spiral_offset = SPIRAL_OFFSET_2_; } // quality possible (which does 4 taps) still does a full spiral
-            case 2: { spiral_offset = SPIRAL_OFFSET_4_; } // instead of just the first half of it
-            case 3: { spiral_offset = SPIRAL_OFFSET_6_; }
-            case 4: { spiral_offset = SPIRAL_OFFSET_1_; }
-            case 5: { spiral_offset = SPIRAL_OFFSET_3_; }
-            case 6: { spiral_offset = SPIRAL_OFFSET_5_; }
-            case 7: { spiral_offset = SPIRAL_OFFSET_7_; }
+            case 0: { spiral_offset = utils::SPIRAL_OFFSET_0_; } // Note: We go even first and then odd, so that the lowest
+            case 1: { spiral_offset = utils::SPIRAL_OFFSET_2_; } // quality possible (which does 4 taps) still does a full spiral
+            case 2: { spiral_offset = utils::SPIRAL_OFFSET_4_; } // instead of just the first half of it
+            case 3: { spiral_offset = utils::SPIRAL_OFFSET_6_; }
+            case 4: { spiral_offset = utils::SPIRAL_OFFSET_1_; }
+            case 5: { spiral_offset = utils::SPIRAL_OFFSET_3_; }
+            case 6: { spiral_offset = utils::SPIRAL_OFFSET_5_; }
+            case 7: { spiral_offset = utils::SPIRAL_OFFSET_7_; }
             default: {}
         }
 
