@@ -1,22 +1,24 @@
 #define_import_path bevy_pbr::pbr_fragment
 
-#import bevy_pbr::pbr_functions as pbr_functions
-#import bevy_pbr::pbr_bindings as pbr_bindings
-#import bevy_pbr::pbr_types as pbr_types
-#import bevy_pbr::prepass_utils
-
-#import bevy_pbr::mesh_bindings            mesh
-#import bevy_pbr::mesh_view_bindings       view, screen_space_ambient_occlusion_texture
-#import bevy_pbr::parallax_mapping         parallaxed_uv
+#import bevy_pbr::{
+    pbr_functions,
+    pbr_bindings,
+    pbr_types,
+    prepass_utils,
+    mesh_bindings::mesh,
+    mesh_view_bindings::view,
+    parallax_mapping::parallaxed_uv,
+}
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-#import bevy_pbr::gtao_utils gtao_multibounce
+#import bevy_pbr::mesh_view_bindings::screen_space_ambient_occlusion_texture
+#import bevy_pbr::gtao_utils::gtao_multibounce
 #endif
 
 #ifdef PREPASS_PIPELINE
-#import bevy_pbr::prepass_io VertexOutput
+#import bevy_pbr::prepass_io::VertexOutput
 #else
-#import bevy_pbr::forward_io VertexOutput
+#import bevy_pbr::forward_io::VertexOutput
 #endif
 
 // prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
@@ -44,7 +46,7 @@ fn pbr_input_from_vertex_output(
     );
 
 #ifdef LOAD_PREPASS_NORMALS
-    pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.position, 0u);
+    pbr_input.N = prepass_utils::prepass_normal(in.position, 0u);
 #else
     pbr_input.N = normalize(pbr_input.world_normal);
 #endif

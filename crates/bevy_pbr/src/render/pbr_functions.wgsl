@@ -1,23 +1,24 @@
 #define_import_path bevy_pbr::pbr_functions
-#import bevy_core_pipeline::tonemapping
 
-#import bevy_pbr::pbr_types as pbr_types
-#import bevy_pbr::pbr_bindings as pbr_bindings
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::mesh_view_types as mesh_view_types
-#import bevy_pbr::lighting as lighting
-#import bevy_pbr::transmission as transmission
-#import bevy_pbr::clustered_forward as clustering
-#import bevy_pbr::shadows as shadows
-#import bevy_pbr::fog as fog
-#import bevy_pbr::ambient as ambient
+#import bevy_pbr::{
+    pbr_types,
+    pbr_bindings,
+    mesh_view_bindings as view_bindings,
+    mesh_view_types,
+    lighting,
+    transmission,
+    clustered_forward as clustering,
+    shadows,
+    ambient,
+    mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
+    utils::E,
+}
+
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
 #endif
-#import bevy_core_pipeline::tonemapping    screen_space_dither, powsafe, tone_mapping
 
-#import bevy_pbr::utils           E
-#import bevy_pbr::mesh_types      MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT
+#import bevy_core_pipeline::tonemapping::{screen_space_dither, powsafe, tone_mapping}
 
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
@@ -307,7 +308,7 @@ fn apply_pbr_lighting(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    let environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
+    let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 
     // we'll use the specular component of the transmitted environment
@@ -355,7 +356,7 @@ fn apply_pbr_lighting(
         attenuation_fog.be = pow(1.0 - in.material.attenuation_color.rgb, vec3<f32>(E)) / in.material.attenuation_distance;
         // TODO: Add the subsurface scattering factor below
         // attenuation_fog.bi = /* ... */
-        transmitted_light = fog::atmospheric_fog(
+        transmitted_light = bevy_pbr::fog::atmospheric_fog(
             attenuation_fog, vec4<f32>(transmitted_light, 1.0), thickness,
             vec3<f32>(0.0) // TODO: Pass in (pre-attenuated) scattered light contribution here
         ).rgb;
@@ -405,13 +406,13 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
     }
 
     if fog_params.mode == mesh_view_types::FOG_MODE_LINEAR {
-        return fog::linear_fog(fog_params, input_color, distance, scattering);
+        return bevy_pbr::fog::linear_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL {
-        return fog::exponential_fog(fog_params, input_color, distance, scattering);
+        return bevy_pbr::fog::exponential_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL_SQUARED {
-        return fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
+        return bevy_pbr::fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_ATMOSPHERIC {
-        return fog::atmospheric_fog(fog_params, input_color, distance, scattering);
+        return bevy_pbr::fog::atmospheric_fog(fog_params, input_color, distance, scattering);
     } else {
         return input_color;
     }

@@ -2,7 +2,18 @@
 
 #import bevy_pbr::lighting as lighting
 #import bevy_pbr::prepass_utils as prepass_utils
-#import bevy_pbr::utils PI, interleaved_gradient_noise, SPIRAL_OFFSET_0_, SPIRAL_OFFSET_1_, SPIRAL_OFFSET_2_, SPIRAL_OFFSET_3_, SPIRAL_OFFSET_4_, SPIRAL_OFFSET_5_, SPIRAL_OFFSET_6_, SPIRAL_OFFSET_7_
+#import bevy_pbr::utils::{
+    PI,
+    interleaved_gradient_noise,
+    SPIRAL_OFFSET_0_,
+    SPIRAL_OFFSET_1_,
+    SPIRAL_OFFSET_2_,
+    SPIRAL_OFFSET_3_,
+    SPIRAL_OFFSET_4_,
+    SPIRAL_OFFSET_5_,
+    SPIRAL_OFFSET_6_,
+    SPIRAL_OFFSET_7_,
+}
 #import bevy_pbr::mesh_view_bindings as view_bindings
 
 fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {

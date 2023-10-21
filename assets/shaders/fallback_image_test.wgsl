@@ -1,6 +1,4 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
-#import bevy_pbr::forward_io VertexOutput
+#import bevy_pbr::forward_io::VertexOutput
 
 @group(1) @binding(0) var test_texture_1d: texture_1d<f32>;
 @group(1) @binding(1) var test_texture_1d_sampler: sampler;

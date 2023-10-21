@@ -1,8 +1,10 @@
-#import bevy_pbr::forward_io    VertexOutput
-#import bevy_pbr::mesh_view_bindings    view
-#import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT, PbrInput, pbr_input_new
-#import bevy_core_pipeline::tonemapping tone_mapping
-#import bevy_pbr::pbr_functions as fns
+#import bevy_pbr::{
+    forward_io::VertexOutput,
+    mesh_view_bindings::view,
+    pbr_types::{STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT, PbrInput, pbr_input_new},
+    pbr_functions as fns,
+}
+#import bevy_core_pipeline::tonemapping::tone_mapping
 
 @group(1) @binding(0) var my_array_texture: texture_2d_array<f32>;
 @group(1) @binding(1) var my_array_texture_sampler: sampler;

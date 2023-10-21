@@ -1,12 +1,11 @@
-#import bevy_pbr::pbr_prepass_functions
-#import bevy_pbr::pbr_bindings
-#import bevy_pbr::pbr_types
-#ifdef NORMAL_PREPASS
-#import bevy_pbr::pbr_functions
-#endif // NORMAL_PREPASS
-
-#import bevy_pbr::prepass_io as prepass_io
-#import bevy_pbr::mesh_view_bindings view
+#import bevy_pbr::{
+    pbr_prepass_functions,
+    pbr_bindings::material,
+    pbr_types,
+    pbr_functions,
+    prepass_io,
+    mesh_view_bindings::view,
+}
  
 #ifdef PREPASS_FRAGMENT
 @fragment
@@ -14,7 +13,7 @@ fn fragment(
     in: prepass_io::VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> prepass_io::FragmentOutput {
-    bevy_pbr::pbr_prepass_functions::prepass_alpha_discard(in);
+    pbr_prepass_functions::prepass_alpha_discard(in);
 
     var out: prepass_io::FragmentOutput;
 
@@ -24,15 +23,15 @@ fn fragment(
 
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if (bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
-        let world_normal = bevy_pbr::pbr_functions::prepare_world_normal(
+    if (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        let world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,
-            (bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             is_front,
         );
 
-        let normal = bevy_pbr::pbr_functions::apply_normal_mapping(
-            bevy_pbr::pbr_bindings::material.flags,
+        let normal = pbr_functions::apply_normal_mapping(
+            material.flags,
             world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -52,7 +51,7 @@ fn fragment(
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    out.motion_vector = bevy_pbr::pbr_prepass_functions::calculate_motion_vector(in.world_position, in.previous_world_position);
+    out.motion_vector = pbr_prepass_functions::calculate_motion_vector(in.world_position, in.previous_world_position);
 #endif
 
     return out;
@@ -60,6 +59,6 @@ fn fragment(
 #else
 @fragment
 fn fragment(in: prepass_io::VertexOutput) {
-    bevy_pbr::pbr_prepass_functions::prepass_alpha_discard(in);
+    pbr_prepass_functions::prepass_alpha_discard(in);
 }
 #endif // PREPASS_FRAGMENT
