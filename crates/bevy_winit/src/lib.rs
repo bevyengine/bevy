@@ -734,10 +734,9 @@ pub fn winit_runner(mut app: App) {
                     ActiveState::NotYetStarted => {
                         event_writers.lifetime.send(ApplicationLifetime::Started);
                     }
-                    ActiveState::Suspended => {
+                    _ => {
                         event_writers.lifetime.send(ApplicationLifetime::Resumed);
                     }
-                    _ => unreachable!(),
                 }
                 runner_state.active = ActiveState::Active;
                 #[cfg(target_os = "android")]
