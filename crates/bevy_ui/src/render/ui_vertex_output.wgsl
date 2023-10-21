@@ -1,6 +1,6 @@
 #define_import_path bevy_ui::ui_vertex_output
 
-// The Vertex output of the default fragment shader for the Ui Material pipeline.
+// The Vertex output of the default vertex shader for the Ui Material pipeline.
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     // The size of the borders in UV space. order is Left, Right, Top, Bottom.
