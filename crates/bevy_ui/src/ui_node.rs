@@ -668,7 +668,7 @@ impl Default for Direction {
     }
 }
 
-/// Whether to use a Flexbox layout model.
+/// Defines the layout model used by this node.
 ///
 /// Part of the [`Style`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
