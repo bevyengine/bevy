@@ -1745,6 +1745,7 @@ mod tests {
     fn param_set_non_send() {
         fn non_send_param_set(mut p: ParamSet<(NonSend<u8>, NonSendMut<u8>)>) {
             let _ = p.p0();
+            let _ = p.p1();
         }
 
         let mut world = World::new();
