@@ -6,6 +6,7 @@
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
+pub mod helper;
 /// Systems responsible for transform propagation
 pub mod systems;
 
@@ -13,8 +14,8 @@ pub mod systems;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        commands::BuildChildrenTransformExt, components::*, Transform2dBundle, TransformBundle,
-        TransformPlugin, TransformPoint,
+        commands::BuildChildrenTransformExt, components::*, helper::TransformHelper,
+        Transform2dBundle, TransformBundle, TransformPlugin, TransformPoint,
     };
 }
 
@@ -27,7 +28,7 @@ use components::{GlobalTransform, GlobalTransform2d, Transform, Transform2d};
 use systems::{propagate_transforms, sync_simple_transforms};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
-/// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
+/// [`Component`]s, which describe the position of an entity.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
@@ -44,7 +45,7 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// This system runs during [`PostUpdate`]. If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
@@ -65,7 +66,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`PostUpdate`](bevy_app::PostUpdate) schedule.
+    /// [`PostUpdate`] schedule.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {
@@ -141,7 +142,7 @@ impl From<Transform2d> for Transform2dBundle {
 /// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TransformSystem {
-    /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
+    /// Propagates changes in transform to children's [`GlobalTransform`]
     TransformPropagate,
 }
 
@@ -160,9 +161,8 @@ impl Plugin for TransformPlugin {
             .register_type::<Transform2d>()
             .register_type::<GlobalTransform>()
             .register_type::<GlobalTransform2d>()
-            .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
-            .add_plugin(ValidParentCheckPlugin::<GlobalTransform2d>::default())
-            .configure_set(
+            .add_plugins((ValidParentCheckPlugin::<GlobalTransform>::default(), ValidParentCheckPlugin::<GlobalTransform2d>::default()))
+            .configure_sets(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
             )
@@ -176,16 +176,10 @@ impl Plugin for TransformPlugin {
                         // These systems cannot access the same entities,
                         // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
                         .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms::<Transform, GlobalTransform>
-                        .in_set(PropagateTransformsSet),
-                    sync_simple_transforms::<Transform2d, GlobalTransform2d>
-                        .in_set(TransformSystem::TransformPropagate)
-                        .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms::<Transform2d, GlobalTransform2d>
-                        .in_set(PropagateTransformsSet),
+                    propagate_transforms.in_set(PropagateTransformsSet),
                 ),
             )
-            .configure_set(
+            .configure_sets(
                 PostUpdate,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
             )

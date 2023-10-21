@@ -6,7 +6,9 @@ use bevy::{
         query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
-    pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
+    pbr::{
+        MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
+    },
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -26,8 +28,7 @@ use bytemuck::{Pod, Zeroable};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(CustomMaterialPlugin)
+        .add_plugins((DefaultPlugins, CustomMaterialPlugin))
         .add_systems(Startup, setup)
         .run();
 }
@@ -80,18 +81,21 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default());
+        app.add_plugins(ExtractComponentPlugin::<InstanceMaterialData>::default());
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
-            .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
             .add_systems(
                 Render,
                 (
-                    queue_custom.in_set(RenderSet::Queue),
-                    prepare_instance_buffers.in_set(RenderSet::Prepare),
+                    queue_custom.in_set(RenderSet::QueueMeshes),
+                    prepare_instance_buffers.in_set(RenderSet::PrepareResources),
                 ),
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        app.sub_app_mut(RenderApp).init_resource::<CustomPipeline>();
     }
 }
 
@@ -111,7 +115,8 @@ fn queue_custom(
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
-    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
+    material_meshes: Query<Entity, With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
@@ -121,20 +126,26 @@ fn queue_custom(
     for (view, mut transparent_phase) in &mut views {
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
-        for (entity, mesh_uniform, mesh_handle) in &material_meshes {
-            if let Some(mesh) = meshes.get(mesh_handle) {
-                let key =
-                    view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                let pipeline = pipelines
-                    .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
-                    .unwrap();
-                transparent_phase.add(Transparent3d {
-                    entity,
-                    pipeline,
-                    draw_function: draw_custom,
-                    distance: rangefinder.distance(&mesh_uniform.transform),
-                });
-            }
+        for entity in &material_meshes {
+            let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
+                continue;
+            };
+            let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+                continue;
+            };
+            let key = view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let pipeline = pipelines
+                .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
+                .unwrap();
+            transparent_phase.add(Transparent3d {
+                entity,
+                pipeline,
+                draw_function: draw_custom,
+                distance: rangefinder
+                    .distance_translation(&mesh_instance.transforms.transform.translation),
+                batch_range: 0..1,
+                dynamic_offset: None,
+            });
         }
     }
 }
@@ -192,6 +203,15 @@ impl SpecializedMeshPipeline for CustomPipeline {
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
+
+        // meshes typically live in bind group 2. because we are using bindgroup 1
+        // we need to add MESH_BINDGROUP_1 shader def so that the bindings are correctly
+        // linked in the shader
+        descriptor
+            .vertex
+            .shader_defs
+            .push("MESH_BINDGROUP_1".into());
+
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.buffers.push(VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceData>() as u64,
@@ -224,19 +244,22 @@ type DrawCustom = (
 pub struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
     type ViewWorldQuery = ();
-    type ItemWorldQuery = (Read<Handle<Mesh>>, Read<InstanceBuffer>);
+    type ItemWorldQuery = Read<InstanceBuffer>;
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        (mesh_handle, instance_buffer): (&'w Handle<Mesh>, &'w InstanceBuffer),
-        meshes: SystemParamItem<'w, '_, Self::Param>,
+        instance_buffer: &'w InstanceBuffer,
+        (meshes, render_mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
+        let Some(mesh_instance) = render_mesh_instances.get(&item.entity()) else {
+            return RenderCommandResult::Failure;
+        };
+        let gpu_mesh = match meshes.into_inner().get(mesh_instance.mesh_asset_id) {
             Some(gpu_mesh) => gpu_mesh,
             None => return RenderCommandResult::Failure,
         };

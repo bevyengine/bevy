@@ -1,8 +1,8 @@
 use bevy_ecs::{
     component::Component, entity::Entity, query::WorldQuery, reflect::ReflectComponent,
 };
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,
@@ -17,7 +17,7 @@ use std::{
 /// [`Name`] should not be treated as a globally unique identifier for entities,
 /// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Reflect, FromReflect, Component, Clone)]
+#[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Debug)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
@@ -177,7 +177,7 @@ impl Eq for Name {}
 
 impl PartialOrd for Name {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.name.partial_cmp(&other.name)
+        Some(self.cmp(other))
     }
 }
 

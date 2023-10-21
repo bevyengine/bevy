@@ -53,20 +53,19 @@ fn main() {
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_event::<CollisionEvent>()
-        // Configure how frequently our gameplay systems are run
-        .insert_resource(FixedTime::new_from_secs(1.0 / 60.0))
         .add_systems(Startup, setup)
         // Add our gameplay simulation systems to the fixed timestep schedule
+        // which runs at 64 Hz by default
         .add_systems(
             FixedUpdate,
             (
+                apply_velocity,
+                move_paddle,
                 check_for_collisions,
-                apply_velocity.before(check_for_collisions),
-                move_paddle
-                    .before(check_for_collisions)
-                    .after(apply_velocity),
-                play_collision_sound.after(check_for_collisions),
-            ),
+                play_collision_sound,
+            )
+                // `chain`ing systems together runs them in order
+                .chain(),
         )
         .add_systems(Update, (update_scoreboard, bevy::window::close_on_esc))
         .run();
@@ -84,7 +83,7 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Collider;
 
-#[derive(Default)]
+#[derive(Event, Default)]
 struct CollisionEvent;
 
 #[derive(Component)]
@@ -245,11 +244,6 @@ fn setup(
     commands.spawn(WallBundle::new(WallLocation::Top));
 
     // Bricks
-    // Negative scales result in flipped sprites / meshes,
-    // which is definitely not what we want here
-    assert!(BRICK_SIZE.x > 0.0);
-    assert!(BRICK_SIZE.y > 0.0);
-
     let total_width_of_bricks = (RIGHT_WALL - LEFT_WALL) - 2. * GAP_BETWEEN_BRICKS_AND_SIDES;
     let bottom_edge_of_bricks = paddle_y + GAP_BETWEEN_PADDLE_AND_BRICKS;
     let total_height_of_bricks = TOP_WALL - bottom_edge_of_bricks - GAP_BETWEEN_BRICKS_AND_CEILING;
@@ -307,7 +301,7 @@ fn setup(
 fn move_paddle(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform2d, With<Paddle>>,
-    time_step: Res<FixedTime>,
+    time: Res<Time>,
 ) {
     let mut paddle_transform = query.single_mut();
     let mut direction = 0.0;
@@ -322,7 +316,7 @@ fn move_paddle(
 
     // Calculate the new horizontal paddle position based on player input
     let new_paddle_position =
-        paddle_transform.translation.x + direction * PADDLE_SPEED * time_step.period.as_secs_f32();
+        paddle_transform.translation.x + direction * PADDLE_SPEED * time.delta_seconds();
 
     // Update the paddle position,
     // making sure it doesn't cause the paddle to leave the arena
@@ -332,9 +326,9 @@ fn move_paddle(
     paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform2d, &Velocity)>, time_step: Res<FixedTime>) {
+fn apply_velocity(mut query: Query<(&mut Transform2d, &Velocity)>, time: Res<Time>) {
     for (mut transform, velocity) in &mut query {
-        transform.translation += velocity.0 * time_step.period.as_secs_f32();
+        transform.translation += velocity.0 * time.delta_seconds();
     }
 }
 
@@ -399,14 +393,18 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
+    mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    audio: Res<Audio>,
     sound: Res<CollisionSound>,
 ) {
     // Play a sound once per frame if a collision occurred.
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
-        audio.play(sound.0.clone());
+        commands.spawn(AudioBundle {
+            source: sound.0.clone(),
+            // auto-despawn the entity when playback finishes
+            settings: PlaybackSettings::DESPAWN,
+        });
     }
 }

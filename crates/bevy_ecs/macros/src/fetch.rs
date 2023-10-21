@@ -6,7 +6,8 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
-    Attribute, Data, DataStruct, DeriveInput, Field, Index,
+    token::Comma,
+    Attribute, Data, DataStruct, DeriveInput, Field, Index, Meta,
 };
 
 use crate::bevy_ecs_path;
@@ -14,7 +15,7 @@ use crate::bevy_ecs_path;
 #[derive(Default)]
 struct FetchStructAttributes {
     pub is_mutable: bool,
-    pub derive_args: Punctuated<syn::NestedMeta, syn::token::Comma>,
+    pub derive_args: Punctuated<syn::Meta, syn::token::Comma>,
 }
 
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
@@ -35,7 +36,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let mut fetch_struct_attributes = FetchStructAttributes::default();
     for attr in &ast.attrs {
         if !attr
-            .path
+            .path()
             .get_ident()
             .map_or(false, |ident| ident == WORLD_QUERY_ATTRIBUTE_NAME)
         {
@@ -43,7 +44,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
         }
 
         attr.parse_args_with(|input: ParseStream| {
-            let meta = input.parse_terminated::<syn::Meta, syn::token::Comma>(syn::Meta::parse)?;
+            let meta = input.parse_terminated(syn::Meta::parse, Comma)?;
             for meta in meta {
                 let ident = meta.path().get_ident().unwrap_or_else(|| {
                     panic!(
@@ -61,9 +62,10 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                     }
                 } else if ident == DERIVE_ATTRIBUTE_NAME {
                     if let syn::Meta::List(meta_list) = meta {
-                        fetch_struct_attributes
-                            .derive_args
-                            .extend(meta_list.nested.iter().cloned());
+                        meta_list.parse_nested_meta(|meta| {
+                            fetch_struct_attributes.derive_args.push(Meta::Path(meta.path));
+                            Ok(())
+                        })?;
                     } else {
                         panic!(
                             "Expected a structured list within the `{DERIVE_ATTRIBUTE_NAME}` attribute",
@@ -86,17 +88,18 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let user_generics = ast.generics.clone();
     let (user_impl_generics, user_ty_generics, user_where_clauses) = user_generics.split_for_impl();
     let user_generics_with_world = {
-        let mut generics = ast.generics.clone();
+        let mut generics = ast.generics;
         generics.params.insert(0, parse_quote!('__w));
         generics
     };
     let (user_impl_generics_with_world, user_ty_generics_with_world, user_where_clauses_with_world) =
         user_generics_with_world.split_for_impl();
 
-    let struct_name = ast.ident.clone();
+    let struct_name = ast.ident;
     let read_only_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnly"), Span::call_site())
     } else {
+        #[allow(clippy::redundant_clone)]
         struct_name.clone()
     };
 
@@ -104,6 +107,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let read_only_item_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
     } else {
+        #[allow(clippy::redundant_clone)]
         item_struct_name.clone()
     };
 
@@ -113,6 +117,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
         let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
         ensure_no_collision(new_ident, tokens.clone())
     } else {
+        #[allow(clippy::redundant_clone)]
         fetch_struct_name.clone()
     };
 
@@ -130,7 +135,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
             "#[derive(WorldQuery)]` only supports structs",
         )
         .into_compile_error()
-        .into()
+        .into();
     };
 
     let mut field_attrs = Vec::new();
@@ -232,6 +237,16 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 #marker_name: &'__w (),
             }
 
+            impl #user_impl_generics_with_world Clone for #fetch_struct_name #user_ty_generics_with_world
+            #user_where_clauses_with_world {
+                fn clone(&self) -> Self {
+                    Self {
+                        #(#named_field_idents: self.#named_field_idents.clone(),)*
+                        #marker_name: &(),
+                    }
+                }
+            }
+
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
             unsafe impl #user_impl_generics #path::query::WorldQuery
                 for #struct_name #user_ty_generics #user_where_clauses {
@@ -252,7 +267,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 }
 
                 unsafe fn init_fetch<'__w>(
-                    _world: &'__w #path::world::World,
+                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
                     state: &Self::State,
                     _last_run: #path::component::Tick,
                     _this_run: #path::component::Tick,
@@ -265,17 +280,6 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                                 _last_run,
                                 _this_run,
                             ),
-                        )*
-                        #marker_name: &(),
-                    }
-                }
-
-                unsafe fn clone_fetch<'__w>(
-                    _fetch: &<Self as #path::query::WorldQuery>::Fetch<'__w>
-                ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
-                    #fetch_struct_name {
-                        #(
-                            #named_field_idents: <#field_types>::clone_fetch(& _fetch. #named_field_idents),
                         )*
                         #marker_name: &(),
                     }
@@ -463,7 +467,7 @@ fn read_world_query_field_info(field: &Field) -> syn::Result<WorldQueryFieldInfo
     let mut attrs = Vec::new();
     for attr in &field.attrs {
         if attr
-            .path
+            .path()
             .get_ident()
             .map_or(false, |ident| ident == WORLD_QUERY_ATTRIBUTE_NAME)
         {

@@ -4,6 +4,8 @@
 //! replacing the path as appropriate.
 //! In case of multiple scenes, you can select which to display by adapting the file path: `/path/to/model.gltf#Scene1`.
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
+//!
+//! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
 use bevy::{
     math::Vec3A,
@@ -12,10 +14,14 @@ use bevy::{
     window::WindowPlugin,
 };
 
+#[cfg(feature = "animation")]
+mod animation_plugin;
 mod camera_controller_plugin;
+mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
 use camera_controller_plugin::{CameraController, CameraControllerPlugin};
+use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 fn main() {
@@ -24,7 +30,7 @@ fn main() {
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
-    .add_plugins(
+    .add_plugins((
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
@@ -34,15 +40,18 @@ fn main() {
                 ..default()
             })
             .set(AssetPlugin {
-                asset_folder: std::env::var("CARGO_MANIFEST_DIR")
-                    .unwrap_or_else(|_| ".".to_string()),
-                watch_for_changes: true,
+                file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+                ..default()
             }),
-    )
-    .add_plugin(CameraControllerPlugin)
-    .add_plugin(SceneViewerPlugin)
+        CameraControllerPlugin,
+        SceneViewerPlugin,
+        MorphViewerPlugin,
+    ))
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
+
+    #[cfg(feature = "animation")]
+    app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
 }

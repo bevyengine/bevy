@@ -5,33 +5,33 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
-    query::{QueryState, With},
+    query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::{ExtractedCamera, TemporalJitter},
+    camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+        BindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode,
+        FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
@@ -42,8 +42,7 @@ mod draw_3d_graph {
     }
 }
 
-const TAA_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
+const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
 
 /// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
 ///
@@ -57,23 +56,22 @@ impl Plugin for TemporalAntiAliasPlugin {
         app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
-            .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter
-                        .before(prepare_view_uniforms)
-                        .in_set(RenderSet::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                    prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<TAANode>(CORE_3D, draw_3d_graph::node::TAA)
+            .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)
             .add_render_graph_edges(
                 CORE_3D,
                 &[
@@ -83,6 +81,14 @@ impl Plugin for TemporalAntiAliasPlugin {
                     core_3d::graph::node::TONEMAPPING,
                 ],
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<TAAPipeline>();
     }
 }
 
@@ -126,7 +132,8 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// Currently does not support skinned meshes. There will probably be ghosting artifacts if used with them.
+/// Currently does not support skinned meshes and morph targets.
+/// There will probably be ghosting artifacts if used with them.
 /// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
@@ -134,12 +141,14 @@ pub struct TemporalAntiAliasBundle {
 /// are added using a third party library, the library must either:
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
+///
+/// If no [`MipBias`] component is attached to the camera, TAA will add a MipBias(-1.0) component.
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntiAliasSettings {
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
-    /// representive of the current frame, such as in sudden camera cuts.
+    /// representative of the current frame, such as in sudden camera cuts.
     ///
     /// After setting this to true, it will automatically be toggled
     /// back to false after one frame.
@@ -152,51 +161,34 @@ impl Default for TemporalAntiAliasSettings {
     }
 }
 
-struct TAANode {
-    view_query: QueryState<(
+#[derive(Default)]
+struct TAANode;
+
+impl ViewNode for TAANode {
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static TAAHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TAAPipelineId,
-    )>,
-}
-
-impl FromWorld for TAANode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for TAANode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
+    );
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (
-            Ok((camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id)),
-            Some(pipelines),
-            Some(pipeline_cache),
-        ) = (
-            self.view_query.get_manual(world, graph.view_entity()),
+        let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TAAPipeline>(),
             world.get_resource::<PipelineCache>(),
         ) else {
             return Ok(());
         };
-        let (
-            Some(taa_pipeline),
-            Some(prepass_motion_vectors_texture),
-            Some(prepass_depth_texture),
-        ) = (
+        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.motion_vectors,
             &prepass_textures.depth,
@@ -205,45 +197,18 @@ impl Node for TAANode {
         };
         let view_target = view_target.post_process_write();
 
-        let taa_bind_group =
-            render_context
-                .render_device()
-                .create_bind_group(&BindGroupDescriptor {
-                    label: Some("taa_bind_group"),
-                    layout: &pipelines.taa_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(view_target.source),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::TextureView(
-                                &taa_history_textures.read.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: BindingResource::TextureView(
-                                &prepass_motion_vectors_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 3,
-                            resource: BindingResource::TextureView(
-                                &prepass_depth_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 4,
-                            resource: BindingResource::Sampler(&pipelines.nearest_sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 5,
-                            resource: BindingResource::Sampler(&pipelines.linear_sampler),
-                        },
-                    ],
-                });
+        let taa_bind_group = render_context.render_device().create_bind_group(
+            "taa_bind_group",
+            &pipelines.taa_bind_group_layout,
+            &BindGroupEntries::sequential((
+                view_target.source,
+                &taa_history_textures.read.default_view,
+                &prepass_motion_vectors_texture.default_view,
+                &prepass_depth_texture.default_view,
+                &pipelines.nearest_sampler,
+                &pipelines.linear_sampler,
+            )),
+        );
 
         {
             let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -399,7 +364,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
             layout: vec![self.taa_bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TAA_SHADER_HANDLE.typed::<Shader>(),
+                shader: TAA_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "taa".into(),
                 targets: vec![
@@ -443,9 +408,13 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     }
 }
 
-fn prepare_taa_jitter(
+fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<&mut TemporalJitter, With<TemporalAntiAliasSettings>>,
+    mut query: Query<
+        (Entity, &mut TemporalJitter, Option<&MipBias>),
+        With<TemporalAntiAliasSettings>,
+    >,
+    mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
     let halton_sequence = [
@@ -461,8 +430,12 @@ fn prepare_taa_jitter(
 
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
-    for mut jitter in &mut query {
+    for (entity, mut jitter, mip_bias) in &mut query {
         jitter.offset = offset;
+
+        if mip_bias.is_none() {
+            commands.entity(entity).insert(MipBias(-1.0));
+        }
     }
 }
 

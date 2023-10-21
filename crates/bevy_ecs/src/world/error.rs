@@ -1,3 +1,5 @@
+//! Contains error types returned by bevy's schedule.
+
 use thiserror::Error;
 
 use crate::schedule::BoxedScheduleLabel;

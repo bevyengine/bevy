@@ -35,6 +35,7 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
+#[derive(Event)]
 struct ButtonActivatedEvent(Entity);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -50,7 +51,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -93,13 +95,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..Default::default()
                         })
                         .with_children(|parent| {
-                            for constaint in [
+                            for constraint in [
                                 Constraint::MinWidth,
                                 Constraint::FlexBasis,
                                 Constraint::Width,
                                 Constraint::MaxWidth,
                             ] {
-                                spawn_button_row(parent, constaint, text_style.clone());
+                                spawn_button_row(parent, constraint, text_style.clone());
                             }
                         });
                 });
@@ -123,7 +125,8 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 .spawn(NodeBundle {
                     style: Style {
                         align_items: AlignItems::Stretch,
-                        size: Size::new(Val::Percent(100.), Val::Px(100.)),
+                        width: Val::Percent(100.),
+                        height: Val::Px(100.),
                         padding: UiRect::all(Val::Px(4.)),
                         ..Default::default()
                     },
@@ -181,8 +184,8 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                min_size: Size::width(Val::Px(200.)),
-                                max_size: Size::width(Val::Px(200.)),
+                                min_width: Val::Px(200.),
+                                max_width: Val::Px(200.),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 ..Default::default()
@@ -259,7 +262,7 @@ fn spawn_button(
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::width(Val::Px(100.)),
+                        width: Val::Px(100.),
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
@@ -304,20 +307,20 @@ fn update_buttons(
     let mut style = bar_query.single_mut();
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 button_activated_event.send(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
                         style.flex_basis = value.0;
                     }
                     Constraint::Width => {
-                        style.size.width = value.0;
+                        style.width = value.0;
                     }
                     Constraint::MinWidth => {
-                        style.min_size.width = value.0;
+                        style.min_width = value.0;
                     }
                     Constraint::MaxWidth => {
-                        style.max_size.width = value.0;
+                        style.max_width = value.0;
                     }
                 }
             }
@@ -362,7 +365,7 @@ fn update_radio_buttons_colors(
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
-    for &ButtonActivatedEvent(button_id) in event_reader.iter() {
+    for &ButtonActivatedEvent(button_id) in event_reader.read() {
         let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {

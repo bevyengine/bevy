@@ -21,7 +21,7 @@ pub fn empty_systems(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
     for amount in 0..5 {
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         for _ in 0..amount {
             schedule.add_systems(empty);
         }
@@ -33,7 +33,7 @@ pub fn empty_systems(criterion: &mut Criterion) {
         });
     }
     for amount in 1..21 {
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         for _ in 0..amount {
             schedule.add_systems((empty, empty, empty, empty, empty));
         }
@@ -73,7 +73,7 @@ pub fn busy_systems(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
         for system_amount in 0..5 {
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
             schedule.add_systems((ab, cd, ce));
             for _ in 0..system_amount {
                 schedule.add_systems((ab, cd, ce));
@@ -124,7 +124,7 @@ pub fn contrived(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.0), D(0.0))));
         for system_amount in 0..5 {
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
             schedule.add_systems((s_0, s_1, s_2));
             for _ in 0..system_amount {
                 schedule.add_systems((s_0, s_1, s_2));

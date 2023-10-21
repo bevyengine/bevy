@@ -2,13 +2,12 @@
 
 use bevy::prelude::*;
 
-const TIME_STEP: f32 = 1.0 / 60.0;
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
+        .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_systems(Startup, setup)
         .add_systems(
             FixedUpdate,
@@ -117,6 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Demonstrates applying rotation and movement based on keyboard input.
 fn player_movement_system(
+    time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Player, &mut Transform2d)>,
 ) {
@@ -138,12 +138,12 @@ fn player_movement_system(
     }
 
     // update the ship rotation
-    transform.rotation += rotation_factor * ship.rotation_speed * TIME_STEP;
+    transform.rotation += rotation_factor * ship.rotation_speed * time.delta_seconds();
 
     // get the ship's forward vector by applying the current rotation to the ships initial facing vector
     let movement_direction = transform.up();
     // get the distance the ship will move based on direction, the ship's movement speed and delta time
-    let movement_distance = movement_factor * ship.movement_speed * TIME_STEP;
+    let movement_distance = movement_factor * ship.movement_speed * time.delta_seconds();
     // create the change in translation using the new movement direction and distance
     let translation_delta = movement_direction * movement_distance;
     // update the ship translation with our new translation delta
@@ -176,8 +176,8 @@ fn snap_to_player_system(
 /// if not, which way to rotate to face the player. The dot product on two unit length vectors
 /// will return a value between -1.0 and +1.0 which tells us the following about the two vectors:
 ///
-/// * If the result is 1.0 the vectors are pointing in the same direction, the angle between them
-///   is 0 degrees.
+/// * If the result is 1.0 the vectors are pointing in the same direction, the angle between them is
+///   0 degrees.
 /// * If the result is 0.0 the vectors are perpendicular, the angle between them is 90 degrees.
 /// * If the result is -1.0 the vectors are parallel but pointing in opposite directions, the angle
 ///   between them is 180 degrees.
@@ -192,6 +192,7 @@ fn snap_to_player_system(
 /// floating point precision loss, so it pays to clamp your dot product value before calling
 /// `acos`.
 fn rotate_to_player_system(
+    time: Res<Time>,
     mut query: Query<(&RotateToPlayer, &mut Transform2d), Without<Player>>,
     player_query: Query<&Transform2d, With<Player>>,
 ) {
@@ -234,7 +235,8 @@ fn rotate_to_player_system(
         let max_angle = forward_dot_player.clamp(-1.0, 1.0).acos(); // clamp acos for safety
 
         // calculate angle of rotation with limit
-        let rotation_angle = rotation_sign * (config.rotation_speed * TIME_STEP).min(max_angle);
+        let rotation_angle =
+            rotation_sign * (config.rotation_speed * time.delta_seconds()).min(max_angle);
 
         // rotate the enemy to face the player
         enemy_transform.rotation += rotation_angle;

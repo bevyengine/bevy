@@ -1,5 +1,9 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use std::f32::consts::PI;
 
 use bevy::{
@@ -21,8 +25,7 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
-        .add_plugins(DefaultPlugins)
-        .add_plugin(TemporalAntiAliasPlugin)
+        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();

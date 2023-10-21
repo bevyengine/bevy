@@ -23,12 +23,12 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashSet, Instant};
+use bevy_utils::{Duration, HashSet, Instant, Uuid};
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
@@ -59,8 +59,10 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Option<bool>>()
         .register_type::<Option<f64>>()
         .register_type::<Cow<'static, str>>()
+        .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
-        .register_type::<Instant>();
+        .register_type::<Instant>()
+        .register_type::<Uuid>();
 }
 
 fn register_math_types(app: &mut App) {
@@ -152,7 +154,10 @@ impl Plugin for FrameCountPlugin {
     }
 }
 
-fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+/// A system used to increment [`FrameCount`] with wrapping addition.
+///
+/// See [`FrameCount`] for more details.
+pub fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
     frame_count.0 = frame_count.0.wrapping_add(1);
 }
 
@@ -164,8 +169,7 @@ mod tests {
     #[test]
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
-        app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(TypeRegistrationPlugin::default());
+        app.add_plugins((TaskPoolPlugin::default(), TypeRegistrationPlugin));
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()
@@ -198,9 +202,11 @@ mod tests {
     #[test]
     fn frame_counter_update() {
         let mut app = App::new();
-        app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(TypeRegistrationPlugin::default());
-        app.add_plugin(FrameCountPlugin::default());
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            TypeRegistrationPlugin,
+            FrameCountPlugin,
+        ));
         app.update();
 
         let frame_count = app.world.resource::<FrameCount>();

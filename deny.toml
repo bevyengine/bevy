@@ -6,7 +6,6 @@ unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
 ignore = [
-    "RUSTSEC-2022-0048", # from xml-rs 0.8.4 - unmaintained - it's used in a build script of winit
 ]
 
 [licenses]
@@ -29,17 +28,14 @@ exceptions = [
 default = "deny"
 
 [bans]
-multiple-versions = "deny"
+multiple-versions = "warn"
 wildcards = "deny"
-highlight = "all"
-# Certain crates/versions that will be skipped when doing duplicate detection.
-skip = [
-    { name = "core-foundation-sys", version = "0.6" },   # from cpal v0.15.0
-    { name = "jni", version = "0.19" },                  # from cpal v0.15.0
-    { name = "nix", version = "0.24" },                  # from cpal v0.15.0
-    { name = "redox_syscall", version = "0.2" },         # from notify v5.1.0
-    { name = "windows-sys", version = "0.42" },          # from notify v5.1.0
-    { name = "windows", version = "0.43"},               # from gilrs v0.10.1
+# Certain crates that we don't want multiple versions of in the dependency tree
+deny = [
+    { name = "ahash", deny-multiple-versions = true },
+    { name = "android-activity", deny-multiple-versions = true },
+    { name = "glam", deny-multiple-versions = true },
+    { name = "raw-window-handle", deny-multiple-versions = true },
 ]
 
 [sources]

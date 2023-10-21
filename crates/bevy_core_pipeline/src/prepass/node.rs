@@ -1,70 +1,56 @@
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
+use bevy_ecs::query::QueryItem;
+use bevy_render::render_graph::ViewNode;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture},
+    view::ViewDepthTexture,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures};
+use super::{AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, ViewPrepassTextures};
 
 /// Render node used by the prepass.
 ///
 /// By default, inserted before the main pass in the render graph.
-pub struct PrepassNode {
-    main_view_query: QueryState<
-        (
-            &'static ExtractedCamera,
-            &'static RenderPhase<Opaque3dPrepass>,
-            &'static RenderPhase<AlphaMask3dPrepass>,
-            &'static ViewDepthTexture,
-            &'static ViewPrepassTextures,
-        ),
-        With<ExtractedView>,
-    >,
-}
+#[derive(Default)]
+pub struct PrepassNode;
 
-impl FromWorld for PrepassNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for PrepassNode {
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-    }
+impl ViewNode for PrepassNode {
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static RenderPhase<Opaque3dPrepass>,
+        &'static RenderPhase<AlphaMask3dPrepass>,
+        &'static ViewDepthTexture,
+        &'static ViewPrepassTextures,
+        Option<&'static DeferredPrepass>,
+    );
 
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
-        let Ok((
+        (
             camera,
             opaque_prepass_phase,
             alpha_mask_prepass_phase,
             view_depth_texture,
             view_prepass_textures,
-        )) = self.main_view_query.get_manual(world, view_entity) else {
-            return Ok(());
-        };
+            deferred_prepass,
+        ): QueryItem<Self::ViewQuery>,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        let view_entity = graph.view_entity();
 
-        let mut color_attachments = vec![];
-        color_attachments.push(
+        let mut color_attachments = vec![
             view_prepass_textures
                 .normal
                 .as_ref()
@@ -76,19 +62,25 @@ impl Node for PrepassNode {
                         store: true,
                     },
                 }),
-        );
-        color_attachments.push(view_prepass_textures.motion_vectors.as_ref().map(
-            |view_motion_vectors_texture| RenderPassColorAttachment {
-                view: &view_motion_vectors_texture.default_view,
-                resolve_target: None,
-                ops: Operations {
-                    // Blue channel doesn't matter, but set to 1.0 for possible faster clear
-                    // https://gpuopen.com/performance/#clears
-                    load: LoadOp::Clear(Color::rgb_linear(1.0, 1.0, 1.0).into()),
-                    store: true,
-                },
-            },
-        ));
+            view_prepass_textures
+                .motion_vectors
+                .as_ref()
+                .map(|view_motion_vectors_texture| RenderPassColorAttachment {
+                    view: &view_motion_vectors_texture.default_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        // Red and Green channels are X and Y components of the motion vectors
+                        // Blue channel doesn't matter, but set to 0.0 for possible faster clear
+                        // https://gpuopen.com/performance/#clears
+                        load: LoadOp::Clear(Color::BLACK.into()),
+                        store: true,
+                    },
+                }),
+            // Use None in place of Deferred attachments
+            None,
+            None,
+        ];
+
         if color_attachments.iter().all(Option::is_none) {
             // all attachments are none: clear the attachment list so that no fragment shader is required
             color_attachments.clear();
@@ -108,7 +100,6 @@ impl Node for PrepassNode {
                     stencil_ops: None,
                 }),
             });
-
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
@@ -128,16 +119,17 @@ impl Node for PrepassNode {
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
             }
         }
-
-        if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-            // Copy depth buffer to texture
-            render_context.command_encoder().copy_texture_to_texture(
-                view_depth_texture.texture.as_image_copy(),
-                prepass_depth_texture.texture.as_image_copy(),
-                view_prepass_textures.size,
-            );
+        if deferred_prepass.is_none() {
+            // Copy if deferred isn't going to
+            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
+                // Copy depth buffer to texture
+                render_context.command_encoder().copy_texture_to_texture(
+                    view_depth_texture.texture.as_image_copy(),
+                    prepass_depth_texture.texture.as_image_copy(),
+                    view_prepass_textures.size,
+                );
+            }
         }
-
         Ok(())
     }
 }

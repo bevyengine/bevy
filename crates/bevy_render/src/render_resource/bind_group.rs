@@ -9,7 +9,7 @@ use crate::{
 pub use bevy_render_macros::AsBindGroup;
 use encase::ShaderType;
 use std::ops::Deref;
-use wgpu::BindingResource;
+use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);
 render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
@@ -92,14 +92,10 @@ impl Deref for BindGroup {
 /// In WGSL shaders, the binding would look like this:
 ///
 /// ```wgsl
-/// @group(1) @binding(0)
-/// var<uniform> color: vec4<f32>;
-/// @group(1) @binding(1)
-/// var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2)
-/// var color_sampler: sampler;
-/// @group(1) @binding(3)
-/// var<storage> values: array<f32>;
+/// @group(1) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(1) @binding(2) var color_sampler: sampler;
+/// @group(1) @binding(3) var<storage> values: array<f32>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 1.
@@ -127,7 +123,7 @@ impl Deref for BindGroup {
 /// | `visibility(...)`     | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
 ///
 /// * `sampler(BINDING_INDEX, arguments)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`](crate::render_resource::Sampler) GPU
+///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
 ///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
@@ -194,8 +190,7 @@ impl Deref for BindGroup {
 ///     roughness: f32,
 /// };
 ///
-/// @group(1) @binding(0)
-/// var<uniform> material: CoolMaterial;
+/// @group(1) @binding(0) var<uniform> material: CoolMaterial;
 /// ```
 ///
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
@@ -267,6 +262,11 @@ pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
     type Data: Send + Sync;
 
+    /// label
+    fn label() -> Option<&'static str> {
+        None
+    }
+
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
     fn as_bind_group(
         &self,
@@ -274,10 +274,52 @@ pub trait AsBindGroup {
         render_device: &RenderDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError>;
+    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
+        let UnpreparedBindGroup { bindings, data } =
+            Self::unprepared_bind_group(self, layout, render_device, images, fallback_image)?;
+
+        let entries = bindings
+            .iter()
+            .map(|(index, binding)| BindGroupEntry {
+                binding: *index,
+                resource: binding.get_binding(),
+            })
+            .collect::<Vec<_>>();
+
+        let bind_group = render_device.create_bind_group(Self::label(), layout, &entries);
+
+        Ok(PreparedBindGroup {
+            bindings,
+            bind_group,
+            data,
+        })
+    }
+
+    /// Returns a vec of (binding index, `OwnedBindingResource`).
+    /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
+    /// an implementor may define `as_bind_group` directly. This may prevent certain features
+    /// from working correctly.
+    fn unprepared_bind_group(
+        &self,
+        layout: &BindGroupLayout,
+        render_device: &RenderDevice,
+        images: &RenderAssets<Image>,
+        fallback_image: &FallbackImage,
+    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    where
+        Self: Sized,
+    {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Self::label(),
+            entries: &Self::bind_group_layout_entries(render_device),
+        })
+    }
+
+    /// Returns a vec of bind group layout entries
+    fn bind_group_layout_entries(render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized;
 }
@@ -290,14 +332,21 @@ pub enum AsBindGroupError {
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
 pub struct PreparedBindGroup<T> {
-    pub bindings: Vec<OwnedBindingResource>,
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
+    pub data: T,
+}
+
+/// a map containing `OwnedBindingResource`s, keyed by the target binding index
+pub struct UnpreparedBindGroup<T> {
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub data: T,
 }
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
 /// This is used by types like [`PreparedBindGroup`] to hold a single list of all
 /// render resources used by bindings.
+#[derive(Debug)]
 pub enum OwnedBindingResource {
     Buffer(Buffer),
     TextureView(TextureView),
@@ -332,5 +381,37 @@ where
     #[inline]
     fn as_bind_group_shader_type(&self, _images: &RenderAssets<Image>) -> U {
         self.into()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate as bevy_render;
+    use bevy_asset::Handle;
+
+    #[test]
+    fn texture_visibility() {
+        #[derive(AsBindGroup)]
+        pub struct TextureVisibilityTest {
+            #[texture(0, visibility(all))]
+            pub all: Handle<Image>,
+            #[texture(1, visibility(none))]
+            pub none: Handle<Image>,
+            #[texture(2, visibility(fragment))]
+            pub fragment: Handle<Image>,
+            #[texture(3, visibility(vertex))]
+            pub vertex: Handle<Image>,
+            #[texture(4, visibility(compute))]
+            pub compute: Handle<Image>,
+            #[texture(5, visibility(vertex, fragment))]
+            pub vertex_fragment: Handle<Image>,
+            #[texture(6, visibility(vertex, compute))]
+            pub vertex_compute: Handle<Image>,
+            #[texture(7, visibility(fragment, compute))]
+            pub fragment_compute: Handle<Image>,
+            #[texture(8, visibility(vertex, fragment, compute))]
+            pub vertex_fragment_compute: Handle<Image>,
+        }
     }
 }

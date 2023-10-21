@@ -7,8 +7,12 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{all_tuples, HashMap};
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::{any::TypeId, fmt::Debug, hash::Hash};
+use std::{
+    any::TypeId,
+    fmt::Debug,
+    hash::Hash,
+    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -116,12 +120,14 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
 impl<P: PhaseItem> DrawFunctions<P> {
     /// Accesses the draw functions in read mode.
     pub fn read(&self) -> RwLockReadGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal.read()
+        self.internal.read().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Accesses the draw functions in write mode.
     pub fn write(&self) -> RwLockWriteGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal.write()
+        self.internal
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 

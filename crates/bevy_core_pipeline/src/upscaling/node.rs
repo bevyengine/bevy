@@ -1,60 +1,38 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ExtractedCamera},
-    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
+        BindGroup, BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, SamplerDescriptor, TextureViewId,
     },
     renderer::RenderContext,
-    view::{ExtractedView, ViewTarget},
+    view::ViewTarget,
 };
 use std::sync::Mutex;
 
+#[derive(Default)]
 pub struct UpscalingNode {
-    query: QueryState<
-        (
-            &'static ViewTarget,
-            &'static ViewUpscalingPipeline,
-            Option<&'static ExtractedCamera>,
-        ),
-        With<ExtractedView>,
-    >,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
-impl FromWorld for UpscalingNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-            cached_texture_bind_group: Mutex::new(None),
-        }
-    }
-}
-
-impl Node for UpscalingNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
+impl ViewNode for UpscalingNode {
+    type ViewQuery = (
+        &'static ViewTarget,
+        &'static ViewUpscalingPipeline,
+        Option<&'static ExtractedCamera>,
+    );
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
-
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
         let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();
-
-        let (target, upscaling_target, camera) = match self.query.get_manual(world, view_entity) {
-            Ok(query) => query,
-            Err(_) => return Ok(()),
-        };
 
         let color_attachment_load_op = if let Some(camera) = camera {
             match camera.output_mode {
@@ -68,7 +46,7 @@ impl Node for UpscalingNode {
             LoadOp::Clear(Default::default())
         };
 
-        let upscaled_texture = target.main_texture();
+        let upscaled_texture = target.main_texture_view();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
@@ -78,23 +56,11 @@ impl Node for UpscalingNode {
                     .render_device()
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &blit_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(upscaled_texture),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context.render_device().create_bind_group(
+                    None,
+                    &blit_pipeline.texture_bind_group,
+                    &BindGroupEntries::sequential((upscaled_texture, &sampler)),
+                );
 
                 let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
                 bind_group

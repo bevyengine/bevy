@@ -3,7 +3,7 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     render::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
         render_resource::{
@@ -15,8 +15,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
+        .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
         .add_systems(Startup, setup)
         .run();
 }
@@ -32,12 +31,13 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    let mut mesh = Mesh::from(shape::Cube { size: 1.0 });
-    mesh.insert_attribute(
-        ATTRIBUTE_BLEND_COLOR,
-        // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
-        vec![[1.0, 0.0, 0.0, 1.0]; 24],
-    );
+    let mesh = Mesh::from(shape::Cube { size: 1.0 })
+        // Sets the custom attribute
+        .with_inserted_attribute(
+            ATTRIBUTE_BLEND_COLOR,
+            // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
+            vec![[1.0, 0.0, 0.0, 1.0]; 24],
+        );
 
     // cube
     commands.spawn(MaterialMeshBundle {
@@ -57,8 +57,7 @@ fn setup(
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,

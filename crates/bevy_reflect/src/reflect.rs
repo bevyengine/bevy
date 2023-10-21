@@ -1,10 +1,10 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
-    any::{self, Any, TypeId},
+    any::{Any, TypeId},
     fmt::Debug,
 };
 
@@ -72,9 +72,24 @@ pub enum ReflectOwned {
 /// [`bevy_reflect`]: crate
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
-pub trait Reflect: Any + Send + Sync {
-    /// Returns the [type name][std::any::type_name] of the underlying type.
-    fn type_name(&self) -> &str;
+pub trait Reflect: DynamicTypePath + Any + Send + Sync {
+    /// Returns the type path of the underlying type.
+    ///
+    /// This type path will either be found through [`get_represented_type_info`]
+    /// or taken from a [`TypePath`] implementation if the former isn't available.
+    ///
+    /// This method is deprecated; please consider migrating to one of the above methods.
+    ///
+    /// [`get_represented_type_info`]: Reflect::get_represented_type_info
+    #[deprecated(
+        since = "0.12.0",
+        note = "view the method documentation to find alternatives to this method."
+    )]
+    fn type_name(&self) -> &str {
+        self.get_represented_type_info()
+            .map(|info| info.type_path())
+            .unwrap_or_else(|| self.reflect_type_path())
+    }
 
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
@@ -200,10 +215,10 @@ pub trait Reflect: Any + Send + Sync {
     /// Debug formatter for the value.
     ///
     /// Any value that is not an implementor of other `Reflect` subtraits
-    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_name)"`,
-    /// where `type_name` is the [type name] of the underlying type.
+    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
+    /// where `type_path` is the [type path] of the underlying type.
     ///
-    /// [type name]: Self::type_name
+    /// [type path]: TypePath::type_path
     fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.reflect_ref() {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
@@ -213,7 +228,7 @@ pub trait Reflect: Any + Send + Sync {
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            _ => write!(f, "Reflect({})", self.type_name()),
+            _ => write!(f, "Reflect({})", self.reflect_type_path()),
         }
     }
 
@@ -254,6 +269,19 @@ impl Typed for dyn Reflect {
     }
 }
 
+// The following implementation never actually shadows the concrete TypePath implementation.
+
+// See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
+impl TypePath for dyn Reflect {
+    fn type_path() -> &'static str {
+        "dyn bevy_reflect::Reflect"
+    }
+
+    fn short_type_path() -> &'static str {
+        "dyn Reflect"
+    }
+}
+
 #[deny(rustdoc::broken_intra_doc_links)]
 impl dyn Reflect {
     /// Downcasts the value to type `T`, consuming the trait object.
@@ -279,8 +307,10 @@ impl dyn Reflect {
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect>(&self) -> bool {
-        self.type_name() == any::type_name::<T>()
+    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+        self.get_represented_type_info()
+            .map(|t| t.type_path() == T::type_path())
+            .unwrap_or(false)
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`

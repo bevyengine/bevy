@@ -2,39 +2,64 @@
 //! the mouse pointer in various ways.
 
 use bevy::{
+    core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel},
+    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "I am a window!".into(),
-                resolution: (500., 300.).into(),
-                present_mode: PresentMode::AutoVsync,
-                // Tells wasm to resize the window according to the available canvas
-                fit_canvas_to_parent: true,
-                // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
-                prevent_default_event_handling: false,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "I am a window!".into(),
+                    resolution: (500., 300.).into(),
+                    present_mode: PresentMode::AutoVsync,
+                    // Tells wasm to resize the window according to the available canvas
+                    fit_canvas_to_parent: true,
+                    // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
+                    prevent_default_event_handling: false,
+                    window_theme: Some(WindowTheme::Dark),
+                    enabled_buttons: bevy::window::EnabledButtons {
+                        maximize: false,
+                        ..Default::default()
+                    },
+                    // This will spawn an invisible window
+                    // The window will be made visible in the make_visible() system after 3 frames.
+                    // This is useful when you want to avoid the white window that shows up before the GPU is ready to render the app.
+                    visible: false,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin)
+            LogDiagnosticsPlugin::default(),
+            FrameTimeDiagnosticsPlugin,
+        ))
         .add_systems(
             Update,
             (
                 change_title,
+                toggle_theme,
                 toggle_cursor,
                 toggle_vsync,
+                toggle_window_controls,
                 cycle_cursor_icon,
                 switch_level,
+                make_visible,
             ),
         )
         .run();
+}
+
+fn make_visible(mut window: Query<&mut Window>, frames: Res<FrameCount>) {
+    // The delay may be different for your app or system.
+    if frames.0 == 3 {
+        // At this point the gpu is ready to show the app so we can make the window visible.
+        // Alternatively, you could toggle the visibility in Startup.
+        // It will work, but it will have one white frame before it starts rendering
+        window.single_mut().visible = true;
+    }
 }
 
 /// This system toggles the vsync mode when pressing the button V.
@@ -72,6 +97,31 @@ fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     }
 }
 
+/// This system toggles the window controls when pressing buttons 1, 2 and 3
+///
+/// This feature only works on some platforms. Please check the
+/// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.enabled_buttons)
+/// for more details.
+fn toggle_window_controls(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+    let toggle_minimize = input.just_pressed(KeyCode::Key1);
+    let toggle_maximize = input.just_pressed(KeyCode::Key2);
+    let toggle_close = input.just_pressed(KeyCode::Key3);
+
+    if toggle_minimize || toggle_maximize || toggle_close {
+        let mut window = windows.single_mut();
+
+        if toggle_minimize {
+            window.enabled_buttons.minimize = !window.enabled_buttons.minimize;
+        }
+        if toggle_maximize {
+            window.enabled_buttons.maximize = !window.enabled_buttons.maximize;
+        }
+        if toggle_close {
+            window.enabled_buttons.close = !window.enabled_buttons.close;
+        }
+    }
+}
+
 /// This system will then change the title during execution
 fn change_title(mut windows: Query<&mut Window>, time: Res<Time>) {
     let mut window = windows.single_mut();
@@ -90,6 +140,20 @@ fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
             CursorGrabMode::None => CursorGrabMode::Locked,
             CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
         };
+    }
+}
+
+// This system will toggle the color theme used by the window
+fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
+    if input.just_pressed(KeyCode::F) {
+        let mut window = windows.single_mut();
+
+        if let Some(current_theme) = window.window_theme {
+            window.window_theme = match current_theme {
+                WindowTheme::Light => Some(WindowTheme::Dark),
+                WindowTheme::Dark => Some(WindowTheme::Light),
+            };
+        }
     }
 }
 

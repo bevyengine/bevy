@@ -1,4 +1,8 @@
-use crate::{utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
+use crate::{
+    self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypePathTable,
+};
+use bevy_reflect_derive::impl_type_path;
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -14,7 +18,7 @@ use std::{
 ///
 /// Due to the [type-erasing] nature of the reflection API as a whole,
 /// this trait does not make any guarantees that the implementor's elements
-/// are homogenous (i.e. all the same type).
+/// are homogeneous (i.e. all the same type).
 ///
 /// This trait has a blanket implementation over Rust arrays of up to 32 items.
 /// This implementation can technically contain more than 32,
@@ -73,9 +77,9 @@ pub trait Array: Reflect {
 /// A container for compile-time array info.
 #[derive(Clone, Debug)]
 pub struct ArrayInfo {
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
-    item_type_name: &'static str,
+    item_type_path: TypePathTable,
     item_type_id: TypeId,
     capacity: usize,
     #[cfg(feature = "documentation")]
@@ -89,11 +93,11 @@ impl ArrayInfo {
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
     ///
-    pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
+    pub fn new<TArray: Array + TypePath, TItem: Reflect + TypePath>(capacity: usize) -> Self {
         Self {
-            type_name: std::any::type_name::<TArray>(),
+            type_path: TypePathTable::of::<TArray>(),
             type_id: TypeId::of::<TArray>(),
-            item_type_name: std::any::type_name::<TItem>(),
+            item_type_path: TypePathTable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
             #[cfg(feature = "documentation")]
@@ -112,11 +116,21 @@ impl ArrayInfo {
         self.capacity
     }
 
-    /// The [type name] of the array.
+    /// A representation of the type path of the array.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the array.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the array.
@@ -129,11 +143,11 @@ impl ArrayInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The [type name] of the array item.
+    /// A representation of the type path of the array item.
     ///
-    /// [type name]: std::any::type_name
-    pub fn item_type_name(&self) -> &'static str {
-        self.item_type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn item_type_path_table(&self) -> &TypePathTable {
+        &self.item_type_path
     }
 
     /// The [`TypeId`] of the array item.
@@ -209,13 +223,6 @@ impl DynamicArray {
 }
 
 impl Reflect for DynamicArray {
-    #[inline]
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_else(|| std::any::type_name::<Self>())
-    }
-
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
@@ -335,6 +342,7 @@ impl Array for DynamicArray {
     }
 }
 
+impl_type_path!((in bevy_reflect) DynamicArray);
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     array: &'a dyn Array,
