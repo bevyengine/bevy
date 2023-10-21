@@ -1,7 +1,7 @@
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_render::render_resource::{
-    BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, ShaderStages,
-    TextureAspect, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension,
+    BindGroupLayoutEntry, BindingType, ShaderStages, TextureAspect, TextureSampleType, TextureView,
+    TextureViewDescriptor, TextureViewDimension,
 };
 use bevy_utils::default;
 use smallvec::SmallVec;
@@ -83,51 +83,7 @@ pub fn get_bind_group_layout_entries(
     result
 }
 
-// Needed so the texture views can live long enough.
-pub struct PrepassBindingsSet {
-    depth_view: Option<TextureView>,
-    normal_view: Option<TextureView>,
-    motion_vectors_view: Option<TextureView>,
-    deferred_view: Option<TextureView>,
-}
-
-impl PrepassBindingsSet {
-    pub fn get_entries(&self, bindings: [u32; 4]) -> SmallVec<[BindGroupEntry; 4]> {
-        let mut result = SmallVec::<[BindGroupEntry; 4]>::new();
-
-        if let Some(ref depth_view) = self.depth_view {
-            result.push(BindGroupEntry {
-                binding: bindings[0],
-                resource: BindingResource::TextureView(depth_view),
-            });
-        }
-
-        if let Some(ref normal_view) = self.normal_view {
-            result.push(BindGroupEntry {
-                binding: bindings[1],
-                resource: BindingResource::TextureView(normal_view),
-            });
-        }
-
-        if let Some(ref motion_vectors_view) = self.motion_vectors_view {
-            result.push(BindGroupEntry {
-                binding: bindings[2],
-                resource: BindingResource::TextureView(motion_vectors_view),
-            });
-        }
-
-        if let Some(ref deferred_view) = self.deferred_view {
-            result.push(BindGroupEntry {
-                binding: bindings[3],
-                resource: BindingResource::TextureView(deferred_view),
-            });
-        }
-
-        result
-    }
-}
-
-pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> PrepassBindingsSet {
+pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<TextureView>; 4] {
     let depth_desc = TextureViewDescriptor {
         label: Some("prepass_depth"),
         aspect: TextureAspect::DepthOnly,
@@ -149,10 +105,5 @@ pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> PrepassBi
         .and_then(|x| x.deferred.as_ref())
         .map(|texture| texture.default_view.clone());
 
-    PrepassBindingsSet {
-        depth_view,
-        normal_view,
-        motion_vectors_view,
-        deferred_view,
-    }
+    [depth_view, normal_view, motion_vectors_view, deferred_view]
 }

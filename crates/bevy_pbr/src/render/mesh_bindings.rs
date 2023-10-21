@@ -4,8 +4,7 @@ use bevy_math::Mat4;
 use bevy_render::{
     mesh::morph::MAX_MORPH_WEIGHTS,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindingResource, Buffer, TextureView,
+        BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer, TextureView,
     },
     renderer::RenderDevice,
 };
@@ -179,11 +178,11 @@ impl MeshLayouts {
     // ---------- BindGroup methods ----------
 
     pub fn model_only(&self, render_device: &RenderDevice, model: &BindingResource) -> BindGroup {
-        render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model.clone())],
-            layout: &self.model_only,
-            label: Some("model_only_mesh_bind_group"),
-        })
+        render_device.create_bind_group(
+            "model_only_mesh_bind_group",
+            &self.model_only,
+            &[entry::model(0, model.clone())],
+        )
     }
     pub fn skinned(
         &self,
@@ -191,11 +190,11 @@ impl MeshLayouts {
         model: &BindingResource,
         skin: &Buffer,
     ) -> BindGroup {
-        render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model.clone()), entry::skinning(1, skin)],
-            layout: &self.skinned,
-            label: Some("skinned_mesh_bind_group"),
-        })
+        render_device.create_bind_group(
+            "skinned_mesh_bind_group",
+            &self.skinned,
+            &[entry::model(0, model.clone()), entry::skinning(1, skin)],
+        )
     }
     pub fn morphed(
         &self,
@@ -204,15 +203,15 @@ impl MeshLayouts {
         weights: &Buffer,
         targets: &TextureView,
     ) -> BindGroup {
-        render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
+        render_device.create_bind_group(
+            "morphed_mesh_bind_group",
+            &self.morphed,
+            &[
                 entry::model(0, model.clone()),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],
-            layout: &self.morphed,
-            label: Some("morphed_mesh_bind_group"),
-        })
+        )
     }
     pub fn morphed_skinned(
         &self,
@@ -222,15 +221,15 @@ impl MeshLayouts {
         weights: &Buffer,
         targets: &TextureView,
     ) -> BindGroup {
-        render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
+        render_device.create_bind_group(
+            "morphed_skinned_mesh_bind_group",
+            &self.morphed_skinned,
+            &[
                 entry::model(0, model.clone()),
                 entry::skinning(1, skin),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],
-            layout: &self.morphed_skinned,
-            label: Some("morphed_skinned_mesh_bind_group"),
-        })
+        )
     }
 }

@@ -52,7 +52,7 @@ use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
         BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
         VertexFormat, VertexStepMode,
@@ -422,14 +422,11 @@ fn prepare_line_gizmo_bind_group(
 ) {
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
-            bindgroup: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("LineGizmoUniform bindgroup"),
-                layout: &line_gizmo_uniform_layout.layout,
-            }),
+            bindgroup: render_device.create_bind_group(
+                "LineGizmoUniform bindgroup",
+                &line_gizmo_uniform_layout.layout,
+                &BindGroupEntries::single(binding),
+            ),
         });
     }
 }

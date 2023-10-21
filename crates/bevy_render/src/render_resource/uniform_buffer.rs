@@ -13,6 +13,8 @@ use wgpu::{
     util::BufferInitDescriptor, BindingResource, BufferBinding, BufferDescriptor, BufferUsages,
 };
 
+use super::IntoBinding;
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
@@ -136,6 +138,16 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
+    }
+}
+
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.buffer()
+            .expect("Failed to get buffer")
+            .as_entire_buffer_binding()
+            .into_binding()
     }
 }
 
@@ -365,5 +377,12 @@ impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
     #[inline]
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
         self.buffer_view.write(offset, val);
+    }
+}
+
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicUniformBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.binding().unwrap()
     }
 }

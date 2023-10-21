@@ -7,8 +7,8 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType,
-        Shader, ShaderStages, TextureSampleType, TextureViewDimension,
+        BindGroupLayoutEntry, BindingType, Sampler, SamplerBindingType, Shader, ShaderStages,
+        TextureSampleType, TextureView, TextureViewDimension,
     },
     texture::{FallbackImageCubemap, Image},
 };
@@ -65,8 +65,7 @@ pub fn get_bindings<'a>(
     environment_map_light: Option<&EnvironmentMapLight>,
     images: &'a RenderAssets<Image>,
     fallback_image_cubemap: &'a FallbackImageCubemap,
-    bindings: [u32; 3],
-) -> [BindGroupEntry<'a>; 3] {
+) -> (&'a TextureView, &'a TextureView, &'a Sampler) {
     let (diffuse_map, specular_map) = match (
         environment_map_light.and_then(|env_map| images.get(&env_map.diffuse_map)),
         environment_map_light.and_then(|env_map| images.get(&env_map.specular_map)),
@@ -80,20 +79,7 @@ pub fn get_bindings<'a>(
         ),
     };
 
-    [
-        BindGroupEntry {
-            binding: bindings[0],
-            resource: BindingResource::TextureView(diffuse_map),
-        },
-        BindGroupEntry {
-            binding: bindings[1],
-            resource: BindingResource::TextureView(specular_map),
-        },
-        BindGroupEntry {
-            binding: bindings[2],
-            resource: BindingResource::Sampler(&fallback_image_cubemap.sampler),
-        },
-    ]
+    (diffuse_map, specular_map, &fallback_image_cubemap.sampler)
 }
 
 pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntry; 3] {
