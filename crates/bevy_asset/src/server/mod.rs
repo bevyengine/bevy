@@ -462,13 +462,26 @@ impl AssetServer {
     /// [`RecursiveDependencyLoadState`].
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_folder<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedFolder> {
-        let handle = {
-            let mut infos = self.data.infos.write();
-            infos.create_loading_handle::<LoadedFolder>()
-        };
-        let id = handle.id().untyped();
         let path = path.into().into_owned();
+        let (handle, should_load) = self
+            .data
+            .infos
+            .write()
+            .get_or_create_path_handle::<LoadedFolder>(
+                path.clone(),
+                HandleLoadingMode::Request,
+                None,
+            );
+        if !should_load {
+            return handle;
+        }
+        let id = handle.id().untyped();
+        self.load_folder_internal(id, path);
 
+        handle
+    }
+
+    pub(crate) fn load_folder_internal(&self, id: UntypedAssetId, path: AssetPath) {
         fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
@@ -503,6 +516,7 @@ impl AssetServer {
             })
         }
 
+        let path = path.into_owned();
         let server = self.clone();
         IoTaskPool::get()
             .spawn(async move {
@@ -542,8 +556,6 @@ impl AssetServer {
                 }
             })
             .detach();
-
-        handle
     }
 
     fn send_asset_event(&self, event: InternalAssetEvent) {
@@ -804,6 +816,20 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     let path = AssetPath::from(path).with_source(source);
                     queue_ancestors(&path, &infos, &mut paths_to_reload);
                     paths_to_reload.insert(path);
+                }
+                AssetSourceEvent::AddedAsset(path) | AssetSourceEvent::RemovedAsset(path) => {
+                    let mut current_folder = path;
+                    while let Some(parent) = current_folder.parent()  {
+                        current_folder = parent.to_path_buf();
+                        let parent_asset_path =
+                            AssetPath::from(current_folder.clone()).with_source(source.clone());
+                        if let Some(folder_handle) =
+                            infos.get_path_handle(parent_asset_path.clone())
+                        {
+                            info!("Reloading folder {parent_asset_path} because the content has changed");
+                            server.load_folder_internal(folder_handle.id(), parent_asset_path);
+                        }
+                    }
                 }
                 _ => {}
             }

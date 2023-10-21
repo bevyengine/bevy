@@ -86,23 +86,6 @@ impl std::fmt::Debug for AssetInfos {
 }
 
 impl AssetInfos {
-    pub(crate) fn create_loading_handle<A: Asset>(&mut self) -> Handle<A> {
-        unwrap_with_context(
-            Self::create_handle_internal(
-                &mut self.infos,
-                &self.handle_providers,
-                &mut self.living_labeled_assets,
-                self.watching_for_changes,
-                TypeId::of::<A>(),
-                None,
-                None,
-                true,
-            ),
-            std::any::type_name::<A>(),
-        )
-        .typed_debug_checked()
-    }
-
     pub(crate) fn create_loading_handle_untyped(
         &mut self,
         type_id: TypeId,
