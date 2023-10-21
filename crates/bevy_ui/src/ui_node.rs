@@ -299,7 +299,7 @@ pub struct Style {
     ///     ..Default::default()
     /// };
     /// ```
-    /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
+    /// A node with this style and a parent with dimensions of 300px by 100px will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/padding>
     pub padding: UiRect,
@@ -354,7 +354,7 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
     pub column_gap: Val,
 
-    /// Controls whether automatically placed grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
+    /// Controls whether automatically placed grid items are placed row-wise or column-wise as well as whether the sparse or dense packing algorithm is used.
     /// Only affects Grid layouts.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow>
@@ -589,7 +589,7 @@ pub enum AlignContent {
     Center,
     /// Each line will stretch to fill the remaining space.
     Stretch,
-    /// Each line fills the space it needs, putting the remaining space, if any
+    /// Each line fills the space it needs, putting the remaining space, if any,
     /// between the lines.
     SpaceBetween,
     /// The gap between the first and last items is exactly the same as the gap between items.
@@ -960,7 +960,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track with an `minmax(0, Nfr)` size.
+    /// Create a grid track with a `minmax(0, Nfr)` size.
     pub fn flex<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Px(0.0),
@@ -1132,7 +1132,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of grid tracks with an `minmax(0, Nfr)` size.
+    /// Create a repeating set of grid tracks with a `minmax(0, Nfr)` size.
     pub fn flex<T: From<Self>>(repetition: u16, value: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1247,7 +1247,7 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
 ///
 /// The default `span` is 1. If neither `start` or `end` is set then the item will be placed automatically.
 ///
-/// Generally, at most, two fields should be set. If all three fields are specified then `span` will be ignored. If `end` specifies an earlier
+/// Generally, at most two fields should be set. If all three fields are specified then `span` will be ignored. If `end` specifies an earlier
 /// grid line than `start` then `end` will be ignored and the item will have a span of 1.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Line-based_Placement_with_CSS_Grid>
