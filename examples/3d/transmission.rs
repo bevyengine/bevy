@@ -15,7 +15,8 @@
 //! | Arrow Keys         | Control Camera                                       |
 //! | `C`                | Randomize Colors                                     |
 //! | `H`                | Toggle HDR                                           |
-//! | `D`                | Toggle Depth Prepass (Also disables TAA)             |
+//! | `D`                | Toggle Depth Prepass                                 |
+//! | `T`                | Toggle TAA                                           |
 
 // This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
 // type aliases tends to obfuscate code while offering no improvement in code cleanliness.
@@ -35,7 +36,9 @@ use bevy::{
 };
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
+use bevy::core_pipeline::experimental::taa::{
+    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
+};
 
 use rand::random;
 
@@ -434,6 +437,7 @@ fn example_control_system(
             &mut Camera3d,
             &mut Transform,
             Option<&DepthPrepass>,
+            Option<&TemporalJitter>,
         ),
         With<Camera3d>,
     >,
@@ -501,8 +505,14 @@ fn example_control_system(
         }
     }
 
-    let (camera_entity, mut camera, mut camera_3d, mut camera_transform, depth_prepass) =
-        camera.single_mut();
+    let (
+        camera_entity,
+        mut camera,
+        mut camera_3d,
+        mut camera_transform,
+        depth_prepass,
+        temporal_jitter,
+    ) = camera.single_mut();
 
     if input.just_pressed(KeyCode::H) {
         camera.hdr = !camera.hdr;
@@ -511,13 +521,23 @@ fn example_control_system(
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::D) {
         if depth_prepass.is_none() {
-            commands
-                .entity(camera_entity)
-                .insert((DepthPrepass, TemporalJitter::default()));
+            commands.entity(camera_entity).insert(DepthPrepass);
+        } else {
+            commands.entity(camera_entity).remove::<DepthPrepass>();
+        }
+    }
+
+    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    if input.just_pressed(KeyCode::T) {
+        if temporal_jitter.is_none() {
+            commands.entity(camera_entity).insert((
+                TemporalJitter::default(),
+                TemporalAntiAliasSettings::default(),
+            ));
         } else {
             commands
                 .entity(camera_entity)
-                .remove::<(DepthPrepass, TemporalJitter)>();
+                .remove::<(TemporalJitter, TemporalAntiAliasSettings)>();
         }
     }
 
@@ -585,7 +605,8 @@ fn example_control_system(
             "    Arrow Keys  Control Camera\n",
             "             C  Randomize Colors\n",
             "             H  HDR: {}\n",
-            "             D  Depth Prepass+TAA: {}\n",
+            "             D  Depth Prepass: {}\n",
+            "             T  TAA: {}\n",
         ),
         camera_3d.screen_space_specular_transmission_quality,
         camera_3d.screen_space_specular_transmission_steps,
@@ -603,7 +624,20 @@ fn example_control_system(
                 "OFF"
             }
         } else {
-            "N/A"
+            "N/A (WebGL)"
+        },
+        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+            if temporal_jitter.is_some() {
+                if depth_prepass.is_some() {
+                    "ON "
+                } else {
+                    "N/A (Needs Depth Prepass)"
+                }
+            } else {
+                "OFF"
+            }
+        } else {
+            "N/A (WebGL)"
         },
     );
 }
