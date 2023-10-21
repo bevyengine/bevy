@@ -330,3 +330,29 @@ pub struct WindowThemeChanged {
     /// The new system theme.
     pub theme: WindowTheme,
 }
+
+/// An event sent when the window gets maximized.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowMaximized {
+    pub window: Entity,
+    pub maximized_state: bool,
+}
+
+/// An event sent when the window gets minimized.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowMinimized {
+    pub window: Entity,
+    pub minimized_state: Option<bool>,
+}

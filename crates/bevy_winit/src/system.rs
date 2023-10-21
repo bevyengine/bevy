@@ -11,7 +11,9 @@ use bevy_utils::{
     tracing::{error, info, warn},
     HashMap,
 };
-use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
+use bevy_window::{
+    RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowMaximized, WindowMinimized,
+};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use winit::{
@@ -74,6 +76,15 @@ pub(crate) fn create_windows<'a>(
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor());
+
+        window
+            .internal
+            .set_maximized_state(winit_window.is_maximized());
+
+        window
+            .internal
+            .set_minimized_state(winit_window.is_minimized());
+
         commands
             .entity(entity)
             .insert(RawHandleWrapper {
@@ -137,6 +148,8 @@ pub struct CachedWindow {
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
+    mut window_maximized_event_writer: EventWriter<WindowMaximized>,
+    mut window_minimized_event_writer: EventWriter<WindowMinimized>,
     winit_windows: NonSendMut<WinitWindows>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
@@ -263,10 +276,22 @@ pub(crate) fn changed_windows(
 
             if let Some(maximized) = window.internal.take_maximize_request() {
                 winit_window.set_maximized(maximized);
+                let maximized_state = winit_window.is_maximized();
+                window.internal.set_maximized_state(maximized_state);
+                window_maximized_event_writer.send(WindowMaximized {
+                    window: entity,
+                    maximized_state,
+                });
             }
 
             if let Some(minimized) = window.internal.take_minimize_request() {
                 winit_window.set_minimized(minimized);
+                let minimized_state = winit_window.is_minimized();
+                window.internal.set_minimized_state(minimized_state);
+                window_minimized_event_writer.send(WindowMinimized {
+                    window: entity,
+                    minimized_state,
+                });
             }
 
             if window.focused != cache.window.focused && window.focused {

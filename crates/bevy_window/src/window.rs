@@ -255,6 +255,27 @@ impl Default for Window {
 }
 
 impl Window {
+    /// Gets the window's current maximized state.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **iOS / Android / Web:** Unsupported.
+    pub fn is_maximized(&self) -> bool {
+        self.internal.maximized_state
+    }
+
+    /// Gets the window's current minimized state.
+    ///
+    /// If the minimized state can't be determined, this value will be `None`.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Wayland:** always None.
+    /// - **iOS / Android / Web:** Unsupported.
+    pub fn is_minimized(&self) -> Option<bool> {
+        self.internal.minimized_state
+    }
+
     /// Setting to true will attempt to maximize the window.
     ///
     /// Setting to false will attempt to un-maximize the window.
@@ -776,6 +797,21 @@ pub enum CursorGrabMode {
 )]
 #[reflect(Debug, PartialEq, Default)]
 pub struct InternalWindowState {
+    /// The window's current maximized state.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **iOS / Android / Web:** Unsupported.
+    maximized_state: bool,
+    /// The window's current minimized state.
+    ///
+    /// If the minimized state can't be determined, this value will be `None`.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Wayland:** always None.
+    /// - **iOS / Android / Web:** Unsupported.
+    minimized_state: Option<bool>,
     /// If this is true then next frame we will ask to minimize the window.
     minimize_request: Option<bool>,
     /// If this is true then next frame we will ask to maximize/un-maximize the window depending on `maximized`.
@@ -785,6 +821,16 @@ pub struct InternalWindowState {
 }
 
 impl InternalWindowState {
+    /// Sets the window's maximized state. This should only be called by window backends.
+    pub fn set_maximized_state(&mut self, maximized: bool) {
+        self.maximized_state = maximized;
+    }
+
+    /// Sets the window's maximized state. This should only be called by window backends.
+    pub fn set_minimized_state(&mut self, minimized: Option<bool>) {
+        self.minimized_state = minimized;
+    }
+
     /// Consumes the current maximize request, if it exists. This should only be called by window backends.
     pub fn take_maximize_request(&mut self) -> Option<bool> {
         self.maximize_request.take()
