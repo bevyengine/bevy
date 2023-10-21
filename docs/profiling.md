@@ -21,7 +21,7 @@ You also need to select a `tracing` backend using one of the following cargo fea
 
 When your app is bottlenecked by the GPU, you may encounter frames that have multiple prepare-set systems all taking an unusually long time to complete, and all finishing at about the same time.
 
-Improvements are planned to resolve this issue, you can find more details in the doc comment for [`prepare_windows`](../crates/bevy_render/src/view/window/mod.rs).
+Improvements are planned to resolve this issue, you can find more details in the docs for [`prepare_windows`](https://docs.rs/bevy/latest/bevy/render/view/fn.prepare_windows.html).
 
 ![prepare_windows span bug](https://github.com/bevyengine/bevy/assets/2771466/15c0819b-0e07-4665-aa1e-579caa24fece)
 

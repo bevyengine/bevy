@@ -241,8 +241,11 @@ shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
-# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
+# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
+
+# Enables the built-in asset processor for processed assets.
+asset_processor = ["bevy_internal/asset_processor"]
 
 # Enables watching the filesystem for Bevy Asset hot-reloading
 file_watcher = ["bevy_internal/file_watcher"]
@@ -1080,7 +1083,7 @@ wasm = true
 name = "asset_processing"
 path = "examples/asset/processing/processing.rs"
 doc-scrape-examples = true
-required-features = ["file_watcher"]
+required-features = ["file_watcher", "asset_processor"]
 
 [package.metadata.example.asset_processing]
 name = "Asset Processing"
@@ -1717,6 +1720,16 @@ doc-scrape-examples = true
 [package.metadata.example.shader_material]
 name = "Material"
 description = "A shader and a material that uses it"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "extended_material"
+path = "examples/shader/extended_material.rs"
+
+[package.metadata.example.extended_material]
+name = "Extended Material"
+description = "A custom shader that builds on the standard material"
 category = "Shaders"
 wasm = true
 

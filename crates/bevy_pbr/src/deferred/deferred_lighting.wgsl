@@ -50,7 +50,9 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 #ifdef WEBGL2
     frag_coord.z = deferred_types::unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
 #else
+#ifdef DEPTH_PREPASS
     frag_coord.z = bevy_pbr::prepass_utils::prepass_depth(in.position, 0u);
+#endif
 #endif
 
     var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);
@@ -65,28 +67,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         pbr_input.occlusion = min(pbr_input.occlusion, ssao_multibounce);
 #endif // SCREEN_SPACE_AMBIENT_OCCLUSION
 
-        output_color = pbr_functions::pbr(pbr_input);
+        output_color = pbr_functions::apply_pbr_lighting(pbr_input);
     } else {
         output_color = pbr_input.material.base_color;
     }
 
-    // fog
-    if (fog.mode != FOG_MODE_OFF && (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = pbr_functions::apply_fog(fog, output_color, pbr_input.world_position.xyz, view.world_position.xyz);
-    }
-
-#ifdef TONEMAP_IN_SHADER
-    output_color = tone_mapping(output_color, view.color_grading);
-#ifdef DEBAND_DITHER
-    var output_rgb = output_color.rgb;
-    output_rgb = powsafe(output_rgb, 1.0 / 2.2);
-    output_rgb = output_rgb + screen_space_dither(frag_coord.xy);
-    // This conversion back to linear space is required because our output texture format is
-    // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
-    output_rgb = powsafe(output_rgb, 2.2);
-    output_color = vec4(output_rgb, output_color.a);
-#endif
-#endif
+    output_color = pbr_functions::main_pass_post_lighting_processing(pbr_input, output_color);
 
     return output_color;
 }

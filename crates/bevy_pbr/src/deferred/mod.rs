@@ -8,7 +8,7 @@ use bevy_core_pipeline::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
     prelude::{Camera3d, ClearColor},
-    prepass::DeferredPrepass,
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
@@ -258,6 +258,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
 
+        // Let the shader code know that it's running in a deferred pipeline.
+        shader_defs.push("DEFERRED_LIGHTING_PIPELINE".into());
+
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
 
@@ -297,6 +300,21 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
+
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+            shader_defs.push("NORMAL_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+            shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+            shader_defs.push("MOTION_VECTOR_PREPASS".into());
+        }
+
+        // Always true, since we're in the deferred lighting pipeline
+        shader_defs.push("DEFERRED_PREPASS".into());
 
         let shadow_filter_method =
             key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
@@ -408,13 +426,43 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&EnvironmentMapLight>,
             Option<&ShadowFilteringMethod>,
             Option<&ScreenSpaceAmbientOcclusionSettings>,
+            (
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
+            ),
         ),
         With<DeferredPrepass>,
     >,
     images: Res<RenderAssets<Image>>,
 ) {
-    for (entity, view, tonemapping, dither, environment_map, shadow_filter_method, ssao) in &views {
+    for (
+        entity,
+        view,
+        tonemapping,
+        dither,
+        environment_map,
+        shadow_filter_method,
+        ssao,
+        (normal_prepass, depth_prepass, motion_vector_prepass),
+    ) in &views
+    {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+
+        if normal_prepass {
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        // Always true, since we're in the deferred lighting pipeline
+        view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
