@@ -42,12 +42,31 @@
 @group(0) @binding(16) var dt_lut_sampler: sampler;
 
 #ifdef MULTISAMPLED
+
+#ifdef DEPTH_PREPASS
 @group(0) @binding(17) var depth_prepass_texture: texture_depth_multisampled_2d;
+#endif // DEPTH_PREPASS
+#ifdef NORMAL_PREPASS
 @group(0) @binding(18) var normal_prepass_texture: texture_multisampled_2d<f32>;
+#endif // NORMAL_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
 @group(0) @binding(19) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
-#else
+#endif // MOTION_VECTOR_PREPASS
+
+#else // MULTISAMPLED
+
+#ifdef DEPTH_PREPASS
 @group(0) @binding(17) var depth_prepass_texture: texture_depth_2d;
+#endif // DEPTH_PREPASS
+#ifdef NORMAL_PREPASS
 @group(0) @binding(18) var normal_prepass_texture: texture_2d<f32>;
+#endif // NORMAL_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
 @group(0) @binding(19) var motion_vector_prepass_texture: texture_2d<f32>;
+#endif // MOTION_VECTOR_PREPASS
+
+#endif // MULTISAMPLED
+
+#ifdef DEFERRED_PREPASS
 @group(0) @binding(20) var deferred_prepass_texture: texture_2d<u32>;
-#endif
+#endif // DEFERRED_PREPASS

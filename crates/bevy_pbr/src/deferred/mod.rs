@@ -243,7 +243,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 
 #[derive(Resource)]
 pub struct DeferredLightingLayout {
-    bind_group_layout_0: BindGroupLayout,
+    mesh_pipeline: MeshPipeline,
     bind_group_layout_1: BindGroupLayout,
 }
 
@@ -332,7 +332,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                self.bind_group_layout_0.clone(),
+                self.mesh_pipeline.get_view_layout(key.into()).clone(),
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {
@@ -395,7 +395,7 @@ impl FromWorld for DeferredLightingLayout {
             }],
         });
         Self {
-            bind_group_layout_0: world.resource::<MeshPipeline>().view_layout.clone(),
+            mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             bind_group_layout_1: layout,
         }
     }
