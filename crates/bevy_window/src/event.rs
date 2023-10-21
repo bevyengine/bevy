@@ -332,14 +332,14 @@ pub struct WindowThemeChanged {
 }
 
 /// Application lifetime events
-#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum Lifetime {
+pub enum ApplicationLifetime {
     /// The application just started.
     Started,
     /// The application was suspended.
