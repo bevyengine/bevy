@@ -48,7 +48,7 @@ use crate::{
     UiMaterial, UiMaterialKey, UiScale, UiStack, QUAD_INDICES, QUAD_VERTEX_POSITIONS,
 };
 
-pub const MATERIAL_UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
+pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
 
 const UI_VERTEX_OUTPUT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10123618247720234751);
 
@@ -75,7 +75,7 @@ where
         );
         load_internal_asset!(
             app,
-            MATERIAL_UI_SHADER_HANDLE,
+            UI_MATERIAL_SHADER_HANDLE,
             "ui_material.wgsl",
             Shader::from_wgsl
         );
@@ -88,7 +88,7 @@ where
                 .init_resource::<ExtractedUiMaterials<M>>()
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
                 .init_resource::<RenderUiMaterials<M>>()
-                .init_resource::<UiMaterialMeta<M>>()
+                .init_resource::<UiMaterialMeta>()
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
                 .add_systems(
                     ExtractSchedule,
@@ -116,18 +116,16 @@ where
 }
 
 #[derive(Resource)]
-pub struct UiMaterialMeta<M: UiMaterial> {
+pub struct UiMaterialMeta {
     vertices: BufferVec<UiMaterialVertex>,
     view_bind_group: Option<BindGroup>,
-    marker: PhantomData<M>,
 }
 
-impl<M: UiMaterial> Default for UiMaterialMeta<M> {
+impl Default for UiMaterialMeta {
     fn default() -> Self {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
             view_bind_group: Default::default(),
-            marker: PhantomData,
         }
     }
 }
@@ -181,13 +179,13 @@ where
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MATERIAL_UI_SHADER_HANDLE,
+                shader: UI_MATERIAL_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: MATERIAL_UI_SHADER_HANDLE,
+                shader: UI_MATERIAL_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -217,7 +215,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("material_ui_pipeline".into()),
+            label: Some("ui_material_pipeline".into()),
         };
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
@@ -281,7 +279,7 @@ pub type DrawUiMaterial<M> = (
 
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
-    type Param = SRes<UiMaterialMeta<M>>;
+    type Param = SRes<UiMaterialMeta>;
     type ViewWorldQuery = Read<ViewUniformOffset>;
     type ItemWorldQuery = ();
 
@@ -327,7 +325,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 
 pub struct DrawUiMaterialNode<M>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
-    type Param = SRes<UiMaterialMeta<M>>;
+    type Param = SRes<UiMaterialMeta>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<UiMaterialBatch<M>>;
 
@@ -449,7 +447,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<UiMaterialMeta<M>>,
+    mut ui_meta: ResMut<UiMaterialMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     view_uniforms: Res<ViewUniforms>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
