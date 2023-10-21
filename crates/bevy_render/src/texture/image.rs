@@ -650,12 +650,12 @@ mod test {
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),
-            image.size()
+            image.size_f32()
         );
     }
     #[test]
     fn image_default_size() {
         let image = Image::default();
-        assert_eq!(Vec2::ONE, image.size());
+        assert_eq!(Vec2::ONE, image.size_f32());
     }
 }
