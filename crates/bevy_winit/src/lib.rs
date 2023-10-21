@@ -732,10 +732,10 @@ pub fn winit_runner(mut app: App) {
                 let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
                 match runner_state.active {
                     ActiveState::NotYetStarted => {
-                        event_writers.lifetime.send(ApplicationLifetime::Started)
+                        event_writers.lifetime.send(ApplicationLifetime::Started);
                     }
                     ActiveState::Suspended => {
-                        event_writers.lifetime.send(ApplicationLifetime::Resumed)
+                        event_writers.lifetime.send(ApplicationLifetime::Resumed);
                     }
                     _ => unreachable!(),
                 }
