@@ -1,9 +1,12 @@
+use std::hash::Hasher;
+
 use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use bevy_log::error;
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
+use siphasher::sip128::{Hasher128, SipHasher};
 
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
@@ -229,11 +232,10 @@ pub type AssetHash = [u8; 16];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
 pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
-    let mut context = md5::Context::new();
-    context.consume(meta_bytes);
-    context.consume(asset_bytes);
-    let digest = context.compute();
-    digest.0
+    let mut hasher = SipHasher::new();
+    hasher.write(meta_bytes);
+    hasher.write(asset_bytes);
+    hasher.finish128().as_bytes()
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
@@ -241,11 +243,10 @@ pub(crate) fn get_full_asset_hash(
     asset_hash: AssetHash,
     dependency_hashes: impl Iterator<Item = AssetHash>,
 ) -> AssetHash {
-    let mut context = md5::Context::new();
-    context.consume(asset_hash);
+    let mut hasher = SipHasher::new();
+    hasher.write(&asset_hash);
     for hash in dependency_hashes {
-        context.consume(hash);
+        hasher.write(&hash);
     }
-    let digest = context.compute();
-    digest.0
+    hasher.finish128().as_bytes()
 }
