@@ -5,20 +5,12 @@ use std::time::Duration;
 
 use bevy::{
     input::common_conditions::input_just_pressed, prelude::*,
-    time::common_conditions::on_real_timer, window::WindowResolution,
+    time::common_conditions::on_real_timer,
 };
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::DARK_GRAY))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resizable: false,
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGTH),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -38,9 +30,6 @@ fn main() {
         )
         .run();
 }
-
-const WINDOW_WIDTH: f32 = 1000.;
-const WINDOW_HEIGTH: f32 = 600.;
 
 /// `Real` time related marker
 #[derive(Component)]
@@ -180,8 +169,8 @@ fn move_virtual_time_sprites(
 }
 
 fn get_sprite_translation_x(elapsed: f32) -> f32 {
-    // move roughly half the screen in a second (either real or virtual based on where elapsed comes from)
-    elapsed.sin() * (WINDOW_WIDTH / 2. - 80.)
+    // move 500px in a second (either real or virtual seconds based on where elapsed comes from)
+    elapsed.sin() * 500.
 }
 
 /// Update the speed of `Time<Virtual>.` by `DELTA`
