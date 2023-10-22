@@ -232,7 +232,7 @@ pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash
     let mut hasher = blake3::Hasher::new();
     hasher.update(meta_bytes);
     hasher.update(asset_bytes);
-    hasher.finalize().as_bytes().clone()
+    *hasher.finalize().as_bytes()
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
@@ -245,5 +245,5 @@ pub(crate) fn get_full_asset_hash(
     for hash in dependency_hashes {
         hasher.update(&hash);
     }
-    hasher.finalize().as_bytes().clone()
+    *hasher.finalize().as_bytes()
 }
