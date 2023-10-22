@@ -290,12 +290,20 @@ impl AssetServer {
 
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
-        let handle = {
-            let mut infos = self.data.infos.write();
-            infos.create_loading_handle::<LoadedUntypedAsset>()
-        };
-        let id = handle.id().untyped();
         let path = path.into().into_owned();
+        let (handle, should_load) = self
+            .data
+            .infos
+            .write()
+            .get_or_create_path_handle::<LoadedUntypedAsset>(
+                path.clone().with_label("untyped"),
+                HandleLoadingMode::Request,
+                None,
+            );
+        if !should_load {
+            return handle;
+        }
+        let id = handle.id().untyped();
 
         let server = self.clone();
         IoTaskPool::get()
