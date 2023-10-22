@@ -131,7 +131,7 @@ pub fn extract_text2d_sprite(
                 entity,
                 ExtractedSprite {
                     transform: transform
-                    * GlobalTransform2d::from_translation(*position + alignment_translation),
+                        * GlobalTransform2d::from_translation(*position + alignment_translation),
                     color,
                     rect: Some(atlas.textures[atlas_info.glyph_index]),
                     custom_size: None,
