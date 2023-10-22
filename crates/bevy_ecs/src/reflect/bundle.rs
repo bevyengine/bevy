@@ -145,7 +145,7 @@ impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
                 if let Some(reflect_component) =
                     registry.get_type_data::<ReflectComponent>(TypeId::of::<B>())
                 {
-                    reflect_component.apply_or_insert(entity, reflected_bundle);
+                    reflect_component.apply_or_insert(entity, reflected_bundle, registry);
                 } else {
                     match reflected_bundle.reflect_ref() {
                         ReflectRef::Struct(bundle) => bundle
@@ -201,7 +201,7 @@ fn apply_or_insert_field(
     registry: &TypeRegistry,
 ) {
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
-        reflect_component.apply_or_insert(entity, field);
+        reflect_component.apply_or_insert(entity, field, registry);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(field.type_id()) {
         reflect_bundle.apply_or_insert(entity, field, registry);
     } else {
