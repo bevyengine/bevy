@@ -35,7 +35,7 @@ pub struct WinitActionHandlers(pub HashMap<Entity, WinitActionHandler>);
 pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
 
 impl ActionHandler for WinitActionHandler {
-    fn do_action(&self, request: ActionRequest) {
+    fn do_action(&mut self, request: ActionRequest) {
         let mut requests = self.0.lock().unwrap();
         requests.push_back(request);
     }
@@ -52,11 +52,12 @@ fn handle_window_focus(
                 let focus_id = (*focus).unwrap_or_else(|| event.window);
                 TreeUpdate {
                     focus: if event.focused {
-                        Some(focus_id.to_node_id())
+                        focus_id.to_node_id()
                     } else {
-                        None
+                        bevy_a11y::accesskit::NodeId(0)
                     },
-                    ..default()
+                    nodes: Vec::new(),
+                    tree: None,
                 }
             });
         }
@@ -152,8 +153,11 @@ fn update_accessibility_nodes(
                     to_update.insert(0, window_update);
                     TreeUpdate {
                         nodes: to_update,
-                        focus: focus_id.map(|v| v.to_node_id()),
-                        ..default()
+                        // FIXME: Thierry: I hacked that suickly to advance on #8745, context: https://github.com/AccessKit/accesskit/issues/275
+                        focus: focus_id
+                            .map(|v| v.to_node_id())
+                            .unwrap_or(bevy_a11y::accesskit::NodeId(1)),
+                        tree: None,
                     }
                 });
             }

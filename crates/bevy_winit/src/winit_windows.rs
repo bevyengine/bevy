@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{NodeBuilder, NodeClassSet, Role, Tree, TreeUpdate},
+    accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
     AccessKitEntityExt, AccessibilityRequested,
 };
 use bevy_ecs::entity::Entity;
@@ -161,7 +161,8 @@ impl WinitWindows {
                 TreeUpdate {
                     nodes: vec![(accesskit_window_id, root)],
                     tree: Some(Tree::new(accesskit_window_id)),
-                    focus: None,
+                    // FIXME: Thierry: I hacked that suickly to advance on #8745, context: https://github.com/AccessKit/accesskit/issues/275
+                    focus: NodeId(1),
                 }
             },
             Box::new(handler.clone()),

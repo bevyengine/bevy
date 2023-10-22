@@ -4,10 +4,7 @@
 #![allow(clippy::type_complexity)]
 #![forbid(unsafe_code)]
 
-use std::{
-    num::NonZeroU128,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::sync::{atomic::AtomicBool, Arc};
 
 pub use accesskit;
 use accesskit::{NodeBuilder, NodeId};
@@ -55,8 +52,8 @@ pub trait AccessKitEntityExt {
 
 impl AccessKitEntityExt for Entity {
     fn to_node_id(&self) -> NodeId {
-        let id = NonZeroU128::new(self.to_bits() as u128 + 1);
-        NodeId(id.unwrap())
+        let id = self.to_bits() + 1;
+        NodeId(id)
     }
 }
 

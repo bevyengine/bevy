@@ -192,7 +192,7 @@ impl Plugin for WinitPlugin {
 
 fn run<F, T>(event_loop: EventLoop<T>, event_handler: F) -> Result<(), EventLoopError>
 where
-    F: 'static + FnMut(Event<T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
+    F: 'static + FnMut(Event<T>, &EventLoopWindowTarget<T>),
 {
     event_loop.run(event_handler)
 }
@@ -308,9 +308,7 @@ pub fn winit_runner(mut app: App) {
     let mut finished_and_setup_done = false;
 
     // setup up the event loop
-    let event_handler = move |event: Event<()>,
-                              event_loop: &EventLoopWindowTarget<()>,
-                              control_flow: &mut ControlFlow| {
+    let event_handler = move |event: Event<()>, event_loop: &EventLoopWindowTarget<()>| {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
@@ -326,7 +324,7 @@ pub fn winit_runner(mut app: App) {
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
                 if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                    *control_flow = ControlFlow::Exit;
+                    event_loop.exit();
                     return;
                 }
             }
@@ -687,15 +685,17 @@ pub fn winit_runner(mut app: App) {
                         let (config, windows) = focused_windows_state.get(&app.world);
                         let focused = windows.iter().any(|window| window.focused);
                         match config.update_mode(focused) {
-                            UpdateMode::Continuous => *control_flow = ControlFlow::Poll,
+                            UpdateMode::Continuous => {
+                                event_loop.set_control_flow(ControlFlow::Poll);
+                            }
                             UpdateMode::Reactive { wait }
                             | UpdateMode::ReactiveLowPower { wait } => {
                                 if let Some(next) = runner_state.last_update.checked_add(*wait) {
                                     runner_state.scheduled_update = Some(next);
-                                    *control_flow = ControlFlow::WaitUntil(next);
+                                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                                 } else {
                                     runner_state.scheduled_update = None;
-                                    *control_flow = ControlFlow::Wait;
+                                    event_loop.set_control_flow(ControlFlow::Wait);
                                 }
                             }
                         }
@@ -705,13 +705,13 @@ pub fn winit_runner(mut app: App) {
                         {
                             if redraw_event_reader.read(app_redraw_events).last().is_some() {
                                 runner_state.redraw_requested = true;
-                                *control_flow = ControlFlow::Poll;
+                                event_loop.set_control_flow(ControlFlow::Poll);
                             }
                         }
 
                         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
                             if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                                *control_flow = ControlFlow::Exit;
+                                event_loop.exit();
                             }
                         }
                     }

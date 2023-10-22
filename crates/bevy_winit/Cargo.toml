@@ -28,8 +28,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 
 # other
-# Tested against winit main 89aa7cc0
-winit = { git = "https://github.com/rust-windowing/winit.git", tag = "v0.29.1-beta", default-features = false }
+winit = { version = "0.29", default-features = false, features = ["rwh_05"] }
 accesskit_winit = { git = "https://github.com/Vrixyz/accesskit.git", branch = "winit-main-after-0.28", default-features = false, features = [
     "async-io",
 ] }
@@ -37,10 +36,7 @@ approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
-# Tested on rev = b5785ba785f3c1278344bcc545a954f0b5464d28
-winit = { git = "https://github.com/rust-windowing/winit.git", tag = "v0.29.1-beta", default-features = false, features = [
-    "android-native-activity",
-] }
+winit = { version = "0.29", default-features = false, features = ["rwh_05"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
