@@ -336,7 +336,7 @@ fn update_image_viewer(
                 if let Some(base_color_texture) = mat.base_color_texture.clone() {
                     if image_changed_id == base_color_texture.id() {
                         if let Some(image_changed) = images.get(image_changed_id) {
-                            let size = image_changed.size().normalize_or_zero() * 1.4;
+                            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
                             // Resize Mesh
                             let quad = Mesh::from(shape::Quad::new(size));
                             meshes.insert(mesh_h, quad);

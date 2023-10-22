@@ -289,13 +289,6 @@ impl Enum for DynamicEnum {
 
 impl Reflect for DynamicEnum {
     #[inline]
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_default()
-    }
-
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
@@ -376,7 +369,7 @@ impl Reflect for DynamicEnum {
                 self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            panic!("`{}` is not an enum", value.type_name());
+            panic!("`{}` is not an enum", value.reflect_type_path());
         }
     }
 

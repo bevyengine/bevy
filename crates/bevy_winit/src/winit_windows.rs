@@ -1,10 +1,9 @@
 #![warn(missing_docs)]
-use std::sync::atomic::Ordering;
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
     accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
-    AccessKitEntityExt, AccessibilityRequested,
+    AccessibilityRequested,
 };
 use bevy_ecs::entity::Entity;
 
@@ -151,18 +150,17 @@ impl WinitWindows {
         root_builder.set_name(name.into_boxed_str());
         let root = root_builder.build(&mut NodeClassSet::lock_global());
 
-        let accesskit_window_id = entity.to_node_id();
+        let accesskit_window_id = NodeId(entity.to_bits());
         let handler = WinitActionHandler::default();
-        let accessibility_requested = (*accessibility_requested).clone();
+        let accessibility_requested = accessibility_requested.clone();
         let adapter = Adapter::with_action_handler(
             &winit_window,
             move || {
-                accessibility_requested.store(true, Ordering::SeqCst);
+                accessibility_requested.set(true);
                 TreeUpdate {
                     nodes: vec![(accesskit_window_id, root)],
                     tree: Some(Tree::new(accesskit_window_id)),
-                    // FIXME: Thierry: I hacked that suickly to advance on #8745, context: https://github.com/AccessKit/accesskit/issues/275
-                    focus: NodeId(1),
+                    focus: accesskit_window_id,
                 }
             },
             Box::new(handler.clone()),

@@ -217,6 +217,9 @@ serialize = ["bevy_internal/serialize"]
 # Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
 multi-threaded = ["bevy_internal/multi-threaded"]
 
+# Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.
+async-io = ["bevy_internal/async-io"]
+
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
 
@@ -256,18 +259,23 @@ shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
-# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
+# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
+# Enables the built-in asset processor for processed assets.
+asset_processor = ["bevy_internal/asset_processor"]
+
 # Enables watching the filesystem for Bevy Asset hot-reloading
-filesystem_watcher = ["bevy_internal/filesystem_watcher"]
+file_watcher = ["bevy_internal/file_watcher"]
+
+# Enables watching in memory asset providers for Bevy Asset hot-reloading
+embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
 
 [dev-dependencies]
-anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.8.0"
 serde = { version = "1", features = ["derive"] }
@@ -624,6 +632,16 @@ doc-scrape-examples = true
 [package.metadata.example.bloom_3d]
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "deferred_rendering"
+path = "examples/3d/deferred_rendering.rs"
+
+[package.metadata.example.deferred_rendering]
+name = "Deferred Rendering"
+description = "Renders meshes with both forward and deferred pipelines"
 category = "3D Rendering"
 wasm = true
 
@@ -1071,6 +1089,7 @@ wasm = true
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 doc-scrape-examples = true
+required-features = ["file_watcher"]
 
 [package.metadata.example.hot_asset_reloading]
 name = "Hot Reloading of Assets"
@@ -1082,7 +1101,7 @@ wasm = true
 name = "asset_processing"
 path = "examples/asset/processing/processing.rs"
 doc-scrape-examples = true
-required-features = ["filesystem_watcher"]
+required-features = ["file_watcher", "asset_processor"]
 
 [package.metadata.example.asset_processing]
 name = "Asset Processing"
@@ -1401,6 +1420,16 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "time"
+path = "examples/ecs/time.rs"
+
+[package.metadata.example.time]
+name = "Time handling"
+description = "Explains how Time is handled in ECS"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
 doc-scrape-examples = true
@@ -1709,6 +1738,16 @@ doc-scrape-examples = true
 [package.metadata.example.shader_material]
 name = "Material"
 description = "A shader and a material that uses it"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "extended_material"
+path = "examples/shader/extended_material.rs"
+
+[package.metadata.example.extended_material]
+name = "Extended Material"
+description = "A custom shader that builds on the standard material"
 category = "Shaders"
 wasm = true
 

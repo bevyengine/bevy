@@ -11,7 +11,6 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::*,
-    storage::SparseSet,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
@@ -22,7 +21,7 @@ use bevy_render::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{BindGroupEntries, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
@@ -34,7 +33,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -326,11 +325,14 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
+    /// For cases where additional ExtractedSprites are created during extraction, this stores the
+    /// entity that caused that creation for use in determining visibility.
+    pub original_entity: Option<Entity>,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: SparseSet<Entity, ExtractedSprite>,
+    pub sprites: EntityHashMap<Entity, ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -391,6 +393,7 @@ pub fn extract_sprites(
                 flip_y: sprite.flip_y,
                 image_handle_id: handle.id(),
                 anchor: sprite.anchor.as_vec(),
+                original_entity: None,
             },
         );
     }
@@ -426,6 +429,7 @@ pub fn extract_sprites(
                     flip_y: atlas_sprite.flip_y,
                     image_handle_id: texture_atlas.texture.id(),
                     anchor: atlas_sprite.anchor.as_vec(),
+                    original_entity: None,
                 },
             );
         }
@@ -551,7 +555,9 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
-            if !view_entities.contains(entity.index() as usize) {
+            let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
+
+            if !view_entities.contains(index as usize) {
                 continue;
             }
 
@@ -617,14 +623,11 @@ pub fn prepare_sprites(
         // Clear the sprite instances
         sprite_meta.sprite_instance_buffer.clear();
 
-        sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
-            label: Some("sprite_view_bind_group"),
-            layout: &sprite_pipeline.view_layout,
-        }));
+        sprite_meta.view_bind_group = Some(render_device.create_bind_group(
+            "sprite_view_bind_group",
+            &sprite_pipeline.view_layout,
+            &BindGroupEntries::single(view_binding),
+        ));
 
         // Index buffer indices
         let mut index = 0;
@@ -641,7 +644,7 @@ pub fn prepare_sprites(
             // Compatible items share the same entity.
             for item_index in 0..transparent_phase.items.len() {
                 let item = &transparent_phase.items[item_index];
-                let Some(extracted_sprite) = extracted_sprites.sprites.get(item.entity) else {
+                let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
                     // If there is a phase item that is not a sprite, then we must start a new
                     // batch to draw the other phase item(s) and to respect draw order. This can be
                     // done by invalidating the batch_image_handle
@@ -661,22 +664,14 @@ pub fn prepare_sprites(
                         .values
                         .entry(batch_image_handle)
                         .or_insert_with(|| {
-                            render_device.create_bind_group(&BindGroupDescriptor {
-                                entries: &[
-                                    BindGroupEntry {
-                                        binding: 0,
-                                        resource: BindingResource::TextureView(
-                                            &gpu_image.texture_view,
-                                        ),
-                                    },
-                                    BindGroupEntry {
-                                        binding: 1,
-                                        resource: BindingResource::Sampler(&gpu_image.sampler),
-                                    },
-                                ],
-                                label: Some("sprite_material_bind_group"),
-                                layout: &sprite_pipeline.material_layout,
-                            })
+                            render_device.create_bind_group(
+                                "sprite_material_bind_group",
+                                &sprite_pipeline.material_layout,
+                                &BindGroupEntries::sequential((
+                                    &gpu_image.texture_view,
+                                    &gpu_image.sampler,
+                                )),
+                            )
                         });
                 }
 

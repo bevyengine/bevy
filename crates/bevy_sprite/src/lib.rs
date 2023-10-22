@@ -138,7 +138,7 @@ pub fn calculate_bounds_2d(
     for (entity, sprite, texture_handle) in &sprites_without_aabb {
         if let Some(size) = sprite
             .custom_size
-            .or_else(|| images.get(texture_handle).map(|image| image.size()))
+            .or_else(|| images.get(texture_handle).map(|image| image.size_f32()))
         {
             let aabb = Aabb {
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),

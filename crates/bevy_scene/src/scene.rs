@@ -15,10 +15,12 @@ use bevy_utils::HashMap;
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Debug)]
 pub struct Scene {
+    /// The world of the scene, containing its entities and resources.
     pub world: World,
 }
 
 impl Scene {
+    /// Creates a new scene with the given world.
     pub fn new(world: World) -> Self {
         Self { world }
     }
@@ -61,7 +63,11 @@ impl Scene {
         let type_registry = type_registry.read();
 
         // Resources archetype
-        for (component_id, _) in self.world.storages().resources.iter() {
+        for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if !resource_data.is_present() {
+                continue;
+            }
+
             let component_info = self
                 .world
                 .components()
@@ -76,11 +82,11 @@ impl Scene {
                 type_registry
                     .get(type_id)
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        type_name: component_info.name().to_string(),
+                        std_type_name: component_info.name().to_string(),
                     })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
-                    type_name: component_info.name().to_string(),
+                    type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
             reflect_resource.copy(&self.world, world);
@@ -102,12 +108,12 @@ impl Scene {
                     let reflect_component = type_registry
                         .get(component_info.type_id().unwrap())
                         .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                            type_name: component_info.name().to_string(),
+                            std_type_name: component_info.name().to_string(),
                         })
                         .and_then(|registration| {
                             registration.data::<ReflectComponent>().ok_or_else(|| {
                                 SceneSpawnError::UnregisteredComponent {
-                                    type_name: component_info.name().to_string(),
+                                    type_path: registration.type_info().type_path().to_string(),
                                 }
                             })
                         })?;

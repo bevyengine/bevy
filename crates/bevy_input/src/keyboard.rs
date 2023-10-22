@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// ## Usage
 ///
-/// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
+/// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
@@ -105,17 +105,16 @@ pub enum NativeKeyCode {
     Xkb(u32),
 }
 
-/// The physical key code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
+/// The key code of a [`KeyboardInput`].
 ///
 /// ## Usage
 ///
-/// It is used as the generic `<T>` value of an [`Input`](crate::Input) to
-/// create a `Res<Input<ScanCode>>`.
-/// The resource values are mapped to the physical location of a key on the
-/// keyboard and correlate to an [`Key`](Key)
-/// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
+/// It is used as the generic `T` value of an [`Input`] to create a `Res<Input<KeyCode>>`.
+/// The resource values are mapped to the current layout of the keyboard and correlate to an [`ScanCode`].
 ///
-/// Its values map 1 to 1 to winit's `KeyCode`.
+/// ## Updating
+///
+/// The resource is updated inside of the [`keyboard_input_system`].
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -632,7 +631,7 @@ pub enum NativeKey {
 ///
 /// ## Updating
 ///
-/// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
+/// The resource is updated inside of the [`keyboard_input_system`].
 ///
 /// ## Technical
 ///

@@ -1054,7 +1054,7 @@ pub struct EnabledButtons {
     ///
     /// macOS note: When [`Window`] `resizable` member is set to `false`
     /// the maximize button will be disabled regardless of this value.
-    /// Additionaly, when `resizable` is set to `true` the window will
+    /// Additionally, when `resizable` is set to `true` the window will
     /// be maximized when its bar is double-clicked regardless of whether
     /// the maximize button is enabled or not.
     pub maximize: bool,
