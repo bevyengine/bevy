@@ -26,9 +26,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
-use bevy_asset::load_internal_binary_asset;
-use bevy_asset::{AssetApp, Handle};
+use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystem;
