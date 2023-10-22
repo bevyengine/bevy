@@ -8,7 +8,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Vec2, Vec4};
+use bevy_math::{Affine3, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
     batching::{
@@ -297,7 +297,7 @@ impl FromWorld for Mesh2dPipeline {
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+                ImageSampler::Descriptor(ref descriptor) => render_device.create_sampler(descriptor)
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
@@ -314,7 +314,7 @@ impl FromWorld for Mesh2dPipeline {
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
                 },
-                image.size(),
+                image.texture_descriptor.size,
             );
 
             let texture_view = texture.create_view(&TextureViewDescriptor::default());
