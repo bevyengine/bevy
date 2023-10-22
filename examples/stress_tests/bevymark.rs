@@ -320,23 +320,26 @@ fn mouse_handler(
 
 fn bird_velocity_transform(
     half_extents: Vec2,
-    mut translation: Vec3,
+    translation: Vec3,
     velocity_rng: &mut StdRng,
     waves: Option<usize>,
     dt: f32,
-) -> (Transform, Vec3) {
-    let mut velocity = Vec3::new(MAX_VELOCITY * (velocity_rng.gen::<f32>() - 0.5), 0., 0.);
+) -> (Transform2d, Vec2) {
+    let mut velocity = Vec2::new(MAX_VELOCITY * (velocity_rng.gen::<f32>() - 0.5), 0.);
+
+    let mut translation_2d = translation.xy();
 
     if let Some(waves) = waves {
         // Step the movement and handle collisions as if the wave had been spawned at fixed time intervals
         // and with dt-spaced frames of simulation
         for _ in 0..(waves * (FIXED_TIMESTEP / dt).round() as usize) {
-            step_movement(&mut translation, &mut velocity, dt);
-            handle_collision(half_extents, &translation, &mut velocity);
+            step_movement(&mut translation_2d, &mut velocity, dt);
+            handle_collision(half_extents, &translation_2d, &mut velocity);
         }
     }
     (
-        Transform::from_translation(translation).with_scale(Vec3::splat(BIRD_SCALE)),
+        Transform2d::from_translation_3d(translation_2d.extend(translation.z))
+            .with_scale(Vec2::splat(BIRD_SCALE)),
         velocity,
     )
 }
@@ -460,16 +463,15 @@ fn spawn_birds(
     );
 }
 
-fn step_movement(translation: &mut Vec3, velocity: &mut Vec3, dt: f32) {
-    translation.x += velocity.x * dt;
-    translation.y += velocity.y * dt;
+fn step_movement(translation: &mut Vec2, velocity: &mut Vec2, dt: f32) {
+    *translation += *velocity * dt;
     velocity.y += GRAVITY * dt;
 }
 
 fn movement_system(
     args: Res<Args>,
     time: Res<Time>,
-    mut bird_query: Query<(&mut Bird, &mut Transform)>,
+    mut bird_query: Query<(&mut Bird, &mut Transform2d)>,
 ) {
     let dt = if args.benchmark {
         FIXED_DELTA_TIME
@@ -483,7 +485,7 @@ fn movement_system(
     }
 }
 
-fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3) {
+fn handle_collision(half_extents: Vec2, translation: &Vec2, velocity: &mut Vec2) {
     if (velocity.x > 0. && translation.x + HALF_BIRD_SIZE > half_extents.x)
         || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -(half_extents.x))
     {
@@ -498,7 +500,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
     }
 }
 
-fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform2d)>) {
     let window = windows.single();
 
     let half_extents = 0.5 * Vec2::new(window.width(), window.height());
