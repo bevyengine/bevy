@@ -205,13 +205,14 @@ impl HalfSpace {
 /// The frustum component is typically added from a bundle, either the `Camera2dBundle`
 /// or the `Camera3dBundle`.
 /// It is usually updated automatically by [`update_frusta`] from the
-/// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
+/// [`CameraProjection`] component and the [`GlobalTransform`] or [`GlobalTransform2d`] of the camera entity.
 ///
 /// [`Camera`]: crate::camera::Camera
 /// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
 /// [`update_frusta`]: crate::view::visibility::update_frusta
 /// [`CameraProjection`]: crate::camera::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
+/// [`GlobalTransform2d`]: bevy_transform::components::GlobalTransform2d
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Frustum {

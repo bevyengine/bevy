@@ -7,10 +7,9 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::Reflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{
-    components::{GlobalTransform, GlobalTransform2d},
+    components::{AnyGlobalTransform, GlobalTransform, GlobalTransform2d},
     TransformSystem,
 };
 use std::cell::Cell;
@@ -285,19 +284,17 @@ pub fn calculate_bounds(
 /// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
 /// [`VisibilitySystems::UpdateOrthographicFrusta`].
 pub fn update_frusta<T: Component + CameraProjection>(
-    mut views: Query<(
-        AnyOf<
-        (&GlobalTransform, &GlobalTransform2d)>,
-        &T,
-        &mut Frustum,
-    ),
-        Or<(Changed<GlobalTransform>, Changed<GlobalTransform2d>, Changed<T>)>,
+    mut views: Query<
+        (AnyGlobalTransform, &T, &mut Frustum),
+        Or<(
+            Changed<GlobalTransform>,
+            Changed<GlobalTransform2d>,
+            Changed<T>,
+        )>,
     >,
 ) {
-    for ((transform_3d, transform_2d), projection, mut frustum) in &mut views {
-        let transform = transform_3d
-            .copied()
-            .unwrap_or_else(|| GlobalTransform::from(*transform_2d.unwrap()));
+    for (transform, projection, mut frustum) in &mut views {
+        let transform = transform.get();
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection_custom_far(
@@ -402,7 +399,7 @@ pub fn check_visibility(
         &mut ViewVisibility,
         Option<&RenderLayers>,
         &Aabb,
-        &GlobalTransform,
+        AnyGlobalTransform,
         Has<NoFrustumCulling>,
     )>,
     mut visible_no_aabb_query: Query<
@@ -443,6 +440,7 @@ pub fn check_visibility(
 
             // If we have an aabb and transform, do frustum culling
             if !no_frustum_culling {
+                let transform = transform.get();
                 let model = transform.affine();
                 let model_sphere = Sphere {
                     center: model.transform_point3a(model_aabb.center),

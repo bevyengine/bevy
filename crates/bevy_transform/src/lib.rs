@@ -161,7 +161,10 @@ impl Plugin for TransformPlugin {
             .register_type::<Transform2d>()
             .register_type::<GlobalTransform>()
             .register_type::<GlobalTransform2d>()
-            .add_plugins((ValidParentCheckPlugin::<GlobalTransform>::default(), ValidParentCheckPlugin::<GlobalTransform2d>::default()))
+            .add_plugins((
+                ValidParentCheckPlugin::<GlobalTransform>::default(),
+                ValidParentCheckPlugin::<GlobalTransform2d>::default(),
+            ))
             .configure_sets(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
@@ -170,13 +173,19 @@ impl Plugin for TransformPlugin {
             .add_systems(
                 PostStartup,
                 (
+                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
+                    // These systems cannot access the same entities,
+                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
                     sync_simple_transforms::<Transform, GlobalTransform>
                         .in_set(TransformSystem::TransformPropagate)
-                        // FIXME: https://github.com/bevyengine/bevy/issues/4381
-                        // These systems cannot access the same entities,
-                        // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
                         .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms.in_set(PropagateTransformsSet),
+                    propagate_transforms::<Transform, GlobalTransform>
+                        .in_set(PropagateTransformsSet),
+                    sync_simple_transforms::<Transform2d, GlobalTransform2d>
+                        .in_set(TransformSystem::TransformPropagate)
+                        .ambiguous_with(PropagateTransformsSet),
+                    propagate_transforms::<Transform2d, GlobalTransform2d>
+                        .in_set(PropagateTransformsSet),
                 ),
             )
             .configure_sets(

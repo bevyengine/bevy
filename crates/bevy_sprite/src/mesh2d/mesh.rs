@@ -8,7 +8,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Vec2, Vec4};
+use bevy_math::{Affine3, Affine3A, Vec2, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
     batching::{
@@ -225,7 +225,7 @@ pub fn extract_mesh2d(
             entity,
             RenderMesh2dInstance {
                 transforms: Mesh2dTransforms {
-                    transform: (&transform.affine()).into(),
+                    transform: (&Affine3A::from_mat4(transform.compute_matrix())).into(),
                     flags: MeshFlags::empty().bits(),
                 },
                 mesh_asset_id: handle.0.id(),

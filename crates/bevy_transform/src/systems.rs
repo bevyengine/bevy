@@ -14,11 +14,14 @@ use bevy_hierarchy::{Children, Parent};
 /// Third party plugins should ensure that this is used in concert with [`propagate_transforms`].
 pub fn sync_simple_transforms<A, B>(
     mut query: ParamSet<(
-        Query<(&A, &mut B), (
+        Query<
+            (&A, &mut B),
+            (
                 Or<(Changed<A>, Added<B>)>,
                 Without<Parent>,
                 Without<Children>,
-            )>,
+            ),
+        >,
         Query<(Ref<A>, &mut B), (Without<Parent>, Without<Children>)>,
     )>,
     mut orphaned: RemovedComponents<Parent>,
@@ -513,7 +516,10 @@ mod test {
 
         // Create transform propagation schedule
         let mut schedule = Schedule::default();
-        schedule.add_systems((sync_simple_transforms, propagate_transforms));
+        schedule.add_systems((
+            sync_simple_transforms::<Transform, GlobalTransform>,
+            propagate_transforms::<Transform, GlobalTransform>,
+        ));
 
         // Spawn a `TransformBundle` entity with a local translation of `Vec3::ONE`
         let mut spawn_transform_bundle = || {

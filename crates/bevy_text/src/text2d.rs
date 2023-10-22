@@ -14,7 +14,6 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
-use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,

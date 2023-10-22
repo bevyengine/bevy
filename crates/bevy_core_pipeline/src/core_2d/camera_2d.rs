@@ -41,13 +41,10 @@ impl Default for Camera2dBundle {
             near: -1000.,
             ..Default::default()
         };
-        let transform = Transform::default();
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
         let frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation,
-            &transform.back(),
+            &projection.get_projection_matrix(),
+            &Vec3::ZERO,
+            &Vec3::Z,
             projection.far(),
         );
         Self {
@@ -55,7 +52,7 @@ impl Default for Camera2dBundle {
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,
-            transform,
+            transform: Default::default(),
             global_transform: Default::default(),
             camera: Camera::default(),
             camera_2d: Camera2d::default(),

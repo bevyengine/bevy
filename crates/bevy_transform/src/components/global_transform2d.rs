@@ -1,8 +1,8 @@
 use std::ops::Mul;
 
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Affine2, Affine3A, Mat2, Mat3, Mat4, Vec2, Vec3};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_math::{Affine2, Mat4, Vec2, Vec3};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
@@ -30,7 +30,7 @@ use crate::components::Transform2d;
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform2d`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform2d`] is updated.
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, Default, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -112,16 +112,13 @@ impl GlobalTransform2d {
     /// Returns the 2d affine transformation matrix as a [`Mat4`].
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
-        let mat3 = Mat3::from_cols_array_2d(&[
-            self.affine.matrix2.x_axis.extend(0.).to_array(),
-            self.affine.matrix2.y_axis.extend(0.).to_array(),
-            [0., 0., 1.],
-        ]);
-
-        Mat4::from(Affine3A::from_mat3_translation(
-            mat3,
-            self.affine.translation.extend(self.z_translation),
-        ))
+        let translation = self.affine.translation.extend(self.z_translation);
+        Mat4::from_cols_array_2d(&[
+            self.affine.matrix2.x_axis.extend(0.).extend(0.).to_array(),
+            self.affine.matrix2.y_axis.extend(0.).extend(0.).to_array(),
+            [0., 0., 1., 0.],
+            translation.extend(1.).to_array(),
+        ])
     }
 
     /// Returns the 2d affine transformation matrix as an [`Affine2`].
@@ -142,25 +139,10 @@ impl GlobalTransform2d {
     /// will be invalid.
     #[inline]
     pub fn compute_transform(&self) -> Transform2d {
-        let affine = self.affine;
-
-        let det = affine.matrix2.determinant();
-
-        let scale = Vec2::new(
-            affine.matrix2.x_axis.length() * det.signum(),
-            affine.matrix2.y_axis.length(),
-        );
-
-        let inv_scale = scale.recip();
-
-        let rotation_matrix = Mat2::from_cols(
-            affine.matrix2.x_axis * inv_scale.x,
-            affine.matrix2.y_axis * inv_scale.y,
-        );
-        let rotation = Vec2::angle_between(Vec2::Y, rotation_matrix * Vec2::Y);
+        let (scale, rotation, translation) = self.affine.to_scale_angle_translation();
 
         Transform2d {
-            translation: affine.translation,
+            translation,
             rotation,
             scale,
             z_translation: 0.,
@@ -185,6 +167,15 @@ impl Mul<GlobalTransform2d> for GlobalTransform2d {
         GlobalTransform2d {
             affine: self.affine * other.affine,
             z_translation: self.z_translation + other.z_translation,
+        }
+    }
+}
+
+impl From<Affine2> for GlobalTransform2d {
+    fn from(affine: Affine2) -> Self {
+        GlobalTransform2d {
+            affine,
+            z_translation: 0.,
         }
     }
 }

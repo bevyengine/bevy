@@ -708,7 +708,14 @@ pub fn prepare_sprites(
                 if let Some(custom_size) = extracted_sprite.custom_size {
                     quad_size = custom_size;
                 }
-                let transform = extracted_sprite.transform.affine()
+                // let transform = extracted_sprite.transform.affine()
+                //     * Affine2::from_scale_angle_translation(
+                //         quad_size,
+                //         0.,
+                //         quad_size * (-extracted_sprite.anchor - Vec2::splat(0.5)),
+                //     );
+
+                let transform = Affine3A::from_mat4(extracted_sprite.transform.compute_matrix())
                     * Affine3A::from_scale_rotation_translation(
                         quad_size.extend(1.0),
                         Quat::IDENTITY,
