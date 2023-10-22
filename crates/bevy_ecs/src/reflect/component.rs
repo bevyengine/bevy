@@ -83,7 +83,7 @@ pub struct ReflectComponent(ReflectComponentFns);
 /// > will not need.
 /// > Usually a [`ReflectComponent`] is created for a type by deriving [`Reflect`]
 /// > and adding the `#[reflect(Component)]` attribute.
-/// > After adding the component to the [`TypeRegistry`][bevy_reflect::TypeRegistry],
+/// > After adding the component to the [`TypeRegistry`],
 /// > its [`ReflectComponent`] can then be retrieved when needed.
 ///
 /// Creating a custom [`ReflectComponent`] may be useful if you need to create new component types
