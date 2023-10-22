@@ -83,7 +83,8 @@ impl TextureAtlasBuilder {
 
     /// Adds a texture to be copied to the texture atlas.
     pub fn add_texture(&mut self, image_id: AssetId<Image>, texture: &Image) {
-        self.textures_to_place.push((image_id, texture.texture_descriptor.size));
+        self.textures_to_place
+            .push((image_id, texture.texture_descriptor.size));
     }
 
     /// Sets the amount of padding in pixels to add between the textures in the texture atlas.

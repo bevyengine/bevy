@@ -255,26 +255,31 @@ impl Image {
     }
 
     /// Returns the width of a 2D image.
+    #[inline]
     pub fn width(&self) -> u32 {
         self.texture_descriptor.size.width
     }
 
     /// Returns the height of a 2D image.
+    #[inline]
     pub fn height(&self) -> u32 {
         self.texture_descriptor.size.height
     }
 
     /// Returns the aspect ratio (height/width) of a 2D image.
+    #[inline]
     pub fn aspect_ratio(&self) -> f32 {
         self.height() as f32 / self.width() as f32
     }
 
     /// Returns the size of a 2D image as f32.
+    #[inline]
     pub fn size_f32(&self) -> Vec2 {
         Vec2::new(self.width() as f32, self.height() as f32)
     }
 
     /// Returns the size of a 2D image.
+    #[inline]
     pub fn size(&self) -> UVec2 {
         UVec2::new(self.width(), self.height())
     }
