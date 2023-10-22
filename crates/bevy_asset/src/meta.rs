@@ -1,12 +1,9 @@
-use std::hash::Hasher;
-
 use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use bevy_log::error;
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
-use siphasher::sip128::{Hasher128, SipHasher};
 
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
@@ -228,14 +225,14 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
     })
 }
 
-pub type AssetHash = [u8; 16];
+pub type AssetHash = [u8; 32];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
 pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
-    let mut hasher = SipHasher::new();
-    hasher.write(meta_bytes);
-    hasher.write(asset_bytes);
-    hasher.finish128().as_bytes()
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(meta_bytes);
+    hasher.update(asset_bytes);
+    hasher.finalize().as_bytes().clone()
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
@@ -243,10 +240,10 @@ pub(crate) fn get_full_asset_hash(
     asset_hash: AssetHash,
     dependency_hashes: impl Iterator<Item = AssetHash>,
 ) -> AssetHash {
-    let mut hasher = SipHasher::new();
-    hasher.write(&asset_hash);
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&asset_hash);
     for hash in dependency_hashes {
-        hasher.write(&hash);
+        hasher.update(&hash);
     }
-    hasher.finish128().as_bytes()
+    hasher.finalize().as_bytes().clone()
 }
