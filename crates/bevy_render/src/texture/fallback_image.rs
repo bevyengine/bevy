@@ -110,10 +110,7 @@ fn fallback_image_new(
         texture_view,
         texture_format: image.texture_descriptor.format,
         sampler,
-        size: Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
-        ),
+        size: image.size_f32(),
         mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }

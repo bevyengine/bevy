@@ -107,10 +107,10 @@ impl FromWorld for SpritePipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
+                    bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
                 },
-                image.texture_descriptor.size,
+                image.size(),
             );
             let texture_view = texture.create_view(&TextureViewDescriptor::default());
             GpuImage {
@@ -118,10 +118,7 @@ impl FromWorld for SpritePipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Vec2::new(
-                    image.texture_descriptor.size.width as f32,
-                    image.texture_descriptor.size.height as f32,
-                ),
+                size: image.size_f32(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };

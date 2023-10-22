@@ -509,7 +509,7 @@ impl NormalizedRenderTarget {
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
-                let Extent3d { width, height, .. } = image.texture_descriptor.size;
+                let Extent3d { width, height, .. } = image.size();
                 Some(RenderTargetInfo {
                     physical_size: UVec2::new(width, height),
                     scale_factor: 1.0,
