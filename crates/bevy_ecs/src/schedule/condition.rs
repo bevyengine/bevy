@@ -26,7 +26,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// # let mut schedule = Schedule::default();
+/// # let mut schedule = Schedule::single_threaded();
 /// schedule.add_systems(my_system.run_if(every_other_time()));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
@@ -46,7 +46,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// }
 ///
 /// # fn always_true() -> bool { true }
-/// # let mut app = Schedule::default();
+/// # let mut app = Schedule::single_threaded();
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
 /// app.add_systems(my_system.run_if(always_true.pipe(identity())));
@@ -69,7 +69,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// #[derive(Resource, PartialEq)]
     /// struct R(u32);
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
@@ -86,7 +86,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
@@ -123,7 +123,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// #[derive(Resource, PartialEq)]
     /// struct B(u32);
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
@@ -197,7 +197,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -238,7 +238,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists` will only return true if the given resource exists in the world
@@ -277,7 +277,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default, PartialEq)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -315,7 +315,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default, PartialEq)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_equals` will only return true
@@ -358,7 +358,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_added` will only return true if the
@@ -408,7 +408,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -462,7 +462,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_changed` will only return true if the
@@ -523,7 +523,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -593,7 +593,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -648,7 +648,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -695,7 +695,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -747,7 +747,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -813,7 +813,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -863,7 +863,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Events<MyEvent>>();
@@ -907,7 +907,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -954,7 +954,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -1084,7 +1084,7 @@ mod tests {
     fn run_condition() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time));
@@ -1111,7 +1111,7 @@ mod tests {
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         // Always run
         schedule.add_systems(increment_counter.run_if(every_other_time.or_else(|| true)));
@@ -1128,7 +1128,7 @@ mod tests {
     fn multiple_run_conditions() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| true));
@@ -1146,7 +1146,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         // This should never run, if multiple run conditions worked
         // like an OR condition then it would always run
@@ -1180,7 +1180,7 @@ mod tests {
     // Ensure distributive_run_if compiles with the common conditions.
     #[test]
     fn distributive_run_if_compiles() {
-        Schedule::default().add_systems(
+        Schedule::single_threaded().add_systems(
             (test_system, test_system)
                 .distributive_run_if(run_once())
                 .distributive_run_if(resource_exists::<State<TestState>>())

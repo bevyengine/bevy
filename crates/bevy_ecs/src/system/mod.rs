@@ -172,7 +172,7 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// // Ignores the output of a system that may fail.
     /// schedule.add_systems(my_system.map(std::mem::drop));
     /// # let mut world = World::new();
@@ -363,7 +363,7 @@ pub mod adapter {
     /// use bevy_ecs::prelude::*;
     ///
     /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default();
+    /// # let mut sched = Schedule::single_threaded();
     /// sched.add_systems(
     ///         // Prints system warning if system returns an error.
     ///         warning_pipe_system.pipe(system_adapter::warn)
@@ -429,7 +429,7 @@ pub mod adapter {
     /// struct Monster;
     ///
     /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default(); sched
+    /// # let mut sched = Schedule::single_threaded(); sched
     ///     .add_systems(
     ///         // If the system fails, just move on and try again next frame.
     ///         fallible_system.pipe(system_adapter::ignore)
@@ -595,7 +595,7 @@ mod tests {
     }
 
     fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(system);
         schedule.run(world);
     }
@@ -772,7 +772,7 @@ mod tests {
         world.insert_resource(Added(0));
         world.insert_resource(Changed(0));
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         schedule.add_systems((incr_e_on_flip, apply_deferred, World::clear_trackers).chain());
 
@@ -1920,7 +1920,7 @@ mod tests {
 
         world.insert_resource(A);
         world.insert_resource(C(0));
-        let mut sched = Schedule::default();
+        let mut sched = Schedule::single_threaded();
         sched.add_systems(
             (
                 (|mut res: ResMut<C>| {

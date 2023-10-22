@@ -243,7 +243,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
@@ -276,7 +276,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }

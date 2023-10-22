@@ -184,7 +184,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 ///    
 /// fn main() {
 ///     let mut world = World::new();
-///     let mut schedule = Schedule::default();
+///     let mut schedule = Schedule::single_threaded();
 ///     schedule.add_systems((
 ///         system_two,
 ///         system_one.before(system_two),
@@ -210,6 +210,10 @@ impl Default for Schedule {
     /// you don't care about the [`ScheduleLabel`]. Inserting a default schedule
     /// into the world risks overwriting another schedule. For most situations
     /// you should use [`Schedule::new`].
+    ///
+    /// # Note
+    /// In benchmarks/tests is recommended to use [`Schedule::single_threaded`]
+    /// instead, for lower overhead
     fn default() -> Self {
         Self::new(DefaultSchedule)
     }
@@ -225,6 +229,30 @@ impl Schedule {
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
         }
+    }
+
+    /// Constructs an empty `Schedule` with the [`SingleThreaded`] executor.
+    /// Only use in situations where you don't care about the [`ScheduleLabel`].
+    /// Inserting a default schedule into the world risks overwriting another
+    /// schedule. For most situations you should use [`Schedule::new`].
+    ///
+    /// [`SingleThreaded`]: ExecutorKind::SingleThreaded
+    pub fn single_threaded() -> Self {
+        let mut schedule = Self::default();
+        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        schedule
+    }
+
+    /// Constructs an empty `Schedule` with the [`MultiThreaded`] executor.
+    /// Only use in situations where you don't care about the [`ScheduleLabel`].
+    /// Inserting a default schedule into the world risks overwriting another
+    /// schedule. For most situations you should use [`Schedule::new`].
+    ///
+    /// [`MultiThreaded`]: ExecutorKind::MultiThreaded
+    pub fn multi_threaded() -> Self {
+        let mut schedule = Self::default();
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule
     }
 
     /// Add a collection of systems to the schedule.
@@ -1783,7 +1811,7 @@ mod tests {
         struct Set;
 
         let mut world = World::new();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         schedule.configure_sets(Set.run_if(|| false));
         schedule.add_systems(
