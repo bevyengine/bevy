@@ -27,7 +27,7 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
 };
 use std::{borrow::Cow, ops::Range};
-use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
+use wgpu::{BlendState, LoadOp, TextureFormat};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -509,9 +509,8 @@ impl NormalizedRenderTarget {
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
-                let Extent3d { width, height, .. } = image.size();
                 Some(RenderTargetInfo {
-                    physical_size: UVec2::new(width, height),
+                    physical_size: image.size(),
                     scale_factor: 1.0,
                 })
             }
