@@ -8,7 +8,7 @@ use bevy_reflect::{FromType, Reflect};
 
 use crate::world::{FromWorld, World};
 
-/// A struct used to operate on reflected [`FromWorld`] of a type.
+/// A struct used to operate on the reflected [`FromWorld`] of a type.
 ///
 /// A [`ReflectFromWorld`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].

@@ -331,7 +331,7 @@ fn from_reflect_or_world<T: FromReflect>(
     let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
     else {
         panic!(
-            "no `ReflectFromWorld` registration found for `{}`",
+            "`FromReflect` failed and no `ReflectFromWorld` registration found for `{}`",
             // FIXME: once we have unique reflect, use `TypePath`.
             std::any::type_name::<T>(),
         );
@@ -343,7 +343,7 @@ fn from_reflect_or_world<T: FromReflect>(
         .downcast::<T>()
     else {
         panic!(
-            "the `ReflectFromWorld` for `{}` produced a value of a different type",
+            "the `ReflectFromWorld` registration for `{}` produced a value of a different type",
             // FIXME: once we have unique reflect, use `TypePath`.
             std::any::type_name::<T>(),
         );
