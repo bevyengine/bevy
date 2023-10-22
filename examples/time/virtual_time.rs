@@ -169,7 +169,6 @@ fn move_virtual_time_sprites(
 }
 
 fn get_sprite_translation_x(elapsed: f32) -> f32 {
-    // move roughly 420px in a second (either real or virtual seconds based on where elapsed comes from)
     elapsed.sin() * 500.
 }
 
