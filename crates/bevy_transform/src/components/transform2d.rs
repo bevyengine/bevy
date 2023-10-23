@@ -363,6 +363,15 @@ impl Mul<Transform2d> for Transform2d {
     }
 }
 
+impl Mul<GlobalTransform2d> for Transform2d {
+    type Output = GlobalTransform2d;
+
+    #[inline]
+    fn mul(self, global_transform: GlobalTransform2d) -> Self::Output {
+        GlobalTransform2d::from(self) * global_transform
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::f32::consts::TAU;

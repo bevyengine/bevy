@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{HierarchyQueryExt, Parent};
 
-use crate::components::{GlobalTransform, Transform};
+use crate::components::{GlobalTransform, GlobalTransform2d, Transform, Transform2d};
 
 /// System parameter for computing up-to-date [`GlobalTransform`]s.
 ///
@@ -47,6 +47,44 @@ impl<'w, 's> TransformHelper<'w, 's> {
     }
 }
 
+/// System parameter for computing up-to-date [`GlobalTransform2d`]s.
+///
+/// Computing an entity's [`GlobalTransform2d`] can be expensive so it is recommended
+/// you use the [`GlobalTransform2d`] component stored on the entity, unless you need
+/// a [`GlobalTransform2d`] that reflects the changes made to any [`Transform`]s since
+/// the last time the transform propagation systems ran.
+#[derive(SystemParam)]
+pub struct Transform2dHelper<'w, 's> {
+    parent_query: Query<'w, 's, &'static Parent>,
+    transform_query: Query<'w, 's, &'static Transform2d>,
+}
+
+impl<'w, 's> Transform2dHelper<'w, 's> {
+    /// Computes the [`GlobalTransform2d`] of the given entity from the [`Transform`] component on it and its ancestors.
+    pub fn compute_global_transform(
+        &self,
+        entity: Entity,
+    ) -> Result<GlobalTransform2d, ComputeGlobalTransformError> {
+        let transform = self
+            .transform_query
+            .get(entity)
+            .map_err(|err| map_error(err, false))?;
+
+        let mut global_transform = GlobalTransform2d::from(*transform);
+
+        for entity in self.parent_query.iter_ancestors(entity) {
+            let transform = self
+                .transform_query
+                .get(entity)
+                .map_err(|err| map_error(err, true))?;
+
+            global_transform = *transform * global_transform;
+        }
+
+        Ok(global_transform)
+    }
+}
+
 fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformError {
     use ComputeGlobalTransformError::*;
     match err {
@@ -65,7 +103,7 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
 /// Error returned by [`TransformHelper::compute_global_transform`].
 #[derive(Debug)]
 pub enum ComputeGlobalTransformError {
-    /// The entity or one of its ancestors is missing the [`Transform`] component.
+    /// The entity or one of its ancestors is missing the [`Transform`] or [`Transform2d`] component.
     MissingTransform(Entity),
     /// The entity does not exist.
     NoSuchEntity(Entity),
