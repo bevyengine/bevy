@@ -495,6 +495,18 @@ pub fn winit_runner(mut app: App) {
                     return;
                 };
 
+                // Allow AccessKit to filter `WindowEvent`s before they reach
+                // the engine.
+                if let Some(adapters) = app.world.get_non_send_resource::<AccessKitAdapters>() {
+                    if let Some(adapter) = adapters.get(&window_entity) {
+                        if let Some(window) = winit_windows.get_window(window_entity) {
+                            if !adapter.on_event(window, &event) {
+                                return;
+                            }
+                        }
+                    }
+                }
+
                 runner_state.window_event_received = true;
 
                 match event {
