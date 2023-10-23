@@ -8,14 +8,13 @@
 //! A font *face* is part of a font family,
 //! and is distinguished by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
 //!
-//! In Bevy, [`Font`]s are loaded by the [`FontLoader`](FontLoader) as assets,
-//! or they can be loaded as system fonts through [`TextPipeline::load_system_fonts`].
+//! In Bevy, [`Font`]s are loaded by the [`FontLoader`] as assets,
 //!
 //! # `TextPipeline`
 //!
 //! The [`TextPipeline`] resource does all of the heavy lifting for rendering text.
 //!
-//! [`Text`](Text) is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
+//! [`Text`] is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
 //! which is called by a system.
 //!
 //! Note that text measurement is only relevant in a UI context.
@@ -24,7 +23,7 @@
 //!
 //! 1. creates a [`Buffer`](cosmic_text::Buffer) from the [`TextSection`]s, generating new [`FontAtlasSet`]s if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
-//!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`](FontAtlas) if necessary.
+//!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //! which contains all the information that downstream systems need for rendering.
 
@@ -40,6 +39,7 @@ mod pipeline;
 mod text;
 mod text2d;
 
+pub use cosmic_text;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;

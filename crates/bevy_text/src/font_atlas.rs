@@ -8,17 +8,17 @@ use bevy_render::{
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlasLayout};
 use bevy_utils::HashMap;
 
-use crate::GlyphAtlasLocation;
+use crate::{GlyphAtlasLocation, TextError};
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
 /// A [`FontAtlasSet`](crate::FontAtlasSet) contains one or more `FontAtlas`es.
 pub struct FontAtlas {
-    /// Used to update the [`TextureAtlas`].
+    /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
     /// A mapping between subpixel-binned glyphs and their [`GlyphAtlasLocation`].
     pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, GlyphAtlasLocation>,
-    /// The handle to the [`TextureAtlas`] that holds the rasterized glyphs.
+    /// The handle to the [`TextureAtlasLayout`] that holds the rasterized glyphs.
     pub texture_atlas: Handle<TextureAtlasLayout>,
     /// the texture where this font atlas is located
     pub texture: Handle<Image>,
@@ -46,7 +46,7 @@ impl FontAtlas {
         Self {
             texture_atlas,
             glyph_to_atlas_index: HashMap::default(),
-            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 0),
+            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 1),
             texture,
         }
     }
@@ -72,12 +72,12 @@ impl FontAtlas {
     /// modified.
     pub fn add_glyph(
         &mut self,
-        textures: &mut Assets<Image>,crates/bevy_text/src/font_atlas_set.rs
+        textures: &mut Assets<Image>,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
-        cache_key: cosmcrates/bevy_text/src/font_atlas_set.rsic_text::CacheKey,
+        cache_key: cosmic_text::CacheKey,
         texture: &Image,
         offset: IVec2,
-    ) -> bool {
+    ) -> Result<(), TextError> {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
 
         if let Some(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
@@ -93,9 +93,19 @@ impl FontAtlas {
                     offset,
                 },
             );
-            true
+            Ok(())
         } else {
-            false
+            Err(TextError::FailedToAddGlyph(cache_key.glyph_id))
         }
+    }
+}
+
+impl std::fmt::Debug for FontAtlas {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FontAtlas")
+            .field("glyph_to_atlas_index", &self.glyph_to_atlas_index)
+            .field("texture_atlas", &self.texture_atlas)
+            .field("dynamic_texture_atlas_builder", &"[...]")
+            .finish()
     }
 }

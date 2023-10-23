@@ -418,17 +418,7 @@ fn update_ui(
     mut hide_ui: Local<bool>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-<<<<<<< HEAD
-    let (method, color_grading) = settings.single();
-    let method = *method;
-
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
-
     if keys.just_pressed(KeyCode::KeyH) {
-=======
-    if keys.just_pressed(KeyCode::H) {
->>>>>>> d64259bcc (Copied each affected file from cosmic-text branch, to fix some weird issue with rebasing)
         *hide_ui = !*hide_ui;
     }
 

@@ -1,38 +1,24 @@
 use std::sync::{Arc, Mutex};
 
-use bevy_asset::{AssetId, Assets, Handle};
+use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource};
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
-use bevy_utils::{
-    tracing::{error, info, warn},
-    HashMap,
-};
+use bevy_utils::HashMap;
 
-use cosmic_text::{Attrs, AttrsList, Buffer, BufferLine, Family, Metrics, Wrap};
+use cosmic_text::{Attrs, Buffer, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, FontRef, JustifyText,
-    PositionedGlyph, TextSection, TextSettings, YAxisOrientation,
+    error::TextError, scale_value, BreakLineOn, Font, FontAtlasSets, JustifyText, PositionedGlyph,
+    Text, TextSection, YAxisOrientation,
 };
 
-// TODO: cache buffers / store buffers on the entity
-// TODO: reconstruct byte indices
-// TODO: rescale font sizes in all examples
-// TODO: fix any broken examples
-// TODO: solve spans with different font sizes, see https://github.com/pop-os/cosmic-text/issues/64
-// TODO: (future work) split text entities into section entities
-// TODO: (future work) text editing
-// TODO: font validation
-
-// TODO: the only reason we need a mutex is due to TextMeasure
-// - is there a way to do this without it?
 /// A wrapper around a [`cosmic_text::FontSystem`]
-pub struct FontSystem(Arc<Mutex<cosmic_text::FontSystem>>);
+struct CosmicFontSystem(Arc<Mutex<cosmic_text::FontSystem>>);
 
-impl Default for FontSystem {
+impl Default for CosmicFontSystem {
     fn default() -> Self {
         let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
         let db = cosmic_text::fontdb::Database::new();
@@ -43,21 +29,8 @@ impl Default for FontSystem {
     }
 }
 
-impl FontSystem {
-    fn load_system_fonts(&mut self) {
-        match self.0.try_lock() {
-            Ok(mut font_system) => {
-                font_system.db_mut().load_system_fonts();
-            }
-            Err(err) => {
-                error!("Failed to acquire mutex: {:?}", err);
-            }
-        };
-    }
-}
-
 /// A wrapper around a [`cosmic_text::SwashCache`]
-pub struct SwashCache(cosmic_text::SwashCache);
+struct SwashCache(cosmic_text::SwashCache);
 
 impl Default for SwashCache {
     fn default() -> Self {
@@ -70,16 +43,12 @@ impl Default for SwashCache {
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset) [`HandleId`].
+    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
     map_handle_to_font_id: HashMap<AssetId<Font>, cosmic_text::fontdb::ID>,
-    /// Identifies a [`FontAtlasSet`] handle by its font [`ID`](cosmic_text::fontdb::ID).
-    ///
-    /// Note that this is a strong handle, so that textures are not dropped.
-    map_font_id_to_handle: HashMap<cosmic_text::fontdb::ID, Handle<FontAtlasSet>>,
     /// The font system is used to retrieve fonts and their information, including glyph outlines.
     ///
     /// See [`cosmic_text::FontSystem`] for more information.
-    font_system: FontSystem,
+    font_system: CosmicFontSystem,
     /// The swash cache rasterizer is used to rasterize glyphs
     ///
     /// See [`cosmic_text::SwashCache`] for more information.
@@ -87,6 +56,9 @@ pub struct TextPipeline {
 }
 
 impl TextPipeline {
+    /// Utilizes [cosmic_text::Buffer] to shape and layout text
+    ///
+    /// Negative or 0.0 font sizes will not be laid out, and an empty buffer will be returned.
     pub fn create_buffer(
         &mut self,
         fonts: &Assets<Font>,
@@ -103,6 +75,14 @@ impl TextPipeline {
             .unwrap_or_else(|| crate::TextStyle::default().font_size)
             as f64
             * scale_factor;
+
+        // TODO: maybe we would like to render negative fontsizes or scaling upside down or something? for now, no text is rendered
+        if font_size <= 0.0 {
+            // return empty buffer, making sure that the line height is not zero,
+            // since that results in a panic in cosmic-text
+            let metrics = Metrics::new(0.0, 0.000001);
+            return Ok(Buffer::new_empty(metrics));
+        };
         // TODO: Support line height as an option. Unitless `1.2` is the default used in browsers (1.2x font size).
         let line_height = font_size * 1.2;
         let (font_size, line_height) = (font_size as f32, line_height as f32);
@@ -110,107 +90,25 @@ impl TextPipeline {
 
         let font_system = &mut acquire_font_system(&mut self.font_system)?;
 
-        // TODO: cache buffers (see Iced / glyphon)
-        let mut buffer = Buffer::new(font_system, metrics);
-
-        buffer.lines.clear();
-        let mut attrs_list = AttrsList::new(Attrs::new());
-        let mut line_string = String::new();
-        // all sections need to be combined and broken up into lines
-        // e.g.
-        // style0"Lorem ipsum\ndolor sit amet,"
-        // style1" consectetur adipiscing\nelit,"
-        // style2" sed do eiusmod tempor\nincididunt"
-        // style3" ut labore et dolore\nmagna aliqua."
-        // becomes:
-        // line0: style0"Lorem ipsum"
-        // line1: style0"dolor sit amet,"
-        //        style1" consectetur adipiscing,"
-        // line2: style1"elit,"
-        //        style2" sed do eiusmod tempor"
-        // line3: style2"incididunt"
-        //        style3"ut labore et dolore"
-        // line4: style3"magna aliqua."
-
-        // combine all sections into a string
-        // as well as metadata that links those sections to that string
-        let mut end = 0;
-        let (string, sections_data): (String, Vec<_>) = sections
+        let spans: Vec<(&str, Attrs)> = sections
             .iter()
             .enumerate()
             .map(|(section_index, section)| {
-                let start = end;
-                end += section.value.len();
-                (section.value.as_str(), (section, section_index, start..end))
+                (
+                    &section.value[..],
+                    get_attrs(
+                        section,
+                        section_index,
+                        font_system,
+                        &mut self.map_handle_to_font_id,
+                        fonts,
+                    ),
+                )
             })
-            .unzip();
+            .collect();
 
-        let mut sections_iter = sections_data.into_iter();
-        let mut maybe_section = sections_iter.next();
-
-        // split the string into lines, as ranges
-        let string_start = string.as_ptr() as usize;
-        let mut lines_iter = BidiParagraphs::new(&string).map(|line: &str| {
-            let start = line.as_ptr() as usize - string_start;
-            let end = start + line.len();
-            start..end
-        });
-        let mut maybe_line = lines_iter.next();
-
-        loop {
-            let (Some(line_range), Some((section, section_index, section_range))) =
-                (&maybe_line, &maybe_section)
-            else {
-                // this is reached only if this text is empty
-                break;
-            };
-
-            // start..end is the intersection of this line and this section
-            let start = line_range.start.max(section_range.start);
-            let end = line_range.end.min(section_range.end);
-            if start < end {
-                let text = &string[start..end];
-                add_span(
-                    &mut line_string,
-                    &mut attrs_list,
-                    section,
-                    *section_index,
-                    text,
-                    font_system,
-                    &mut self.map_handle_to_font_id,
-                    fonts,
-                );
-            }
-
-            // we know that at the end of a line,
-            // section text's end index is always >= line text's end index
-            // so if this section ends before this line ends,
-            // there is another section in this line.
-            // otherwise, we move on to the next line.
-            if section_range.end < line_range.end {
-                maybe_section = sections_iter.next();
-            } else {
-                maybe_line = lines_iter.next();
-                if maybe_line.is_some() {
-                    // finalize this line and start a new line
-                    let prev_attrs_list =
-                        std::mem::replace(&mut attrs_list, AttrsList::new(Attrs::new()));
-                    let prev_line_string = std::mem::take(&mut line_string);
-                    buffer
-                        .lines
-                        .push(BufferLine::new(prev_line_string, prev_attrs_list));
-                } else {
-                    // finalize the final line
-                    buffer.lines.push(BufferLine::new(line_string, attrs_list));
-                    break;
-                }
-            }
-        }
-
-        // node size (bounds) is already scaled by the systems that call queue_text
-        // TODO: cosmic text does not shape/layout text outside the buffer height
-        // consider a better way to do this
-        // let buffer_height = bounds.y;
+        // TODO: cache buffers (see Iced / glyphon)
+        let mut buffer = Buffer::new_empty(metrics);
         let buffer_height = f32::INFINITY;
         buffer.set_size(font_system, bounds.x.ceil(), buffer_height);
 
@@ -224,7 +122,8 @@ impl TextPipeline {
         );
 
         // TODO: other shaping methods?
-        buffer.shape_until_scroll(font_system);
+        let default_attrs = Attrs::new();
+        buffer.set_rich_text(font_system, spans, default_attrs, Shaping::Advanced);
 
         if buffer.visible_lines() == 0 {
             // Presumably the font(s) are not available yet
@@ -251,7 +150,6 @@ impl TextPipeline {
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
-        text_settings: &TextSettings,
         y_axis_orientation: YAxisOrientation,
     ) -> Result<TextLayoutInfo, TextError> {
         if sections.is_empty() {
@@ -287,35 +185,13 @@ impl TextPipeline {
             .map(|(layout_glyph, line_w, line_y)| {
                 let section_index = layout_glyph.metadata;
 
-                // TODO(totalkrill): this is probably very wrong, investigate the
-                // cause, instead of "what makes it compile"
-                let font_atlas_set: &mut FontAtlasSet = match sections[section_index].style.font {
-                    FontRef::Asset(ref font_handle) => {
-                        let handle: Handle<Font> = font_handle.clone_weak();
-                        font_atlas_sets.sets.entry(handle.id()).or_default()
-                    }
-                    FontRef::Query(ref query) => {
-                        // get the id from the database
-                        // TODO: error handling
-                        // TODO: font may not yet be available, but may be available in future
-                        let font_id = font_system.get_font_matches(cosmic_text::Attrs {
-                            color_opt: None,
-                            family: query.family.as_family(),
-                            stretch: query.stretch,
-                            style: query.style,
-                            weight: query.weight,
-                            metadata: 0,
-                        })[0];
-                        let handle = self.map_font_id_to_handle.entry(font_id).or_default();
+                let font_handle = sections[section_index].style.font.clone_weak();
+                let font_atlas_set = font_atlas_sets.sets.entry(font_handle.id()).or_default();
 
-                        font_atlas_sets
-                            .get_mut(handle.clone().untyped().id())
-                            .unwrap()
-                    }
-                };
+                let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(layout_glyph.cache_key)
+                    .get_glyph_atlas_info(physical_glyph.cache_key)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(
@@ -335,8 +211,8 @@ impl TextPipeline {
                 let glyph_size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
                 // offset by half the size because the origin is center
-                let x = glyph_size.x / 2.0 + left + layout_glyph.x_int as f32;
-                let y = line_y + layout_glyph.y_int as f32 - top + glyph_size.y / 2.0;
+                let x = glyph_size.x / 2.0 + left + physical_glyph.x as f32;
+                let y = line_y + physical_glyph.y as f32 - top + glyph_size.y / 2.0;
                 // TODO: use cosmic text's implementation (per-BufferLine alignment) as it will be editor aware
                 // see https://github.com/pop-os/cosmic-text/issues/130 (currently bugged)
                 let x = x + match text_alignment {
@@ -355,15 +231,10 @@ impl TextPipeline {
 
                 let position = Vec2::new(x, y);
 
-                let pos_glyph = PositionedGlyph {
-                    position,
-                    size: glyph_size,
-                    atlas_info,
-                    section_index,
-                    // TODO: recreate the byte index, relevant for #1319
-                    // alternatively, reimplement cosmic-text's own hit tests for text
-                    byte_index: 0,
-                };
+                // TODO: recreate the byte index, that keeps track of where a cursor is,
+                // when glyphs are not limited to single byte representation, relevant for #1319
+                let pos_glyph =
+                    PositionedGlyph::new(position, glyph_size, atlas_info, section_index);
                 Ok(pos_glyph)
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -413,38 +284,11 @@ impl TextPipeline {
         };
 
         Ok(TextMeasureInfo {
-            min_width_content_size,
-            max_width_content_size,
+            min: min_width_content_size,
+            max: max_width_content_size,
             font_system: Arc::clone(&self.font_system.0),
             buffer: Mutex::new(buffer),
         })
-    }
-
-    /// Attempts to load system fonts.
-    ///
-    /// Supports Windows, Linux and macOS.
-    ///
-    /// System fonts loading is a surprisingly complicated task,
-    /// mostly unsolvable without interacting with system libraries.
-    /// And since [`fontdb`](cosmic_text::fontdb) tries to be small and portable, this method
-    /// will simply scan some predefined directories.
-    /// Which means that fonts that are not in those directories must
-    /// be added manually.
-    ///
-    /// This allows access to any installed system fonts
-    ///
-    /// # Timing
-    ///
-    /// This function takes some time to run. On the release build, it can take up to a second,
-    /// while debug builds can take up to ten times longer. For this reason, it should only be
-    /// called once, and the resulting [`FontSystem`] should be shared.
-    ///
-    /// This should ideally run in a background thread.
-    // TODO: This should run in a background thread.
-    pub fn load_system_fonts(&mut self) {
-        info!("Loading system fonts");
-        self.font_system.load_system_fonts();
-        info!("Loaded system fonts");
     }
 }
 
@@ -463,8 +307,8 @@ pub struct TextLayoutInfo {
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
 pub struct TextMeasureInfo {
-    pub min_width_content_size: Vec2,
-    pub max_width_content_size: Vec2,
+    pub min: Vec2,
+    pub max: Vec2,
     buffer: Mutex<cosmic_text::Buffer>,
     font_system: Arc<Mutex<cosmic_text::FontSystem>>,
 }
@@ -472,8 +316,8 @@ pub struct TextMeasureInfo {
 impl std::fmt::Debug for TextMeasureInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TextMeasureInfo")
-            .field("min_width_content_size", &self.min_width_content_size)
-            .field("max_width_content_size", &self.max_width_content_size)
+            .field("min", &self.min)
+            .field("max", &self.max)
             .field("buffer", &"_")
             .field("font_system", &"_")
             .finish()
@@ -540,73 +384,48 @@ impl TextMeasureInfo {
     }
 }
 
-/// For the current line,
-/// adds a span to the attributes list and pushes the text into the line string,
+/// get attr for from textstyle
 /// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
-#[allow(clippy::too_many_arguments)]
-fn add_span(
-    line_string: &mut String,
-    attrs_list: &mut AttrsList,
-    section: &TextSection,
+fn get_attrs<'a>(
+    section: &'a TextSection,
     section_index: usize,
-    text: &str,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, cosmic_text::fontdb::ID>,
     fonts: &Assets<Font>,
-) {
-    let start = line_string.len();
-    line_string.push_str(text);
-    let end = line_string.len();
+) -> Attrs<'a> {
+    let font_handle = section.style.font.clone();
+    let font_handle_id = font_handle.id();
+    let face_id = map_handle_to_font_id
+        .entry(font_handle_id)
+        .or_insert_with(|| {
+            let font = fonts.get(font_handle).unwrap();
+            let data = Arc::clone(&font.data);
+            let ids = font_system
+                .db_mut()
+                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+            // TODO: it is assumed this is the right font face
+            *ids.last().unwrap()
 
-    let attrs = match section.style.font {
-        FontRef::Asset(ref font_handle) => {
-            let font_handle_id = font_handle.id();
-            let face_id = map_handle_to_font_id
-                .entry(font_handle_id)
-                .or_insert_with(|| {
-                    let font = fonts.get(font_handle).unwrap();
-                    let data = Arc::clone(&font.data);
-                    font_system
-                        .db_mut()
-                        .load_font_source(cosmic_text::fontdb::Source::Binary(data));
-                    // TODO: it is assumed this is the right font face
-                    // see https://github.com/pop-os/cosmic-text/issues/125
-                    // fontdb 0.14 returns the font ids from `load_font_source`
-                    let face_id = font_system.db().faces().last().unwrap().id;
-                    // TODO: below may be required if we need to offset by the baseline (TBC)
-                    // see https://github.com/pop-os/cosmic-text/issues/123
-                    // let font = font_system.get_font(face_id).unwrap();
-                    // map_font_id_to_metrics
-                    //     .entry(face_id)
-                    //     .or_insert_with(|| font.as_swash().metrics(&[]));
-                    face_id
-                });
-            let face = font_system.db().face(*face_id).unwrap();
-
-            // TODO: validate this is the correct string to extract
-            let family_name = &face.families[0].0;
-            Attrs::new()
-                // TODO: validate that we can use metadata
-                .metadata(section_index)
-                .family(Family::Name(family_name))
-                .stretch(face.stretch)
-                .style(face.style)
-                .weight(face.weight)
-                .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()))
-        }
-        FontRef::Query(ref query) => {
-            Attrs::new()
-                // TODO: validate that we can use metadata
-                .metadata(section_index)
-                .family(query.family.as_family())
-                .stretch(query.stretch)
-                .style(query.style)
-                .weight(query.weight)
-                .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()))
-        }
-    };
-
-    attrs_list.add_span(start..end, attrs);
+            // TODO: below may be required if we need to offset by the baseline (TBC)
+            // see https://github.com/pop-os/cosmic-text/issues/123
+            // let font = font_system.get_font(face_id).unwrap();
+            // map_font_id_to_metrics
+            //     .entry(face_id)
+            //     .or_insert_with(|| font.as_swash().metrics(&[]));
+        });
+    let face = font_system.db().face(*face_id).unwrap();
+    // TODO: validate this is the correct string to extract
+    // let family_name = &face.families[0].0;
+    let attrs = Attrs::new()
+        // TODO: validate that we can use metadata
+        .metadata(section_index)
+        // TODO: this reference, becomes owned by the font system, which is not really wanted...
+        // .family(Family::Name(family_name))
+        .stretch(face.stretch)
+        .style(face.style)
+        .weight(face.weight)
+        .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()));
+    attrs
 }
 
 /// Calculate the size of the text area for the given buffer.
@@ -617,7 +436,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
         .layout_runs()
         .map(|run| run.line_w)
         .reduce(|max_w, w| max_w.max(w))
-        .unwrap();
+        .unwrap_or_else(|| 0.0);
     // TODO: support multiple line heights / font sizes (once supported by cosmic text), see https://github.com/pop-os/cosmic-text/issues/64
     let line_height = buffer.metrics().line_height.ceil();
     let height = buffer.layout_runs().count() as f32 * line_height;
@@ -669,7 +488,7 @@ impl<'text> Iterator for BidiParagraphs<'text> {
 /// Helper method to acquire a font system mutex.
 #[inline(always)]
 fn acquire_font_system(
-    font_system: &mut FontSystem,
+    font_system: &mut CosmicFontSystem,
 ) -> Result<std::sync::MutexGuard<'_, cosmic_text::FontSystem>, TextError> {
     font_system
         .0

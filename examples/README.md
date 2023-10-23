@@ -453,7 +453,6 @@ Example | Description
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
 [Rounded Borders](../examples/ui/rounded_borders.rs) | Demonstrates how to create a node with a rounded border
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
-[System Fonts](../examples/ui/system_fonts.rs) | Demonstrates using system fonts.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping

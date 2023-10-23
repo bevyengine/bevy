@@ -1,3 +1,4 @@
+use cosmic_text::CacheKey;
 use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -8,4 +9,6 @@ pub enum TextError {
     FailedToAddGlyph(u16),
     #[error("font system mutex could not be acquired or is poisoned")]
     FailedToAcquireMutex,
+    #[error("failed to get scaled glyph image for cache key: {0:?}")]
+    FailedToGetGlyphImage(CacheKey),
 }

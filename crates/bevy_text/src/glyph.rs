@@ -3,7 +3,8 @@
 use bevy_asset::Handle;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
+use bevy_render::texture::Image;
+use bevy_sprite::TextureAtlasLayout;
 
 /// A glyph of a font, typically representing a single character, positioned in screen space.
 ///
@@ -20,11 +21,28 @@ pub struct PositionedGlyph {
     pub atlas_info: GlyphAtlasInfo,
     /// The index of the glyph in the [`Text`](crate::Text)'s sections.
     pub section_index: usize,
-    /// In order to do text editing, we need access to the size of glyphs and their index in the associated String.
+    /// TODO: In order to do text editing, we need access to the size of glyphs and their index in the associated String.
     /// For example, to figure out where to place the cursor in an input box from the mouse's position.
-    /// Without this, it's only possible in texts where each glyph is one byte.
-    // TODO: re-implement this or equivalent
-    pub byte_index: usize,
+    /// Without this, it's only possible in texts where each glyph is one byte. Cosmic text has methods for this
+    /// cosmic-texts [hit detection](https://pop-os.github.io/cosmic-text/cosmic_text/struct.Buffer.html#method.hit)
+    byte_index: usize,
+}
+
+impl PositionedGlyph {
+    pub fn new(
+        position: Vec2,
+        size: Vec2,
+        atlas_info: GlyphAtlasInfo,
+        section_index: usize,
+    ) -> Self {
+        Self {
+            position,
+            size,
+            atlas_info,
+            section_index,
+            byte_index: 0,
+        }
+    }
 }
 
 /// Information about a glyph in an atlas.
@@ -35,6 +53,7 @@ pub struct PositionedGlyph {
 /// Used in [`PositionedGlyph`] and [`FontAtlasSet`](crate::FontAtlasSet).
 #[derive(Debug, Clone, Reflect)]
 pub struct GlyphAtlasInfo {
+    pub texture: Handle<Image>,
     /// A handle to the texture atlas this glyph was placed in.
     pub texture_atlas: Handle<TextureAtlasLayout>,
     /// Location and offset of a glyph.

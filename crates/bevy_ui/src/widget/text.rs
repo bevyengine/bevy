@@ -16,7 +16,7 @@ use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
@@ -71,8 +71,8 @@ impl Measure for TextMeasure {
             .map_or_else(
                 || match available_width {
                     AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min_width_content_size.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max_width_content_size.y),
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
                 |y| Vec2::new(x, y),
             )
@@ -83,7 +83,7 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
-    scale_factor: f32,
+    scale_factor: f64,
     text: Ref<Text>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -93,7 +93,7 @@ fn create_text_measure(
         fonts,
         &text.sections,
         scale_factor,
-        text.alignment,
+        text.justify,
         text.linebreak_behavior,
     ) {
         Ok(measure) => {
@@ -111,7 +111,11 @@ fn create_text_measure(
             // Try again next frame
             text_flags.needs_new_measure_func = true;
         }
-        Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToAcquireMutex
+            | TextError::FailedToGetGlyphImage(_)),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -168,7 +172,7 @@ pub fn measure_text_system(
         {
             create_text_measure(
                 &fonts,
-                scale_factor,
+                scale_factor.into(),
                 text,
                 &mut text_pipeline,
                 content_size,
@@ -187,7 +191,6 @@ fn queue_text(
     font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
-    text_settings: &TextSettings,
     scale_factor: f32,
     inverse_scale_factor: f32,
     text: &Text,
@@ -211,21 +214,24 @@ fn queue_text(
         match text_pipeline.queue_text(
             fonts,
             &text.sections,
-            scale_factor,
+            scale_factor.into(),
             text.justify,
             text.linebreak_behavior,
             physical_node_size,
             font_atlas_sets,
             texture_atlases,
             textures,
-            text_settings,
             YAxisOrientation::TopToBottom,
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, try again next frame
                 text_flags.needs_recompute = true;
             }
-            Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
+            Err(
+                e @ (TextError::FailedToAddGlyph(_)
+                | TextError::FailedToAcquireMutex
+                | TextError::FailedToGetGlyphImage(_)),
+            ) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(mut info) => {
@@ -251,9 +257,13 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
+<<<<<<< HEAD
     camera_query: Query<(Entity, &Camera)>,
     default_ui_camera: DefaultUiCamera,
     text_settings: Res<TextSettings>,
+=======
+    windows: Query<&Window, With<PrimaryWindow>>,
+>>>>>>> 117cdd034 (update cosmic-text to 0.10.0)
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
@@ -268,6 +278,7 @@ pub fn text_system(
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
+<<<<<<< HEAD
     for (node, text, text_layout_info, text_flags, camera) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -285,6 +296,32 @@ pub fn text_system(
             ),
         };
         let inverse_scale_factor = scale_factor.recip();
+=======
+    let scale_factor = ui_scale.0 * window_scale_factor;
+    let inverse_scale_factor = scale_factor.recip();
+    if *last_scale_factor == scale_factor {
+        // Scale factor unchanged, only recompute text for modified text nodes
+        for (node, text, text_layout_info, text_flags) in &mut text_query {
+            if node.is_changed() || text_flags.needs_recompute {
+                queue_text(
+                    &fonts,
+                    &mut text_pipeline,
+                    &mut font_atlas_sets,
+                    &mut texture_atlases,
+                    &mut textures,
+                    scale_factor,
+                    inverse_scale_factor,
+                    text,
+                    node,
+                    text_flags,
+                    text_layout_info,
+                );
+            }
+        }
+    } else {
+        // Scale factor changed, recompute text for all text nodes
+        *last_scale_factor = scale_factor;
+>>>>>>> 117cdd034 (update cosmic-text to 0.10.0)
 
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || node.is_changed()
@@ -296,7 +333,6 @@ pub fn text_system(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                &text_settings,
                 scale_factor,
                 inverse_scale_factor,
                 text,

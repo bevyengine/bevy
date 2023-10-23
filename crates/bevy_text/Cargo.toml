@@ -28,10 +28,11 @@ bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
-anyhow = "1.0.4"
-cosmic-text = "0.8.0"
+cosmic-text = "0.11.0"
 thiserror = "1.0"
 serde = { version = "1", features = ["derive"] }
+unicode-bidi = "0.3.13"
+sys-locale = "0.3.0"
 
 [dev-dependencies]
 approx = "0.5.1"
@@ -42,6 +43,3 @@ workspace = true
 [package.metadata.docs.rs]
 rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
-serde = {version = "1", features = ["derive"]}
-sys-locale = "0.3.0"
-unicode-bidi = "0.3.13"

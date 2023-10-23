@@ -1,4 +1,3 @@
-use crate::{error::TextError, Font, FontAtlas};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
@@ -17,7 +16,7 @@ use bevy_utils::HashMap;
 
 use crate::{error::TextError, Font, FontAtlas, GlyphAtlasInfo};
 
-#[derive(Default, Resource)]
+#[derive(Debug, Default, Resource)]
 pub struct FontAtlasSets {
     // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
     pub(crate) sets: HashMap<AssetId<Font>, FontAtlasSet>,
@@ -46,14 +45,21 @@ pub fn remove_dropped_font_atlas_sets(
     }
 }
 
-type FontSizeKey = u32;
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub struct FontSizeKey(pub u32);
+
+impl From<u32> for FontSizeKey {
+    fn from(val: u32) -> FontSizeKey {
+        Self(val)
+    }
+}
 
 /// Provides the interface for adding and retrieving rasterized glyphs, and manages the [`FontAtlas`]es.
 ///
-/// A `FontAtlasSet` is an [`Asset`](bevy_asset::Asset).
+/// A `FontAtlasSet` is an [`Asset`].
 ///
 /// There is one `FontAtlasSet` for each font:
-/// - When a [`Font`](crate::Font) is loaded as an asset and then used in [`Text`](crate::Text),
+/// - When a [`Font`] is loaded as an asset and then used in [`Text`](crate::Text),
 ///   a `FontAtlasSet` asset is created from a weak handle to the `Font`.
 /// - When a font is loaded as a system font, and then used in [`Text`](crate::Text),
 ///   a `FontAtlasSet` asset is created and stored with a strong handle to the `FontAtlasSet`.
@@ -61,7 +67,7 @@ type FontSizeKey = u32;
 /// A `FontAtlasSet` contains one or more [`FontAtlas`]es for each font size.
 ///
 /// It is used by [`TextPipeline::queue_text`](crate::TextPipeline::queue_text).
-#[derive(TypePath, Asset)]
+#[derive(Debug, TypePath, Asset)]
 pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
 }
@@ -79,9 +85,9 @@ impl FontAtlasSet {
         self.font_atlases.iter()
     }
 
-    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: f32) -> bool {
+    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontSizeKey) -> bool {
         self.font_atlases
-            .get(&font_size.to_bits())
+            .get(font_size)
             .map_or(false, |font_atlas| {
                 font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key))
             })
@@ -95,9 +101,11 @@ impl FontAtlasSet {
         swash_cache: &mut cosmic_text::SwashCache,
         layout_glyph: &cosmic_text::LayoutGlyph,
     ) -> Result<GlyphAtlasInfo, TextError> {
+        let physical_glyph = layout_glyph.physical((0., 0.), 1.0);
+
         let font_atlases = self
             .font_atlases
-            .entry(layout_glyph.cache_key.font_size_bits)
+            .entry(physical_glyph.cache_key.font_size_bits.into())
             .or_insert_with(|| {
                 vec![FontAtlas::new(
                     textures,
@@ -107,17 +115,20 @@ impl FontAtlasSet {
             });
 
         let (glyph_texture, offset) =
-            Self::get_outlined_glyph_texture(font_system, swash_cache, layout_glyph);
-        let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
+            Self::get_outlined_glyph_texture(font_system, swash_cache, &physical_glyph)?;
+        let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
             atlas.add_glyph(
                 textures,
                 texture_atlases,
-                layout_glyph.cache_key,
+                physical_glyph.cache_key,
                 &glyph_texture,
                 offset,
             )
         };
-        if !font_atlases.iter_mut().any(add_char_to_font_atlas) {
+        if !font_atlases
+            .iter_mut()
+            .any(|atlas| add_char_to_font_atlas(atlas).is_ok())
+        {
             // Find the largest dimension of the glyph, either its width or its height
             let glyph_max_size: u32 = glyph_texture
                 .texture_descriptor
@@ -131,18 +142,17 @@ impl FontAtlasSet {
                 texture_atlases,
                 UVec2::splat(containing),
             ));
-            if !font_atlases.last_mut().unwrap().add_glyph(
+
+            font_atlases.last_mut().unwrap().add_glyph(
                 textures,
                 texture_atlases,
-                layout_glyph.cache_key,
+                physical_glyph.cache_key,
                 &glyph_texture,
                 offset,
-            ) {
-                return Err(TextError::FailedToAddGlyph(layout_glyph.cache_key.glyph_id));
-            }
+            )?
         }
 
-        Ok(self.get_glyph_atlas_info(layout_glyph.cache_key).unwrap())
+        Ok(self.get_glyph_atlas_info(physical_glyph.cache_key).unwrap())
     }
 
     pub fn get_glyph_atlas_info(
@@ -150,18 +160,23 @@ impl FontAtlasSet {
         cache_key: cosmic_text::CacheKey,
     ) -> Option<GlyphAtlasInfo> {
         self.font_atlases
-            .get(&cache_key.font_size_bits)
+            .get(&FontSizeKey(cache_key.font_size_bits))
             .and_then(|font_atlases| {
                 font_atlases
                     .iter()
                     .find_map(|atlas| {
-                        atlas
-                            .get_glyph_index(cache_key)
-                            .map(|location| (location, atlas.texture_atlas.clone_weak()))
+                        atlas.get_glyph_index(cache_key).map(|location| {
+                            (
+                                location,
+                                atlas.texture_atlas.clone_weak(),
+                                atlas.texture.clone_weak(),
+                            )
+                        })
                     })
-                    .map(|(location, texture_atlas)| GlyphAtlasInfo {
+                    .map(|(location, texture_atlas, texture)| GlyphAtlasInfo {
                         texture_atlas,
                         location,
+                        texture,
                     })
             })
     }
@@ -170,17 +185,20 @@ impl FontAtlasSet {
     pub fn len(&self) -> usize {
         self.font_atlases.len()
     }
+    /// Returns the number of font atlases in this set
+    pub fn is_empty(&self) -> bool {
+        self.font_atlases.len() == 0
+    }
 
     /// Get the texture of the glyph as a rendered image, and its offset
     pub fn get_outlined_glyph_texture(
         font_system: &mut cosmic_text::FontSystem,
         swash_cache: &mut cosmic_text::SwashCache,
-        layout_glyph: &cosmic_text::LayoutGlyph,
-    ) -> (Image, IVec2) {
+        physical_glyph: &cosmic_text::PhysicalGlyph,
+    ) -> Result<(Image, IVec2), TextError> {
         let image = swash_cache
-            .get_image_uncached(font_system, layout_glyph.cache_key)
-            // TODO: don't unwrap
-            .unwrap();
+            .get_image_uncached(font_system, physical_glyph.cache_key)
+            .ok_or(TextError::FailedToGetGlyphImage(physical_glyph.cache_key))?;
 
         let cosmic_text::Placement {
             left,
@@ -202,7 +220,7 @@ impl FontAtlasSet {
             }
         };
 
-        (
+        Ok((
             Image::new(
                 Extent3d {
                     width,
@@ -215,6 +233,6 @@ impl FontAtlasSet {
                 RenderAssetUsages::MAIN_WORLD,
             ),
             IVec2::new(left, top),
-        )
+        ))
     }
 }

@@ -2724,16 +2724,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "system_fonts"
-path = "examples/ui/system_fonts.rs"
-
-[package.metadata.example.system_fonts]
-name = "System Fonts"
-description = "Demonstrates using system fonts."
-category = "UI (User Interface)"
-wasm = false
-
-[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 doc-scrape-examples = true

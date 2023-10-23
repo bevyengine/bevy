@@ -1,5 +1,5 @@
 use crate::Font;
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext, LoadedAsset};
+use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use thiserror::Error;
 
 #[derive(Default)]
@@ -22,12 +22,12 @@ impl AssetLoader for FontLoader {
         &'a self,
         reader: &'a mut Reader<'_>,
         _settings: &'a (),
-        load_context: &'a mut LoadContext,
+        _load_context: &'a mut LoadContext<'a>,
     ) -> bevy_utils::BoxedFuture<'a, Result<Font, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let font = Font::from_bytes(bytes.into());
+            let font = Font::from_bytes(bytes);
             // load_context.set_default_asset(LoadedAsset::new(font));
             Ok(font)
         })

@@ -1,6 +1,6 @@
 use bevy_asset::{Asset, AssetId, Assets, Handle};
 use bevy_ecs::component::Component;
-use bevy_math::{URect, UVec2};
+use bevy_math::{Rect, URect, UVec2};
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_utils::HashMap;

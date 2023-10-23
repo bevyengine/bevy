@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 TextBundle::from_section(
                                     "Text Example",
                                     TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 30.0,
                                         ..default()
                                     },
@@ -131,7 +131,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBundle::from_section(
                             "Scrolling list",
                             TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 25.,
                                 ..default()
                             },

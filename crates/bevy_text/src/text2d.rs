@@ -1,6 +1,6 @@
 use crate::{
     BreakLineOn, Font, FontAtlasSets, PositionedGlyph, Text, TextError, TextLayoutInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+    TextPipeline, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -175,7 +175,6 @@ pub fn update_text2d_layout(
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    text_settings: Res<TextSettings>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
@@ -207,14 +206,13 @@ pub fn update_text2d_layout(
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,
-                scale_factor,
+                scale_factor.into(),
                 text.justify,
                 text.linebreak_behavior,
                 text_bounds,
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                text_settings.as_ref(),
                 YAxisOrientation::BottomToTop,
             ) {
                 Err(TextError::NoSuchFont) => {
@@ -222,7 +220,11 @@ pub fn update_text2d_layout(
                     // queue for further processing
                     queue.insert(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToAcquireMutex
+                    | TextError::FailedToGetGlyphImage(_)),
+                ) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {

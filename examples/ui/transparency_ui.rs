@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn(TextBundle::from_section(
                         "Button 1",
                         TextStyle {
-                            font: font_handle.clone().into(),
+                            font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
                             color: Color::srgba(1.0, 1.0, 1.0, 0.2),
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn(TextBundle::from_section(
                         "Button 2",
                         TextStyle {
-                            font: font_handle.clone().into(),
+                            font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
                             color: Color::srgba(1.0, 1.0, 1.0, 0.2),

@@ -80,7 +80,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBundle::from_section(
                 "This\ntext has\nline breaks and also a set width in the bottom left.",
                 TextStyle {
-                    font: font.clone().into(),
+                    font: font.clone(),
                     font_size: 30.0,
                     ..default()
                 },
