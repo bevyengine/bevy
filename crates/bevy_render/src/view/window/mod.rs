@@ -1,5 +1,7 @@
 use crate::{
-    render_resource::{PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView},
+    render_resource::{
+        BindGroupEntries, PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -413,14 +415,11 @@ pub fn prepare_windows(
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("screenshot-to-screen-bind-group"),
-                layout: &screenshot_pipeline.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                }],
-            });
+            let bind_group = render_device.create_bind_group(
+                "screenshot-to-screen-bind-group",
+                &screenshot_pipeline.bind_group_layout,
+                &BindGroupEntries::single(&texture_view),
+            );
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,

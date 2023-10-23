@@ -1,6 +1,5 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, EmptyPathStream, PathStream,
-    Reader, VecReader,
+    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
 use bevy_log::error;
 use bevy_utils::BoxedFuture;

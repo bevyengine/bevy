@@ -170,30 +170,16 @@ impl ViewNode for BloomNode {
 
         // First downsample pass
         {
-            let downsampling_first_bind_group =
-                render_context
-                    .render_device()
-                    .create_bind_group(&BindGroupDescriptor {
-                        label: Some("bloom_downsampling_first_bind_group"),
-                        layout: &downsampling_pipeline_res.bind_group_layout,
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                // Read from main texture directly
-                                resource: BindingResource::TextureView(
-                                    view_target.main_texture_view(),
-                                ),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::Sampler(&bind_groups.sampler),
-                            },
-                            BindGroupEntry {
-                                binding: 2,
-                                resource: uniforms.clone(),
-                            },
-                        ],
-                    });
+            let downsampling_first_bind_group = render_context.render_device().create_bind_group(
+                "bloom_downsampling_first_bind_group",
+                &downsampling_pipeline_res.bind_group_layout,
+                &BindGroupEntries::sequential((
+                    // Read from main texture directly
+                    view_target.main_texture_view(),
+                    &bind_groups.sampler,
+                    uniforms.clone(),
+                )),
+            );
 
             let view = &bloom_texture.view(0);
             let mut downsampling_first_pass =
@@ -416,46 +402,28 @@ fn prepare_bloom_bind_groups(
 
         let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in 1..bloom_texture.mip_count {
-            downsampling_bind_groups.push(render_device.create_bind_group(&BindGroupDescriptor {
-                label: Some("bloom_downsampling_bind_group"),
-                layout: &downsampling_pipeline.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&bloom_texture.view(mip - 1)),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: uniforms.binding().unwrap(),
-                    },
-                ],
-            }));
+            downsampling_bind_groups.push(render_device.create_bind_group(
+                "bloom_downsampling_bind_group",
+                &downsampling_pipeline.bind_group_layout,
+                &BindGroupEntries::sequential((
+                    &bloom_texture.view(mip - 1),
+                    sampler,
+                    uniforms.binding().unwrap(),
+                )),
+            ));
         }
 
         let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in (0..bloom_texture.mip_count).rev() {
-            upsampling_bind_groups.push(render_device.create_bind_group(&BindGroupDescriptor {
-                label: Some("bloom_upsampling_bind_group"),
-                layout: &upsampling_pipeline.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&bloom_texture.view(mip)),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: uniforms.binding().unwrap(),
-                    },
-                ],
-            }));
+            upsampling_bind_groups.push(render_device.create_bind_group(
+                "bloom_upsampling_bind_group",
+                &upsampling_pipeline.bind_group_layout,
+                &BindGroupEntries::sequential((
+                    &bloom_texture.view(mip),
+                    sampler,
+                    uniforms.binding().unwrap(),
+                )),
+            ));
         }
 
         commands.entity(entity).insert(BloomBindGroups {
