@@ -32,8 +32,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
-        TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -60,7 +59,7 @@ use crate::render::{
     MeshLayouts,
 };
 
-use super::{mesh_bindings::MeshLayoutKey, skin::SkinIndices};
+use super::skin::SkinIndices;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -597,7 +596,6 @@ impl MeshPipelineKey {
 fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
-
 pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
@@ -606,25 +604,30 @@ pub fn setup_morph_and_skinning_defs(
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
-    let mut mesh_layout_key = MeshLayoutKey::empty();
-
-    if is_skinned(layout) {
-        mesh_layout_key.insert(MeshLayoutKey::SKINNED);
+    let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
+    };
+    let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
+    let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
+    match (is_skinned(layout), is_morphed, is_lightmapped) {
+        (true, false, _) => {
+            add_skin_data();
+            mesh_layouts.skinned.clone()
+        }
+        (true, true, _) => {
+            add_skin_data();
+            shader_defs.push("MORPH_TARGETS".into());
+            mesh_layouts.morphed_skinned.clone()
+        }
+        (false, true, _) => {
+            shader_defs.push("MORPH_TARGETS".into());
+            mesh_layouts.morphed.clone()
+        }
+        (false, false, true) => mesh_layouts.lightmapped.clone(),
+        (false, false, false) => mesh_layouts.model_only.clone(),
     }
-
-    if key.intersects(MeshPipelineKey::MORPH_TARGETS) {
-        mesh_layout_key.insert(MeshLayoutKey::MORPHED);
-        shader_defs.push("MORPH_TARGETS".into());
-    }
-
-    if key.intersects(MeshPipelineKey::LIGHTMAPPED) {
-        mesh_layout_key.insert(MeshLayoutKey::LIGHTMAPPED);
-    }
-
-    (*mesh_layouts.get_layout(mesh_layout_key)).clone()
 }
 
 impl SpecializedMeshPipeline for MeshPipeline {
@@ -896,31 +899,30 @@ impl SpecializedMeshPipeline for MeshPipeline {
 /// Bind groups for meshes currently loaded.
 #[derive(Resource, Default)]
 pub struct MeshBindGroups {
-    // Bind groups that can be shared among all meshes with the same
-    // [MeshLayoutKey].
-    generic_bind_groups: HashMap<MeshLayoutKey, BindGroup>,
-    // Bind groups that are associated with a specific mesh.
-    mesh_specific_bind_groups: HashMap<(AssetId<Mesh>, MeshLayoutKey), BindGroup>,
+    model_only: Option<BindGroup>,
+    skinned: Option<BindGroup>,
+    morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
+    lightmaps: HashMap<AssetId<Mesh>, BindGroup>,
 }
-
 impl MeshBindGroups {
-    /// Clears out all mesh bind groups.
     pub fn reset(&mut self) {
-        self.generic_bind_groups.clear();
-        self.mesh_specific_bind_groups.clear();
+        self.model_only = None;
+        self.skinned = None;
+        self.morph_targets.clear();
     }
-
-    /// Gets the `BindGroup` for the `GpuMesh` with the given `handle_id`.
-    pub(crate) fn get(
+    /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
+    pub fn get(
         &self,
         asset_id: AssetId<Mesh>,
-        mesh_layout_key: MeshLayoutKey,
+        is_skinned: bool,
+        morph: bool,
+        is_lightmapped: bool,
     ) -> Option<&BindGroup> {
-        if mesh_layout_key.bind_group_is_mesh_specific() {
-            self.mesh_specific_bind_groups
-                .get(&(asset_id, mesh_layout_key))
-        } else {
-            self.generic_bind_groups.get(&mesh_layout_key)
+        match (is_skinned, morph, is_lightmapped) {
+            (_, true, _) => self.morph_targets.get(&asset_id),
+            (true, false, _) => self.skinned.as_ref(),
+            (false, false, true) => self.lightmaps.get(&asset_id),
+            (false, false, false) => self.model_only.as_ref(),
         }
     }
 }
@@ -929,7 +931,6 @@ pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
-    fallback: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
     skins_uniform: Res<SkinUniform>,
@@ -942,80 +943,37 @@ pub fn prepare_mesh_bind_group(
     let Some(model) = mesh_uniforms.binding() else {
         return;
     };
+    groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     let skin = skins_uniform.buffer.buffer();
-    let weights = weights_uniform.buffer.buffer();
-    let lightmaps = lightmaps_uniform.buffer.buffer();
+    if let Some(skin) = skin {
+        groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
+    }
 
-    // Create all combinations of bind groups that might apply to this mesh. We
-    // have several optimizations to avoid generating bind groups we don't need.
-    // First, we use a *key mask*, which specifies the set of bind groups that
-    // might possibly be needed by any mesh in the scene. If, for example, no
-    // meshes have skins, then we don't need to generate any skinned bind
-    // groups.
-    let mut key_mask = MeshLayoutKey::empty();
-    key_mask.set(MeshLayoutKey::SKINNED, skin.is_some());
-    key_mask.set(MeshLayoutKey::MORPHED, weights.is_some());
-    key_mask.set(MeshLayoutKey::LIGHTMAPPED, lightmaps.is_some());
-
-    // Now loop over every valid combination of bits.
-    for key_bits in 0..=MeshLayoutKey::all().bits() {
-        // Skip mesh layouts that aren't in the key mask.
-        let key = MeshLayoutKey::from_bits_truncate(key_bits);
-        if !key_mask.contains(key) {
-            continue;
+    if let Some(weights) = weights_uniform.buffer.buffer() {
+        for (id, gpu_mesh) in meshes.iter() {
+            if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
+                let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
+                    layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
+                } else {
+                    layouts.morphed(&render_device, &model, weights, targets)
+                };
+                groups.morph_targets.insert(id, group);
+            }
         }
+    }
 
-        // If the bind group is generic, generate it here. We don't need to
-        // iterate through meshes.
-        if !key.bind_group_is_mesh_specific() {
-            groups.generic_bind_groups.insert(
-                key,
-                layouts.create_generic_bind_group(&render_device, &model, skin, key),
-            );
-            continue;
-        }
-
-        // For mesh-specific layout keys, loop over every mesh and generate the
-        // bind groups. Again, we have a set of optimizations to avoid
-        // generating bind groups that don't apply to each mesh.
-        for (mesh_id, mesh) in meshes.iter() {
-            // Skip layouts that don't apply to this mesh.
-            if key.contains(MeshLayoutKey::MORPHED) && mesh.morph_targets.is_none() {
-                continue;
-            }
-            if key.contains(MeshLayoutKey::SKINNED) && !is_skinned(&mesh.layout) {
-                continue;
-            }
-            if key.contains(MeshLayoutKey::LIGHTMAPPED)
-                && !mesh.layout.contains(Mesh::ATTRIBUTE_UV_1)
-            {
-                continue;
-            }
-
-            let morph = match (weights, &mesh.morph_targets) {
-                (Some(weights), &Some(ref targets)) => Some((weights, targets)),
-                _ => None,
-            };
-
-            let lightmap_image = render_lightmaps
+    if let Some(lightmaps) = lightmaps_uniform.buffer.buffer() {
+        for (mesh_id, _) in meshes.iter() {
+            if let Some(lightmap_image) = render_lightmaps
                 .get(&mesh_id)
-                .map(|lightmap| &lightmap.image);
-
-            // Create the bind group.
-            groups.mesh_specific_bind_groups.insert(
-                (mesh_id, key),
-                layouts.create_mesh_specific_bind_group(
-                    &render_device,
-                    &fallback,
-                    &model,
-                    skin,
-                    morph,
-                    lightmap_image,
-                    lightmaps,
-                    key,
-                ),
-            );
+                .map(|lightmap| &lightmap.image)
+            {
+                groups.lightmaps.insert(
+                    mesh_id,
+                    layouts.lightmapped(&render_device, &model, lightmap_image, lightmaps),
+                );
+            }
         }
     }
 }
@@ -1085,16 +1043,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let Some(mesh) = mesh_instances.get(entity) else {
             return RenderCommandResult::Success;
         };
-
         let skin_index = skin_indices.get(entity);
         let morph_index = morph_indices.get(entity);
 
-        let mut mesh_layout_key = MeshLayoutKey::empty();
-        mesh_layout_key.set(MeshLayoutKey::SKINNED, skin_index.is_some());
-        mesh_layout_key.set(MeshLayoutKey::MORPHED, morph_index.is_some());
-        mesh_layout_key.set(MeshLayoutKey::LIGHTMAPPED, lightmap.is_some());
+        let is_skinned = skin_index.is_some();
+        let is_morphed = morph_index.is_some();
+        let is_lightmapped = lightmap.is_some();
 
-        let Some(bind_group) = bind_groups.get(mesh.mesh_asset_id, mesh_layout_key) else {
+        let Some(bind_group) =
+            bind_groups.get(mesh.mesh_asset_id, is_skinned, is_morphed, is_lightmapped)
+        else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the queue_mesh_bind_group system.\n\
