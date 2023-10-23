@@ -371,7 +371,7 @@ pub fn winit_runner(mut app: App) {
                         #[cfg(not(target_arch = "wasm32"))]
                         let (
                             commands,
-                            mut windows,
+                            mut created_windows_query,
                             event_writer,
                             winit_windows,
                             adapters,
@@ -382,7 +382,7 @@ pub fn winit_runner(mut app: App) {
                         #[cfg(target_arch = "wasm32")]
                         let (
                             commands,
-                            mut windows,
+                            mut created_windows_query,
                             event_writer,
                             winit_windows,
                             adapters,
@@ -394,7 +394,7 @@ pub fn winit_runner(mut app: App) {
                         create_windows(
                             event_loop,
                             commands,
-                            windows.iter_mut(),
+                            created_windows_query.iter_mut(),
                             event_writer,
                             winit_windows,
                             adapters,
@@ -761,7 +761,7 @@ pub fn winit_runner(mut app: App) {
                     #[cfg(not(target_arch = "wasm32"))]
                     let (
                         commands,
-                        mut windows,
+                        mut created_windows_query,
                         event_writer,
                         winit_windows,
                         adapters,
@@ -772,7 +772,7 @@ pub fn winit_runner(mut app: App) {
                     #[cfg(target_arch = "wasm32")]
                     let (
                         commands,
-                        mut windows,
+                        mut created_windows_query,
                         event_writer,
                         winit_windows,
                         adapters,
@@ -784,7 +784,7 @@ pub fn winit_runner(mut app: App) {
                     create_windows(
                         event_loop,
                         commands,
-                        windows.iter_mut(),
+                        created_windows_query.iter_mut(),
                         event_writer,
                         winit_windows,
                         adapters,
