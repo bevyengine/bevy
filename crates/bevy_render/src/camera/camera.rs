@@ -21,7 +21,7 @@ use bevy_ecs::{
 use bevy_log::warn;
 use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{AnyGlobalTransform, GlobalTransform, GlobalTransform2d};
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
@@ -300,7 +300,7 @@ impl Camera {
     /// May panic. See [`ndc_to_world`](Camera::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
-        camera_transform: &GlobalTransform,
+        camera_transform: &GlobalTransform2d,
         mut viewport_position: Vec2,
     ) -> Option<Vec2> {
         let target_size = self.logical_viewport_size()?;
@@ -308,7 +308,8 @@ impl Camera {
         viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
-        let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
+        let world_near_plane =
+            self.ndc_to_world(&GlobalTransform::from(*camera_transform), ndc.extend(1.))?;
 
         Some(world_near_plane.truncate())
     }
@@ -639,7 +640,7 @@ pub fn extract_cameras(
             Entity,
             &Camera,
             &CameraRenderGraph,
-            &GlobalTransform,
+            AnyGlobalTransform,
             &VisibleEntities,
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
@@ -699,7 +700,7 @@ pub fn extract_cameras(
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),
-                    transform: *transform,
+                    transform: transform.get(),
                     view_projection: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(

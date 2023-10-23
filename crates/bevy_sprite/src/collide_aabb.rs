@@ -1,6 +1,6 @@
 //! Utilities for detecting if and on which side two axis-aligned bounding boxes (AABB) collide.
 
-use bevy_math::{Vec2, Vec3};
+use bevy_math::Vec2;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Collision {
@@ -14,19 +14,19 @@ pub enum Collision {
 // TODO: ideally we can remove this once bevy gets a physics system
 /// Axis-aligned bounding box collision with "side" detection
 /// * `a_pos` and `b_pos` are the center positions of the rectangles, typically obtained by
-/// extracting the `translation` field from a [`Transform`](bevy_transform::components::Transform) component
+/// extracting the `translation` field from a [`Transform2d`](bevy_transform::components::Transform2d) component
 /// * `a_size` and `b_size` are the dimensions (width and height) of the rectangles.
 ///
 /// The return value is the side of `B` that `A` has collided with. [`Collision::Left`] means that
 /// `A` collided with `B`'s left side. [`Collision::Top`] means that `A` collided with `B`'s top side.
 /// If the collision occurs on multiple sides, the side with the shallowest penetration is returned.
 /// If all sides are involved, [`Collision::Inside`] is returned.
-pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<Collision> {
-    let a_min = a_pos.truncate() - a_size / 2.0;
-    let a_max = a_pos.truncate() + a_size / 2.0;
+pub fn collide(a_pos: Vec2, a_size: Vec2, b_pos: Vec2, b_size: Vec2) -> Option<Collision> {
+    let a_min = a_pos - a_size / 2.0;
+    let a_max = a_pos + a_size / 2.0;
 
-    let b_min = b_pos.truncate() - b_size / 2.0;
-    let b_max = b_pos.truncate() + b_size / 2.0;
+    let b_min = b_pos - b_size / 2.0;
+    let b_max = b_pos + b_size / 2.0;
 
     // check to see if the two rectangles are intersecting
     if a_min.x < b_max.x && a_max.x > b_min.x && a_min.y < b_max.y && a_max.y > b_min.y {
@@ -71,9 +71,9 @@ mod test {
         b: (f32, f32, f32, f32),
     ) -> Option<Collision> {
         collide(
-            Vec3::new(a.0, a.1, 0.),
+            Vec2::new(a.0, a.1),
             Vec2::new(a.2, a.3),
-            Vec3::new(b.0, b.1, 0.),
+            Vec2::new(b.0, b.1),
             Vec2::new(b.2, b.3),
         )
     }

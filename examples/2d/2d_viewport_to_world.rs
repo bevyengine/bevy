@@ -11,7 +11,7 @@ fn main() {
 }
 
 fn draw_cursor(
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform2d)>,
     windows: Query<&Window>,
     mut gizmos: Gizmos,
 ) {

@@ -52,7 +52,7 @@ fn setup(
         mesh: meshes.add(shape::Circle::new(100.).into()).into(),
         // 4. Put something bright in a dark environment to see the effect
         material: materials.add(ColorMaterial::from(Color::rgb(7.5, 0.0, 7.5))),
-        transform: Transform::from_translation(Vec3::new(-200., 0., 0.)),
+        transform: Transform2d::from_translation(Vec2::new(-200., 0.)),
         ..default()
     });
 
@@ -63,7 +63,7 @@ fn setup(
             .into(),
         // 4. Put something bright in a dark environment to see the effect
         material: materials.add(ColorMaterial::from(Color::rgb(6.25, 9.4, 9.1))),
-        transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
+        transform: Transform2d::from_translation(Vec2::new(200., 0.)),
         ..default()
     });
 

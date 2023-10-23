@@ -32,7 +32,7 @@ use bevy_render::{
     },
     Extract,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::GlobalTransform2d;
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
@@ -313,7 +313,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 }
 
 pub struct ExtractedSprite {
-    pub transform: GlobalTransform,
+    pub transform: GlobalTransform2d,
     pub color: Color,
     /// Select an area of the texture
     pub rect: Option<Rect>,
@@ -360,7 +360,7 @@ pub fn extract_sprites(
             Entity,
             &ViewVisibility,
             &Sprite,
-            &GlobalTransform,
+            &GlobalTransform2d,
             &Handle<Image>,
         )>,
     >,
@@ -369,7 +369,7 @@ pub fn extract_sprites(
             Entity,
             &ViewVisibility,
             &TextureAtlasSprite,
-            &GlobalTransform,
+            &GlobalTransform2d,
             &Handle<TextureAtlas>,
         )>,
     >,
@@ -708,7 +708,14 @@ pub fn prepare_sprites(
                 if let Some(custom_size) = extracted_sprite.custom_size {
                     quad_size = custom_size;
                 }
-                let transform = extracted_sprite.transform.affine()
+                // let transform = extracted_sprite.transform.affine()
+                //     * Affine2::from_scale_angle_translation(
+                //         quad_size,
+                //         0.,
+                //         quad_size * (-extracted_sprite.anchor - Vec2::splat(0.5)),
+                //     );
+
+                let transform = Affine3A::from_mat4(extracted_sprite.transform.compute_matrix())
                     * Affine3A::from_scale_rotation_translation(
                         quad_size.extend(1.0),
                         Quat::IDENTITY,

@@ -61,7 +61,7 @@ fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
         commands.spawn(Text2dBundle {
             text: Text::from_section(event.0.to_string(), text_style.clone())
                 .with_alignment(TextAlignment::Center),
-            transform: Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
+            transform: Transform2d::from_xy(per_frame as f32 * 100.0, 300.0),
             ..default()
         });
     }

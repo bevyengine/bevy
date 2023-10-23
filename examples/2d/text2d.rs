@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 custom_size: Some(Vec2::new(box_size.x, box_size.y)),
                 ..default()
             },
-            transform: Transform::from_translation(box_position.extend(0.0)),
+            transform: Transform2d::from_translation(box_position),
             ..default()
         })
         .with_children(|builder| {
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     size: box_size,
                 },
                 // ensure the text is drawn on top of the box
-                transform: Transform::from_translation(Vec3::Z),
+                transform: Transform2d::from_translation_3d(Vec3::Z),
                 ..default()
             });
         });
@@ -113,7 +113,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 custom_size: Some(Vec2::new(other_box_size.x, other_box_size.y)),
                 ..default()
             },
-            transform: Transform::from_translation(other_box_position.extend(0.0)),
+            transform: Transform2d::from_translation(other_box_position),
             ..default()
         })
         .with_children(|builder| {
@@ -131,7 +131,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     size: other_box_size,
                 },
                 // ensure the text is drawn on top of the box
-                transform: Transform::from_translation(Vec3::Z),
+                transform: Transform2d::from_translation_3d(Vec3::Z),
                 ..default()
             });
         });
@@ -153,7 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 )],
                 ..Default::default()
             },
-            transform: Transform::from_translation(250. * Vec3::Y),
+            transform: Transform2d::from_translation(250. * Vec2::Y),
             text_anchor,
             ..default()
         });
@@ -162,7 +162,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn animate_translation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
+    mut query: Query<&mut Transform2d, (With<Text>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
         transform.translation.x = 100.0 * time.elapsed_seconds().sin() - 400.0;
@@ -172,24 +172,21 @@ fn animate_translation(
 
 fn animate_rotation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
+    mut query: Query<&mut Transform2d, (With<Text>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(time.elapsed_seconds().cos());
+        transform.rotation = time.elapsed_seconds().cos();
     }
 }
 
 fn animate_scale(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateScale>)>,
+    mut query: Query<&mut Transform2d, (With<Text>, With<AnimateScale>)>,
 ) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.
     for mut transform in &mut query {
-        transform.translation = Vec3::new(400.0, 0.0, 0.0);
-
-        let scale = (time.elapsed_seconds().sin() + 1.1) * 2.0;
-        transform.scale.x = scale;
-        transform.scale.y = scale;
+        transform.translation = Vec2::new(400.0, 0.0);
+        transform.scale = Vec2::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
     }
 }

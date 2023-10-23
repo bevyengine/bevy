@@ -8,13 +8,13 @@ use bevy_render::{
     texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::{GlobalTransform2d, Transform2d};
 
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    pub transform: Transform2d,
+    pub global_transform: GlobalTransform2d,
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
@@ -33,8 +33,8 @@ pub struct SpriteSheetBundle {
     /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,
     /// Data pertaining to how the sprite is drawn on the screen
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
+    pub transform: Transform2d,
+    pub global_transform: GlobalTransform2d,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     pub inherited_visibility: InheritedVisibility,

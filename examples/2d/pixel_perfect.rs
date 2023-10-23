@@ -26,14 +26,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SpriteBundle {
             texture: asset_server.load("pixel/bevy_pixel_light.png"),
-            transform: Transform::from_xyz(100., 0., 0.),
+            transform: Transform2d::from_xy(100., 0.),
             ..default()
         },
         Direction::Right,
     ));
 }
 
-fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
+fn sprite_movement(
+    time: Res<Time>,
+    mut sprite_position: Query<(&mut Direction, &mut Transform2d)>,
+) {
     for (mut logo, mut transform) in &mut sprite_position {
         match *logo {
             Direction::Right => transform.translation.x += 30. * time.delta_seconds(),

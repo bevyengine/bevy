@@ -1,9 +1,11 @@
-use super::GlobalTransform;
+use std::ops::Mul;
+
+use super::{GlobalTransform, Transform2d};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::prelude::*;
-use bevy_reflect::Reflect;
-use std::ops::Mul;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -36,7 +38,11 @@ use std::ops::Mul;
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 /// [`Transform`]: super::Transform
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
@@ -67,9 +73,7 @@ impl Transform {
         scale: Vec3::ONE,
     };
 
-    /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
-    /// is used for z-ordering elements: higher `z`-value will be in front of lower
-    /// `z`-value.
+    /// Creates a new [`Transform`] at the position `(x, y, z)`.
     #[inline]
     pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Self::from_translation(Vec3::new(x, y, z))
@@ -409,6 +413,16 @@ impl Default for Transform {
 impl From<GlobalTransform> for Transform {
     fn from(transform: GlobalTransform) -> Self {
         transform.compute_transform()
+    }
+}
+
+impl From<Transform2d> for Transform {
+    fn from(transform: Transform2d) -> Self {
+        Transform {
+            translation: transform.translation.extend(transform.z_translation),
+            rotation: Quat::from_rotation_z(transform.rotation),
+            scale: transform.scale.extend(1.),
+        }
     }
 }
 

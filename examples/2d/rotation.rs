@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SpriteBundle {
             texture: enemy_a_handle.clone(),
-            transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
+            transform: Transform2d::from_xy(-horizontal_margin, 0.0),
             ..default()
         },
         SnapToPlayer,
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SpriteBundle {
             texture: enemy_a_handle,
-            transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
+            transform: Transform2d::from_xy(0.0, -vertical_margin),
             ..default()
         },
         SnapToPlayer,
@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SpriteBundle {
             texture: enemy_b_handle.clone(),
-            transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
+            transform: Transform2d::from_xy(horizontal_margin, 0.0),
             ..default()
         },
         RotateToPlayer {
@@ -105,7 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SpriteBundle {
             texture: enemy_b_handle,
-            transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
+            transform: Transform2d::from_xy(0.0, vertical_margin),
             ..default()
         },
         RotateToPlayer {
@@ -118,7 +118,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn player_movement_system(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Player, &mut Transform)>,
+    mut query: Query<(&Player, &mut Transform2d)>,
 ) {
     let (ship, mut transform) = query.single_mut();
 
@@ -137,14 +137,12 @@ fn player_movement_system(
         movement_factor += 1.0;
     }
 
-    // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    transform.rotate_z(rotation_factor * ship.rotation_speed * time.delta_seconds());
+    // update the ship rotation
+    transform.rotation += rotation_factor * ship.rotation_speed * time.delta_seconds();
 
-    // get the ship's forward vector by applying the current rotation to the ships initial facing
-    // vector
-    let movement_direction = transform.rotation * Vec3::Y;
-    // get the distance the ship will move based on direction, the ship's movement speed and delta
-    // time
+    // get the ship's forward vector by applying the current rotation to the ships initial facing vector
+    let movement_direction = transform.up();
+    // get the distance the ship will move based on direction, the ship's movement speed and delta time
     let movement_distance = movement_factor * ship.movement_speed * time.delta_seconds();
     // create the change in translation using the new movement direction and distance
     let translation_delta = movement_direction * movement_distance;
@@ -152,29 +150,23 @@ fn player_movement_system(
     transform.translation += translation_delta;
 
     // bound the ship within the invisible level bounds
-    let extents = Vec3::from((BOUNDS / 2.0, 0.0));
-    transform.translation = transform.translation.min(extents).max(-extents);
+    let extents = BOUNDS / 2.;
+    transform.translation = transform.translation.clamp(-extents, extents);
 }
 
 /// Demonstrates snapping the enemy ship to face the player ship immediately.
 fn snap_to_player_system(
-    mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
-    player_query: Query<&Transform, With<Player>>,
+    mut query: Query<&mut Transform2d, (With<SnapToPlayer>, Without<Player>)>,
+    player_query: Query<&Transform2d, With<Player>>,
 ) {
     let player_transform = player_query.single();
-    // get the player translation in 2D
-    let player_translation = player_transform.translation.xy();
 
     for mut enemy_transform in &mut query {
         // get the vector from the enemy ship to the player ship in 2D and normalize it.
-        let to_player = (player_translation - enemy_transform.translation.xy()).normalize();
-
-        // get the quaternion to rotate from the initial enemy facing direction to the direction
-        // facing the player
-        let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, to_player.extend(0.));
+        let to_player = (player_transform.translation - enemy_transform.translation).normalize();
 
         // rotate the enemy to face the player
-        enemy_transform.rotation = rotate_to_player;
+        enemy_transform.point_to(Vec2::Y, to_player);
     }
 }
 
@@ -201,19 +193,17 @@ fn snap_to_player_system(
 /// `acos`.
 fn rotate_to_player_system(
     time: Res<Time>,
-    mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
-    player_query: Query<&Transform, With<Player>>,
+    mut query: Query<(&RotateToPlayer, &mut Transform2d), Without<Player>>,
+    player_query: Query<&Transform2d, With<Player>>,
 ) {
     let player_transform = player_query.single();
-    // get the player translation in 2D
-    let player_translation = player_transform.translation.xy();
 
     for (config, mut enemy_transform) in &mut query {
         // get the enemy ship forward vector in 2D (already unit length)
-        let enemy_forward = (enemy_transform.rotation * Vec3::Y).xy();
+        let enemy_forward = enemy_transform.up();
 
         // get the vector from the enemy ship to the player ship in 2D and normalize it.
-        let to_player = (player_translation - enemy_transform.translation.xy()).normalize();
+        let to_player = (player_transform.translation - enemy_transform.translation).normalize();
 
         // get the dot product between the enemy forward vector and the direction to the player.
         let forward_dot_player = enemy_forward.dot(to_player);
@@ -225,7 +215,7 @@ fn rotate_to_player_system(
         }
 
         // get the right vector of the enemy ship in 2D (already unit length)
-        let enemy_right = (enemy_transform.rotation * Vec3::X).xy();
+        let enemy_right = enemy_transform.right();
 
         // get the dot product of the enemy right vector and the direction to the player ship.
         // if the dot product is negative them we need to rotate counter clockwise, if it is
@@ -249,6 +239,6 @@ fn rotate_to_player_system(
             rotation_sign * (config.rotation_speed * time.delta_seconds()).min(max_angle);
 
         // rotate the enemy to face the player
-        enemy_transform.rotate_z(rotation_angle);
+        enemy_transform.rotation += rotation_angle;
     }
 }

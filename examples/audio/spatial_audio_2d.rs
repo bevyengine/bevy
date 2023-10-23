@@ -36,7 +36,7 @@ fn setup(
         MaterialMesh2dBundle {
             mesh: meshes.add(shape::Circle::new(15.0).into()).into(),
             material: materials.add(ColorMaterial::from(Color::BLUE)),
-            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+            transform: Transform2d::from_translation(Vec2::new(0.0, 50.0)),
             ..default()
         },
         Emitter::default(),
@@ -57,7 +57,7 @@ fn setup(
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
+                transform: Transform2d::from_xy(-gap / 2.0, 0.0),
                 ..default()
             });
 
@@ -68,7 +68,7 @@ fn setup(
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
+                transform: Transform2d::from_xy(gap / 2.0, 0.0),
                 ..default()
             });
         });
