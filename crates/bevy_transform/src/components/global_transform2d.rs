@@ -1,14 +1,13 @@
 use std::ops::Mul;
 
+use super::Transform2d;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Affine2, Mat4, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use crate::components::Transform2d;
-
-/// Describe the position of an entity relative to the reference frame.
+/// Describe the 2D position of an entity relative to the reference frame.
 ///
 /// * To place or move an entity, you should set its [`Transform2d`].
 /// * [`GlobalTransform2d`] is fully managed by bevy, you cannot mutate it, use

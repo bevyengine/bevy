@@ -3,7 +3,7 @@ use bevy_transform::prelude::{GlobalTransform, GlobalTransform2d, Transform, Tra
 
 use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 
-/// A [`Bundle`] that allows the correct positional rendering of an entity.
+/// A [`Bundle`] that allows the correct positional rendering of an entity in 3D.
 ///
 /// It consists of transform components,
 /// controlling position, rotation and scale of the entity,
@@ -64,16 +64,18 @@ impl From<Transform> for SpatialBundle {
     }
 }
 
-/// A [`Bundle`] with the following [`Component`](bevy_ecs::component::Component)s:
-/// * [`Visibility`] and [`ComputedVisibility`], which describe the visibility of an entity
-/// * [`Transform2d`] and [`GlobalTransform2d`], which describe the position of an entity
+/// A [`Bundle`] that allows the correct positional rendering of an entity in 2D.
 ///
-/// * To show or hide an entity, you should set its [`Visibility`].
-/// * To get the computed visibility of an entity, you should get its [`ComputedVisibility`].
-/// * To place or move an entity, you should set its [`Transform2d`].
-/// * To get the global transform of an entity, you should get its [`GlobalTransform2d`].
-/// * For hierarchies to work correctly, you must have all four components.
-///   * You may use the [`Spatial2dBundle`] to guarantee this.
+/// It consists of transform components,
+/// controlling position, rotation and scale of the entity,
+/// but also visibility components,
+/// which determine whether the entity is visible or not.
+///
+/// Parent-child hierarchies of entities must contain
+/// all the [`Component`]s in this `Bundle`
+/// to be rendered correctly.
+///
+/// [`Component`]: bevy_ecs::component::Component
 #[derive(Bundle, Debug, Default)]
 pub struct Spatial2dBundle {
     /// The visibility of the entity.

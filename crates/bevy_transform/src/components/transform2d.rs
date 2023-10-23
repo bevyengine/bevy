@@ -6,7 +6,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// Describe the position of an entity. If the entity has a parent, the position is relative
+use crate::prelude::GlobalTransform2d;
+
+/// Describe the position of an entity in 2D. If the entity has a parent, the position is relative
 /// to its parent position.
 ///
 /// * To place or move an entity, you should set its [`Transform2d`].

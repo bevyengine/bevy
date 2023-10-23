@@ -9,7 +9,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// Describe the position of an entity relative to the reference frame.
+/// Describe the 3D position of an entity relative to the reference frame.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * [`GlobalTransform`] is fully managed by bevy, you cannot mutate it, use

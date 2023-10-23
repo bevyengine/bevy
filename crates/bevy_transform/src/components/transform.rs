@@ -7,7 +7,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// Describe the position of an entity. If the entity has a parent, the position is relative
+/// Describe the position of an entity in 3D. If the entity has a parent, the position is relative
 /// to its parent position.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
