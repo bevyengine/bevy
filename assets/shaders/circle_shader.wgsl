@@ -1,6 +1,4 @@
 // This shader draws a circle with a given input color
-//#import bevy_ui::ui_vertex_output UiVertexOutput
-
 #import bevy_ui::ui_vertex_output::UiVertexOutput
 
 struct CustomUiMaterial {
