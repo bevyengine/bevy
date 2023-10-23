@@ -1,11 +1,11 @@
 use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
-use bit_set::BitSet;
+use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
+use crate::serialization::SerializationDataDef;
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
@@ -65,7 +65,7 @@ pub(crate) struct ReflectMeta<'a> {
 /// ```
 pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
-    serialization_denylist: BitSet<u32>,
+    serialization_data: Option<SerializationDataDef>,
     fields: Vec<StructField<'a>>,
 }
 
@@ -95,7 +95,14 @@ pub(crate) struct StructField<'a> {
     /// The reflection-based attributes on the field.
     pub attrs: ReflectFieldAttr,
     /// The index of this field within the struct.
-    pub index: usize,
+    pub declaration_index: usize,
+    /// The index of this field as seen by the reflection API.
+    ///
+    /// This index accounts for the removal of [ignored] fields.
+    /// It will only be `Some(index)` when the field is not ignored.
+    ///
+    /// [ignored]: crate::field_attributes::ReflectIgnoreBehavior::IgnoreAlways
+    pub reflection_index: Option<usize>,
     /// The documentation for this field, if any
     #[cfg(feature = "documentation")]
     pub doc: crate::documentation::Documentation,
@@ -272,9 +279,7 @@ impl<'a> ReflectDerive<'a> {
                 let fields = Self::collect_struct_fields(&data.fields)?;
                 let reflect_struct = ReflectStruct {
                     meta,
-                    serialization_denylist: members_to_serialization_denylist(
-                        fields.iter().map(|v| v.attrs.ignore),
-                    ),
+                    serialization_data: SerializationDataDef::new(&fields)?,
                     fields,
                 };
 
@@ -308,19 +313,31 @@ impl<'a> ReflectDerive<'a> {
     }
 
     fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
+        let mut active_index = 0;
         let sifter: utility::ResultSifter<StructField<'a>> = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| -> Result<StructField, syn::Error> {
-                let attrs = parse_field_attrs(&field.attrs)?;
-                Ok(StructField {
-                    index,
-                    attrs,
-                    data: field,
-                    #[cfg(feature = "documentation")]
-                    doc: crate::documentation::Documentation::from_attributes(&field.attrs),
-                })
-            })
+            .map(
+                |(declaration_index, field)| -> Result<StructField, syn::Error> {
+                    let attrs = parse_field_attrs(&field.attrs)?;
+
+                    let reflection_index = if attrs.ignore.is_ignored() {
+                        None
+                    } else {
+                        active_index += 1;
+                        Some(active_index - 1)
+                    };
+
+                    Ok(StructField {
+                        declaration_index,
+                        reflection_index,
+                        attrs,
+                        data: field,
+                        #[cfg(feature = "documentation")]
+                        doc: crate::documentation::Documentation::from_attributes(&field.attrs),
+                    })
+                },
+            )
             .fold(
                 utility::ResultSifter::default(),
                 utility::ResultSifter::fold,
@@ -420,12 +437,9 @@ impl<'a> ReflectStruct<'a> {
         &self.meta
     }
 
-    /// Access the data about which fields should be ignored during serialization.
-    ///
-    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`] function.
-    #[allow(dead_code)]
-    pub fn serialization_denylist(&self) -> &BitSet<u32> {
-        &self.serialization_denylist
+    /// Returns the [`SerializationDataDef`] for this struct.
+    pub fn serialization_data(&self) -> Option<&SerializationDataDef> {
+        self.serialization_data.as_ref()
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
@@ -438,7 +452,7 @@ impl<'a> ReflectStruct<'a> {
         crate::registration::impl_get_type_registration(
             self.meta(),
             where_clause_options,
-            Some(&self.serialization_denylist),
+            self.serialization_data(),
         )
     }
 

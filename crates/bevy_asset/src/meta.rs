@@ -225,15 +225,14 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
     })
 }
 
-pub type AssetHash = [u8; 16];
+pub type AssetHash = [u8; 32];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
 pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
-    let mut context = md5::Context::new();
-    context.consume(meta_bytes);
-    context.consume(asset_bytes);
-    let digest = context.compute();
-    digest.0
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(meta_bytes);
+    hasher.update(asset_bytes);
+    *hasher.finalize().as_bytes()
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
@@ -241,11 +240,10 @@ pub(crate) fn get_full_asset_hash(
     asset_hash: AssetHash,
     dependency_hashes: impl Iterator<Item = AssetHash>,
 ) -> AssetHash {
-    let mut context = md5::Context::new();
-    context.consume(asset_hash);
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&asset_hash);
     for hash in dependency_hashes {
-        context.consume(hash);
+        hasher.update(&hash);
     }
-    let digest = context.compute();
-    digest.0
+    *hasher.finalize().as_bytes()
 }

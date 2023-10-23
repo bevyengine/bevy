@@ -15,9 +15,9 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, SamplerBindingType,
-        ShaderStages, ShaderType, TextureFormat, TextureSampleType, TextureViewDimension,
+        BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+        BufferBindingType, DynamicBindGroupEntries, SamplerBindingType, ShaderStages, ShaderType,
+        TextureFormat, TextureSampleType, TextureViewDimension,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, Image},
@@ -383,8 +383,8 @@ pub fn prepare_mesh_view_bind_groups(
     ) {
         for (
             entity,
-            view_shadow_bindings,
-            view_cluster_bindings,
+            shadow_bindings,
+            cluster_bindings,
             ssao_textures,
             prepass_textures,
             environment_map,
@@ -395,108 +395,58 @@ pub fn prepare_mesh_view_bind_groups(
                 .image_for_samplecount(1, TextureFormat::bevy_default())
                 .texture_view
                 .clone();
+            let ssao_view = ssao_textures
+                .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
+                .unwrap_or(&fallback_ssao);
 
             let layout = &mesh_pipeline.get_view_layout(
                 MeshPipelineViewLayoutKey::from(*msaa)
                     | MeshPipelineViewLayoutKey::from(prepass_textures),
             );
 
-            let mut entries = vec![
-                BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: light_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(
-                        &view_shadow_bindings.point_light_depth_texture_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: BindingResource::TextureView(
-                        &view_shadow_bindings.directional_light_depth_texture_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
-                },
-                BindGroupEntry {
-                    binding: 6,
-                    resource: point_light_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 7,
-                    resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
-                },
-                BindGroupEntry {
-                    binding: 8,
-                    resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
-                },
-                BindGroupEntry {
-                    binding: 9,
-                    resource: globals.clone(),
-                },
-                BindGroupEntry {
-                    binding: 10,
-                    resource: fog_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 11,
-                    resource: BindingResource::TextureView(
-                        ssao_textures
-                            .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
-                            .unwrap_or(&fallback_ssao),
-                    ),
-                },
-            ];
+            let mut entries = DynamicBindGroupEntries::new_with_indices((
+                (0, view_binding.clone()),
+                (1, light_binding.clone()),
+                (2, &shadow_bindings.point_light_depth_texture_view),
+                (3, &shadow_samplers.point_light_sampler),
+                (4, &shadow_bindings.directional_light_depth_texture_view),
+                (5, &shadow_samplers.directional_light_sampler),
+                (6, point_light_binding.clone()),
+                (7, cluster_bindings.light_index_lists_binding().unwrap()),
+                (8, cluster_bindings.offsets_and_counts_binding().unwrap()),
+                (9, globals.clone()),
+                (10, fog_binding.clone()),
+                (11, ssao_view),
+            ));
 
-            let env_map = environment_map::get_bindings(
-                environment_map,
-                &images,
-                &fallback_cubemap,
-                [12, 13, 14],
-            );
-            entries.extend_from_slice(&env_map);
+            let env_map_bindings =
+                environment_map::get_bindings(environment_map, &images, &fallback_cubemap);
+            entries = entries.extend_with_indices((
+                (12, env_map_bindings.0),
+                (13, env_map_bindings.1),
+                (14, env_map_bindings.2),
+            ));
 
-            let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
-            entries.extend_from_slice(&tonemapping_luts);
-
-            let label = Some("mesh_view_bind_group");
+            let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
+            entries = entries.extend_with_indices(((15, lut_bindings.0), (16, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling
-            let prepass_bindings = if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
+            let prepass_bindings;
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
             {
-                Some(prepass::get_bindings(prepass_textures))
-            } else {
-                None
-            };
-
-            // This if statement is here to make the borrow checker happy.
-            // Ideally we could just have `entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));`
-            // in the existing if statement above, but that either doesn't allow `prepass_bindings` to live long enough,
-            // as its used when creating the bind group at the end of the function, or causes a `cannot move out of` error.
-            if let Some(prepass_bindings) = &prepass_bindings {
-                entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
+                prepass_bindings = prepass::get_bindings(prepass_textures);
+                for (binding, index) in prepass_bindings
+                    .iter()
+                    .map(Option::as_ref)
+                    .zip([17, 18, 19, 20])
+                    .flat_map(|(b, i)| b.map(|b| (b, i)))
+                {
+                    entries = entries.extend_with_indices(((index, binding),));
+                }
             }
 
             commands.entity(entity).insert(MeshViewBindGroup {
-                value: render_device.create_bind_group(&BindGroupDescriptor {
-                    entries: &entries,
-                    label,
-                    layout,
-                }),
+                value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
             });
         }
     }

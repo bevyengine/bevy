@@ -191,16 +191,11 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
-        let bind_group_1 = render_context
-            .render_device()
-            .create_bind_group(&BindGroupDescriptor {
-                label: Some("deferred_lighting_layout_group_1"),
-                layout: &deferred_lighting_layout.bind_group_layout_1,
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: deferred_lighting_pass_id_binding.clone(),
-                }],
-            });
+        let bind_group_1 = render_context.render_device().create_bind_group(
+            "deferred_lighting_layout_group_1",
+            &deferred_lighting_layout.bind_group_layout_1,
+            &BindGroupEntries::single(deferred_lighting_pass_id_binding),
+        );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("deferred_lighting_pass"),

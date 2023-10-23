@@ -14,7 +14,7 @@ use crate::{
 use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
-use bevy_math::Vec2;
+use bevy_math::{UVec2, Vec2};
 use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -255,16 +255,28 @@ impl Image {
     }
 
     /// Returns the aspect ratio (height/width) of a 2D image.
-    pub fn aspect_2d(&self) -> f32 {
-        self.texture_descriptor.size.height as f32 / self.texture_descriptor.size.width as f32
+    pub fn aspect_ratio(&self) -> f32 {
+        self.height() as f32 / self.width() as f32
+    }
+
+    /// Returns the width of a 2D image.
+    pub fn width(&self) -> u32 {
+        self.texture_descriptor.size.width
+    }
+
+    /// Returns the height of a 2D image.
+    pub fn height(&self) -> u32 {
+        self.texture_descriptor.size.height
+    }
+
+    /// Returns the size of a 2D image as f32.
+    pub fn size_f32(&self) -> Vec2 {
+        Vec2::new(self.width() as f32, self.height() as f32)
     }
 
     /// Returns the size of a 2D image.
-    pub fn size(&self) -> Vec2 {
-        Vec2::new(
-            self.texture_descriptor.size.width as f32,
-            self.texture_descriptor.size.height as f32,
-        )
+    pub fn size(&self) -> UVec2 {
+        UVec2::new(self.width(), self.height())
     }
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
@@ -438,6 +450,9 @@ pub enum TextureError {
     TranscodeError(String),
     #[error("format requires transcoding: {0:?}")]
     FormatRequiresTranscodingError(TranscodeFormat),
+    /// Only cubemaps with six faces are supported.
+    #[error("only cubemaps with six faces are supported")]
+    IncompleteCubemap,
 }
 
 /// The type of a raw image buffer.
@@ -633,12 +648,12 @@ mod test {
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),
-            image.size()
+            image.size_f32()
         );
     }
     #[test]
     fn image_default_size() {
         let image = Image::default();
-        assert_eq!(Vec2::ONE, image.size());
+        assert_eq!(Vec2::ONE, image.size_f32());
     }
 }

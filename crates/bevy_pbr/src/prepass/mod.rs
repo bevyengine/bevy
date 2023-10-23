@@ -35,7 +35,7 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, BufferBindingType, ColorTargetState, ColorWrites,
         CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer, FragmentState,
         FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PushConstantRange,
@@ -713,42 +713,22 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        prepass_view_bind_group.no_motion_vectors =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: globals_binding.clone(),
-                    },
-                ],
-                label: Some("prepass_view_no_motion_vectors_bind_group"),
-                layout: &prepass_pipeline.view_layout_no_motion_vectors,
-            }));
+        prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
+            "prepass_view_no_motion_vectors_bind_group",
+            &prepass_pipeline.view_layout_no_motion_vectors,
+            &BindGroupEntries::sequential((view_binding.clone(), globals_binding.clone())),
+        ));
 
         if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
-            prepass_view_bind_group.motion_vectors =
-                Some(render_device.create_bind_group(&BindGroupDescriptor {
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: view_binding,
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: globals_binding,
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: previous_view_proj_binding,
-                        },
-                    ],
-                    label: Some("prepass_view_motion_vectors_bind_group"),
-                    layout: &prepass_pipeline.view_layout_motion_vectors,
-                }));
+            prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
+                "prepass_view_motion_vectors_bind_group",
+                &prepass_pipeline.view_layout_motion_vectors,
+                &BindGroupEntries::sequential((
+                    view_binding,
+                    globals_binding,
+                    previous_view_proj_binding,
+                )),
+            ));
         }
     }
 }
