@@ -8,8 +8,8 @@ struct Vertex {
 #ifdef VERTEX_NORMALS
     @location(1) normal: vec3<f32>,
 #endif
-#ifdef VERTEX_UVS
-    @location(2) uv: vec2<f32>,
+#ifdef VERTEX_UVS_A
+    @location(2) uv_a: vec2<f32>,
 #endif
 // (Alternate UVs are at location 3, but they're currently unused here.)
 #ifdef VERTEX_TANGENTS
@@ -33,8 +33,8 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
-#ifdef VERTEX_UVS
-    @location(2) uv: vec2<f32>,
+#ifdef VERTEX_UVS_A
+    @location(2) uv_a: vec2<f32>,
 #endif
 #ifdef VERTEX_TANGENTS
     @location(3) world_tangent: vec4<f32>,

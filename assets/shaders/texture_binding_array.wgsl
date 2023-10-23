@@ -10,8 +10,8 @@ fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
     // Select the texture to sample from using non-uniform uv coordinates
-    let coords = clamp(vec2<u32>(mesh.uv * 4.0), vec2<u32>(0u), vec2<u32>(3u));
+    let coords = clamp(vec2<u32>(mesh.uv_a * 4.0), vec2<u32>(0u), vec2<u32>(3u));
     let index = coords.y * 4u + coords.x;
-    let inner_uv = fract(mesh.uv * 4.0);
+    let inner_uv = fract(mesh.uv_a * 4.0);
     return textureSample(textures[index], nearest_sampler, inner_uv);
 }

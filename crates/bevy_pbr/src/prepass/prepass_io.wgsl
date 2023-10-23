@@ -6,8 +6,8 @@ struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
 
-#ifdef VERTEX_UVS
-    @location(1) uv: vec2<f32>,
+#ifdef VERTEX_UVS_A
+    @location(1) uv_a: vec2<f32>,
 #endif
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
@@ -36,8 +36,8 @@ struct VertexOutput {
     // and `frag coord` when used as a fragment stage input
     @builtin(position) position: vec4<f32>,
 
-#ifdef VERTEX_UVS
-    @location(0) uv: vec2<f32>,
+#ifdef VERTEX_UVS_A
+    @location(0) uv_a: vec2<f32>,
 #endif
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
