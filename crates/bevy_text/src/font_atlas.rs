@@ -8,7 +8,7 @@ use bevy_render::{
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlasLayout};
 use bevy_utils::HashMap;
 
-use crate::GlyphAtlasLocation;
+use crate::{GlyphAtlasLocation, TextError};
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
@@ -46,7 +46,7 @@ impl FontAtlas {
         Self {
             texture_atlas,
             glyph_to_atlas_index: HashMap::default(),
-            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 0),
+            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 1),
             texture,
         }
     }
@@ -66,7 +66,7 @@ impl FontAtlas {
         cache_key: cosmic_text::CacheKey,
         texture: &Image,
         offset: IVec2,
-    ) -> bool {
+    ) -> Result<(), TextError> {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
 
         if let Some(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
@@ -82,9 +82,19 @@ impl FontAtlas {
                     offset,
                 },
             );
-            true
+            Ok(())
         } else {
-            false
+            Err(TextError::FailedToAddGlyph(cache_key.glyph_id))
         }
+    }
+}
+
+impl std::fmt::Debug for FontAtlas {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FontAtlas")
+            .field("glyph_to_atlas_index", &self.glyph_to_atlas_index)
+            .field("texture_atlas", &self.texture_atlas)
+            .field("dynamic_texture_atlas_builder", &"[...]")
+            .finish()
     }
 }

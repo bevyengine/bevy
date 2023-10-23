@@ -67,8 +67,8 @@ impl Measure for TextMeasure {
             .map_or_else(
                 || match available_width {
                     AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min_width_content_size.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max_width_content_size.y),
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
                 |y| Vec2::new(x, y),
             )
@@ -94,9 +94,7 @@ fn create_text_measure(
     ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure {
-                    size: measure.max_width_content_size,
-                });
+                content_size.set(FixedMeasure { size: measure.max });
             } else {
                 content_size.set(TextMeasure { info: measure });
             }
@@ -109,7 +107,11 @@ fn create_text_measure(
             // Try again next frame
             text_flags.needs_new_measure_func = true;
         }
-        Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToAcquireMutex
+            | TextError::FailedToGetGlyphImage(_)),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -217,7 +219,11 @@ fn queue_text(
                 // There was an error processing the text layout, try again next frame
                 text_flags.needs_recompute = true;
             }
-            Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
+            Err(
+                e @ (TextError::FailedToAddGlyph(_)
+                | TextError::FailedToAcquireMutex
+                | TextError::FailedToGetGlyphImage(_)),
+            ) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(mut info) => {

@@ -194,7 +194,7 @@ pub fn update_text2d_layout(
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,
-                scale_factor,
+                scale_factor.into(),
                 text.justify,
                 text.linebreak_behavior,
                 text_bounds,
@@ -209,7 +209,11 @@ pub fn update_text2d_layout(
                     // queue for further processing
                     queue.insert(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_) | e @ TextError::FailedToAcquireMutex) => {
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToAcquireMutex
+                    | TextError::FailedToGetGlyphImage(_)),
+                ) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {

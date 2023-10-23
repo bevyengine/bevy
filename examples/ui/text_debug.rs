@@ -29,6 +29,7 @@ struct TextChanges;
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.spawn(Camera2dBundle::default());
+<<<<<<< HEAD
     let root_uinode = commands
         .spawn(NodeBundle {
             style: Style {
@@ -38,6 +39,38 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                 ..default()
             },
+=======
+    commands.spawn(
+        TextBundle::from_section(
+            "This is\ntext with\nline breaks\nin the top left",
+            TextStyle {
+                font: font.clone(),
+                font_size: 50.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.0),
+            left: Val::Px(15.0),
+            ..default()
+        }),
+    );
+    commands.spawn(TextBundle::from_section(
+            "This text is very long, has a limited width, is centered, is positioned in the top right and is also colored pink.",
+            TextStyle {
+                font: font.clone(),
+                font_size: 50.0,
+                color: Color::rgb(0.8, 0.2, 0.7),
+            },
+        )
+        .with_text_alignment(TextAlignment::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.0),
+            right: Val::Px(15.0),
+            max_width: Val::Px(400.),
+>>>>>>> ae7541ea4 (update cosmic-text to 0.10.0)
             ..default()
         })
         .id();
@@ -80,7 +113,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBundle::from_section(
                 "This\ntext has\nline breaks and also a set width in the bottom left.",
                 TextStyle {
-                    font: font.clone().into(),
+                    font: font.clone(),
                     font_size: 30.0,
                     color: Color::WHITE,
                 },
@@ -108,6 +141,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink.",
                 TextStyle {
                     font: font.clone(),
+<<<<<<< HEAD
                     font_size: 40.0,
                     color: Color::rgb(0.8, 0.2, 0.7),
                 },
@@ -188,6 +222,65 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .entity(root_uinode)
         .push_children(&[left_column, right_column]);
+=======
+                    font_size: 30.0,
+                    color: Color::RED,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: font.clone(),
+                font_size: 30.0,
+                color: Color::ORANGE_RED,
+            }),
+            TextSection::new(
+                " fps, ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::YELLOW,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: font.clone(),
+                font_size: 30.0,
+                color: Color::GREEN,
+            }),
+            TextSection::new(
+                " ms/frame",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::BLUE,
+                },
+            ),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(15.0),
+            ..default()
+        }),
+        TextChanges,
+    ));
+    commands.spawn(
+        TextBundle::from_section(
+            "This\ntext has\nline breaks and also a set width in the bottom left",
+            TextStyle {
+                font,
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
+            align_self: AlignSelf::FlexEnd,
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            left: Val::Px(15.0),
+            width: Val::Px(200.0),
+            ..default()
+        }),
+    );
+>>>>>>> ae7541ea4 (update cosmic-text to 0.10.0)
 }
 
 fn change_text_system(
