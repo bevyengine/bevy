@@ -173,12 +173,17 @@ impl<'a> MeshBindGroupBuilder<'a> {
 
 /// The [`BindGroup`]s for individual existing mesh shader variants.
 ///
-/// Morph targets allow several different bind groups, because individual mesh
-/// may have a different [`TextureView`] that represents the morph target's pose
-/// vertex attribute values.
+/// To add bind groups to it, you would first create a `MeshBindGroupBuilder`
+/// using `MeshBindGroups::bind_group_builder`. Then, call `add_variant` for
+/// each `BindGroup` that will be needed for rendering.
 ///
-/// Non-morph target bind groups are optional. We don't know at compile time
-/// whether motion vectors or skinned meshes will be used.
+/// `MeshBindGroups` has two `HashMap`, one `shared` that contains bind groups that
+/// can be shared between different entities with the same set of `ActiveVariant`.
+///
+/// The other `HashMap` is `distinct`, which contain bind groups that are unique per-mesh.
+/// This is currently only relevant for meshes with morph targets. (Morph targets have
+/// a texture binding, therefore need to bind to a different individual texture for each
+/// individual mesh).
 #[derive(Default, Resource)]
 pub struct MeshBindGroups {
     shared: HashMap<ActiveVariant, BindGroup>,
