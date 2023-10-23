@@ -254,27 +254,32 @@ impl Image {
         value
     }
 
-    /// Returns the aspect ratio (height/width) of a 2D image.
-    pub fn aspect_ratio(&self) -> f32 {
-        self.height() as f32 / self.width() as f32
-    }
-
     /// Returns the width of a 2D image.
+    #[inline]
     pub fn width(&self) -> u32 {
         self.texture_descriptor.size.width
     }
 
     /// Returns the height of a 2D image.
+    #[inline]
     pub fn height(&self) -> u32 {
         self.texture_descriptor.size.height
     }
 
+    /// Returns the aspect ratio (height/width) of a 2D image.
+    #[inline]
+    pub fn aspect_ratio(&self) -> f32 {
+        self.height() as f32 / self.width() as f32
+    }
+
     /// Returns the size of a 2D image as f32.
+    #[inline]
     pub fn size_f32(&self) -> Vec2 {
         Vec2::new(self.width() as f32, self.height() as f32)
     }
 
     /// Returns the size of a 2D image.
+    #[inline]
     pub fn size(&self) -> UVec2 {
         UVec2::new(self.width(), self.height())
     }
@@ -316,11 +321,11 @@ impl Image {
         // Must be a stacked image, and the height must be divisible by layers.
         assert!(self.texture_descriptor.dimension == TextureDimension::D2);
         assert!(self.texture_descriptor.size.depth_or_array_layers == 1);
-        assert_eq!(self.texture_descriptor.size.height % layers, 0);
+        assert_eq!(self.height() % layers, 0);
 
         self.reinterpret_size(Extent3d {
-            width: self.texture_descriptor.size.width,
-            height: self.texture_descriptor.size.height / layers,
+            width: self.width(),
+            height: self.height() / layers,
             depth_or_array_layers: layers,
         });
     }
