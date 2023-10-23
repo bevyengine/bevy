@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::meshlet_bindings
 
-#import bevy_pbr::mesh_types Mesh
-#import bevy_render::view View
+#import bevy_pbr::mesh_types::Mesh
+#import bevy_render::view::View
 
 struct PackedVertex {
     a: vec4<f32>,

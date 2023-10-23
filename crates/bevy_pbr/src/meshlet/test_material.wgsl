@@ -1,7 +1,7 @@
-#import bevy_pbr::meshlet_bindings meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_vertex
+#import bevy_pbr::meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_vertex}
 #import bevy_pbr::mesh_functions as mesh_functions
-#import bevy_pbr::mesh_types MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
-#import bevy_render::maths affine_to_square, mat2x4_f32_to_mat3x3_unpack
+#import bevy_pbr::mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
+#import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 fn rand_f(state: ptr<function, u32>) -> f32 {
     *state = *state * 747796405u + 2891336453u;

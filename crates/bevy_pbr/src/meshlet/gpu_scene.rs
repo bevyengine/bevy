@@ -142,71 +142,38 @@ pub fn prepare_meshlet_per_frame_bind_groups(
         return;
     };
 
-    let entries = &[
-        BindGroupEntry {
-            binding: 0,
-            resource: gpu_scene.vertex_data.binding(),
-        },
-        BindGroupEntry {
-            binding: 1,
-            resource: gpu_scene.vertex_ids.binding(),
-        },
-        BindGroupEntry {
-            binding: 2,
-            resource: gpu_scene.meshlets.binding(),
-        },
-        BindGroupEntry {
-            binding: 3,
-            resource: gpu_scene.instance_uniforms.binding().unwrap(),
-        },
-        BindGroupEntry {
-            binding: 4,
-            resource: gpu_scene.thread_instance_ids.binding().unwrap(),
-        },
-        BindGroupEntry {
-            binding: 5,
-            resource: gpu_scene.thread_meshlet_ids.binding().unwrap(),
-        },
-        BindGroupEntry {
-            binding: 6,
-            resource: gpu_scene.indices.binding(),
-        },
-        BindGroupEntry {
-            binding: 7,
-            resource: gpu_scene.meshlet_bounding_spheres.binding(),
-        },
-        BindGroupEntry {
-            binding: 8,
-            resource: gpu_scene
-                .draw_command_buffer
-                .as_ref()
-                .unwrap()
-                .as_entire_binding(),
-        },
-        BindGroupEntry {
-            binding: 9,
-            resource: gpu_scene
-                .draw_index_buffer
-                .as_ref()
-                .unwrap()
-                .as_entire_binding(),
-        },
-        BindGroupEntry {
-            binding: 10,
-            resource: view_uniforms,
-        },
-    ];
+    let entries = BindGroupEntries::sequential((
+        gpu_scene.vertex_data.binding(),
+        gpu_scene.vertex_ids.binding(),
+        gpu_scene.meshlets.binding(),
+        gpu_scene.instance_uniforms.binding().unwrap(),
+        gpu_scene.thread_instance_ids.binding().unwrap(),
+        gpu_scene.thread_meshlet_ids.binding().unwrap(),
+        gpu_scene.indices.binding(),
+        gpu_scene.meshlet_bounding_spheres.binding(),
+        gpu_scene
+            .draw_command_buffer
+            .as_ref()
+            .unwrap()
+            .as_entire_binding(),
+        gpu_scene
+            .draw_index_buffer
+            .as_ref()
+            .unwrap()
+            .as_entire_binding(),
+        view_uniforms,
+    ));
 
-    let culling_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-        label: Some("meshlet_culling_bind_group"),
-        layout: &gpu_scene.culling_bind_group_layout,
-        entries: &entries[2..11],
-    });
-    let draw_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-        label: Some("meshlet_draw_bind_group"),
-        layout: &gpu_scene.draw_bind_group_layout,
-        entries: &entries[0..6],
-    });
+    let culling_bind_group = render_device.create_bind_group(
+        "meshlet_culling_bind_group",
+        &gpu_scene.culling_bind_group_layout,
+        &entries[2..11],
+    );
+    let draw_bind_group = render_device.create_bind_group(
+        "meshlet_draw_bind_group",
+        &gpu_scene.draw_bind_group_layout,
+        &entries[0..6],
+    );
 
     gpu_scene.culling_bind_group = Some(culling_bind_group);
     gpu_scene.draw_bind_group = Some(draw_bind_group);

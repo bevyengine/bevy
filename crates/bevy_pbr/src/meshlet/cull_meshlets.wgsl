@@ -1,5 +1,5 @@
-#import bevy_pbr::meshlet_bindings meshlet_thread_meshlet_ids, meshlets, get_meshlet_index, draw_command_buffer, draw_index_buffer, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_bounding_spheres, view
-#import bevy_render::maths affine_to_square
+#import bevy_pbr::meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, get_meshlet_index, draw_command_buffer, draw_index_buffer, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_bounding_spheres, view}
+#import bevy_render::maths::affine_to_square
 
 @compute
 @workgroup_size(128, 1, 1)

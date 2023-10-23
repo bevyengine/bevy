@@ -1,5 +1,5 @@
 use super::gpu_scene::MeshletGpuScene;
-use crate::MeshPipeline;
+use crate::{MeshPipeline, MeshPipelineViewLayoutKey};
 use bevy_asset::Handle;
 use bevy_ecs::{
     system::Resource,
@@ -19,7 +19,9 @@ impl FromWorld for MeshletTestMaterial {
     fn from_world(world: &mut World) -> Self {
         let gpu_scene = world.resource::<MeshletGpuScene>();
         let mesh_pipeline = world.resource::<MeshPipeline>();
-        let view_layout = mesh_pipeline.view_layout_multisampled.clone();
+        let view_layout = mesh_pipeline
+            .get_view_layout(MeshPipelineViewLayoutKey::MULTISAMPLED)
+            .clone();
         let meshlet_layout = gpu_scene.draw_bind_group_layout().clone();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
