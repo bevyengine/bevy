@@ -34,9 +34,9 @@ impl From<RegularPolygon> for Mesh {
 
         debug_assert!(sides > 2, "RegularPolygon requires at least 3 sides.");
 
-        let mut positions = Vec::with_capacity(sides);
-        let mut normals = Vec::with_capacity(sides);
-        let mut uvs = Vec::with_capacity(sides);
+        let mut positions: Vec<[f32; 3]> = Vec::with_capacity(sides);
+        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(sides);
+        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(sides);
 
         let step = std::f32::consts::TAU / sides as f32;
         for i in 0..sides {
