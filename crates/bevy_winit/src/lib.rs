@@ -20,7 +20,7 @@ use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, Last, Plugin};
+use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::{SystemParam, SystemState};
@@ -378,8 +378,6 @@ pub fn winit_runner(mut app: App) {
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
-    let mut finished_and_setup_done = app.ready();
-
     // setup up the event loop
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
@@ -387,14 +385,13 @@ pub fn winit_runner(mut app: App) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
-        if !finished_and_setup_done {
-            if !app.ready() {
+        if app.plugins_state() != PluginsState::Cleaned {
+            if app.plugins_state() != PluginsState::Ready {
                 #[cfg(not(target_arch = "wasm32"))]
                 tick_global_task_pools_on_main_thread();
             } else {
                 app.finish();
                 app.cleanup();
-                finished_and_setup_done = true;
             }
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
@@ -775,7 +772,7 @@ pub fn winit_runner(mut app: App) {
                         }
                     };
 
-                    if finished_and_setup_done && should_update {
+                    if app.plugins_state() == PluginsState::Cleaned && should_update {
                         // reset these on each update
                         runner_state.wait_elapsed = false;
                         runner_state.window_event_received = false;
