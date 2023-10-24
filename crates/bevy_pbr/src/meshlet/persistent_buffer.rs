@@ -85,12 +85,12 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
     }
 }
 
-/// SAFETY: All data must be a multiple of wgpu::COPY_BUFFER_ALIGNMENT bytes.
-/// The size given by size_in_bytes() must match as_bytes_le().
+/// SAFETY: All data must be a multiple of `wgpu::COPY_BUFFER_ALIGNMENT` bytes.
+/// The size given by `size_in_bytes()` must match `as_bytes_le()`.
 pub trait PersistentGpuBufferable {
     type ExtraData;
 
     fn size_in_bytes(&self) -> u64;
 
-    fn as_bytes_le<'a>(&'a self, extra_data: Self::ExtraData) -> Cow<'a, [u8]>;
+    fn as_bytes_le(&self, extra_data: Self::ExtraData) -> Cow<'_, [u8]>;
 }

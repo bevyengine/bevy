@@ -14,7 +14,7 @@ impl MeshletMesh {
         }
         let vertex_buffer_layout = &mesh.get_mesh_vertex_buffer_layout();
         if vertex_buffer_layout.attribute_ids()
-            != &[
+            != [
                 Mesh::ATTRIBUTE_POSITION.id,
                 Mesh::ATTRIBUTE_NORMAL.id,
                 Mesh::ATTRIBUTE_UV_0.id,

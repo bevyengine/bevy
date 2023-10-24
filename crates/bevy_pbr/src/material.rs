@@ -350,7 +350,9 @@ where
 
             let sd = ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1);
             descriptor.vertex.shader_defs.push(sd.clone());
-            descriptor.fragment.as_mut().map(|f| f.shader_defs.push(sd));
+            if let Some(f) = descriptor.fragment.as_mut() {
+                f.shader_defs.push(sd)
+            }
         } else {
             descriptor.layout.insert(1, self.material_layout.clone());
         }

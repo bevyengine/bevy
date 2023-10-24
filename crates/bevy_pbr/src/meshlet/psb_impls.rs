@@ -8,7 +8,7 @@ impl PersistentGpuBufferable for Arc<[u8]> {
         self.len() as u64
     }
 
-    fn as_bytes_le<'a>(&'a self, _: Self::ExtraData) -> Cow<'a, [u8]> {
+    fn as_bytes_le(&self, _: Self::ExtraData) -> Cow<'_, [u8]> {
         Cow::Borrowed(self)
     }
 }
@@ -20,7 +20,7 @@ impl PersistentGpuBufferable for Arc<[u32]> {
         self.len() as u64 * 4
     }
 
-    fn as_bytes_le<'a>(&'a self, offset: Self::ExtraData) -> Cow<'a, [u8]> {
+    fn as_bytes_le(&self, offset: Self::ExtraData) -> Cow<'_, [u8]> {
         let offset = offset as u32 / 48;
 
         self.iter()
@@ -36,7 +36,7 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
         self.len() as u64 * 16
     }
 
-    fn as_bytes_le<'a>(&'a self, (vertex_offset, index_offset): Self::ExtraData) -> Cow<'a, [u8]> {
+    fn as_bytes_le(&self, (vertex_offset, index_offset): Self::ExtraData) -> Cow<'_, [u8]> {
         let vertex_offset = vertex_offset as u32 / 4;
         let index_offset = index_offset as u32;
 
@@ -59,7 +59,7 @@ impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
         self.len() as u64 * 16
     }
 
-    fn as_bytes_le<'a>(&'a self, _: Self::ExtraData) -> Cow<'a, [u8]> {
+    fn as_bytes_le(&self, _: Self::ExtraData) -> Cow<'_, [u8]> {
         Cow::Borrowed(bytemuck::cast_slice(self))
     }
 }
