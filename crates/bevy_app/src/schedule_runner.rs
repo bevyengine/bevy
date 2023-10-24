@@ -1,4 +1,4 @@
-use crate::{app_thread_channel, App, AppEvent, AppExit, Plugin, PluginsState, SubApps};
+use crate::{App, AppEvent, AppExit, Plugin, PluginsState, SubApps};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_utils::{Duration, Instant};
 
@@ -66,14 +66,6 @@ impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
-            // TODO: rework app setup
-            // create channel
-            let (send, recv) = app_thread_channel();
-            // insert channel
-            app.sub_apps.iter_mut().for_each(|sub_app| {
-                app.tls.insert_channel(sub_app.world_mut(), send.clone());
-            });
-
             // wait for plugins to finish setting up
             let plugins_state = app.plugins_state();
             if plugins_state != PluginsState::Cleaned {
@@ -116,7 +108,7 @@ impl Plugin for ScheduleRunnerPlugin {
                     };
 
                     // disassemble
-                    let (mut sub_apps, _, _) = app.into_parts();
+                    let (mut sub_apps, mut tls, send, recv, _) = app.into_parts();
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
@@ -152,6 +144,8 @@ impl Plugin for ScheduleRunnerPlugin {
                                 }
                             }
                         }
+
+                        tls.clear();
                     }
 
                     #[cfg(target_arch = "wasm32")]

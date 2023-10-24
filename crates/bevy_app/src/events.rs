@@ -41,12 +41,21 @@ impl ThreadLocalTaskSender for AppEventSender {
         &mut self,
         task: ThreadLocalTask,
     ) -> Result<(), ThreadLocalTaskSendError<ThreadLocalTask>> {
-        self.send(AppEvent::Task(task)).map_err(|error| {
-            let AppEvent::Task(task) = error.0 else {
-                unreachable!()
-            };
-            ThreadLocalTaskSendError(task)
-        })
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.send(AppEvent::Task(task)).map_err(|error| {
+                let AppEvent::Task(task) = error.0 else {
+                    unreachable!()
+                };
+                ThreadLocalTaskSendError(task)
+            })
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            // wasm builds should always access TLS directly
+            unreachable!("currently, only single-threaded wasm is supported")
+        }
     }
 }
 

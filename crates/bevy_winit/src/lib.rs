@@ -157,18 +157,12 @@ impl Plugin for WinitPlugin {
         // - https://github.com/rust-windowing/winit/blob/master/README.md#ios
         #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         {
-            // TODO: rework app setup
-            #[cfg(not(target_arch = "wasm32"))]
-            let sender = crate::EventLoopProxy::new(event_loop.create_proxy());
-            #[cfg(target_arch = "wasm32")]
-            let sender = crate::NoopSender;
-
-            let world = app.sub_apps.main.world_mut();
-
-            app.tls.insert_channel(world, sender);
+            app.insert_tls_channel();
 
             app.tls
                 .insert_resource(crate::EventLoopWindowTarget::new(&event_loop));
+
+            let world = app.sub_apps.main.world_mut();
 
             // Otherwise, create a window before `bevy_render` initializes
             // the renderer, so that we have a surface to use as a hint.
@@ -181,7 +175,7 @@ impl Plugin for WinitPlugin {
             app.tls
                 .remove_resource::<crate::EventLoopWindowTarget<AppEvent>>();
 
-            app.tls.remove_channel(world);
+            app.remove_tls_channel();
         }
 
         app.insert_non_send_resource(event_loop);
@@ -408,19 +402,6 @@ mod runner {
 
     use winit::{event::StartCause, event_loop::ControlFlow};
 
-    pub(crate) struct NoopSender;
-
-    impl ThreadLocalTaskSender for NoopSender {
-        fn send_task(
-            &mut self,
-            _task: ThreadLocalTask,
-        ) -> Result<(), ThreadLocalTaskSendError<ThreadLocalTask>> {
-            {
-                unreachable!("currently, only single-threaded wasm is supported")
-            }
-        }
-    }
-
     /// The default [`App::runner`] for the [`WinitPlugin`](super::WinitPlugin).
     pub(crate) fn winit_runner(mut app: App) {
         let return_from_run = app.world().resource::<WinitSettings>().return_from_run;
@@ -429,15 +410,6 @@ mod runner {
             .remove_resource::<crate::EventLoop<AppEvent>>()
             .unwrap()
             .into_inner();
-
-        // insert app -> winit channel
-        //
-        // This is done here because it's the only chance to insert the TLS channel resource to the
-        // rendering sub-app before it's moved to another thread.
-        // TODO: rework app setup
-        app.sub_apps.iter_mut().for_each(|sub_app| {
-            app.tls.insert_channel(sub_app.world_mut(), NoopSender);
-        });
 
         let mut runner_state = WinitAppRunnerState::default();
 
@@ -962,15 +934,9 @@ mod runner {
 
     use bevy_a11y::AccessibilityRequested;
     use bevy_app::{App, AppEvent, AppExit, PluginsState, SubApps};
-    use bevy_derive::{Deref, DerefMut};
     #[cfg(target_os = "android")]
     use bevy_ecs::system::SystemParam;
-    use bevy_ecs::{
-        event::ManualEventReader,
-        prelude::*,
-        storage::{ThreadLocalTask, ThreadLocalTaskSendError, ThreadLocalTaskSender},
-        system::SystemState,
-    };
+    use bevy_ecs::{event::ManualEventReader, prelude::*, system::SystemState};
     use bevy_input::{
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         touchpad::{TouchpadMagnify, TouchpadRotate},
@@ -1002,34 +968,6 @@ mod runner {
         ActiveState, UpdateMode, WindowAndInputEventWriters, WinitAppRunnerState, WinitSettings,
         WinitWindowEntityMap, WinitWindows,
     };
-
-    /// [`EventLoopProxy`](winit::event_loop::EventLoopProxy) wrapped in a [`SyncCell`].
-    /// Allows systems to wake the [`winit`] event loop from any thread.
-    #[derive(Resource, Deref, DerefMut)]
-    pub struct EventLoopProxy<T: 'static>(pub SyncCell<winit::event_loop::EventLoopProxy<T>>);
-
-    impl<T> EventLoopProxy<T> {
-        pub(crate) fn new(value: winit::event_loop::EventLoopProxy<T>) -> Self {
-            Self(SyncCell::new(value))
-        }
-    }
-
-    impl ThreadLocalTaskSender for crate::EventLoopProxy<AppEvent> {
-        fn send_task(
-            &mut self,
-            task: ThreadLocalTask,
-        ) -> Result<(), ThreadLocalTaskSendError<ThreadLocalTask>> {
-            self.0
-                .get()
-                .send_event(AppEvent::Task(task))
-                .map_err(|error| {
-                    let AppEvent::Task(task) = error.0 else {
-                        unreachable!()
-                    };
-                    ThreadLocalTaskSendError(task)
-                })
-        }
-    }
 
     /// Sending half of an [`Event`] channel.
     pub struct WinitEventSender<T: Send + 'static> {
@@ -1507,8 +1445,22 @@ mod runner {
 
     pub(crate) fn spawn_app_thread(
         mut sub_apps: SubApps,
+        send: bevy_app::AppEventSender,
+        recv: bevy_app::AppEventReceiver,
         event_loop_proxy: winit::event_loop::EventLoopProxy<AppEvent>,
     ) {
+        std::thread::Builder::new()
+            .name("winit-proxy-listener".to_string())
+            .spawn(move || {
+                while let Ok(event) = recv.recv() {
+                    // got something from the app, forward it to the event loop
+                    if event_loop_proxy.send_event(event).is_err() {
+                        break;
+                    }
+                }
+            })
+            .unwrap();
+
         std::thread::Builder::new()
             .name("app".to_string())
             .spawn(move || {
@@ -1568,10 +1520,7 @@ mod runner {
                             ControlFlow::ExitWithCode(_) => {
                                 trace!("exiting app");
                                 // return sub-apps to the main thread
-                                if event_loop_proxy
-                                    .send_event(AppEvent::Exit(sub_apps))
-                                    .is_err()
-                                {
+                                if send.send(AppEvent::Exit(sub_apps)).is_err() {
                                     trace!("terminating app because event loop disconnected");
                                 }
                                 return;
@@ -1682,7 +1631,7 @@ mod runner {
                 }));
 
                 if let Some(payload) = result.err() {
-                    let _ = event_loop_proxy.send_event(AppEvent::Error(payload));
+                    send.send(AppEvent::Error(payload)).unwrap();
                 }
             })
             .unwrap();
@@ -1696,17 +1645,8 @@ mod runner {
             .remove_resource::<crate::EventLoop<AppEvent>>()
             .unwrap()
             .into_inner();
-        let event_loop_proxy = event_loop.create_proxy();
 
-        // insert app -> winit channel
-        //
-        // This is done here because it's the only chance to insert the TLS channel resource to the
-        // rendering sub-app before it's moved to another thread.
-        // TODO: rework app setup
-        app.sub_apps.iter_mut().for_each(|sub_app| {
-            let app_send = crate::EventLoopProxy::new(event_loop_proxy.clone());
-            app.tls.insert_channel(sub_app.world_mut(), app_send);
-        });
+        let event_loop_proxy = event_loop.create_proxy();
 
         let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
 
@@ -1749,7 +1689,7 @@ mod runner {
 
             if should_start {
                 // split app
-                let (mut sub_apps, tls, _) = mem::take(&mut app).into_parts();
+                let (mut sub_apps, tls, send, recv, _) = mem::take(&mut app).into_parts();
                 locals = Some(tls);
 
                 // insert winit -> app channel
@@ -1757,7 +1697,7 @@ mod runner {
                 sub_apps.main.world_mut().insert_resource(winit_recv);
 
                 // send sub-apps to separate thread
-                spawn_app_thread(sub_apps, event_loop_proxy.clone());
+                spawn_app_thread(sub_apps, send, recv, event_loop_proxy.clone());
             }
 
             match event {

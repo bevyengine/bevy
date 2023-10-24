@@ -1,6 +1,9 @@
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::marker::PhantomData;
+use std::mem;
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::sync::mpsc::sync_channel;
 
 use bevy_ptr::{OwningPtr, Ptr};
 
@@ -337,7 +340,8 @@ pub type ThreadLocalTask = Box<dyn FnOnce() + Send + 'static>;
 #[derive(Debug)]
 pub struct ThreadLocalTaskSendError<T>(pub T);
 
-/// Channel for sending [`ThreadLocalTask`] instances.
+/// Sends [`ThreadLocalTask`].
+// TODO: can remove this trait if `bevy_app` changes from its own crate to a `bevy_ecs` feature
 pub trait ThreadLocalTaskSender: Send + 'static {
     /// Attempts to send a task over this channel, returning it back if it could not be sent.
     fn send_task(
@@ -353,11 +357,7 @@ struct ThreadLocalChannel {
     sender: Box<dyn ThreadLocalTaskSender>,
 }
 
-// SAFETY: The pointer to the thread-local storage is only dereferenced in its owning thread.
-unsafe impl Send for ThreadLocalChannel {}
-
-// SAFETY: The pointer to the thread-local storage is only dereferenced in its owning thread.
-// Likewise, all operations require an exclusive reference, so there can be no races.
+// SAFETY: All operations require an exclusive reference, so there can be no races.
 unsafe impl Sync for ThreadLocalChannel {}
 
 /// A guard to access [`ThreadLocals`].
@@ -484,7 +484,7 @@ impl ThreadLocal<'_, '_> {
 
         TLS.with_borrow_mut(|tls| {
             tls.update_change_tick();
-            let saved = std::mem::replace(&mut tls.last_tick, *self.last_run);
+            let saved = mem::replace(&mut tls.last_tick, *self.last_run);
             let result = f(tls);
             tls.last_tick = saved;
             *self.last_run = tls.curr_tick;
@@ -502,15 +502,13 @@ impl ThreadLocal<'_, '_> {
         };
 
         let system_tick = *self.last_run;
-        let (result_tx, result_rx) = std::sync::mpsc::sync_channel(1);
+        let (result_tx, result_rx) = sync_channel(1);
         let task = move || {
             TLS.with_borrow_mut(|tls| {
                 tls.update_change_tick();
-                let saved = std::mem::replace(&mut tls.last_tick, system_tick);
+                let saved = mem::replace(&mut tls.last_tick, system_tick);
                 // we want to propagate to caller instead of panicking in the main thread
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    (f(tls), tls.curr_tick)
-                }));
+                let result = catch_unwind(AssertUnwindSafe(|| (f(tls), tls.curr_tick)));
                 tls.last_tick = saved;
                 result_tx.send(result).unwrap();
             });
@@ -519,7 +517,7 @@ impl ThreadLocal<'_, '_> {
         let task: Box<dyn FnOnce() + Send> = Box::new(task);
         // SAFETY: This function will block the calling thread until `f` completes,
         // so any captured references in `f` will remain valid until then.
-        let task: Box<dyn FnOnce() + Send + 'static> = unsafe { std::mem::transmute(task) };
+        let task: Box<dyn FnOnce() + Send + 'static> = unsafe { mem::transmute(task) };
 
         // Send task to the main thread.
         sender
@@ -533,7 +531,7 @@ impl ThreadLocal<'_, '_> {
                 result
             }
             Err(payload) => {
-                std::panic::resume_unwind(payload);
+                resume_unwind(payload);
             }
         }
     }

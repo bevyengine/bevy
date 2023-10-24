@@ -1,6 +1,6 @@
 use crate::{
-    app_thread_channel, AppEvent, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins,
-    PluginsState, SubApp, SubApps,
+    app_thread_channel, AppEvent, AppEventReceiver, AppEventSender, Main, MainSchedulePlugin,
+    PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -64,6 +64,8 @@ pub struct App {
     pub sub_apps: SubApps,
     #[doc(hidden)]
     pub tls: ThreadLocalStorage,
+    send: AppEventSender,
+    recv: AppEventReceiver,
     /// The function that will manage the app's lifecycle.
     ///
     /// Bevy provides the [`WinitPlugin`] and [`ScheduleRunnerPlugin`] for windowed and headless
@@ -114,35 +116,71 @@ impl App {
     ///
     /// Use this constructor if you want to customize scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
+        let (send, recv) = app_thread_channel();
         Self {
             sub_apps: SubApps::new(),
             tls: ThreadLocalStorage::new(),
+            send,
+            recv,
             runner: Some(Box::new(run_once)),
         }
     }
 
     /// Disassembles the [`App`] and returns its individual parts.
-    pub fn into_parts(self) -> (SubApps, ThreadLocalStorage, Option<RunnerFn>) {
+    #[doc(hidden)]
+    pub fn into_parts(
+        self,
+    ) -> (
+        SubApps,
+        ThreadLocalStorage,
+        AppEventSender,
+        AppEventReceiver,
+        Option<RunnerFn>,
+    ) {
         let Self {
             sub_apps,
             tls,
+            send,
+            recv,
             runner,
         } = self;
 
-        (sub_apps, tls, runner)
+        (sub_apps, tls, send, recv, runner)
     }
 
     /// Returns an [`App`] assembled from the given individual parts.
+    #[doc(hidden)]
     pub fn from_parts(
         sub_apps: SubApps,
         tls: ThreadLocalStorage,
+        send: AppEventSender,
+        recv: AppEventReceiver,
         runner: Option<RunnerFn>,
     ) -> Self {
         App {
             sub_apps,
             tls,
+            send,
+            recv,
             runner,
         }
+    }
+
+    /// Inserts the channel to [`ThreadLocals`] into all sub-apps.
+    #[doc(hidden)]
+    pub fn insert_tls_channel(&mut self) {
+        self.sub_apps.iter_mut().for_each(|sub_app| {
+            self.tls
+                .insert_channel(sub_app.world_mut(), self.send.clone());
+        });
+    }
+
+    /// Removes the channel to [`ThreadLocals`] from all sub-apps.
+    #[doc(hidden)]
+    pub fn remove_tls_channel(&mut self) {
+        self.sub_apps
+            .iter_mut()
+            .for_each(|sub_app| self.tls.remove_channel(sub_app.world_mut()));
     }
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
@@ -151,28 +189,23 @@ impl App {
             panic!("App::update() was called while a plugin was building.");
         }
 
+        self.insert_tls_channel();
+
         // disassemble
-        let (mut sub_apps, tls, runner) = std::mem::take(self).into_parts();
-
-        // create channel
-        let (send, recv) = app_thread_channel();
-
-        // insert channel
-        sub_apps
-            .iter_mut()
-            .for_each(|sub_app| tls.insert_channel(sub_app.world_mut(), send.clone()));
+        let (mut sub_apps, tls, send, recv, runner) = std::mem::take(self).into_parts();
 
         #[cfg(not(target_arch = "wasm32"))]
         {
             // Move sub-apps to another thread and run an event loop in this thread.
+            let thread_send = send.clone();
             let thread = std::thread::spawn(move || {
                 let result = catch_unwind(AssertUnwindSafe(|| {
                     sub_apps.update();
-                    send.send(AppEvent::Exit(sub_apps)).unwrap();
+                    thread_send.send(AppEvent::Exit(sub_apps)).unwrap();
                 }));
 
                 if let Some(payload) = result.err() {
-                    send.send(AppEvent::Error(payload)).unwrap();
+                    thread_send.send(AppEvent::Error(payload)).unwrap();
                 }
             });
 
@@ -200,13 +233,10 @@ impl App {
             sub_apps.update();
         }
 
-        // remove channel
-        sub_apps
-            .iter_mut()
-            .for_each(|sub_app| tls.remove_channel(sub_app.world_mut()));
-
         // reassemble
-        *self = App::from_parts(sub_apps, tls, runner);
+        *self = App::from_parts(sub_apps, tls, send, recv, runner);
+
+        self.remove_tls_channel();
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
@@ -238,6 +268,10 @@ impl App {
         if self.is_building_plugins() {
             panic!("App::run() was called while a plugin was building.");
         }
+
+        // Insert channel here because some sub-apps are moved to a different thread during
+        // plugin build.
+        self.insert_tls_channel();
 
         if self.plugins_state() == PluginsState::Ready {
             // If we're already ready, we finish up now and advance one frame.
@@ -893,14 +927,6 @@ impl App {
 type RunnerFn = Box<dyn FnOnce(App)>;
 
 fn run_once(mut app: App) {
-    // TODO: rework app setup
-    // create channel
-    let (send, recv) = app_thread_channel();
-    // insert channel
-    app.sub_apps
-        .iter_mut()
-        .for_each(|sub_app| app.tls.insert_channel(sub_app.world_mut(), send.clone()));
-
     // wait for plugins to finish setting up
     let plugins_state = app.plugins_state();
     if plugins_state != PluginsState::Cleaned {
@@ -912,13 +938,13 @@ fn run_once(mut app: App) {
         app.cleanup();
     }
 
-    // if plugins where cleaned before the runner start, an update already ran
+    // If plugins where cleaned before the runner start, an update already ran
     if plugins_state == PluginsState::Cleaned {
         return;
     }
 
     // disassemble
-    let (mut sub_apps, _, _) = app.into_parts();
+    let (mut sub_apps, mut tls, send, recv, _) = app.into_parts();
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -955,6 +981,8 @@ fn run_once(mut app: App) {
     {
         sub_apps.update();
     }
+
+    tls.clear();
 }
 
 /// An event that indicates the [`App`]  should exit. If one or more of these are present at the
