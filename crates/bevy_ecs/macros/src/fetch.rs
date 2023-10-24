@@ -360,9 +360,9 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                fn new_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
+                fn get_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
                     Some(#state_struct_name {
-                        #(#named_field_idents: <#field_types>::new_state(components)?,)*
+                        #(#named_field_idents: <#field_types>::get_state(components)?,)*
                     })
                 }
 

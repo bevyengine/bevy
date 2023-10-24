@@ -153,12 +153,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         if !Q::IS_ARCHETYPAL || !F::IS_ARCHETYPAL || !NewQ::IS_ARCHETYPAL {
             panic!("`restrict_fetch` is not allowed with queries that use `Changed` or `Added`");
         }
-        let fetch_state = NewQ::new_state(components).expect(
+        let fetch_state = NewQ::get_state(components).expect(
             "Could not create fetch_state. Please initialize any components needed before trying to `transmute`",
         );
         #[allow(clippy::let_unit_value)]
         // the archetypal filters have already been applied, so we don't need them.
-        let filter_state = <()>::new_state(components).expect(
+        let filter_state = <()>::get_state(components).expect(
             "Could not create filter_state. Please initialize any components needed before trying to `transmute`",
         );
 
