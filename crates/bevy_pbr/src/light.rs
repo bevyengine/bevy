@@ -609,19 +609,20 @@ pub struct NotShadowReceiver;
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
 ///
 /// Currently does not affect point lights.
-#[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
+#[bitbybit::bitenum(u2, exhaustive: false)]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.
     ///
     /// Fast but poor quality.
-    Hardware2x2,
+    Hardware2x2 = 0,
     /// Method by Ignacio Castaño for The Witness using 9 samples and smart
     /// filtering to achieve the same as a regular 5x5 filter kernel.
     ///
     /// Good quality, good performance.
     #[default]
-    Castano13,
+    Castano13 = 1,
     /// Method by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
     /// samples in spiral pattern, randomly-rotated by interleaved gradient
     /// noise with spatial variation.
@@ -629,7 +630,16 @@ pub enum ShadowFilteringMethod {
     /// Good quality when used with
     /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
     /// and good performance.
-    Jimenez14,
+    Jimenez14 = 2,
+}
+impl ShadowFilteringMethod {
+    pub const fn define(self) -> &'static str {
+        match self {
+            Self::Hardware2x2 => "SHADOW_FILTER_METHOD_HARDWARE_2X2",
+            Self::Castano13 => "SHADOW_FILTER_METHOD_CASTANO_13",
+            Self::Jimenez14 => "SHADOW_FILTER_METHOD_JIMENEZ_14",
+        }
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

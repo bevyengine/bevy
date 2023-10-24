@@ -87,7 +87,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.mesh_key.contains(MeshPipelineKey::HDR) {
+        let format = if key.mesh_key.hdr() {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -168,8 +168,7 @@ fn queue_line_gizmos_3d(
             continue;
         }
 
-        let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let mesh_key = MeshPipelineKey::DEFAULT.with_msaa(*msaa).with_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {

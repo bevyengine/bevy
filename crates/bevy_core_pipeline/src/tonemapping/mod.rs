@@ -114,37 +114,36 @@ pub struct TonemappingPipeline {
 }
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
-#[derive(
-    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
-)]
+#[derive(Component, Debug, Hash, Reflect, Default, ExtractComponent, PartialEq, Eq)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
+#[bitbybit::bitenum(u3, exhaustive: true)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
-    None,
+    None = 0,
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
     /// Bright primaries and secondaries don't desaturate at all.
-    Reinhard,
+    Reinhard = 1,
     /// Suffers from hue shifting. Brights don't desaturate much at all across the spectrum.
-    ReinhardLuminance,
+    ReinhardLuminance = 2,
     /// Same base implementation that Godot 4.0 uses for Tonemap ACES.
     /// <https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl>
     /// Not neutral, has a very specific aesthetic, intentional and dramatic hue shifting.
     /// Bright greens and reds turn orange. Bright blues turn magenta.
     /// Significantly increased contrast. Brights desaturate across the spectrum.
-    AcesFitted,
+    AcesFitted = 3,
     /// By Troy Sobotka
     /// <https://github.com/sobotka/AgX>
     /// Very neutral. Image is somewhat desaturated when compared to other tonemappers.
     /// Little to no hue shifting. Subtle [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect).
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
-    AgX,
+    AgX = 4,
     /// By Tomasz Stachowiak
     /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
     /// Is sort of between Reinhard and ReinhardLuminance. Conceptually similar to reinhard-jodie.
     /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
     /// VFX to look good without hue shifting.
-    SomewhatBoringDisplayTransform,
+    SomewhatBoringDisplayTransform = 5,
     /// Current Bevy default.
     /// By Tomasz Stachowiak
     /// <https://github.com/h3r2tic/tony-mc-mapface>
@@ -158,16 +157,41 @@ pub enum Tonemapping {
     /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
     #[default]
-    TonyMcMapface,
+    TonyMcMapface = 6,
     /// Default Filmic Display Transform from blender.
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
-    BlenderFilmic,
+    BlenderFilmic = 7,
 }
 
 impl Tonemapping {
     pub fn is_enabled(&self) -> bool {
         *self != Tonemapping::None
+    }
+    pub const fn define(self) -> &'static str {
+        use Tonemapping::SomewhatBoringDisplayTransform;
+
+        match self {
+            Self::None => "TONEMAP_METHOD_NONE",
+            Self::Reinhard => "TONEMAP_METHOD_REINHARD",
+            Self::ReinhardLuminance => "TONEMAP_METHOD_REINHARD_LUMINANCE",
+            Self::AcesFitted => "TONEMAP_METHOD_ACES_FITTED",
+            Self::AgX => "TONEMAP_METHOD_AGX",
+            SomewhatBoringDisplayTransform => "TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM",
+            Self::TonyMcMapface => "TONEMAP_METHOD_TONY_MC_MAPFACE",
+            Self::BlenderFilmic => "TONEMAP_METHOD_BLENDER_FILMIC",
+        }
+    }
+
+    pub fn log_feature_error(self) {
+        #[cfg(not(feature = "tonemapping_luts"))]
+        if matches!(self, Self::AgX | Self::TonyMcMapface | Self::BlenderFilmic) {
+            bevy_log::error!(
+                "{self:?} tonemapping requires the `tonemapping_luts` feature. Either enable the \
+                `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended), or use a \
+                different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+            );
+        }
     }
 }
 
@@ -185,45 +209,9 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
         }
+        key.tonemapping.log_feature_error();
+        shader_defs.push(key.tonemapping.define().into());
 
-        match key.tonemapping {
-            Tonemapping::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
-            Tonemapping::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
-            Tonemapping::ReinhardLuminance => {
-                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-            }
-            Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
-            Tonemapping::AgX => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
-                    "AgX tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
-                );
-                shader_defs.push("TONEMAP_METHOD_AGX".into());
-            }
-            Tonemapping::SomewhatBoringDisplayTransform => {
-                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-            }
-            Tonemapping::TonyMcMapface => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
-                    "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
-                );
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
-            }
-            Tonemapping::BlenderFilmic => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
-                    "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
-                );
-                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-            }
-        }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
             layout: vec![self.texture_bind_group.clone()],

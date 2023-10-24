@@ -1,5 +1,7 @@
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::render_resource::BlendState;
+use bitbybit::bitenum;
 
 // TODO: add discussion about performance.
 /// Sets how a material's base color alpha channel is used for transparency.
@@ -46,6 +48,60 @@ pub enum AlphaMode {
     ///
     /// Useful for effects like stained glass, window tint film and some colored liquids.
     Multiply,
+}
+impl AlphaMode {
+    pub fn may_discard(self) -> bool {
+        matches!(self, Self::Mask(_))
+    }
+}
+
+#[bitenum(u2, exhaustive: true)]
+#[derive(PartialEq)]
+pub enum BlendMode {
+    Opaque = 0,
+    PremultipliedAlpha = 1,
+    Multiply = 2,
+    Alpha = 3,
+}
+impl From<AlphaMode> for BlendMode {
+    fn from(value: AlphaMode) -> Self {
+        match value {
+            AlphaMode::Premultiplied | AlphaMode::Add => BlendMode::PremultipliedAlpha,
+            AlphaMode::Blend => BlendMode::Alpha,
+            AlphaMode::Multiply => BlendMode::Multiply,
+            _ => BlendMode::Opaque,
+        }
+    }
+}
+impl BlendMode {
+    pub fn is_opaque(self) -> bool {
+        matches!(self, Self::Opaque)
+    }
+    pub fn state(self) -> Option<BlendState> {
+        use bevy_render::render_resource::*;
+        match self {
+            BlendMode::PremultipliedAlpha => Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+            BlendMode::Multiply => Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::Dst,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent::OVER,
+            }),
+            BlendMode::Alpha => Some(BlendState::ALPHA_BLENDING),
+            BlendMode::Opaque => None,
+        }
+    }
+    pub const fn defines(self) -> Option<[&'static str; 2]> {
+        match self {
+            BlendMode::Alpha | BlendMode::Opaque => None,
+            BlendMode::PremultipliedAlpha => {
+                Some(["PREMULTIPLY_ALPHA", "BLEND_PREMULTIPLIED_ALPHA"])
+            }
+            BlendMode::Multiply => Some(["PREMULTIPLY_ALPHA", "BLEND_MULTIPLY"]),
+        }
+    }
 }
 
 impl Eq for AlphaMode {}

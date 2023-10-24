@@ -18,8 +18,37 @@ use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, PrimitiveTopology, Queue,
+    RequestAdapterOptions,
 };
+
+#[bitbybit::bitenum(u3, exhaustive: false)]
+#[derive(Default)]
+pub enum BevyPrimitiveTopology {
+    PointList = 0,
+    LineList = 1,
+    LineStrip = 2,
+    #[default]
+    TriangleList = 3,
+    TriangleStrip = 4,
+}
+impl From<PrimitiveTopology> for BevyPrimitiveTopology {
+    fn from(value: PrimitiveTopology) -> Self {
+        let value = arbitrary_int::u3::new(value as u8);
+        Self::new_with_raw_value(value).unwrap_or_default()
+    }
+}
+impl From<BevyPrimitiveTopology> for PrimitiveTopology {
+    fn from(value: BevyPrimitiveTopology) -> Self {
+        match value {
+            BevyPrimitiveTopology::PointList => Self::PointList,
+            BevyPrimitiveTopology::LineList => Self::LineList,
+            BevyPrimitiveTopology::LineStrip => Self::LineStrip,
+            BevyPrimitiveTopology::TriangleList => Self::TriangleList,
+            BevyPrimitiveTopology::TriangleStrip => Self::TriangleStrip,
+        }
+    }
+}
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {

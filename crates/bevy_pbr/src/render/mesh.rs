@@ -3,6 +3,7 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
+    tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -20,13 +21,14 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{BevyPrimitiveTopology, RenderDevice, RenderQueue},
     texture::*,
-    view::{ViewTarget, ViewUniformOffset, ViewVisibility},
+    view::{Msaa, ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
+use bitbybit::{bitenum, bitfield};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -468,115 +470,44 @@ impl GetBatchData for MeshPipeline {
     }
 }
 
-bitflags::bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    #[repr(transparent)]
-    // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
-    pub struct MeshPipelineKey: u32 {
-        const NONE                              = 0;
-        const HDR                               = (1 << 0);
-        const TONEMAP_IN_SHADER                 = (1 << 1);
-        const DEBAND_DITHER                     = (1 << 2);
-        const DEPTH_PREPASS                     = (1 << 3);
-        const NORMAL_PREPASS                    = (1 << 4);
-        const DEFERRED_PREPASS                  = (1 << 5);
-        const MOTION_VECTOR_PREPASS             = (1 << 6);
-        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
-                                                            // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = (1 << 8);
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
-        const TAA                               = (1 << 11);
-        const MORPH_TARGETS                     = (1 << 12);
-        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
-        const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
-        const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
-        const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
-        const BLEND_ALPHA                       = (3 << Self::BLEND_SHIFT_BITS);
-        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_TONY_MC_MAPFACE     = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_BLENDER_FILMIC      = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-        const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-        const SHADOW_FILTER_METHOD_CASTANO_13    = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-        const SHADOW_FILTER_METHOD_JIMENEZ_14    = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-        const VIEW_PROJECTION_RESERVED_BITS     = Self::VIEW_PROJECTION_MASK_BITS << Self::VIEW_PROJECTION_SHIFT_BITS;
-        const VIEW_PROJECTION_NONSTANDARD       = 0 << Self::VIEW_PROJECTION_SHIFT_BITS;
-        const VIEW_PROJECTION_PERSPECTIVE       = 1 << Self::VIEW_PROJECTION_SHIFT_BITS;
-        const VIEW_PROJECTION_ORTHOGRAPHIC      = 2 << Self::VIEW_PROJECTION_SHIFT_BITS;
-        const VIEW_PROJECTION_RESERVED          = 3 << Self::VIEW_PROJECTION_SHIFT_BITS;
-    }
+#[bitenum(u2, exhaustive: true)]
+pub enum ViewProjection {
+    Nonstandard = 0,
+    Perspective = 1,
+    Orthographic = 2,
+    Reserved = 3,
 }
 
+#[rustfmt::skip]
+#[bitfield(u32, default: 0)]
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct MeshPipelineKey {
+    #[bit(0, rw)] pub hdr: bool,
+    #[bit(1, rw)] pub tonemap_in_shader: bool,
+    #[bit(2, rw)] pub deband_dither: bool,
+    #[bit(3, rw)] pub depth_prepass: bool,
+    #[bit(4, rw)] pub normal_prepass: bool,
+    #[bit(5, rw)] pub deferred_prepass: bool,
+    #[bit(6, rw)] pub motion_vector_prepass: bool,
+    /// Guards shader codepaths that may discard, allowing early depth tests in most cases.
+    ///
+    /// See: <https://www.khronos.org/opengl/wiki/Early_Fragment_Test>
+    #[bit(7, rw)] pub may_discard: bool,
+    #[bit(8, rw)] pub environment_map: bool,
+    #[bit(9, rw)] pub screen_space_ambient_occlusion: bool,
+    #[bit(10, rw)] pub depth_clamp_ortho: bool,
+    #[bit(11, rw)] pub taa: bool,
+    #[bit(12, rw)] pub morph_targets: bool,
+    #[bits(13..=14, rw)] pub blend: BlendMode,
+    #[bits(15..=17, rw)] pub msaa: Msaa,
+    #[bits(18..=20, rw)] pub primitive_topology: Option<BevyPrimitiveTopology>,
+    #[bits(21..=23, rw)] pub tonemap_method: Tonemapping,
+    #[bits(24..=25, rw)] pub shadow_filter_method: Option<ShadowFilteringMethod>,
+    #[bits(26..=27, rw)] pub view_projection: ViewProjection,
+}
 impl MeshPipelineKey {
-    const MSAA_MASK_BITS: u32 = 0b111;
-    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
-
-    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
-        Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
-
-    const BLEND_MASK_BITS: u32 = 0b11;
-    const BLEND_SHIFT_BITS: u32 =
-        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
-
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
-    const TONEMAP_METHOD_SHIFT_BITS: u32 =
-        Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
-
-    const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
-    const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
-        Self::TONEMAP_METHOD_SHIFT_BITS - Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones();
-
-    const VIEW_PROJECTION_MASK_BITS: u32 = 0b11;
-    const VIEW_PROJECTION_SHIFT_BITS: u32 =
-        Self::SHADOW_FILTER_METHOD_SHIFT_BITS - Self::VIEW_PROJECTION_MASK_BITS.count_ones();
-
-    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits =
-            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits_retain(msaa_bits)
-    }
-
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            MeshPipelineKey::HDR
-        } else {
-            MeshPipelineKey::NONE
-        }
-    }
-
-    pub fn msaa_samples(&self) -> u32 {
-        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
-    }
-
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
-        let primitive_topology_bits = ((primitive_topology as u32)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
-            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
-    }
-
-    pub fn primitive_topology(&self) -> PrimitiveTopology {
-        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
-        match primitive_topology_bits {
-            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
-            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
-            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
-            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
-            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
-            _ => PrimitiveTopology::default(),
-        }
+    pub fn msaa_samples(self) -> u32 {
+        self.msaa().samples()
     }
 }
 
@@ -587,7 +518,7 @@ pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
     offset: u32,
-    key: &MeshPipelineKey,
+    key: MeshPipelineKey,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
@@ -596,8 +527,7 @@ pub fn setup_morph_and_skinning_defs(
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
-    let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
-    match (is_skinned(layout), is_morphed) {
+    match (is_skinned(layout), key.morph_targets()) {
         (true, false) => {
             add_skin_data();
             mesh_layouts.skinned.clone()
@@ -671,144 +601,96 @@ impl SpecializedMeshPipeline for MeshPipeline {
             &self.mesh_layouts,
             layout,
             6,
-            &key,
+            key,
             &mut shader_defs,
             &mut vertex_attributes,
         ));
 
-        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
+        if key.screen_space_ambient_occlusion() {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        let (label, blend, depth_write_enabled);
-        let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
-        let mut is_opaque = false;
-        if pass == MeshPipelineKey::BLEND_ALPHA {
-            label = "alpha_blend_mesh_pipeline".into();
-            blend = Some(BlendState::ALPHA_BLENDING);
-            // For the transparent pass, fragments that are closer will be alpha blended
-            // but their depth is not written to the depth buffer
-            depth_write_enabled = false;
-        } else if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
-            label = "premultiplied_alpha_mesh_pipeline".into();
-            blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
-            shader_defs.push("PREMULTIPLY_ALPHA".into());
-            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
-            // For the transparent pass, fragments that are closer will be alpha blended
-            // but their depth is not written to the depth buffer
-            depth_write_enabled = false;
-        } else if pass == MeshPipelineKey::BLEND_MULTIPLY {
-            label = "multiply_mesh_pipeline".into();
-            blend = Some(BlendState {
-                color: BlendComponent {
-                    src_factor: BlendFactor::Dst,
-                    dst_factor: BlendFactor::OneMinusSrcAlpha,
-                    operation: BlendOperation::Add,
-                },
-                alpha: BlendComponent::OVER,
-            });
-            shader_defs.push("PREMULTIPLY_ALPHA".into());
-            shader_defs.push("BLEND_MULTIPLY".into());
-            // For the multiply pass, fragments that are closer will be alpha blended
-            // but their depth is not written to the depth buffer
-            depth_write_enabled = false;
-        } else {
-            label = "opaque_mesh_pipeline".into();
-            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
-            blend = None;
-            // For the opaque and alpha mask passes, fragments that are closer will replace
-            // the current fragment value in the output and the depth is written to the
-            // depth buffer
-            depth_write_enabled = true;
-            is_opaque = true;
+        let pipeline_label = |blend_mode| match blend_mode {
+            BlendMode::Opaque => "opaque_mesh_pipeline",
+            BlendMode::PremultipliedAlpha => "premultiplied_alpha_mesh_pipeline",
+            BlendMode::Multiply => "multiply_mesh_pipeline",
+            BlendMode::Alpha => "alpha_blend_mesh_pipeline",
+        };
+        // For the transparent pass, fragments that are closer will be alpha blended
+        // but their depth is not written to the depth buffer
+        // For the multiply pass, fragments that are closer will be alpha blended
+        // but their depth is not written to the depth buffer
+        // For the opaque and alpha mask passes, fragments that are closer will replace
+        // the current fragment value in the output and the depth is written to the
+        // depth buffer
+        let blend = key.blend();
+        let (label, blend_state) = (pipeline_label(blend), blend.state());
+        let (depth_write_enabled, is_opaque) = (blend.is_opaque(), blend.is_opaque());
+
+        if let Some([def1, def2]) = blend.defines() {
+            shader_defs.push(def1.into());
+            shader_defs.push(def2.into());
         }
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+        if key.normal_prepass() {
             shader_defs.push("NORMAL_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+        if key.depth_prepass() {
             shader_defs.push("DEPTH_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+        if key.motion_vector_prepass() {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+        if key.deferred_prepass() {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
+        if key.normal_prepass() && key.msaa_samples() == 1 && is_opaque {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
-        let view_projection = key.intersection(MeshPipelineKey::VIEW_PROJECTION_RESERVED_BITS);
-        if view_projection == MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD {
-            shader_defs.push("VIEW_PROJECTION_NONSTANDARD".into());
-        } else if view_projection == MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE {
-            shader_defs.push("VIEW_PROJECTION_PERSPECTIVE".into());
-        } else if view_projection == MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC {
-            shader_defs.push("VIEW_PROJECTION_ORTHOGRAPHIC".into());
+        match key.view_projection() {
+            ViewProjection::Nonstandard => shader_defs.push("VIEW_PROJECTION_NONSTANDARD".into()),
+            ViewProjection::Perspective => shader_defs.push("VIEW_PROJECTION_PERSPECTIVE".into()),
+            ViewProjection::Orthographic => shader_defs.push("VIEW_PROJECTION_ORTHOGRAPHIC".into()),
+            ViewProjection::Reserved => {}
         }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
 
-        if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
+        if key.tonemap_in_shader() {
             shader_defs.push("TONEMAP_IN_SHADER".into());
-
-            let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
-
-            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
-                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
-                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
-                shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
-                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
-                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
-            }
+            shader_defs.push(key.tonemap_method().define().into());
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
-            if key.contains(MeshPipelineKey::DEBAND_DITHER) {
+            if key.deband_dither() {
                 shader_defs.push("DEBAND_DITHER".into());
             }
         }
 
-        if key.contains(MeshPipelineKey::MAY_DISCARD) {
+        if key.may_discard() {
             shader_defs.push("MAY_DISCARD".into());
         }
 
-        if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
+        if key.environment_map() {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::TAA) {
+        if key.taa() {
             shader_defs.push("TAA".into());
         }
 
-        let shadow_filter_method =
-            key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
-        if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
-            shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
-        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
-            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
-        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
-            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        if let Ok(filter_method) = key.shadow_filter_method() {
+            shader_defs.push(filter_method.define().into());
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
+        let format = if key.hdr() {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -845,7 +727,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend,
+                    blend: blend_state,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -857,7 +739,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: key.primitive_topology(),
+                topology: key.primitive_topology().unwrap_or_default().into(),
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
@@ -881,7 +763,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some(label),
+            label: Some(label.into()),
         })
     }
 }
@@ -1100,11 +982,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
 
 #[cfg(test)]
 mod tests {
-    use super::MeshPipelineKey;
+    use super::{MeshPipelineKey, Msaa};
     #[test]
     fn mesh_key_msaa_samples() {
         for i in [1, 2, 4, 8, 16, 32, 64, 128] {
-            assert_eq!(MeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
+            let key = MeshPipelineKey::DEFAULT.with_msaa(Msaa::from_samples(i).unwrap());
+            assert_eq!(key.msaa_samples(), i);
         }
     }
 }
