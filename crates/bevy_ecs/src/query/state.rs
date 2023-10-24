@@ -138,13 +138,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         state
     }
 
-    /// This is used to transform a [`Query`](crate::system::Query) into a more generic [`Query`](crate::system::Query).
-    /// This can be useful for passsing to another function tha might take the more generalize query.
+    /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
+    /// This can be useful for passing to another function that might take the more general form.
     /// See [`Query::transmute_fetch`](crate::system::Query::transmute_fetch) for more details.
     ///
     /// You should not call [`update_archetypes`](Self::update_archetypes) on the returned [`QueryState`] as the result will be unpredictable.
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
-    /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally.
+    /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally, so this
+    /// best used through a [`Query`](crate::system::Query).
     #[track_caller]
     pub(crate) fn transmute_fetch<NewQ: WorldQuery>(
         &self,
@@ -157,7 +158,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             "Could not create fetch_state. Please initialize any components needed before trying to `transmute`",
         );
         #[allow(clippy::let_unit_value)]
-        // the archetypal filters have already been applied, so we don't need them.
+        // the archetypal filters have already been applied, so we discard them to make the query type more general.
         let filter_state = <()>::get_state(components).expect(
             "Could not create filter_state. Please initialize any components needed before trying to `transmute`",
         );

@@ -437,9 +437,8 @@ pub unsafe trait WorldQuery {
         access: &mut Access<ArchetypeComponentId>,
     );
 
-    /// Adds component access for when [`WorldQuery`] is not an exact match.
-    /// i.e. Option<&T> where the matched archetypes don't necessarily contain
-    /// the data the [`WorldQuery`] takes access to in [`Self::update_component_access`]
+    /// Adds component access to `access` for when [`WorldQuery`] is not an exact match.
+    /// i.e. With `Option<&T>` the matched archetypes do not necessarily contain a `T`.
     fn optional_access(
         state: &Self::State,
         access: &mut Access<ComponentId>,
@@ -449,8 +448,9 @@ pub unsafe trait WorldQuery {
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
 
-    /// Creates a [`State`](WorldQuery::State) for this [`WorldQuery`] type. This should return
-    /// the same value as [`init_state`](Self::init_state).
+    /// Creates a [`State`](WorldQuery::State) for this [`WorldQuery`] type. When successful, this returns
+    /// the same value as [`init_state`](Self::init_state). When the state cannot be created, this return `None`.
+    /// This might happen if we try to get the state for a component has not been registered in the [`World`].
     fn get_state(components: &Components) -> Option<Self::State>;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
@@ -1854,7 +1854,6 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     const IS_DENSE: bool = true;
     // `PhantomData` matches every entity in each archetype.
     const IS_ARCHETYPAL: bool = true;
-    // `PhantomData` does not access any data, so it is exact.
 
     unsafe fn set_archetype<'w>(
         _fetch: &mut Self::Fetch<'w>,

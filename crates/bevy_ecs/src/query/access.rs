@@ -224,7 +224,7 @@ impl<T: SparseSetIndex> Access<T> {
         reads.is_subset(&other.reads_and_writes) && self.writes.is_subset(&other.writes)
     }
 
-    /// modifies self with the intersection with `other`
+    /// Modify `self` with the intersection with `other`
     pub fn intersect(&mut self, other: &Access<T>) {
         if self.writes_all {
             if other.writes_all {
@@ -317,7 +317,7 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.ones().map(T::get_sparse_set_index)
     }
 
-    /// Returns true if the difference of `self` with `other` is empty
+    /// Returns `true` if the difference of `self` with `other` is empty
     pub fn read_and_writes_difference_is_empty(&self, other: &Access<T>) -> bool {
         if self.reads_all || self.writes_all {
             return other.reads_all || other.writes_all;
@@ -458,12 +458,12 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         })
     }
 
-    /// `other` contains all the same access as `self`.  This does not take into account the filtered access.
+    /// `other` contains all the same access as `self`.  This does not take into account the `filter_sets`.
     pub fn is_subset(&self, other: &FilteredAccess<T>) -> bool {
         self.access.is_subset(&other.access)
     }
 
-    /// returns true if optional access has not changed
+    /// Returns `true` if optional access has not changed.
     pub fn is_optional_compatible(
         &self,
         mut original_optional: Access<T>,

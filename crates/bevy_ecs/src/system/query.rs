@@ -400,13 +400,17 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns a [`QueryLens`] that can be used to get a query with a more restricted fetch.
-    /// i.e. Tranform a `Query<(&A, &mut B)>` to a `Query<&B>`.
-    /// This can be useful for passing the query to another function.
+    /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
+    /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
+    /// This can be useful for passing the query to another function. Note that this will
+    /// not return all the entities in the world that match the new query. This will only
+    /// return the entities that matched the original query.
     ///
     /// ## Panics
     ///
-    /// This will panic if `NewQ` is not a subset of `Q` or if `F` includes `Added` or `Changed`.
+    /// This will panic if `NewQ` is not a subset of the original fetch `Q`
+    /// or if the original filter `F` includes [`Added`](crate::query::Added) or
+    /// [`Changed`](crate::query::Changed).
     ///
     /// ## Example
     ///
@@ -423,24 +427,39 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # let mut world = World::new();
     /// #
     /// # world.spawn((A(10), B(5)));
-    ///
-    /// fn function_that_uses_a_query_lens(lens: &mut QueryLens<&A>) {
+    /// #
+    /// fn reusable_function(lens: &mut QueryLens<&A>) {
     ///     assert_eq!(lens.query().single().0, 10);
     /// }
     ///
+    /// // We can use the function in a system that takes the exact query.
     /// fn system_1(mut query: Query<&A>) {
-    ///     function_that_uses_a_query_lens(&mut query.into_query_lens());
+    ///     reusable_function(&mut query.into_query_lens());
     /// }
     ///
+    /// // We can also use it with a query that does not match exactly
+    /// // by transmuting it.
     /// fn system_2(mut query: Query<(&mut A, &B)>) {
     ///     let mut lens = query.transmute_fetch::<&A>();
-    ///     function_that_uses_a_query_lens(&mut lens);
+    ///     reusable_function(&mut lens);
     /// }
     ///
     /// # let mut schedule = Schedule::default();
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
+    ///
+    /// ## Allowed Transmutes
+    ///
+    /// Besides removing parameters from the query, you can also
+    /// make limited changes to the types of paramters.
+    ///
+    /// * Can always add/remove `Entity`
+    /// * `Ref<T>` <-> `&T`
+    /// * `&mut T` -> `&T`
+    /// * `&mut T` -> `Ref<T>`
+    /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
+    ///
     #[track_caller]
     pub fn transmute_fetch<NewQ: WorldQuery>(&mut self) -> QueryLens<'_, NewQ> {
         let new_state = self.state.transmute_fetch(self.world.components());
@@ -453,7 +472,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// helper method to get a [`QueryLens`] with the same fetch as the existing query
+    /// Gets a [`QueryLens`] with the same fetch as the existing query.
     pub fn into_query_lens(&mut self) -> QueryLens<'_, Q> {
         self.transmute_fetch()
     }
@@ -1578,7 +1597,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     }
 }
 
-/// A type used to store the generalized query's state.
+/// A type used to store the new [`QueryState`] from [`Query::transmute_fetch`].
 pub struct QueryLens<'world, NewQ: WorldQuery> {
     world: UnsafeWorldCell<'world>,
     state: QueryState<NewQ, ()>,
