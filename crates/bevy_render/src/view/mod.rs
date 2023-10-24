@@ -24,7 +24,7 @@ use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
 };
 use wgpu::{
@@ -193,6 +193,7 @@ pub struct ViewTarget {
     main_texture: Arc<AtomicUsize>,
     out_texture: TextureView,
     out_texture_format: TextureFormat,
+    first_write: Arc<AtomicBool>,
 }
 
 pub struct PostProcessWrite<'a> {
@@ -338,12 +339,31 @@ impl ViewTarget {
             }
         }
     }
+
+    pub fn is_first_write(&self) -> bool {
+        self.first_write.fetch_and(false, Ordering::SeqCst)
+    }
 }
 
 #[derive(Component)]
 pub struct ViewDepthTexture {
     pub texture: Texture,
     pub view: TextureView,
+    first_write: Arc<AtomicBool>,
+}
+
+impl ViewDepthTexture {
+    pub fn new(texture: Texture, view: TextureView) -> Self {
+        Self {
+            texture,
+            view,
+            first_write: Arc::new(AtomicBool::new(true)),
+        }
+    }
+
+    pub fn is_first_write(&self) -> bool {
+        self.first_write.fetch_and(false, Ordering::SeqCst)
+    }
 }
 
 pub fn prepare_view_uniforms(
@@ -528,6 +548,7 @@ fn prepare_view_targets(
                     main_texture: main_textures.main_texture.clone(),
                     out_texture: out_texture_view.clone(),
                     out_texture_format: out_texture_format.add_srgb_suffix(),
+                    first_write: Arc::new(AtomicBool::new(true)),
                 });
             }
         }

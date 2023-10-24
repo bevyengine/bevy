@@ -18,7 +18,7 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 
 use crate::core_3d::{Camera3d, Camera3dDepthLoadOp};
-use crate::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures};
+use crate::prepass::{MotionVectorPrepass, NormalPrepass, ViewPrepassTextures};
 
 use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 
@@ -36,7 +36,6 @@ impl ViewNode for DeferredGBufferPrepassNode {
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
         &'static Camera3d,
-        Option<&'static DepthPrepass>,
         Option<&'static NormalPrepass>,
         Option<&'static MotionVectorPrepass>,
     );
@@ -52,7 +51,6 @@ impl ViewNode for DeferredGBufferPrepassNode {
             view_depth_texture,
             view_prepass_textures,
             camera_3d,
-            depth_prepass,
             normal_prepass,
             motion_vector_prepass,
         ): QueryItem<Self::ViewQuery>,
@@ -154,15 +152,11 @@ impl ViewNode for DeferredGBufferPrepassNode {
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &view_depth_texture.view,
                     depth_ops: Some(Operations {
-                        load: if depth_prepass.is_some()
-                            || normal_prepass.is_some()
-                            || motion_vector_prepass.is_some()
-                        {
-                            // If any prepass runs, it will generate a depth buffer so we should use it.
-                            Camera3dDepthLoadOp::Load
-                        } else {
+                        load: if view_depth_texture.is_first_write() {
                             // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
                             camera_3d.depth_load_op.clone()
+                        } else {
+                            Camera3dDepthLoadOp::Load
                         }
                         .into(),
                         store: true,

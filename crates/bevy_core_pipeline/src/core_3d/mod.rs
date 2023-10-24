@@ -477,10 +477,10 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands.entity(entity).insert(ViewDepthTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
-        });
+        commands.entity(entity).insert(ViewDepthTexture::new(
+            cached_texture.texture,
+            cached_texture.default_view,
+        ));
     }
 }
 

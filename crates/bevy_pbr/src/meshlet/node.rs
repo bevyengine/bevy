@@ -6,12 +6,8 @@ use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_core_pipeline::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Camera3dDepthLoadOp},
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
-use bevy_ecs::{
-    query::{Has, QueryItem},
-    world::World,
-};
+use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -37,10 +33,6 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         &'static Camera3d,
         &'static ViewTarget,
         &'static ViewDepthTexture,
-        Has<DepthPrepass>,
-        Has<NormalPrepass>,
-        Has<MotionVectorPrepass>,
-        Has<DeferredPrepass>,
         &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
@@ -56,10 +48,6 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             camera_3d,
             target,
             depth,
-            depth_prepass,
-            normal_prepass,
-            motion_vector_prepass,
-            deferred_prepass,
             mesh_view_bind_group,
             view_offset,
             view_lights_offset,
@@ -91,11 +79,11 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             });
             culling_pass.set_bind_group(0, culling_bind_group, &[view_offset.offset]);
             culling_pass.set_pipeline(culling_pipeline);
-            culling_pass.dispatch_workgroups(div_ceil(scene_meshlet_count, 128), 1, 1);
+            culling_pass.dispatch_workgroups((scene_meshlet_count + 127) / 128, 1, 1);
         }
 
         {
-            let load = if !deferred_prepass {
+            let color_load = if target.is_first_write() {
                 match camera_3d.clear_color {
                     ClearColorConfig::Default => {
                         LoadOp::Clear(world.resource::<ClearColor>().0.into())
@@ -106,24 +94,23 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             } else {
                 LoadOp::Load
             };
+            let depth_load = if depth.is_first_write() {
+                camera_3d.depth_load_op.clone()
+            } else {
+                Camera3dDepthLoadOp::Load
+            }
+            .into();
+
             let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some(draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D),
-                color_attachments: &[Some(
-                    target.get_color_attachment(Operations { load, store: true }),
-                )],
+                color_attachments: &[Some(target.get_color_attachment(Operations {
+                    load: color_load,
+                    store: true,
+                }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     depth_ops: Some(Operations {
-                        load: if depth_prepass
-                            || normal_prepass
-                            || motion_vector_prepass
-                            || deferred_prepass
-                        {
-                            Camera3dDepthLoadOp::Load
-                        } else {
-                            camera_3d.depth_load_op.clone()
-                        }
-                        .into(),
+                        load: depth_load,
                         store: true,
                     }),
                     stencil_ops: None,
@@ -158,9 +145,4 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
 
         Ok(())
     }
-}
-
-/// Divide `numerator` by `denominator`, rounded up to the nearest multiple of `denominator`.
-fn div_ceil(numerator: u32, denominator: u32) -> u32 {
-    (numerator + denominator - 1) / denominator
 }

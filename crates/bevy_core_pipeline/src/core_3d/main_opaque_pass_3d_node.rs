@@ -1,13 +1,9 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Opaque3d},
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{
-    prelude::{Has, World},
-    query::QueryItem,
-};
+use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -34,10 +30,6 @@ impl ViewNode for MainOpaquePass3dNode {
         &'static Camera3d,
         &'static ViewTarget,
         &'static ViewDepthTexture,
-        Has<DepthPrepass>,
-        Has<NormalPrepass>,
-        Has<MotionVectorPrepass>,
-        Has<DeferredPrepass>,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
@@ -54,26 +46,19 @@ impl ViewNode for MainOpaquePass3dNode {
             camera_3d,
             target,
             depth,
-            depth_prepass,
-            normal_prepass,
-            motion_vector_prepass,
-            deferred_prepass,
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        // TODO: Need to load color/depth attachments if MainMeshletOpaquePass3dNode ran...
-
-        let load = if !deferred_prepass {
+        let load = if target.is_first_write() {
             match camera_3d.clear_color {
                 ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
                 ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
                 ClearColorConfig::None => LoadOp::Load,
             }
         } else {
-            // If the deferred lighting pass has run, don't clear again in this pass.
             LoadOp::Load
         };
 
@@ -94,17 +79,11 @@ impl ViewNode for MainOpaquePass3dNode {
                 view: &depth.view,
                 // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                 depth_ops: Some(Operations {
-                    load: if depth_prepass
-                        || normal_prepass
-                        || motion_vector_prepass
-                        || deferred_prepass
-                    {
-                        // if any prepass runs, it will generate a depth buffer so we should use it,
-                        // even if only the normal_prepass is used.
-                        Camera3dDepthLoadOp::Load
-                    } else {
+                    load: if depth.is_first_write() {
                         // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
                         camera_3d.depth_load_op.clone()
+                    } else {
+                        Camera3dDepthLoadOp::Load
                     }
                     .into(),
                     store: true,

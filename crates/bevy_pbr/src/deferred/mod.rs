@@ -197,18 +197,21 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
         );
 
+        let load = if target.is_first_write() {
+            match camera_3d.clear_color {
+                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
+                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                ClearColorConfig::None => LoadOp::Load,
+            }
+        } else {
+            LoadOp::Load
+        };
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("deferred_lighting_pass"),
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: true,
-            }))],
+            color_attachments: &[Some(
+                target.get_color_attachment(Operations { load, store: true }),
+            )],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
