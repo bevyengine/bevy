@@ -594,7 +594,7 @@ pub fn queue_material_meshes<M: Material>(
                 &material_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    for_meshlet_mesh: todo!(),
+                    for_meshlet_mesh: false,
                     bind_group_data: material.key.clone(),
                 },
                 &mesh.layout,
