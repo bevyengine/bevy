@@ -254,6 +254,7 @@ where
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
     pub mesh_key: MeshPipelineKey,
+    pub for_meshlet_mesh: bool,
     pub bind_group_data: M::Data,
 }
 
@@ -275,6 +276,7 @@ where
     fn clone(&self) -> Self {
         Self {
             mesh_key: self.mesh_key,
+            for_meshlet_mesh: self.for_meshlet_mesh,
             bind_group_data: self.bind_group_data.clone(),
         }
     }
@@ -333,6 +335,13 @@ where
         }
 
         descriptor.layout.insert(1, self.material_layout.clone());
+
+        if key.for_meshlet_mesh {
+            descriptor.vertex.shader = todo!();
+            descriptor.vertex.entry_point = "meshlet_vertex".into();
+            descriptor.vertex.buffers = Vec::new();
+            descriptor.layout = todo!();
+        }
 
         M::specialize(self, &mut descriptor, layout, key)?;
         Ok(descriptor)
@@ -570,6 +579,7 @@ pub fn queue_material_meshes<M: Material>(
                 &material_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
+                    for_meshlet_mesh: todo!(),
                     bind_group_data: material.key.clone(),
                 },
                 &mesh.layout,

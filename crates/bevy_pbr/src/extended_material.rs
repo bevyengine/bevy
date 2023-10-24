@@ -226,6 +226,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         };
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
+            for_meshlet_mesh: key.for_meshlet_mesh,
             bind_group_data: key.bind_group_data.0,
         };
         B::specialize(&base_pipeline, descriptor, layout, base_key)?;
