@@ -46,7 +46,7 @@ fn continuous_hue(uv: vec2<f32>) -> vec3<f32> {
 fn fragment(
     in: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    var uv = in.uv_a;
+    var uv = in.uv;
     var out = vec3(0.0);
     if uv.y > 0.5 {
         uv.y = 1.0 - uv.y;

@@ -20,7 +20,7 @@ fn fragment(
     // the material members
     var pbr_input: PbrInput = pbr_input_new();
 
-    pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, mesh.uv_a, layer);
+    pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, mesh.uv, layer);
 #ifdef VERTEX_COLORS
     pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
 #endif
@@ -43,7 +43,7 @@ fn fragment(
         mesh.world_tangent,
 #endif
 #endif
-        mesh.uv_a,
+        mesh.uv,
         view.mip_bias,
     );
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);

@@ -58,9 +58,9 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.position.z = min(out.position.z, 1.0);
 #endif // DEPTH_CLAMP_ORTHO
 
-#ifdef VERTEX_UVS_A
-    out.uv_a = vertex.uv_a;
-#endif // VERTEX_UVS_A
+#ifdef VERTEX_UVS
+    out.uv = vertex.uv;
+#endif // VERTEX_UVS
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef SKINNED

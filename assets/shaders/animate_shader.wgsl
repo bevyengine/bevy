@@ -32,7 +32,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let t_1 = sin(globals.time * speed) * 0.5 + 0.5;
     let t_2 = cos(globals.time * speed);
 
-    let distance_to_center = distance(in.uv_a, vec2<f32>(0.5)) * 1.4;
+    let distance_to_center = distance(in.uv, vec2<f32>(0.5)) * 1.4;
 
     // blending is done in a perceptual color space: https://bottosson.github.io/posts/oklab/
     let red = vec3<f32>(0.627955, 0.224863, 0.125846);

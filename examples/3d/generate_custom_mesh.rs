@@ -239,14 +239,14 @@ fn create_cube_mesh() -> Mesh {
 // Function that changes the UV mapping of the mesh, to apply the other texture.
 fn toggle_texture(mesh_to_change: &mut Mesh) {
     // Get a mutable reference to the values of the UV attribute, so we can iterate over it.
-    let uv_attribute = mesh_to_change.attribute_mut(Mesh::ATTRIBUTE_UV_0).unwrap();
+    let uvttribute = mesh_to_change.attribute_mut(Mesh::ATTRIBUTE_UV_0).unwrap();
     // The format of the UV coordinates should be Float32x2.
-    let VertexAttributeValues::Float32x2(uv_attribute) = uv_attribute else {
+    let VertexAttributeValues::Float32x2(uvttribute) = uvttribute else {
         panic!("Unexpected vertex format, expected Float32x2.");
     };
 
     // Iterate over the UV coordinates, and change them as we want.
-    for uv_coord in uv_attribute.iter_mut() {
+    for uv_coord in uvttribute.iter_mut() {
         // If the UV coordinate points to the upper, "dirt+grass" part of the texture...
         if (uv_coord[1] + 0.5) < 1.0 {
             // ... point to the equivalent lower, "sand+water" part instead,

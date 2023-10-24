@@ -14,5 +14,5 @@ struct CustomMaterial {
 fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    return material.color * textureSample(base_color_texture, base_color_sampler, mesh.uv_a) * COLOR_MULTIPLIER;
+    return material.color * textureSample(base_color_texture, base_color_sampler, mesh.uv) * COLOR_MULTIPLIER;
 }

@@ -38,9 +38,9 @@ fn fragment(
             in.world_tangent,
 #endif // STANDARDMATERIAL_NORMAL_MAP
 #endif // VERTEX_TANGENTS
-#ifdef VERTEX_UVS_A
-            in.uv_a,
-#endif // VERTEX_UVS_A
+#ifdef VERTEX_UVS
+            in.uv,
+#endif // VERTEX_UVS
             view.mip_bias,
         );
 

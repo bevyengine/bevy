@@ -657,7 +657,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
-            shader_defs.push("VERTEX_UVS_A".into());
+            shader_defs.push("VERTEX_UVS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 

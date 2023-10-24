@@ -17,11 +17,11 @@ fn prepass_alpha_discard(in: VertexOutput) {
 #ifdef MAY_DISCARD
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
-#ifdef VERTEX_UVS_A
+#ifdef VERTEX_UVS
     if (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, in.uv_a, view.mip_bias);
+        output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, in.uv, view.mip_bias);
     }
-#endif // VERTEX_UVS_A
+#endif // VERTEX_UVS
 
     let alpha_mode = pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
