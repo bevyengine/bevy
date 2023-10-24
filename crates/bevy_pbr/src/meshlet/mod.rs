@@ -38,7 +38,6 @@ use bevy_render::{
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 
-// TODO: Gate plugin (and meshopt dependency) behind a cargo feature
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
