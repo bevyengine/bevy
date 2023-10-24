@@ -18,6 +18,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
+    camera::Projection,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -457,6 +458,7 @@ pub fn queue_material_meshes<M: Material>(
             Has<DeferredPrepass>,
         ),
         Option<&TemporalAntiAliasSettings>,
+        Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -474,6 +476,7 @@ pub fn queue_material_meshes<M: Material>(
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         taa_settings,
+        projection,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -509,6 +512,13 @@ pub fn queue_material_meshes<M: Material>(
 
         if environment_map_loaded {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if let Some(projection) = projection {
+            view_key |= match projection {
+                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+            };
         }
 
         match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
