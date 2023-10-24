@@ -632,7 +632,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         // Let the shader code know that it's running in a mesh pipeline.
         shader_defs.push("MESH_PIPELINE".into());
 
-        shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
+        shader_defs.push("VERTEX_OUTPUT_MESH_FLAGS".into());
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());

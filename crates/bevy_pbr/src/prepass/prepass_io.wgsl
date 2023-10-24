@@ -55,8 +55,8 @@ struct VertexOutput {
 #ifdef DEPTH_CLAMP_ORTHO
     @location(5) clip_position_unclamped: vec4<f32>,
 #endif // DEPTH_CLAMP_ORTHO
-#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
-    @location(6) instance_index: u32,
+#ifdef VERTEX_OUTPUT_MESH_FLAGS
+    @location(6) mesh_flags: u32,
 #endif
 
 #ifdef VERTEX_COLORS

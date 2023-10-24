@@ -102,10 +102,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     );
 #endif // MOTION_VECTOR_PREPASS
 
-#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
+#ifdef VERTEX_OUTPUT_MESH_FLAGS
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.instance_index = get_instance_index(vertex_no_morph.instance_index);
+    out.mesh_flags = mesh[get_instance_index(vertex_no_morph.instance_index)];
 #endif
 
     return out;
