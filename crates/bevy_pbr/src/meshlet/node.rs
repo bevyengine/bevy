@@ -1,7 +1,4 @@
-use super::{
-    culling_pipeline::MeshletCullingPipeline, gpu_scene::MeshletGpuScene,
-    test_material::MeshletTestMaterial,
-};
+use super::{culling_pipeline::MeshletCullingPipeline, gpu_scene::MeshletGpuScene};
 use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_core_pipeline::{
     clear_color::{ClearColor, ClearColorConfig},
@@ -137,10 +134,6 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             //     draw_pass.set_render_pipeline(todo!("Material pipeline"));
             //     draw_pass.draw_indexed_indirect(draw_command_buffer, i as u64);
             // }
-            if let Some(material_pipeline) = MeshletTestMaterial::get(world) {
-                draw_pass.set_render_pipeline(material_pipeline);
-                draw_pass.draw_indexed_indirect(draw_command_buffer, 0);
-            }
         }
 
         Ok(())

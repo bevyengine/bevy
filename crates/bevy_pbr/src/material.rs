@@ -1,8 +1,8 @@
 use crate::{
-    meshlet::MeshletGpuScene, render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight,
-    MeshPipeline, MeshPipelineKey, PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances,
-    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
-    ShadowFilteringMethod,
+    meshlet::{MeshletGpuScene, MESHLET_RASTER_SHADER_HANDLE},
+    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
+    PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow, ShadowFilteringMethod,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
@@ -338,7 +338,7 @@ where
         }
 
         if key.for_meshlet_mesh {
-            descriptor.vertex.shader = todo!();
+            descriptor.vertex.shader = MESHLET_RASTER_SHADER_HANDLE;
             descriptor.vertex.entry_point = "meshlet_vertex".into();
             descriptor.vertex.buffers = Vec::new();
 

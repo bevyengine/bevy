@@ -5,7 +5,6 @@ mod gpu_scene;
 mod node;
 mod persistent_buffer;
 mod psb_impls;
-mod test_material;
 
 pub(crate) use self::gpu_scene::MeshletGpuScene;
 pub use self::{
@@ -21,7 +20,6 @@ use self::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
         prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources,
     },
-    test_material::{MeshletTestMaterial, MESHLET_TEST_MATERIAL_SHADER_HANDLE},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
@@ -37,6 +35,8 @@ use bevy_render::{
 };
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
+pub(crate) const MESHLET_RASTER_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2325134235233421);
 
 pub struct MeshletPlugin;
 
@@ -56,8 +56,8 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_TEST_MATERIAL_SHADER_HANDLE,
-            "test_material.wgsl",
+            MESHLET_RASTER_SHADER_HANDLE,
+            "meshlet_raster.wgsl",
             Shader::from_wgsl
         );
         app.init_asset::<MeshletMesh>();
@@ -82,7 +82,6 @@ impl Plugin for MeshletPlugin {
         )
         .init_resource::<MeshletGpuScene>()
         .init_resource::<MeshletCullingPipeline>()
-        .init_resource::<MeshletTestMaterial>()
         .add_systems(ExtractSchedule, extract_meshlet_meshes)
         .add_systems(
             Render,

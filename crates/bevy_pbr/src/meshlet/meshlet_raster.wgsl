@@ -3,23 +3,14 @@
 #import bevy_pbr::mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
 #import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
 
-fn rand_f(state: ptr<function, u32>) -> f32 {
-    *state = *state * 747796405u + 2891336453u;
-    let word = ((*state >> ((*state >> 28u) + 4u)) ^ *state) * 277803737u;
-    return f32((word >> 22u) ^ word) * bitcast<f32>(0x2f800004u);
-}
-
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) world_position: vec4<f32>,
-    @location(1) world_normal: vec3<f32>,
-    @location(2) uv: vec2<f32>,
-    @location(3) world_tangent: vec4<f32>,
-    @location(4) @interpolate(flat) meshlet_id: u32,
-}
+#ifdef PREPASS_PIPELINE
+#import bevy_pbr::prepass_io::VertexOutput
+#else
+#import bevy_pbr::forward_io::VertexOutput
+#endif
 
 @vertex
-fn vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
+fn meshlet_vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
     let thread_id = packed_meshlet_index >> 8u;
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
@@ -50,13 +41,22 @@ fn vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
         ),
         vertex.tangent.w * (f32(bool(instance_uniform.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0)
     );
-    out.meshlet_id = meshlet_id;
-    return out;
-}
 
-@fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    var rng = in.meshlet_id;
-    let color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
-    return vec4(color, 1.0);
+#ifdef MOTION_VECTOR_PREPASS
+    out.previous_world_position = mesh_functions::mesh_position_local_to_world(
+        affine_to_square(insinstance_uniform.previous_model),
+        vec4<f32>(vertex.position, 1.0)
+    );
+#endif
+
+#ifdef DEPTH_CLAMP_ORTHO
+    out.clip_position_unclamped = out.position;
+    out.position.z = min(out.position.z, 1.0);
+#endif
+
+#ifdef VERTEX_OUTPUT_MESH_FLAGS
+    out.mesh_flags = instinstance_uniform.flags;
+#endif
+
+    return out;
 }
