@@ -199,8 +199,7 @@ impl ViewNode for TemporalAntiAliasNode {
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.motion_vectors,
             &prepass_textures.depth,
-        )
-        else {
+        ) else {
             return Ok(());
         };
         let view_target = view_target.post_process_write();
