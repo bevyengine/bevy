@@ -7,6 +7,7 @@ mod persistent_buffer;
 mod psb_impls;
 mod test_material;
 
+pub(crate) use self::gpu_scene::MeshletGpuScene;
 pub use self::{
     asset::{Meshlet, MeshletBoundingSphere, MeshletMesh},
     from_mesh::MeshToMeshletMeshConversionError,
@@ -19,7 +20,6 @@ use self::{
     gpu_scene::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
         prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources,
-        MeshletGpuScene,
     },
     test_material::{MeshletTestMaterial, MESHLET_TEST_MATERIAL_SHADER_HANDLE},
 };

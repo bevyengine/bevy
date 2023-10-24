@@ -1,7 +1,8 @@
 use crate::{
-    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow, ShadowFilteringMethod,
+    meshlet::MeshletGpuScene, render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight,
+    MeshPipeline, MeshPipelineKey, PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances,
+    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    ShadowFilteringMethod,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
@@ -297,6 +298,7 @@ where
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
     pub material_layout: BindGroupLayout,
+    pub meshlet_layout: Option<BindGroupLayout>,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
     pub marker: PhantomData<M>,
@@ -307,6 +309,7 @@ impl<M: Material> Clone for MaterialPipeline<M> {
         Self {
             mesh_pipeline: self.mesh_pipeline.clone(),
             material_layout: self.material_layout.clone(),
+            meshlet_layout: self.meshlet_layout.clone(),
             vertex_shader: self.vertex_shader.clone(),
             fragment_shader: self.fragment_shader.clone(),
             marker: PhantomData,
@@ -341,7 +344,7 @@ where
 
             let _mesh_bind_group = descriptor.layout.pop().unwrap();
             descriptor.layout.extend_from_slice(&[
-                todo!("MesletGpuScene::draw_bind_group_layout()"),
+                self.meshlet_layout.expect("TODO"),
                 self.material_layout.clone(),
             ]);
 
@@ -365,6 +368,9 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             material_layout: M::bind_group_layout(render_device),
+            meshlet_layout: world
+                .get_resource::<MeshletGpuScene>()
+                .map(|gpu_scene| gpu_scene.draw_bind_group_layout().clone()),
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
