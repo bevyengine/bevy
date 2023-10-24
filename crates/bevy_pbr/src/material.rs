@@ -344,12 +344,12 @@ where
 
             let _mesh_bind_group = descriptor.layout.pop().unwrap();
             descriptor.layout.extend_from_slice(&[
-                self.meshlet_layout.expect("TODO"),
+                self.meshlet_layout.clone().expect("TODO"),
                 self.material_layout.clone(),
             ]);
 
             let sd = ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1);
-            descriptor.vertex.shader_defs.push(sd);
+            descriptor.vertex.shader_defs.push(sd.clone());
             descriptor.fragment.as_mut().map(|f| f.shader_defs.push(sd));
         } else {
             descriptor.layout.insert(1, self.material_layout.clone());
