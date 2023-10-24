@@ -1,11 +1,15 @@
 #define_import_path bevy_pbr::mesh_functions
 
-#import bevy_pbr::mesh_view_bindings   view
-#import bevy_pbr::mesh_bindings        mesh
-#import bevy_pbr::mesh_types           MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
-#import bevy_render::instance_index    get_instance_index
-#import bevy_render::maths             affine_to_square, mat2x4_f32_to_mat3x3_unpack
-#import bevy_pbr::view_transformations position_world_to_clip
+#import bevy_pbr::{
+    mesh_view_bindings::view,
+    mesh_bindings::mesh,
+    mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
+    view_transformations::position_world_to_clip,
+}
+#import bevy_render::{
+    instance_index::get_instance_index,
+    maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack},
+}
 
 fn get_model_matrix(instance_index: u32) -> mat4x4<f32> {
     return affine_to_square(mesh[get_instance_index(instance_index)].model);

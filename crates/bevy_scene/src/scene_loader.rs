@@ -29,10 +29,10 @@ impl FromWorld for SceneLoader {
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum SceneLoaderError {
-    /// An [IO](std::io) Error
-    #[error("Could load shader: {0}")]
+    /// An [IO Error](std::io::Error)
+    #[error("Error while trying to read the scene file: {0}")]
     Io(#[from] std::io::Error),
-    /// A [RON](ron) Error
+    /// A [RON Error](ron::error::SpannedError)
     #[error("Could not parse RON: {0}")]
     RonSpannedError(#[from] ron::error::SpannedError),
 }

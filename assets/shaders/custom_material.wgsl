@@ -1,6 +1,6 @@
-#import bevy_pbr::forward_io VertexOutput
+#import bevy_pbr::forward_io::VertexOutput
 // we can import items from shader modules in the assets folder with a quoted path
-#import "shaders/custom_material_import.wgsl" COLOR_MULTIPLIER
+#import "shaders/custom_material_import.wgsl"::COLOR_MULTIPLIER
 
 struct CustomMaterial {
     color: vec4<f32>,

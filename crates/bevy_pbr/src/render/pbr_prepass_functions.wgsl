@@ -1,11 +1,12 @@
 #define_import_path bevy_pbr::pbr_prepass_functions
-#import bevy_pbr::prepass_io VertexOutput
-#import bevy_pbr::prepass_bindings previous_view_proj
-#import bevy_pbr::mesh_view_bindings view
 
-#import bevy_pbr::pbr_bindings as pbr_bindings
-#import bevy_pbr::pbr_types as pbr_types
-
+#import bevy_pbr::{
+    prepass_io::VertexOutput,
+    prepass_bindings::previous_view_proj,
+    mesh_view_bindings::view,
+    pbr_bindings,
+    pbr_types,
+}
 
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;

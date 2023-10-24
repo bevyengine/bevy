@@ -1,23 +1,23 @@
 #define_import_path bevy_pbr::pbr_functions
 
-#ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
-#endif
+#import bevy_pbr::{
+    pbr_types,
+    pbr_bindings,
+    mesh_view_bindings as view_bindings,
+    mesh_view_types,
+    lighting,
+    clustered_forward as clustering,
+    shadows,
+    ambient,
+    mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT,
+}
 
-#import bevy_pbr::pbr_types as pbr_types
-#import bevy_pbr::pbr_bindings as pbr_bindings
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::mesh_view_types as mesh_view_types
-#import bevy_pbr::lighting as lighting
-#import bevy_pbr::clustered_forward as clustering
-#import bevy_pbr::shadows as shadows
-#import bevy_pbr::fog as fog
-#import bevy_pbr::ambient as ambient
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
 #endif
 
-#import bevy_pbr::mesh_types      MESH_FLAGS_SHADOW_RECEIVER_BIT
+#import bevy_core_pipeline::tonemapping::{screen_space_dither, powsafe, tone_mapping}
+
 
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
@@ -137,7 +137,7 @@ fn calculate_view(
 }
 
 #ifndef PREPASS_FRAGMENT
-fn pbr(
+fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
 ) -> vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
@@ -223,7 +223,7 @@ fn pbr(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    let environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
+    let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 #endif
 
@@ -247,7 +247,6 @@ fn pbr(
 }
 #endif // PREPASS_FRAGMENT
 
-#ifndef PREPASS_FRAGMENT
 fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
@@ -274,18 +273,17 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
     }
 
     if fog_params.mode == mesh_view_types::FOG_MODE_LINEAR {
-        return fog::linear_fog(fog_params, input_color, distance, scattering);
+        return bevy_pbr::fog::linear_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL {
-        return fog::exponential_fog(fog_params, input_color, distance, scattering);
+        return bevy_pbr::fog::exponential_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL_SQUARED {
-        return fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
+        return bevy_pbr::fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_ATMOSPHERIC {
-        return fog::atmospheric_fog(fog_params, input_color, distance, scattering);
+        return bevy_pbr::fog::atmospheric_fog(fog_params, input_color, distance, scattering);
     } else {
         return input_color;
     }
 }
-#endif // PREPASS_FRAGMENT
 
 #ifdef PREMULTIPLY_ALPHA
 fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
@@ -338,3 +336,34 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
 #endif
 }
 #endif
+
+// fog, alpha premultiply
+// for non-hdr cameras, tonemapping and debanding
+fn main_pass_post_lighting_processing(
+    pbr_input: pbr_types::PbrInput,
+    input_color: vec4<f32>,
+) -> vec4<f32> {
+    var output_color = input_color;
+
+    // fog
+    if (view_bindings::fog.mode != mesh_view_types::FOG_MODE_OFF && (pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+        output_color = apply_fog(view_bindings::fog, output_color, pbr_input.world_position.xyz, view_bindings::view.world_position.xyz);
+    }
+
+#ifdef TONEMAP_IN_SHADER
+    output_color = tone_mapping(output_color, view_bindings::view.color_grading);
+#ifdef DEBAND_DITHER
+    var output_rgb = output_color.rgb;
+    output_rgb = powsafe(output_rgb, 1.0 / 2.2);
+    output_rgb += screen_space_dither(pbr_input.frag_coord.xy);
+    // This conversion back to linear space is required because our output texture format is
+    // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
+    output_rgb = powsafe(output_rgb, 2.2);
+    output_color = vec4(output_rgb, output_color.a);
+#endif
+#endif
+#ifdef PREMULTIPLY_ALPHA
+    output_color = premultiply_alpha(pbr_input.material.flags, output_color);
+#endif
+    return output_color;
+}

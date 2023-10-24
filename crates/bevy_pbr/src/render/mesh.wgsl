@@ -1,10 +1,11 @@
-#import bevy_pbr::mesh_functions as mesh_functions
-#import bevy_pbr::skinning
-#import bevy_pbr::morph
-#import bevy_pbr::mesh_bindings        mesh
-#import bevy_pbr::forward_io           Vertex, VertexOutput
-#import bevy_render::instance_index    get_instance_index
-#import bevy_pbr::view_transformations position_world_to_clip
+#import bevy_pbr::{
+    mesh_functions,
+    skinning,
+    morph::morph,
+    forward_io::{Vertex, VertexOutput},
+    view_transformations::position_world_to_clip,
+}
+#import bevy_render::instance_index::get_instance_index
 
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
@@ -15,12 +16,12 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::position_offset, i);
+        vertex.position += weight * morph(vertex.index, bevy_pbr::morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::normal_offset, i);
+        vertex.normal += weight * morph(vertex.index, bevy_pbr::morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph(vertex.index, bevy_pbr::morph::tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
@@ -38,7 +39,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef SKINNED
-    var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+    var model = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416 .
@@ -47,7 +48,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef VERTEX_NORMALS
 #ifdef SKINNED
-    out.world_normal = bevy_pbr::skinning::skin_normals(model, vertex.normal);
+    out.world_normal = skinning::skin_normals(model, vertex.normal);
 #else
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,

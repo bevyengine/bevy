@@ -1,6 +1,5 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, EmptyPathStream, PathStream,
-    Reader, VecReader,
+    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
 use bevy_log::error;
 use bevy_utils::BoxedFuture;
@@ -70,12 +69,5 @@ impl AssetReader for AndroidAssetReader {
     ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
         error!("Reading directories is not supported with the AndroidAssetReader");
         Box::pin(async move { Ok(false) })
-    }
-
-    fn watch_for_changes(
-        &self,
-        _event_sender: crossbeam_channel::Sender<super::AssetSourceEvent>,
-    ) -> Option<Box<dyn AssetWatcher>> {
-        None
     }
 }

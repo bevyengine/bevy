@@ -97,13 +97,23 @@ accesskit_unix = ["bevy_winit/accesskit_unix"]
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 
 bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
+
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
 
+# Enable assertions in debug builds to check the validity of parameters passed to glam
+debug_glam_assert = ["bevy_math/debug_glam_assert"]
+
 default_font = ["bevy_text?/default_font"]
 
+# Enables the built-in asset processor for processed assets.
+asset_processor = ["bevy_asset?/asset_processor"]
+
 # Enables watching the filesystem for Bevy Asset hot-reloading
-filesystem_watcher = ["bevy_asset?/filesystem_watcher"]
+file_watcher = ["bevy_asset?/file_watcher"]
+
+# Enables watching embedded files for Bevy Asset hot-reloading
+embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 [dependencies]
 # bevy

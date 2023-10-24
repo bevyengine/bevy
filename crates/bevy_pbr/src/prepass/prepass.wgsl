@@ -1,11 +1,13 @@
-#import bevy_pbr::prepass_bindings
-#import bevy_pbr::mesh_functions
-#import bevy_pbr::prepass_io Vertex, VertexOutput, FragmentOutput
-#import bevy_pbr::skinning
-#import bevy_pbr::morph
-#import bevy_pbr::mesh_bindings mesh
-#import bevy_render::instance_index get_instance_index
-#import bevy_pbr::mesh_view_bindings view, previous_view_proj
+#import bevy_pbr::{
+    prepass_bindings,
+    mesh_functions,
+    prepass_io::{Vertex, VertexOutput, FragmentOutput},
+    skinning,
+    morph,
+    mesh_view_bindings::{view, previous_view_proj},
+}
+
+#import bevy_render::instance_index::get_instance_index
 
 #ifdef DEFERRED_PREPASS
 #import bevy_pbr::rgb9e5
@@ -14,18 +16,18 @@
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
-    let weight_count = bevy_pbr::morph::layer_count();
+    let weight_count = morph::layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = bevy_pbr::morph::weight_at(i);
+        let weight = morph::weight_at(i);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::position_offset, i);
+        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::normal_offset, i);
+        vertex.normal += weight * morph::morph(vertex.index, morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph::morph(vertex.index, morph::tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
@@ -37,20 +39,20 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
-    var vertex = morph_vertex(vertex_no_morph);
+    var vertex = morph::morph_vertex(vertex_no_morph);
 #else
     var vertex = vertex_no_morph;
 #endif
 
 #ifdef SKINNED
-    var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+    var model = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else // SKINNED
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    var model = bevy_pbr::mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
+    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif // SKINNED
 
-    out.position = bevy_pbr::mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
+    out.position = mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 #ifdef DEPTH_CLAMP_ORTHO
     out.clip_position_unclamped = out.position;
     out.position.z = min(out.position.z, 1.0);
@@ -62,9 +64,9 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef SKINNED
-    out.world_normal = bevy_pbr::skinning::skin_normals(model, vertex.normal);
+    out.world_normal = skinning::skin_normals(model, vertex.normal);
 #else // SKINNED
-    out.world_normal = bevy_pbr::mesh_functions::mesh_normal_local_to_world(
+    out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
@@ -73,7 +75,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif // SKINNED
 
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = bevy_pbr::mesh_functions::mesh_tangent_local_to_world(
+    out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         model,
         vertex.tangent,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
@@ -88,14 +90,14 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
-    out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
 #endif // MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(
-        bevy_pbr::mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index),
+    out.previous_world_position = mesh_functions::mesh_position_local_to_world(
+        mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index),
         vec4<f32>(vertex.position, 1.0)
     );
 #endif // MOTION_VECTOR_PREPASS
@@ -125,7 +127,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = bevy_pbr::prepass_bindings::previous_view_proj * in.previous_world_position;
+    let previous_clip_position_t = prepass_bindings::previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

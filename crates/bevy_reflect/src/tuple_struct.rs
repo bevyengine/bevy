@@ -1,8 +1,8 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypePathTable, UnnamedField,
+    self as bevy_reflect, DynamicTuple, Reflect, ReflectMut, ReflectOwned, ReflectRef, Tuple,
+    TypeInfo, TypePath, TypePathTable, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -387,6 +387,15 @@ impl_type_path!((in bevy_reflect) DynamicTupleStruct);
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl From<DynamicTuple> for DynamicTupleStruct {
+    fn from(value: DynamicTuple) -> Self {
+        Self {
+            represented_type: None,
+            fields: Box::new(value).drain(),
+        }
     }
 }
 

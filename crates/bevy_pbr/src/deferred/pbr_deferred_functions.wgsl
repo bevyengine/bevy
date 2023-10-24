@@ -1,12 +1,19 @@
 #define_import_path bevy_pbr::pbr_deferred_functions
-#import bevy_pbr::pbr_types PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT
-#import bevy_pbr::pbr_deferred_types as deferred_types
-#import bevy_pbr::pbr_functions as pbr_functions
-#import bevy_pbr::rgb9e5 as rgb9e5
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::mesh_view_bindings view
-#import bevy_pbr::utils octahedral_encode, octahedral_decode
-#import bevy_pbr::view_transformations position_ndc_to_world, frag_coord_to_ndc
+
+#import bevy_pbr::{
+    pbr_types::{PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    pbr_deferred_types as deferred_types,
+    pbr_functions,
+    rgb9e5,
+    mesh_view_bindings::view,
+    utils::{octahedral_encode, octahedral_decode},
+    prepass_io::{VertexOutput, FragmentOutput},
+    view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
+}
+
+#ifdef MOTION_VECTOR_PREPASS
+    #import bevy_pbr::pbr_prepass_functions::calculate_motion_vector
+#endif
 
 // Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
@@ -96,4 +103,23 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     return pbr;
 }
 
+#ifdef PREPASS_PIPELINE
+fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
+    var out: FragmentOutput;
 
+    // gbuffer
+    out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
+    // lighting pass id (used to determine which lighting shader to run for the fragment)
+    out.deferred_lighting_pass_id = pbr_input.material.deferred_lighting_pass_id;
+    // normal if required
+#ifdef NORMAL_PREPASS
+    out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+#endif
+    // motion vectors if required
+#ifdef MOTION_VECTOR_PREPASS
+    out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
+
+    return out;
+}
+#endif
