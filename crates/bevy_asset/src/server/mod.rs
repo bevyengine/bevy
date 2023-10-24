@@ -460,6 +460,11 @@ impl AssetServer {
     /// Loads all assets from the specified folder recursively. The [`LoadedFolder`] asset (when it loads) will
     /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedFolder`]'s
     /// [`RecursiveDependencyLoadState`].
+    ///
+    /// Loading the same folder multiple times will return the same handle. If the `file_watcher`
+    /// feature is enabled, [`LoadedFolder`] handles will reload when a file in the folder is
+    /// removed, added or moved. This includes files in subdirectories and moving, adding,
+    /// or removing complete subdirectories.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_folder<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedFolder> {
         let path = path.into().into_owned();
