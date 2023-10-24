@@ -29,8 +29,8 @@ use bevy_render::{
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
-        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderDefVal,
+        ShaderRef, SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     texture::FallbackImage,
@@ -326,21 +326,30 @@ where
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
+
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
-
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
-
-        descriptor.layout.insert(1, self.material_layout.clone());
 
         if key.for_meshlet_mesh {
             descriptor.vertex.shader = todo!();
             descriptor.vertex.entry_point = "meshlet_vertex".into();
             descriptor.vertex.buffers = Vec::new();
-            descriptor.layout = todo!();
+
+            let _mesh_bind_group = descriptor.layout.pop().unwrap();
+            descriptor.layout.extend_from_slice(&[
+                todo!("MesletGpuScene::draw_bind_group_layout()"),
+                self.material_layout.clone(),
+            ]);
+
+            let sd = ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1);
+            descriptor.vertex.shader_defs.push(sd);
+            descriptor.fragment.as_mut().map(|f| f.shader_defs.push(sd));
+        } else {
+            descriptor.layout.insert(1, self.material_layout.clone());
         }
 
         M::specialize(self, &mut descriptor, layout, key)?;
