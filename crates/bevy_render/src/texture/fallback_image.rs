@@ -4,7 +4,6 @@ use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
     system::{Resource, SystemParam},
 };
-use bevy_math::Vec2;
 use bevy_utils::HashMap;
 use wgpu::{Extent3d, TextureFormat};
 
@@ -103,17 +102,14 @@ fn fallback_image_new(
     });
     let sampler = match image.sampler_descriptor {
         ImageSampler::Default => (**default_sampler).clone(),
-        ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+        ImageSampler::Descriptor(ref descriptor) => render_device.create_sampler(descriptor),
     };
     GpuImage {
         texture,
         texture_view,
         texture_format: image.texture_descriptor.format,
         sampler,
-        size: Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
-        ),
+        size: image.size_f32(),
         mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }

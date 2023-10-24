@@ -33,7 +33,7 @@ crossbeam-channel = "0.5"
 downcast-rs = "1.2"
 futures-io = "0.3"
 futures-lite = "1.12"
-md5 = "0.7"
+blake3 = "1.5"
 parking_lot = { version = "0.12", features = ["arc_lock", "send_guard"] }
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
