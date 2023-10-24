@@ -232,6 +232,9 @@ accesskit_unix = ["bevy_internal/accesskit_unix"]
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
 
+# Enable assertions in debug builds to check the validity of parameters passed to glam
+debug_glam_assert = ["bevy_internal/debug_glam_assert"]
+
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
 
@@ -243,6 +246,9 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
 # Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
+
+# Enables the built-in asset processor for processed assets.
+asset_processor = ["bevy_internal/asset_processor"]
 
 # Enables watching the filesystem for Bevy Asset hot-reloading
 file_watcher = ["bevy_internal/file_watcher"]
@@ -1080,7 +1086,7 @@ wasm = true
 name = "asset_processing"
 path = "examples/asset/processing/processing.rs"
 doc-scrape-examples = true
-required-features = ["file_watcher"]
+required-features = ["file_watcher", "asset_processor"]
 
 [package.metadata.example.asset_processing]
 name = "Asset Processing"

@@ -1,6 +1,6 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
-#import bevy_render::view View, ColorGrading
+#import bevy_render::view::ColorGrading
 
 // hack !! not sure what to do with this
 #ifdef TONEMAPPING_PASS

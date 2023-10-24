@@ -1,5 +1,4 @@
-#import bevy_pbr::mesh_functions  get_model_matrix, mesh_position_local_to_clip
-#import bevy_pbr::mesh_bindings   mesh
+#import bevy_pbr::mesh_functions::{get_model_matrix, mesh_position_local_to_clip}
 
 struct Vertex {
     @location(0) position: vec3<f32>,

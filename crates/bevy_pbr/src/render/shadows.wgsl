@@ -1,9 +1,11 @@
 #define_import_path bevy_pbr::shadows
 
-#import bevy_pbr::mesh_view_types  POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::utils  hsv2rgb
-#import bevy_pbr::shadow_sampling sample_shadow_map
+#import bevy_pbr::{
+    mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+    mesh_view_bindings as view_bindings,
+    utils::hsv2rgb,
+    shadow_sampling::sample_shadow_map
+}
 
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
