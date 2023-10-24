@@ -5,6 +5,7 @@
     skinning,
     morph,
     mesh_view_bindings::{view, previous_view_proj},
+    mesh_bindings::mesh,
 }
 
 #import bevy_render::instance_index::get_instance_index
@@ -105,7 +106,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef VERTEX_OUTPUT_MESH_FLAGS
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.mesh_flags = mesh[get_instance_index(vertex_no_morph.instance_index)];
+    out.mesh_flags = mesh[get_instance_index(vertex_no_morph.instance_index)].flags;
 #endif
 
     return out;
