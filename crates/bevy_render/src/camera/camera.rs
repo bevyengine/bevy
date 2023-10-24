@@ -714,7 +714,7 @@ pub fn extract_cameras(
                     color_grading,
                 },
                 visible_entities.clone(),
-                frustum.clone(),
+                *frustum,
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {
