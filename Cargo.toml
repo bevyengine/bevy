@@ -47,8 +47,6 @@ default = [
   "multi-threaded",
   "png",
   "hdr",
-  "ktx2",
-  "zstd",
   "vorbis",
   "x11",
   "bevy_gizmos",
