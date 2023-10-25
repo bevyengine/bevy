@@ -108,3 +108,21 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>, 1024u>,
 };
 #endif
+
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+struct IrradianceVolumeData {
+    data: array<vec4<f32>>,
+};
+#else
+// TODO
+#endif
+
+struct IrradianceVolume {
+    transform: mat4x4<f32>,
+    inverse_transform: mat4x4<f32>,
+    resolution: vec3<i32>,
+    start_offset: u32,
+};
+struct IrradianceVolumes {
+    data: array<IrradianceVolume, 256u>,
+};

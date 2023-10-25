@@ -8,6 +8,7 @@ pub mod deferred;
 mod environment_map;
 mod extended_material;
 mod fog;
+mod irradiance_volumes;
 mod light;
 mod material;
 mod parallax;
@@ -21,6 +22,7 @@ pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
 pub use fog::*;
+pub use irradiance_volumes::*;
 pub use light::*;
 pub use material::*;
 pub use parallax::*;
@@ -246,6 +248,7 @@ impl Plugin for PbrPlugin {
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                IrradianceVolumesPlugin,
             ))
             .configure_sets(
                 PostUpdate,

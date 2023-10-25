@@ -10,6 +10,7 @@
     shadows,
     ambient,
     mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT,
+    irradiance_volumes,
 }
 
 #ifdef ENVIRONMENT_MAP
@@ -226,6 +227,9 @@ fn apply_pbr_lighting(
     let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 #endif
+
+    indirect_light += irradiance_volumes::sample_irradiance_volume(in.world_position.xyz, in.N) *
+        diffuse_color;
 
     let emissive_light = emissive.rgb * output_color.a;
 

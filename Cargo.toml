@@ -847,6 +847,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "irradiance_volumes"
+path = "examples/3d/irradiance_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.irradiance_volumes]
+name = "Irradiance Volumes"
+description = "Displays the Cornell Box with irradiance volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "no_prepass"
 path = "tests/3d/no_prepass.rs"
 doc-scrape-examples = true

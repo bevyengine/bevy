@@ -9,7 +9,9 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+default = ["serialize"]
 webgl = []
+serialize = ["serde", "bincode", "bevy_transform/serialize"]
 
 [dependencies]
 # bevy
@@ -34,3 +36,7 @@ radsort = "0.1"
 naga_oil = "0.10"
 smallvec = "1.6"
 thread_local = "1.0"
+thiserror = "1"
+
+serde = { version = "1", features = ["derive"], optional = true }
+bincode = { version = "1", optional = true }
