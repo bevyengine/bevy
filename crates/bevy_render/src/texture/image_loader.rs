@@ -7,7 +7,7 @@ use crate::{
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
 
-use super::{CompressedImageFormats, ImageSampler, ImageSamplerDescriptor};
+use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
 
 /// Loader for images that can be read by the `image` crate.
@@ -56,7 +56,7 @@ pub enum ImageFormatSetting {
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
-    pub sampler_descriptor: ImageSamplerDescriptor,
+    pub sampler: ImageSampler,
 }
 
 impl Default for ImageLoaderSettings {
@@ -64,7 +64,7 @@ impl Default for ImageLoaderSettings {
         Self {
             format: ImageFormatSetting::default(),
             is_srgb: true,
-            sampler_descriptor: ImageSamplerDescriptor::default(),
+            sampler: ImageSampler::Default,
         }
     }
 }
@@ -103,7 +103,7 @@ impl AssetLoader for ImageLoader {
                 image_type,
                 self.supported_compressed_formats,
                 settings.is_srgb,
-                ImageSampler::Descriptor(settings.sampler_descriptor.clone()),
+                settings.sampler.clone(),
             )
             .map_err(|err| FileTextureError {
                 error: err,

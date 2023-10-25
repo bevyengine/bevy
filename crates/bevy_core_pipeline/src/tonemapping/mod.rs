@@ -387,7 +387,7 @@ pub fn lut_placeholder() -> Image {
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             view_formats: &[],
         },
-        sampler_descriptor: ImageSampler::Default,
+        sampler: ImageSampler::Default,
         texture_view_descriptor: None,
     }
 }

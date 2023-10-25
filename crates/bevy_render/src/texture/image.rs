@@ -108,14 +108,14 @@ pub struct Image {
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
     /// The [`ImageSampler`] to use during rendering.
-    pub sampler_descriptor: ImageSampler,
+    pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
 /// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
     #[default]
@@ -462,7 +462,7 @@ impl Default for Image {
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             },
-            sampler_descriptor: ImageSampler::Default,
+            sampler: ImageSampler::Default,
             texture_view_descriptor: None,
         }
     }
@@ -668,7 +668,7 @@ impl Image {
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
                 let mut img = Self::from_dynamic(dyn_img, is_srgb);
-                img.sampler_descriptor = image_sampler;
+                img.sampler = image_sampler;
                 Ok(img)
             }
         }
@@ -835,7 +835,7 @@ impl RenderAsset for Image {
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         );
-        let sampler = match image.sampler_descriptor {
+        let sampler = match image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
                 render_device.create_sampler(&descriptor.as_wgpu())
