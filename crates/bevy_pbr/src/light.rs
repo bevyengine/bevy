@@ -14,7 +14,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{tracing::warn, HashMap};
 
 use crate::{

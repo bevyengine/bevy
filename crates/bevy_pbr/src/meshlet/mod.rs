@@ -7,6 +7,7 @@ mod persistent_buffer;
 mod psb_impls;
 
 pub(crate) use self::gpu_scene::MeshletGpuScene;
+
 pub use self::{
     asset::{Meshlet, MeshletBoundingSphere, MeshletMesh},
     from_mesh::MeshToMeshletMeshConversionError,
@@ -21,6 +22,7 @@ use self::{
         prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources,
     },
 };
+use crate::Material;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::core_3d::{
@@ -31,8 +33,10 @@ use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::Shader,
+    view::{InheritedVisibility, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_transform::components::{GlobalTransform, Transform};
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 pub(crate) const MESHLET_RASTER_SHADER_HANDLE: Handle<Shader> =
@@ -91,5 +95,34 @@ impl Plugin for MeshletPlugin {
                 prepare_meshlet_per_frame_bind_groups.in_set(RenderSet::PrepareBindGroups),
             ),
         );
+    }
+}
+
+/// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
+#[derive(Bundle, Clone)]
+pub struct MaterialMeshletMeshBundle<M: Material> {
+    pub meshlet_mesh: Handle<MeshletMesh>,
+    pub material: Handle<M>,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    /// User indication of whether an entity is visible
+    pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
+}
+
+impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
+    fn default() -> Self {
+        Self {
+            meshlet_mesh: Default::default(),
+            material: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
+        }
     }
 }
