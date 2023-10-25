@@ -29,7 +29,7 @@ use bevy_core_pipeline::core_3d::{
     graph::node::{MAIN_OPAQUE_PASS, START_MAIN_PASS},
     CORE_3D,
 };
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::{bundle::Bundle, schedule::IntoSystemConfigs};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::Shader,
