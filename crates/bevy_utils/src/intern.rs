@@ -109,7 +109,7 @@ impl Internable for str {
     }
 
     fn ref_eq(&self, other: &Self) -> bool {
-        self.len() == other.len() && self.as_ptr() == other.as_ptr()
+        self.as_ptr() == other.as_ptr() && self.len() == other.len()
     }
 
     fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
