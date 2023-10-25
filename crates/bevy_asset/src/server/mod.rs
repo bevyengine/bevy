@@ -23,6 +23,7 @@ use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
 use parking_lot::RwLock;
+use std::path::PathBuf;
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -812,6 +813,20 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
+        let reload_parent_folders = |path: PathBuf, source: &AssetSourceId<'static>| {
+            let mut current_folder = path;
+            while let Some(parent) = current_folder.parent() {
+                println!("checking {current_folder:?}");
+                current_folder = parent.to_path_buf();
+                let parent_asset_path =
+                    AssetPath::from(current_folder.clone()).with_source(source.clone());
+                if let Some(folder_handle) = infos.get_path_handle(parent_asset_path.clone()) {
+                    info!("Reloading folder {parent_asset_path} because the content has changed");
+                    server.load_folder_internal(folder_handle.id(), parent_asset_path);
+                }
+            }
+        };
+
         let mut paths_to_reload = HashSet::new();
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
@@ -822,19 +837,15 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     queue_ancestors(&path, &infos, &mut paths_to_reload);
                     paths_to_reload.insert(path);
                 }
-                AssetSourceEvent::AddedAsset(path) | AssetSourceEvent::RemovedAsset(path) => {
-                    let mut current_folder = path;
-                    while let Some(parent) = current_folder.parent()  {
-                        current_folder = parent.to_path_buf();
-                        let parent_asset_path =
-                            AssetPath::from(current_folder.clone()).with_source(source.clone());
-                        if let Some(folder_handle) =
-                            infos.get_path_handle(parent_asset_path.clone())
-                        {
-                            info!("Reloading folder {parent_asset_path} because the content has changed");
-                            server.load_folder_internal(folder_handle.id(), parent_asset_path);
-                        }
-                    }
+                AssetSourceEvent::RenamedFolder { old, new } => {
+                    reload_parent_folders(old, &source);
+                    reload_parent_folders(new, &source);
+                }
+                AssetSourceEvent::AddedAsset(path)
+                | AssetSourceEvent::RemovedAsset(path)
+                | AssetSourceEvent::RemovedFolder(path)
+                | AssetSourceEvent::AddedFolder(path) => {
+                    reload_parent_folders(path, &source);
                 }
                 _ => {}
             }
