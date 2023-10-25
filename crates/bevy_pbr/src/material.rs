@@ -664,7 +664,16 @@ pub fn queue_material_meshes<M: Material>(
                     }
                 }
                 AlphaMode::Mask(_) => {
-                    if forward {
+                    if material.properties.reads_view_transmission_texture {
+                        transmissive_phase.add(Transmissive3d {
+                            entity: *visible_entity,
+                            draw_function: draw_transmissive_pbr,
+                            pipeline: pipeline_id,
+                            distance,
+                            batch_range: 0..1,
+                            dynamic_offset: None,
+                        });
+                    } else if forward {
                         alpha_mask_phase.add(AlphaMask3d {
                             entity: *visible_entity,
                             draw_function: draw_alpha_mask_pbr,
