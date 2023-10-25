@@ -191,11 +191,7 @@ impl ViewNode for TemporalAntiAliasNode {
         ) else {
             return Ok(());
         };
-        let (
-            Some(taa_pipeline),
-            Some(prepass_motion_vectors_texture),
-            Some(prepass_depth_texture),
-        ) = (
+        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.motion_vectors,
             &prepass_textures.depth,
