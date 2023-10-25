@@ -1,7 +1,7 @@
 use crate::{
     generate_view_layouts, prepare_mesh_view_bind_groups, MaterialBindGroupId,
     MeshPipelineViewLayout, MeshPipelineViewLayoutKey, MeshViewBindGroup, NotShadowCaster,
-    NotShadowReceiver, NotTransmittedShadowReceiver, PreviousGlobalTransform, Shadow,
+    NotShadowReceiver, PreviousGlobalTransform, Shadow, TransmittedShadowReceiver,
     ViewFogUniformOffset, ViewLightsUniformOffset, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
     MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
@@ -270,7 +270,7 @@ pub fn extract_meshes(
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
             Has<NotShadowReceiver>,
-            Has<NotTransmittedShadowReceiver>,
+            Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
         )>,
@@ -284,7 +284,7 @@ pub fn extract_meshes(
             previous_transform,
             handle,
             not_receiver,
-            not_transmitted_receiver,
+            transmitted_receiver,
             not_caster,
             no_automatic_batching,
         )| {
@@ -298,7 +298,7 @@ pub fn extract_meshes(
             } else {
                 MeshFlags::SHADOW_RECEIVER
             };
-            if !not_transmitted_receiver {
+            if transmitted_receiver {
                 flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
             }
             if transform.matrix3.determinant().is_sign_positive() {

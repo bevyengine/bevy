@@ -154,10 +154,11 @@ pub struct StandardMaterial {
     /// - Values higher than `0.5` will cause more diffuse light to be transmitted than reflected, resulting in a “darker”
     ///   appearance on the side facing the light than the opposite side. (e.g. plant leaves)
     ///
-    /// **Important:** The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
+    /// ## Notes
     ///
-    /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`]. To avoid self-shadows on complicated
-    /// mesh shapes without having to fine tune the thickness, consider using the [`NotTransmittedShadowReceiver`](crate::light::NotTransmittedShadowReceiver) component.
+    /// - The material's [`StandardMaterial::base_color`] also modulates the transmitted light;
+    /// - To receive transmitted shadows on the diffuse transmission lobe (i.e. the “backside”) of the material,
+    ///   use the [`TransmittedShadowReceiver`](crate::light::TransmittedShadowReceiver) component.
     #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 

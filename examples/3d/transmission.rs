@@ -29,7 +29,7 @@ use bevy::{
         bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
-    pbr::{NotShadowCaster, NotTransmittedShadowReceiver, PointLightShadowMap},
+    pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::camera::TemporalJitter,
     render::view::ColorGrading,
@@ -148,7 +148,6 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 0.0, 0.0),
             ..default()
         },
-        NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
             specular_transmission: false,
@@ -188,7 +187,6 @@ fn setup(
             transform: Transform::from_xyz(1.0, 0.0, 0.0),
             ..default()
         },
-        NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -212,7 +210,6 @@ fn setup(
             transform: Transform::from_xyz(1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
             ..default()
         },
-        NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -236,7 +233,6 @@ fn setup(
             transform: Transform::from_xyz(0.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
             ..default()
         },
-        NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -260,7 +256,6 @@ fn setup(
             transform: Transform::from_xyz(-1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
             ..default()
         },
-        NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -323,6 +318,7 @@ fn setup(
                 .with_rotation(Quat::from_euler(EulerRot::XYZ, PI / 2.0, 0.0, 0.0)),
             ..default()
         },
+        TransmittedShadowReceiver,
         ExampleControls {
             specular_transmission: false,
             color: false,
