@@ -2,7 +2,7 @@
 
 use bevy::{
     log::info,
-    pbr::meshlet::{MeshletMesh, MeshletPlugin},
+    pbr::meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
     prelude::*,
 };
 
@@ -21,6 +21,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut dragon_meshlet_mesh_handle: Local<Handle<MeshletMesh>>,
     mut dragon_mesh_handle: Local<Handle<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if dragon_mesh_handle.id() == AssetId::default() {
         commands.spawn((
@@ -54,11 +55,12 @@ fn setup(
                 meshlet_meshes.add(MeshletMesh::from_mesh(&dragon_mesh).unwrap());
             info!("Dragon meshlets calculated");
 
-            commands.spawn((
-                dragon_meshlet_mesh_handle.clone(),
-                Transform::default().with_rotation(Quat::from_rotation_x(PI / 2.0)),
-                GlobalTransform::default(),
-            ));
+            commands.spawn(MaterialMeshletMeshBundle {
+                meshlet_mesh: dragon_meshlet_mesh_handle.clone(),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                transform: Transform::default().with_rotation(Quat::from_rotation_x(PI / 2.0)),
+                ..default()
+            });
         }
     }
 }
