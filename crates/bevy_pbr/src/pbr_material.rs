@@ -1,8 +1,3 @@
-use crate::{
-    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, AlphaMode, Material, MaterialPipeline,
-    MaterialPipelineKey, OpaqueRendererMethod, ParallaxMappingMethod, PBR_PREPASS_SHADER_HANDLE,
-    PBR_SHADER_HANDLE,
-};
 use bevy_asset::{Asset, Handle};
 use bevy_math::Vec4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -10,6 +5,9 @@ use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
 };
+
+use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
+use crate::*;
 
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here

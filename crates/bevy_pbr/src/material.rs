@@ -1,8 +1,4 @@
-use crate::{
-    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow, ShadowFilteringMethod,
-};
+use crate::*;
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
@@ -18,20 +14,14 @@ use bevy_ecs::{
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
+    camera::Projection,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
-    render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
-    },
-    render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
-        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-    },
+    render_phase::*,
+    render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
@@ -41,7 +31,7 @@ use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
+/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
 /// way to render [`Mesh`] entities with custom shader logic.
 ///
@@ -457,6 +447,7 @@ pub fn queue_material_meshes<M: Material>(
             Has<DeferredPrepass>,
         ),
         Option<&TemporalAntiAliasSettings>,
+        Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -474,6 +465,7 @@ pub fn queue_material_meshes<M: Material>(
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         taa_settings,
+        projection,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -509,6 +501,13 @@ pub fn queue_material_meshes<M: Material>(
 
         if environment_map_loaded {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if let Some(projection) = projection {
+            view_key |= match projection {
+                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+            };
         }
 
         match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {

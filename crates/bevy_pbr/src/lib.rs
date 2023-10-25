@@ -82,6 +82,8 @@ pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102
 pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(17035894873630133905);
+pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2098345702398750291);
 pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(73204817249182637);
 pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
@@ -198,6 +200,12 @@ impl Plugin for PbrPlugin {
             app,
             PARALLAX_MAPPING_SHADER_HANDLE,
             "render/parallax_mapping.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            VIEW_TRANSFORMATIONS_SHADER_HANDLE,
+            "render/view_transformations.wgsl",
             Shader::from_wgsl
         );
 
