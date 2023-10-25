@@ -44,7 +44,7 @@ fn meshlet_vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOut
 
 #ifdef MOTION_VECTOR_PREPASS
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(
-        affine_to_square(insinstance_uniform.previous_model),
+        affine_to_square(instance_uniform.previous_model),
         vec4<f32>(vertex.position, 1.0)
     );
 #endif
@@ -55,7 +55,7 @@ fn meshlet_vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOut
 #endif
 
 #ifdef VERTEX_OUTPUT_MESH_FLAGS
-    out.mesh_flags = instinstance_uniform.flags;
+    out.mesh_flags = instance_uniform.flags;
 #endif
 
     return out;
