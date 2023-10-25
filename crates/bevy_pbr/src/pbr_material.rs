@@ -803,6 +803,18 @@ impl Material for StandardMaterial {
 
     #[inline]
     fn opaque_render_method(&self) -> OpaqueRendererMethod {
-        self.opaque_render_method
+        match self.opaque_render_method {
+            // For now, diffuse transmission doesn't work under deferred rendering as we don't pack
+            // the required data into the GBuffer. If this material is set to `Auto`, we report it as
+            // `Forward` so that it's rendered correctly, even when the `DefaultOpaqueRendererMethod`
+            // is set to `Deferred`.
+            //
+            // If the developer explicitly sets the `OpaqueRendererMethod` to `Deferred`, we assume
+            // they know what they're doing and don't override it.
+            OpaqueRendererMethod::Auto if self.diffuse_transmission > 0.0 => {
+                OpaqueRendererMethod::Forward
+            }
+            other => other,
+        }
     }
 }
