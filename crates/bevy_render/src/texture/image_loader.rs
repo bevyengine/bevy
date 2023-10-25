@@ -45,14 +45,14 @@ pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
     "ppm",
 ];
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
     #[default]
     FromExtension,
     Format(ImageFormat),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,

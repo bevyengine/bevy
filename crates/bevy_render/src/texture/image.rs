@@ -648,16 +648,16 @@ impl Image {
         // needs to be added, so the image data needs to be converted in those
         // cases.
 
-        match format {
+        let mut image = match format {
             #[cfg(feature = "basis-universal")]
             ImageFormat::Basis => {
-                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb),
+            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
-                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             _ => {
                 let image_crate_format = format
@@ -667,11 +667,11 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                let mut img = Self::from_dynamic(dyn_img, is_srgb);
-                img.sampler = image_sampler;
-                Ok(img)
+                Self::from_dynamic(dyn_img, is_srgb)
             }
-        }
+        };
+        image.sampler = image_sampler;
+        Ok(image)
     }
 
     /// Whether the texture format is compressed or uncompressed
