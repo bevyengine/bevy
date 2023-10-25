@@ -346,7 +346,11 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     // Ignored field
                     continue;
                 }
-                constructor_argument.push(generate_for_field(reflect_idx, field.index, field));
+                constructor_argument.push(generate_for_field(
+                    reflect_idx,
+                    field.declaration_index,
+                    field,
+                ));
                 reflect_idx += 1;
             }
             constructor_argument

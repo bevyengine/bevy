@@ -76,6 +76,7 @@ pub struct App {
     plugin_name_added: HashSet<String>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
     building_plugin_depth: usize,
+    plugins_state: PluginsState,
 }
 
 impl Debug for App {
@@ -194,6 +195,19 @@ impl Default for App {
     }
 }
 
+/// Plugins state in the application
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum PluginsState {
+    /// Plugins are being added.
+    Adding,
+    /// All plugins already added are ready.
+    Ready,
+    /// Finish has been executed for all plugins added.
+    Finished,
+    /// Cleanup has been executed for all plugins added.
+    Cleaned,
+}
+
 // Dummy plugin used to temporary hold the place in the plugin registry
 struct PlaceholderPlugin;
 impl Plugin for PlaceholderPlugin {
@@ -221,6 +235,7 @@ impl App {
             plugin_name_added: Default::default(),
             main_schedule_label: Box::new(Main),
             building_plugin_depth: 0,
+            plugins_state: PluginsState::Adding,
         }
     }
 
@@ -288,7 +303,7 @@ impl App {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
-        if app.ready() {
+        if app.plugins_state() == PluginsState::Ready {
             // If we're already ready, we finish up now and advance one frame.
             // This prevents black frames during the launch transition on iOS.
             app.finish();
@@ -300,20 +315,25 @@ impl App {
         (runner)(app);
     }
 
-    /// Check that [`Plugin::ready`] of all plugins returns true. This is usually called by the
+    /// Check the state of all plugins already added to this app. This is usually called by the
     /// event loop, but can be useful for situations where you want to use [`App::update`]
-    pub fn ready(&self) -> bool {
-        for plugin in &self.plugin_registry {
-            if !plugin.ready(self) {
-                return false;
+    #[inline]
+    pub fn plugins_state(&self) -> PluginsState {
+        match self.plugins_state {
+            PluginsState::Adding => {
+                for plugin in &self.plugin_registry {
+                    if !plugin.ready(self) {
+                        return PluginsState::Adding;
+                    }
+                }
+                PluginsState::Ready
             }
+            state => state,
         }
-        true
     }
 
     /// Run [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
-    /// plugins are [`App::ready`], but can be useful for situations where you want to use
-    /// [`App::update`].
+    /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let plugin_registry = std::mem::take(&mut self.plugin_registry);
@@ -321,6 +341,7 @@ impl App {
             plugin.finish(self);
         }
         self.plugin_registry = plugin_registry;
+        self.plugins_state = PluginsState::Finished;
     }
 
     /// Run [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
@@ -332,6 +353,7 @@ impl App {
             plugin.cleanup(self);
         }
         self.plugin_registry = plugin_registry;
+        self.plugins_state = PluginsState::Cleaned;
     }
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
@@ -696,6 +718,14 @@ impl App {
     /// [`PluginGroup`]:super::PluginGroup
     #[track_caller]
     pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
+        if matches!(
+            self.plugins_state(),
+            PluginsState::Cleaned | PluginsState::Finished
+        ) {
+            panic!(
+                "Plugins cannot be added after App::cleanup() or App::finish() has been called."
+            );
+        }
         plugins.add_to_app(self);
         self
     }
@@ -947,14 +977,20 @@ impl App {
 }
 
 fn run_once(mut app: App) {
-    while !app.ready() {
-        #[cfg(not(target_arch = "wasm32"))]
-        bevy_tasks::tick_global_task_pools_on_main_thread();
+    let plugins_state = app.plugins_state();
+    if plugins_state != PluginsState::Cleaned {
+        while app.plugins_state() == PluginsState::Adding {
+            #[cfg(not(target_arch = "wasm32"))]
+            bevy_tasks::tick_global_task_pools_on_main_thread();
+        }
+        app.finish();
+        app.cleanup();
     }
-    app.finish();
-    app.cleanup();
 
-    app.update();
+    // if plugins where cleaned before the runner start, an update already ran
+    if plugins_state != PluginsState::Cleaned {
+        app.update();
+    }
 }
 
 /// An event that indicates the [`App`] should exit. This will fully exit the app process at the

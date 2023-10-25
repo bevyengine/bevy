@@ -52,7 +52,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba(0.05, 0.05, 0.05, 1.0),
+            color: Color::rgba(0.25, 0.25, 0.25, 1.0),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
