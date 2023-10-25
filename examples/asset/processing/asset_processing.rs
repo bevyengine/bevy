@@ -217,7 +217,11 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     });
 }
 
-fn print_text(handles: Res<TextAssets>, texts: Res<Assets<Text>>, mut asset_events: EventReader<AssetEvent<Text>>) {
+fn print_text(
+    handles: Res<TextAssets>,
+    texts: Res<Assets<Text>>,
+    mut asset_events: EventReader<AssetEvent<Text>>,
+) {
     if !asset_events.is_empty() {
         // This prints the current values of the assets
         // Hot-reloading is supported, so try modifying the source assets (and their meta files)!
