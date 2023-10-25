@@ -212,7 +212,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml`,
                     or use a different tonemapping method in your CameraBundle."
                 );
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into())
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
             }
             Tonemapping::BlenderFilmic => {
                 #[cfg(not(feature = "tonemapping_luts"))]
