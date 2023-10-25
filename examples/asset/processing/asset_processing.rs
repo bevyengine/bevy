@@ -217,15 +217,22 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     });
 }
 
-fn print_text(handles: Res<TextAssets>, texts: Res<Assets<Text>>) {
-    // This prints the current values of the assets
-    // Hot-reloading is supported, so try modifying the source assets (and their meta files)!
-    println!("Current Values:");
-    println!("  a: {:?}", texts.get(&handles.a));
-    println!("  b: {:?}", texts.get(&handles.b));
-    println!("  c: {:?}", texts.get(&handles.c));
-    println!("  d: {:?}", texts.get(&handles.d));
-    println!("  e: {:?}", texts.get(&handles.e));
-    println!("(You can modify source assets and their .meta files to hot-reload changes!)");
-    println!();
+fn print_text(
+    handles: Res<TextAssets>,
+    texts: Res<Assets<Text>>,
+    mut asset_events: EventReader<AssetEvent<Text>>,
+) {
+    if !asset_events.is_empty() {
+        // This prints the current values of the assets
+        // Hot-reloading is supported, so try modifying the source assets (and their meta files)!
+        println!("Current Values:");
+        println!("  a: {:?}", texts.get(&handles.a));
+        println!("  b: {:?}", texts.get(&handles.b));
+        println!("  c: {:?}", texts.get(&handles.c));
+        println!("  d: {:?}", texts.get(&handles.d));
+        println!("  e: {:?}", texts.get(&handles.e));
+        println!("(You can modify source assets and their .meta files to hot-reload changes!)");
+        println!();
+        asset_events.clear();
+    }
 }
