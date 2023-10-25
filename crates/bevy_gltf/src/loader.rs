@@ -684,7 +684,7 @@ async fn load_image<'a, 'b>(
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
-                ImageSampler::Descriptor(sampler_descriptor.into()),
+                ImageSampler::Descriptor(sampler_descriptor),
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -705,7 +705,7 @@ async fn load_image<'a, 'b>(
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
                         is_srgb,
-                        ImageSampler::Descriptor(sampler_descriptor.into()),
+                        ImageSampler::Descriptor(sampler_descriptor),
                     )?,
                     label: texture_label(&gltf_texture),
                 })
