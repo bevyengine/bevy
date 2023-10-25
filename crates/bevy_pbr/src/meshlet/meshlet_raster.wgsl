@@ -1,6 +1,16 @@
-#import bevy_pbr::meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_vertex}
-#import bevy_pbr::mesh_functions as mesh_functions
-#import bevy_pbr::mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
+#import bevy_pbr::{
+    meshlet_bindings::{
+        meshlet_thread_meshlet_ids,
+        meshlets, meshlet_vertex_ids,
+        meshlet_vertex_data,
+        meshlet_thread_instance_ids,
+        meshlet_instance_uniforms,
+        unpack_vertex
+    },
+    mesh_functions,
+    mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
+    view_transformations::position_world_to_clip,
+}
 #import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 #ifdef PREPASS_PIPELINE
@@ -29,7 +39,7 @@ fn meshlet_vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOut
         ) * vertex.normal
     );
     out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    out.position = mesh_functions::mesh_position_world_to_clip(out.world_position);
+    out.position = position_world_to_clip(out.world_position.xyz);
     out.uv = vertex.uv;
     out.world_tangent = vec4<f32>(
         normalize(
