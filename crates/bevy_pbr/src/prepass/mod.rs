@@ -4,18 +4,8 @@ pub use prepass_bindings::*;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::{load_internal_asset, AssetServer, Handle};
-use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT,
-    deferred::{
-        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
-        DEFERRED_PREPASS_FORMAT,
-    },
-    prelude::Camera3d,
-    prepass::{
-        AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-        Opaque3dPrepass, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
-    },
-};
+use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, prelude::Camera3d};
+use bevy_core_pipeline::{deferred::*, prepass::*};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -30,19 +20,8 @@ use bevy_render::{
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
-    render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
-    },
-    render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BufferBindingType, ColorTargetState, ColorWrites,
-        CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer, FragmentState,
-        FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PushConstantRange,
-        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilState, VertexState,
-    },
+    render_phase::*,
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -50,12 +29,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
-use crate::{
-    prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
-    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    OpaqueRendererMethod, RenderMaterialInstances, RenderMaterials, RenderMeshInstances,
-    SetMaterialBindGroup, SetMeshBindGroup,
-};
+use crate::*;
 
 use std::{hash::Hash, marker::PhantomData};
 
