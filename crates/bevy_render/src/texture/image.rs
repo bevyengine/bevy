@@ -121,42 +121,20 @@ pub enum ImageSampler {
     #[default]
     Default,
     /// Custom sampler for this image which will override global default.
-    Descriptor(wgpu::SamplerDescriptor<'static>),
+    Descriptor(ImageSamplerDescriptor),
 }
 
 impl ImageSampler {
-    /// Returns an image sampler with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    /// Returns an image sampler with [`ImageFilterMode::Linear`] min and mag filters
     #[inline]
     pub fn linear() -> ImageSampler {
-        ImageSampler::Descriptor(Self::linear_descriptor())
+        ImageSampler::Descriptor(ImageSamplerDescriptor::linear())
     }
 
-    /// Returns an image sampler with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    /// Returns an image sampler with [`ImageFilterMode::Nearest`] min and mag filters
     #[inline]
     pub fn nearest() -> ImageSampler {
-        ImageSampler::Descriptor(Self::nearest_descriptor())
-    }
-
-    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
-    #[inline]
-    pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
-        wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        }
-    }
-
-    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
-    #[inline]
-    pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
-        wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        }
+        ImageSampler::Descriptor(ImageSamplerDescriptor::nearest())
     }
 }
 
@@ -265,8 +243,9 @@ pub enum ImageSamplerBorderColor {
 /// a breaking change.
 ///
 /// This types mirrors [`wgpu::SamplerDescriptor`], but that might change in future versions.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImageSamplerDescriptor {
+    pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
     pub address_mode_u: ImageAddressMode,
     /// How to deal with out of bounds accesses in the v (i.e. y) direction.
@@ -305,6 +284,48 @@ impl Default for ImageSamplerDescriptor {
             compare: None,
             anisotropy_clamp: 1,
             border_color: None,
+            label: None,
+        }
+    }
+}
+
+impl ImageSamplerDescriptor {
+    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    #[inline]
+    pub fn linear() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Linear,
+            min_filter: ImageFilterMode::Linear,
+            mipmap_filter: ImageFilterMode::Linear,
+            ..Default::default()
+        }
+    }
+
+    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    #[inline]
+    pub fn nearest() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Nearest,
+            min_filter: ImageFilterMode::Nearest,
+            mipmap_filter: ImageFilterMode::Nearest,
+            ..Default::default()
+        }
+    }
+
+    pub fn as_wgpu(&self) -> wgpu::SamplerDescriptor {
+        wgpu::SamplerDescriptor {
+            label: self.label.as_deref(),
+            address_mode_u: self.address_mode_u.into(),
+            address_mode_v: self.address_mode_v.into(),
+            address_mode_w: self.address_mode_w.into(),
+            mag_filter: self.mag_filter.into(),
+            min_filter: self.min_filter.into(),
+            mipmap_filter: self.mipmap_filter.into(),
+            lod_min_clamp: self.lod_min_clamp,
+            lod_max_clamp: self.lod_max_clamp,
+            compare: self.compare.map(Into::into),
+            anisotropy_clamp: self.anisotropy_clamp,
+            border_color: self.border_color.map(Into::into),
         }
     }
 }
@@ -351,25 +372,6 @@ impl From<ImageSamplerBorderColor> for wgpu::SamplerBorderColor {
             ImageSamplerBorderColor::OpaqueBlack => wgpu::SamplerBorderColor::OpaqueBlack,
             ImageSamplerBorderColor::OpaqueWhite => wgpu::SamplerBorderColor::OpaqueWhite,
             ImageSamplerBorderColor::Zero => wgpu::SamplerBorderColor::Zero,
-        }
-    }
-}
-
-impl From<ImageSamplerDescriptor> for wgpu::SamplerDescriptor<'static> {
-    fn from(value: ImageSamplerDescriptor) -> Self {
-        wgpu::SamplerDescriptor {
-            label: None,
-            address_mode_u: value.address_mode_u.into(),
-            address_mode_v: value.address_mode_v.into(),
-            address_mode_w: value.address_mode_w.into(),
-            mag_filter: value.mag_filter.into(),
-            min_filter: value.min_filter.into(),
-            mipmap_filter: value.mipmap_filter.into(),
-            lod_min_clamp: value.lod_min_clamp,
-            lod_max_clamp: value.lod_max_clamp,
-            compare: value.compare.map(Into::into),
-            anisotropy_clamp: value.anisotropy_clamp,
-            border_color: value.border_color.map(Into::into),
         }
     }
 }
@@ -423,6 +425,7 @@ impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
     fn from(value: wgpu::SamplerDescriptor) -> Self {
         ImageSamplerDescriptor {
+            label: value.label.map(|l| l.to_string()),
             address_mode_u: value.address_mode_u.into(),
             address_mode_v: value.address_mode_v.into(),
             address_mode_w: value.address_mode_w.into(),
@@ -834,7 +837,9 @@ impl RenderAsset for Image {
         );
         let sampler = match image.sampler_descriptor {
             ImageSampler::Default => (***default_sampler).clone(),
-            ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            ImageSampler::Descriptor(descriptor) => {
+                render_device.create_sampler(&descriptor.as_wgpu())
+            }
         };
 
         Ok(GpuImage {

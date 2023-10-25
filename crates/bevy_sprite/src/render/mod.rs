@@ -94,7 +94,7 @@ impl FromWorld for SpritePipeline {
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(descriptor)
+                    render_device.create_sampler(&descriptor.as_wgpu())
                 }
             };
 

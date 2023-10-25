@@ -103,7 +103,7 @@ impl AssetLoader for ImageLoader {
                 image_type,
                 self.supported_compressed_formats,
                 settings.is_srgb,
-                ImageSampler::Descriptor(settings.sampler_descriptor.into()),
+                ImageSampler::Descriptor(settings.sampler_descriptor.clone()),
             )
             .map_err(|err| FileTextureError {
                 error: err,

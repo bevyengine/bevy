@@ -346,16 +346,18 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
 // allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
 #[allow(dead_code)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
-    let image_sampler = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
-        label: Some("Tonemapping LUT sampler"),
-        address_mode_u: AddressMode::ClampToEdge,
-        address_mode_v: AddressMode::ClampToEdge,
-        address_mode_w: AddressMode::ClampToEdge,
-        mag_filter: FilterMode::Linear,
-        min_filter: FilterMode::Linear,
-        mipmap_filter: FilterMode::Linear,
-        ..default()
-    });
+    let image_sampler = bevy_render::texture::ImageSampler::Descriptor(
+        bevy_render::texture::ImageSamplerDescriptor {
+            label: Some("Tonemapping LUT sampler".to_string()),
+            address_mode_u: bevy_render::texture::ImageAddressMode::ClampToEdge,
+            address_mode_v: bevy_render::texture::ImageAddressMode::ClampToEdge,
+            address_mode_w: bevy_render::texture::ImageAddressMode::ClampToEdge,
+            mag_filter: bevy_render::texture::ImageFilterMode::Linear,
+            min_filter: bevy_render::texture::ImageFilterMode::Linear,
+            mipmap_filter: bevy_render::texture::ImageFilterMode::Linear,
+            ..default()
+        },
+    );
     Image::from_buffer(
         bytes,
         image_type,

@@ -264,7 +264,7 @@ async fn load_gltf<'a, 'b, 'c>(
             } => {
                 load_context.load_with_settings(path, move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
-                    settings.sampler_descriptor = sampler_descriptor;
+                    settings.sampler_descriptor = sampler_descriptor.clone();
                 })
             }
         };
