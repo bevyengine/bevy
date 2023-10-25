@@ -67,6 +67,9 @@ impl<'a> Debug for AssetPath<'a> {
 
 impl<'a> Display for AssetPath<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let AssetSourceId::Name(name) = self.source() {
+            write!(f, "{name}://")?;
+        }
         write!(f, "{}", self.path.display())?;
         if let Some(label) = &self.label {
             write!(f, "#{label}")?;

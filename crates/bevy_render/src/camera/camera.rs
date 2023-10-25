@@ -27,7 +27,9 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
 };
 use std::{borrow::Cow, ops::Range};
-use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
+use wgpu::{BlendState, LoadOp, TextureFormat};
+
+use super::Projection;
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -509,9 +511,8 @@ impl NormalizedRenderTarget {
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
-                let Extent3d { width, height, .. } = image.texture_descriptor.size;
                 Some(RenderTargetInfo {
-                    physical_size: UVec2::new(width, height),
+                    physical_size: image.size(),
                     scale_factor: 1.0,
                 })
             }
@@ -644,6 +645,7 @@ pub fn extract_cameras(
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
+            Option<&Projection>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -658,6 +660,7 @@ pub fn extract_cameras(
         color_grading,
         temporal_jitter,
         render_layers,
+        projection,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -719,6 +722,10 @@ pub fn extract_cameras(
 
             if let Some(render_layers) = render_layers {
                 commands.insert(*render_layers);
+            }
+
+            if let Some(perspective) = projection {
+                commands.insert(perspective.clone());
             }
         }
     }

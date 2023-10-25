@@ -1,4 +1,7 @@
-use crate::texture::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
+use crate::texture::{
+    Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings, ImageSampler,
+    ImageSamplerDescriptor,
+};
 use bevy_asset::saver::{AssetSaver, SavedAsset};
 use futures_lite::{AsyncWriteExt, FutureExt};
 use thiserror::Error;
@@ -30,6 +33,10 @@ impl AssetSaver for CompressedImageSaver {
         compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
         compressor_params.set_generate_mipmaps(true);
         let is_srgb = image.texture_descriptor.format.is_srgb();
+        let sampler_descriptor = match &image.sampler_descriptor {
+            ImageSampler::Default => ImageSamplerDescriptor::default(),
+            ImageSampler::Descriptor(sampler_descriptor) => sampler_descriptor.clone().into(),
+        };
         let color_space = if is_srgb {
             basis_universal::ColorSpace::Srgb
         } else {
@@ -55,6 +62,7 @@ impl AssetSaver for CompressedImageSaver {
             Ok(ImageLoaderSettings {
                 format: ImageFormatSetting::Format(ImageFormat::Basis),
                 is_srgb,
+                sampler_descriptor,
             })
         }
         .boxed()

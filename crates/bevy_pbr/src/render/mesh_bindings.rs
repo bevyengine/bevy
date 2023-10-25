@@ -1,13 +1,7 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
-use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS,
-    render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer, TextureView,
-    },
-    renderer::RenderDevice,
-};
+use bevy_render::{mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice};
 
 use crate::render::skin::MAX_JOINTS;
 
@@ -67,7 +61,7 @@ mod layout_entry {
         }
     }
 }
-/// Individual [`BindGroupEntry`](bevy_render::render_resource::BindGroupEntry)
+/// Individual [`BindGroupEntry`]
 /// for bind groups.
 mod entry {
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
