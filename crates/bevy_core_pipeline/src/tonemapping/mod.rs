@@ -195,7 +195,11 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
             Tonemapping::AgX => {
                 #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!("AgX tonemapping requires the `tonemapping_luts` feature.");
+                bevy_log::error!(
+                    "AgX tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml`,
+                    or use a different tonemapping method in your CameraBundle."
+                );
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             }
             Tonemapping::SomewhatBoringDisplayTransform => {
@@ -204,14 +208,18 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             Tonemapping::TonyMcMapface => {
                 #[cfg(not(feature = "tonemapping_luts"))]
                 bevy_log::error!(
-                    "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature."
+                    "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml`,
+                    or use a different tonemapping method in your CameraBundle."
                 );
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into())
             }
             Tonemapping::BlenderFilmic => {
                 #[cfg(not(feature = "tonemapping_luts"))]
                 bevy_log::error!(
-                    "BlenderFilmic tonemapping requires the `tonemapping_luts` feature."
+                    "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml`,
+                    or use a different tonemapping method in your CameraBundle."
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
