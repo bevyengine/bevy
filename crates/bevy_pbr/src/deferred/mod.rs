@@ -209,16 +209,18 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                     ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
                     ClearColorConfig::None => LoadOp::Load,
                 },
-                store: true,
+                store: StoreOp::Store,
             }))],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: false,
+                    store: StoreOp::Discard,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         render_pass.set_render_pipeline(pipeline);

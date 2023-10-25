@@ -11,6 +11,7 @@ use bevy_render::{
     render_phase::RenderPhase,
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+        StoreOp,
     },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -82,9 +83,10 @@ impl ViewNode for MainOpaquePass3dNode {
             label: Some("main_opaque_pass_3d"),
             // NOTE: The opaque pass loads the color
             // buffer as well as writing to it.
-            color_attachments: &[Some(
-                target.get_color_attachment(Operations { load, store: true }),
-            )],
+            color_attachments: &[Some(target.get_color_attachment(Operations {
+                load,
+                store: StoreOp::Store,
+            }))],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &depth.view,
                 // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
@@ -102,10 +104,12 @@ impl ViewNode for MainOpaquePass3dNode {
                         camera_3d.depth_load_op.clone()
                     }
                     .into(),
-                    store: true,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {

@@ -2,6 +2,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 
+use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -76,7 +77,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
                         } else {
                             LoadOp::Clear(Color::BLACK.into())
                         },
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
         );
@@ -92,7 +93,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
                     } else {
                         LoadOp::Clear(Color::BLACK.into())
                     },
-                    store: true,
+                    store: StoreOp::Store,
                 },
             },
         ));
@@ -122,7 +123,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
                         load: LoadOp::Load,
                         #[cfg(not(all(feature = "webgl", target_arch = "wasm32")))]
                         load: LoadOp::Clear(Default::default()),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
         );
@@ -136,7 +137,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Default::default()),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
         );
@@ -165,10 +166,12 @@ impl ViewNode for DeferredGBufferPrepassNode {
                             camera_3d.depth_load_op.clone()
                         }
                         .into(),
-                        store: true,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {

@@ -1765,10 +1765,12 @@ impl Node for ShadowPassNode {
                             view: &view_light.depth_texture_view,
                             depth_ops: Some(Operations {
                                 load: LoadOp::Clear(0.0),
-                                store: true,
+                                store: StoreOp::Store,
                             }),
                             stencil_ops: None,
                         }),
+                        timestamp_writes: None,
+                        occlusion_query_set: None,
                     });
 
                 shadow_phase.render(&mut render_pass, world, view_light_entity);
