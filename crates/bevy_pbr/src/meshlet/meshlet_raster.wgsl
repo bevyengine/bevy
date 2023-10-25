@@ -1,12 +1,5 @@
 #import bevy_pbr::{
-    meshlet_bindings::{
-        meshlet_thread_meshlet_ids,
-        meshlets, meshlet_vertex_ids,
-        meshlet_vertex_data,
-        meshlet_thread_instance_ids,
-        meshlet_instance_uniforms,
-        unpack_vertex
-    },
+    meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_vertex},
     mesh_functions,
     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
     view_transformations::position_world_to_clip,
