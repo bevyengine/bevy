@@ -288,6 +288,28 @@ impl AssetServer {
         self.load_internal(None, path, false, None).await
     }
 
+    /// Load an asset without knowing it's type. The method returns a handle to a [`LoadedUntypedAsset`].
+    ///
+    /// Once the [`LoadedUntypedAsset`] is loaded, an untyped handle for the requested path can be
+    /// retrieved from it.
+    ///
+    /// ```
+    /// use bevy_asset::{Assets, Handle, LoadedUntypedAsset};
+    /// use bevy_ecs::system::{Res, Resource};
+    ///
+    /// #[derive(Resource)]
+    /// struct LoadingUntypedHandle(Handle<LoadedUntypedAsset>);
+    ///
+    /// fn resolve_loaded_untyped_handle(loading_handle: Res<LoadingUntypedHandle>, loaded_untyped_assets: Res<Assets<LoadedUntypedAsset>>) {
+    ///     if let Some(loaded_untyped_asset) = loaded_untyped_assets.get(&loading_handle.0) {
+    ///         let handle = loaded_untyped_asset.handle.clone();
+    ///         // continue working with `handle` which points to the asset at the originally requested path
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// This indirection enables a non blocking load of an untyped asset, since I/O is
+    /// required to figure out the asset type before a handle can be created.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
