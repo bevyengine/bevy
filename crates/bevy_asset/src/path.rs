@@ -291,14 +291,27 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Resolves a relative asset path via concatenation. The result will be an `AssetPath` which
-    /// is resolved relative to this "base" path. There are several cases:
+    /// is resolved relative to this "base" path.
+    ///
+    /// ```rust
+    /// # use bevy_asset::AssetPath;
+    /// assert_eq!(AssetPath::parse("a/b").resolve("c"), Ok(AssetPath::parse("a/b/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve("./c"), Ok(AssetPath::parse("a/b/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve("../c"), Ok(AssetPath::parse("a/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve("c.png"), Ok(AssetPath::parse("a/b/c.png")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve("/c"), Ok(AssetPath::parse("c")));
+    /// assert_eq!(AssetPath::parse("a/b.png").resolve("#c"), Ok(AssetPath::parse("a/b.png#c")));
+    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve("#d"), Ok(AssetPath::parse("a/b.png#d")));
+    /// ```
+    ///
+    /// There are several cases:
     ///
     /// If the `path` argument begins with `#`, then it is considered an asset label, in which case
     /// the result is the base path with the label portion replaced.
     ///
-    /// If the path argument begins with '/', then it is considered an 'full' path, in which
-    /// case the result the result is a new `AssetPath` consisting of the base path asset source
-    /// (if any) with the path and label portions of the relative path. Note that a 'full'
+    /// If the path argument begins with '/', then it is considered a 'full' path, in which
+    /// case the result is a new `AssetPath` consisting of the base path asset source
+    /// (if there is one) with the path and label portions of the relative path. Note that a 'full'
     /// asset path is still relative to the asset source root, and not necessarily an absolute
     /// filesystem path.
     ///
@@ -330,10 +343,16 @@ impl<'a> AssetPath<'a> {
     /// primary use case for this method is resolving relative paths embedded within asset files,
     /// which are relative to the asset in which they are contained.
     ///
-    /// So for example, the path `"x/y/z#foo"` combined with a relative path of `"./a#bar"`
-    /// yields `"x/y/a#bar"`.
-    ///
-    /// Paths beginning with '/' or '#' are handled exactly the same as with `resolve()`.
+    /// ```rust
+    /// # use bevy_asset::AssetPath;
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("c"), Ok(AssetPath::parse("a/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("./c"), Ok(AssetPath::parse("a/c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("../c"), Ok(AssetPath::parse("c")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("c.png"), Ok(AssetPath::parse("a/c.png")));
+    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("/c"), Ok(AssetPath::parse("c")));
+    /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed("#c"), Ok(AssetPath::parse("a/b.png#c")));
+    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed("#d"), Ok(AssetPath::parse("a/b.png#d")));
+    /// ```
     pub fn resolve_embed<'b>(
         &'a self,
         path: &'b str,
