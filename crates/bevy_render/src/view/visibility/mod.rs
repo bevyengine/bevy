@@ -312,7 +312,10 @@ fn visibility_propagate_system(
             Visibility::Hidden => false,
             Visibility::Inherited => match parent {
                 None => true,
-                Some(parent) => visibility_query.get(parent.get()).unwrap().1.get(),
+                Some(parent) => visibility_query
+                    .get(parent.get())
+                    .map(|x| x.1.get())
+                    .unwrap_or(true),
             },
         };
         let (_, mut inherited_visibility) = visibility_query
@@ -719,6 +722,24 @@ mod test {
         assert!(!q.get(&world, id2).unwrap().is_changed());
         assert!(!q.get(&world, id3).unwrap().is_changed());
         assert!(!q.get(&world, id4).unwrap().is_changed());
+    }
+
+    #[test]
+    fn visibility_propagation_with_invalid_parent() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(visibility_propagate_system);
+
+        let parent = world.spawn(()).id();
+        let child = world.spawn(VisibilityBundle::default()).id();
+        world.entity_mut(parent).push_children(&[child]);
+
+        schedule.run(&mut world);
+        world.clear_trackers();
+
+        let child_visible = world.entity(child).get::<InheritedVisibility>().unwrap().0;
+        // defaults to same behavior of parent not found: visible = true
+        assert!(child_visible);
     }
 
     #[test]
