@@ -13,12 +13,12 @@ use crate::{
     },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, Assets, DeserializeMetaError,
-    ErasedLoadedAsset, Handle, UntypedAssetId, UntypedHandle,
+    ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{CowArc, HashMap, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
@@ -286,6 +286,71 @@ impl AssetServer {
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = path.into();
         self.load_internal(None, path, false, None).await
+    }
+
+    /// Load an asset without knowing it's type. The method returns a handle to a [`LoadedUntypedAsset`].
+    ///
+    /// Once the [`LoadedUntypedAsset`] is loaded, an untyped handle for the requested path can be
+    /// retrieved from it.
+    ///
+    /// ```
+    /// use bevy_asset::{Assets, Handle, LoadedUntypedAsset};
+    /// use bevy_ecs::system::{Res, Resource};
+    ///
+    /// #[derive(Resource)]
+    /// struct LoadingUntypedHandle(Handle<LoadedUntypedAsset>);
+    ///
+    /// fn resolve_loaded_untyped_handle(loading_handle: Res<LoadingUntypedHandle>, loaded_untyped_assets: Res<Assets<LoadedUntypedAsset>>) {
+    ///     if let Some(loaded_untyped_asset) = loaded_untyped_assets.get(&loading_handle.0) {
+    ///         let handle = loaded_untyped_asset.handle.clone();
+    ///         // continue working with `handle` which points to the asset at the originally requested path
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// This indirection enables a non blocking load of an untyped asset, since I/O is
+    /// required to figure out the asset type before a handle can be created.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
+    pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
+        let path = path.into().into_owned();
+        let untyped_source = AssetSourceId::Name(match path.source() {
+            AssetSourceId::Default => CowArc::Borrowed(UNTYPED_SOURCE_SUFFIX),
+            AssetSourceId::Name(source) => {
+                CowArc::Owned(format!("{source}--{UNTYPED_SOURCE_SUFFIX}").into())
+            }
+        });
+        let (handle, should_load) = self
+            .data
+            .infos
+            .write()
+            .get_or_create_path_handle::<LoadedUntypedAsset>(
+                path.clone().with_source(untyped_source),
+                HandleLoadingMode::Request,
+                None,
+            );
+        if !should_load {
+            return handle;
+        }
+        let id = handle.id().untyped();
+
+        let server = self.clone();
+        IoTaskPool::get()
+            .spawn(async move {
+                match server.load_untyped_async(path).await {
+                    Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
+                        id,
+                        loaded_asset: LoadedAsset::new_with_dependencies(
+                            LoadedUntypedAsset { handle },
+                            None,
+                        )
+                        .into(),
+                    }),
+                    Err(_) => server.send_asset_event(InternalAssetEvent::Failed { id }),
+                }
+            })
+            .detach();
+
+        handle
     }
 
     /// Performs an async asset load.
@@ -982,3 +1047,7 @@ impl std::fmt::Debug for AssetServer {
             .finish()
     }
 }
+
+/// This is appended to asset sources when loading a [`LoadedUntypedAsset`]. This provides a unique
+/// source for a given [`AssetPath`].
+const UNTYPED_SOURCE_SUFFIX: &str = "--untyped";
