@@ -56,7 +56,7 @@ struct DrawIndexedIndirect {
 #ifdef MESHLET_CULLING_BINDINGS
 @group(#{MESHLET_BIND_GROUP}) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
 @group(#{MESHLET_BIND_GROUP}) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
-@group(#{MESHLET_BIND_GROUP}) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
+@group(#{MESHLET_BIND_GROUP}) @binding(8) var<storage, read_write> draw_command_buffer: array<DrawIndexedIndirect>;
 @group(#{MESHLET_BIND_GROUP}) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
 @group(#{MESHLET_BIND_GROUP}) @binding(10) var<uniform> view: View;
 

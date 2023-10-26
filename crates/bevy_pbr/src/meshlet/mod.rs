@@ -6,7 +6,9 @@ mod node;
 mod persistent_buffer;
 mod psb_impls;
 
-pub(crate) use self::gpu_scene::MeshletGpuScene;
+pub(crate) use self::gpu_scene::{
+    prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
+};
 
 pub use self::{
     asset::{Meshlet, MeshletBoundingSphere, MeshletMesh},

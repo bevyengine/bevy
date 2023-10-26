@@ -1,18 +1,27 @@
 use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use crate::{
-    MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform,
+    EnvironmentMapLight, MeshFlags, MeshPipelineKey, MeshTransforms, MeshUniform, NotShadowCaster,
+    NotShadowReceiver, PreviousGlobalTransform, RenderMaterialInstances, RenderMaterials,
+    ScreenSpaceAmbientOcclusionSettings, ShadowFilteringMethod,
 };
-use bevy_asset::{AssetId, Assets, Handle};
+use bevy_asset::{AssetId, Assets, Handle, UntypedAssetId};
+use bevy_core_pipeline::{
+    core_3d::Opaque3d,
+    experimental::taa::TemporalAntiAliasSettings,
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_ecs::{
-    query::Has,
+    entity::Entity,
+    query::{Has, With},
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_render::{
+    camera::Projection,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::ViewUniforms,
+    view::{ExtractedView, ViewUniforms},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -22,6 +31,7 @@ use std::{ops::Range, sync::Arc};
 pub fn extract_meshlet_meshes(
     query: Extract<
         Query<(
+            Entity,
             &Handle<MeshletMesh>,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
@@ -37,10 +47,10 @@ pub fn extract_meshlet_meshes(
     // TODO: Handle not_shadow_caster
     for (
         instance_index,
-        (handle, transform, previous_transform, not_shadow_receiver, _not_shadow_caster),
+        (instance, handle, transform, previous_transform, not_shadow_receiver, _not_shadow_caster),
     ) in query.iter().enumerate()
     {
-        gpu_scene.queue_meshlet_mesh_upload(handle, &assets, instance_index as u32);
+        gpu_scene.queue_meshlet_mesh_upload(instance, handle, &assets, instance_index as u32);
 
         // TODO: Unload MeshletMesh asset
 
@@ -88,8 +98,166 @@ pub fn perform_pending_meshlet_mesh_writes(
         .perform_writes(&render_queue, &render_device);
 }
 
+// TODO: Deduplicate view logic shared between many systems
+pub fn prepare_material_for_meshlet_meshes<M: Material>(
+    mut gpu_scene: ResMut<MeshletGpuScene>,
+    material_pipeline: Res<MaterialPipeline<M>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
+    pipeline_cache: Res<PipelineCache>,
+    msaa: Res<Msaa>,
+    render_materials: Res<RenderMaterials<M>>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
+    images: Res<RenderAssets<Image>>,
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&EnvironmentMapLight>,
+        Option<&ShadowFilteringMethod>,
+        Option<&ScreenSpaceAmbientOcclusionSettings>,
+        Has<NormalPrepass>,
+        Has<DepthPrepass>,
+        Has<MotionVectorPrepass>,
+        Has<DeferredPrepass>,
+        Option<&TemporalAntiAliasSettings>,
+        Option<&Projection>,
+    )>,
+) {
+    for (
+        view_entity,
+        view,
+        tonemapping,
+        dither,
+        environment_map,
+        shadow_filter_method,
+        ssao,
+        normal_prepass,
+        depth_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+        taa_settings,
+        projection,
+    ) in &views
+    {
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_hdr(view.hdr);
+
+        if normal_prepass {
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if deferred_prepass {
+            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if taa_settings.is_some() {
+            view_key |= MeshPipelineKey::TAA;
+        }
+        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
+
+        if environment_map_loaded {
+            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if let Some(projection) = projection {
+            view_key |= match projection {
+                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+            };
+        }
+
+        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
+            ShadowFilteringMethod::Hardware2x2 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+            }
+            ShadowFilteringMethod::Castano13 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+            }
+            ShadowFilteringMethod::Jimenez14 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+            }
+        }
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= tonemapping_pipeline_key(*tonemapping);
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= MeshPipelineKey::DEBAND_DITHER;
+            }
+        }
+        if ssao.is_some() {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+
+        let mut mesh_key = view_key;
+
+        mesh_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+
+        for material_id in render_material_instances {
+            let Some(material) = render_materials.get(material_asset_id) else {
+                continue;
+            };
+            if material.properties.alpha_mode != AlphaMode::Opaque {
+                // TODO: Log error
+                continue;
+            }
+
+            let pipeline_id = pipelines.specialize(
+                &pipeline_cache,
+                &material_pipeline,
+                MaterialPipelineKey {
+                    mesh_key,
+                    for_meshlet_mesh: true,
+                    bind_group_data: material.key.clone(),
+                },
+                &mesh.layout,
+            );
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
+                }
+            };
+
+            gpu_scene.materials.insert(
+                (material_id.untyped(), view_entity),
+                (pipeline_id, material.bind_group.clone()),
+            );
+        }
+    }
+}
+
+pub fn queue_material_meshlet_meshes<M: Material>(
+    mut gpu_scene: ResMut<MeshletGpuScene>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
+) {
+    for (instance, vertex_count) in &gpu_scene.instances {
+        if let Some(material_id) = render_material_instances.get(instance) {
+            gpu_scene
+                .material_vertex_counts
+                .entry(material_id.untyped())
+                .or_default() += *vertex_count;
+        }
+
+        // TODO: Push material id to storage buffer for culling shader
+    }
+}
+
 pub fn prepare_meshlet_per_frame_resources(
     mut gpu_scene: ResMut<MeshletGpuScene>,
+    views: Query<Entity, With<ExtractedView>>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
 ) {
@@ -107,31 +275,48 @@ pub fn prepare_meshlet_per_frame_resources(
         .thread_meshlet_ids
         .write_buffer(&render_device, &render_queue);
 
-    gpu_scene.draw_command_buffer = Some(
-        render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("meshlet_draw_command_buffer"),
-            contents: DrawIndexedIndirect {
-                vertex_count: 0,
-                instance_count: 1,
-                base_index: 0,
-                vertex_offset: 0,
-                base_instance: 0,
-            }
-            .as_bytes(),
-            usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
-        }),
-    );
+    gpu_scene.material_order = gpu_scene.materials.keys().map(|(m, _)| *m).collect();
 
-    gpu_scene.draw_index_buffer = Some(render_device.create_buffer(&BufferDescriptor {
-        label: Some("meshlet_draw_index_buffer"),
-        size: 12 * gpu_scene.scene_triangle_count,
-        usage: BufferUsages::STORAGE | BufferUsages::INDEX,
-        mapped_at_creation: false,
-    }));
+    for view_entity in views {
+        let vertex_count = gpu_scene.material_vertex_counts[view_entity];
+
+        let mut contents = Vec::new(); // TODO: May need padding between items?
+        for material in &gpu_scene.material_order {
+            contents.push(
+                DrawIndexedIndirect {
+                    vertex_count: 0,
+                    instance_count: 1,
+                    base_index: vertex_count,
+                    vertex_offset: 0,
+                    base_instance: 0,
+                }
+                .as_bytes(),
+            );
+        }
+        gpu_scene.draw_command_buffers.insert(
+            view_entity,
+            render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("meshlet_draw_command_buffer"),
+                contents,
+                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
+            }),
+        );
+
+        gpu_scene.draw_index_buffers.insert(
+            view_entity,
+            render_device.create_buffer(&BufferDescriptor {
+                label: Some("meshlet_draw_index_buffer"),
+                size: 4 * vertex_count,
+                usage: BufferUsages::STORAGE | BufferUsages::INDEX,
+                mapped_at_creation: false,
+            }),
+        );
+    }
 }
 
 pub fn prepare_meshlet_per_frame_bind_groups(
     mut gpu_scene: ResMut<MeshletGpuScene>,
+    views: Query<Entity, With<ExtractedView>>,
     view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
 ) {
@@ -142,41 +327,39 @@ pub fn prepare_meshlet_per_frame_bind_groups(
         return;
     };
 
-    let entries = BindGroupEntries::sequential((
-        gpu_scene.vertex_data.binding(),
-        gpu_scene.vertex_ids.binding(),
-        gpu_scene.meshlets.binding(),
-        gpu_scene.instance_uniforms.binding().unwrap(),
-        gpu_scene.thread_instance_ids.binding().unwrap(),
-        gpu_scene.thread_meshlet_ids.binding().unwrap(),
-        gpu_scene.indices.binding(),
-        gpu_scene.meshlet_bounding_spheres.binding(),
-        gpu_scene
-            .draw_command_buffer
-            .as_ref()
-            .unwrap()
-            .as_entire_binding(),
-        gpu_scene
-            .draw_index_buffer
-            .as_ref()
-            .unwrap()
-            .as_entire_binding(),
-        view_uniforms,
-    ));
+    for view_entity in views {
+        let entries = BindGroupEntries::sequential((
+            gpu_scene.vertex_data.binding(),
+            gpu_scene.vertex_ids.binding(),
+            gpu_scene.meshlets.binding(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
+            gpu_scene.thread_instance_ids.binding().unwrap(),
+            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.indices.binding(),
+            gpu_scene.meshlet_bounding_spheres.binding(),
+            gpu_scene.draw_command_buffers[view_entity].as_entire_binding(),
+            gpu_scene.draw_index_buffers[view_entity].as_entire_binding(),
+            view_uniforms,
+        ));
 
-    let culling_bind_group = render_device.create_bind_group(
-        "meshlet_culling_bind_group",
-        &gpu_scene.culling_bind_group_layout,
-        &entries[2..11],
-    );
-    let draw_bind_group = render_device.create_bind_group(
-        "meshlet_draw_bind_group",
-        &gpu_scene.draw_bind_group_layout,
-        &entries[0..6],
-    );
+        gpu_scene.culling_bind_groups.insert(
+            view_entity,
+            render_device.create_bind_group(
+                "meshlet_culling_bind_group",
+                &gpu_scene.culling_bind_group_layout,
+                &entries[2..11],
+            ),
+        );
 
-    gpu_scene.culling_bind_group = Some(culling_bind_group);
-    gpu_scene.draw_bind_group = Some(draw_bind_group);
+        gpu_scene.draw_bind_groups.insert(
+            view_entity,
+            render_device.create_bind_group(
+                "meshlet_draw_bind_group",
+                &gpu_scene.draw_bind_group_layout,
+                &entries[0..6],
+            ),
+        );
+    }
 }
 
 #[derive(Resource)]
@@ -186,21 +369,23 @@ pub struct MeshletGpuScene {
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, (Range<u32>, u32)>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, (Range<u32>, u64)>,
+    materials: HashMap<(UntypedAssetId, Entity), (CachedRenderPipelineId, BindGroup)>,
 
     scene_meshlet_count: u32,
-    scene_triangle_count: u64,
+    material_order: Vec<UntypedAssetId>,
+    material_vertex_counts: HashMap<UntypedAssetId, u64>,
+    instances: Vec<(Entity, u64)>,
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
 
     culling_bind_group_layout: BindGroupLayout,
     draw_bind_group_layout: BindGroupLayout,
-
-    draw_command_buffer: Option<Buffer>,
-    draw_index_buffer: Option<Buffer>,
-    culling_bind_group: Option<BindGroup>,
-    draw_bind_group: Option<BindGroup>,
+    draw_command_buffers: HashMap<Entity, Buffer>,
+    draw_index_buffers: HashMap<Entity, Buffer>,
+    culling_bind_groups: HashMap<Entity, BindGroup>,
+    draw_bind_groups: HashMap<Entity, BindGroup>,
 }
 
 impl FromWorld for MeshletGpuScene {
@@ -217,9 +402,12 @@ impl FromWorld for MeshletGpuScene {
                 render_device,
             ),
             meshlet_mesh_slices: HashMap::new(),
+            materials: HashMap::new(),
 
             scene_meshlet_count: 0,
-            scene_triangle_count: 0,
+            material_order: Vec::new(),
+            material_vertex_counts: HashMap::new(),
+            instances: Vec::new(),
             instance_uniforms: {
                 let mut buffer = StorageBuffer::default();
                 buffer.set_label(Some("meshlet_instance_uniforms"));
@@ -248,31 +436,33 @@ impl FromWorld for MeshletGpuScene {
                     entries: &bind_group_layout_entries()[0..6],
                 },
             ),
-
-            draw_command_buffer: None,
-            draw_index_buffer: None,
-            culling_bind_group: None,
-            draw_bind_group: None,
+            draw_command_buffers: HashMap::new(),
+            draw_index_buffers: HashMap::new(),
+            culling_bind_groups: HashMap::new(),
+            draw_bind_groups: HashMap::new(),
         }
     }
 }
 
 impl MeshletGpuScene {
     fn reset(&mut self) {
-        self.scene_meshlet_count = 0;
-        self.scene_triangle_count = 0;
         // TODO: Shrink capacity if saturation is low
+        self.materials.clear();
+        self.scene_meshlet_count = 0;
+        self.material_vertex_counts.clear();
+        self.instances.clear();
         self.instance_uniforms.get_mut().clear();
         self.thread_instance_ids.get_mut().clear();
         self.thread_meshlet_ids.get_mut().clear();
-        self.draw_command_buffer = None;
-        self.draw_index_buffer = None;
-        self.culling_bind_group = None;
-        self.draw_bind_group = None;
+        self.draw_command_buffers.clear();
+        self.draw_index_buffers.clear();
+        self.culling_bind_groups.clear();
+        self.draw_bind_groups.clear();
     }
 
     fn queue_meshlet_mesh_upload(
         &mut self,
+        instance: Entity,
         handle: &Handle<MeshletMesh>,
         assets: &Assets<MeshletMesh>,
         instance_index: u32,
@@ -303,19 +493,19 @@ impl MeshletGpuScene {
                 meshlet_mesh
                     .meshlets
                     .iter()
-                    .map(|meshlet| meshlet.triangle_count)
+                    .map(|meshlet| meshlet.triangle_count * 3)
                     .sum(),
             )
         };
 
-        let (meshlets_slice, triangle_count) = self
+        let (meshlets_slice, vertex_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
             .clone();
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
-        self.scene_triangle_count += triangle_count as u64;
+        self.instances.push((instance, vertex_count));
 
         for meshlet_index in meshlets_slice {
             self.thread_instance_ids.get_mut().push(instance_index);
@@ -331,21 +521,29 @@ impl MeshletGpuScene {
         &self.draw_bind_group_layout
     }
 
-    pub fn resources(
+    pub fn resources_for_view(
         &self,
+        view_entity: Entity,
     ) -> (
         u32,
+        Vec<&(CachedRenderPipelineId, BindGroup)>,
         Option<&BindGroup>,
         Option<&BindGroup>,
         Option<&Buffer>,
         Option<&Buffer>,
     ) {
+        let mut materials = Vec::new();
+        for material_id in &self.material_order {
+            materials.push(self.materials[material_id]);
+        }
+
         (
             self.scene_meshlet_count,
-            self.culling_bind_group.as_ref(),
-            self.draw_bind_group.as_ref(),
-            self.draw_index_buffer.as_ref(),
-            self.draw_command_buffer.as_ref(),
+            materials,
+            self.culling_bind_groups.get(&view_entity).as_ref(),
+            self.draw_bind_groups.get(&view_entity).as_ref(),
+            self.draw_index_buffers.get(&view_entity).as_ref(),
+            self.draw_command_buffers.get(&view_entity).as_ref(),
         )
     }
 }

@@ -1,5 +1,8 @@
 use crate::{
-    meshlet::{MeshletGpuScene, MESHLET_RASTER_SHADER_HANDLE},
+    meshlet::{
+        prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
+        MESHLET_RASTER_SHADER_HANDLE,
+    },
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
     PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
     SetMeshBindGroup, SetMeshViewBindGroup, Shadow, ShadowFilteringMethod,
@@ -228,12 +231,15 @@ where
                         prepare_materials::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<Image>),
-                        render::queue_shadows::<M>
-                            .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
-                        queue_material_meshes::<M>
-                            .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
+                        render::queue_shadows::<M>.in_set(RenderSet::QueueMeshes),
+                        queue_material_meshes::<M>.in_set(RenderSet::QueueMeshes),
+                        prepare_material_for_meshlet_meshes::<M>
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(prepare_materials::<M>)
+                            .run_if(resource_exists::<MeshletGpuScene>),
+                        queue_material_meshlet_meshes::<M>
+                            .in_set(RenderSet::Queue)
+                            .run_if(resource_exists::<MeshletGpuScene>),
                     ),
                 );
         }
@@ -571,7 +577,9 @@ pub fn queue_material_meshes<M: Material>(
         if ssao.is_some() {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
+
         let rangefinder = view.rangefinder3d();
+
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;

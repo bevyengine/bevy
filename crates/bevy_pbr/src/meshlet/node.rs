@@ -9,8 +9,8 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        ComputePassDescriptor, IndexFormat, LoadOp, Operations, RenderPassDepthStencilAttachment,
-        RenderPassDescriptor,
+        ComputePassDescriptor, IndexFormat, LoadOp, Operations, PipelineCache,
+        RenderPassDepthStencilAttachment, RenderPassDescriptor,
     },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -38,7 +38,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
             camera,
@@ -52,19 +52,22 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (Some(gpu_scene), Some(culling_pipeline)) = (
+        let (Some(gpu_scene), Some(pipeline_cache), Some(culling_pipeline), Some(view_entity)) = (
             world.get_resource::<MeshletGpuScene>(),
+            world.get_resource::<PipelineCache>(),
             MeshletCullingPipeline::get(world),
+            graph.view_entity(),
         ) else {
             return Ok(());
         };
         let (
             scene_meshlet_count,
+            materials,
             Some(culling_bind_group),
             Some(draw_bind_group),
             Some(draw_index_buffer),
             Some(draw_command_buffer),
-        ) = gpu_scene.resources()
+        ) = gpu_scene.resources_for_view(view_entity)
         else {
             return Ok(());
         };
@@ -129,11 +132,13 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             );
             draw_pass.set_bind_group(1, draw_bind_group, &[]);
 
-            // for (i, material) in [todo!()].iter().enumerate() {
-            //     draw_pass.set_bind_group(2, todo!("Material bind group"), &[]);
-            //     draw_pass.set_render_pipeline(todo!("Material pipeline"));
-            //     draw_pass.draw_indexed_indirect(draw_command_buffer, i as u64);
-            // }
+            for (i, (pipeline_id, material_bind_group)) in materials.enumerate() {
+                if let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id) {
+                    draw_pass.set_bind_group(2, material_bind_group, &[]);
+                    draw_pass.set_render_pipeline(pipeline);
+                    draw_pass.draw_indexed_indirect(draw_command_buffer, i as u64);
+                }
+            }
         }
 
         Ok(())
