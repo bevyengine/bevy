@@ -54,11 +54,12 @@ struct DrawIndexedIndirect {
 @group(#{MESHLET_BIND_GROUP}) @binding(4) var<storage, read> meshlet_thread_instance_ids: array<u32>;
 @group(#{MESHLET_BIND_GROUP}) @binding(5) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
 #ifdef MESHLET_CULLING_BINDINGS
-@group(#{MESHLET_BIND_GROUP}) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
-@group(#{MESHLET_BIND_GROUP}) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
-@group(#{MESHLET_BIND_GROUP}) @binding(8) var<storage, read_write> draw_command_buffer: array<DrawIndexedIndirect>;
-@group(#{MESHLET_BIND_GROUP}) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
-@group(#{MESHLET_BIND_GROUP}) @binding(10) var<uniform> view: View;
+@group(#{MESHLET_BIND_GROUP}) @binding(6) var<storage, read> meshlet_instance_material_ids: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(7) var<storage, read> meshlet_indices: array<u32>; // packed u8's
+@group(#{MESHLET_BIND_GROUP}) @binding(8) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
+@group(#{MESHLET_BIND_GROUP}) @binding(9) var<storage, read_write> draw_command_buffer: array<DrawIndexedIndirect>;
+@group(#{MESHLET_BIND_GROUP}) @binding(10) var<storage, write> draw_index_buffer: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(11) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];

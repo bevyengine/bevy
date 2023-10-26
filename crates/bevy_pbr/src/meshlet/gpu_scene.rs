@@ -262,11 +262,14 @@ pub fn determine_meshlet_mesh_material_order(mut gpu_scene: ResMut<MeshletGpuSce
         return;
     }
 
-    gpu_scene.material_order = gpu_scene
-        .materials
-        .keys()
-        .map(|(material_id, _)| (*material_id))
-        .collect();
+    let gpu_scene = gpu_scene.deref_mut();
+
+    for (i, (material_id, _)) in gpu_scene.materials.keys().enumerate() {
+        gpu_scene.material_order.push(*material_id);
+        gpu_scene
+            .material_order_lookup
+            .insert(*material_id, i as u32);
+    }
 }
 
 pub fn queue_material_meshlet_meshes<M: Material>(
@@ -276,13 +279,22 @@ pub fn queue_material_meshlet_meshes<M: Material>(
     let gpu_scene = gpu_scene.deref_mut();
 
     for (instance, vertex_count) in &gpu_scene.instances {
-        let material_id = render_material_instances.get(instance).expect("TODO");
+        let material_id = render_material_instances
+            .get(instance)
+            .expect("TODO")
+            .untyped();
+
         *gpu_scene
             .material_vertex_counts
-            .entry(material_id.untyped())
+            .entry(material_id)
             .or_default() += *vertex_count;
 
-        // TODO: Push material id to storage buffer for culling shader
+        gpu_scene.instance_material_ids.get_mut().push(
+            *gpu_scene
+                .material_order_lookup
+                .get(&material_id)
+                .expect("TODO: Will this error ever occur?"),
+        );
     }
 }
 
@@ -298,6 +310,9 @@ pub fn prepare_meshlet_per_frame_resources(
 
     gpu_scene
         .instance_uniforms
+        .write_buffer(&render_device, &render_queue);
+    gpu_scene
+        .instance_material_ids
         .write_buffer(&render_device, &render_queue);
     gpu_scene
         .thread_instance_ids
@@ -362,6 +377,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.instance_material_ids.binding().unwrap(),
             gpu_scene.indices.binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
             gpu_scene.draw_command_buffers[&view_entity].as_entire_binding(),
@@ -402,9 +418,11 @@ pub struct MeshletGpuScene {
     scene_meshlet_count: u32,
     scene_vertex_count: u64,
     material_order: Vec<UntypedAssetId>,
+    material_order_lookup: HashMap<UntypedAssetId, u32>,
     material_vertex_counts: HashMap<UntypedAssetId, u32>,
     instances: Vec<(Entity, u32)>,
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
+    instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
 
@@ -435,11 +453,17 @@ impl FromWorld for MeshletGpuScene {
             scene_meshlet_count: 0,
             scene_vertex_count: 0,
             material_order: Vec::new(),
+            material_order_lookup: HashMap::new(),
             material_vertex_counts: HashMap::new(),
             instances: Vec::new(),
             instance_uniforms: {
                 let mut buffer = StorageBuffer::default();
                 buffer.set_label(Some("meshlet_instance_uniforms"));
+                buffer
+            },
+            instance_material_ids: {
+                let mut buffer = StorageBuffer::default();
+                buffer.set_label(Some("meshlet_instance_material_ids"));
                 buffer
             },
             thread_instance_ids: {
@@ -456,7 +480,7 @@ impl FromWorld for MeshletGpuScene {
             culling_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
                     label: Some("meshlet_culling_bind_group_layout"),
-                    entries: &bind_group_layout_entries()[2..11],
+                    entries: &bind_group_layout_entries()[2..12],
                 },
             ),
             draw_bind_group_layout: render_device.create_bind_group_layout(
@@ -479,9 +503,12 @@ impl MeshletGpuScene {
         self.materials.clear();
         self.scene_meshlet_count = 0;
         self.scene_vertex_count = 0;
+        self.material_order.clear();
+        self.material_order_lookup.clear();
         self.material_vertex_counts.clear();
         self.instances.clear();
         self.instance_uniforms.get_mut().clear();
+        self.instance_material_ids.get_mut().clear();
         self.thread_instance_ids.get_mut().clear();
         self.thread_meshlet_ids.get_mut().clear();
         self.draw_command_buffers.clear();
@@ -579,7 +606,7 @@ impl MeshletGpuScene {
     }
 }
 
-fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
+fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 12] {
     // TODO: min_binding_size
     [
         // Vertex data
@@ -648,7 +675,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Indices
+        // Instance material IDs
         BindGroupLayoutEntry {
             binding: 6,
             visibility: ShaderStages::COMPUTE,
@@ -659,7 +686,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Meshlet bounding spheres
+        // Indices
         BindGroupLayoutEntry {
             binding: 7,
             visibility: ShaderStages::COMPUTE,
@@ -670,18 +697,18 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Draw command buffer
+        // Meshlet bounding spheres
         BindGroupLayoutEntry {
             binding: 8,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: false },
+                ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
                 min_binding_size: None,
             },
             count: None,
         },
-        // Draw index buffer
+        // Draw command buffer
         BindGroupLayoutEntry {
             binding: 9,
             visibility: ShaderStages::COMPUTE,
@@ -692,9 +719,20 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // View
+        // Draw index buffer
         BindGroupLayoutEntry {
             binding: 10,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // View
+        BindGroupLayoutEntry {
+            binding: 11,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
