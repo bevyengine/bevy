@@ -18,7 +18,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{CowArc, HashMap, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
@@ -313,12 +313,18 @@ impl AssetServer {
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
+        let untyped_source = AssetSourceId::Name(match path.source() {
+            AssetSourceId::Default => CowArc::Borrowed(UNTYPED_SOURCE_SUFFIX),
+            AssetSourceId::Name(source) => {
+                CowArc::Owned(format!("{source}--{UNTYPED_SOURCE_SUFFIX}").into())
+            }
+        });
         let (handle, should_load) = self
             .data
             .infos
             .write()
             .get_or_create_path_handle::<LoadedUntypedAsset>(
-                path.clone().with_label("untyped"),
+                path.clone().with_source(untyped_source),
                 HandleLoadingMode::Request,
                 None,
             );
@@ -1041,3 +1047,7 @@ impl std::fmt::Debug for AssetServer {
             .finish()
     }
 }
+
+/// This is appended to asset sources when loading a [`LoadedUntypedAsset`]. This provides a unique
+/// source for a given [`AssetPath`].
+const UNTYPED_SOURCE_SUFFIX: &str = "--untyped";
