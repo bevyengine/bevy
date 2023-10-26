@@ -29,7 +29,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 
         let meshlet = meshlets[meshlet_id];
         let meshlet_vertex_count = meshlet.triangle_count * 3u;
-        let draw_index_buffer_start = draw_command.base_index + atomicAdd(draw_command.vertex_count, meshlet_vertex_count);
+        let draw_index_buffer_start = (*draw_command).base_index + atomicAdd(&(*draw_command).vertex_count, meshlet_vertex_count);
 
         let packed_thread_id = thread_id.x << 8u;
         for (var offset = 0u; offset < meshlet_vertex_count; offset++) {
