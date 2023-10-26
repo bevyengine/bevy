@@ -7,7 +7,8 @@ mod persistent_buffer;
 mod psb_impls;
 
 pub(crate) use self::gpu_scene::{
-    prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
+    determine_meshlet_mesh_material_order, prepare_material_for_meshlet_meshes,
+    queue_material_meshlet_meshes, MeshletGpuScene,
 };
 
 pub use self::{
@@ -93,6 +94,7 @@ impl Plugin for MeshletPlugin {
             Render,
             (
                 perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
+                determine_meshlet_mesh_material_order.in_set(RenderSet::PrepareAssets),
                 prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
                 prepare_meshlet_per_frame_bind_groups.in_set(RenderSet::PrepareBindGroups),
             ),

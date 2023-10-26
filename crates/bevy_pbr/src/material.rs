@@ -1,7 +1,7 @@
 use crate::{
     meshlet::{
-        prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
-        MESHLET_RASTER_SHADER_HANDLE,
+        determine_meshlet_mesh_material_order, prepare_material_for_meshlet_meshes,
+        queue_material_meshlet_meshes, MeshletGpuScene, MESHLET_RASTER_SHADER_HANDLE,
     },
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
     PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
@@ -240,6 +240,7 @@ where
                         prepare_material_for_meshlet_meshes::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_materials::<M>)
+                            .before(determine_meshlet_mesh_material_order)
                             .run_if(resource_exists::<MeshletGpuScene>()),
                         queue_material_meshlet_meshes::<M>
                             .in_set(RenderSet::Queue)

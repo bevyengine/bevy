@@ -27,8 +27,12 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{error, EntityHashMap, HashMap};
-use std::{hash::Hash, ops::Range, sync::Arc};
+use bevy_utils::{tracing::error, EntityHashMap, HashMap};
+use std::{
+    hash::Hash,
+    ops::{DerefMut, Range},
+    sync::Arc,
+};
 
 pub fn extract_meshlet_meshes(
     query: Extract<
@@ -208,7 +212,7 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
 
         mesh_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances {
+        for material_id in render_material_instances.values() {
             let Some(material) = render_materials.get(material_id) else {
                 continue;
             };
@@ -225,7 +229,7 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
                     for_meshlet_mesh: true,
                     bind_group_data: material.key.clone(),
                 },
-                &mesh.layout,
+                todo!("Mesh layout..."),
             );
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
@@ -243,17 +247,30 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
     }
 }
 
+pub fn determine_meshlet_mesh_material_order(mut gpu_scene: ResMut<MeshletGpuScene>) {
+    if gpu_scene.scene_meshlet_count == 0 {
+        return;
+    }
+
+    gpu_scene.material_order = gpu_scene
+        .materials
+        .keys()
+        .map(|(material_id, _)| (*material_id))
+        .collect();
+}
+
 pub fn queue_material_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
 ) {
+    let gpu_scene = gpu_scene.deref_mut();
+
     for (instance, vertex_count) in &gpu_scene.instances {
-        if let Some(material_id) = render_material_instances.get(instance) {
-            *gpu_scene
-                .material_vertex_counts
-                .entry(material_id.untyped())
-                .or_default() += *vertex_count;
-        }
+        let material_id = render_material_instances.get(instance).expect("TODO");
+        *gpu_scene
+            .material_vertex_counts
+            .entry(material_id.untyped())
+            .or_default() += *vertex_count;
 
         // TODO: Push material id to storage buffer for culling shader
     }
@@ -279,8 +296,6 @@ pub fn prepare_meshlet_per_frame_resources(
         .thread_meshlet_ids
         .write_buffer(&render_device, &render_queue);
 
-    gpu_scene.material_order = gpu_scene.materials.keys().map(|(m, _)| *m).collect();
-
     gpu_scene.draw_index_buffer = Some(render_device.create_buffer(&BufferDescriptor {
         label: Some("meshlet_draw_index_buffer"),
         size: 4 * gpu_scene.scene_vertex_count,
@@ -289,15 +304,14 @@ pub fn prepare_meshlet_per_frame_resources(
     }));
 
     for view_entity in &views {
-        let vertex_count = gpu_scene.material_vertex_counts[&view_entity];
-
         let mut contents = Vec::new();
         for material in &gpu_scene.material_order {
-            contents.push(
+            let vertex_count = gpu_scene.material_vertex_counts.get(material).unwrap_or(&0);
+            contents.extend_from_slice(
                 DrawIndexedIndirect {
                     vertex_count: 0,
                     instance_count: 1,
-                    base_index: vertex_count as u32,
+                    base_index: *vertex_count,
                     vertex_offset: 0,
                     base_instance: 0,
                 }
@@ -308,7 +322,7 @@ pub fn prepare_meshlet_per_frame_resources(
             view_entity,
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_draw_command_buffer"),
-                contents,
+                contents: &contents,
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             }),
         );
@@ -321,8 +335,10 @@ pub fn prepare_meshlet_per_frame_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
 ) {
+    let gpu_scene = gpu_scene.deref_mut();
+
     let (Some(draw_index_buffer), Some(view_uniforms)) = (
-        gpu_scene.draw_index_buffer,
+        &gpu_scene.draw_index_buffer,
         view_uniforms.uniforms.binding(),
     ) else {
         return;
@@ -340,7 +356,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
             gpu_scene.meshlet_bounding_spheres.binding(),
             gpu_scene.draw_command_buffers[&view_entity].as_entire_binding(),
             draw_index_buffer.as_entire_binding(),
-            view_uniforms,
+            view_uniforms.clone(),
         ));
 
         gpu_scene.culling_bind_groups.insert(
@@ -376,8 +392,8 @@ pub struct MeshletGpuScene {
     scene_meshlet_count: u32,
     scene_vertex_count: u64,
     material_order: Vec<UntypedAssetId>,
-    material_vertex_counts: HashMap<UntypedAssetId, u64>,
-    instances: Vec<(Entity, u64)>,
+    material_vertex_counts: HashMap<UntypedAssetId, u32>,
+    instances: Vec<(Entity, u32)>,
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
@@ -510,7 +526,7 @@ impl MeshletGpuScene {
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
         self.scene_vertex_count += vertex_count;
-        self.instances.push((instance, vertex_count));
+        self.instances.push((instance, vertex_count as u32));
 
         for meshlet_index in meshlets_slice {
             self.thread_instance_ids.get_mut().push(instance_index);
@@ -531,7 +547,7 @@ impl MeshletGpuScene {
         view_entity: Entity,
     ) -> (
         u32,
-        Vec<&(CachedRenderPipelineId, BindGroup)>,
+        Vec<Option<&(CachedRenderPipelineId, BindGroup)>>,
         Option<&BindGroup>,
         Option<&BindGroup>,
         Option<&Buffer>,
@@ -539,7 +555,7 @@ impl MeshletGpuScene {
     ) {
         let mut materials = Vec::new();
         for material_id in &self.material_order {
-            materials.push(self.materials[material_id]);
+            materials.push(self.materials.get(&(*material_id, view_entity)));
         }
 
         (

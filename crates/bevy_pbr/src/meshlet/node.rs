@@ -52,11 +52,10 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (Some(gpu_scene), Some(pipeline_cache), Some(culling_pipeline), Some(view_entity)) = (
+        let (Some(gpu_scene), Some(pipeline_cache), Some(culling_pipeline)) = (
             world.get_resource::<MeshletGpuScene>(),
             world.get_resource::<PipelineCache>(),
             MeshletCullingPipeline::get(world),
-            graph.view_entity(),
         ) else {
             return Ok(());
         };
@@ -67,7 +66,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             Some(draw_bind_group),
             Some(draw_index_buffer),
             Some(draw_command_buffer),
-        ) = gpu_scene.resources_for_view(view_entity)
+        ) = gpu_scene.resources_for_view(graph.view_entity())
         else {
             return Ok(());
         };
@@ -132,11 +131,15 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             );
             draw_pass.set_bind_group(1, draw_bind_group, &[]);
 
-            for (i, (pipeline_id, material_bind_group)) in materials.enumerate() {
-                if let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id) {
-                    draw_pass.set_bind_group(2, material_bind_group, &[]);
-                    draw_pass.set_render_pipeline(pipeline);
-                    draw_pass.draw_indexed_indirect(draw_command_buffer, i * 20);
+            // TODO: Move this code into MeshletGpuScene::resources(), and have that return an iterator over
+            // (draw_offset, pipeline, material_bind_group)
+            for (i, material_resources) in materials.iter().enumerate() {
+                if let Some((pipeline_id, material_bind_group)) = material_resources {
+                    if let Some(pipeline) = pipeline_cache.get_render_pipeline(*pipeline_id) {
+                        draw_pass.set_bind_group(2, material_bind_group, &[]);
+                        draw_pass.set_render_pipeline(pipeline);
+                        draw_pass.draw_indexed_indirect(draw_command_buffer, i as u64 * 20);
+                    }
                 }
             }
         }
