@@ -816,7 +816,6 @@ pub fn handle_internal_asset_events(world: &mut World) {
         let reload_parent_folders = |path: PathBuf, source: &AssetSourceId<'static>| {
             let mut current_folder = path;
             while let Some(parent) = current_folder.parent() {
-                println!("checking {current_folder:?}");
                 current_folder = parent.to_path_buf();
                 let parent_asset_path =
                     AssetPath::from(current_folder.clone()).with_source(source.clone());
