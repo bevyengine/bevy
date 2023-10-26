@@ -1,12 +1,12 @@
 use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use crate::{
-    EnvironmentMapLight, MeshFlags, MeshPipelineKey, MeshTransforms, MeshUniform, NotShadowCaster,
-    NotShadowReceiver, PreviousGlobalTransform, RenderMaterialInstances, RenderMaterials,
+    AlphaMode, EnvironmentMapLight, Material, MaterialPipeline, MaterialPipelineKey, MeshFlags,
+    MeshPipelineKey, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, RenderMaterialInstances, RenderMaterials,
     ScreenSpaceAmbientOcclusionSettings, ShadowFilteringMethod,
 };
 use bevy_asset::{AssetId, Assets, Handle, UntypedAssetId};
 use bevy_core_pipeline::{
-    core_3d::Opaque3d,
     experimental::taa::TemporalAntiAliasSettings,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
@@ -19,9 +19,11 @@ use bevy_ecs::{
 };
 use bevy_render::{
     camera::Projection,
+    render_asset::RenderAssets,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, ViewUniforms},
+    texture::Image,
+    view::{ExtractedView, Msaa, ViewUniforms},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -205,7 +207,7 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
         mesh_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
         for material_id in render_material_instances {
-            let Some(material) = render_materials.get(material_asset_id) else {
+            let Some(material) = render_materials.get(material_id) else {
                 continue;
             };
             if material.properties.alpha_mode != AlphaMode::Opaque {
@@ -245,7 +247,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
 ) {
     for (instance, vertex_count) in &gpu_scene.instances {
         if let Some(material_id) = render_material_instances.get(instance) {
-            gpu_scene
+            *gpu_scene
                 .material_vertex_counts
                 .entry(material_id.untyped())
                 .or_default() += *vertex_count;

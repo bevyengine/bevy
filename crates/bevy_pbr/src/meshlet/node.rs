@@ -136,7 +136,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
                 if let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id) {
                     draw_pass.set_bind_group(2, material_bind_group, &[]);
                     draw_pass.set_render_pipeline(pipeline);
-                    draw_pass.draw_indexed_indirect(draw_command_buffer, i as u64);
+                    draw_pass.draw_indexed_indirect(draw_command_buffer, i * 20);
                 }
             }
         }
