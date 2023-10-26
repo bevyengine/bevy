@@ -661,6 +661,13 @@ pub struct InnerMeshVertexBufferLayout {
 }
 
 impl InnerMeshVertexBufferLayout {
+    pub fn new(attribute_ids: Vec<MeshVertexAttributeId>, layout: VertexBufferLayout) -> Self {
+        Self {
+            attribute_ids,
+            layout,
+        }
+    }
+
     #[inline]
     pub fn contains(&self, attribute_id: impl Into<MeshVertexAttributeId>) -> bool {
         self.attribute_ids.contains(&attribute_id.into())
