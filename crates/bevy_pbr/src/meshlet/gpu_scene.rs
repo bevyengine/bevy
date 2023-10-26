@@ -1,8 +1,8 @@
 use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use crate::{
-    AlphaMode, EnvironmentMapLight, Material, MaterialPipeline, MaterialPipelineKey, MeshFlags,
-    MeshPipelineKey, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialInstances, RenderMaterials,
+    tonemapping_pipeline_key, AlphaMode, EnvironmentMapLight, Material, MaterialPipeline,
+    MaterialPipelineKey, MeshFlags, MeshPipelineKey, MeshTransforms, MeshUniform, NotShadowCaster,
+    NotShadowReceiver, PreviousGlobalTransform, RenderMaterialInstances, RenderMaterials,
     ScreenSpaceAmbientOcclusionSettings, ShadowFilteringMethod,
 };
 use bevy_asset::{AssetId, Assets, Handle, UntypedAssetId};
@@ -27,8 +27,8 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
-use std::{ops::Range, sync::Arc};
+use bevy_utils::{error, EntityHashMap, HashMap};
+use std::{hash::Hash, ops::Range, sync::Arc};
 
 pub fn extract_meshlet_meshes(
     query: Extract<
@@ -125,7 +125,9 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
         Option<&TemporalAntiAliasSettings>,
         Option<&Projection>,
     )>,
-) {
+) where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
     for (
         view_entity,
         view,
@@ -279,16 +281,23 @@ pub fn prepare_meshlet_per_frame_resources(
 
     gpu_scene.material_order = gpu_scene.materials.keys().map(|(m, _)| *m).collect();
 
-    for view_entity in views {
-        let vertex_count = gpu_scene.material_vertex_counts[view_entity];
+    gpu_scene.draw_index_buffer = Some(render_device.create_buffer(&BufferDescriptor {
+        label: Some("meshlet_draw_index_buffer"),
+        size: 4 * gpu_scene.scene_vertex_count,
+        usage: BufferUsages::STORAGE | BufferUsages::INDEX,
+        mapped_at_creation: false,
+    }));
 
-        let mut contents = Vec::new(); // TODO: May need padding between items?
+    for view_entity in &views {
+        let vertex_count = gpu_scene.material_vertex_counts[&view_entity];
+
+        let mut contents = Vec::new();
         for material in &gpu_scene.material_order {
             contents.push(
                 DrawIndexedIndirect {
                     vertex_count: 0,
                     instance_count: 1,
-                    base_index: vertex_count,
+                    base_index: vertex_count as u32,
                     vertex_offset: 0,
                     base_instance: 0,
                 }
@@ -303,16 +312,6 @@ pub fn prepare_meshlet_per_frame_resources(
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             }),
         );
-
-        gpu_scene.draw_index_buffers.insert(
-            view_entity,
-            render_device.create_buffer(&BufferDescriptor {
-                label: Some("meshlet_draw_index_buffer"),
-                size: 4 * vertex_count,
-                usage: BufferUsages::STORAGE | BufferUsages::INDEX,
-                mapped_at_creation: false,
-            }),
-        );
     }
 }
 
@@ -322,10 +321,10 @@ pub fn prepare_meshlet_per_frame_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
 ) {
-    if gpu_scene.scene_meshlet_count == 0 {
-        return;
-    }
-    let Some(view_uniforms) = view_uniforms.uniforms.binding() else {
+    let (Some(draw_index_buffer), Some(view_uniforms)) = (
+        gpu_scene.draw_index_buffer,
+        view_uniforms.uniforms.binding(),
+    ) else {
         return;
     };
 
@@ -340,7 +339,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
             gpu_scene.indices.binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
             gpu_scene.draw_command_buffers[view_entity].as_entire_binding(),
-            gpu_scene.draw_index_buffers[view_entity].as_entire_binding(),
+            draw_index_buffer.as_entire_binding(),
             view_uniforms,
         ));
 
@@ -375,6 +374,7 @@ pub struct MeshletGpuScene {
     materials: HashMap<(UntypedAssetId, Entity), (CachedRenderPipelineId, BindGroup)>,
 
     scene_meshlet_count: u32,
+    scene_vertex_count: u64,
     material_order: Vec<UntypedAssetId>,
     material_vertex_counts: HashMap<UntypedAssetId, u64>,
     instances: Vec<(Entity, u64)>,
@@ -384,10 +384,10 @@ pub struct MeshletGpuScene {
 
     culling_bind_group_layout: BindGroupLayout,
     draw_bind_group_layout: BindGroupLayout,
-    draw_command_buffers: HashMap<Entity, Buffer>,
-    draw_index_buffers: HashMap<Entity, Buffer>,
-    culling_bind_groups: HashMap<Entity, BindGroup>,
-    draw_bind_groups: HashMap<Entity, BindGroup>,
+    draw_command_buffers: EntityHashMap<Entity, Buffer>,
+    draw_index_buffer: Option<Buffer>,
+    culling_bind_groups: EntityHashMap<Entity, BindGroup>,
+    draw_bind_groups: EntityHashMap<Entity, BindGroup>,
 }
 
 impl FromWorld for MeshletGpuScene {
@@ -407,6 +407,7 @@ impl FromWorld for MeshletGpuScene {
             materials: HashMap::new(),
 
             scene_meshlet_count: 0,
+            scene_vertex_count: 0,
             material_order: Vec::new(),
             material_vertex_counts: HashMap::new(),
             instances: Vec::new(),
@@ -438,10 +439,10 @@ impl FromWorld for MeshletGpuScene {
                     entries: &bind_group_layout_entries()[0..6],
                 },
             ),
-            draw_command_buffers: HashMap::new(),
-            draw_index_buffers: HashMap::new(),
-            culling_bind_groups: HashMap::new(),
-            draw_bind_groups: HashMap::new(),
+            draw_command_buffers: EntityHashMap::new(),
+            draw_index_buffer: None,
+            culling_bind_groups: EntityHashMap::new(),
+            draw_bind_groups: EntityHashMap::new(),
         }
     }
 }
@@ -451,13 +452,14 @@ impl MeshletGpuScene {
         // TODO: Shrink capacity if saturation is low
         self.materials.clear();
         self.scene_meshlet_count = 0;
+        self.scene_vertex_count = 0;
         self.material_vertex_counts.clear();
         self.instances.clear();
         self.instance_uniforms.get_mut().clear();
         self.thread_instance_ids.get_mut().clear();
         self.thread_meshlet_ids.get_mut().clear();
         self.draw_command_buffers.clear();
-        self.draw_index_buffers.clear();
+        self.draw_index_buffer = None;
         self.culling_bind_groups.clear();
         self.draw_bind_groups.clear();
     }
@@ -507,6 +509,7 @@ impl MeshletGpuScene {
             .clone();
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
+        self.scene_vertex_count += vertex_count;
         self.instances.push((instance, vertex_count));
 
         for meshlet_index in meshlets_slice {
@@ -542,10 +545,10 @@ impl MeshletGpuScene {
         (
             self.scene_meshlet_count,
             materials,
-            self.culling_bind_groups.get(&view_entity).as_ref(),
-            self.draw_bind_groups.get(&view_entity).as_ref(),
-            self.draw_index_buffers.get(&view_entity).as_ref(),
-            self.draw_command_buffers.get(&view_entity).as_ref(),
+            self.culling_bind_groups.get(&view_entity),
+            self.draw_bind_groups.get(&view_entity),
+            self.draw_index_buffer.as_ref(),
+            self.draw_command_buffers.get(&view_entity),
         )
     }
 }

@@ -446,7 +446,7 @@ const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
+pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     match tonemapping {
         Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
