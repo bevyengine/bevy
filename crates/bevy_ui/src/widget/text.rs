@@ -53,7 +53,16 @@ impl Measure for TextMeasure {
         _available_height: AvailableSpace,
     ) -> Vec2 {
         let x = width.unwrap_or_else(|| match available_width {
-            AvailableSpace::Definite(x) => x.clamp(self.info.min.x, self.info.max.x),
+            AvailableSpace::Definite(x) => {
+                // It is possible for the "min content width" to be larger than
+                // the "max content width" when soft-wrapping right-aligned text
+                // and possibly other situations.
+
+                let min_x = self.info.min.x.min(self.info.max.x);
+                let max_x = self.info.min.x.max(self.info.max.x);
+
+                x.clamp(min_x, max_x)
+            }
             AvailableSpace::MinContent => self.info.min.x,
             AvailableSpace::MaxContent => self.info.max.x,
         });
