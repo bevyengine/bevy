@@ -328,7 +328,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
         return;
     };
 
-    for view_entity in views {
+    for view_entity in &views {
         let entries = BindGroupEntries::sequential((
             gpu_scene.vertex_data.binding(),
             gpu_scene.vertex_ids.binding(),
@@ -338,7 +338,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
             gpu_scene.indices.binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            gpu_scene.draw_command_buffers[view_entity].as_entire_binding(),
+            gpu_scene.draw_command_buffers[&view_entity].as_entire_binding(),
             draw_index_buffer.as_entire_binding(),
             view_uniforms,
         ));
@@ -439,10 +439,10 @@ impl FromWorld for MeshletGpuScene {
                     entries: &bind_group_layout_entries()[0..6],
                 },
             ),
-            draw_command_buffers: EntityHashMap::new(),
+            draw_command_buffers: EntityHashMap::default(),
             draw_index_buffer: None,
-            culling_bind_groups: EntityHashMap::new(),
-            draw_bind_groups: EntityHashMap::new(),
+            culling_bind_groups: EntityHashMap::default(),
+            draw_bind_groups: EntityHashMap::default(),
         }
     }
 }
@@ -497,7 +497,7 @@ impl MeshletGpuScene {
                 meshlet_mesh
                     .meshlets
                     .iter()
-                    .map(|meshlet| meshlet.triangle_count * 3)
+                    .map(|meshlet| meshlet.triangle_count as u64 * 3)
                     .sum(),
             )
         };

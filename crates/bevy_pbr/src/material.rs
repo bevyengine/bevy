@@ -231,15 +231,19 @@ where
                         prepare_materials::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<Image>),
-                        render::queue_shadows::<M>.in_set(RenderSet::QueueMeshes),
-                        queue_material_meshes::<M>.in_set(RenderSet::QueueMeshes),
+                        render::queue_shadows::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
+                        queue_material_meshes::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
                         prepare_material_for_meshlet_meshes::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_materials::<M>)
-                            .run_if(resource_exists::<MeshletGpuScene>),
+                            .run_if(resource_exists::<MeshletGpuScene>()),
                         queue_material_meshlet_meshes::<M>
                             .in_set(RenderSet::Queue)
-                            .run_if(resource_exists::<MeshletGpuScene>),
+                            .run_if(resource_exists::<MeshletGpuScene>()),
                     ),
                 );
         }
