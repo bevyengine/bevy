@@ -6,6 +6,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::Camera,
     color::Color,
+    extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     prelude::Projection,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
@@ -16,12 +17,7 @@ use bevy_render::{
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{tracing::warn, HashMap};
 
-use crate::{
-    calculate_cluster_factors, spot_light_projection_matrix, spot_light_view_matrix,
-    CascadesVisibleEntities, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS,
-    POINT_LIGHT_NEAR_Z,
-};
+use crate::*;
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -422,7 +418,7 @@ pub fn update_directional_light_cascades(
         })
         .collect::<Vec<_>>();
 
-    for (transform, directional_light, cascades_config, mut cascades) in lights.iter_mut() {
+    for (transform, directional_light, cascades_config, mut cascades) in &mut lights {
         if !directional_light.shadows_enabled {
             continue;
         }
@@ -605,6 +601,36 @@ pub struct NotShadowCaster;
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
+
+/// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
+/// to control how to anti-alias shadow edges.
+///
+/// The different modes use different approaches to
+/// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
+///
+/// Currently does not affect point lights.
+#[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
+#[reflect(Component, Default)]
+pub enum ShadowFilteringMethod {
+    /// Hardware 2x2.
+    ///
+    /// Fast but poor quality.
+    Hardware2x2,
+    /// Method by Ignacio Castaño for The Witness using 9 samples and smart
+    /// filtering to achieve the same as a regular 5x5 filter kernel.
+    ///
+    /// Good quality, good performance.
+    #[default]
+    Castano13,
+    /// Method by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
+    /// samples in spiral pattern, randomly-rotated by interleaved gradient
+    /// noise with spatial variation.
+    ///
+    /// Good quality when used with
+    /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
+    /// and good performance.
+    Jimenez14,
+}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
@@ -1050,20 +1076,12 @@ fn compute_aabb_for_cluster(
 
         // Convert to view space at the cluster near and far planes
         // NOTE: 1.0 is the near plane due to using reverse z projections
-        let p_min = screen_to_view(
-            screen_size,
-            inverse_projection,
-            p_min,
-            1.0 - (ijk.z / cluster_dimensions.z as f32),
-        )
-        .xyz();
-        let p_max = screen_to_view(
-            screen_size,
-            inverse_projection,
-            p_max,
-            1.0 - ((ijk.z + 1.0) / cluster_dimensions.z as f32),
-        )
-        .xyz();
+        let mut p_min = screen_to_view(screen_size, inverse_projection, p_min, 0.0).xyz();
+        let mut p_max = screen_to_view(screen_size, inverse_projection, p_max, 0.0).xyz();
+
+        // calculate cluster depth using z_near and z_far
+        p_min.z = -z_near + (z_near - z_far) * ijk.z / cluster_dimensions.z as f32;
+        p_max.z = -z_near + (z_near - z_far) * (ijk.z + 1.0) / cluster_dimensions.z as f32;
 
         cluster_min = p_min.min(p_max);
         cluster_max = p_min.max(p_max);
@@ -1882,7 +1900,7 @@ pub fn update_spot_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
     >,
 ) {
-    for (entity, transform, spot_light, mut frustum) in views.iter_mut() {
+    for (entity, transform, spot_light, mut frustum) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
@@ -1969,7 +1987,7 @@ pub fn check_light_mesh_visibility(
     {
         // Re-use already allocated entries where possible.
         let mut views_to_remove = Vec::new();
-        for (view, cascade_view_entities) in visible_entities.entities.iter_mut() {
+        for (view, cascade_view_entities) in &mut visible_entities.entities {
             match frusta.frusta.get(view) {
                 Some(view_frusta) => {
                     cascade_view_entities.resize(view_frusta.len(), Default::default());
@@ -1980,7 +1998,7 @@ pub fn check_light_mesh_visibility(
                 None => views_to_remove.push(*view),
             };
         }
-        for (view, frusta) in frusta.frusta.iter() {
+        for (view, frusta) in &frusta.frusta {
             visible_entities
                 .entities
                 .entry(*view)
@@ -2017,7 +2035,7 @@ pub fn check_light_mesh_visibility(
 
             // If we have an aabb and transform, do frustum culling
             if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                for (view, view_frusta) in frusta.frusta.iter() {
+                for (view, view_frusta) in &frusta.frusta {
                     let view_visible_entities = visible_entities
                         .entities
                         .get_mut(view)
@@ -2050,7 +2068,7 @@ pub fn check_light_mesh_visibility(
             }
         }
 
-        for (_, cascade_view_entities) in visible_entities.entities.iter_mut() {
+        for (_, cascade_view_entities) in &mut visible_entities.entities {
             cascade_view_entities.iter_mut().for_each(shrink_entities);
         }
     }
@@ -2153,7 +2171,7 @@ pub fn check_light_mesh_visibility(
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
-                ) in visible_entity_query.iter_mut()
+                ) in &mut visible_entity_query
                 {
                     if !inherited_visibility.get() {
                         continue;

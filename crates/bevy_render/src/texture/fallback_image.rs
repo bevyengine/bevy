@@ -4,7 +4,6 @@ use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
     system::{Resource, SystemParam},
 };
-use bevy_math::Vec2;
 use bevy_utils::HashMap;
 use wgpu::{Extent3d, TextureFormat};
 
@@ -61,7 +60,6 @@ fn fallback_image_new(
     value: u8,
 ) -> GpuImage {
     // TODO make this configurable per channel
-    let data = vec![value; format.pixel_size()];
 
     let extents = Extent3d {
         width: 1,
@@ -72,19 +70,29 @@ fn fallback_image_new(
         },
     };
 
-    let image_dimension = dimension.compatible_texture_dimension();
+    // We can't create textures with data when it's a depth texture or when using multiple samples
+    let create_texture_with_data = !format.is_depth_stencil_format() && samples == 1;
 
-    let mut image = Image::new_fill(extents, image_dimension, &data, format);
+    let image_dimension = dimension.compatible_texture_dimension();
+    let mut image = if create_texture_with_data {
+        let data = vec![value; format.pixel_size()];
+        Image::new_fill(extents, image_dimension, &data, format)
+    } else {
+        let mut image = Image::default();
+        image.texture_descriptor.dimension = TextureDimension::D2;
+        image.texture_descriptor.size = extents;
+        image.texture_descriptor.format = format;
+        image
+    };
     image.texture_descriptor.sample_count = samples;
     if image_dimension == TextureDimension::D2 {
         image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
     }
 
-    // We can't create textures with data when it's a depth texture or when using multiple samples
-    let texture = if format.is_depth_stencil_format() || samples > 1 {
-        render_device.create_texture(&image.texture_descriptor)
-    } else {
+    let texture = if create_texture_with_data {
         render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
+    } else {
+        render_device.create_texture(&image.texture_descriptor)
     };
 
     let texture_view = texture.create_view(&TextureViewDescriptor {
@@ -94,17 +102,14 @@ fn fallback_image_new(
     });
     let sampler = match image.sampler_descriptor {
         ImageSampler::Default => (**default_sampler).clone(),
-        ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+        ImageSampler::Descriptor(ref descriptor) => render_device.create_sampler(descriptor),
     };
     GpuImage {
         texture,
         texture_view,
         texture_format: image.texture_descriptor.format,
         sampler,
-        size: Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
-        ),
+        size: image.size_f32(),
         mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }
@@ -207,64 +212,30 @@ impl FromWorld for FallbackImageCubemap {
     }
 }
 
-// TODO these could be combined in one FallbackImage cache.
-
-/// A Cache of fallback textures that uses the sample count as a key
+/// A Cache of fallback textures that uses the sample count and `TextureFormat` as a key
 ///
 /// # WARNING
 /// Images using MSAA with sample count > 1 are not initialized with data, therefore,
 /// you shouldn't sample them before writing data to them first.
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
-
-/// A Cache of fallback depth textures that uses the sample count as a key
-///
-/// # WARNING
-/// Depth images are never initialized with data, therefore,
-/// you shouldn't sample them before writing data to them first.
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);
+pub struct FallbackImageFormatMsaaCache(HashMap<(u32, TextureFormat), GpuImage>);
 
 #[derive(SystemParam)]
-pub struct FallbackImagesMsaa<'w> {
-    cache: ResMut<'w, FallbackImageMsaaCache>,
+pub struct FallbackImageMsaa<'w> {
+    cache: ResMut<'w, FallbackImageFormatMsaaCache>,
     render_device: Res<'w, RenderDevice>,
     render_queue: Res<'w, RenderQueue>,
     default_sampler: Res<'w, DefaultImageSampler>,
 }
 
-impl<'w> FallbackImagesMsaa<'w> {
-    pub fn image_for_samplecount(&mut self, sample_count: u32) -> &GpuImage {
-        self.cache.entry(sample_count).or_insert_with(|| {
+impl<'w> FallbackImageMsaa<'w> {
+    pub fn image_for_samplecount(&mut self, sample_count: u32, format: TextureFormat) -> &GpuImage {
+        self.cache.entry((sample_count, format)).or_insert_with(|| {
             fallback_image_new(
                 &self.render_device,
                 &self.render_queue,
                 &self.default_sampler,
-                TextureFormat::bevy_default(),
-                TextureViewDimension::D2,
-                sample_count,
-                255,
-            )
-        })
-    }
-}
-
-#[derive(SystemParam)]
-pub struct FallbackImagesDepth<'w> {
-    cache: ResMut<'w, FallbackImageDepthCache>,
-    render_device: Res<'w, RenderDevice>,
-    render_queue: Res<'w, RenderQueue>,
-    default_sampler: Res<'w, DefaultImageSampler>,
-}
-
-impl<'w> FallbackImagesDepth<'w> {
-    pub fn image_for_samplecount(&mut self, sample_count: u32) -> &GpuImage {
-        self.cache.entry(sample_count).or_insert_with(|| {
-            fallback_image_new(
-                &self.render_device,
-                &self.render_queue,
-                &self.default_sampler,
-                TextureFormat::Depth32Float,
+                format,
                 TextureViewDimension::D2,
                 sample_count,
                 255,

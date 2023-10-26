@@ -306,8 +306,7 @@ pub fn get_lut_bindings<'a>(
     images: &'a RenderAssets<Image>,
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
-    bindings: [u32; 2],
-) -> [BindGroupEntry<'a>; 2] {
+) -> (&'a TextureView, &'a Sampler) {
     let image = match tonemapping {
         // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
         Tonemapping::None
@@ -320,16 +319,7 @@ pub fn get_lut_bindings<'a>(
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
     };
     let lut_image = images.get(image).unwrap();
-    [
-        BindGroupEntry {
-            binding: bindings[0],
-            resource: BindingResource::TextureView(&lut_image.texture_view),
-        },
-        BindGroupEntry {
-            binding: bindings[1],
-            resource: BindingResource::Sampler(&lut_image.sampler),
-        },
-    ]
+    (&lut_image.texture_view, &lut_image.sampler)
 }
 
 pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayoutEntry; 2] {
@@ -356,10 +346,7 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
 // allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
 #[allow(dead_code)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
-    let mut image =
-        Image::from_buffer(bytes, image_type, CompressedImageFormats::NONE, false).unwrap();
-
-    image.sampler_descriptor = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
+    let image_sampler = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
         label: Some("Tonemapping LUT sampler"),
         address_mode_u: AddressMode::ClampToEdge,
         address_mode_v: AddressMode::ClampToEdge,
@@ -369,8 +356,14 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         mipmap_filter: FilterMode::Linear,
         ..default()
     });
-
-    image
+    Image::from_buffer(
+        bytes,
+        image_type,
+        CompressedImageFormats::NONE,
+        false,
+        image_sampler,
+    )
+    .unwrap()
 }
 
 pub fn lut_placeholder() -> Image {

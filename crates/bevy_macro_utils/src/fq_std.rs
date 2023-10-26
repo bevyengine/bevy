@@ -1,6 +1,9 @@
-//! This module contains unit structs that should be used inside `quote!` and `spanned_quote!` using the variable interpolation syntax in place of their equivalent structs and traits present in `std`.
-//
-//! To create hygienic proc macros, all the names must be its fully qualified form. These unit structs help us to not specify the fully qualified name every single time.
+//! This module contains unit structs that should be used inside `quote!` and `spanned_quote!`
+//! using the variable interpolation syntax in place of their equivalent structs and traits
+//! present in `std`.
+//!
+//! To create hygienic proc macros, all the names must be its fully qualified form. These
+//! unit structs help us to not specify the fully qualified name every single time.
 //!
 //! # Example
 //! Instead of writing this:
@@ -33,14 +36,22 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
-pub(crate) struct FQAny;
-pub(crate) struct FQBox;
-pub(crate) struct FQClone;
-pub(crate) struct FQDefault;
-pub(crate) struct FQOption;
-pub(crate) struct FQResult;
-pub(crate) struct FQSend;
-pub(crate) struct FQSync;
+/// Fully Qualified (FQ) short name for [`::core::any::Any`]
+pub struct FQAny;
+/// Fully Qualified (FQ) short name for [`::std::boxed::Box`]
+pub struct FQBox;
+/// Fully Qualified (FQ) short name for [`::core::clone::Clone`]
+pub struct FQClone;
+/// Fully Qualified (FQ) short name for [`::core::default::Default`]
+pub struct FQDefault;
+/// Fully Qualified (FQ) short name for [`::core::option::Option`]
+pub struct FQOption;
+/// Fully Qualified (FQ) short name for [`::core::result::Result`]
+pub struct FQResult;
+/// Fully Qualified (FQ) short name for [`::core::marker::Send`]
+pub struct FQSend;
+/// Fully Qualified (FQ) short name for [`::core::marker::Sync`]
+pub struct FQSync;
 
 impl ToTokens for FQAny {
     fn to_tokens(&self, tokens: &mut TokenStream) {
