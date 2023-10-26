@@ -295,10 +295,10 @@ impl FromWorld for Mesh2dPipeline {
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
+            let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(descriptor)
+                    render_device.create_sampler(&descriptor.as_wgpu())
                 }
             };
 

@@ -264,7 +264,7 @@ async fn load_gltf<'a, 'b, 'c>(
             } => {
                 load_context.load_with_settings(path, move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
-                    settings.sampler_descriptor = sampler_descriptor;
+                    settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
                 })
             }
         };
@@ -684,7 +684,7 @@ async fn load_image<'a, 'b>(
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
-                ImageSampler::Descriptor(sampler_descriptor.into()),
+                ImageSampler::Descriptor(sampler_descriptor),
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -705,7 +705,7 @@ async fn load_image<'a, 'b>(
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
                         is_srgb,
-                        ImageSampler::Descriptor(sampler_descriptor.into()),
+                        ImageSampler::Descriptor(sampler_descriptor),
                     )?,
                     label: texture_label(&gltf_texture),
                 })
