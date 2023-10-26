@@ -327,7 +327,7 @@ impl<'a> AssetPath<'a> {
     ///
     /// If there are insufficient segments in the base path to match the ".." segments,
     /// then any left-over ".." segments are left as-is.
-    pub fn resolve<'b>(&'a self, path: &'b str) -> Result<AssetPath<'a>, ParseAssetPathError> {
+    pub fn resolve(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, false)
     }
 
@@ -353,21 +353,18 @@ impl<'a> AssetPath<'a> {
     /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed("#c"), Ok(AssetPath::parse("a/b.png#c")));
     /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed("#d"), Ok(AssetPath::parse("a/b.png#d")));
     /// ```
-    pub fn resolve_embed<'b>(
-        &'a self,
-        path: &'b str,
-    ) -> Result<AssetPath<'a>, ParseAssetPathError> {
+    pub fn resolve_embed(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, true)
     }
 
-    fn resolve_internal<'b>(
-        &'a self,
-        path: &'b str,
+    fn resolve_internal(
+        &self,
+        path: &str,
         replace: bool,
-    ) -> Result<AssetPath<'a>, ParseAssetPathError> {
+    ) -> Result<AssetPath<'static>, ParseAssetPathError> {
         if let Some(label) = path.strip_prefix('#') {
             // It's a label only
-            Ok(self.clone().into_owned().with_label(label.to_owned()))
+            Ok(self.clone_owned().with_label(label.to_owned()))
         } else {
             let (source, rpath, rlabel) = AssetPath::parse_internal(path)?;
             let mut base_path = PathBuf::from(self.path());
@@ -402,8 +399,7 @@ impl<'a> AssetPath<'a> {
                 }
             }
 
-            let rel_path = PathBuf::from(rpath);
-            for elt in rel_path.iter() {
+            for elt in rpath.iter() {
                 if elt == "." {
                     // Skip
                 } else if elt == ".." {
@@ -419,9 +415,9 @@ impl<'a> AssetPath<'a> {
             Ok(AssetPath {
                 source: match source {
                     Some(source) => AssetSourceId::Name(CowArc::Owned(source.into())),
-                    None => self.source.to_owned(),
+                    None => self.source.clone_owned(),
                 },
-                path: CowArc::Owned(result_path.as_path().to_owned().into()),
+                path: CowArc::Owned(result_path.into()),
                 label: rlabel.map(|l| CowArc::Owned(l.into())),
             })
         }
