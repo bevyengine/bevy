@@ -268,9 +268,9 @@ impl Plugin for RenderPlugin {
                             backends,
                             dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
                             // TODO: make this configurable
-                            flags: wgpu::InstanceFlags::empty(),
+                            flags: settings.instance_flags,
                             // TODO: make this configurable
-                            gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
+                            gles_minor_version: settings.gles3_minor_version,
                         });
                         // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
