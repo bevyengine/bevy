@@ -40,6 +40,8 @@ pub mod prelude {
     };
 }
 
+pub use wgpu;
+
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
