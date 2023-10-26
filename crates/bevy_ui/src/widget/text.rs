@@ -58,10 +58,7 @@ impl Measure for TextMeasure {
                 // the "max content width" when soft-wrapping right-aligned text
                 // and possibly other situations.
 
-                let min_x = self.info.min.x.min(self.info.max.x);
-                let max_x = self.info.min.x.max(self.info.max.x);
-
-                x.clamp(min_x, max_x)
+                x.max(self.info.min.x).min(self.info.max.x)
             }
             AvailableSpace::MinContent => self.info.min.x,
             AvailableSpace::MaxContent => self.info.max.x,
