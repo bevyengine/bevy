@@ -267,7 +267,7 @@ pub struct StandardMaterial {
     /// Use the [`parallax_mapping_method`] and [`max_parallax_layer_count`] fields
     /// to tweak the shader, trading graphical quality for performance.
     ///
-    /// To improve performance, set your `depth_map`'s [`Image::sampler_descriptor`]
+    /// To improve performance, set your `depth_map`'s [`Image::sampler`]
     /// filter mode to `FilterMode::Nearest`, as [this paper] indicates, it improves
     /// performance a bit.
     ///
