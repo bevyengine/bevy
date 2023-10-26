@@ -14,7 +14,7 @@ fn main() {
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // add entities to the world
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/monkey/Monkey.gltf#Scene0"),
+        scene: asset_server.load("models/torus/torus.gltf#Scene0"),
         ..default()
     });
     // light

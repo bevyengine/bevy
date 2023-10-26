@@ -99,19 +99,11 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
-                #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = &*name).entered();
                 self.apply_deferred(schedule, world);
-                #[cfg(feature = "trace")]
-                system_span.exit();
             } else {
-                #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = &*name).entered();
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     system.run((), world);
                 }));
-                #[cfg(feature = "trace")]
-                system_span.exit();
                 if let Err(payload) = res {
                     eprintln!("Encountered a panic in system `{}`!", &*system.name());
                     std::panic::resume_unwind(payload);
@@ -129,6 +121,9 @@ impl SystemExecutor for SingleThreadedExecutor {
 }
 
 impl SingleThreadedExecutor {
+    /// Creates a new single-threaded executor for use in a [`Schedule`].
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),
@@ -153,10 +148,6 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
-        .map(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            condition.run((), world)
-        })
+        .map(|condition| condition.run((), world))
         .fold(true, |acc, res| acc && res)
 }

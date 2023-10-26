@@ -6,6 +6,7 @@ pub mod clear_color;
 pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
+pub mod deferred;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;
@@ -40,6 +41,7 @@ use crate::{
     contrast_adaptive_sharpening::CASPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
+    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     msaa_writeback::MsaaWritebackPlugin,
@@ -68,15 +70,18 @@ impl Plugin for CorePipelinePlugin {
             .register_type::<DepthPrepass>()
             .register_type::<NormalPrepass>()
             .init_resource::<ClearColor>()
-            .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
-            .add_plugin(Core2dPlugin)
-            .add_plugin(Core3dPlugin)
-            .add_plugin(BlitPlugin)
-            .add_plugin(MsaaWritebackPlugin)
-            .add_plugin(TonemappingPlugin)
-            .add_plugin(UpscalingPlugin)
-            .add_plugin(BloomPlugin)
-            .add_plugin(FxaaPlugin)
-            .add_plugin(CASPlugin);
+            .add_plugins((
+                ExtractResourcePlugin::<ClearColor>::default(),
+                Core2dPlugin,
+                Core3dPlugin,
+                CopyDeferredLightingIdPlugin,
+                BlitPlugin,
+                MsaaWritebackPlugin,
+                TonemappingPlugin,
+                UpscalingPlugin,
+                BloomPlugin,
+                FxaaPlugin,
+                CASPlugin,
+            ));
     }
 }

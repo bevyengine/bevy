@@ -6,7 +6,7 @@ use std::{borrow::Cow, collections::VecDeque};
 
 use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
 
-/// Unique identifier for a [Diagnostic]
+/// Unique identifier for a [`Diagnostic`].
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DiagnosticId(pub Uuid);
 
@@ -22,7 +22,7 @@ impl Default for DiagnosticId {
     }
 }
 
-/// A single measurement of a [Diagnostic]
+/// A single measurement of a [`Diagnostic`].
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
     pub time: Instant,
@@ -195,7 +195,7 @@ impl Diagnostic {
     }
 }
 
-/// A collection of [Diagnostic]s
+/// A collection of [`Diagnostic`]s.
 #[derive(Debug, Default, Resource)]
 pub struct DiagnosticsStore {
     // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
@@ -227,9 +227,14 @@ impl DiagnosticsStore {
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
-    /// Return an iterator over all [`Diagnostic`].
+    /// Return an iterator over all [`Diagnostic`]s.
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
+    }
+
+    /// Return an iterator over all [`Diagnostic`]s, by mutable reference.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Diagnostic> {
+        self.diagnostics.values_mut()
     }
 }
 
@@ -289,6 +294,8 @@ pub trait RegisterDiagnostic {
 impl RegisterDiagnostic for App {
     /// Register a new [`Diagnostic`] with an [`App`].
     ///
+    /// Will initialize a [`DiagnosticsStore`] if it doesn't exist.
+    ///
     /// ```rust
     /// use bevy_app::App;
     /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticId, RegisterDiagnostic};
@@ -296,12 +303,12 @@ impl RegisterDiagnostic for App {
     /// const UNIQUE_DIAG_ID: DiagnosticId = DiagnosticId::from_u128(42);
     ///
     /// App::new()
-    ///     .add_plugin(DiagnosticsPlugin)
-    ///     // Must only be called after the `DiagnosticsPlugin` has been added.
     ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_ID, "example", 10))
+    ///     .add_plugins(DiagnosticsPlugin)
     ///     .run();
     /// ```
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
+        self.init_resource::<DiagnosticsStore>();
         let mut diagnostics = self.world.resource_mut::<DiagnosticsStore>();
         diagnostics.add(diagnostic);
 

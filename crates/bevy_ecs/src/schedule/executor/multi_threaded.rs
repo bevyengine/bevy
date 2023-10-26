@@ -7,7 +7,7 @@ use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Instrument};
+use bevy_utils::tracing::{info_span, Instrument, Span};
 use std::panic::AssertUnwindSafe;
 
 use async_channel::{Receiver, Sender};
@@ -62,6 +62,9 @@ struct SystemTaskMetadata {
     is_send: bool,
     /// Is `true` if the system is exclusive.
     is_exclusive: bool,
+    /// Cached tracing span for system task
+    #[cfg(feature = "trace")]
+    system_task_span: Span,
 }
 
 /// The result of running a system that is sent across a channel.
@@ -153,6 +156,11 @@ impl SystemExecutor for MultiThreadedExecutor {
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].is_send(),
                 is_exclusive: schedule.systems[index].is_exclusive(),
+                #[cfg(feature = "trace")]
+                system_task_span: info_span!(
+                    "system_task",
+                    name = &*schedule.systems[index].name()
+                ),
             });
         }
 
@@ -217,7 +225,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             mut conditions,
         } = SyncUnsafeSchedule::new(schedule);
 
-        ComputeTaskPool::init(TaskPool::default).scope_with_executor(
+        ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
             false,
             thread_executor,
             |scope| {
@@ -286,6 +294,9 @@ impl SystemExecutor for MultiThreadedExecutor {
 }
 
 impl MultiThreadedExecutor {
+    /// Creates a new multi-threaded executor for use with a [`Schedule`].
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
     pub fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
         Self {
@@ -503,7 +514,7 @@ impl MultiThreadedExecutor {
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
-    ///   on the system assocaited with `system_index`.
+    ///   on the system associated with `system_index`.
     unsafe fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
@@ -513,17 +524,9 @@ impl MultiThreadedExecutor {
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
-
-        #[cfg(feature = "trace")]
-        let task_span = info_span!("system_task", name = &*system.name());
-        #[cfg(feature = "trace")]
-        let system_span = info_span!("system", name = &*system.name());
-
         let sender = self.sender.clone();
         let panic_payload = self.panic_payload.clone();
         let task = async move {
-            #[cfg(feature = "trace")]
-            let system_guard = system_span.enter();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 // SAFETY:
                 // - The caller ensures that we have permission to
@@ -531,8 +534,6 @@ impl MultiThreadedExecutor {
                 // - `update_archetype_component_access` has been called.
                 unsafe { system.run_unsafe((), world) };
             }));
-            #[cfg(feature = "trace")]
-            drop(system_guard);
             // tell the executor that the system finished
             sender
                 .try_send(SystemResult {
@@ -551,7 +552,11 @@ impl MultiThreadedExecutor {
         };
 
         #[cfg(feature = "trace")]
-        let task = task.instrument(task_span);
+        let task = task.instrument(
+            self.system_task_metadata[system_index]
+                .system_task_span
+                .clone(),
+        );
 
         let system_meta = &self.system_task_metadata[system_index];
         self.active_access
@@ -577,11 +582,6 @@ impl MultiThreadedExecutor {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
 
-        #[cfg(feature = "trace")]
-        let task_span = info_span!("system_task", name = &*system.name());
-        #[cfg(feature = "trace")]
-        let system_span = info_span!("system", name = &*system.name());
-
         let sender = self.sender.clone();
         let panic_payload = self.panic_payload.clone();
         if is_apply_deferred(system) {
@@ -589,11 +589,7 @@ impl MultiThreadedExecutor {
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
             let task = async move {
-                #[cfg(feature = "trace")]
-                let system_guard = system_span.enter();
                 let res = apply_deferred(&unapplied_systems, systems, world);
-                #[cfg(feature = "trace")]
-                drop(system_guard);
                 // tell the executor that the system finished
                 sender
                     .try_send(SystemResult {
@@ -609,17 +605,17 @@ impl MultiThreadedExecutor {
             };
 
             #[cfg(feature = "trace")]
-            let task = task.instrument(task_span);
+            let task = task.instrument(
+                self.system_task_metadata[system_index]
+                    .system_task_span
+                    .clone(),
+            );
             scope.spawn_on_scope(task);
         } else {
             let task = async move {
-                #[cfg(feature = "trace")]
-                let system_guard = system_span.enter();
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     system.run((), world);
                 }));
-                #[cfg(feature = "trace")]
-                drop(system_guard);
                 // tell the executor that the system finished
                 sender
                     .try_send(SystemResult {
@@ -639,7 +635,11 @@ impl MultiThreadedExecutor {
             };
 
             #[cfg(feature = "trace")]
-            let task = task.instrument(task_span);
+            let task = task.instrument(
+                self.system_task_metadata[system_index]
+                    .system_task_span
+                    .clone(),
+            );
             scope.spawn_on_scope(task);
         }
 
@@ -745,8 +745,6 @@ unsafe fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
             // SAFETY: The caller ensures that `world` has permission to
             // access any data required by the condition.
             unsafe { condition.run_unsafe((), world) }
@@ -765,6 +763,7 @@ impl Default for MainThreadExecutor {
 }
 
 impl MainThreadExecutor {
+    /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
         MainThreadExecutor(TaskPool::get_thread_executor())
     }

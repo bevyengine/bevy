@@ -12,18 +12,16 @@ struct DebugSchedule;
 /// Plugin to add a stepping UI to an example
 #[derive(Default)]
 pub struct SteppingPlugin {
-    schedule_labels: Vec<BoxedScheduleLabel>,
+    schedule_labels: Vec<InternedScheduleLabel>,
     top: Val,
     left: Val,
 }
 
 impl SteppingPlugin {
-    /// Initialize the plugin to step the schedules specified in `labels`
-    pub fn for_schedules(labels: Vec<BoxedScheduleLabel>) -> SteppingPlugin {
-        SteppingPlugin {
-            schedule_labels: labels,
-            ..default()
-        }
+    /// add a schedule to be stepped when stepping is enabled
+    pub fn add_schedule(mut self, label: impl ScheduleLabel) -> SteppingPlugin {
+        self.schedule_labels.push(label.intern());
+        self
     }
 
     /// Set the location of the stepping UI when activated
@@ -44,7 +42,7 @@ impl Plugin for SteppingPlugin {
         // create our stepping resource
         let mut stepping = Stepping::new();
         for label in &self.schedule_labels {
-            stepping.add_schedule(label.dyn_clone());
+            stepping.add_schedule(*label);
         }
         app.insert_resource(stepping);
 
@@ -71,7 +69,7 @@ impl Plugin for SteppingPlugin {
 #[derive(Resource, Debug)]
 struct State {
     // vector of schedule/nodeid -> text index offset
-    systems: Vec<(BoxedScheduleLabel, NodeId, usize)>,
+    systems: Vec<(InternedScheduleLabel, NodeId, usize)>,
 
     // ui positioning
     ui_top: Val,
@@ -114,7 +112,7 @@ fn build_ui(
     // go through the stepping schedules and construct a list of systems for
     // each label
     for label in schedule_order {
-        let schedule = schedules.get(&**label).unwrap();
+        let schedule = schedules.get(*label).unwrap();
         text_sections.push(TextSection::new(
             format!("{:?}\n", label),
             TextStyle {
@@ -134,15 +132,13 @@ fn build_ui(
         for (node_id, system) in systems {
             // skip bevy default systems; we don't want to step those
             if system.name().starts_with("bevy") {
-                always_run.push((label.dyn_clone(), node_id));
+                always_run.push((*label, node_id));
                 continue;
             }
 
             // Add an entry to our systems list so we can find where to draw
             // the cursor when the stepping cursor is at this system
-            state
-                .systems
-                .push((label.dyn_clone(), node_id, text_sections.len()));
+            state.systems.push((*label, node_id, text_sections.len()));
 
             // Add a text section for displaying the cursor for this system
             text_sections.push(TextSection::new(

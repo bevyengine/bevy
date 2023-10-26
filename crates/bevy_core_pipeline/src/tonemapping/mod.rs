@@ -1,8 +1,8 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
@@ -17,11 +17,10 @@ mod node;
 use bevy_utils::default;
 pub use node::TonemappingNode;
 
-const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
+const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
 
-const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
+const TONEMAPPING_SHARED_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2499430578245347910);
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
@@ -82,20 +81,22 @@ impl Plugin for TonemappingPlugin {
             app.insert_resource(tonemapping_luts);
         }
 
-        app.add_plugin(ExtractResourcePlugin::<TonemappingLuts>::default());
+        app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
         app.register_type::<Tonemapping>();
         app.register_type::<DebandDither>();
 
-        app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
-        app.add_plugin(ExtractComponentPlugin::<DebandDither>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<Tonemapping>::default(),
+            ExtractComponentPlugin::<DebandDither>::default(),
+        ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
                 .add_systems(
                     Render,
-                    queue_view_tonemapping_pipelines.in_set(RenderSet::Queue),
+                    prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
                 );
         }
     }
@@ -114,17 +115,7 @@ pub struct TonemappingPipeline {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 #[derive(
-    Component,
-    Debug,
-    Hash,
-    Clone,
-    Copy,
-    Reflect,
-    Default,
-    ExtractComponent,
-    PartialEq,
-    Eq,
-    FromReflect,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -215,7 +206,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TONEMAPPING_SHADER_HANDLE.typed(),
+                shader: TONEMAPPING_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -280,7 +271,7 @@ impl FromWorld for TonemappingPipeline {
 #[derive(Component)]
 pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
 
-pub fn queue_view_tonemapping_pipelines(
+pub fn prepare_view_tonemapping_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
@@ -301,17 +292,7 @@ pub fn queue_view_tonemapping_pipelines(
 }
 /// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(
-    Component,
-    Debug,
-    Hash,
-    Clone,
-    Copy,
-    Reflect,
-    Default,
-    ExtractComponent,
-    PartialEq,
-    Eq,
-    FromReflect,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -325,8 +306,7 @@ pub fn get_lut_bindings<'a>(
     images: &'a RenderAssets<Image>,
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
-    bindings: [u32; 2],
-) -> [BindGroupEntry<'a>; 2] {
+) -> (&'a TextureView, &'a Sampler) {
     let image = match tonemapping {
         // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
         Tonemapping::None
@@ -339,16 +319,7 @@ pub fn get_lut_bindings<'a>(
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
     };
     let lut_image = images.get(image).unwrap();
-    [
-        BindGroupEntry {
-            binding: bindings[0],
-            resource: BindingResource::TextureView(&lut_image.texture_view),
-        },
-        BindGroupEntry {
-            binding: bindings[1],
-            resource: BindingResource::Sampler(&lut_image.sampler),
-        },
-    ]
+    (&lut_image.texture_view, &lut_image.sampler)
 }
 
 pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayoutEntry; 2] {
@@ -375,10 +346,7 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
 // allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
 #[allow(dead_code)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
-    let mut image =
-        Image::from_buffer(bytes, image_type, CompressedImageFormats::NONE, false).unwrap();
-
-    image.sampler_descriptor = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
+    let image_sampler = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
         label: Some("Tonemapping LUT sampler"),
         address_mode_u: AddressMode::ClampToEdge,
         address_mode_v: AddressMode::ClampToEdge,
@@ -388,8 +356,14 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         mipmap_filter: FilterMode::Linear,
         ..default()
     });
-
-    image
+    Image::from_buffer(
+        bytes,
+        image_type,
+        CompressedImageFormats::NONE,
+        false,
+        image_sampler,
+    )
+    .unwrap()
 }
 
 pub fn lut_placeholder() -> Image {

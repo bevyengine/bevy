@@ -3,7 +3,7 @@ use std::any::TypeId;
 use std::collections::HashMap;
 
 use crate::{
-    schedule::{BoxedScheduleLabel, NodeId, Schedule, ScheduleLabel},
+    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource, System},
 };
 use bevy_utils::{
@@ -75,15 +75,15 @@ enum Update {
     /// Set the action stepping will perform for this render frame
     SetAction(Action),
     /// Enable stepping for this schedule
-    AddSchedule(BoxedScheduleLabel),
+    AddSchedule(InternedScheduleLabel),
     /// Disable stepping for this schedule
-    RemoveSchedule(BoxedScheduleLabel),
+    RemoveSchedule(InternedScheduleLabel),
     /// Clear any system-specific behaviors for this schedule
-    ClearSchedule(BoxedScheduleLabel),
+    ClearSchedule(InternedScheduleLabel),
     /// Set a system-specific behavior for this schedule & system
-    SetBehavior(BoxedScheduleLabel, SystemIdentifier, SystemBehavior),
+    SetBehavior(InternedScheduleLabel, SystemIdentifier, SystemBehavior),
     /// Clear any system-specific behavior for this schedule & system
-    ClearBehavior(BoxedScheduleLabel, SystemIdentifier),
+    ClearBehavior(InternedScheduleLabel, SystemIdentifier),
 }
 
 #[derive(Error, Debug)]
@@ -91,12 +91,13 @@ enum Update {
 pub struct NotReady;
 
 #[derive(Resource, Default)]
+/// Resource for controlling system stepping behavior
 pub struct Stepping {
     // [`ScheduleState`] for each [`Schedule`] with stepping enabled
-    schedule_states: HashMap<BoxedScheduleLabel, ScheduleState>,
+    schedule_states: HashMap<InternedScheduleLabel, ScheduleState>,
 
     // dynamically generated [`Schedule`] order
-    schedule_order: Vec<BoxedScheduleLabel>,
+    schedule_order: Vec<InternedScheduleLabel>,
 
     // current position in the stepping frame
     cursor: Cursor,
@@ -132,6 +133,7 @@ impl std::fmt::Debug for Stepping {
 }
 
 impl Stepping {
+    /// Create a new instance of the `Stepping` resource.
     pub fn new() -> Self {
         Stepping::default()
     }
@@ -147,7 +149,7 @@ impl Stepping {
 
     /// Return the list of schedules with stepping enabled in the order
     /// they are executed in.
-    pub fn schedules(&self) -> Result<&Vec<BoxedScheduleLabel>, NotReady> {
+    pub fn schedules(&self) -> Result<&Vec<InternedScheduleLabel>, NotReady> {
         if self.schedule_order.len() == self.schedule_states.len() {
             Ok(&self.schedule_order)
         } else {
@@ -161,7 +163,7 @@ impl Stepping {
     /// stepping enabled.  This can happen at the end of the stepping frame
     /// after the last system has been run, but before the start of the next
     /// render frame.
-    pub fn cursor(&self) -> Option<(BoxedScheduleLabel, NodeId)> {
+    pub fn cursor(&self) -> Option<(InternedScheduleLabel, NodeId)> {
         if self.action == Action::RunAll {
             return None;
         }
@@ -176,12 +178,12 @@ impl Stepping {
         state
             .node_ids
             .get(self.cursor.system)
-            .map(|node_id| (label.dyn_clone(), *node_id))
+            .map(|node_id| (*label, *node_id))
     }
 
     /// Enable stepping for the provided schedule
     pub fn add_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
-        self.updates.push(Update::AddSchedule(schedule.dyn_clone()));
+        self.updates.push(Update::AddSchedule(schedule.intern()));
         self
     }
 
@@ -190,15 +192,13 @@ impl Stepping {
     /// NOTE: This function will also clear any system-specific behaviors that
     /// may have been configured.
     pub fn remove_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
-        self.updates
-            .push(Update::RemoveSchedule(schedule.dyn_clone()));
+        self.updates.push(Update::RemoveSchedule(schedule.intern()));
         self
     }
 
     /// Clear behavior set for all systems in the provided [`Schedule`]
     pub fn clear_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
-        self.updates
-            .push(Update::ClearSchedule(schedule.dyn_clone()));
+        self.updates.push(Update::ClearSchedule(schedule.intern()));
         self
     }
 
@@ -253,7 +253,7 @@ impl Stepping {
     ) -> &mut Self {
         let type_id = IntoSystem::into_system(system).type_id();
         self.updates.push(Update::SetBehavior(
-            schedule.dyn_clone(),
+            schedule.intern(),
             SystemIdentifier::Type(type_id),
             SystemBehavior::AlwaysRun,
         ));
@@ -264,7 +264,7 @@ impl Stepping {
     /// Ensure this system instance always runs when stepping is enabled
     pub fn always_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
         self.updates.push(Update::SetBehavior(
-            schedule.dyn_clone(),
+            schedule.intern(),
             SystemIdentifier::Node(node),
             SystemBehavior::AlwaysRun,
         ));
@@ -279,7 +279,7 @@ impl Stepping {
     ) -> &mut Self {
         let type_id = IntoSystem::into_system(system).type_id();
         self.updates.push(Update::SetBehavior(
-            schedule.dyn_clone(),
+            schedule.intern(),
             SystemIdentifier::Type(type_id),
             SystemBehavior::NeverRun,
         ));
@@ -290,7 +290,7 @@ impl Stepping {
     /// Ensure this system instance never runs when stepping is enabled
     pub fn never_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
         self.updates.push(Update::SetBehavior(
-            schedule.dyn_clone(),
+            schedule.intern(),
             SystemIdentifier::Node(node),
             SystemBehavior::NeverRun,
         ));
@@ -305,7 +305,7 @@ impl Stepping {
     ) -> &mut Self {
         let type_id = IntoSystem::into_system(system).type_id();
         self.updates.push(Update::SetBehavior(
-            schedule.dyn_clone(),
+            schedule.intern(),
             SystemIdentifier::Type(type_id),
             SystemBehavior::Break,
         ));
@@ -316,7 +316,7 @@ impl Stepping {
     /// Add a breakpoint for system instance
     pub fn set_breakpoint_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
         self.updates.push(Update::SetBehavior(
-            schedule.dyn_clone(),
+            schedule.intern(),
             SystemIdentifier::Node(node),
             SystemBehavior::Break,
         ));
@@ -352,7 +352,7 @@ impl Stepping {
     ) -> &mut Self {
         let type_id = IntoSystem::into_system(system).type_id();
         self.updates.push(Update::ClearBehavior(
-            schedule.dyn_clone(),
+            schedule.intern(),
             SystemIdentifier::Type(type_id),
         ));
 
@@ -362,7 +362,7 @@ impl Stepping {
     /// clear a breakpoint for system instance
     pub fn clear_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
         self.updates.push(Update::ClearBehavior(
-            schedule.dyn_clone(),
+            schedule.intern(),
             SystemIdentifier::Node(node),
         ));
         self
@@ -522,10 +522,8 @@ impl Stepping {
         }
 
         // grab the label and state for this schedule
-        let (label, state) = match schedule.label() {
-            None => return None,
-            Some(label) => (label, self.schedule_states.get_mut(label)?),
-        };
+        let label = schedule.name();
+        let state = self.schedule_states.get_mut(&label)?;
 
         // Stepping is enabled, and this schedule is supposed to be stepped.
         //
@@ -535,15 +533,15 @@ impl Stepping {
         // that called this function. Finally we want to save off the index of
         // this schedule in the ordered schedule list. This is used to
         // determine if this is the schedule the cursor is pointed at.
-        let index = self.schedule_order.iter().position(|l| l == label);
+        let index = self.schedule_order.iter().position(|l| *l == label);
         let index = match (index, self.previous_schedule) {
             (Some(index), _) => index,
             (None, None) => {
-                self.schedule_order.insert(0, label.dyn_clone());
+                self.schedule_order.insert(0, label);
                 0
             }
             (None, Some(last)) => {
-                self.schedule_order.insert(last + 1, label.dyn_clone());
+                self.schedule_order.insert(last + 1, label);
                 last + 1
             }
         };
@@ -847,10 +845,8 @@ mod tests {
 
     fn setup() -> (Schedule, World) {
         let mut world = World::new();
-        let mut schedule = Schedule::default();
-        schedule
-            .set_label(TestSchedule)
-            .add_systems((first_system, second_system).chain());
+        let mut schedule = Schedule::new(TestSchedule);
+        schedule.add_systems((first_system, second_system).chain());
         schedule.initialize(&mut world).unwrap();
         (schedule, world)
     }
@@ -1244,17 +1240,13 @@ mod tests {
         let mut world = World::new();
 
         // build & initialize three schedules
-        let mut schedule_a = Schedule::default();
-        schedule_a.set_label(TestScheduleA);
+        let mut schedule_a = Schedule::new(TestScheduleA);
         schedule_a.initialize(&mut world).unwrap();
-        let mut schedule_b = Schedule::default();
-        schedule_b.set_label(TestScheduleB);
+        let mut schedule_b = Schedule::new(TestScheduleB);
         schedule_b.initialize(&mut world).unwrap();
-        let mut schedule_c = Schedule::default();
-        schedule_c.set_label(TestScheduleC);
+        let mut schedule_c = Schedule::new(TestScheduleC);
         schedule_c.initialize(&mut world).unwrap();
-        let mut schedule_d = Schedule::default();
-        schedule_d.set_label(TestScheduleD);
+        let mut schedule_d = Schedule::new(TestScheduleD);
         schedule_d.initialize(&mut world).unwrap();
 
         // setup stepping and add all three schedules
@@ -1284,10 +1276,10 @@ mod tests {
         assert_eq!(
             *stepping.schedules().unwrap(),
             vec![
-                TestScheduleB.dyn_clone(),
-                TestScheduleA.dyn_clone(),
-                TestScheduleC.dyn_clone(),
-                TestScheduleD.dyn_clone(),
+                TestScheduleB.intern(),
+                TestScheduleA.intern(),
+                TestScheduleC.intern(),
+                TestScheduleD.intern(),
             ]
         );
     }
@@ -1295,23 +1287,19 @@ mod tests {
     #[test]
     fn verify_cursor() {
         // helper to build a cursor tuple for the supplied schedule
-        fn cursor(schedule: &Schedule, index: usize) -> (BoxedScheduleLabel, NodeId) {
+        fn cursor(schedule: &Schedule, index: usize) -> (InternedScheduleLabel, NodeId) {
             let node_id = schedule.executable().system_ids[index];
-            (schedule.label().as_ref().unwrap().clone(), node_id)
+            (schedule.name(), node_id)
         }
 
         let mut world = World::new();
 
         // create two schedules with a number of systems in them
-        let mut schedule_a = Schedule::default();
-        schedule_a
-            .set_label(TestScheduleA)
-            .add_systems((|| {}, || {}, || {}, || {}).chain());
+        let mut schedule_a = Schedule::new(TestScheduleA);
+        schedule_a.add_systems((|| {}, || {}, || {}, || {}).chain());
         schedule_a.initialize(&mut world).unwrap();
-        let mut schedule_b = Schedule::default();
-        schedule_b
-            .set_label(TestScheduleB)
-            .add_systems((|| {}, || {}, || {}, || {}).chain());
+        let mut schedule_b = Schedule::new(TestScheduleB);
+        schedule_b.add_systems((|| {}, || {}, || {}, || {}).chain());
         schedule_b.initialize(&mut world).unwrap();
 
         // setup stepping and add all three schedules

@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
@@ -51,9 +51,13 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     #[inline]
-    unsafe fn init_fetch(_world: &World, _state: &ComponentId, _last_run: Tick, _this_run: Tick) {}
-
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
+    unsafe fn init_fetch(
+        _world: UnsafeWorldCell,
+        _state: &ComponentId,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) {
+    }
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -148,9 +152,13 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     #[inline]
-    unsafe fn init_fetch(_world: &World, _state: &ComponentId, _last_run: Tick, _this_run: Tick) {}
-
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
+    unsafe fn init_fetch(
+        _world: UnsafeWorldCell,
+        _state: &ComponentId,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) {
+    }
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -247,6 +255,15 @@ pub struct OrFetch<'w, T: WorldQuery> {
     matches: bool,
 }
 
+impl<T: WorldQuery> Clone for OrFetch<'_, T> {
+    fn clone(&self) -> Self {
+        Self {
+            fetch: self.fetch.clone(),
+            matches: self.matches,
+        }
+    }
+}
+
 macro_rules! impl_query_filter_tuple {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
@@ -268,24 +285,12 @@ macro_rules! impl_query_filter_tuple {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline]
-            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
                     fetch: $filter::init_fetch(world, $filter, last_run, this_run),
                     matches: false,
                 },)*)
-            }
-
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                let ($($filter,)*) = &fetch;
-                ($(
-                    OrFetch {
-                        fetch: $filter::clone_fetch(&$filter.fetch),
-                        matches: $filter.matches,
-                    },
-                )*)
             }
 
             #[inline]
@@ -391,10 +396,10 @@ macro_rules! impl_tick_filter {
         pub struct $name<T>(PhantomData<T>);
 
         #[doc(hidden)]
+        #[derive(Clone)]
         $(#[$fetch_meta])*
-        pub struct $fetch_name<'w, T> {
-            table_ticks: Option< ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-            marker: PhantomData<T>,
+        pub struct $fetch_name<'w> {
+            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_run: Tick,
             this_run: Tick,
@@ -402,7 +407,7 @@ macro_rules! impl_tick_filter {
 
         // SAFETY: `Self::ReadOnly` is the same as `Self`
         unsafe impl<T: Component> WorldQuery for $name<T> {
-            type Fetch<'w> = $fetch_name<'w, T>;
+            type Fetch<'w> = $fetch_name<'w>;
             type Item<'w> = bool;
             type ReadOnly = Self;
             type State = ComponentId;
@@ -412,7 +417,12 @@ macro_rules! impl_tick_filter {
             }
 
             #[inline]
-            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(
+                world: UnsafeWorldCell<'w>,
+                &id: &ComponentId,
+                last_run: Tick,
+                this_run: Tick
+            ) -> Self::Fetch<'w> {
                 Self::Fetch::<'w> {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
@@ -422,21 +432,8 @@ macro_rules! impl_tick_filter {
                                  .get(id)
                                  .debug_checked_unwrap()
                         }),
-                    marker: PhantomData,
                     last_run,
                     this_run,
-                }
-            }
-
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                $fetch_name {
-                    table_ticks: fetch.table_ticks,
-                    sparse_set: fetch.sparse_set,
-                    last_run: fetch.last_run,
-                    this_run: fetch.this_run,
-                    marker: PhantomData,
                 }
             }
 
@@ -576,7 +573,7 @@ impl_tick_filter!(
     Added,
     AddedFetch,
     Column::get_added_ticks_slice,
-    ComponentSparseSet::get_added_ticks
+    ComponentSparseSet::get_added_tick
 );
 
 impl_tick_filter!(
@@ -614,15 +611,15 @@ impl_tick_filter!(
     Changed,
     ChangedFetch,
     Column::get_changed_ticks_slice,
-    ComponentSparseSet::get_changed_ticks
+    ComponentSparseSet::get_changed_tick
 );
 
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
-/// This is needed to implement [`ExactSizeIterator`](std::iter::ExactSizeIterator) for
+/// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implement for filters where its corresponding [`WorldQuery::IS_ARCHETYPAL`](crate::query::WorldQuery::IS_ARCHETYPAL)
+/// The trait must only be implement for filters where its corresponding [`WorldQuery::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.

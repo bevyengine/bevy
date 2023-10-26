@@ -34,7 +34,7 @@ fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
         FogSettings {
-            color: Color::rgba(0.05, 0.05, 0.05, 1.0),
+            color: Color::rgba(0.25, 0.25, 0.25, 1.0),
             falloff: FogFalloff::Linear {
                 start: 5.0,
                 end: 20.0,
@@ -284,12 +284,12 @@ fn update_system(
         fog.color.set_r(r);
     }
 
-    if keycode.pressed(KeyCode::LBracket) {
+    if keycode.pressed(KeyCode::BracketLeft) {
         let g = (fog.color.g() - 0.1 * delta).max(0.0);
         fog.color.set_g(g);
     }
 
-    if keycode.pressed(KeyCode::RBracket) {
+    if keycode.pressed(KeyCode::BracketRight) {
         let g = (fog.color.g() + 0.1 * delta).min(1.0);
         fog.color.set_g(g);
     }

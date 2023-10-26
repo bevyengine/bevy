@@ -7,6 +7,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::World,
     query::Access,
+    schedule::InternedSystemSet,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -50,7 +51,7 @@ use super::{ReadOnlySystem, System};
 /// # let mut world = World::new();
 /// # world.init_resource::<RanFlag>();
 /// #
-/// # let mut app = Schedule::new();
+/// # let mut app = Schedule::default();
 /// app.add_systems(my_system.run_if(Xor::new(
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
@@ -113,6 +114,9 @@ pub struct CombinatorSystem<Func, A, B> {
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
+    /// Creates a new system that combines two inner systems.
+    ///
+    /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
     pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
@@ -223,7 +227,7 @@ where
         self.b.set_last_run(last_run);
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let mut default_sets = self.a.default_system_sets();
         default_sets.append(&mut self.b.default_system_sets());
         default_sets
@@ -237,6 +241,17 @@ where
     A: ReadOnlySystem,
     B: ReadOnlySystem,
 {
+}
+
+impl<Func, A, B> Clone for CombinatorSystem<Func, A, B>
+where
+    A: Clone,
+    B: Clone,
+{
+    /// Clone the combined system. The cloned instance must be `.initialize()`d before it can run.
+    fn clone(&self) -> Self {
+        CombinatorSystem::new(self.a.clone(), self.b.clone(), self.name.clone())
+    }
 }
 
 /// A [`System`] created by piping the output of the first system into the input of the second.

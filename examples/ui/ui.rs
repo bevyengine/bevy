@@ -165,6 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
+                    border_color: Color::GREEN.into(),
                     background_color: Color::rgb(0.4, 0.4, 1.).into(),
                     ..default()
                 })
@@ -270,19 +271,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-
+                    // A `NodeBundle` is used to display the logo the image as an `ImageBundle` can't automatically
+                    // size itself with a child node present.
                     parent
-                        .spawn(ImageBundle {
-                            style: Style {
-                                width: Val::Px(500.0),
+                        .spawn((
+                            NodeBundle {
+                                style: Style {
+                                    width: Val::Px(500.0),
+                                    height: Val::Px(125.0),
+                                    margin: UiRect::top(Val::VMin(5.)),
+                                    ..default()
+                                },
+                                // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`
+                                background_color: Color::WHITE.into(),
                                 ..default()
                             },
-                            ..default()
-                        })
+                            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+                        ))
                         .with_children(|parent| {
                             // alt text
-                            parent
-                                .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
+                            // This UI node takes up no space in the layout and the `Text` component is used by the accessibility module
+                            // and is not rendered.
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        display: Display::None,
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                },
+                                Text::from_section("Bevy logo", TextStyle::default()),
+                            ));
                         });
                 });
         });
@@ -298,7 +317,7 @@ fn mouse_scroll(
     mut query_list: Query<(&mut ScrollingList, &mut Style, &Parent, &Node)>,
     query_node: Query<&Node>,
 ) {
-    for mouse_wheel_event in mouse_wheel_events.iter() {
+    for mouse_wheel_event in mouse_wheel_events.read() {
         for (mut scrolling_list, mut style, parent, list_node) in &mut query_list {
             let items_height = list_node.size().y;
             let container_height = query_node.get(parent.get()).unwrap().size().y;

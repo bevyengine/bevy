@@ -120,12 +120,11 @@ impl From<Box> for Mesh {
             20, 21, 22, 22, 23, 20, // bottom
         ]);
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.set_indices(Some(indices));
-        mesh
+        Mesh::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            .with_indices(Some(indices))
     }
 }
 
@@ -173,12 +172,11 @@ impl From<Quad> for Mesh {
         let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
         let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(indices));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        Mesh::new(PrimitiveTopology::TriangleList)
+            .with_indices(Some(indices))
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 
@@ -233,13 +231,13 @@ impl From<Plane> for Mesh {
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(num_vertices);
         let mut indices: Vec<u32> = Vec::with_capacity(num_indices);
 
-        for y in 0..z_vertex_count {
+        for z in 0..z_vertex_count {
             for x in 0..x_vertex_count {
                 let tx = x as f32 / (x_vertex_count - 1) as f32;
-                let ty = y as f32 / (z_vertex_count - 1) as f32;
-                positions.push([(-0.5 + tx) * plane.size, 0.0, (-0.5 + ty) * plane.size]);
+                let tz = z as f32 / (z_vertex_count - 1) as f32;
+                positions.push([(-0.5 + tx) * plane.size, 0.0, (-0.5 + tz) * plane.size]);
                 normals.push(up);
-                uvs.push([tx, 1.0 - ty]);
+                uvs.push([tx, tz]);
             }
         }
 
@@ -255,12 +253,11 @@ impl From<Plane> for Mesh {
             }
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(Indices::U32(indices)));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        Mesh::new(PrimitiveTopology::TriangleList)
+            .with_indices(Some(Indices::U32(indices)))
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 

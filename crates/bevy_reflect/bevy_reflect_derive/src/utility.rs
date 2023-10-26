@@ -1,8 +1,10 @@
 //! General-purpose utility functions for internal usage within this crate.
 
-use crate::{derive_data::ReflectMeta, field_attributes::ReflectIgnoreBehavior, fq_std::FQOption};
-use bevy_macro_utils::BevyManifest;
-use bit_set::BitSet;
+use crate::derive_data::{ReflectMeta, StructField};
+use bevy_macro_utils::{
+    fq_std::{FQAny, FQOption, FQSend, FQSync},
+    BevyManifest,
+};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{spanned::Spanned, LitStr, Member, Path, Type, WhereClause};
@@ -61,34 +63,17 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
 /// Options defining how to extend the `where` clause in reflection with any additional bounds needed.
 pub(crate) struct WhereClauseOptions {
     /// Type parameters that need extra trait bounds.
-    pub(crate) parameter_types: Box<[Ident]>,
+    parameter_types: Box<[Ident]>,
     /// Trait bounds to add to the type parameters.
-    pub(crate) parameter_trait_bounds: proc_macro2::TokenStream,
+    parameter_trait_bounds: Box<[proc_macro2::TokenStream]>,
     /// Any types that will be reflected and need an extra trait bound
-    pub(crate) active_types: Box<[Type]>,
+    active_types: Box<[Type]>,
     /// Trait bounds to add to the active types
-    pub(crate) active_trait_bounds: proc_macro2::TokenStream,
+    active_trait_bounds: Box<[proc_macro2::TokenStream]>,
     /// Any types that won't be reflected and need an extra trait bound
-    pub(crate) ignored_types: Box<[Type]>,
+    ignored_types: Box<[Type]>,
     /// Trait bounds to add to the ignored types
-    pub(crate) ignored_trait_bounds: proc_macro2::TokenStream,
-}
-
-impl WhereClauseOptions {
-    /// Extends a where clause, adding a `TypePath` bound to each type parameter.
-    pub fn type_path_bounds(meta: &ReflectMeta) -> Self {
-        let bevy_reflect_path = meta.bevy_reflect_path();
-        Self {
-            parameter_types: meta
-                .type_path()
-                .generics()
-                .type_params()
-                .map(|ty| ty.ident.clone())
-                .collect(),
-            parameter_trait_bounds: quote! { #bevy_reflect_path::TypePath },
-            ..Default::default()
-        }
-    }
+    ignored_trait_bounds: Box<[proc_macro2::TokenStream]>,
 }
 
 impl Default for WhereClauseOptions {
@@ -98,9 +83,99 @@ impl Default for WhereClauseOptions {
             parameter_types: Box::new([]),
             active_types: Box::new([]),
             ignored_types: Box::new([]),
-            parameter_trait_bounds: quote! {},
-            active_trait_bounds: quote! {},
-            ignored_trait_bounds: quote! {},
+            active_trait_bounds: Box::new([]),
+            ignored_trait_bounds: Box::new([]),
+            parameter_trait_bounds: Box::new([]),
+        }
+    }
+}
+
+impl WhereClauseOptions {
+    /// Create [`WhereClauseOptions`] for a struct or enum type.
+    pub fn new<'a: 'b, 'b>(
+        meta: &ReflectMeta,
+        active_fields: impl Iterator<Item = &'b StructField<'a>>,
+        ignored_fields: impl Iterator<Item = &'b StructField<'a>>,
+    ) -> Self {
+        Self::new_with_bounds(meta, active_fields, ignored_fields, |_| None, |_| None)
+    }
+
+    /// Create [`WhereClauseOptions`] for a simple value type.
+    pub fn new_value(meta: &ReflectMeta) -> Self {
+        Self::new_with_bounds(
+            meta,
+            std::iter::empty(),
+            std::iter::empty(),
+            |_| None,
+            |_| None,
+        )
+    }
+
+    /// Create [`WhereClauseOptions`] for a struct or enum type.
+    ///
+    /// Compared to [`WhereClauseOptions::new`], this version allows you to specify
+    /// custom trait bounds for each field.
+    pub fn new_with_bounds<'a: 'b, 'b>(
+        meta: &ReflectMeta,
+        active_fields: impl Iterator<Item = &'b StructField<'a>>,
+        ignored_fields: impl Iterator<Item = &'b StructField<'a>>,
+        active_bounds: impl Fn(&StructField<'a>) -> Option<proc_macro2::TokenStream>,
+        ignored_bounds: impl Fn(&StructField<'a>) -> Option<proc_macro2::TokenStream>,
+    ) -> Self {
+        let bevy_reflect_path = meta.bevy_reflect_path();
+        let is_from_reflect = meta.from_reflect().should_auto_derive();
+
+        let (active_types, active_trait_bounds): (Vec<_>, Vec<_>) = active_fields
+            .map(|field| {
+                let ty = field.data.ty.clone();
+
+                let custom_bounds = active_bounds(field).map(|bounds| quote!(+ #bounds));
+
+                let bounds = if is_from_reflect {
+                    quote!(#bevy_reflect_path::FromReflect #custom_bounds)
+                } else {
+                    quote!(#bevy_reflect_path::Reflect #custom_bounds)
+                };
+
+                (ty, bounds)
+            })
+            .unzip();
+
+        let (ignored_types, ignored_trait_bounds): (Vec<_>, Vec<_>) = ignored_fields
+            .map(|field| {
+                let ty = field.data.ty.clone();
+
+                let custom_bounds = ignored_bounds(field).map(|bounds| quote!(+ #bounds));
+                let bounds = quote!(#FQAny + #FQSend + #FQSync #custom_bounds);
+
+                (ty, bounds)
+            })
+            .unzip();
+
+        let (parameter_types, parameter_trait_bounds): (Vec<_>, Vec<_>) =
+            if meta.traits().type_path_attrs().should_auto_derive() {
+                meta.type_path()
+                    .generics()
+                    .type_params()
+                    .map(|param| {
+                        let ident = param.ident.clone();
+                        let bounds = quote!(#bevy_reflect_path::TypePath);
+                        (ident, bounds)
+                    })
+                    .unzip()
+            } else {
+                // If we don't need to derive `TypePath` for the type parameters,
+                // we can skip adding its bound to the `where` clause.
+                (Vec::new(), Vec::new())
+            };
+
+        Self {
+            active_types: active_types.into_boxed_slice(),
+            active_trait_bounds: active_trait_bounds.into_boxed_slice(),
+            ignored_types: ignored_types.into_boxed_slice(),
+            ignored_trait_bounds: ignored_trait_bounds.into_boxed_slice(),
+            parameter_types: parameter_types.into_boxed_slice(),
+            parameter_trait_bounds: parameter_trait_bounds.into_boxed_slice(),
         }
     }
 }
@@ -207,42 +282,6 @@ impl<T> ResultSifter<T> {
             Ok(self.items)
         }
     }
-}
-
-/// Converts an iterator over ignore behavior of members to a bitset of ignored members.
-///
-/// Takes into account the fact that always ignored (non-reflected) members are skipped.
-///
-/// # Example
-/// ```rust,ignore
-/// pub struct HelloWorld {
-///     reflected_field: u32      // index: 0
-///
-///     #[reflect(ignore)]
-///     non_reflected_field: u32  // index: N/A (not 1!)
-///
-///     #[reflect(skip_serializing)]
-///     non_serialized_field: u32 // index: 1
-/// }
-/// ```
-/// Would convert to the `0b01` bitset (i.e second field is NOT serialized)
-///
-pub(crate) fn members_to_serialization_denylist<T>(member_iter: T) -> BitSet<u32>
-where
-    T: Iterator<Item = ReflectIgnoreBehavior>,
-{
-    let mut bitset = BitSet::default();
-
-    member_iter.fold(0, |next_idx, member| match member {
-        ReflectIgnoreBehavior::IgnoreAlways => next_idx,
-        ReflectIgnoreBehavior::IgnoreSerialization => {
-            bitset.insert(next_idx);
-            next_idx + 1
-        }
-        ReflectIgnoreBehavior::None => next_idx + 1,
-    });
-
-    bitset
 }
 
 /// Turns an `Option<TokenStream>` into a `TokenStream` for an `Option`.
