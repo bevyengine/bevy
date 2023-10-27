@@ -197,8 +197,8 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 #[cfg(not(feature = "tonemapping_luts"))]
                 bevy_log::error!(
                     "AgX tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml`,
-                    or use a different tonemapping method in your CameraBundle."
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
                 );
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             }
@@ -209,8 +209,8 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 #[cfg(not(feature = "tonemapping_luts"))]
                 bevy_log::error!(
                     "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml`,
-                    or use a different tonemapping method in your CameraBundle."
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
                 );
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
             }
@@ -218,8 +218,8 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 #[cfg(not(feature = "tonemapping_luts"))]
                 bevy_log::error!(
                     "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml`,
-                    or use a different tonemapping method in your CameraBundle."
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
