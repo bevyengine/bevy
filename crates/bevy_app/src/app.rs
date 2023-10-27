@@ -198,8 +198,8 @@ impl App {
         self
     }
 
-    /// Returns the state of all plugins. This is usually called by the
-    /// event loop, but can be useful for situations where you want to use [`App::update`].
+    /// Returns the state of all plugins. This is usually called by the event loop, but can be
+    /// useful for situations where you want to use [`App::update`].
     // TODO: &mut self -> &self
     #[inline]
     pub fn plugins_state(&mut self) -> PluginsState {
@@ -229,8 +229,7 @@ impl App {
     }
 
     /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
-    /// plugins are [`App::is_ready`], but can be useful for situations where you want to use
-    /// [`App::update`].
+    /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // plugins installed to main should see all sub-apps
         let plugins = std::mem::take(&mut self.main_mut().plugins);
