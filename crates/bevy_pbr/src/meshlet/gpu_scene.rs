@@ -137,15 +137,6 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
         material_pipeline.meshlet_layout = Some(gpu_scene.draw_bind_group_layout().clone());
     }
 
-    let dummy_mesh_layout = &MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout::new(
-        Vec::new(),
-        VertexBufferLayout {
-            array_stride: 0,
-            step_mode: VertexStepMode::Vertex,
-            attributes: Vec::new(),
-        },
-    ));
-
     for (
         view_entity,
         view,
@@ -243,7 +234,7 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
                     for_meshlet_mesh: true,
                     bind_group_data: material.key.clone(),
                 },
-                dummy_mesh_layout, // TODO: Might be a more efficent way of doing this
+                todo!(), // Don't want a vertex buffer in the pipeline layout...
             );
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
