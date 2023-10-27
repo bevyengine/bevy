@@ -6,10 +6,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
-    render_resource::{
-        BindGroupLayoutEntry, BindingType, Sampler, SamplerBindingType, Shader, ShaderStages,
-        TextureSampleType, TextureView, TextureViewDimension,
-    },
+    render_resource::*,
     texture::{FallbackImageCubemap, Image},
 };
 

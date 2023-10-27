@@ -385,7 +385,13 @@ impl Mesh {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 if previous_vertex_count != attribute_len {
-                    warn!("{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
+                    let name = self
+                        .attributes
+                        .get(attribute_id)
+                        .map(|data| data.attribute.name.to_string())
+                        .unwrap_or_else(|| format!("{attribute_id:?}"));
+
+                    warn!("{name} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
                         all attributes will be truncated to match the smallest.");
                     vertex_count = Some(std::cmp::min(previous_vertex_count, attribute_len));
                 }
