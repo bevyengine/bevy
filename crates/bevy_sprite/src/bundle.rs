@@ -1,6 +1,6 @@
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite,
+    ComputedSorting, Sorting, Sprite,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -22,6 +22,9 @@ pub struct SpriteBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
+    /// Controls in what order entities are rendered
+    pub sorting: Sorting,
+    pub computed_sorting: ComputedSorting,
 }
 
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
@@ -40,4 +43,7 @@ pub struct SpriteSheetBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
+    /// Controls in what order entities are rendered
+    pub sorting: Sorting,
+    pub computed_sorting: ComputedSorting,
 }

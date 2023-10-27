@@ -32,7 +32,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::EntityHashMap;
 
-use crate::Material2dBindGroupId;
+use crate::{sorting::ComputedSorting, Material2dBindGroupId};
 
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
@@ -189,6 +189,7 @@ pub struct RenderMesh2dInstance {
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
+    pub order: f32,
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
@@ -208,13 +209,14 @@ pub fn extract_mesh2d(
             &GlobalTransform,
             &Mesh2dHandle,
             Has<NoAutomaticBatching>,
+            &ComputedSorting,
         )>,
     >,
 ) {
     render_mesh_instances.clear();
     let mut entities = Vec::with_capacity(*previous_len);
 
-    for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
+    for (entity, view_visibility, transform, handle, no_automatic_batching, sorting) in &query {
         if !view_visibility.get() {
             continue;
         }
@@ -231,6 +233,7 @@ pub fn extract_mesh2d(
                 mesh_asset_id: handle.0.id(),
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: !no_automatic_batching,
+                order: sorting.order,
             },
         );
     }

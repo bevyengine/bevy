@@ -21,7 +21,9 @@ use bevy_render::{
     view::{InheritedVisibility, ViewVisibility, Visibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
+use bevy_sprite::{
+    Anchor, ComputedSorting, ExtractedSprite, ExtractedSprites, Sorting, TextureAtlas,
+};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
@@ -76,6 +78,9 @@ pub struct Text2dBundle {
     pub view_visibility: ViewVisibility,
     /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
+    /// Controls in what order entities are rendered
+    pub sorting: Sorting,
+    pub computed_sorting: ComputedSorting,
 }
 
 pub fn extract_text2d_sprite(
@@ -91,6 +96,7 @@ pub fn extract_text2d_sprite(
             &TextLayoutInfo,
             &Anchor,
             &GlobalTransform,
+            &ComputedSorting,
         )>,
     >,
 ) {
@@ -101,8 +107,15 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
-    for (original_entity, view_visibility, text, text_layout_info, anchor, global_transform) in
-        text2d_query.iter()
+    for (
+        original_entity,
+        view_visibility,
+        text,
+        text_layout_info,
+        anchor,
+        global_transform,
+        sorting,
+    ) in text2d_query.iter()
     {
         if !view_visibility.get() {
             continue;
@@ -141,6 +154,7 @@ pub fn extract_text2d_sprite(
                     flip_y: false,
                     anchor: Anchor::Center.as_vec(),
                     original_entity: Some(original_entity),
+                    order: sorting.order,
                 },
             );
         }

@@ -14,8 +14,7 @@ const PADDLE_SPEED: f32 = 500.0;
 // How close can the paddle get to the wall
 const PADDLE_PADDING: f32 = 10.0;
 
-// We set the z-value of the ball to 1 so it renders on top in the case of overlapping sprites.
-const BALL_STARTING_POSITION: Vec3 = Vec3::new(0.0, -50.0, 1.0);
+const BALL_STARTING_POSITION: Vec3 = Vec3::new(0.0, -50.0, 0.0);
 const BALL_SIZE: Vec3 = Vec3::new(30.0, 30.0, 0.0);
 const BALL_SPEED: f32 = 400.0;
 const INITIAL_BALL_DIRECTION: Vec2 = Vec2::new(0.5, -0.5);
@@ -210,6 +209,8 @@ fn setup(
             mesh: meshes.add(shape::Circle::default().into()).into(),
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
             transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
+            // We set the render order of the ball to 1 so it renders on top in the case of overlapping sprites.
+            sorting: Sorting::from_order(1.),
             ..default()
         },
         Ball,

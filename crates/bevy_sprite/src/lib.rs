@@ -4,6 +4,7 @@ mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
 mod render;
+mod sorting;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
@@ -14,6 +15,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
+        sorting::{ComputedSorting, Sorting},
         sprite::Sprite,
         texture_atlas::{TextureAtlas, TextureAtlasSprite},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
@@ -24,6 +26,7 @@ pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
 pub use render::*;
+pub use sorting::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
@@ -66,7 +69,7 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
-            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
+            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin, SortingPlugin))
             .add_systems(
                 PostUpdate,
                 calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
