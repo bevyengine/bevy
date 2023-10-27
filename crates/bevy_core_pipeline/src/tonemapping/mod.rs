@@ -185,6 +185,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
         }
+
         match key.tonemapping {
             Tonemapping::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
             Tonemapping::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
@@ -192,12 +193,34 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             }
             Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
-            Tonemapping::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
+            Tonemapping::AgX => {
+                #[cfg(not(feature = "tonemapping_luts"))]
+                bevy_log::error!(
+                    "AgX tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                );
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            }
             Tonemapping::SomewhatBoringDisplayTransform => {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             }
-            Tonemapping::TonyMcMapface => shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into()),
+            Tonemapping::TonyMcMapface => {
+                #[cfg(not(feature = "tonemapping_luts"))]
+                bevy_log::error!(
+                    "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                );
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            }
             Tonemapping::BlenderFilmic => {
+                #[cfg(not(feature = "tonemapping_luts"))]
+                bevy_log::error!(
+                    "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
         }
