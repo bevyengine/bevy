@@ -1,10 +1,11 @@
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
+    pipeline_keys::{PipelineKey, WorldKey},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -20,6 +21,7 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
+use num_enum::{FromPrimitive, IntoPrimitive};
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;
@@ -1772,5 +1774,34 @@ impl Node for ShadowPassNode {
         }
 
         Ok(())
+    }
+}
+
+#[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[repr(u32)]
+pub enum DepthClampOrthoKey {
+    #[default]
+    Off,
+    On,
+}
+impl WorldKey for DepthClampOrthoKey {
+    type Param = ();
+    type Query = Option<Read<LightEntity>>;
+
+    fn from_params(_: &(), light: Option<&LightEntity>) -> Self {
+        if light.map_or(false, |light| {
+            matches!(light, LightEntity::Directional { .. })
+        }) {
+            DepthClampOrthoKey::On
+        } else {
+            DepthClampOrthoKey::Off
+        }
+    }
+
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        match self {
+            DepthClampOrthoKey::Off => Vec::default(),
+            DepthClampOrthoKey::On => vec!["DEPTH_CLAMP_ORTHO".into()],
+        }
     }
 }

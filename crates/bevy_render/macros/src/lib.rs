@@ -1,10 +1,12 @@
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
+mod pipeline_key;
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput};
+use proc_macro2::Span;
+use syn::{parse_macro_input, token::Crate, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
     BevyManifest::default()
@@ -57,4 +59,20 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     as_bind_group::derive_as_bind_group(input).unwrap_or_else(|err| err.to_compile_error().into())
+}
+
+#[proc_macro_derive(PipelineKey, attributes(key_bits))]
+pub fn derive_pipeline_key(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let render_path = BevyManifest::default().get_path("bevy_render");
+    pipeline_key::derive_pipeline_key(input, render_path)
+        .unwrap_or_else(|err| err.to_compile_error().into())
+}
+
+#[proc_macro_derive(PipelineKeyInRenderCrate, attributes(key_bits))]
+pub fn derive_pipeline_key_in_render_crate(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let render_path = syn::Path::from(Crate(Span::call_site()));
+    pipeline_key::derive_pipeline_key(input, render_path)
+        .unwrap_or_else(|err| err.to_compile_error().into())
 }

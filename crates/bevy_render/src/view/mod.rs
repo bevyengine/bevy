@@ -2,22 +2,28 @@ pub mod visibility;
 pub mod window;
 
 use bevy_asset::{load_internal_asset, Handle};
+use bevy_render_macros::PipelineKeyInRenderCrate;
+use num_enum::{FromPrimitive, IntoPrimitive};
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
+    pipeline_keys::{AddPipelineKey, WorldKey},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
+    render_resource::{DynamicUniformBuffer, ShaderDefVal, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, CachedTexture, TextureCache},
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    prelude::*,
+    system::lifetimeless::{Read, SRes},
+};
 use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
@@ -52,16 +58,20 @@ impl Plugin for ViewPlugin {
             .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ViewUniforms>().add_systems(
-                Render,
-                (
-                    prepare_view_targets
-                        .in_set(RenderSet::ManageViews)
-                        .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<Image>),
-                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
-                ),
-            );
+            render_app
+                .init_resource::<ViewUniforms>()
+                .add_systems(
+                    Render,
+                    (
+                        prepare_view_targets
+                            .in_set(RenderSet::ManageViews)
+                            .after(prepare_windows)
+                            .after(crate::render_asset::prepare_assets::<Image>),
+                        prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+                    ),
+                )
+                .register_world_key::<MsaaKey, With<ExtractedView>>()
+                .register_world_key::<HdrKey, With<ExtractedView>>();
         }
     }
 }
@@ -513,6 +523,67 @@ fn prepare_view_targets(
                     out_texture_format: out_texture_format.add_srgb_suffix(),
                 });
             }
+        }
+    }
+}
+
+#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[repr(u32)]
+pub enum MsaaKey {
+    #[default]
+    Off,
+    X2,
+    X4,
+    X8,
+    X16,
+    X32,
+    X64,
+    X128,
+}
+impl WorldKey for MsaaKey {
+    type Param = SRes<Msaa>;
+    type Query = ();
+
+    fn from_params(msaa: &Res<Msaa>, _: ()) -> Self {
+        msaa.samples().trailing_zeros().into()
+    }
+
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        let samples = ShaderDefVal::UInt("MSAA_SAMPLECOUNT".to_owned(), self.samples());
+        match self {
+            MsaaKey::Off => vec![samples],
+            _ => vec!["MULTISAMPLED".into(), samples],
+        }
+    }
+}
+impl MsaaKey {
+    pub fn samples(&self) -> u32 {
+        1 << (*self as u32)
+    }
+}
+
+#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[repr(u32)]
+pub enum HdrKey {
+    #[default]
+    Off,
+    On,
+}
+impl WorldKey for HdrKey {
+    type Param = ();
+    type Query = Read<ExtractedView>;
+
+    fn from_params(_: &(), view: &ExtractedView) -> Self {
+        match view.hdr {
+            true => HdrKey::On,
+            false => HdrKey::Off,
+        }
+    }
+
+    fn shader_defs(&self) -> Vec<crate::render_resource::ShaderDefVal> {
+        match self {
+            HdrKey::Off => Vec::default(),
+            HdrKey::On => vec!["HDR".into()],
         }
     }
 }

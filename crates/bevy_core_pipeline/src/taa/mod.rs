@@ -18,6 +18,8 @@ use bevy_math::vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
+    impl_has_world_key,
+    pipeline_keys::AddPipelineKey,
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -80,7 +82,8 @@ impl Plugin for TemporalAntiAliasPlugin {
                     core_3d::graph::node::BLOOM,
                     core_3d::graph::node::TONEMAPPING,
                 ],
-            );
+            )
+            .register_world_key::<TaaKey, With<ExtractedView>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -522,3 +525,5 @@ fn prepare_taa_pipelines(
         commands.entity(entity).insert(TAAPipelineId(pipeline_id));
     }
 }
+
+impl_has_world_key!(TaaKey, TemporalAntiAliasSettings, "TAA");

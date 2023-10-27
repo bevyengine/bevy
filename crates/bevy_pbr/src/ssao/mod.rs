@@ -18,12 +18,14 @@ use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
+    impl_has_world_key,
+    pipeline_keys::AddPipelineKey,
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{
@@ -70,6 +72,10 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         );
 
         app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.register_world_key::<SsaoKey, With<ExtractedView>>();
+        }
     }
 
     fn finish(&self, app: &mut App) {
@@ -877,3 +883,5 @@ fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
 fn div_ceil(numerator: u32, denominator: u32) -> u32 {
     (numerator + denominator - 1) / denominator
 }
+
+impl_has_world_key!(SsaoKey, ScreenSpaceAmbientOcclusionSettings, "SCREEN_SPACE_AMBIENT_OCCLUSION");

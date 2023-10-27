@@ -1,14 +1,25 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::prelude::Camera3d;
-use bevy_ecs::{prelude::Component, query::With};
+use bevy_ecs::{
+    prelude::Component,
+    query::With,
+    system::{
+        lifetimeless::{Read, SRes},
+        Res,
+    },
+};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    pipeline_keys::{AddPipelineKey, PipelineKey, WorldKey},
     render_asset::RenderAssets,
     render_resource::*,
     texture::{FallbackImageCubemap, Image},
+    view::ExtractedView,
+    RenderApp,
 };
+use num_enum::{FromPrimitive, IntoPrimitive};
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
@@ -26,6 +37,10 @@ impl Plugin for EnvironmentMapPlugin {
 
         app.register_type::<EnvironmentMapLight>()
             .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default());
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.register_world_key::<EnvironmentMapKey, With<ExtractedView>>();
+        }
     }
 }
 
@@ -108,4 +123,34 @@ pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntr
             count: None,
         },
     ]
+}
+
+#[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[repr(u32)]
+pub enum EnvironmentMapKey {
+    #[default]
+    Off,
+    On,
+}
+impl WorldKey for EnvironmentMapKey {
+    type Param = SRes<RenderAssets<Image>>;
+    type Query = Option<Read<EnvironmentMapLight>>;
+
+    fn from_params(
+        images: &Res<RenderAssets<Image>>,
+        env_map: Option<&EnvironmentMapLight>,
+    ) -> Self {
+        if env_map.map_or(false, |map| map.is_loaded(images)) {
+            EnvironmentMapKey::On
+        } else {
+            EnvironmentMapKey::Off
+        }
+    }
+
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        match self {
+            EnvironmentMapKey::Off => Vec::default(),
+            EnvironmentMapKey::On => vec!["ENVIRONMENT_MAP".into()],
+        }
+    }
 }

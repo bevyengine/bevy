@@ -41,6 +41,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
+    pipeline_keys::AddPipelineKey,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -53,7 +54,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::TextureCache,
-    view::ViewDepthTexture,
+    view::{ExtractedView, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{nonmax::NonMaxU32, tracing::warn, FloatOrd, HashMap};
@@ -66,8 +67,8 @@ use crate::{
     },
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
-        NormalPrepass, Opaque3dPrepass, ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT,
-        NORMAL_PREPASS_FORMAT,
+        NormalPrepass, Opaque3dPrepass, PrepassKey, ViewPrepassTextures,
+        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -154,7 +155,8 @@ impl Plugin for Core3dPlugin {
                     END_MAIN_PASS_POST_PROCESSING,
                     UPSCALING,
                 ],
-            );
+            )
+            .register_world_key::<PrepassKey, With<ExtractedView>>();
     }
 }
 

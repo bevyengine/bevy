@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::lifetimeless::Read};
 use bevy_math::{Mat4, Rect, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -8,6 +8,7 @@ use bevy_render::{
     color::Color,
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
+    pipeline_keys::{PipelineKey, WorldKey},
     prelude::Projection,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
@@ -16,6 +17,7 @@ use bevy_render::{
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{tracing::warn, HashMap};
+use num_enum::{FromPrimitive, IntoPrimitive};
 
 use crate::*;
 
@@ -2265,5 +2267,37 @@ mod test {
                 );
             }
         }
+    }
+}
+
+#[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone)]
+#[repr(u32)]
+pub enum ShadowFilteringKey {
+    #[default]
+    Hardware2x2,
+    Castano13,
+    Jimenez14,
+}
+
+impl WorldKey for ShadowFilteringKey {
+    type Param = ();
+
+    type Query = Option<Read<ShadowFilteringMethod>>;
+
+    fn from_params(_: &(), shadow_method: Option<&ShadowFilteringMethod>) -> Self {
+        match shadow_method.unwrap_or(&ShadowFilteringMethod::default()) {
+            // TODO this might as well return self?
+            ShadowFilteringMethod::Hardware2x2 => ShadowFilteringKey::Hardware2x2,
+            ShadowFilteringMethod::Castano13 => ShadowFilteringKey::Castano13,
+            ShadowFilteringMethod::Jimenez14 => ShadowFilteringKey::Jimenez14,
+        }
+    }
+
+    fn shader_defs(&self) -> Vec<bevy_render::render_resource::ShaderDefVal> {
+        vec![match self {
+            ShadowFilteringKey::Hardware2x2 => "SHADOW_FILTER_METHOD_HARDWARE_2X2",
+            ShadowFilteringKey::Castano13 => "SHADOW_FILTER_METHOD_CASTANO_13",
+            ShadowFilteringKey::Jimenez14 => "SHADOW_FILTER_METHOD_JIMENEZ_14",
+        }.into()]
     }
 }

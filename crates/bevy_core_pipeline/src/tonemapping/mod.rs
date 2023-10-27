@@ -1,21 +1,26 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::lifetimeless::Read};
 use bevy_reflect::Reflect;
-use bevy_render::camera::Camera;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::{extract_component::{ExtractComponent, ExtractComponentPlugin}, impl_has_world_key};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
+use bevy_render::{
+    camera::Camera,
+    pipeline_keys::{AddPipelineKey, PipelineKey, WorldKey},
+    view::ExtractedView,
+};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 
 mod node;
 
 use bevy_utils::default;
 pub use node::TonemappingNode;
+use num_enum::{FromPrimitive, IntoPrimitive};
 
 const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
 
@@ -97,7 +102,9 @@ impl Plugin for TonemappingPlugin {
                 .add_systems(
                     Render,
                     prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
-                );
+                )
+                .register_world_key::<DebandDitherKey, With<ExtractedView>>()
+                .register_world_key::<TonemappingKey, With<ExtractedView>>();
         }
     }
 
@@ -413,4 +420,55 @@ pub fn lut_placeholder() -> Image {
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
     }
+}
+
+impl_has_world_key!(DebandDitherKey, DebandDither, "DEBAND_DITHER");
+
+#[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone)]
+#[repr(u32)]
+pub enum TonemappingKey {
+    #[default]
+    None,
+    Reinhard,
+    ReinhardLuminance,
+    AcesFitted,
+    AgX,
+    SomewhatBoringDisplayTransform,
+    TonyMcMapface,
+    BlenderFilmic,
+}
+
+impl WorldKey for TonemappingKey {
+    type Param = ();
+
+    type Query = Option<Read<Tonemapping>>;
+
+    fn from_params(_: &(), tonemapping: Option<&Tonemapping>) -> Self {
+        match tonemapping.unwrap_or(&Tonemapping::None) {
+            // TODO this might as well return self?
+            Tonemapping::None => TonemappingKey::None,
+            Tonemapping::Reinhard => TonemappingKey::Reinhard,
+            Tonemapping::ReinhardLuminance => TonemappingKey::ReinhardLuminance,
+            Tonemapping::AcesFitted => TonemappingKey::AcesFitted,
+            Tonemapping::AgX => TonemappingKey::AgX,
+            Tonemapping::SomewhatBoringDisplayTransform => {
+                TonemappingKey::SomewhatBoringDisplayTransform
+            }
+            Tonemapping::TonyMcMapface => TonemappingKey::TonyMcMapface,
+            Tonemapping::BlenderFilmic => TonemappingKey::BlenderFilmic,
+        }
+    }
+
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        vec![match self {
+            TonemappingKey::None => return vec![],
+            TonemappingKey::Reinhard => "TONEMAP_METHOD_REINHARD",
+            TonemappingKey::ReinhardLuminance => "TONEMAP_METHOD_REINHARD_LUMINANCE",
+            TonemappingKey::AcesFitted => "TONEMAP_METHOD_ACES_FITTED",
+            TonemappingKey::AgX => "TONEMAP_METHOD_AGX",
+            TonemappingKey::SomewhatBoringDisplayTransform => "TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM",
+            TonemappingKey::TonyMcMapface => "TONEMAP_METHOD_TONY_MC_MAPFACE",
+            TonemappingKey::BlenderFilmic => "TONEMAP_METHOD_BLENDER_FILMIC",
+        }.into()]
+    }    
 }

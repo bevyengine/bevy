@@ -15,6 +15,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod mesh;
+pub mod pipeline_keys;
 pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
@@ -45,6 +46,7 @@ pub use extract_param::Extract;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
+use pipeline_keys::PipelineKeyPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::{
@@ -321,6 +323,7 @@ impl Plugin for RenderPlugin {
         };
 
         app.add_plugins((
+            PipelineKeyPlugin,
             ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
