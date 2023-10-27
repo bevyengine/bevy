@@ -310,13 +310,9 @@ fn visibility_propagate_system(
         let is_visible = match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => false,
-            Visibility::Inherited => match parent {
-                None => true,
-                Some(parent) => visibility_query
-                    .get(parent.get())
-                    .map(|x| x.1.get())
-                    .unwrap_or(true),
-            },
+            Visibility::Inherited => parent
+                .and_then(|p| visibility_query.get(p.get()).ok())
+                .map_or(true, |(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
             .get_mut(entity)
