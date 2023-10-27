@@ -1,10 +1,3 @@
-use crate::{
-    generate_view_layouts, prepare_mesh_view_bind_groups, MaterialBindGroupId,
-    MeshPipelineViewLayout, MeshPipelineViewLayoutKey, MeshViewBindGroup, NotShadowCaster,
-    NotShadowReceiver, PreviousGlobalTransform, Shadow, ViewFogUniformOffset,
-    ViewLightsUniformOffset, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
-};
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
@@ -23,17 +16,12 @@ use bevy_render::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
-    mesh::{
-        GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
-        VertexAttributeDescriptor,
-    },
+    mesh::*,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    texture::*,
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -58,6 +46,7 @@ use crate::render::{
     skin::{extract_skins, no_automatic_skin_batching, prepare_skins, SkinUniform},
     MeshLayouts,
 };
+use crate::*;
 
 use super::skin::SkinIndices;
 
@@ -372,10 +361,10 @@ impl FromWorld for MeshPipeline {
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
+            let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(descriptor)
+                    render_device.create_sampler(&descriptor.as_wgpu())
                 }
             };
 

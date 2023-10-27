@@ -7,10 +7,8 @@ use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Shader,
-    render_resource::{
-        AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-    },
+    prelude::*,
+    render_resource::*,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
