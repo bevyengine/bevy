@@ -718,6 +718,36 @@ mod tests {
     }
 
     #[test]
+    fn test_parent() {
+        // Parent consumes path segments, returns None when insufficient
+        let result = AssetPath::from("a/b.test");
+        assert_eq!(result.parent(), Some(AssetPath::from("a")));
+        assert_eq!(result.parent().unwrap().parent(), Some(AssetPath::from("")));
+        assert_eq!(result.parent().unwrap().parent().unwrap().parent(), None);
+
+        // Parent cannot consume asset source
+        let result = AssetPath::from("http://a");
+        assert_eq!(result.parent(), Some(AssetPath::from("http://")));
+        assert_eq!(result.parent().unwrap().parent(), None);
+
+        // Parent consumes labels
+        let result = AssetPath::from("http://a#Foo");
+        assert_eq!(result.parent(), Some(AssetPath::from("http://")));
+    }
+
+    #[test]
+    fn test_with_source() {
+        let result = AssetPath::from("http://a#Foo");
+        assert_eq!(result.with_source("ftp"), AssetPath::from("ftp://a#Foo"));
+    }
+
+    #[test]
+    fn test_without_label() {
+        let result = AssetPath::from("http://a#Foo");
+        assert_eq!(result.without_label(), AssetPath::from("http://a"));
+    }
+
+    #[test]
     fn test_resolve_full() {
         // A "full" path should ignore the base path.
         let base = AssetPath::from("alice/bob#carol");
@@ -965,5 +995,14 @@ mod tests {
             base.resolve_embed("../../joe/next").unwrap(),
             AssetPath::from("../joe/next")
         );
+    }
+
+    #[test]
+    fn test_get_extension() {
+        let result = AssetPath::from("http://a.tar.gz#Foo");
+        assert_eq!(result.get_full_extension(), Some("tar.gz".to_string()));
+
+        let result = AssetPath::from("http://a#Foo");
+        assert_eq!(result.get_full_extension(), None);
     }
 }
