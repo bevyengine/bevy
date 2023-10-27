@@ -382,9 +382,7 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             material_layout: M::bind_group_layout(render_device),
-            meshlet_layout: world
-                .get_resource::<MeshletGpuScene>()
-                .map(|gpu_scene| gpu_scene.draw_bind_group_layout().clone()),
+            meshlet_layout: None,
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),

@@ -108,7 +108,7 @@ pub fn perform_pending_meshlet_mesh_writes(
 // TODO: Deduplicate view logic shared between many systems
 pub fn prepare_material_for_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
-    material_pipeline: Res<MaterialPipeline<M>>,
+    mut material_pipeline: ResMut<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
@@ -133,6 +133,10 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
+    if material_pipeline.meshlet_layout == None {
+        material_pipeline.meshlet_layout = Some(gpu_scene.draw_bind_group_layout().clone());
+    }
+
     let dummy_mesh_layout = &MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout::new(
         Vec::new(),
         VertexBufferLayout {
