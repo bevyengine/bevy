@@ -61,7 +61,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 impl_downcast!(Plugin);
 
 /// Plugins state in the application
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
 pub enum PluginsState {
     /// Plugins are being added.
     Adding,

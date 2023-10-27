@@ -203,23 +203,29 @@ impl App {
     // TODO: &mut self -> &self
     #[inline]
     pub fn plugins_state(&mut self) -> PluginsState {
-        let mut ready = true;
-        // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugins);
-        for plugin in &plugins.registry {
-            ready &= plugin.ready(self);
-        }
-        self.main_mut().plugins = plugins;
-        self.sub_apps
-            .iter_mut()
-            .skip(1)
-            .for_each(|s| ready &= s.plugins_state() != PluginsState::Adding);
+        let mut overall_plugins_state = match self.main_mut().plugins_state {
+            PluginsState::Adding => {
+                let mut state = PluginsState::Ready;
+                let plugins = std::mem::take(&mut self.main_mut().plugins);
+                for plugin in &plugins.registry {
+                    // plugins installed to main need to see all sub-apps
+                    if !plugin.ready(self) {
+                        state = PluginsState::Adding;
+                        break;
+                    }
+                }
+                self.main_mut().plugins = plugins;
+                state
+            }
+            state => state,
+        };
 
-        if ready {
-            PluginsState::Ready
-        } else {
-            PluginsState::Adding
-        }
+        // overall state is the earliest state of any sub-app
+        self.sub_apps.iter_mut().skip(1).for_each(|s| {
+            overall_plugins_state = overall_plugins_state.min(s.plugins_state());
+        });
+
+        overall_plugins_state
     }
 
     /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
