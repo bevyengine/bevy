@@ -279,26 +279,20 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
                 }
             };
 
+            let material_id = material_id.untyped();
             gpu_scene.materials.insert(
-                (material_id.untyped(), view_entity),
+                (material_id, view_entity),
                 (pipeline_id, material.bind_group.clone()),
             );
+
+            if !gpu_scene.material_order_lookup.contains_key(&material_id) {
+                let i = gpu_scene.material_order.len();
+                gpu_scene.material_order.push(material_id);
+                gpu_scene
+                    .material_order_lookup
+                    .insert(material_id, i as u32);
+            }
         }
-    }
-}
-
-pub fn determine_meshlet_mesh_material_order(mut gpu_scene: ResMut<MeshletGpuScene>) {
-    if gpu_scene.scene_meshlet_count == 0 {
-        return;
-    }
-
-    let gpu_scene = gpu_scene.deref_mut();
-
-    for (i, (material_id, _)) in gpu_scene.materials.keys().enumerate() {
-        gpu_scene.material_order.push(*material_id);
-        gpu_scene
-            .material_order_lookup
-            .insert(*material_id, i as u32);
     }
 }
 

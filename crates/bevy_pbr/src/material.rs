@@ -1,6 +1,6 @@
 use crate::meshlet::{
-    determine_meshlet_mesh_material_order, prepare_material_for_meshlet_meshes,
-    queue_material_meshlet_meshes, MeshletGpuScene, MESHLET_RASTER_SHADER_HANDLE,
+    prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
+    MESHLET_RASTER_SHADER_HANDLE,
 };
 use crate::*;
 use bevy_app::{App, Plugin};
@@ -229,7 +229,6 @@ where
                         prepare_material_for_meshlet_meshes::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_materials::<M>)
-                            .before(determine_meshlet_mesh_material_order)
                             .run_if(resource_exists::<MeshletGpuScene>()),
                         queue_material_meshlet_meshes::<M>
                             .in_set(RenderSet::Queue)

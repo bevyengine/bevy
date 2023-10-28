@@ -35,8 +35,26 @@ fn setup(
                     ])),
                 ..default()
             },
+            EnvironmentMapLight {
+                diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+                specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            },
             CameraController::default(),
         ));
+
+        commands.spawn(DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                shadows_enabled: true,
+                ..default()
+            },
+            transform: Transform::from_rotation(Quat::from_euler(
+                EulerRot::ZYX,
+                0.0,
+                PI * -0.15,
+                PI * -0.15,
+            )),
+            ..default()
+        });
 
         info!("Loading dragon model...");
         *dragon_mesh_handle = asset_server.load("models/dragon.glb#Mesh0/Primitive0");
@@ -57,7 +75,11 @@ fn setup(
 
             commands.spawn(MaterialMeshletMeshBundle {
                 meshlet_mesh: dragon_meshlet_mesh_handle.clone(),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::hex("#ffd891").unwrap(),
+                    metallic: 1.0,
+                    ..default()
+                }),
                 transform: Transform::default().with_rotation(Quat::from_rotation_x(PI / 2.0)),
                 ..default()
             });
