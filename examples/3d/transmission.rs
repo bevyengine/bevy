@@ -14,7 +14,7 @@
 //! | `U` / `I`          | Decrease / Increase Reflectance                      |
 //! | Arrow Keys         | Control Camera                                       |
 //! | `C`                | Randomize Colors                                     |
-//! | `H`                | Toggle HDR                                           |
+//! | `H`                | Toggle HDR + Bloom                                   |
 //! | `D`                | Toggle Depth Prepass                                 |
 //! | `T`                | Toggle TAA                                           |
 
@@ -606,7 +606,7 @@ fn example_control_system(
             "         U / I  Reflectance: {:.2}\n",
             "    Arrow Keys  Control Camera\n",
             "             C  Randomize Colors\n",
-            "             H  HDR: {}\n",
+            "             H  HDR + Bloom: {}\n",
             "             D  Depth Prepass: {}\n",
             "             T  TAA: {}\n",
         ),
