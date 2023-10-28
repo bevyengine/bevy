@@ -311,9 +311,9 @@ impl Rect {
 
     /// Express the coordinates of `self` relative to a normalized [0..1] x [0..1] space defined by `other`.
     ///
-    /// # Example
+    /// # Examples
     ///
-    /// ```
+    /// ```rust
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(2.0, 3.0, 4.0, y: 6.0 };
     /// let s = Rect::new(0.0, 0.0, 10.0, 10.0 };
