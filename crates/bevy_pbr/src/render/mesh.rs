@@ -222,7 +222,7 @@ impl From<&MeshTransforms> for MeshUniform {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
-        const SHADOW_RECEIVER            = (1 << 0);
+        const SHADOW_RECEIVER             = (1 << 0);
         const TRANSMITTED_SHADOW_RECEIVER = (1 << 1);
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
