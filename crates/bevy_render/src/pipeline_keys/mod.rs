@@ -12,16 +12,14 @@ use self::composite::CompositeKey;
 
 mod composite;
 struct KeyMeta {
-    default: Box<dyn KeyType>,
     dynamic_components: HashMap<TypeId, SizeOffset>,
     size: u8,
 }
 
 impl KeyMeta {
-    fn new<K: KeyType>(k: K, store: &KeyMetaStore) -> Self {
-        let size = k.positions(store).values().map(|so| so.0).sum();
+    fn new<K: KeyType + KeyTypeStatic>(store: &KeyMetaStore) -> Self {
+        let size = K::size(store);
         Self {
-            default: Box::new(k),
             dynamic_components: Default::default(),
             size,
         }
@@ -54,12 +52,12 @@ fn missing_id<U>() -> U {
 }
 
 impl KeyMetaStore {
-    pub fn put<K: KeyType>(&mut self, k: K) {
-        self.metas.insert(TypeId::of::<K>(), KeyMeta::new(k, &self));
+    pub fn register<K: KeyType + KeyTypeStatic>(&mut self) {
+        self.metas.insert(TypeId::of::<K>(), KeyMeta::new::<K>(&self));
     }
 
-    pub fn put_composite<K: KeyType>(&mut self, k: K) {
-        self.put(k);
+    pub fn register_composite<K: KeyType + KeyTypeStatic>(&mut self) {
+        self.register::<K>();
         self.unfinalized.insert(TypeId::of::<K>());
     }
 
@@ -90,8 +88,8 @@ impl KeyMetaStore {
         self.metas.get(id).unwrap_or_else(missing_id).size
     }
 
-    pub fn pipeline_key<K: KeyType + KeyTypeUnpack>(&self, value: u32) -> Option<PipelineKey<K>> {
-        let value = self.try_meta::<K>()?.default.as_any().downcast_ref::<K>()?.unpack(value, &self);
+    pub fn pipeline_key<K: KeyType + KeyTypeStatic>(&self, value: u32) -> Option<PipelineKey<K>> {
+        let value = K::unpack(value, self);
         Some(PipelineKey {
             store: self,
             value,
@@ -129,19 +127,19 @@ impl KeyMetaStore {
     }
 }
 
-pub trait KeyTypeUnpack {
-    fn unpack(&self, value: u32, store: &KeyMetaStore) -> Self;
+pub trait KeyTypeStatic {
+    fn unpack(value: u32, store: &KeyMetaStore) -> Self;
+
+    fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset>;
+
+    fn size(store: &KeyMetaStore) -> u8 {
+        Self::positions(store).values().map(|so| so.0).sum()
+    }
+
+    fn pack(value: &Self, store: &KeyMetaStore) -> (u32, u8);
 }
 
 pub trait KeyType: Any + Send + Sync + 'static {
-    fn positions(&self, store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset>;
-
-    fn size(&self, store: &KeyMetaStore) -> u8 {
-        self.positions(store).values().map(|so| so.0).sum()
-    }
-
-    fn pack(&self, store: &KeyMetaStore) -> (u32, u8);
-
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -168,11 +166,11 @@ impl<'a, T: KeyType + PartialEq> PartialEq for PipelineKey<'a, T> {
     }
 }
 
-impl<'a, T: KeyType> PipelineKey<'a, T> {
-    pub fn extract<U: KeyType + KeyTypeUnpack>(&'a self) -> Option<PipelineKey<'a, U>> {
-        let positions = self.value.positions(self.store);
+impl<'a, T: KeyType + KeyTypeStatic> PipelineKey<'a, T> {
+    pub fn extract<U: KeyType + KeyTypeStatic>(&'a self) -> Option<PipelineKey<'a, U>> {
+        let positions = T::positions(self.store);
         let SizeOffset(size, offset) = positions.get(&TypeId::of::<U>())?;
-        let (value, _) = self.pack(&self.store);
+        let (value, _) = T::pack(&self.value, &self.store);
         let value = (value >> offset) & ((1 << size) - 1);
         self.store.pipeline_key(value)
     }
@@ -216,7 +214,7 @@ impl PipelineKeys {
     //     *value |= part_value << size_offset.1;
     // }
 
-    pub fn get_key<'a, K: KeyType + KeyTypeUnpack>(&self, store: &'a KeyMetaStore) -> Option<PipelineKey<'a, K>> {
+    pub fn get_key<'a, K: KeyType + KeyTypeStatic>(&self, store: &'a KeyMetaStore) -> Option<PipelineKey<'a, K>> {
         store.pipeline_key(self.get_raw::<K>()?)
     }
 }
@@ -272,7 +270,7 @@ impl Plugin for PipelineKeyPlugin {
     }
 }
 
-pub trait WorldKey: KeyType + Default {
+pub trait WorldKey: KeyType + KeyTypeStatic + Default {
     type Param: SystemParam + 'static;
     type Query: ReadOnlyWorldQuery + 'static;
 
@@ -284,11 +282,11 @@ pub trait WorldKey: KeyType + Default {
     fn shader_defs(&self) -> Vec<ShaderDefVal>;
 }
 
-pub trait DynamicKey: KeyType + Default {
+pub trait DynamicKey: KeyType + KeyTypeStatic + Default {
 }
 
 pub trait AddPipelineKey {
-    fn register_world_key<K: WorldKey + Into<u32>, F: ReadOnlyWorldQuery + 'static>(
+    fn register_world_key<K: WorldKey, F: ReadOnlyWorldQuery + 'static>(
         &mut self,
     ) -> &mut Self;
     fn register_composite_key<K: CompositeKey, F: ReadOnlyWorldQuery + 'static>(
@@ -306,7 +304,7 @@ impl AddPipelineKey for App {
         self.world
             .get_resource_mut::<KeyMetaStore>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
-            .put(K::default());
+            .register::<K>();
         self.add_systems(
             Render,
             (|p: StaticSystemParam<K::Param>, store: Res<KeyMetaStore>, mut q: Query<(&mut PipelineKeys, K::Query), F>| {
@@ -314,7 +312,7 @@ impl AddPipelineKey for App {
                 for (mut keys, query) in q.iter_mut() {
                     let key = K::from_params(&p, query);
                     keys.shader_defs.extend(key.shader_defs());
-                    let (key, size) = key.pack(&store);
+                    let (key, size) = K::pack(&key, &store);
                     keys.set_raw::<K>(key, size);
                 }
             })
@@ -340,7 +338,7 @@ impl AddPipelineKey for App {
             .get_resource_mut::<KeyMetaStore>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin");
 
-        store.put_composite(K::default());
+        store.register_composite::<K>();
         self.add_systems(
             Render,
             (|mut q: Query<&mut PipelineKeys, F>| {
@@ -363,7 +361,7 @@ impl AddPipelineKey for App {
         self.world
             .get_resource_mut::<KeyMetaStore>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
-            .put_composite(K::default());
+            .register_composite::<K>();
         self.add_systems(
             Render,
             (|store: Res<KeyMetaStore>, mut q: Query<&mut PipelineKeys, F>| {
@@ -437,28 +435,26 @@ macro_rules! impl_has_world_key {
     };
 }
 
-pub trait FixedSizePipelineKey {
-    fn size() -> u8;
-}
-
-impl FixedSizePipelineKey for bool {
-    fn size() -> u8 { 1 }
-}
-
 impl KeyType for bool {
-    fn positions(&self, _: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl KeyTypeStatic for bool {
+    fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
         HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(1, 0))])
     }
 
-    fn pack(&self, _: &KeyMetaStore) -> (u32, u8) {
-        if *self {
+    fn pack(value: &Self, _: &KeyMetaStore) -> (u32, u8) {
+        if *value {
             (1, 1) 
         } else {
             (0, 1)
         }
     }
 
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
+    fn unpack(value: u32, _: &KeyMetaStore) -> Self {
+        value != 0
+    }    
 }

@@ -562,28 +562,20 @@ impl MsaaKey {
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive, PartialEq)]
-#[repr(u32)]
-pub enum HdrKey {
-    #[default]
-    Off,
-    On,
-}
+#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, PartialEq)]
+pub struct HdrKey(pub bool);
 impl WorldKey for HdrKey {
     type Param = ();
     type Query = Read<ExtractedView>;
 
     fn from_params(_: &(), view: &ExtractedView) -> Self {
-        match view.hdr {
-            true => HdrKey::On,
-            false => HdrKey::Off,
-        }
+        Self(view.hdr)
     }
 
     fn shader_defs(&self) -> Vec<crate::render_resource::ShaderDefVal> {
-        match self {
-            HdrKey::Off => Vec::default(),
-            HdrKey::On => vec!["HDR".into()],
+        match self.0 {
+            false => Vec::default(),
+            true => vec!["HDR".into()],
         }
     }
 }

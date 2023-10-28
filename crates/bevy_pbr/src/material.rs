@@ -541,19 +541,21 @@ pub fn queue_material_meshes<M: Material>(
 
         let view_key_new = keys.unwrap().get_key::<PbrViewKey>(&store).unwrap();
 
-        let new_is_hdr = *view_key_new.extract::<HdrKey>().unwrap() == HdrKey::On;
+        let new_is_hdr = view_key_new.extract::<HdrKey>().unwrap().0;
         if new_is_hdr != view.hdr {
             println!("bnoo");
         }
 
-        let new_is_also_hdr = *keys.unwrap().get_key::<HdrKey>(&store).unwrap() == HdrKey::On;
+        let new_is_also_hdr = keys.unwrap().get_key::<HdrKey>(&store).unwrap().0;
         if new_is_also_hdr != view.hdr {
             println!("bnoo2");
         }
 
         let prepass_key = *view_key_new.extract::<PrepassKey>().unwrap();
         if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
-            println!("prepass mismatch");
+            println!("prepass mismatch: {prepass_key:?} / {:?}", (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass));
+        } else {
+            println!("prepass ok: {prepass_key:?}");
         }
 
         for visible_entity in &visible_entities.entities {
