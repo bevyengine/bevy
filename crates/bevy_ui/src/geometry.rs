@@ -156,7 +156,7 @@ impl DivAssign<f32> for Val {
 }
 
 impl Neg for Val {
-    type Output=Val;
+    type Output = Val;
 
     fn neg(self) -> Self::Output {
         match self {
