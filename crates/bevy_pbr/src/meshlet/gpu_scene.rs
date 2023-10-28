@@ -106,6 +106,7 @@ pub fn perform_pending_meshlet_mesh_writes(
 }
 
 // TODO: Deduplicate view logic shared between many systems
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_material_for_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     mut material_pipeline: ResMut<MaterialPipeline<M>>,
@@ -133,7 +134,7 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    if material_pipeline.meshlet_layout == None {
+    if material_pipeline.meshlet_layout.is_none() {
         material_pipeline.meshlet_layout = Some(gpu_scene.draw_bind_group_layout().clone());
     }
 
