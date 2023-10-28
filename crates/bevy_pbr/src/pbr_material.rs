@@ -183,7 +183,8 @@ pub struct StandardMaterial {
     ///
     /// ## Performance
     ///
-    /// Transmission is implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material.
+    /// Specular transmission is implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material,
+    /// with distortion and blur effects.
     ///
     /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
     /// to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
@@ -191,6 +192,8 @@ pub struct StandardMaterial {
     /// [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     /// for a much less expensive effect.
+    /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
+    ///   won't be visible through specular transmissive materials.
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
