@@ -20,12 +20,6 @@ use serde::{Deserialize, Serialize};
 #[reflect(Component)]
 pub struct Camera3d {
     /// The clear color operation to perform for the main 3d pass.
-    ///
-    /// **Note:** When [`Camera3d::screen_space_specular_transmission_steps`] > `0`, a fully opaque clear
-    /// color will “cover” the environment map light's texture, preventing it from
-    /// being refracted “through” transmissive objects, even if there are no opaque
-    /// objects behind them. To work around this issue, consider using a clear color
-    /// with an alpha value of `0.0`.
     pub clear_color: ClearColorConfig,
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
@@ -37,10 +31,16 @@ pub struct Camera3d {
     /// specular transmissive objects. Each step requires making one additional
     /// texture copy, so it's recommended to keep this number to a resonably low value. Defaults to `1`.
     ///
-    /// Note that no copies are performed if there are no transmissive materials currently being rendered.
-    ///
-    /// Setting this to `0` disables the screen-space refraction effect entirely, and falls
-    /// back to refracting only the environment map light's texture.
+    /// ### Notes:
+    /// - No copies will be performed if there are no transmissive materials currently being rendered,
+    ///   regardless of this setting.
+    /// - Setting this to `0` disables the screen-space refraction effect entirely, and falls
+    ///   back to refracting only the environment map light's texture.
+    /// - If set to more than `0`, any opaque [`clear_color`](Camera3d::clear_color) will obscure the environment
+    ///   map light's texture, preventing it from being visible “through” transmissive materials. If you'd like
+    ///   to still have the environment map show up in your refractions, you can set the clear color's alpha to `0.0`.
+    ///   Keep in mind that depending on the platform and your window settings, this may cause the window to become
+    ///   transparent.
     pub screen_space_specular_transmission_steps: usize,
     /// The quality of the screen space specular transmission blur effect, applied to the whatever's “behind” transmissive
     /// objects when their `roughness` is greater than `0.0`.
