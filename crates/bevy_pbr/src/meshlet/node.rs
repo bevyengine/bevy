@@ -133,6 +133,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
 
             // TODO: Move this code into MeshletGpuScene::resources(), and have that return an iterator over
             // (draw_offset, pipeline, material_bind_group)
+            // TODO: Skip indirect draw if no 0 vertex count for material
             for (i, material_resources) in materials.iter().enumerate() {
                 if let Some((pipeline_id, material_bind_group)) = material_resources {
                     if let Some(pipeline) = pipeline_cache.get_render_pipeline(*pipeline_id) {
