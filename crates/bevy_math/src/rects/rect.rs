@@ -315,8 +315,8 @@ impl Rect {
     ///
     /// ```rust
     /// # use bevy_math::{Rect, Vec2};
-    /// let r = Rect::new(2.0, 3.0, 4.0, y: 6.0 };
-    /// let s = Rect::new(0.0, 0.0, 10.0, 10.0 };
+    /// let r = Rect::new(2., 3., 4., 6.);
+    /// let s = Rect::new(0., 0., 10., 10.);
     /// let n = r.normalize(s);
     ///
     /// assert_eq!(n.min.x, 0.2);
