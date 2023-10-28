@@ -309,7 +309,8 @@ impl Rect {
         r
     }
 
-    /// Express the coordinates of `self` relative to a normalized [0..1] x [0..1] space defined by `other`.
+    /// Express the coordinates of this rectangle relative to a normalized [0..1] x [0..1] space
+    /// defined by another rectangle.
     ///
     /// # Examples
     ///
