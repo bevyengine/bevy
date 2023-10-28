@@ -338,6 +338,9 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
+        // TODO: Should maybe move this after the material specialization,
+        // and return an error if the material explicitly sets any vertex stuff
+        // that would interfere with the meshlet vertex shader
         if key.for_meshlet_mesh {
             descriptor.vertex.shader = MESHLET_RASTER_SHADER_HANDLE;
             descriptor.vertex.entry_point = "meshlet_vertex".into();
