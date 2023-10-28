@@ -7,10 +7,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_resource::{
-            AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
-        },
-        texture::ImageSampler,
+        render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
+        texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
     },
     utils::HashMap,
@@ -336,7 +334,7 @@ fn update_image_viewer(
                 if let Some(base_color_texture) = mat.base_color_texture.clone() {
                     if image_changed_id == base_color_texture.id() {
                         if let Some(image_changed) = images.get(image_changed_id) {
-                            let size = image_changed.size().normalize_or_zero() * 1.4;
+                            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
                             // Resize Mesh
                             let quad = Mesh::from(shape::Quad::new(size));
                             meshes.insert(mesh_h, quad);
@@ -681,7 +679,7 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     );
-    img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
 }
 

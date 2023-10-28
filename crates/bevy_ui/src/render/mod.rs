@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
-use bevy_render::{ExtractSchedule, Render};
+use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -759,7 +759,10 @@ pub fn queue_uinodes(
                 draw_function,
                 pipeline,
                 entity: *entity,
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32),
+                sort_key: (
+                    FloatOrd(extracted_uinode.stack_index as f32),
+                    entity.index(),
+                ),
                 // batch_range will be calculated in prepare_uinodes
                 batch_range: 0..0,
                 dynamic_offset: None,
@@ -809,14 +812,11 @@ pub fn prepare_uinodes(
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
-        ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
-            label: Some("ui_view_bind_group"),
-            layout: &ui_pipeline.view_layout,
-        }));
+        ui_meta.view_bind_group = Some(render_device.create_bind_group(
+            "ui_view_bind_group",
+            &ui_pipeline.view_layout,
+            &BindGroupEntries::single(view_binding),
+        ));
 
         // Vertex buffer index
         let mut index = 0;
@@ -848,24 +848,14 @@ pub fn prepare_uinodes(
                                 .values
                                 .entry(batch_image_handle)
                                 .or_insert_with(|| {
-                                    render_device.create_bind_group(&BindGroupDescriptor {
-                                        entries: &[
-                                            BindGroupEntry {
-                                                binding: 0,
-                                                resource: BindingResource::TextureView(
-                                                    &gpu_image.texture_view,
-                                                ),
-                                            },
-                                            BindGroupEntry {
-                                                binding: 1,
-                                                resource: BindingResource::Sampler(
-                                                    &gpu_image.sampler,
-                                                ),
-                                            },
-                                        ],
-                                        label: Some("ui_material_bind_group"),
-                                        layout: &ui_pipeline.image_layout,
-                                    })
+                                    render_device.create_bind_group(
+                                        "ui_material_bind_group",
+                                        &ui_pipeline.image_layout,
+                                        &BindGroupEntries::sequential((
+                                            &gpu_image.texture_view,
+                                            &gpu_image.sampler,
+                                        )),
+                                    )
                                 });
 
                             existing_batch = batches.last_mut();

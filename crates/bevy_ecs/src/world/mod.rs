@@ -1993,15 +1993,15 @@ impl World {
     /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope<R>(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
-        let label = label.as_ref();
+        let label = label.intern();
         let Some(mut schedule) = self
             .get_resource_mut::<Schedules>()
             .and_then(|mut s| s.remove(label))
         else {
-            return Err(TryRunScheduleError(label.dyn_clone()));
+            return Err(TryRunScheduleError(label));
         };
 
         let value = f(self, &mut schedule);
@@ -2053,7 +2053,7 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn schedule_scope<R>(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> R {
         self.try_schedule_scope(label, f)
@@ -2069,7 +2069,7 @@ impl World {
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope(label, |world, sched| sched.run(world))
     }
@@ -2084,7 +2084,7 @@ impl World {
     /// # Panics
     ///
     /// If the requested schedule does not exist.
-    pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label, |world, sched| sched.run(world));
     }
 

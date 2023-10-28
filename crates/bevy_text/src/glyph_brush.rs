@@ -115,9 +115,9 @@ impl GlyphBrush {
 
                 if !text_settings.allow_dynamic_font_size
                     && !font_atlas_warning.warned
-                    && font_atlas_set.len() > text_settings.max_font_atlases.get()
+                    && font_atlas_set.len() > text_settings.soft_max_font_atlases.get()
                 {
-                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.max_font_atlases.get());
+                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.soft_max_font_atlases.get());
                     font_atlas_warning.warned = true;
                 }
 

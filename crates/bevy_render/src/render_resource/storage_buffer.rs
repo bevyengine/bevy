@@ -1,5 +1,3 @@
-#![allow(clippy::doc_markdown)]
-
 use std::marker::PhantomData;
 
 use super::Buffer;

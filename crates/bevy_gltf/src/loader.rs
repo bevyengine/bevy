@@ -6,7 +6,7 @@ use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
-use bevy_log::warn;
+use bevy_log::{error, warn};
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
@@ -22,9 +22,10 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::Aabb,
-    render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
+    render_resource::{Face, PrimitiveTopology},
     texture::{
-        CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageType, TextureError,
+        CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
+        ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
     },
 };
 use bevy_scene::Scene;
@@ -36,7 +37,7 @@ use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
     texture::{MagFilter, MinFilter, WrappingMode},
-    Material, Node, Primitive,
+    Material, Node, Primitive, Semantic,
 };
 use serde::Deserialize;
 use std::{
@@ -256,9 +257,14 @@ async fn load_gltf<'a, 'b, 'c>(
     ) {
         let handle = match texture {
             ImageOrPath::Image { label, image } => load_context.add_labeled_asset(label, image),
-            ImageOrPath::Path { path, is_srgb } => {
+            ImageOrPath::Path {
+                path,
+                is_srgb,
+                sampler_descriptor,
+            } => {
                 load_context.load_with_settings(path, move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
+                    settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
                 })
             }
         };
@@ -329,6 +335,17 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
+    let mut meshes_on_skinned_nodes = HashSet::default();
+    let mut meshes_on_non_skinned_nodes = HashSet::default();
+    for gltf_node in gltf.nodes() {
+        if gltf_node.skin().is_some() {
+            if let Some(mesh) = gltf_node.mesh() {
+                meshes_on_skinned_nodes.insert(mesh.index());
+            }
+        } else if let Some(mesh) = gltf_node.mesh() {
+            meshes_on_non_skinned_nodes.insert(mesh.index());
+        }
+    }
     for gltf_mesh in gltf.meshes() {
         let mut primitives = vec![];
         for primitive in gltf_mesh.primitives() {
@@ -339,6 +356,18 @@ async fn load_gltf<'a, 'b, 'c>(
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
+                if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
+                    if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
+                        warn!(
+                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                        semantic,
+                        primitive_label
+                    );
+                        continue;
+                    } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
+                        error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                    }
+                }
                 match convert_attribute(
                     semantic,
                     accessor,
@@ -644,18 +673,19 @@ async fn load_image<'a, 'b>(
     supported_compressed_formats: CompressedImageFormats,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
+    let sampler_descriptor = texture_sampler(&gltf_texture);
     match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            let mut image = Image::from_buffer(
+            let image = Image::from_buffer(
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
+                ImageSampler::Descriptor(sampler_descriptor),
             )?;
-            image.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
             Ok(ImageOrPath::Image {
                 image,
                 label: texture_label(&gltf_texture),
@@ -675,6 +705,7 @@ async fn load_image<'a, 'b>(
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
                         is_srgb,
+                        ImageSampler::Descriptor(sampler_descriptor),
                     )?,
                     label: texture_label(&gltf_texture),
                 })
@@ -683,6 +714,7 @@ async fn load_image<'a, 'b>(
                 Ok(ImageOrPath::Path {
                     path: image_path,
                     is_srgb,
+                    sampler_descriptor,
                 })
             }
         }
@@ -1087,32 +1119,32 @@ fn skin_label(skin: &gltf::Skin) -> String {
 }
 
 /// Extracts the texture sampler data from the glTF texture.
-fn texture_sampler<'a>(texture: &gltf::Texture) -> SamplerDescriptor<'a> {
+fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
     let gltf_sampler = texture.sampler();
 
-    SamplerDescriptor {
+    ImageSamplerDescriptor {
         address_mode_u: texture_address_mode(&gltf_sampler.wrap_s()),
         address_mode_v: texture_address_mode(&gltf_sampler.wrap_t()),
 
         mag_filter: gltf_sampler
             .mag_filter()
             .map(|mf| match mf {
-                MagFilter::Nearest => FilterMode::Nearest,
-                MagFilter::Linear => FilterMode::Linear,
+                MagFilter::Nearest => ImageFilterMode::Nearest,
+                MagFilter::Linear => ImageFilterMode::Linear,
             })
-            .unwrap_or(SamplerDescriptor::default().mag_filter),
+            .unwrap_or(ImageSamplerDescriptor::default().mag_filter),
 
         min_filter: gltf_sampler
             .min_filter()
             .map(|mf| match mf {
                 MinFilter::Nearest
                 | MinFilter::NearestMipmapNearest
-                | MinFilter::NearestMipmapLinear => FilterMode::Nearest,
+                | MinFilter::NearestMipmapLinear => ImageFilterMode::Nearest,
                 MinFilter::Linear
                 | MinFilter::LinearMipmapNearest
-                | MinFilter::LinearMipmapLinear => FilterMode::Linear,
+                | MinFilter::LinearMipmapLinear => ImageFilterMode::Linear,
             })
-            .unwrap_or(SamplerDescriptor::default().min_filter),
+            .unwrap_or(ImageSamplerDescriptor::default().min_filter),
 
         mipmap_filter: gltf_sampler
             .min_filter()
@@ -1120,23 +1152,23 @@ fn texture_sampler<'a>(texture: &gltf::Texture) -> SamplerDescriptor<'a> {
                 MinFilter::Nearest
                 | MinFilter::Linear
                 | MinFilter::NearestMipmapNearest
-                | MinFilter::LinearMipmapNearest => FilterMode::Nearest,
+                | MinFilter::LinearMipmapNearest => ImageFilterMode::Nearest,
                 MinFilter::NearestMipmapLinear | MinFilter::LinearMipmapLinear => {
-                    FilterMode::Linear
+                    ImageFilterMode::Linear
                 }
             })
-            .unwrap_or(SamplerDescriptor::default().mipmap_filter),
+            .unwrap_or(ImageSamplerDescriptor::default().mipmap_filter),
 
         ..Default::default()
     }
 }
 
 /// Maps the texture address mode form glTF to wgpu.
-fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> AddressMode {
+fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> ImageAddressMode {
     match gltf_address_mode {
-        WrappingMode::ClampToEdge => AddressMode::ClampToEdge,
-        WrappingMode::Repeat => AddressMode::Repeat,
-        WrappingMode::MirroredRepeat => AddressMode::MirrorRepeat,
+        WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
+        WrappingMode::Repeat => ImageAddressMode::Repeat,
+        WrappingMode::MirroredRepeat => ImageAddressMode::MirrorRepeat,
     }
 }
 
@@ -1183,7 +1215,7 @@ async fn load_buffers(
                     Err(()) => {
                         // TODO: Remove this and add dep
                         let buffer_path = load_context.path().parent().unwrap().join(uri);
-                        load_context.read_asset_bytes(&buffer_path).await?
+                        load_context.read_asset_bytes(buffer_path).await?
                     }
                 };
                 buffer_data.push(buffer_bytes);
@@ -1257,8 +1289,15 @@ fn resolve_node_hierarchy(
 }
 
 enum ImageOrPath {
-    Image { image: Image, label: String },
-    Path { path: PathBuf, is_srgb: bool },
+    Image {
+        image: Image,
+        label: String,
+    },
+    Path {
+        path: PathBuf,
+        is_srgb: bool,
+        sampler_descriptor: ImageSamplerDescriptor,
+    },
 }
 
 struct DataUri<'a> {

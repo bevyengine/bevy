@@ -1,6 +1,4 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::forward_io::VertexOutput
 
 @group(1) @binding(0) var test_texture_1d: texture_1d<f32>;
 @group(1) @binding(1) var test_texture_1d_sampler: sampler;
@@ -21,4 +19,4 @@
 @group(1) @binding(11) var test_texture_3d_sampler: sampler;
 
 @fragment
-fn fragment(in: MeshVertexOutput) {}
+fn fragment(in: VertexOutput) {}

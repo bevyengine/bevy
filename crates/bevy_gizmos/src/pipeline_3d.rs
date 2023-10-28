@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_3d::Transparent3d;
+use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
@@ -93,11 +93,10 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             TextureFormat::bevy_default()
         };
 
-        let view_layout = if key.mesh_key.msaa_samples() == 1 {
-            self.mesh_pipeline.view_layout.clone()
-        } else {
-            self.mesh_pipeline.view_layout_multisampled.clone()
-        };
+        let view_layout = self
+            .mesh_pipeline
+            .get_view_layout(key.mesh_key.into())
+            .clone();
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
@@ -121,7 +120,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             layout,
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::Greater,
                 stencil: StencilState::default(),
