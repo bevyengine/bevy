@@ -358,8 +358,8 @@ pub fn prepare_meshlet_per_frame_resources(
         mapped_at_creation: false,
     }));
 
+    let mut contents = Vec::new();
     for view_entity in &views {
-        let mut contents = Vec::new();
         let mut base_index = 0;
         for material in &gpu_scene.material_order {
             contents.extend_from_slice(
@@ -383,6 +383,8 @@ pub fn prepare_meshlet_per_frame_resources(
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             }),
         );
+
+        contents.clear();
     }
 }
 
