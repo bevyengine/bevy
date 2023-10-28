@@ -1,7 +1,7 @@
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::{quote, format_ident};
-use syn::{Data, DataEnum, DataStruct, Error, Result};
+use syn::{Data, DataEnum, DataStruct, Error, Result, Fields};
 
 pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
@@ -23,13 +23,13 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
             let bits = ((count - 1).ilog2() + 1) as u8;
 
             Ok(TokenStream::from(quote! {
-                impl #impl_generics #render_path::pipeline_keys::KeyType for #struct_name #ty_generics #where_clause {
+                impl #impl_generics #render_path::pipeline_keys::AnyKeyType for #struct_name #ty_generics #where_clause {
                     fn as_any(&self) -> &dyn core::any::Any {
                         self
                     }
                 }
         
-                impl #impl_generics #render_path::pipeline_keys::KeyTypeStatic for #struct_name #ty_generics #where_clause {
+                impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
                     fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
                         #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(#bits, 0u8))])
                     }
@@ -42,12 +42,67 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         value.into()
                     }
                 }
+
+                impl #impl_generics #render_path::pipeline_keys::FixedSizeKey for #struct_name #ty_generics #where_clause {
+                    fn fixed_size() -> u8 {
+                        #bits
+                    }
+                }
             }))
         }
         Data::Struct(DataStruct {
             fields,
             ..
         }) => {
+            let is_dynamic = ast.attrs.iter().any(|attr| attr.meta.path().get_ident() == Some(&format_ident!("dynamic_key")));
+            let is_not_fixed_size = ast.attrs.iter().any(|attr| attr.meta.path().get_ident() == Some(&format_ident!("not_fixed_size")));
+
+            if is_dynamic {
+                if fields.len() != 1 {
+                    return Err(Error::new_spanned(
+                        ast,
+                        "dynamic PipelineKeys must be newtype structs around the pipeline key primitive",
+                    ))
+                }
+
+                let Fields::Unnamed(_) = fields else {
+                    return Err(Error::new_spanned(
+                        ast,
+                        "dynamic PipelineKeys must be newtype structs around the pipeline key primitive",
+                    ))
+                };
+
+                return Ok(TokenStream::from(quote! {
+                    impl #impl_generics #render_path::pipeline_keys::AnyKeyType for #struct_name #ty_generics #where_clause {
+                        fn as_any(&self) -> &dyn core::any::Any {
+                            self
+                        }
+                    }
+            
+                    impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
+                        fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
+                            let res = store.meta::<Self>().dynamic_components.clone();
+                            println!("keys: {res:?}");
+                            res
+                        }
+    
+                        fn size(store: &#render_path::pipeline_keys::KeyMetaStore) -> u8 {
+                            store.meta::<Self>().size
+                        }
+            
+                        fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> (u32, u8) {
+                            (value.0, Self::size(store))
+                        }
+            
+                        fn unpack(value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
+                            Self(value)
+                        }
+                    }
+
+                    impl #impl_generics #render_path::pipeline_keys::DynamicKey for #struct_name #ty_generics #where_clause {}
+                }));
+            }
+
             let field_exprs = fields.iter().enumerate().map(|(i, f)| {
                 f.ident.clone().map(|ident| quote! { value.#ident} ).unwrap_or_else(|| {
                     let i = syn::Index::from(i);
@@ -66,16 +121,28 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                 quote!{ Self { #(#field_names),* }}
             };
 
-            let field_types = fields.iter().map(|f| f.ty.clone());
+            let field_types = fields.iter().map(|f| f.ty.clone()).collect::<Vec<_>>();
+
+            let fixed_size_impl = if is_not_fixed_size {
+                quote!()
+            } else {
+                quote!{
+                    impl #impl_generics #render_path::pipeline_keys::FixedSizeKey for #struct_name #ty_generics #where_clause {
+                        fn fixed_size() -> u8 {
+                            #(#field_types::fixed_size())+*
+                        }
+                    }
+                }
+            };
 
             Ok(TokenStream::from(quote! {
-                impl #impl_generics #render_path::pipeline_keys::KeyType for #struct_name #ty_generics #where_clause {
+                impl #impl_generics #render_path::pipeline_keys::AnyKeyType for #struct_name #ty_generics #where_clause {
                     fn as_any(&self) -> &dyn core::any::Any {
                         self
                     }
                 }
         
-                impl #impl_generics #render_path::pipeline_keys::KeyTypeStatic for #struct_name #ty_generics #where_clause {
+                impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
                     fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
                         #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(Self::size(store), 0u8))])
                     }
@@ -86,14 +153,16 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
         
                     fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> (u32, u8) {
                         let tuple = (#(#field_exprs,)*);
-                        #render_path::pipeline_keys::KeyTypeStatic::pack(&tuple, store)
+                        #render_path::pipeline_keys::KeyTypeConcrete::pack(&tuple, store)
                     }
         
                     fn unpack(value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
-                        let (#(#field_names,)*) = #render_path::pipeline_keys::KeyTypeStatic::unpack(value, store);
+                        let (#(#field_names,)*) = #render_path::pipeline_keys::KeyTypeConcrete::unpack(value, store);
                         #self_value
                     }
                 }
+
+                #fixed_size_impl
             }))
         }
         _ => Err(Error::new_spanned(

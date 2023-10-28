@@ -558,6 +558,19 @@ pub fn queue_material_meshes<M: Material>(
             println!("prepass ok: {prepass_key:?}");
         }
 
+        let dyn_key_new = keys.unwrap().get_key::<PbrViewKeyDynamic>(&store).unwrap();
+        let new_is_hdr = dyn_key_new.extract::<HdrKey>().unwrap().0;
+        if new_is_hdr != view.hdr {
+            println!("bnoo dyn");
+        }
+        let prepass_key = *dyn_key_new.extract::<PrepassKey>().unwrap();
+        if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
+            println!("dyn prepass mismatch: {prepass_key:?} / {:?}", (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass));
+        } else {
+            println!("dyn prepass ok: {prepass_key:?}");
+        }
+
+
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;

@@ -62,7 +62,7 @@ use bevy_render::{
     camera::{CameraUpdateSystem, ViewProjectionKey},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    pipeline_keys::AddPipelineKey,
+    pipeline_keys::{AddPipelineKey, PipelineKey},
     prelude::Color,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
@@ -359,8 +359,11 @@ impl Plugin for PbrPlugin {
         render_app
             .register_world_key::<DepthClampOrthoKey, With<ExtractedView>>()
             .register_world_key::<ShadowFilteringKey, With<ExtractedView>>()
-            .register_composite_key::<PbrViewKey, With<ExtractedView>>();
-    }
+            .register_composite_key::<PbrViewKey, With<ExtractedView>>()
+            .register_dynamic_key::<PbrViewKeyDynamic, With<ExtractedView>>()
+            .register_dynamic_key_part::<PbrViewKeyDynamic, PrepassKey>()
+            .register_dynamic_key_part::<PbrViewKeyDynamic, HdrKey>();
+}
 
     fn finish(&self, app: &mut App) {
         let render_app = match app.get_sub_app_mut(RenderApp) {
@@ -375,4 +378,7 @@ impl Plugin for PbrPlugin {
     }
 }
 
-type PbrViewKey = (HdrKey, TonemappingKey, DebandDitherKey, PrepassKey, EnvironmentMapKey, SsaoKey, DepthClampOrthoKey, MsaaKey, ShadowFilteringKey, ViewProjectionKey);
+pub type PbrViewKey = (HdrKey, TonemappingKey, DebandDitherKey, PrepassKey, EnvironmentMapKey, SsaoKey, DepthClampOrthoKey, MsaaKey, ShadowFilteringKey, ViewProjectionKey);
+#[derive(PipelineKey)]
+#[dynamic_key]
+pub struct PbrViewKeyDynamic(u32);

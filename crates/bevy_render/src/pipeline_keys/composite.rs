@@ -7,7 +7,7 @@ use super::*;
 #[allow(unused_imports)]
 use bevy_utils::all_tuples;
 
-pub trait CompositeKey: KeyType + KeyTypeStatic {
+pub trait CompositeKey: AnyKeyType + KeyTypeConcrete {
     fn from_keys(keys: &PipelineKeys) -> Option<(u32, u8)>;
     fn set_config() -> NodeConfigs<Interned<dyn bevy_ecs::schedule::SystemSet>>;
 }
@@ -15,13 +15,13 @@ pub trait CompositeKey: KeyType + KeyTypeStatic {
 #[allow(unused_macros)]
 macro_rules! impl_composite_key_tuples {
     ($(($K:ident, $sz:ident, $value:ident)),*) => {
-        impl<$($K: KeyType),*> KeyType for ($($K,)*) {
+        impl<$($K: AnyKeyType),*> AnyKeyType for ($($K,)*) {
             fn as_any(&self) -> &dyn Any {
                 self
             }
         }
 
-        impl<$($K: KeyType + KeyTypeStatic),*> KeyTypeStatic for ($($K,)*) {
+        impl<$($K: AnyKeyType + KeyTypeConcrete),*> KeyTypeConcrete for ($($K,)*) {
             fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
                 let mut result = HashMap::default();
                 let mut offset = 0;
@@ -70,7 +70,7 @@ macro_rules! impl_composite_key_tuples {
             }
         }
 
-        impl<$($K: KeyType + KeyTypeStatic + Default),*> CompositeKey for ($($K,)*) {
+        impl<$($K: AnyKeyType + KeyTypeConcrete + Default),*> CompositeKey for ($($K,)*) {
             fn from_keys(keys: &PipelineKeys) -> Option<(u32, u8)> {
                 let mut result = 0u32;
                 let mut size = 0u8;
@@ -94,6 +94,12 @@ macro_rules! impl_composite_key_tuples {
                 config
             }        
         } 
+
+        impl<$($K: FixedSizeKey),*> FixedSizeKey for ($($K,)*) {
+            fn fixed_size() -> u8 {
+                $($K::fixed_size() + )* 0
+            }
+        }
     }
 }
 
