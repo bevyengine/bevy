@@ -17,8 +17,8 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
-        render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
-        texture::ImageSampler,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };
 
@@ -371,6 +371,6 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     );
-    img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
 }
