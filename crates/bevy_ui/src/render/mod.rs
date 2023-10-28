@@ -3,7 +3,7 @@ mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::render_phase::PhaseItem;
+use bevy_render::{render_phase::PhaseItem, pipeline_keys::PipelineKeys};
 use bevy_render::view::ViewVisibility;
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
@@ -590,23 +590,26 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 UI_CAMERA_FAR,
             );
             let default_camera_view = commands
-                .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
-                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ),
-                    view_projection: None,
-                    hdr: camera.hdr,
-                    viewport: UVec4::new(
-                        physical_origin.x,
-                        physical_origin.y,
-                        physical_size.x,
-                        physical_size.y,
-                    ),
-                    color_grading: Default::default(),
-                })
+                .spawn((
+                    ExtractedView {
+                        projection: projection_matrix,
+                        transform: GlobalTransform::from_xyz(
+                            0.0,
+                            0.0,
+                            UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                        ),
+                        view_projection: None,
+                        hdr: camera.hdr,
+                        viewport: UVec4::new(
+                            physical_origin.x,
+                            physical_origin.y,
+                            physical_size.x,
+                            physical_size.y,
+                        ),
+                        color_grading: Default::default(),
+                    },
+                    PipelineKeys::default(),
+                ))
                 .id();
             commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),

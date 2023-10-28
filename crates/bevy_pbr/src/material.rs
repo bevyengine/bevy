@@ -25,7 +25,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::{PipelineKeys, KeyMetaStore},
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
@@ -433,6 +433,7 @@ pub fn queue_material_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
+        Option<&PipelineKeys>,
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
@@ -452,10 +453,12 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
     )>,
+    store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
+        keys,
         view,
         visible_entities,
         tonemapping,
@@ -535,6 +538,24 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
         let rangefinder = view.rangefinder3d();
+
+        let view_key_new = keys.unwrap().get_key::<PbrViewKey>(&store).unwrap();
+
+        let new_is_hdr = *view_key_new.extract::<HdrKey>().unwrap() == HdrKey::On;
+        if new_is_hdr != view.hdr {
+            println!("bnoo");
+        }
+
+        let new_is_also_hdr = *keys.unwrap().get_key::<HdrKey>(&store).unwrap() == HdrKey::On;
+        if new_is_also_hdr != view.hdr {
+            println!("bnoo2");
+        }
+
+        let prepass_key = *view_key_new.extract::<PrepassKey>().unwrap();
+        if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
+            println!("prepass mismatch");
+        }
+
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;

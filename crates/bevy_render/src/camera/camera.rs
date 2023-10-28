@@ -5,7 +5,7 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::TextureView,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
-    Extract,
+    Extract, pipeline_keys::PipelineKeys,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -714,6 +714,7 @@ pub fn extract_cameras(
                     color_grading,
                 },
                 visible_entities.clone(),
+                PipelineKeys::default(),
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {

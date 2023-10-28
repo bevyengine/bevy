@@ -5,7 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
-    pipeline_keys::{PipelineKey, WorldKey},
+    pipeline_keys::{PipelineKey, WorldKey, PipelineKeys},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -1025,6 +1025,7 @@ pub fn prepare_lights(
                             light_entity,
                             face_index,
                         },
+                        PipelineKeys::default(),
                     ))
                     .id();
                 view_lights.push(view_light_entity);
@@ -1080,6 +1081,7 @@ pub fn prepare_lights(
                     },
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
+                    PipelineKeys::default(),
                 ))
                 .id();
 
@@ -1149,6 +1151,7 @@ pub fn prepare_lights(
                             light_entity,
                             cascade_index,
                         },
+                        PipelineKeys::default(),
                     ))
                     .id();
                 view_lights.push(view_light_entity);

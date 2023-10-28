@@ -562,7 +562,7 @@ impl MsaaKey {
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive, PartialEq)]
 #[repr(u32)]
 pub enum HdrKey {
     #[default]

@@ -32,7 +32,7 @@ use std::{cmp::Reverse, ops::Range};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    pipeline_keys::{PipelineKey, WorldKey},
+    pipeline_keys::{PipelineKey, WorldKey, KeyType},
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
@@ -217,8 +217,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
     }
 }
 
-#[derive(Default, PipelineKey)]
-// #[key_bits(4)]
+#[derive(Default, PipelineKey, Clone, Copy)]
 pub struct PrepassKey {
     pub depth: bool,
     pub normal: bool,
@@ -227,12 +226,24 @@ pub struct PrepassKey {
 }
 impl From<PrepassKey> for u32 {
     fn from(value: PrepassKey) -> Self {
+        let tuple = (value.depth, value.normal, value.motion_vector, value.deferred);
+        tuple.pack(store)
         let mut v = 0;
         v += if value.depth { 1 } else { 0 };
         v += if value.normal { 2 } else { 0 };
         v += if value.motion_vector { 4 } else { 0 };
         v += if value.deferred { 8 } else { 0 };
         v
+    }
+}
+impl From<u32> for PrepassKey {
+    fn from(value: u32) -> Self {
+        Self {
+            depth: value & 1 != 0,
+            normal: value & 2 != 0,
+            motion_vector: value & 4 != 0,
+            deferred: value & 8 != 0,
+        }
     }
 }
 impl WorldKey for PrepassKey {

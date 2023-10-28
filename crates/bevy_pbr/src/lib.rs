@@ -17,7 +17,7 @@ mod render;
 mod ssao;
 
 pub use alpha::*;
-use bevy_core_pipeline::{experimental::taa::TaaKey, prepass::PrepassKey, tonemapping::{DebandDitherKey, TonemappingKey}};
+use bevy_core_pipeline::{prepass::PrepassKey, tonemapping::{DebandDitherKey, TonemappingKey}};
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
@@ -375,4 +375,4 @@ impl Plugin for PbrPlugin {
     }
 }
 
-type PbrViewKey = (HdrKey, TonemappingKey, DebandDitherKey, PrepassKey, EnvironmentMapKey, SsaoKey, DepthClampOrthoKey, TaaKey, MsaaKey, ShadowFilteringKey, ViewProjectionKey);
+type PbrViewKey = (HdrKey, TonemappingKey, DebandDitherKey, PrepassKey, EnvironmentMapKey, SsaoKey, DepthClampOrthoKey, MsaaKey, ShadowFilteringKey, ViewProjectionKey);

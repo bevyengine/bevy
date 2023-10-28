@@ -91,6 +91,8 @@ pub enum RenderSet {
     ManageViews,
     /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
     ManageViewsFlush,
+    /// blah
+    PrepareKeys,
     /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
@@ -149,6 +151,7 @@ impl Render {
                 ExtractCommands,
                 ManageViews,
                 ManageViewsFlush,
+                PrepareKeys,
                 Queue,
                 PhaseSort,
                 Prepare,

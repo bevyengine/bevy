@@ -62,12 +62,18 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                 self
             }
 
-            fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
-                self
+            fn positions(&self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
+                #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(#bits, 0u8))])
             }
 
-            fn positions(&self) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
-                #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(#bits, 0u8))])
+            fn pack(&self, store: &#render_path::pipeline_keys::KeyMetaStore) -> (u32, u8) {
+                (u32::from(*self), #bits)
+            }
+        }
+
+        impl #impl_generics #render_path::pipeline_keys::KeyTypeUnpack for #struct_name #ty_generics #where_clause {
+            fn unpack(&self, value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
+                value.into()
             }
         }
     }))
