@@ -120,7 +120,7 @@ impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
 ///     vec2(0.0, 1.0),
 ///     vec2(0.0, 1.0),
 /// ];
-/// let hermite = Hermite::new(points, tangents).to_curve();
+/// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
 pub struct CubicHermite<P: Point> {
@@ -184,7 +184,7 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ];
-/// let cardinal = CardinalSpline::new(0.3, points).to_curve();
+/// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
 pub struct CubicCardinalSpline<P: Point> {
@@ -252,7 +252,7 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ];
-/// let b_spline = BSpline::new(points).to_curve();
+/// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
 pub struct CubicBSpline<P: Point> {
