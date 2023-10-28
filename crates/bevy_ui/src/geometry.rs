@@ -157,25 +157,16 @@ impl DivAssign<f32> for Val {
 
 impl Display for Val {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let value = match self {
+        let (value, suffix) = match self {
             Val::Auto => return write!(f, "auto"),
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => value,
+            Val::Px(value) => (value, "px"),
+            Val::Percent(value) => (value, "%"),
+            Val::Vw(value) => (value, "vw"),
+            Val::Vh(value) => (value, "vh"),
+            Val::VMin(value) => (value, "vmin"),
+            Val::VMax(value) => (value, "vmax"),
         };
         value.fmt(f)?;
-        let suffix = match self {
-            Val::Px(_) => "px",
-            Val::Percent(_) => "%",
-            Val::Vw(_) => "vw",
-            Val::Vh(_) => "vh",
-            Val::VMin(_) => "vmin",
-            Val::VMax(_) => "vmax",
-            Val::Auto => unreachable!(),
-        };
         write!(f, "{suffix}")
     }
 }
