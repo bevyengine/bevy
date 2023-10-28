@@ -325,19 +325,21 @@ pub fn prepare_meshlet_per_frame_resources(
 
     for view_entity in &views {
         let mut contents = Vec::new();
+        let mut base_index = 0;
         for material in &gpu_scene.material_order {
-            let vertex_count = gpu_scene.material_vertex_counts.get(material).unwrap_or(&0);
             contents.extend_from_slice(
                 DrawIndexedIndirect {
                     vertex_count: 0,
                     instance_count: 1,
-                    base_index: *vertex_count,
+                    base_index,
                     vertex_offset: 0,
                     base_instance: 0,
                 }
                 .as_bytes(),
             );
+            base_index += *gpu_scene.material_vertex_counts.get(material).unwrap_or(&0);
         }
+
         gpu_scene.draw_command_buffers.insert(
             view_entity,
             render_device.create_buffer_with_data(&BufferInitDescriptor {
