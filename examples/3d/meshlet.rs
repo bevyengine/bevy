@@ -70,7 +70,7 @@ fn setup(
 
             info!("Calculating dragon meshlets...");
             *dragon_meshlet_mesh_handle =
-                meshlet_meshes.add(MeshletMesh::from_mesh(&dragon_mesh).unwrap());
+                meshlet_meshes.add(MeshletMesh::from_mesh(dragon_mesh).unwrap());
             info!("Dragon meshlets calculated");
 
             commands.spawn(MaterialMeshletMeshBundle {
