@@ -1420,26 +1420,38 @@ description = "Illustrates creating custom system parameters with `SystemParam`"
 category = "ECS (Entity Component System)"
 wasm = false
 
+# Time
 [[example]]
 name = "time"
-path = "examples/ecs/time.rs"
+path = "examples/time/time.rs"
 
 [package.metadata.example.time]
 name = "Time handling"
 description = "Explains how Time is handled in ECS"
-category = "ECS (Entity Component System)"
+category = "Time"
+wasm = false
+
+[[example]]
+name = "virtual_time"
+path = "examples/time/virtual_time.rs"
+
+[package.metadata.example.virtual_time]
+name = "Virtual time"
+description = "Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game."
+category = "Time"
 wasm = false
 
 [[example]]
 name = "timers"
-path = "examples/ecs/timers.rs"
+path = "examples/time/timers.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.timers]
 name = "Timers"
 description = "Illustrates ticking `Timer` resources inside systems and handling their state"
-category = "ECS (Entity Component System)"
+category = "Time"
 wasm = false
+
 
 # Games
 [[example]]
