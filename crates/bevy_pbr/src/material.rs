@@ -349,13 +349,22 @@ where
                 self.material_layout.clone(),
             ]);
 
-            let sd = ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1);
+            let sd1 = ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1);
+            let sd2 = ShaderDefVal::UInt("MATERIAL_BIND_GROUP".into(), 2);
+            descriptor.vertex.shader_defs.push(sd1.clone());
+            descriptor.vertex.shader_defs.push(sd2.clone());
+            if let Some(f) = descriptor.fragment.as_mut() {
+                f.shader_defs.push(sd1);
+                f.shader_defs.push(sd2);
+            }
+        } else {
+            descriptor.layout.insert(1, self.material_layout.clone());
+
+            let sd = ShaderDefVal::UInt("MATERIAL_BIND_GROUP".into(), 1);
             descriptor.vertex.shader_defs.push(sd.clone());
             if let Some(f) = descriptor.fragment.as_mut() {
                 f.shader_defs.push(sd);
             }
-        } else {
-            descriptor.layout.insert(1, self.material_layout.clone());
         }
 
         M::specialize(self, &mut descriptor, layout, key)?;

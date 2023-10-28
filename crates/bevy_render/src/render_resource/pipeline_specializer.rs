@@ -87,7 +87,8 @@ pub trait SpecializedMeshPipeline {
 pub struct SpecializedMeshPipelines<S: SpecializedMeshPipeline> {
     mesh_layout_cache:
         PreHashMap<InnerMeshVertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
-    vertex_layout_cache: HashMap<VertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
+    vertex_layout_cache:
+        HashMap<Option<VertexBufferLayout>, HashMap<S::Key, CachedRenderPipelineId>>,
 }
 
 impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {
@@ -124,20 +125,19 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                         }
                         err
                     })?;
+
                 // Different MeshVertexBufferLayouts can produce the same final VertexBufferLayout
                 // We want compatible vertex buffer layouts to use the same pipelines, so we must "deduplicate" them
+                let vertex_key = descriptor.vertex.buffers.get(0).cloned();
                 let layout_map = match self
                     .vertex_layout_cache
                     .raw_entry_mut()
-                    .from_key(&descriptor.vertex.buffers[0])
+                    .from_key(&vertex_key)
                 {
                     RawEntryMut::Occupied(entry) => entry.into_mut(),
-                    RawEntryMut::Vacant(entry) => {
-                        entry
-                            .insert(descriptor.vertex.buffers[0].clone(), Default::default())
-                            .1
-                    }
+                    RawEntryMut::Vacant(entry) => entry.insert(vertex_key, Default::default()).1,
                 };
+
                 Ok(*entry.insert(match layout_map.entry(key) {
                     Entry::Occupied(entry) => {
                         if cfg!(debug_assertions) {

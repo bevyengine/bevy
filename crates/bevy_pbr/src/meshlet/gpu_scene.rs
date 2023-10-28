@@ -422,7 +422,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
             render_device.create_bind_group(
                 "meshlet_culling_bind_group",
                 &gpu_scene.culling_bind_group_layout,
-                &entries[2..11],
+                &entries[2..12],
             ),
         );
 
