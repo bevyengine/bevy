@@ -4,6 +4,7 @@ use bevy_reflect::ReflectDeserialize;
 use bevy_reflect::ReflectSerialize;
 use serde::Deserialize;
 use serde::Serialize;
+use std::fmt::Display;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
@@ -151,6 +152,31 @@ impl DivAssign<f32> for Val {
             | Val::VMin(value)
             | Val::VMax(value) => *value /= rhs,
         }
+    }
+}
+
+impl Display for Val {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Val::Auto => return write!(f, "auto"),
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => value,
+        };
+        value.fmt(f)?;
+        let suffix = match self {
+            Val::Px(_) => "px",
+            Val::Percent(_) => "%",
+            Val::Vw(_) => "vw",
+            Val::Vh(_) => "vh",
+            Val::VMin(_) => "vmin",
+            Val::VMax(_) => "vmax",
+            Val::Auto => unreachable!(),
+        };
+        write!(f, "{suffix}")
     }
 }
 
