@@ -45,9 +45,7 @@
 
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
-#ifndef WEBGL2
 @group(0) @binding(17) var depth_prepass_texture: texture_depth_multisampled_2d;
-#endif // WEBGL2
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
 @group(0) @binding(18) var normal_prepass_texture: texture_multisampled_2d<f32>;
@@ -59,9 +57,7 @@
 #else // MULTISAMPLED
 
 #ifdef DEPTH_PREPASS
-#ifndef WEBGL2
 @group(0) @binding(17) var depth_prepass_texture: texture_depth_2d;
-#endif // WEBGL2
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
 @group(0) @binding(18) var normal_prepass_texture: texture_2d<f32>;
