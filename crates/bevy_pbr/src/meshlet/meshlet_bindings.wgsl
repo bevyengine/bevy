@@ -49,10 +49,12 @@ struct DrawIndexedIndirect {
 @group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlet_vertex_data: array<PackedVertex>;
 @group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_vertex_ids: array<u32>;
 #endif
+
 @group(#{MESHLET_BIND_GROUP}) @binding(2) var<storage, read> meshlets: array<Meshlet>;
 @group(#{MESHLET_BIND_GROUP}) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
 @group(#{MESHLET_BIND_GROUP}) @binding(4) var<storage, read> meshlet_thread_instance_ids: array<u32>;
 @group(#{MESHLET_BIND_GROUP}) @binding(5) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
+
 #ifdef MESHLET_CULLING_BINDINGS
 @group(#{MESHLET_BIND_GROUP}) @binding(6) var<storage, read> meshlet_instance_material_ids: array<u32>;
 @group(#{MESHLET_BIND_GROUP}) @binding(7) var<storage, read> meshlet_indices: array<u32>; // packed u8's
