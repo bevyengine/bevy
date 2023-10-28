@@ -19,7 +19,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     camera::Projection,
-    mesh::{InnerMeshVertexBufferLayout, MeshVertexBufferLayout},
+    mesh::{InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -137,6 +137,41 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
         material_pipeline.meshlet_layout = Some(gpu_scene.draw_bind_group_layout().clone());
     }
 
+    let fake_vertex_buffer_layout = &MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout::new(
+        vec![
+            Mesh::ATTRIBUTE_POSITION.id,
+            Mesh::ATTRIBUTE_NORMAL.id,
+            Mesh::ATTRIBUTE_UV_0.id,
+            Mesh::ATTRIBUTE_TANGENT.id,
+        ],
+        VertexBufferLayout {
+            array_stride: 48,
+            step_mode: VertexStepMode::Vertex,
+            attributes: vec![
+                VertexAttribute {
+                    format: Mesh::ATTRIBUTE_POSITION.format,
+                    offset: 0,
+                    shader_location: 0,
+                },
+                VertexAttribute {
+                    format: Mesh::ATTRIBUTE_NORMAL.format,
+                    offset: 12,
+                    shader_location: 1,
+                },
+                VertexAttribute {
+                    format: Mesh::ATTRIBUTE_UV_0.format,
+                    offset: 24,
+                    shader_location: 2,
+                },
+                VertexAttribute {
+                    format: Mesh::ATTRIBUTE_TANGENT.format,
+                    offset: 32,
+                    shader_location: 3,
+                },
+            ],
+        },
+    ));
+
     for (
         view_entity,
         view,
@@ -234,7 +269,7 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
                     for_meshlet_mesh: true,
                     bind_group_data: material.key.clone(),
                 },
-                todo!(), // Don't want a vertex buffer in the pipeline layout...
+                fake_vertex_buffer_layout,
             );
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
