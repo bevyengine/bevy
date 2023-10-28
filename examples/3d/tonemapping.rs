@@ -7,10 +7,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_resource::{
-            AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
-        },
-        texture::ImageSampler,
+        render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
+        texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
     },
     utils::HashMap,
@@ -681,7 +679,7 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     );
-    img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
 }
 

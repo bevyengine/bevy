@@ -1011,7 +1011,7 @@ mod tests {
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
                 world.components(),
-                &TestSchedule.dyn_clone(),
+                TestSchedule.intern(),
                 &BTreeSet::new(),
             );
 
@@ -1060,7 +1060,7 @@ mod tests {
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
                 world.components(),
-                &TestSchedule.dyn_clone(),
+                TestSchedule.intern(),
                 &BTreeSet::new(),
             );
 

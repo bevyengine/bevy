@@ -4,11 +4,11 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
+        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
         ScheduleBuildSettings, ScheduleLabel,
     },
 };
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{intern::Interned, tracing::debug, HashMap, HashSet};
 use std::{
     fmt::Debug,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
@@ -20,9 +20,13 @@ use bevy_utils::tracing::info_span;
 bevy_utils::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     AppLabel,
-    /// A strongly-typed identifier for an [`AppLabel`].
-    AppLabelId,
+    APP_LABEL_INTERNER
 );
+
+pub use bevy_utils::label::DynEq;
+
+/// A shorthand for `Interned<dyn AppLabel>`.
+pub type InternedAppLabel = Interned<dyn AppLabel>;
 
 pub(crate) enum AppError {
     DuplicatePlugin { plugin_name: String },
@@ -70,8 +74,8 @@ pub struct App {
     /// The schedule that runs the main loop of schedule execution.
     ///
     /// This is initially set to [`Main`].
-    pub main_schedule_label: BoxedScheduleLabel,
-    sub_apps: HashMap<AppLabelId, SubApp>,
+    pub main_schedule_label: InternedScheduleLabel,
+    sub_apps: HashMap<InternedAppLabel, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
@@ -157,7 +161,7 @@ impl SubApp {
 
     /// Runs the [`SubApp`]'s default schedule.
     pub fn run(&mut self) {
-        self.app.world.run_schedule(&*self.app.main_schedule_label);
+        self.app.world.run_schedule(self.app.main_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -233,7 +237,7 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
-            main_schedule_label: Box::new(Main),
+            main_schedule_label: Main.intern(),
             building_plugin_depth: 0,
             plugins_state: PluginsState::Adding,
         }
@@ -256,7 +260,7 @@ impl App {
         {
             #[cfg(feature = "trace")]
             let _bevy_main_update_span = info_span!("main app").entered();
-            self.world.run_schedule(&*self.main_schedule_label);
+            self.world.run_schedule(self.main_schedule_label);
         }
         for (_label, sub_app) in &mut self.sub_apps {
             #[cfg(feature = "trace")]
@@ -406,9 +410,10 @@ impl App {
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
+        let schedule = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(schedule) = schedules.get_mut(&schedule) {
+        if let Some(schedule) = schedules.get_mut(schedule) {
             schedule.add_systems(systems);
         } else {
             let mut new_schedule = Schedule::new(schedule);
@@ -437,8 +442,9 @@ impl App {
         schedule: impl ScheduleLabel,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
+        let schedule = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(&schedule) {
+        if let Some(schedule) = schedules.get_mut(schedule) {
             schedule.configure_sets(sets);
         } else {
             let mut new_schedule = Schedule::new(schedule);
@@ -781,16 +787,15 @@ impl App {
     pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
         }
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, AppLabelId> {
-        let label = label.as_label();
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
         self.sub_apps
-            .get_mut(&label)
+            .get_mut(&label.intern())
             .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
@@ -803,25 +808,25 @@ impl App {
     pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
         }
     }
 
     /// Inserts an existing sub app into the app
     pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
-        self.sub_apps.insert(label.as_label(), sub_app);
+        self.sub_apps.insert(label.intern(), sub_app);
     }
 
     /// Removes a sub app from the app. Returns [`None`] if the label doesn't exist.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
-        self.sub_apps.remove(&label.as_label())
+        self.sub_apps.remove(&label.intern())
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get(&label.as_label())
+            .get(&label.intern())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }
@@ -842,8 +847,9 @@ impl App {
     ///
     /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        let label = label.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if !schedules.contains(&label) {
+        if !schedules.contains(label) {
             schedules.insert(Schedule::new(label));
         }
         self
@@ -852,7 +858,7 @@ impl App {
     /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
     pub fn get_schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
         let schedules = self.world.get_resource::<Schedules>()?;
-        schedules.get(&label)
+        schedules.get(label)
     }
 
     /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.
@@ -860,7 +866,7 @@ impl App {
         let schedules = self.world.get_resource_mut::<Schedules>()?;
         // We need to call .into_inner here to satisfy the borrow checker:
         // it can reason about reborrows using ordinary references but not the `Mut` smart pointer.
-        schedules.into_inner().get_mut(&label)
+        schedules.into_inner().get_mut(label)
     }
 
     /// Applies the function to the [`Schedule`] associated with `label`.
@@ -871,13 +877,14 @@ impl App {
         label: impl ScheduleLabel,
         f: impl FnOnce(&mut Schedule),
     ) -> &mut Self {
+        let label = label.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if schedules.get(&label).is_none() {
-            schedules.insert(Schedule::new(label.dyn_clone()));
+        if schedules.get(label).is_none() {
+            schedules.insert(Schedule::new(label));
         }
 
-        let schedule = schedules.get_mut(&label).unwrap();
+        let schedule = schedules.get_mut(label).unwrap();
         // Call the function f, passing in the schedule retrieved
         f(schedule);
 
@@ -1005,6 +1012,8 @@ pub struct AppExit;
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use bevy_ecs::{
         schedule::{OnEnter, States},
         system::Commands,
@@ -1100,5 +1109,108 @@ mod tests {
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);
+    }
+
+    #[test]
+    fn test_derive_app_label() {
+        use super::AppLabel;
+        use crate::{self as bevy_app};
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct UnitLabel;
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct TupleLabel(u32, u32);
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct StructLabel {
+            a: u32,
+            b: u32,
+        }
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyTupleLabel();
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyStructLabel {}
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        enum EnumLabel {
+            #[default]
+            Unit,
+            Tuple(u32, u32),
+            Struct {
+                a: u32,
+                b: u32,
+            },
+        }
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct GenericLabel<T>(PhantomData<T>);
+
+        assert_eq!(UnitLabel.intern(), UnitLabel.intern());
+        assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), TupleLabel(0, 0).intern());
+        assert_ne!(EnumLabel::Unit.intern(), EnumLabel::Tuple(0, 0).intern());
+
+        assert_eq!(TupleLabel(0, 0).intern(), TupleLabel(0, 0).intern());
+        assert_eq!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 0).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), TupleLabel(0, 1).intern());
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 1).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), EnumLabel::Tuple(0, 0).intern());
+        assert_ne!(
+            TupleLabel(0, 0).intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+
+        assert_eq!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_eq!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(StructLabel { a: 0, b: 0 }.intern(), UnitLabel.intern(),);
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Unit.intern()
+        );
+
+        assert_eq!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u32>(PhantomData).intern()
+        );
+        assert_ne!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u64>(PhantomData).intern()
+        );
     }
 }

@@ -177,6 +177,7 @@ impl Plugin for AssetPlugin {
         }
         app.insert_resource(embedded)
             .init_asset::<LoadedFolder>()
+            .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .configure_sets(
                 UpdateAssets,
