@@ -11,7 +11,7 @@ use bevy::{
         Indices, PrimitiveTopology, VertexAttributeValues,
     },
 };
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
@@ -52,77 +52,80 @@ fn setup(
         ]));
 
     // Create a mesh
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    // Set mesh vertex positions
-    mesh.insert_attribute(
-        Mesh::ATTRIBUTE_POSITION,
-        vec![
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 0.5, 0.0],
-            [1.0, 0.5, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0],
-            [0.0, 1.5, 0.0],
-            [1.0, 1.5, 0.0],
-            [0.0, 2.0, 0.0],
-            [1.0, 2.0, 0.0],
-        ],
-    );
-    // Set mesh vertex normals
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 10]);
-    // Set mesh vertex joint indices for mesh skinning.
-    // Each vertex gets 4 indices used to address the `JointTransforms` array in the vertex shader
-    //  as well as `SkinnedMeshJoint` array in the `SkinnedMesh` component.
-    // This means that a maximum of 4 joints can affect a single vertex.
-    mesh.insert_attribute(
-        Mesh::ATTRIBUTE_JOINT_INDEX,
-        // Need to be explicit here as [u16; 4] could be either Uint16x4 or Unorm16x4.
-        VertexAttributeValues::Uint16x4(vec![
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 0, 0],
-        ]),
-    );
-    // Set mesh vertex joint weights for mesh skinning.
-    // Each vertex gets 4 joint weights corresponding to the 4 joint indices assigned to it.
-    // The sum of these weights should equal to 1.
-    mesh.insert_attribute(
-        Mesh::ATTRIBUTE_JOINT_WEIGHT,
-        vec![
-            [1.00, 0.00, 0.0, 0.0],
-            [1.00, 0.00, 0.0, 0.0],
-            [0.75, 0.25, 0.0, 0.0],
-            [0.75, 0.25, 0.0, 0.0],
-            [0.50, 0.50, 0.0, 0.0],
-            [0.50, 0.50, 0.0, 0.0],
-            [0.25, 0.75, 0.0, 0.0],
-            [0.25, 0.75, 0.0, 0.0],
-            [0.00, 1.00, 0.0, 0.0],
-            [0.00, 1.00, 0.0, 0.0],
-        ],
-    );
-    // Tell bevy to construct triangles from a list of vertex indices,
-    //  where each 3 vertex indices form an triangle.
-    mesh.set_indices(Some(Indices::U16(vec![
-        0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
-    ])));
+    let mesh = Mesh::new(PrimitiveTopology::TriangleList)
+        // Set mesh vertex positions
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 0.5, 0.0],
+                [1.0, 0.5, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.5, 0.0],
+                [1.0, 1.5, 0.0],
+                [0.0, 2.0, 0.0],
+                [1.0, 2.0, 0.0],
+            ],
+        )
+        // Set mesh vertex normals
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 10])
+        // Set mesh vertex joint indices for mesh skinning.
+        // Each vertex gets 4 indices used to address the `JointTransforms` array in the vertex shader
+        //  as well as `SkinnedMeshJoint` array in the `SkinnedMesh` component.
+        // This means that a maximum of 4 joints can affect a single vertex.
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+            // Need to be explicit here as [u16; 4] could be either Uint16x4 or Unorm16x4.
+            VertexAttributeValues::Uint16x4(vec![
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+            ]),
+        )
+        // Set mesh vertex joint weights for mesh skinning.
+        // Each vertex gets 4 joint weights corresponding to the 4 joint indices assigned to it.
+        // The sum of these weights should equal to 1.
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            vec![
+                [1.00, 0.00, 0.0, 0.0],
+                [1.00, 0.00, 0.0, 0.0],
+                [0.75, 0.25, 0.0, 0.0],
+                [0.75, 0.25, 0.0, 0.0],
+                [0.50, 0.50, 0.0, 0.0],
+                [0.50, 0.50, 0.0, 0.0],
+                [0.25, 0.75, 0.0, 0.0],
+                [0.25, 0.75, 0.0, 0.0],
+                [0.00, 1.00, 0.0, 0.0],
+                [0.00, 1.00, 0.0, 0.0],
+            ],
+        )
+        // Tell bevy to construct triangles from a list of vertex indices,
+        //  where each 3 vertex indices form an triangle.
+        .with_indices(Some(Indices::U16(vec![
+            0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
+        ])));
 
     let mesh = meshes.add(mesh);
+
+    let mut rng = StdRng::seed_from_u64(42);
+
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
             .spawn(TransformBundle::from(Transform::from_xyz(
                 i as f32 * 1.5,
                 0.0,
-                0.0,
+                i as f32 * 0.1,
             )))
             .id();
         let joint_1 = commands
@@ -141,9 +144,9 @@ fn setup(
                 mesh: mesh.clone(),
                 material: materials.add(
                     Color::rgb(
-                        rand::thread_rng().gen_range(0.0..1.0),
-                        rand::thread_rng().gen_range(0.0..1.0),
-                        rand::thread_rng().gen_range(0.0..1.0),
+                        rng.gen_range(0.0..1.0),
+                        rng.gen_range(0.0..1.0),
+                        rng.gen_range(0.0..1.0),
                     )
                     .into(),
                 ),

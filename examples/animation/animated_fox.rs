@@ -3,8 +3,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
-use bevy::pbr::CascadeShadowConfigBuilder;
-use bevy::prelude::*;
+use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
 
 fn main() {
     App::new()
@@ -77,30 +76,28 @@ fn setup(
     println!("  - spacebar: play / pause");
     println!("  - arrow up / down: speed up / slow down animation playback");
     println!("  - arrow left / right: seek backward / forward");
+    println!("  - digit 1 / 3 / 5: play the animation <digit> times");
+    println!("  - L: loop the animation forever");
     println!("  - return: change animation");
 }
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
-    mut player: Query<&mut AnimationPlayer>,
-    mut done: Local<bool>,
+    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
 ) {
-    if !*done {
-        if let Ok(mut player) = player.get_single_mut() {
-            player.play(animations.0[0].clone_weak()).repeat();
-            *done = true;
-        }
+    for mut player in &mut players {
+        player.play(animations.0[0].clone_weak()).repeat();
     }
 }
 
 fn keyboard_animation_control(
     keyboard_input: Res<Input<KeyCode>>,
-    mut animation_player: Query<&mut AnimationPlayer>,
+    mut animation_players: Query<&mut AnimationPlayer>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
-    if let Ok(mut player) = animation_player.get_single_mut() {
+    for mut player in &mut animation_players {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.is_paused() {
                 player.resume();
@@ -120,13 +117,13 @@ fn keyboard_animation_control(
         }
 
         if keyboard_input.just_pressed(KeyCode::Left) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed - 0.1);
+            let elapsed = player.seek_time();
+            player.seek_to(elapsed - 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Right) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed + 0.1);
+            let elapsed = player.seek_time();
+            player.seek_to(elapsed + 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Return) {
@@ -137,6 +134,25 @@ fn keyboard_animation_control(
                     Duration::from_millis(250),
                 )
                 .repeat();
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Key1) {
+            player.set_repeat(RepeatAnimation::Count(1));
+            player.replay();
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Key3) {
+            player.set_repeat(RepeatAnimation::Count(3));
+            player.replay();
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Key5) {
+            player.set_repeat(RepeatAnimation::Count(5));
+            player.replay();
+        }
+
+        if keyboard_input.just_pressed(KeyCode::L) {
+            player.set_repeat(RepeatAnimation::Forever);
         }
     }
 }

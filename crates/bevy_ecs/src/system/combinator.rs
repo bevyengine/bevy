@@ -7,6 +7,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::World,
     query::Access,
+    schedule::InternedSystemSet,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -50,7 +51,7 @@ use super::{ReadOnlySystem, System};
 /// # let mut world = World::new();
 /// # world.init_resource::<RanFlag>();
 /// #
-/// # let mut app = Schedule::new();
+/// # let mut app = Schedule::default();
 /// app.add_systems(my_system.run_if(Xor::new(
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
@@ -226,7 +227,7 @@ where
         self.b.set_last_run(last_run);
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let mut default_sets = self.a.default_system_sets();
         default_sets.append(&mut self.b.default_system_sets());
         default_sets

@@ -1,12 +1,11 @@
-use crate::container_attributes::ReflectTraits;
+use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
-use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{members_to_serialization_denylist, StringExpr, WhereClauseOptions};
-use bit_set::BitSet;
+use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
+use crate::serialization::SerializationDataDef;
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
@@ -35,14 +34,14 @@ pub(crate) enum ReflectDerive<'a> {
 /// //                          traits
 /// //        |----------------------------------------|
 /// #[reflect(PartialEq, Serialize, Deserialize, Default)]
-/// //            type_name       generics
+/// //            type_path       generics
 /// //     |-------------------||----------|
 /// struct ThingThatImReflecting<T1, T2, T3> {/* ... */}
 /// ```
 pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
     traits: ReflectTraits,
-    /// The name of this type.
+    /// The path to this type.
     type_path: ReflectTypePath<'a>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
@@ -66,7 +65,7 @@ pub(crate) struct ReflectMeta<'a> {
 /// ```
 pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
-    serialization_denylist: BitSet<u32>,
+    serialization_data: Option<SerializationDataDef>,
     fields: Vec<StructField<'a>>,
 }
 
@@ -89,13 +88,21 @@ pub(crate) struct ReflectEnum<'a> {
 }
 
 /// Represents a field on a struct or tuple struct.
+#[derive(Clone)]
 pub(crate) struct StructField<'a> {
     /// The raw field.
     pub data: &'a Field,
     /// The reflection-based attributes on the field.
     pub attrs: ReflectFieldAttr,
     /// The index of this field within the struct.
-    pub index: usize,
+    pub declaration_index: usize,
+    /// The index of this field as seen by the reflection API.
+    ///
+    /// This index accounts for the removal of [ignored] fields.
+    /// It will only be `Some(index)` when the field is not ignored.
+    ///
+    /// [ignored]: crate::field_attributes::ReflectIgnoreBehavior::IgnoreAlways
+    pub reflection_index: Option<usize>,
     /// The documentation for this field, if any
     #[cfg(feature = "documentation")]
     pub doc: crate::documentation::Documentation,
@@ -134,7 +141,10 @@ enum ReflectMode {
 }
 
 impl<'a> ReflectDerive<'a> {
-    pub fn from_input(input: &'a DeriveInput) -> Result<Self, syn::Error> {
+    pub fn from_input(
+        input: &'a DeriveInput,
+        is_from_reflect_derive: bool,
+    ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
@@ -159,6 +169,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Normal);
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                        is_from_reflect_derive,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -173,6 +184,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Value);
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                        is_from_reflect_derive,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -190,7 +202,8 @@ impl<'a> ReflectDerive<'a> {
                     let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Str(lit),
                         ..
-                    }) = &pair.value else {
+                    }) = &pair.value
+                    else {
                         return Err(syn::Error::new(
                             pair.span(),
                             format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
@@ -206,7 +219,8 @@ impl<'a> ReflectDerive<'a> {
                     let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Str(lit),
                         ..
-                    }) = &pair.value else {
+                    }) = &pair.value
+                    else {
                         return Err(syn::Error::new(
                             pair.span(),
                             format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
@@ -265,9 +279,7 @@ impl<'a> ReflectDerive<'a> {
                 let fields = Self::collect_struct_fields(&data.fields)?;
                 let reflect_struct = ReflectStruct {
                     meta,
-                    serialization_denylist: members_to_serialization_denylist(
-                        fields.iter().map(|v| v.attrs.ignore),
-                    ),
+                    serialization_data: SerializationDataDef::new(&fields)?,
                     fields,
                 };
 
@@ -301,19 +313,31 @@ impl<'a> ReflectDerive<'a> {
     }
 
     fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
+        let mut active_index = 0;
         let sifter: utility::ResultSifter<StructField<'a>> = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| -> Result<StructField, syn::Error> {
-                let attrs = parse_field_attrs(&field.attrs)?;
-                Ok(StructField {
-                    index,
-                    attrs,
-                    data: field,
-                    #[cfg(feature = "documentation")]
-                    doc: crate::documentation::Documentation::from_attributes(&field.attrs),
-                })
-            })
+            .map(
+                |(declaration_index, field)| -> Result<StructField, syn::Error> {
+                    let attrs = parse_field_attrs(&field.attrs)?;
+
+                    let reflection_index = if attrs.ignore.is_ignored() {
+                        None
+                    } else {
+                        active_index += 1;
+                        Some(active_index - 1)
+                    };
+
+                    Ok(StructField {
+                        declaration_index,
+                        reflection_index,
+                        attrs,
+                        data: field,
+                        #[cfg(feature = "documentation")]
+                        doc: crate::documentation::Documentation::from_attributes(&field.attrs),
+                    })
+                },
+            )
             .fold(
                 utility::ResultSifter::default(),
                 utility::ResultSifter::fold,
@@ -376,7 +400,13 @@ impl<'a> ReflectMeta<'a> {
         &self.traits
     }
 
-    /// The name of this struct.
+    /// The `FromReflect` attributes on this type.
+    #[allow(clippy::wrong_self_convention)]
+    pub fn from_reflect(&self) -> &FromReflectAttrs {
+        self.traits.from_reflect_attrs()
+    }
+
+    /// The path to this type.
     pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
     }
@@ -407,12 +437,9 @@ impl<'a> ReflectStruct<'a> {
         &self.meta
     }
 
-    /// Access the data about which fields should be ignored during serialization.
-    ///
-    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`](crate::utility::members_to_serialization_denylist) function.
-    #[allow(dead_code)]
-    pub fn serialization_denylist(&self) -> &BitSet<u32> {
-        &self.serialization_denylist
+    /// Returns the [`SerializationDataDef`] for this struct.
+    pub fn serialization_data(&self) -> Option<&SerializationDataDef> {
+        self.serialization_data.as_ref()
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
@@ -425,7 +452,7 @@ impl<'a> ReflectStruct<'a> {
         crate::registration::impl_get_type_registration(
             self.meta(),
             where_clause_options,
-            Some(&self.serialization_denylist),
+            self.serialization_data(),
         )
     }
 
@@ -443,13 +470,6 @@ impl<'a> ReflectStruct<'a> {
             .filter(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get a collection of types which are ignored by the reflection API
-    pub fn ignored_types(&self) -> Vec<syn::Type> {
-        self.ignored_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
@@ -464,14 +484,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        let bevy_reflect_path = &self.meta().bevy_reflect_path;
-        WhereClauseOptions {
-            active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::Reflect },
-            ignored_types: self.ignored_types().into(),
-            ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync },
-            ..WhereClauseOptions::type_path_bounds(self.meta())
-        }
+        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
 }
 
@@ -501,13 +514,6 @@ impl<'a> ReflectEnum<'a> {
             .flat_map(|variant| variant.active_fields())
     }
 
-    /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<syn::Type> {
-        self.active_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.variants()
@@ -515,22 +521,8 @@ impl<'a> ReflectEnum<'a> {
             .flat_map(|variant| variant.ignored_fields())
     }
 
-    /// Get a collection of types which are ignored to the reflection API
-    pub fn ignored_types(&self) -> Vec<syn::Type> {
-        self.ignored_fields()
-            .map(|field| field.data.ty.clone())
-            .collect()
-    }
-
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        let bevy_reflect_path = &self.meta().bevy_reflect_path;
-        WhereClauseOptions {
-            active_types: self.active_types().into(),
-            active_trait_bounds: quote! { #bevy_reflect_path::FromReflect },
-            ignored_types: self.ignored_types().into(),
-            ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync + #FQDefault },
-            ..WhereClauseOptions::type_path_bounds(self.meta())
-        }
+        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
     }
 }
 
@@ -591,7 +583,7 @@ impl<'a> EnumVariant<'a> {
 ///     custom_path: None,
 /// };
 ///
-/// // Eqivalent to "core::marker".
+/// // Equivalent to "core::marker".
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
@@ -601,7 +593,7 @@ pub(crate) enum ReflectTypePath<'a> {
     Primitive(&'a Ident),
     /// Using `::my_crate::foo::Bar` syntax.
     ///
-    /// May have a seperate custom path used for the `TypePath` implementation.
+    /// May have a separate custom path used for the `TypePath` implementation.
     External {
         path: &'a Path,
         custom_path: Option<Path>,
@@ -611,7 +603,7 @@ pub(crate) enum ReflectTypePath<'a> {
     ///
     /// The type must be able to be reached with just its name.
     ///
-    /// May have a seperate alias path used for the `TypePath` implementation.
+    /// May have a separate alias path used for the `TypePath` implementation.
     ///
     /// Module and crate are found with [`module_path!()`](core::module_path),
     /// if there is no custom path specified.

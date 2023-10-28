@@ -1,6 +1,6 @@
 //! Contains code related to documentation reflection (requires the `documentation` feature).
 
-use crate::fq_std::FQOption;
+use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Attribute, Expr, ExprLit, Lit, Meta};
@@ -9,7 +9,7 @@ use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 ///
 /// When converted to a [`TokenStream`], this will output an `Option<String>`
 /// containing the collection of doc comments.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct Documentation {
     docs: Vec<String>,
 }

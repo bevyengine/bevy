@@ -8,14 +8,14 @@ pub use slice::{ParallelSlice, ParallelSliceMut};
 mod task;
 pub use task::Task;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 mod task_pool;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
 mod single_threaded_task_pool;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
 
 mod usages;
@@ -23,10 +23,15 @@ mod usages;
 pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 mod thread_executor;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
+
+#[cfg(feature = "async-io")]
+pub use async_io::block_on;
+#[cfg(not(feature = "async-io"))]
+pub use futures_lite::future::block_on;
 
 mod iter;
 pub use iter::ParallelIterator;
@@ -35,6 +40,7 @@ pub use iter::ParallelIterator;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        block_on,
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},

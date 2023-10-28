@@ -1,8 +1,10 @@
 #define_import_path bevy_pbr::lighting
 
-#import bevy_pbr::utils PI
-#import bevy_pbr::mesh_view_types as view_types
-#import bevy_pbr::mesh_view_bindings as view_bindings
+#import bevy_pbr::{
+    utils::PI,
+    mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+    mesh_view_bindings as view_bindings,
+}
 
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
@@ -222,7 +224,7 @@ fn point_light(
     // where
     // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
     // Φ is luminous power in lumens
-    // our rangeAttentuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
+    // our rangeAttenuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
 
     // For a point light, luminous intensity, I, in lumens per steradian is given by:
     // I = Φ / 4 π
@@ -253,7 +255,7 @@ fn spot_light(
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);
     spot_dir.y = sqrt(max(0.0, 1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z));
-    if ((*light).flags & view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
+    if ((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
         spot_dir.y = -spot_dir.y;
     }
     let light_to_frag = (*light).position_radius.xyz - world_position.xyz;

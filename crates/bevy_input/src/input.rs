@@ -1,5 +1,7 @@
+//! The generic input type.
+
 use bevy_ecs::system::Resource;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
@@ -22,7 +24,7 @@ use bevy_ecs::schedule::State;
 ///
 /// In case multiple systems are checking for [`Input::just_pressed`] or [`Input::just_released`]
 /// but only one should react, for example in the case of triggering
-/// [`State`](bevy_ecs::schedule::State) change, you should consider clearing the input state, either by:
+/// [`State`] change, you should consider clearing the input state, either by:
 ///
 /// * Using [`Input::clear_just_pressed`] or [`Input::clear_just_released`] instead.
 /// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.
@@ -41,8 +43,8 @@ use bevy_ecs::schedule::State;
 ///
 ///[`ResMut`]: bevy_ecs::system::ResMut
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
-#[derive(Debug, Clone, Resource, Reflect, FromReflect)]
-#[reflect(Default, FromReflect)]
+#[derive(Debug, Clone, Resource, Reflect)]
+#[reflect(Default)]
 pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,

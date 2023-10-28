@@ -5,6 +5,10 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use bevy::prelude::*;
 
 fn main() {
@@ -54,6 +58,7 @@ fn setup_menu(mut commands: Commands) {
             style: Style {
                 // center button
                 width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -99,7 +104,7 @@ fn menu(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }
