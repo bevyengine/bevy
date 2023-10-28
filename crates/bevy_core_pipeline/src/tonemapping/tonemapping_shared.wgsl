@@ -319,7 +319,7 @@ fn tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
 // This is an **incredibly crude** approximation of the inverse of the tone mapping function.
 // We assume here that there's a simple linear relationship between the input and output
 // which is not true at all, but useful to at least preserve the overall luminance of colors
-// when sampling from an already tonemapped image. (e.g. for transmissive materials)
+// when sampling from an already tonemapped image. (e.g. for transmissive materials when HDR is off)
 fn approximate_inverse_tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
     let out = tone_mapping(in, color_grading);
     let approximate_ratio = length(in.rgb) / length(out.rgb);
