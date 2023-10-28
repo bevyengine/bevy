@@ -42,7 +42,7 @@ pub struct Camera3d {
     ///   Keep in mind that depending on the platform and your window settings, this may cause the window to become
     ///   transparent.
     pub screen_space_specular_transmission_steps: usize,
-    /// The quality of the screen space specular transmission blur effect, applied to the whatever's “behind” transmissive
+    /// The quality of the screen space specular transmission blur effect, applied to whatever's “behind” transmissive
     /// objects when their `roughness` is greater than `0.0`.
     ///
     /// Higher qualities are more GPU-intensive.
@@ -103,7 +103,7 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
     }
 }
 
-/// The quality of the screen space transmission blur effect, applied to the whatever's “behind” transmissive
+/// The quality of the screen space transmission blur effect, applied to whatever's “behind” transmissive
 /// objects when their `roughness` is greater than `0.0`.
 ///
 /// Higher qualities are more GPU-intensive.
