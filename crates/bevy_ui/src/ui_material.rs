@@ -67,7 +67,7 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///
 /// If you only use the fragment shader make sure to import `UiVertexOutput` from
 /// `bevy_ui::ui_vertex_output` in your wgsl shader.
-/// Also note that binding group 0 is always taken with the view matrix.
+/// Also note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform).
 ///
 /// ```wgsl
 /// #import bevy_ui::ui_vertex_output UiVertexOutput

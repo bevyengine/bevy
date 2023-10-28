@@ -1,41 +1,26 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
+use bevy_asset::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{Component, Entity, EventReader},
     query::{ROQueryItem, With},
     schedule::IntoSystemConfigs,
     storage::SparseSet,
-    system::{
-        lifetimeless::{Read, SRes},
-        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
-    },
+    system::lifetimeless::{Read, SRes},
+    system::*,
     world::{FromWorld, World},
 };
 use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
-    render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
-    },
-    render_resource::{
-        AsBindGroupError, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, BufferUsages, BufferVec,
-        ColorTargetState, ColorWrites, FragmentState, FrontFace, MultisampleState,
-        OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
-        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, VertexBufferLayout,
-        VertexFormat, VertexState, VertexStepMode,
-    },
+    render_phase::*,
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
-    view::{
-        ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
-    },
+    view::*,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -43,10 +28,7 @@ use bevy_utils::{FloatOrd, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 
-use crate::{
-    resolve_border_thickness, CalculatedClip, Node, RenderUiSystem, Style, TransparentUi,
-    UiMaterial, UiMaterialKey, UiScale, UiStack, QUAD_INDICES, QUAD_VERTEX_POSITIONS,
-};
+use crate::*;
 
 pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
 
