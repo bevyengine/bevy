@@ -53,6 +53,7 @@ git checkout v0.4.0
   - [Scene](#scene)
   - [Shaders](#shaders)
   - [Stress Tests](#stress-tests)
+  - [Time](#time)
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
@@ -180,7 +181,7 @@ Example | Description
 Example | Description
 --- | ---
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
-[Asset Processing](../examples/asset/processing/processing.rs) | Demonstrates how to process and load custom assets
+[Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
@@ -233,8 +234,6 @@ Example | Description
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
-[Time handling](../examples/ecs/time.rs) | Explains how Time is handled in ECS
-[Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games
 
@@ -325,6 +324,14 @@ Example | Description
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
 [Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
+
+## Time
+
+Example | Description
+--- | ---
+[Time handling](../examples/time/time.rs) | Explains how Time is handled in ECS
+[Timers](../examples/time/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
+[Virtual time](../examples/time/virtual_time.rs) | Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game.
 
 ## Tools
 

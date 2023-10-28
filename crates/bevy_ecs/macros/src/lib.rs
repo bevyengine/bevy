@@ -2,13 +2,10 @@ extern crate proc_macro;
 
 mod component;
 mod fetch;
-mod set;
 mod states;
 
-use crate::{fetch::derive_world_query_impl, set::derive_set};
-use bevy_macro_utils::{
-    derive_boxed_label, ensure_no_collision, get_named_struct_fields, BevyManifest,
-};
+use crate::fetch::derive_world_query_impl;
+use bevy_macro_utils::{derive_label, ensure_no_collision, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -201,6 +198,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                         #param::init_state(world, &mut #meta);
                         let #param = #param::init_state(world, &mut system_meta.clone());
                     )*
+                    // Make the ParamSet non-send if any of its parameters are non-send.
+                    if false #(|| !#meta.is_send())* {
+                        system_meta.set_non_send();
+                    }
                     #(
                         system_meta
                             .component_access_set
@@ -434,25 +435,33 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
 }
 
 /// Derive macro generating an impl of the trait `ScheduleLabel`.
+///
+/// This does not work for unions.
 #[proc_macro_derive(ScheduleLabel)]
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
+    let mut dyn_eq_path = trait_path.clone();
     trait_path
         .segments
         .push(format_ident!("ScheduleLabel").into());
-    derive_boxed_label(input, &trait_path)
+    dyn_eq_path.segments.push(format_ident!("DynEq").into());
+    derive_label(input, "ScheduleName", &trait_path, &dyn_eq_path)
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
+///
+/// This does not work for unions.
 #[proc_macro_derive(SystemSet)]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
+    let mut dyn_eq_path = trait_path.clone();
     trait_path.segments.push(format_ident!("SystemSet").into());
-    derive_set(input, &trait_path)
+    dyn_eq_path.segments.push(format_ident!("DynEq").into());
+    derive_label(input, "SystemSet", &trait_path, &dyn_eq_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
