@@ -29,10 +29,9 @@ pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::Mesh,
     primitives::Aabb,
@@ -46,8 +45,7 @@ use bevy_render::{
 #[derive(Default)]
 pub struct SpritePlugin;
 
-pub const SPRITE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2763343953151597127);
+pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SpriteSystem {
@@ -62,7 +60,7 @@ impl Plugin for SpritePlugin {
             "render/sprite.wgsl",
             Shader::from_wgsl
         );
-        app.add_asset::<TextureAtlas>()
+        app.init_asset::<TextureAtlas>()
             .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
             .register_type::<TextureAtlasSprite>()
@@ -91,9 +89,12 @@ impl Plugin for SpritePlugin {
                 )
                 .add_systems(
                     Render,
-                    queue_sprites
-                        .in_set(RenderSet::Queue)
-                        .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                    (
+                        queue_sprites
+                            .in_set(RenderSet::Queue)
+                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                        prepare_sprites.in_set(RenderSet::PrepareBindGroups),
+                    ),
                 );
         };
     }
@@ -105,6 +106,13 @@ impl Plugin for SpritePlugin {
     }
 }
 
+/// System calculating and inserting an [`Aabb`] component to entities with either:
+/// - a `Mesh2dHandle` component,
+/// - a `Sprite` and `Handle<Image>` components,
+/// - a `TextureAtlasSprite` and `Handle<TextureAtlas>` components,
+/// and without a [`NoFrustumCulling`] component.
+///
+/// Used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
@@ -130,7 +138,7 @@ pub fn calculate_bounds_2d(
     for (entity, sprite, texture_handle) in &sprites_without_aabb {
         if let Some(size) = sprite
             .custom_size
-            .or_else(|| images.get(texture_handle).map(|image| image.size()))
+            .or_else(|| images.get(texture_handle).map(|image| image.size_f32()))
         {
             let aabb = Aabb {
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),

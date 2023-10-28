@@ -51,11 +51,11 @@ pub(crate) enum DependencyKind {
 #[derive(Clone)]
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
-    pub(crate) set: BoxedSystemSet,
+    pub(crate) set: InternedSystemSet,
 }
 
 impl Dependency {
-    pub fn new(kind: DependencyKind, set: BoxedSystemSet) -> Self {
+    pub fn new(kind: DependencyKind, set: InternedSystemSet) -> Self {
         Self { kind, set }
     }
 }
@@ -66,17 +66,16 @@ pub(crate) enum Ambiguity {
     #[default]
     Check,
     /// Ignore warnings with systems in any of these system sets. May contain duplicates.
-    IgnoreWithSet(Vec<BoxedSystemSet>),
+    IgnoreWithSet(Vec<InternedSystemSet>),
     /// Ignore all warnings.
     IgnoreAll,
 }
 
 #[derive(Clone, Default)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: Vec<BoxedSystemSet>,
+    pub(crate) sets: Vec<InternedSystemSet>,
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
-    pub(crate) base_set: Option<BoxedSystemSet>,
 }
 
 /// Converts 2D row-major pair of indices into a 1D array index.

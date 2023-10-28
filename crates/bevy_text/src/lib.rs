@@ -26,24 +26,29 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
-use bevy_asset::load_internal_binary_asset;
-use bevy_asset::{AddAsset, HandleUntyped};
+use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::TypeUuid;
 use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystem;
 use std::num::NonZeroUsize;
 
+/// Adds text rendering support to an app.
+///
+/// When the `bevy_text` feature is enabled with the `bevy` crate, this
+/// plugin is included by default in the `DefaultPlugins`.
 #[derive(Default)]
 pub struct TextPlugin;
 
-/// [`TextPlugin`] settings
+/// Settings used to configure the [`TextPlugin`].
 #[derive(Resource)]
 pub struct TextSettings {
-    /// Maximum number of font atlases supported in a ['FontAtlasSet']
-    pub max_font_atlases: NonZeroUsize,
-    /// Allows font size to be set dynamically exceeding the amount set in max_font_atlases.
+    /// Soft maximum number of font atlases supported in a [`FontAtlasSet`]. When this is exceeded,
+    /// a warning will be emitted a single time. The [`FontAtlasWarning`] resource ensures that
+    /// this only happens once.
+    pub soft_max_font_atlases: NonZeroUsize,
+    /// Allows font size to be set dynamically exceeding the amount set in `soft_max_font_atlases`.
     /// Note each font size has to be generated which can have a strong performance impact.
     pub allow_dynamic_font_size: bool,
 }
@@ -51,33 +56,30 @@ pub struct TextSettings {
 impl Default for TextSettings {
     fn default() -> Self {
         Self {
-            max_font_atlases: NonZeroUsize::new(16).unwrap(),
+            soft_max_font_atlases: NonZeroUsize::new(16).unwrap(),
             allow_dynamic_font_size: false,
         }
     }
 }
 
+/// This resource tracks whether or not a warning has been emitted due to the number
+/// of font atlases exceeding the [`TextSettings::soft_max_font_atlases`] setting.
 #[derive(Resource, Default)]
 pub struct FontAtlasWarning {
     warned: bool,
 }
 
-/// Text is rendered for two different view projections, normal `Text2DBundle` is rendered with a
-/// `BottomToTop` y axis, and UI is rendered with a `TopToBottom` y axis. This matters for text because
+/// Text is rendered for two different view projections, a [`Text2dBundle`] is rendered with a
+/// `BottomToTop` y axis, while UI is rendered with a `TopToBottom` y axis. This matters for text because
 /// the glyph positioning is different in either layout.
 pub enum YAxisOrientation {
     TopToBottom,
     BottomToTop,
 }
 
-pub const DEFAULT_FONT_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Font::TYPE_UUID, 1491772431825224042);
-
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<Font>()
-            .add_debug_asset::<Font>()
-            .add_asset::<FontAtlasSet>()
+        app.init_asset::<Font>()
             .register_type::<Text>()
             .register_type::<Text2dBounds>()
             .register_type::<TextSection>()
@@ -88,15 +90,19 @@ impl Plugin for TextPlugin {
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()
+            .init_resource::<FontAtlasSets>()
             .insert_resource(TextPipeline::default())
             .add_systems(
                 PostUpdate,
-                update_text2d_layout
-                    // Potential conflict: `Assets<Image>`
-                    // In practice, they run independently since `bevy_render::camera_update_system`
-                    // will only ever observe its own render target, and `update_text2d_layout`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem),
+                (
+                    update_text2d_layout
+                        // Potential conflict: `Assets<Image>`
+                        // In practice, they run independently since `bevy_render::camera_update_system`
+                        // will only ever observe its own render target, and `update_text2d_layout`
+                        // will never modify a pre-existing `Image` asset.
+                        .ambiguous_with(CameraUpdateSystem),
+                    font_atlas_set::remove_dropped_font_atlas_sets,
+                ),
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -109,7 +115,7 @@ impl Plugin for TextPlugin {
         #[cfg(feature = "default_font")]
         load_internal_binary_asset!(
             app,
-            DEFAULT_FONT_HANDLE,
+            Handle::default(),
             "FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );

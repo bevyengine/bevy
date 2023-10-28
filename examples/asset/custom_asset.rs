@@ -1,15 +1,17 @@
 //! Implements loader for a custom asset type.
 
+use bevy::utils::thiserror;
 use bevy::{
-    asset::{AssetLoader, LoadContext, LoadedAsset},
+    asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     utils::BoxedFuture,
 };
+use futures_lite::AsyncReadExt;
 use serde::Deserialize;
+use thiserror::Error;
 
-#[derive(Debug, Deserialize, TypeUuid, TypePath)]
-#[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
+#[derive(Asset, TypePath, Debug, Deserialize)]
 pub struct CustomAsset {
     pub value: i32,
 }
@@ -17,16 +19,33 @@ pub struct CustomAsset {
 #[derive(Default)]
 pub struct CustomAssetLoader;
 
+/// Possible errors that can be produced by [`CustomAssetLoader`]
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum CustomAssetLoaderError {
+    /// An [IO](std::io) Error
+    #[error("Could load shader: {0}")]
+    Io(#[from] std::io::Error),
+    /// A [RON](ron) Error
+    #[error("Could not parse RON: {0}")]
+    RonSpannedError(#[from] ron::error::SpannedError),
+}
+
 impl AssetLoader for CustomAssetLoader {
+    type Asset = CustomAsset;
+    type Settings = ();
+    type Error = CustomAssetLoaderError;
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), bevy::asset::Error>> {
+        reader: &'a mut Reader,
+        _settings: &'a (),
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
-            let custom_asset = ron::de::from_bytes::<CustomAsset>(bytes)?;
-            load_context.set_default_asset(LoadedAsset::new(custom_asset));
-            Ok(())
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let custom_asset = ron::de::from_bytes::<CustomAsset>(&bytes)?;
+            Ok(custom_asset)
         })
     }
 
@@ -39,7 +58,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<State>()
-        .add_asset::<CustomAsset>()
+        .init_asset::<CustomAsset>()
         .init_asset_loader::<CustomAssetLoader>()
         .add_systems(Startup, setup)
         .add_systems(Update, print_on_load)
