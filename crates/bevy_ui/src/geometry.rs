@@ -169,7 +169,7 @@ impl Display for Val {
         };
         value.fmt(f)?;
         write!(f, "{suffix}")
-  }
+    }
 }
 
 impl Neg for Val {
