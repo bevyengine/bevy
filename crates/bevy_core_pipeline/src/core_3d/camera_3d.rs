@@ -124,7 +124,7 @@ pub enum ScreenSpaceTransmissionQuality {
     #[default]
     Medium,
 
-    /// Best quality. Suitable for high end GPUs. (e.g. Desktop)
+    /// Better quality. Suitable for high end GPUs. (e.g. Desktop)
     ///
     /// `num_taps` = 16
     High,
