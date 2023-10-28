@@ -309,8 +309,8 @@ impl Rect {
         r
     }
 
-    /// Express the coordinates of this rectangle relative to a normalized [0..1] x [0..1] space
-    /// defined by another rectangle.
+    /// Build a new rectangle from this one with its coordinates expressed
+    /// relative to `other` in a normalized ([0..1] x [0..1]) coordinate system.
     ///
     /// # Examples
     ///
