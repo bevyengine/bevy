@@ -1,7 +1,9 @@
 use crate::mesh::{Indices, Mesh};
 use wgpu::PrimitiveTopology;
 
-/// A cone which stands on the XZ plane
+/// A cone which stands on the XZ plane.
+///
+/// If either radius is 0., the tip will be sharp. Otherwise, the cone will appear truncated, with flat surfaces on either end.
 #[derive(Clone, Copy, Debug)]
 pub struct Cone {
     /// Radius in the XZ plane at the upper face.
