@@ -14,10 +14,45 @@ use bevy_utils::Duration;
 #[reflect(Default)]
 pub struct Timer {
     stopwatch: Stopwatch,
-    duration: Duration,
+    non_zero_duration: NonZeroDuration,
     mode: TimerMode,
     finished: bool,
     times_finished_this_tick: u32,
+}
+
+/// A new-typed [`Duration`] measure of elaspsed time that is never [`Duration::ZERO`].
+///
+/// Interally, this snsures that `duration` is never zero when being used in [`Timer`]. This simplifies edge cases
+/// and removes the need for repeated runtime checks for zero duration in [Timer::tick](Timer::tick)
+#[derive(Clone, Debug, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
+#[reflect(Default)]
+pub struct NonZeroDuration {
+    duration: Duration,
+}
+
+impl Default for NonZeroDuration {
+    fn default() -> Self {
+        Self {
+            duration: Duration::new(1, 0),
+        }
+    }
+}
+
+impl NonZeroDuration {
+    /// Creates a duration that is guaranteed to never be zero
+    ///
+    /// # Panics
+    ///
+    /// Panics if construction is attempted with a duration that is zero
+    pub fn new(duration: Duration) -> Self {
+        // Runtime Check
+        if duration.is_zero() {
+            panic!("NonZeroDuration constructed with Duration that was zero")
+        }
+
+        Self { duration }
+    }
 }
 
 impl Timer {
@@ -26,7 +61,7 @@ impl Timer {
     /// See also [`Timer::from_seconds`](Timer::from_seconds).
     pub fn new(duration: Duration, mode: TimerMode) -> Self {
         Self {
-            duration,
+            non_zero_duration: NonZeroDuration::new(duration),
             mode,
             ..Default::default()
         }
@@ -41,7 +76,7 @@ impl Timer {
     /// ```
     pub fn from_seconds(duration: f32, mode: TimerMode) -> Self {
         Self {
-            duration: Duration::from_secs_f32(duration),
+            non_zero_duration: NonZeroDuration::new(Duration::from_secs_f32(duration)),
             mode,
             ..Default::default()
         }
@@ -147,7 +182,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn duration(&self) -> Duration {
-        self.duration
+        self.non_zero_duration.duration
     }
 
     /// Sets the duration of the timer.
@@ -162,7 +197,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn set_duration(&mut self, duration: Duration) {
-        self.duration = duration;
+        self.non_zero_duration = NonZeroDuration::new(duration);
     }
 
     /// Returns the mode of the timer.
@@ -234,17 +269,10 @@ impl Timer {
 
         if self.finished() {
             if self.mode == TimerMode::Repeating {
-                self.times_finished_this_tick = self
-                    .elapsed()
-                    .as_nanos()
-                    .checked_div(self.duration().as_nanos())
-                    .map_or(u32::MAX, |x| x as u32);
-                self.set_elapsed(
-                    self.elapsed()
-                        .as_nanos()
-                        .checked_rem(self.duration().as_nanos())
-                        .map_or(Duration::ZERO, |x| Duration::from_nanos(x as u64)),
-                );
+                self.times_finished_this_tick =
+                    (self.elapsed().as_nanos() / self.duration().as_nanos()) as u32;
+                // Duration does not have a modulo
+                self.set_elapsed(self.elapsed() - self.duration() * self.times_finished_this_tick);
             } else {
                 self.times_finished_this_tick = 1;
                 self.set_elapsed(self.duration());
@@ -346,11 +374,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn percent(&self) -> f32 {
-        if self.duration == Duration::ZERO {
-            1.0
-        } else {
-            self.elapsed().as_secs_f32() / self.duration().as_secs_f32()
-        }
+        self.elapsed().as_secs_f32() / self.duration().as_secs_f32()
     }
 
     /// Returns the percentage of the timer remaining time (goes from 1.0 to 0.0).
@@ -539,26 +563,6 @@ mod tests {
     }
 
     #[test]
-    fn times_finished_this_tick_repeating_zero_duration() {
-        let mut t = Timer::from_seconds(0.0, TimerMode::Repeating);
-        assert_eq!(t.times_finished_this_tick(), 0);
-        assert_eq!(t.elapsed(), Duration::ZERO);
-        assert_eq!(t.percent(), 1.0);
-        t.tick(Duration::from_secs(1));
-        assert_eq!(t.times_finished_this_tick(), u32::MAX);
-        assert_eq!(t.elapsed(), Duration::ZERO);
-        assert_eq!(t.percent(), 1.0);
-        t.tick(Duration::from_secs(2));
-        assert_eq!(t.times_finished_this_tick(), u32::MAX);
-        assert_eq!(t.elapsed(), Duration::ZERO);
-        assert_eq!(t.percent(), 1.0);
-        t.reset();
-        assert_eq!(t.times_finished_this_tick(), 0);
-        assert_eq!(t.elapsed(), Duration::ZERO);
-        assert_eq!(t.percent(), 1.0);
-    }
-
-    #[test]
     fn times_finished_this_tick_precise() {
         let mut t = Timer::from_seconds(0.01, TimerMode::Repeating);
         let duration = Duration::from_secs_f64(0.333);
@@ -603,5 +607,30 @@ mod tests {
         t.tick(Duration::from_secs_f32(5.0));
         assert!(!t.just_finished());
         assert!(!t.finished());
+    }
+
+    #[test]
+    fn default_non_zero_duration() {
+        let non_zero_duration = NonZeroDuration::default();
+        assert!(non_zero_duration.duration.as_secs_f32() == 1.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn zero_duration_nonzero_duration_panics() {
+        let _zero_duration: NonZeroDuration = NonZeroDuration::new(Duration::new(0, 0));
+    }
+
+    #[test]
+    #[should_panic]
+    fn timer_from_seconds_zero() {
+        let _t = Timer::from_seconds(0.0, TimerMode::Repeating);
+    }
+
+    #[test]
+    #[should_panic]
+    fn timer_set_zero_duration() {
+        let mut t = Timer::from_seconds(1.0, TimerMode::Repeating);
+        t.set_duration(Duration::ZERO);
     }
 }
