@@ -7,7 +7,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_gizmo_config::<MyGizmoConfig>()
+        .init_gizmo_config::<MyRoundGizmoConfig>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, rotate_camera, update_config))
         .run();
@@ -15,9 +15,9 @@ fn main() {
 
 // We can create our own gizmo config!
 #[derive(Default)]
-struct MyGizmoConfig {}
+struct MyRoundGizmoConfig {}
 
-impl CustomGizmoConfig for MyGizmoConfig {}
+impl CustomGizmoConfig for MyRoundGizmoConfig {}
 
 fn setup(
     mut commands: Commands,
@@ -75,7 +75,7 @@ fn setup(
     );
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyGizmoConfig>, time: Res<Time>) {
+fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmoConfig>, time: Res<Time>) {
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         Color::BLACK,
@@ -146,7 +146,7 @@ fn update_config(
         config.enabled ^= true;
     }
 
-    let (my_config, _) = config_store.get_mut::<MyGizmoConfig>();
+    let (my_config, _) = config_store.get_mut::<MyRoundGizmoConfig>();
     if keyboard.pressed(KeyCode::Up) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
