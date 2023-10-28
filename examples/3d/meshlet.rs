@@ -94,7 +94,8 @@ fn setup(
                 }),
                 transform: Transform::default()
                     .with_rotation(Quat::from_rotation_x(PI / 2.0))
-                    .with_translation(Vec3::new(1.0, 0.0, 0.0)),
+                    .with_translation(Vec3::new(1.0, 0.0, 0.0))
+                    .with_scale(Vec3::splat(0.5)),
                 ..default()
             });
         }
