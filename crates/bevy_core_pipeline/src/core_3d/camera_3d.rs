@@ -31,7 +31,8 @@ pub struct Camera3d {
     /// specular transmissive objects. Each step requires making one additional
     /// texture copy, so it's recommended to keep this number to a resonably low value. Defaults to `1`.
     ///
-    /// ### Notes:
+    /// ### Notes
+    ///
     /// - No copies will be performed if there are no transmissive materials currently being rendered,
     ///   regardless of this setting.
     /// - Setting this to `0` disables the screen-space refraction effect entirely, and falls
