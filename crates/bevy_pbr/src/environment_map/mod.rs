@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    pipeline_keys::{AddPipelineKey, PipelineKey, WorldKey},
+    pipeline_keys::{AddPipelineKey, PipelineKey, SystemKey},
     render_asset::RenderAssets,
     render_resource::*,
     texture::{FallbackImageCubemap, Image},
@@ -39,7 +39,7 @@ impl Plugin for EnvironmentMapPlugin {
             .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.register_world_key::<EnvironmentMapKey, With<ExtractedView>>();
+            render_app.register_system_key::<EnvironmentMapKey, With<ExtractedView>>();
         }
     }
 }
@@ -132,7 +132,7 @@ pub enum EnvironmentMapKey {
     Off,
     On,
 }
-impl WorldKey for EnvironmentMapKey {
+impl SystemKey for EnvironmentMapKey {
     type Param = SRes<RenderAssets<Image>>;
     type Query = Option<Read<EnvironmentMapLight>>;
 

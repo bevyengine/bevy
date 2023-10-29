@@ -5,7 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
-    pipeline_keys::{PipelineKey, WorldKey, PipelineKeys},
+    pipeline_keys::{PipelineKey, SystemKey, PipelineKeys},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -1787,7 +1787,7 @@ pub enum DepthClampOrthoKey {
     Off,
     On,
 }
-impl WorldKey for DepthClampOrthoKey {
+impl SystemKey for DepthClampOrthoKey {
     type Param = ();
     type Query = Option<Read<LightEntity>>;
 

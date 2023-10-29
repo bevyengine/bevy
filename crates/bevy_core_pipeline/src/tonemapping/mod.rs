@@ -11,7 +11,7 @@ use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageTyp
 use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{
     camera::Camera,
-    pipeline_keys::{AddPipelineKey, PipelineKey, WorldKey},
+    pipeline_keys::{AddPipelineKey, PipelineKey, SystemKey},
     view::ExtractedView,
 };
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
@@ -103,8 +103,8 @@ impl Plugin for TonemappingPlugin {
                     Render,
                     prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
                 )
-                .register_world_key::<DebandDitherKey, With<ExtractedView>>()
-                .register_world_key::<TonemappingKey, With<ExtractedView>>();
+                .register_system_key::<DebandDitherKey, With<ExtractedView>>()
+                .register_system_key::<TonemappingKey, With<ExtractedView>>();
         }
     }
 
@@ -438,7 +438,7 @@ pub enum TonemappingKey {
     BlenderFilmic,
 }
 
-impl WorldKey for TonemappingKey {
+impl SystemKey for TonemappingKey {
     type Param = ();
 
     type Query = Option<Read<Tonemapping>>;

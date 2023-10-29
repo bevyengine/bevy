@@ -32,7 +32,7 @@ use std::{cmp::Reverse, ops::Range};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    pipeline_keys::{PipelineKey, WorldKey},
+    pipeline_keys::{PipelineKey, SystemKey},
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
@@ -224,7 +224,7 @@ pub struct PrepassKey {
     pub motion_vector: bool,
     pub deferred: bool,
 }
-impl WorldKey for PrepassKey {
+impl SystemKey for PrepassKey {
     type Param = ();
     type Query = (
         Has<DepthPrepass>,

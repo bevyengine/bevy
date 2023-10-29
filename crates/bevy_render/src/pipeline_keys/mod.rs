@@ -133,6 +133,12 @@ impl KeyMetaStore {
     }
 }
 
+pub struct PackedPipelineKey<T: AnyKeyType> {
+    packed: u32,
+    size: u8,
+    _p: PhantomData<fn() -> T>
+}
+
 pub trait KeyTypeConcrete {
     fn unpack(value: u32, store: &KeyMetaStore) -> Self;
 
@@ -270,7 +276,7 @@ pub trait FixedSizeKey: 'static {
     fn fixed_size() -> u8;
 }
 
-pub trait WorldKey: AnyKeyType + KeyTypeConcrete + FixedSizeKey + Default {
+pub trait SystemKey: AnyKeyType + KeyTypeConcrete + FixedSizeKey {
     type Param: SystemParam + 'static;
     type Query: ReadOnlyWorldQuery + 'static;
 
@@ -288,7 +294,7 @@ pub trait WorldKey: AnyKeyType + KeyTypeConcrete + FixedSizeKey + Default {
 pub trait DynamicKey: AnyKeyType + KeyTypeConcrete {}
 
 pub trait AddPipelineKey {
-    fn register_world_key<K: WorldKey, F: ReadOnlyWorldQuery + 'static>(
+    fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(
         &mut self,
     ) -> &mut Self;
     fn register_composite_key<K: CompositeKey, F: ReadOnlyWorldQuery + 'static>(
@@ -296,11 +302,11 @@ pub trait AddPipelineKey {
     ) -> &mut Self;
     fn register_dynamic_key<K: DynamicKey, F: ReadOnlyWorldQuery + 'static>(&mut self)
         -> &mut Self;
-    fn register_dynamic_key_part<K: AnyKeyType, PART: AnyKeyType>(&mut self) -> &mut Self;
+    fn register_dynamic_key_part<K: DynamicKey, PART: AnyKeyType>(&mut self) -> &mut Self;
 }
 
 impl AddPipelineKey for App {
-    fn register_world_key<K: WorldKey, F: ReadOnlyWorldQuery + 'static>(
+    fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(
         &mut self,
     ) -> &mut Self {
         self.world
@@ -355,7 +361,7 @@ impl AddPipelineKey for App {
         self
     }
 
-    fn register_dynamic_key<K: AnyKeyType, F: ReadOnlyWorldQuery + 'static>(
+    fn register_dynamic_key<K: DynamicKey, F: ReadOnlyWorldQuery + 'static>(
         &mut self,
     ) -> &mut Self {
         self.world
@@ -386,7 +392,7 @@ impl AddPipelineKey for App {
         self
     }
 
-    fn register_dynamic_key_part<K: AnyKeyType, PART: AnyKeyType>(&mut self) -> &mut Self {
+    fn register_dynamic_key_part<K: DynamicKey, PART: AnyKeyType>(&mut self) -> &mut Self {
         let mut store = self.world.resource_mut::<KeyMetaStore>();
         store.add_dynamic_part::<K, PART>();
         self.configure_sets(
@@ -413,7 +419,7 @@ macro_rules! impl_has_world_key {
             Off,
             On,
         }
-        impl WorldKey for $key {
+        impl SystemKey for $key {
             type Param = ();
             type Query = bevy_ecs::prelude::Has<$component>;
 

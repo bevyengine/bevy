@@ -11,7 +11,7 @@ use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    pipeline_keys::{AddPipelineKey, WorldKey},
+    pipeline_keys::{AddPipelineKey, SystemKey},
     render_resource::ShaderDefVal,
     view::ExtractedView,
     RenderApp,
@@ -55,7 +55,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.register_world_key::<ViewProjectionKey, With<ExtractedView>>();
+            render_app.register_system_key::<ViewProjectionKey, With<ExtractedView>>();
         }
     }
 }
@@ -346,7 +346,7 @@ pub enum ViewProjectionKey {
     Orthographic,
 }
 
-impl WorldKey for ViewProjectionKey {
+impl SystemKey for ViewProjectionKey {
     type Param = ();
 
     type Query = Option<Read<Projection>>;

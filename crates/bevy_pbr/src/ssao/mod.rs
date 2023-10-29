@@ -74,7 +74,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.register_world_key::<SsaoKey, With<ExtractedView>>();
+            render_app.register_system_key::<SsaoKey, With<ExtractedView>>();
         }
     }
 

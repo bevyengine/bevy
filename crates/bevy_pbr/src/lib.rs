@@ -357,8 +357,8 @@ impl Plugin for PbrPlugin {
         );
 
         render_app
-            .register_world_key::<DepthClampOrthoKey, With<ExtractedView>>()
-            .register_world_key::<ShadowFilteringKey, With<ExtractedView>>()
+            .register_system_key::<DepthClampOrthoKey, With<ExtractedView>>()
+            .register_system_key::<ShadowFilteringKey, With<ExtractedView>>()
             .register_composite_key::<PbrViewKey, With<ExtractedView>>()
             .register_dynamic_key::<PbrViewKeyDynamic, With<ExtractedView>>()
             .register_dynamic_key_part::<PbrViewKeyDynamic, PrepassKey>()

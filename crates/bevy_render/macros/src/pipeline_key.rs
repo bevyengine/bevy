@@ -15,7 +15,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
         Data::Enum(DataEnum { variants, .. }) => {
             for variant in variants {
                 if !variant.fields.is_empty() {
-                    return Err(Error::new_spanned(ast, "Expected a unit enum or a struct"));
+                    return Err(Error::new_spanned(ast, "PipelineKey target must be either a unit enum or a struct of KeyTypes"));
                 }
             }
 
@@ -82,7 +82,6 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
                         fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
                             let res = store.meta::<Self>().dynamic_components.clone();
-                            println!("keys: {res:?}");
                             res
                         }
     
@@ -167,7 +166,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
         }
         _ => Err(Error::new_spanned(
             ast,
-            "PipelineKey must be either a unit enum or a struct of KeyTypes",
+            "PipelineKey target must be either a unit enum or a struct of KeyTypes",
         ))
     }
 }

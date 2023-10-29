@@ -8,7 +8,7 @@ use bevy_render::{
     color::Color,
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
-    pipeline_keys::{PipelineKey, WorldKey},
+    pipeline_keys::{PipelineKey, SystemKey},
     prelude::Projection,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
@@ -2279,7 +2279,7 @@ pub enum ShadowFilteringKey {
     Jimenez14,
 }
 
-impl WorldKey for ShadowFilteringKey {
+impl SystemKey for ShadowFilteringKey {
     type Param = ();
 
     type Query = Option<Read<ShadowFilteringMethod>>;

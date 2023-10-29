@@ -70,7 +70,7 @@ macro_rules! impl_composite_key_tuples {
             }
         }
 
-        impl<$($K: AnyKeyType + KeyTypeConcrete + Default),*> CompositeKey for ($($K,)*) {
+        impl<$($K: AnyKeyType + KeyTypeConcrete),*> CompositeKey for ($($K,)*) {
             fn from_keys(keys: &PipelineKeys) -> Option<(u32, u8)> {
                 let mut result = 0u32;
                 let mut size = 0u8;

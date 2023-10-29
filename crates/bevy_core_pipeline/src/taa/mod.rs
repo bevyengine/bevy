@@ -83,7 +83,7 @@ impl Plugin for TemporalAntiAliasPlugin {
                     core_3d::graph::node::TONEMAPPING,
                 ],
             )
-            .register_world_key::<TaaKey, With<ExtractedView>>();
+            .register_system_key::<TaaKey, With<ExtractedView>>();
     }
 
     fn finish(&self, app: &mut App) {

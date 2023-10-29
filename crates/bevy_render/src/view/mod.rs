@@ -10,7 +10,7 @@ pub use window::*;
 use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    pipeline_keys::{AddPipelineKey, WorldKey},
+    pipeline_keys::{AddPipelineKey, SystemKey},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -70,8 +70,8 @@ impl Plugin for ViewPlugin {
                         prepare_view_uniforms.in_set(RenderSet::PrepareResources),
                     ),
                 )
-                .register_world_key::<MsaaKey, With<ExtractedView>>()
-                .register_world_key::<HdrKey, With<ExtractedView>>();
+                .register_system_key::<MsaaKey, With<ExtractedView>>()
+                .register_system_key::<HdrKey, With<ExtractedView>>();
         }
     }
 }
@@ -540,7 +540,7 @@ pub enum MsaaKey {
     X64,
     X128,
 }
-impl WorldKey for MsaaKey {
+impl SystemKey for MsaaKey {
     type Param = SRes<Msaa>;
     type Query = ();
 
@@ -562,9 +562,9 @@ impl MsaaKey {
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, PartialEq)]
+#[derive(PipelineKeyInRenderCrate, Clone, Copy, PartialEq)]
 pub struct HdrKey(pub bool);
-impl WorldKey for HdrKey {
+impl SystemKey for HdrKey {
     type Param = ();
     type Query = Read<ExtractedView>;
 

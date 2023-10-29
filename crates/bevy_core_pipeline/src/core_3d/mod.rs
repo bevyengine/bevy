@@ -156,7 +156,7 @@ impl Plugin for Core3dPlugin {
                     UPSCALING,
                 ],
             )
-            .register_world_key::<PrepassKey, With<ExtractedView>>();
+            .register_system_key::<PrepassKey, With<ExtractedView>>();
     }
 }
 
