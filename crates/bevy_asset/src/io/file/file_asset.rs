@@ -1,6 +1,3 @@
-#[cfg(feature = "file_watcher")]
-pub use file_watcher::*;
-
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
     Reader, Writer,
