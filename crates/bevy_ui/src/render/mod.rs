@@ -202,7 +202,7 @@ pub fn extract_atlas_uinodes(
         )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || color.0.a() == 0.0 {
+            if !view_visibility.get() || color.0.is_fully_transparent() {
                 continue;
             }
 
@@ -306,7 +306,7 @@ pub fn extract_uinode_borders(
         {
             // Skip invisible borders
             if !view_visibility.get()
-                || border_color.0.a() == 0.0
+                || border_color.0.is_fully_transparent()
                 || node.size().x <= 0.
                 || node.size().y <= 0.
             {
@@ -413,7 +413,10 @@ pub fn extract_uinode_outlines(
             uinode_query.get(*entity)
         {
             // Skip invisible outlines
-            if !view_visibility.get() || outline.color.a() == 0. || node.outline_width == 0. {
+            if !view_visibility.get()
+                || outline.color.is_fully_transparent()
+                || node.outline_width == 0.
+            {
                 continue;
             }
 
@@ -508,7 +511,7 @@ pub fn extract_uinodes(
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || color.0.a() == 0.0 {
+            if !view_visibility.get() || color.0.is_fully_transparent() {
                 continue;
             }
 
