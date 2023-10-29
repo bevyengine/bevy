@@ -149,19 +149,19 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // Calculate final offset position, with blur and spiral offset
         let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_checkboard) * 0.1);
 
-#ifdef DEPTH_PREPASS
-        // Use depth prepass data to reject values that are in front of the current fragment
-        if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
-            continue;
-        }
-#endif
-
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
-        let sample = textureSample(
+        var sample = textureSample(
             view_bindings::view_transmission_texture,
             view_bindings::view_transmission_sampler,
             modified_offset_position,
         );
+
+#ifdef DEPTH_PREPASS
+        // Use depth prepass data to reject values that are in front of the current fragment
+        if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
+            sample = vec4<f32>(0.0);
+        }
+#endif
 
         // As blur intensity grows higher, gradually limit *very bright* color RGB values towards a
         // maximum length of 1.0 to prevent stray “firefly” pixel artifacts. This can potentially make
