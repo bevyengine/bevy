@@ -253,7 +253,7 @@ pub struct Style {
     pub justify_self: JustifySelf,
 
     /// Used to control how items are distributed.
-    /// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
     /// - For CSS Grid containers, controls alignment of grid rows.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
@@ -590,7 +590,7 @@ impl Default for JustifySelf {
 }
 
 /// Used to control how items are distributed.
-/// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+/// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
 /// - For CSS Grid containers, controls alignment of grid rows.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
