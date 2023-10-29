@@ -549,6 +549,18 @@ impl Default for UiRect {
     }
 }
 
+impl Display for UiRect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.left.fmt(f)?;
+        write!(f, " ")?;
+        self.right.fmt(f)?;
+        write!(f, " ")?;
+        self.top.fmt(f)?;
+        write!(f, " ")?;
+        self.bottom.fmt(f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
