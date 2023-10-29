@@ -9,7 +9,7 @@ use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
-    primitives::Frustum,
+    primitives::{Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -390,16 +390,7 @@ pub fn prepare_view_uniforms(
         };
 
         let frustum = frustum
-            .map(|frustum| {
-                [
-                    frustum.half_spaces[0].normal_d(),
-                    frustum.half_spaces[1].normal_d(),
-                    frustum.half_spaces[2].normal_d(),
-                    frustum.half_spaces[3].normal_d(),
-                    frustum.half_spaces[4].normal_d(),
-                    frustum.half_spaces[5].normal_d(),
-                ]
-            })
+            .map(|frustum| frustum.half_spaces.map(HalfSpace::normal_d))
             .unwrap_or([Vec4::ZERO; 6]);
 
         let view_uniforms = ViewUniformOffset {
