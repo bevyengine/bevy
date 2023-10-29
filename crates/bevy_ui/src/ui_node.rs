@@ -216,7 +216,8 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
     pub aspect_ratio: Option<f32>,
 
-    /// - For Flexbox containers, sets default cross-axis alignment of the child items.
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, sets default cross axis alignment of the child items.
     /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
     /// This value is overridden if [`AlignSelf`] on the child node is set.
@@ -224,7 +225,8 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
 
-    /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
     /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
     /// This value is overridden if [`JustifySelf`] on the child node is set.
@@ -232,7 +234,8 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
 
-    /// - For Flexbox items, controls cross-axis alignment of the item.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, controls cross axis alignment of the item.
     /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
@@ -240,7 +243,8 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
     pub align_self: AlignSelf,
 
-    /// - For Flexbox items, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
     /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
@@ -248,12 +252,14 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
     pub justify_self: JustifySelf,
 
+    /// Used to control how items are distributed.
     /// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
     /// - For CSS Grid containers, controls alignment of grid rows.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
     pub align_content: AlignContent,
 
+    /// Used to control how items are distributed.
     /// - For Flexbox containers, controls alignment of items in the main axis.
     /// - For CSS Grid containers, controls alignment of grid columns.
     ///
@@ -443,27 +449,33 @@ impl Default for Style {
     }
 }
 
-/// How items are aligned according to the cross axis
+/// Used to control how each individual item is aligned by default within the space they're given.
+/// - For Flexbox containers, sets default cross axis alignment of the child items.
+/// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
+///
+/// This value is overridden if [`AlignSelf`] on the child node is set.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed towards the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed towards the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then they are packed towards the end of the axis.
     FlexStart,
-    /// Items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then they are packed towards the start of the axis.
     FlexEnd,
-    /// Items are aligned at the center.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Items are aligned at the baseline.
+    /// The items are packed such that their baselines align.
     Baseline,
-    /// Items are stretched across the whole cross axis.
+    /// The items are stretched to fill the space they're given.
     Stretch,
 }
 
@@ -477,21 +489,27 @@ impl Default for AlignItems {
     }
 }
 
-/// How items are aligned according to the main axis
+/// Used to control how each individual item is aligned by default within the space they're given.
+/// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
+/// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
+///
+/// This value is overridden if [`JustifySelf`] on the child node is set.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed towards the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed towards the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Items are aligned at the center.
+    /// The items are packed along the center of the axis
     Center,
-    /// Items are aligned at the baseline.
+    /// The items are packed such that their baselines align.
     Baseline,
-    /// Items are stretched across the whole main axis.
+    /// The items are stretched to fill the space they're given.
     Stretch,
 }
 
@@ -505,8 +523,10 @@ impl Default for JustifyItems {
     }
 }
 
-/// How this item is aligned according to the cross axis.
-/// Overrides [`AlignItems`].
+/// Used to control how the specified item is aligned within the space it's given.
+/// - For Flexbox items, controls cross axis alignment of the item.
+/// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
@@ -522,11 +542,11 @@ pub enum AlignSelf {
     /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the start of the axis.
     FlexEnd,
-    /// This item will be aligned at the center.
+    /// This item will be aligned along the center of the axis.
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole cross axis.
+    /// This item will be stretched to fill the container.
     Stretch,
 }
 
@@ -540,8 +560,10 @@ impl Default for AlignSelf {
     }
 }
 
-/// How this item is aligned according to the main axis.
-/// Overrides [`JustifyItems`].
+/// Used to control how the specified item is aligned within the space it's given.
+/// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
+/// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifySelf {
@@ -551,11 +573,11 @@ pub enum JustifySelf {
     Start,
     /// This item will be aligned with the end of the axis.
     End,
-    /// This item will be aligned at the center.
+    /// This item will be aligned along the center of the axis.
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole main axis.
+    /// This item will be stretched to fill the space it's given.
     Stretch,
 }
 
@@ -569,34 +591,35 @@ impl Default for JustifySelf {
     }
 }
 
-/// Defines how each line is aligned within the flexbox.
+/// Used to control how items are distributed.
+/// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+/// - For CSS Grid containers, controls alignment of grid rows.
 ///
-/// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Each line moves towards the start of the cross axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Each line moves towards the end of the cross axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Each line moves towards the start of the cross axis, unless the flex direction is reversed; then the line moves towards the end of the cross axis.
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the end of the axis.
     FlexStart,
-    /// Each line moves towards the end of the cross axis, unless the flex direction is reversed; then the line moves towards the start of the cross axis.
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the start of the axis.
     FlexEnd,
-    /// Each line moves towards the center of the cross axis.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Each line will stretch to fill the remaining space.
+    /// The items are stretched to fill the container along the axis.
     Stretch,
-    /// Each line fills the space it needs, putting the remaining space, if any,
-    /// between the lines.
+    /// The items are distributed such that the gap between any two items is equal.
     SpaceBetween,
-    /// The gap between the first and last items is exactly the same as the gap between items.
-    /// The gaps are distributed evenly.
+    /// The items are distributed such that the gap between and around any two items is equal.
     SpaceEvenly,
-    /// Each line fills the space it needs, putting the remaining space, if any,
-    /// around the lines.
+    /// The items are distributed such that the gap between and around any two items is equal, with half-size gaps on either end.
     SpaceAround,
 }
 
@@ -610,28 +633,36 @@ impl Default for AlignContent {
     }
 }
 
-/// Defines how items are aligned according to the main axis
+/// Used to control how items are distributed.
+/// - For Flexbox containers, controls alignment of items in the main axis.
+/// - For CSS Grid containers, controls alignment of grid columns.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed toward the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed toward the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Pushed towards the start, unless the flex direction is reversed; then pushed towards the end.
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the end of the axis.
     FlexStart,
-    /// Pushed towards the end, unless the flex direction is reversed; then pushed towards the start.
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the start of the axis.
     FlexEnd,
-    /// Centered along the main axis.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Remaining space is distributed between the items.
+    /// The items are stretched to fill the container along the axis.
+    Stretch,
+    /// The items are distributed such that the gap between any two items is equal.
     SpaceBetween,
-    /// Remaining space is distributed around the items.
-    SpaceAround,
-    /// Like [`JustifyContent::SpaceAround`] but with even spacing between items.
+    /// The items are distributed such that the gap between and around any two items is equal.
     SpaceEvenly,
+    /// The items are distributed such that the gap between and around any two items is equal, with half-size gaps on either end.
+    SpaceAround,
 }
 
 impl JustifyContent {
@@ -937,7 +968,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Px(value),
             max_sizing_function: MaxTrackSizingFunction::Px(value),
         }
-        .into()
+            .into()
     }
 
     /// Create a grid track with a percentage size
@@ -946,7 +977,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Percent(value),
             max_sizing_function: MaxTrackSizingFunction::Percent(value),
         }
-        .into()
+            .into()
     }
 
     /// Create a grid track with an `fr` size.
@@ -957,7 +988,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::Fraction(value),
         }
-        .into()
+            .into()
     }
 
     /// Create a grid track with a `minmax(0, Nfr)` size.
@@ -966,7 +997,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Px(0.0),
             max_sizing_function: MaxTrackSizingFunction::Fraction(value),
         }
-        .into()
+            .into()
     }
 
     /// Create a grid track which is automatically sized to fit its contents.
@@ -975,7 +1006,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::Auto,
         }
-        .into()
+            .into()
     }
 
     /// Create a grid track which is automatically sized to fit its contents when sized at their "min-content" sizes
@@ -984,7 +1015,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::MinContent,
             max_sizing_function: MaxTrackSizingFunction::MinContent,
         }
-        .into()
+            .into()
     }
 
     /// Create a grid track which is automatically sized to fit its contents when sized at their "max-content" sizes
@@ -993,7 +1024,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::MaxContent,
             max_sizing_function: MaxTrackSizingFunction::MaxContent,
         }
-        .into()
+            .into()
     }
 
     /// Create a fit-content() grid track with fixed pixel limit
@@ -1004,7 +1035,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::FitContentPx(limit),
         }
-        .into()
+            .into()
     }
 
     /// Create a fit-content() grid track with percentage limit
@@ -1015,7 +1046,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::FitContentPercent(limit),
         }
-        .into()
+            .into()
     }
 
     /// Create a minmax() grid track
@@ -1026,7 +1057,7 @@ impl GridTrack {
             min_sizing_function: min,
             max_sizing_function: max,
         }
-        .into()
+            .into()
     }
 }
 
@@ -1100,7 +1131,7 @@ impl RepeatedGridTrack {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::px(value)]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of grid tracks with a percentage size
@@ -1109,7 +1140,7 @@ impl RepeatedGridTrack {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::percent(value)]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of grid tracks with automatic size
@@ -1118,7 +1149,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::auto()]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of grid tracks with an `fr` size.
@@ -1129,7 +1160,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::fr(value)]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of grid tracks with a `minmax(0, Nfr)` size.
@@ -1138,7 +1169,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::flex(value)]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of grid tracks with min-content size
@@ -1147,7 +1178,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::min_content()]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of grid tracks with max-content size
@@ -1156,7 +1187,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::max_content()]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of fit-content() grid tracks with fixed pixel limit
@@ -1165,7 +1196,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::fit_content_px(limit)]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of fit-content() grid tracks with percentage limit
@@ -1174,7 +1205,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::fit_content_percent(limit)]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repeating set of minmax() grid track
@@ -1187,7 +1218,7 @@ impl RepeatedGridTrack {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::minmax(min, max)]),
         }
-        .into()
+            .into()
     }
 
     /// Create a repetition of a set of tracks
@@ -1199,7 +1230,7 @@ impl RepeatedGridTrack {
             repetition: repetition.into(),
             tracks: SmallVec::from_vec(tracks.into()),
         }
-        .into()
+            .into()
     }
 }
 
