@@ -563,6 +563,7 @@ impl Color {
     /// assert!(!Color::BLACK.is_fully_transparent());
     /// assert!(!Color::rgba(1.0, 0.5, 0.5, 0.2).is_fully_transparent());
     /// ```
+    #[inline(always)]
     pub fn is_fully_transparent(&self) -> bool {
         self.a() == 0.0
     }
