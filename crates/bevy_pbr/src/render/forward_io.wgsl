@@ -33,17 +33,21 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
+
 #ifdef VERTEX_UVS
     @location(2) uv: vec2<f32>,
 #endif
+
 #ifdef VERTEX_TANGENTS
     @location(3) world_tangent: vec4<f32>,
 #endif
+
 #ifdef VERTEX_COLORS
     @location(4) color: vec4<f32>,
 #endif
-#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
-    @location(5) @interpolate(flat) instance_index: u32,
+
+#ifdef VERTEX_OUTPUT_MESH_FLAGS
+    @location(5) @interpolate(flat) mesh_flags: u32,
 #endif
 }
 

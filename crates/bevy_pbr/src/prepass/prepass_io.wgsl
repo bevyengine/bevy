@@ -48,15 +48,17 @@ struct VertexOutput {
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
     @location(3) world_position: vec4<f32>,
+
 #ifdef MOTION_VECTOR_PREPASS
     @location(4) previous_world_position: vec4<f32>,
 #endif
 
 #ifdef DEPTH_CLAMP_ORTHO
     @location(5) clip_position_unclamped: vec4<f32>,
-#endif // DEPTH_CLAMP_ORTHO
-#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
-    @location(6) instance_index: u32,
+#endif
+
+#ifdef VERTEX_OUTPUT_MESH_FLAGS
+    @location(6) mesh_flags: u32,
 #endif
 
 #ifdef VERTEX_COLORS
