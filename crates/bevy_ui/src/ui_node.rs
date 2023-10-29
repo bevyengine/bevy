@@ -966,7 +966,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Px(value),
             max_sizing_function: MaxTrackSizingFunction::Px(value),
         }
-            .into()
+        .into()
     }
 
     /// Create a grid track with a percentage size
@@ -975,7 +975,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Percent(value),
             max_sizing_function: MaxTrackSizingFunction::Percent(value),
         }
-            .into()
+        .into()
     }
 
     /// Create a grid track with an `fr` size.
@@ -986,7 +986,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::Fraction(value),
         }
-            .into()
+        .into()
     }
 
     /// Create a grid track with a `minmax(0, Nfr)` size.
@@ -995,7 +995,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Px(0.0),
             max_sizing_function: MaxTrackSizingFunction::Fraction(value),
         }
-            .into()
+        .into()
     }
 
     /// Create a grid track which is automatically sized to fit its contents.
@@ -1004,7 +1004,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::Auto,
         }
-            .into()
+        .into()
     }
 
     /// Create a grid track which is automatically sized to fit its contents when sized at their "min-content" sizes
@@ -1013,7 +1013,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::MinContent,
             max_sizing_function: MaxTrackSizingFunction::MinContent,
         }
-            .into()
+        .into()
     }
 
     /// Create a grid track which is automatically sized to fit its contents when sized at their "max-content" sizes
@@ -1022,7 +1022,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::MaxContent,
             max_sizing_function: MaxTrackSizingFunction::MaxContent,
         }
-            .into()
+        .into()
     }
 
     /// Create a fit-content() grid track with fixed pixel limit
@@ -1033,7 +1033,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::FitContentPx(limit),
         }
-            .into()
+        .into()
     }
 
     /// Create a fit-content() grid track with percentage limit
@@ -1044,7 +1044,7 @@ impl GridTrack {
             min_sizing_function: MinTrackSizingFunction::Auto,
             max_sizing_function: MaxTrackSizingFunction::FitContentPercent(limit),
         }
-            .into()
+        .into()
     }
 
     /// Create a minmax() grid track
@@ -1055,7 +1055,7 @@ impl GridTrack {
             min_sizing_function: min,
             max_sizing_function: max,
         }
-            .into()
+        .into()
     }
 }
 
@@ -1129,7 +1129,7 @@ impl RepeatedGridTrack {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::px(value)]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of grid tracks with a percentage size
@@ -1138,7 +1138,7 @@ impl RepeatedGridTrack {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::percent(value)]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of grid tracks with automatic size
@@ -1147,7 +1147,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::auto()]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of grid tracks with an `fr` size.
@@ -1158,7 +1158,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::fr(value)]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of grid tracks with a `minmax(0, Nfr)` size.
@@ -1167,7 +1167,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::flex(value)]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of grid tracks with min-content size
@@ -1176,7 +1176,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::min_content()]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of grid tracks with max-content size
@@ -1185,7 +1185,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::max_content()]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of fit-content() grid tracks with fixed pixel limit
@@ -1194,7 +1194,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::fit_content_px(limit)]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of fit-content() grid tracks with percentage limit
@@ -1203,7 +1203,7 @@ impl RepeatedGridTrack {
             repetition: GridTrackRepetition::Count(repetition),
             tracks: SmallVec::from_buf([GridTrack::fit_content_percent(limit)]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repeating set of minmax() grid track
@@ -1216,7 +1216,7 @@ impl RepeatedGridTrack {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::minmax(min, max)]),
         }
-            .into()
+        .into()
     }
 
     /// Create a repetition of a set of tracks
@@ -1228,7 +1228,7 @@ impl RepeatedGridTrack {
             repetition: repetition.into(),
             tracks: SmallVec::from_vec(tracks.into()),
         }
-            .into()
+        .into()
     }
 }
 
