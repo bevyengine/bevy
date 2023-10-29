@@ -1,6 +1,4 @@
 #[cfg(feature = "file_watcher")]
-mod file_watcher;
-#[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
 
 use crate::io::{
