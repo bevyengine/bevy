@@ -552,6 +552,16 @@ pub trait BuildWorldChildren {
     /// Also removes this entity from its parent's [`Children`] component. Removing all children from a parent causes
     /// its [`Children`] component to be removed from the entity.
     fn remove_parent(&mut self) -> &mut Self;
+    /// Removes all children from this entity. The [`Children`] component will be removed if it exists, otherwise this does nothing.
+    fn clear_children(&mut self) -> &mut Self;
+    /// Removes all current children from this entity, replacing them with the specified list of entities.
+    ///
+    /// The removed children will have their [`Parent`] component removed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
+    fn replace_children(&mut self, children: &[Entity]) -> &mut Self;
 }
 
 impl<'w> BuildWorldChildren for EntityWorldMut<'w> {
@@ -643,6 +653,18 @@ impl<'w> BuildWorldChildren for EntityWorldMut<'w> {
             });
         }
         self
+    }
+
+    fn clear_children(&mut self) -> &mut Self {
+        let parent = self.id();
+        self.world_scope(|world| {
+            clear_children(parent, world);
+        });
+        self
+    }
+
+    fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
+        self.clear_children().push_children(children)
     }
 }
 
@@ -1023,6 +1045,68 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
+    }
+
+    #[test]
+    fn push_and_insert_and_clear_children_world() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![C(1), C(2), C(3)])
+            .collect::<Vec<Entity>>();
+
+        world.entity_mut(entities[0]).push_children(&entities[1..3]);
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        world.entity_mut(parent).clear_children();
+        assert!(world.get::<Children>(parent).is_none());
+        assert!(world.get::<Parent>(child1).is_none());
+        assert!(world.get::<Parent>(child2).is_none());
+    }
+
+    #[test]
+    fn push_and_replace_children_world() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
+            .collect::<Vec<Entity>>();
+
+        world.entity_mut(entities[0]).push_children(&entities[1..3]);
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+        let child3 = entities[3];
+        let child4 = entities[4];
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        world.entity_mut(parent).replace_children(&entities[2..]);
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child2, child3, child4];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert!(world.get::<Parent>(child1).is_none());
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
     }
 
     /// Tests what happens when all children are removed from a parent using world functions
