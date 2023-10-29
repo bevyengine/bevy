@@ -40,6 +40,7 @@ impl From<Cone> for Mesh {
     fn from(c: Cone) -> Self {
         debug_assert!(c.top_radius >= 0.0);
         debug_assert!(c.bottom_radius >= 0.0);
+        debug_assert!(!(c.bottom_radius == 0.0 && c.top_radius == 0.0));
         debug_assert!(c.height > 0.0);
         debug_assert!(c.resolution > 2);
         debug_assert!(c.segments > 0);
@@ -106,6 +107,10 @@ impl From<Cone> for Mesh {
             };
 
             let radius = if top { c.top_radius } else { c.bottom_radius };
+
+            if radius == 0.0 {
+                return;
+            }
 
             for i in 0..c.resolution {
                 let theta = i as f32 * step_theta;
