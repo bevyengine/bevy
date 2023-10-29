@@ -556,12 +556,12 @@ impl Color {
     /// ```
     /// # use bevy_render::color::Color;
     /// // Fully transparent colors
-    /// assert!(Color::NONE.is_transparent());
-    /// assert!(Color::rgba(1.0, 0.5, 0.5, 0.0).is_transparent());
+    /// assert!(Color::NONE.is_fully_transparent());
+    /// assert!(Color::rgba(1.0, 0.5, 0.5, 0.0).is_fully_transparent());
     ///
     /// // (Partially) opaque colors
-    /// assert!(!Color::BLACK.is_transparent());
-    /// assert!(!Color::rgba(1.0, 0.5, 0.5, 0.2).is_transparent());
+    /// assert!(!Color::BLACK.is_fully_transparent());
+    /// assert!(!Color::rgba(1.0, 0.5, 0.5, 0.2).is_fully_transparent());
     /// ```
     pub fn is_fully_transparent(&self) -> bool {
         self.a() == 0.0
