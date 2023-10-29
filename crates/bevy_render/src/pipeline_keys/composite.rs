@@ -40,7 +40,7 @@ macro_rules! impl_composite_key_tuples {
             }
 
             fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> {
-                let mut result = 0u32;
+                let mut result = 0 as KeyPrimitive;
                 let mut total_size = 0u8;
 
                 let ($($value,)*) = value;
@@ -54,7 +54,7 @@ macro_rules! impl_composite_key_tuples {
                 PackedPipelineKey::new(result, total_size)
             }
             
-            fn unpack(value: u32, store: &KeyMetaStore) -> Self {
+            fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self {
                 let mut shift_bits = 0;
                 $(
                     let $sz = $K::size(store);
@@ -72,7 +72,7 @@ macro_rules! impl_composite_key_tuples {
 
         impl<$($K: AnyKeyType + KeyTypeConcrete),*> CompositeKey for ($($K,)*) {
             fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>> {
-                let mut result = 0u32;
+                let mut result = 0 as KeyPrimitive;
                 let mut total_size = 0u8;
         
                 $(

@@ -126,7 +126,7 @@ pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntr
 }
 
 #[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
-#[repr(u32)]
+#[repr(u64)]
 pub enum EnvironmentMapKey {
     #[default]
     Off,

@@ -425,7 +425,7 @@ pub fn lut_placeholder() -> Image {
 impl_has_world_key!(DebandDitherKey, DebandDither, "DEBAND_DITHER");
 
 #[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone)]
-#[repr(u32)]
+#[repr(u64)]
 pub enum TonemappingKey {
     #[default]
     None,

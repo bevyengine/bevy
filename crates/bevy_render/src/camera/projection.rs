@@ -337,8 +337,8 @@ impl Default for OrthographicProjection {
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Default, FromPrimitive, IntoPrimitive, Copy, Clone)]
-#[repr(u32)]
+#[derive(PipelineKeyInRenderCrate, Default, Copy, Clone, FromPrimitive, IntoPrimitive)]
+#[repr(u64)]
 pub enum ViewProjectionKey {
     #[default]
     NonStandard,

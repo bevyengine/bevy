@@ -1781,7 +1781,7 @@ impl Node for ShadowPassNode {
 }
 
 #[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
-#[repr(u32)]
+#[repr(u64)]
 pub enum DepthClampOrthoKey {
     #[default]
     Off,

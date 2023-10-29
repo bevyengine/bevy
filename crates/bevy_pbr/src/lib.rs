@@ -62,7 +62,7 @@ use bevy_render::{
     camera::{CameraUpdateSystem, ViewProjectionKey},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    pipeline_keys::{AddPipelineKey, PipelineKey},
+    pipeline_keys::{AddPipelineKey, PipelineKey, KeyPrimitive},
     prelude::Color,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
@@ -381,4 +381,4 @@ impl Plugin for PbrPlugin {
 pub type PbrViewKey = (HdrKey, TonemappingKey, DebandDitherKey, PrepassKey, EnvironmentMapKey, SsaoKey, DepthClampOrthoKey, MsaaKey, ShadowFilteringKey, ViewProjectionKey);
 #[derive(PipelineKey)]
 #[dynamic_key]
-pub struct PbrViewKeyDynamic(u32);
+pub struct PbrViewKeyDynamic(KeyPrimitive);

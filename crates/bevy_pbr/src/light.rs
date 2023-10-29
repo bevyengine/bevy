@@ -2271,7 +2271,7 @@ mod test {
 }
 
 #[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone)]
-#[repr(u32)]
+#[repr(u64)]
 pub enum ShadowFilteringKey {
     #[default]
     Hardware2x2,

@@ -35,10 +35,10 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     }
         
                     fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
-                        #render_path::pipeline_keys::PackedPipelineKey::new(u32::from(*value), #bits)
+                        #render_path::pipeline_keys::PackedPipelineKey::new(#render_path::pipeline_keys::KeyPrimitive::from(*value), #bits)
                     }
         
-                    fn unpack(value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
+                    fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
                         value.into()
                     }
                 }
@@ -93,7 +93,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                             #render_path::pipeline_keys::PackedPipelineKey::new(value.0, Self::size(store))
                         }
             
-                        fn unpack(value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
+                        fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
                             Self(value)
                         }
                     }
@@ -156,7 +156,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         #render_path::pipeline_keys::PackedPipelineKey::new(packed, size)
                     }
         
-                    fn unpack(value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
+                    fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
                         let (#(#field_names,)*) = #render_path::pipeline_keys::KeyTypeConcrete::unpack(value, store);
                         #self_value
                     }

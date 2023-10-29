@@ -10,6 +10,8 @@ use std::{
 
 use self::composite::CompositeKey;
 
+pub type KeyPrimitive = u64;
+
 mod composite;
 pub struct KeyMeta {
     pub dynamic_components: HashMap<TypeId, SizeOffset>,
@@ -93,7 +95,7 @@ impl KeyMetaStore {
         self.metas.get(id).unwrap_or_else(missing_id).size
     }
 
-    pub fn pipeline_key<K: AnyKeyType + KeyTypeConcrete>(&self, value: u32) -> Option<PipelineKey<K>> {
+    pub fn pipeline_key<K: AnyKeyType + KeyTypeConcrete>(&self, value: KeyPrimitive) -> Option<PipelineKey<K>> {
         let value = K::unpack(value, self);
         Some(PipelineKey {
             store: self,
@@ -132,15 +134,14 @@ impl KeyMetaStore {
         }
     }
 }
-
 pub struct PackedPipelineKey<T: AnyKeyType> {
-    pub packed: u32,
+    pub packed: KeyPrimitive,
     pub size: u8,
     _p: PhantomData<fn() -> T>
 }
 
 impl<T: AnyKeyType> PackedPipelineKey<T> {
-    pub fn new(packed: u32, size: u8) -> Self {
+    pub fn new(packed: KeyPrimitive, size: u8) -> Self {
         Self {
             packed,
             size,
@@ -150,7 +151,7 @@ impl<T: AnyKeyType> PackedPipelineKey<T> {
 }
 
 pub trait KeyTypeConcrete: AnyKeyType {
-    fn unpack(value: u32, store: &KeyMetaStore) -> Self;
+    fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self;
 
     fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset>;
 
@@ -201,20 +202,20 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
 
 #[derive(Component, Default)]
 pub struct PipelineKeys {
-    packed_keys: HashMap<TypeId, (u32, u8)>,
+    packed_keys: HashMap<TypeId, (KeyPrimitive, u8)>,
     shader_defs: Vec<ShaderDefVal>,
 }
 
 impl PipelineKeys {
-    pub fn get_raw_by_id(&self, id: &TypeId) -> Option<u32> {
+    pub fn get_raw_by_id(&self, id: &TypeId) -> Option<KeyPrimitive> {
         self.packed_keys.get(id).map(|(v, _)| *v)
     }
 
-    pub fn get_raw<K: AnyKeyType>(&self) -> Option<u32> {
+    pub fn get_raw<K: AnyKeyType>(&self) -> Option<KeyPrimitive> {
         self.get_raw_by_id(&TypeId::of::<K>())
     }
 
-    pub fn get_raw_and_size_by_id(&self, id: &TypeId) -> Option<(u32, u8)> {
+    pub fn get_raw_and_size_by_id(&self, id: &TypeId) -> Option<(KeyPrimitive, u8)> {
         self.packed_keys.get(id).copied()
     }
 
@@ -223,7 +224,7 @@ impl PipelineKeys {
         Some(PackedPipelineKey::new(raw, size))
     }
 
-    pub fn set_raw<K: AnyKeyType>(&mut self, value: u32, size: u8) {
+    pub fn set_raw<K: AnyKeyType>(&mut self, value: KeyPrimitive, size: u8) {
         self.packed_keys.insert(TypeId::of::<K>(), (value, size));
     }
 
@@ -420,29 +421,20 @@ impl AddPipelineKey for App {
 macro_rules! impl_has_world_key {
     ($key:ident, $component:ident, $def:expr) => {
         use bevy_render::pipeline_keys::*;
-
         #[derive(
-            PipelineKey, Default, Clone, Copy, num_enum::FromPrimitive, num_enum::IntoPrimitive,
+            PipelineKey, Default, Clone, Copy,
         )]
-        #[repr(u32)]
-        pub enum $key {
-            #[default]
-            Off,
-            On,
-        }
+        pub struct $key(bool);
         impl SystemKey for $key {
             type Param = ();
             type Query = bevy_ecs::prelude::Has<$component>;
 
             fn from_params(_: &(), has_component: bool) -> Self {
-                match has_component {
-                    true => $key::On,
-                    false => $key::Off,
-                }
+                Self(has_component)
             }
 
             fn shader_defs(&self) -> Vec<bevy_render::render_resource::ShaderDefVal> {
-                if matches!(self, $key::On) {
+                if self.0 {
                     vec![$def.into()]
                 } else {
                     vec![]
@@ -473,7 +465,7 @@ impl KeyTypeConcrete for bool {
         PackedPipelineKey::new(raw, 1)
     }
 
-    fn unpack(value: u32, _: &KeyMetaStore) -> Self {
+    fn unpack(value: KeyPrimitive, _: &KeyMetaStore) -> Self {
         value != 0
     }    
 }
