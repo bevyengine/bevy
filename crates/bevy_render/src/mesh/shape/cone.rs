@@ -27,8 +27,8 @@ pub struct Cone {
 impl Default for Cone {
     fn default() -> Self {
         Self {
-            top_radius: 0.2,
-            bottom_radius: 0.8,
+            top_radius: 0.0,
+            bottom_radius: 1.0,
             height: 1.0,
             resolution: 16,
             segments: 1,
