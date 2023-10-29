@@ -34,8 +34,8 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(#bits, 0u8))])
                     }
         
-                    fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> (u32, u8) {
-                        (u32::from(*value), #bits)
+                    fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
+                        #render_path::pipeline_keys::PackedPipelineKey::new(u32::from(*value), #bits)
                     }
         
                     fn unpack(value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
@@ -89,8 +89,8 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                             store.meta::<Self>().size
                         }
             
-                        fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> (u32, u8) {
-                            (value.0, Self::size(store))
+                        fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
+                            #render_path::pipeline_keys::PackedPipelineKey::new(value.0, Self::size(store))
                         }
             
                         fn unpack(value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
@@ -150,9 +150,10 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         #(#field_types::size(store))+*
                     }
         
-                    fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> (u32, u8) {
+                    fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
                         let tuple = (#(#field_exprs,)*);
-                        #render_path::pipeline_keys::KeyTypeConcrete::pack(&tuple, store)
+                        let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = #render_path::pipeline_keys::KeyTypeConcrete::pack(&tuple, store);
+                        #render_path::pipeline_keys::PackedPipelineKey::new(packed, size)
                     }
         
                     fn unpack(value: u32, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {

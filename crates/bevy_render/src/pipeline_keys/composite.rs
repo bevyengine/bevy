@@ -8,7 +8,7 @@ use super::*;
 use bevy_utils::all_tuples;
 
 pub trait CompositeKey: AnyKeyType + KeyTypeConcrete {
-    fn from_keys(keys: &PipelineKeys) -> Option<(u32, u8)>;
+    fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>> where Self: Sized;
     fn set_config() -> NodeConfigs<Interned<dyn bevy_ecs::schedule::SystemSet>>;
 }
 
@@ -39,19 +39,19 @@ macro_rules! impl_composite_key_tuples {
                 result
             }
 
-            fn pack(value: &Self, store: &KeyMetaStore) -> (u32, u8) {
+            fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> {
                 let mut result = 0u32;
                 let mut total_size = 0u8;
 
                 let ($($value,)*) = value;
 
                 $(
-                    let (value, size) = $K::pack($value, store);
-                    result = (result << size) | value;
+                    let PackedPipelineKey{ packed, size, .. } = $K::pack($value, store);
+                    result = (result << size) | packed;
                     total_size += size;
                 )*
     
-                (result, total_size)
+                PackedPipelineKey::new(result, total_size)
             }
             
             fn unpack(value: u32, store: &KeyMetaStore) -> Self {
@@ -71,17 +71,17 @@ macro_rules! impl_composite_key_tuples {
         }
 
         impl<$($K: AnyKeyType + KeyTypeConcrete),*> CompositeKey for ($($K,)*) {
-            fn from_keys(keys: &PipelineKeys) -> Option<(u32, u8)> {
+            fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>> {
                 let mut result = 0u32;
-                let mut size = 0u8;
+                let mut total_size = 0u8;
         
                 $(
-                    let (v, s) = keys.get_raw_and_size::<$K>()?;
-                    result = result << s | v;
-                    size = size + s;
+                    let PackedPipelineKey{ packed, size, .. } = keys.get_packed_key::<$K>()?;
+                    result = result << size | packed;
+                    total_size = total_size + size;
                 )*
         
-                Some((result, size))
+                Some(PackedPipelineKey::new(result, total_size))
             }
         
             fn set_config() -> NodeConfigs<Interned<dyn bevy_ecs::schedule::SystemSet>> {

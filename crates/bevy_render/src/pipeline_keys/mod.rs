@@ -134,12 +134,22 @@ impl KeyMetaStore {
 }
 
 pub struct PackedPipelineKey<T: AnyKeyType> {
-    packed: u32,
-    size: u8,
+    pub packed: u32,
+    pub size: u8,
     _p: PhantomData<fn() -> T>
 }
 
-pub trait KeyTypeConcrete {
+impl<T: AnyKeyType> PackedPipelineKey<T> {
+    pub fn new(packed: u32, size: u8) -> Self {
+        Self {
+            packed,
+            size,
+            _p: Default::default(),
+        }
+    }
+}
+
+pub trait KeyTypeConcrete: AnyKeyType {
     fn unpack(value: u32, store: &KeyMetaStore) -> Self;
 
     fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset>;
@@ -148,7 +158,7 @@ pub trait KeyTypeConcrete {
         Self::positions(store).values().map(|so| so.0).sum()
     }
 
-    fn pack(value: &Self, store: &KeyMetaStore) -> (u32, u8);
+    fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> where Self: Sized;
 }
 
 pub trait AnyKeyType: Any + Send + Sync + 'static {
@@ -182,8 +192,8 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
     pub fn extract<U: AnyKeyType + KeyTypeConcrete>(&'a self) -> Option<PipelineKey<'a, U>> {
         let positions = T::positions(self.store);
         let SizeOffset(size, offset) = positions.get(&TypeId::of::<U>())?;
-        let (value, _) = T::pack(&self.value, &self.store);
-        let value = (value >> offset) & ((1 << size) - 1);
+        let key = T::pack(&self.value, &self.store);
+        let value = (key.packed >> offset) & ((1 << size) - 1);
         self.store.pipeline_key(value)
     }
 }
@@ -191,13 +201,13 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
 
 #[derive(Component, Default)]
 pub struct PipelineKeys {
-    values_and_sizes: HashMap<TypeId, (u32, u8)>,
+    packed_keys: HashMap<TypeId, (u32, u8)>,
     shader_defs: Vec<ShaderDefVal>,
 }
 
 impl PipelineKeys {
     pub fn get_raw_by_id(&self, id: &TypeId) -> Option<u32> {
-        self.values_and_sizes.get(id).map(|(v, _)| *v)
+        self.packed_keys.get(id).map(|(v, _)| *v)
     }
 
     pub fn get_raw<K: AnyKeyType>(&self) -> Option<u32> {
@@ -205,15 +215,16 @@ impl PipelineKeys {
     }
 
     pub fn get_raw_and_size_by_id(&self, id: &TypeId) -> Option<(u32, u8)> {
-        self.values_and_sizes.get(id).copied()
+        self.packed_keys.get(id).copied()
     }
 
-    pub fn get_raw_and_size<K: AnyKeyType>(&self) -> Option<(u32, u8)> {
-        self.get_raw_and_size_by_id(&TypeId::of::<K>())
+    pub fn get_packed_key<K: AnyKeyType>(&self) -> Option<PackedPipelineKey<K>> {
+        let (raw, size) = self.get_raw_and_size_by_id(&TypeId::of::<K>())?;
+        Some(PackedPipelineKey::new(raw, size))
     }
 
     pub fn set_raw<K: AnyKeyType>(&mut self, value: u32, size: u8) {
-        self.values_and_sizes.insert(TypeId::of::<K>(), (value, size));
+        self.packed_keys.insert(TypeId::of::<K>(), (value, size));
     }
 
     pub fn get_key<'a, K: AnyKeyType + KeyTypeConcrete>(&self, store: &'a KeyMetaStore) -> Option<PipelineKey<'a, K>> {
@@ -320,8 +331,8 @@ impl AddPipelineKey for App {
                 for (mut keys, query) in q.iter_mut() {
                     let key = K::from_params(&p, query);
                     keys.shader_defs.extend(key.shader_defs());
-                    let (key, size) = K::pack(&key, &store);
-                    keys.set_raw::<K>(key, size);
+                    let PackedPipelineKey{ packed, size, .. } = K::pack(&key, &store);
+                    keys.set_raw::<K>(packed, size);
                 }
             })
             .in_set(KeySetMarker::<K>::default())
@@ -349,8 +360,8 @@ impl AddPipelineKey for App {
             Render,
             (|mut q: Query<&mut PipelineKeys, F>| {
                 for mut keys in q.iter_mut() {
-                    if let Some((value, size)) = K::from_keys(&keys) {
-                        keys.set_raw::<K>(value, size);
+                    if let Some(PackedPipelineKey{packed, size, ..}) = K::from_keys(&keys) {
+                        keys.set_raw::<K>(packed, size);
                     }
                 }
             })
@@ -452,12 +463,14 @@ impl KeyTypeConcrete for bool {
         HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(1, 0))])
     }
 
-    fn pack(value: &Self, _: &KeyMetaStore) -> (u32, u8) {
-        if *value {
-            (1, 1) 
+    fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
+        let raw = if *value {
+            1
         } else {
-            (0, 1)
-        }
+            0
+        };
+
+        PackedPipelineKey::new(raw, 1)
     }
 
     fn unpack(value: u32, _: &KeyMetaStore) -> Self {
