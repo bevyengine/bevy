@@ -258,7 +258,6 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
                 continue;
             };
             if material.properties.alpha_mode != AlphaMode::Opaque {
-                // TODO: Log error
                 continue;
             }
 
