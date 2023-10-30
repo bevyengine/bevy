@@ -1366,52 +1366,6 @@ impl Add<Color> for Color {
     }
 }
 
-impl AddAssign<Vec4> for Color {
-    fn add_assign(&mut self, rhs: Vec4) {
-        match self {
-            Color::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            }
-            | Color::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                *red += rhs.x;
-                *green += rhs.y;
-                *blue += rhs.z;
-                *alpha += rhs.w;
-            }
-            Color::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                *hue += rhs.x;
-                *saturation += rhs.y;
-                *lightness += rhs.z;
-                *alpha += rhs.w;
-            }
-            Color::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                *lightness += rhs.x;
-                *chroma += rhs.y;
-                *hue += rhs.z;
-                *alpha += rhs.w;
-            }
-        }
-    }
-}
-
 impl From<Color> for wgpu::Color {
     fn from(color: Color) -> Self {
         if let Color::RgbaLinear {
