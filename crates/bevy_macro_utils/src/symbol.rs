@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 use syn::{Ident, Path};
 
+/// A single named value, representable as a [string](str).
 #[derive(Copy, Clone)]
 pub struct Symbol(pub &'static str);
 

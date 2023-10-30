@@ -410,6 +410,9 @@ pub unsafe trait WorldQuery {
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
+    ///
+    /// If this includes any mutable access, then this should never be called
+    /// while the return value of [`WorldQuery::fetch`] for the same entity is live.
     #[allow(unused_variables)]
     #[inline(always)]
     unsafe fn filter_fetch(

@@ -63,6 +63,7 @@ shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = ["bevy_core/serialize", "bevy_input/serialize", "bevy_time/serialize", "bevy_window/serialize", "bevy_transform/serialize", "bevy_math/serialize", "bevy_scene?/serialize"]
 multi-threaded = ["bevy_asset/multi-threaded", "bevy_ecs/multi-threaded", "bevy_tasks/multi-threaded"]
+async-io = ["bevy_tasks/async-io"]
 
 # Display server protocol support (X11 is enabled by default)
 wayland = ["bevy_winit/wayland"]
@@ -72,7 +73,7 @@ x11 = ["bevy_winit/x11"]
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
 # Optimise for WebGL2
-webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl", "bevy_gizmos?/webgl"]
+webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl", "bevy_gizmos?/webgl", "bevy_sprite?/webgl"]
 
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_time/bevy_ci_testing", "bevy_render?/bevy_ci_testing", "bevy_render?/ci_limits"]
@@ -96,13 +97,23 @@ accesskit_unix = ["bevy_winit/accesskit_unix"]
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 
 bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
+
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
 
+# Enable assertions in debug builds to check the validity of parameters passed to glam
+debug_glam_assert = ["bevy_math/debug_glam_assert"]
+
 default_font = ["bevy_text?/default_font"]
 
+# Enables the built-in asset processor for processed assets.
+asset_processor = ["bevy_asset?/asset_processor"]
+
 # Enables watching the filesystem for Bevy Asset hot-reloading
-filesystem_watcher = ["bevy_asset?/filesystem_watcher"]
+file_watcher = ["bevy_asset?/file_watcher"]
+
+# Enables watching embedded files for Bevy Asset hot-reloading
+embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 [dependencies]
 # bevy

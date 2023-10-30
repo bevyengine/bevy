@@ -1,11 +1,12 @@
 use std::{
+    collections::BTreeSet,
     fmt::{Debug, Write},
     result::Result,
 };
 
-use bevy_utils::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use bevy_utils::{default, tracing::info};
 use bevy_utils::{
     petgraph::{algo::TarjanScc, prelude::*},
     thiserror::Error,
@@ -18,6 +19,7 @@ use fixedbitset::FixedBitSet;
 use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
+    prelude::Component,
     schedule::*,
     system::{BoxedSystem, Resource, System},
     world::World,
@@ -26,7 +28,9 @@ use crate::{
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
 #[derive(Default, Resource)]
 pub struct Schedules {
-    inner: HashMap<BoxedScheduleLabel, Schedule>,
+    inner: HashMap<InternedScheduleLabel, Schedule>,
+    /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
+    pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
 }
 
 impl Schedules {
@@ -34,6 +38,7 @@ impl Schedules {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
+            ignored_scheduling_ambiguities: BTreeSet::new(),
         }
     }
 
@@ -42,36 +47,35 @@ impl Schedules {
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, schedule: Schedule) -> Option<Schedule> {
-        let label = schedule.name.dyn_clone();
-        self.inner.insert(label, schedule)
+        self.inner.insert(schedule.name, schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
-    pub fn remove(&mut self, label: &dyn ScheduleLabel) -> Option<Schedule> {
-        self.inner.remove(label)
+    pub fn remove(&mut self, label: impl ScheduleLabel) -> Option<Schedule> {
+        self.inner.remove(&label.intern())
     }
 
     /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
     pub fn remove_entry(
         &mut self,
-        label: &dyn ScheduleLabel,
-    ) -> Option<(Box<dyn ScheduleLabel>, Schedule)> {
-        self.inner.remove_entry(label)
+        label: impl ScheduleLabel,
+    ) -> Option<(InternedScheduleLabel, Schedule)> {
+        self.inner.remove_entry(&label.intern())
     }
 
     /// Does a schedule with the provided label already exist?
-    pub fn contains(&self, label: &dyn ScheduleLabel) -> bool {
-        self.inner.contains_key(label)
+    pub fn contains(&self, label: impl ScheduleLabel) -> bool {
+        self.inner.contains_key(&label.intern())
     }
 
     /// Returns a reference to the schedule associated with `label`, if it exists.
-    pub fn get(&self, label: &dyn ScheduleLabel) -> Option<&Schedule> {
-        self.inner.get(label)
+    pub fn get(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
+        self.inner.get(&label.intern())
     }
 
     /// Returns a mutable reference to the schedule associated with `label`, if it exists.
-    pub fn get_mut(&mut self, label: &dyn ScheduleLabel) -> Option<&mut Schedule> {
-        self.inner.get_mut(label)
+    pub fn get_mut(&mut self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
+        self.inner.get_mut(&label.intern())
     }
 
     /// Returns an iterator over all schedules. Iteration order is undefined.
@@ -109,6 +113,38 @@ impl Schedules {
         for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
         }
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
+        self.ignored_scheduling_ambiguities
+            .insert(world.init_component::<T>());
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
+        self.ignored_scheduling_ambiguities
+            .insert(world.components.init_resource::<T>());
+    }
+
+    /// Iterate through the [`ComponentId`]'s that will be ignored.
+    pub fn iter_ignored_ambiguities(&self) -> impl Iterator<Item = &ComponentId> + '_ {
+        self.ignored_scheduling_ambiguities.iter()
+    }
+
+    /// Prints the names of the components and resources with [`info`]
+    ///
+    /// May panic or retrieve incorrect names if [`Components`] is not from the same
+    /// world
+    pub fn print_ignored_ambiguities(&self, components: &Components) {
+        let mut message =
+            "System order ambiguities caused by conflicts on the following types are ignored:\n"
+                .to_string();
+        for id in self.iter_ignored_ambiguities() {
+            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
+        }
+
+        info!("{}", message);
     }
 }
 
@@ -158,7 +194,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// }
 /// ```
 pub struct Schedule {
-    name: BoxedScheduleLabel,
+    name: InternedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
@@ -182,7 +218,7 @@ impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
-            name: label.dyn_clone(),
+            name: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
@@ -237,7 +273,7 @@ impl Schedule {
 
     /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
     /// in case a system uses commands but was not explicitly ordered before an instance of
-    /// [`apply_deferred`](crate::prelude::apply_deferred). By default this
+    /// [`apply_deferred`]. By default this
     /// setting is true, but may be disabled if needed.
     pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
         self.executor.set_apply_final_deferred(apply_final_deferred);
@@ -251,7 +287,7 @@ impl Schedule {
 
         world.check_change_ticks();
         self.initialize(world)
-            .unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.name));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -262,8 +298,16 @@ impl Schedule {
     pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
-            self.graph
-                .update_schedule(&mut self.executable, world.components(), &self.name)?;
+            let ignored_ambiguities = world
+                .get_resource_or_insert_with::<Schedules>(Schedules::default)
+                .ignored_scheduling_ambiguities
+                .clone();
+            self.graph.update_schedule(
+                &mut self.executable,
+                world.components(),
+                &ignored_ambiguities,
+                self.name,
+            )?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -356,11 +400,11 @@ impl Dag {
 
 /// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
 struct SystemSetNode {
-    inner: BoxedSystemSet,
+    inner: InternedSystemSet,
 }
 
 impl SystemSetNode {
-    pub fn new(set: BoxedSystemSet) -> Self {
+    pub fn new(set: InternedSystemSet) -> Self {
         Self { inner: set }
     }
 
@@ -405,13 +449,14 @@ pub struct ScheduleGraph {
     system_conditions: Vec<Vec<BoxedCondition>>,
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Vec<BoxedCondition>>,
-    system_set_ids: HashMap<BoxedSystemSet, NodeId>,
+    system_set_ids: HashMap<InternedSystemSet, NodeId>,
     uninit: Vec<(NodeId, usize)>,
     hierarchy: Dag,
     dependency: Dag,
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
+    anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
 }
@@ -431,6 +476,7 @@ impl ScheduleGraph {
             ambiguous_with: UnGraphMap::new(),
             ambiguous_with_all: HashSet::new(),
             conflicting_systems: Vec::new(),
+            anonymous_sets: 0,
             changed: false,
             settings: default(),
         }
@@ -559,11 +605,11 @@ impl ScheduleGraph {
                 let more_than_one_entry = configs.len() > 1;
                 if !collective_conditions.is_empty() {
                     if more_than_one_entry {
-                        let set = AnonymousSet::new();
+                        let set = self.create_anonymous_set();
                         for config in &mut configs {
-                            config.in_set_dyn(set.dyn_clone());
+                            config.in_set_inner(set.intern());
                         }
-                        let mut set_config = SystemSetConfig::new(set.dyn_clone());
+                        let mut set_config = SystemSetConfig::new(set.intern());
                         set_config.conditions.extend(collective_conditions);
                         self.configure_set_inner(set_config).unwrap();
                     } else {
@@ -703,7 +749,7 @@ impl ScheduleGraph {
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,
-            None => self.add_set(set.dyn_clone()),
+            None => self.add_set(set),
         };
 
         // graph updates are immediate
@@ -717,27 +763,33 @@ impl ScheduleGraph {
         Ok(id)
     }
 
-    fn add_set(&mut self, set: BoxedSystemSet) -> NodeId {
+    fn add_set(&mut self, set: InternedSystemSet) -> NodeId {
         let id = NodeId::Set(self.system_sets.len());
-        self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
+        self.system_sets.push(SystemSetNode::new(set));
         self.system_set_conditions.push(Vec::new());
         self.system_set_ids.insert(set, id);
         id
     }
 
-    fn check_set(&mut self, id: &NodeId, set: &dyn SystemSet) -> Result<(), ScheduleBuildError> {
-        match self.system_set_ids.get(set) {
+    fn check_set(&mut self, id: &NodeId, set: InternedSystemSet) -> Result<(), ScheduleBuildError> {
+        match self.system_set_ids.get(&set) {
             Some(set_id) => {
                 if id == set_id {
                     return Err(ScheduleBuildError::HierarchyLoop(self.get_node_name(id)));
                 }
             }
             None => {
-                self.add_set(set.dyn_clone());
+                self.add_set(set);
             }
         }
 
         Ok(())
+    }
+
+    fn create_anonymous_set(&mut self) -> AnonymousSet {
+        let id = self.anonymous_sets;
+        self.anonymous_sets += 1;
+        AnonymousSet::new(id)
     }
 
     fn check_sets(
@@ -745,8 +797,8 @@ impl ScheduleGraph {
         id: &NodeId,
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        for set in &graph_info.sets {
-            self.check_set(id, &**set)?;
+        for &set in &graph_info.sets {
+            self.check_set(id, set)?;
         }
 
         Ok(())
@@ -765,7 +817,7 @@ impl ScheduleGraph {
                     }
                 }
                 None => {
-                    self.add_set(set.dyn_clone());
+                    self.add_set(*set);
                 }
             }
         }
@@ -773,7 +825,7 @@ impl ScheduleGraph {
         if let Ambiguity::IgnoreWithSet(ambiguous_with) = &graph_info.ambiguous_with {
             for set in ambiguous_with {
                 if !self.system_set_ids.contains_key(set) {
-                    self.add_set(set.dyn_clone());
+                    self.add_set(*set);
                 }
             }
         }
@@ -870,7 +922,8 @@ impl ScheduleGraph {
     pub fn build_schedule(
         &mut self,
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
@@ -919,8 +972,11 @@ impl ScheduleGraph {
         let ambiguous_with_flattened = self.get_ambiguous_with_flattened(&set_systems);
 
         // check for conflicts
-        let conflicting_systems =
-            self.get_conflicting_systems(&flat_results.disconnected, &ambiguous_with_flattened);
+        let conflicting_systems = self.get_conflicting_systems(
+            &flat_results.disconnected,
+            &ambiguous_with_flattened,
+            ignored_ambiguities,
+        );
         self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
         self.conflicting_systems = conflicting_systems;
 
@@ -1040,6 +1096,7 @@ impl ScheduleGraph {
         &self,
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
         ambiguous_with_flattened: &GraphMap<NodeId, (), Undirected>,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
         let mut conflicting_systems = Vec::new();
         for &(a, b) in flat_results_disconnected {
@@ -1058,8 +1115,15 @@ impl ScheduleGraph {
                 let access_a = system_a.component_access();
                 let access_b = system_b.component_access();
                 if !access_a.is_compatible(access_b) {
-                    let conflicts = access_a.get_conflicts(access_b);
-                    conflicting_systems.push((a, b, conflicts));
+                    let conflicts: Vec<_> = access_a
+                        .get_conflicts(access_b)
+                        .into_iter()
+                        .filter(|id| !ignored_ambiguities.contains(id))
+                        .collect();
+
+                    if !conflicts.is_empty() {
+                        conflicting_systems.push((a, b, conflicts));
+                    }
                 }
             }
         }
@@ -1171,7 +1235,8 @@ impl ScheduleGraph {
         &mut self,
         schedule: &mut SystemSchedule,
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
             return Err(ScheduleBuildError::Uninitialized);
@@ -1196,7 +1261,7 @@ impl ScheduleGraph {
             self.system_set_conditions[id.index()] = conditions;
         }
 
-        *schedule = self.build_schedule(components, schedule_label)?;
+        *schedule = self.build_schedule(components, schedule_label, ignored_ambiguities)?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
@@ -1238,7 +1303,7 @@ impl ProcessNodeConfig for BoxedSystem {
     }
 }
 
-impl ProcessNodeConfig for BoxedSystemSet {
+impl ProcessNodeConfig for InternedSystemSet {
     fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
         schedule_graph.configure_set_inner(config).unwrap()
     }
@@ -1314,7 +1379,7 @@ impl ScheduleGraph {
     fn optionally_check_hierarchy_conflicts(
         &self,
         transitive_edges: &[(NodeId, NodeId)],
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.hierarchy_detection == LogLevel::Ignore || transitive_edges.is_empty() {
             return Ok(());
@@ -1526,7 +1591,7 @@ impl ScheduleGraph {
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.ambiguity_detection == LogLevel::Ignore || conflicts.is_empty() {
             return Ok(());
@@ -1570,7 +1635,7 @@ impl ScheduleGraph {
         message
     }
 
-    /// convert conflics to human readable format
+    /// convert conflicts to human readable format
     pub fn conflicts_to_string<'a>(
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],

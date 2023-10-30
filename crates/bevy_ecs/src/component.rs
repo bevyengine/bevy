@@ -202,7 +202,7 @@ pub enum StorageType {
 }
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
@@ -266,7 +266,7 @@ impl ComponentInfo {
 }
 
 /// A value which uniquely identifies the type of a [`Component`] within a
-/// [`World`](crate::world::World).
+/// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
 /// [`World::init_component`](crate::world::World::init_component) or
@@ -319,6 +319,7 @@ impl SparseSetIndex for ComponentId {
 }
 
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
+#[derive(Clone)]
 pub struct ComponentDescriptor {
     name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the

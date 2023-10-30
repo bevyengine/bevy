@@ -356,8 +356,15 @@ pub fn prepare_view_uniforms(
         Option<&MipBias>,
     )>,
 ) {
-    view_uniforms.uniforms.clear();
-
+    let view_iter = views.iter();
+    let view_count = view_iter.len();
+    let Some(mut writer) =
+        view_uniforms
+            .uniforms
+            .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
     for (entity, camera, temporal_jitter, mip_bias) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
@@ -380,7 +387,7 @@ pub fn prepare_view_uniforms(
         };
 
         let view_uniforms = ViewUniformOffset {
-            offset: view_uniforms.uniforms.push(ViewUniform {
+            offset: writer.write(&ViewUniform {
                 view_proj,
                 unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
@@ -397,10 +404,6 @@ pub fn prepare_view_uniforms(
 
         commands.entity(entity).insert(view_uniforms);
     }
-
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Clone)]
