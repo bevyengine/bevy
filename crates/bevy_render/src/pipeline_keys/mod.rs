@@ -15,22 +15,25 @@ pub type KeyPrimitive = u64;
 mod composite;
 mod packed_types;
 pub struct KeyMeta {
+    pub shader_def_fn: ShaderDefFn,
     pub dynamic_components: HashMap<TypeId, SizeOffset>,
     pub size: u8,
 }
 
 impl KeyMeta {
-    fn new<K: 'static>() -> Self {
+    fn new<K: KeyTypeConcrete + 'static>() -> Self {
         debug!("new dynamic: {} => {:?}", type_name::<K>(), TypeId::of::<K>());
         Self {
+            shader_def_fn: K::shader_defs,
             dynamic_components: Default::default(),
             size: 0,
         }
     }
 
-    fn new_sized<K: FixedSizeKey>() -> Self {
+    fn new_sized<K: KeyTypeConcrete + FixedSizeKey>() -> Self {
         debug!("new fixed ({}): {} => {:?}", K::fixed_size(), type_name::<K>(), TypeId::of::<K>());
         Self {
+            shader_def_fn: K::shader_defs,
             dynamic_components: Default::default(),
             size: K::fixed_size(),
         }
@@ -63,11 +66,11 @@ fn missing_id<U>() -> U {
 }
 
 impl KeyMetaStore {
-    pub fn register_fixed_size<K: FixedSizeKey>(&mut self) {
+    pub fn register_fixed_size<K: KeyTypeConcrete + FixedSizeKey>(&mut self) {
         self.metas.insert(TypeId::of::<K>(), KeyMeta::new_sized::<K>());
     }
 
-    pub fn register_dynamic<K: 'static>(&mut self) {
+    pub fn register_dynamic<K: KeyTypeConcrete + 'static>(&mut self) {
         self.metas.insert(TypeId::of::<K>(), KeyMeta::new::<K>());
         self.unfinalized.insert(TypeId::of::<K>());
     }
@@ -94,6 +97,10 @@ impl KeyMetaStore {
 
     pub fn size_for_id(&self, id: &TypeId) -> u8 {
         self.metas.get(id).unwrap_or_else(missing_id).size
+    }
+
+    pub fn def_fn_for_id(&self, id: &TypeId) -> ShaderDefFn {
+        self.metas.get(id).unwrap_or_else(missing_id).shader_def_fn
     }
 
     pub fn pipeline_key<K: AnyKeyType + KeyTypeConcrete>(&self, value: KeyPrimitive) -> PipelineKey<K> {
@@ -151,6 +158,12 @@ impl<T: AnyKeyType> PackedPipelineKey<T> {
     }
 }
 
+type ShaderDefFn = fn(KeyPrimitive, &KeyMetaStore) -> Vec<ShaderDefVal>;
+
+pub trait KeyShaderDefs {
+    fn shader_defs(&self) -> Vec<ShaderDefVal>;
+}
+
 pub trait KeyTypeConcrete: AnyKeyType {
     fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self;
 
@@ -161,6 +174,17 @@ pub trait KeyTypeConcrete: AnyKeyType {
     }
 
     fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> where Self: Sized;
+
+    fn shader_defs(value: KeyPrimitive, store: &KeyMetaStore) -> Vec<ShaderDefVal> {
+        let mut defs = Vec::default();
+        for (id, so) in Self::positions(store) {
+            let part_def_fn = store.def_fn_for_id(&id);
+            let part_value = (value >> so.1) & ((1 << so.0) - 1);
+            defs.extend(part_def_fn(part_value, store));
+        }
+
+        defs
+    }
 }
 
 pub trait AnyKeyType: Any + Send + Sync + 'static {
@@ -198,13 +222,16 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
         let value = (key.packed >> offset) & ((1 << size) - 1);
         Some(self.store.pipeline_key(value))
     }
+
+    pub fn shader_defs(&'a self) -> Vec<ShaderDefVal> {
+        T::shader_defs(T::pack(&self.value, &self.store).packed, &self.store)
+    }
 }
 
 
 #[derive(Component, Default)]
 pub struct PipelineKeys {
     packed_keys: HashMap<TypeId, (KeyPrimitive, u8)>,
-    shader_defs: Vec<ShaderDefVal>,
 }
 
 impl PipelineKeys {
@@ -297,8 +324,6 @@ pub trait SystemKey: AnyKeyType + KeyTypeConcrete + FixedSizeKey {
         params: &SystemParamItem<Self::Param>,
         query_item: QueryItem<Self::Query>,
     ) -> Self;
-
-    fn shader_defs(&self) -> Vec<ShaderDefVal>;
 }
 
 // #[derive(PipelineKey)]
@@ -332,7 +357,6 @@ impl AddPipelineKey for App {
                 let p = p.into_inner();
                 for (mut keys, query) in q.iter_mut() {
                     let key = K::from_params(&p, query);
-                    keys.shader_defs.extend(key.shader_defs());
                     let PackedPipelineKey{ packed, size, .. } = K::pack(&key, &store);
                     keys.set_raw::<K>(packed, size);
                 }
@@ -425,6 +449,7 @@ macro_rules! impl_has_world_key {
         #[derive(
             PipelineKey, Default, Clone, Copy, Debug, PartialEq, Eq, Hash
         )]
+        #[custom_shader_defs]
         pub struct $key(bool);
         impl SystemKey for $key {
             type Param = ();
@@ -433,7 +458,9 @@ macro_rules! impl_has_world_key {
             fn from_params(_: &(), has_component: bool) -> Self {
                 Self(has_component)
             }
+        }
 
+        impl KeyShaderDefs for $key {
             fn shader_defs(&self) -> Vec<bevy_render::render_resource::ShaderDefVal> {
                 if self.0 {
                     vec![$def.into()]

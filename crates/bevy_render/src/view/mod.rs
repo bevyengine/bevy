@@ -10,7 +10,7 @@ pub use window::*;
 use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    pipeline_keys::{AddPipelineKey, SystemKey, KeyPrimitive},
+    pipeline_keys::{AddPipelineKey, SystemKey, KeyPrimitive, KeyShaderDefs},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -529,6 +529,7 @@ fn prepare_view_targets(
 
 #[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive, PartialEq, Eq, Hash, Debug)]
 #[repr(u64)]
+#[custom_shader_defs]
 pub enum MsaaKey {
     #[default]
     Off,
@@ -547,7 +548,9 @@ impl SystemKey for MsaaKey {
     fn from_params(msaa: &Res<Msaa>, _: ()) -> Self {
         (msaa.samples().trailing_zeros() as KeyPrimitive).into()
     }
+}
 
+impl KeyShaderDefs for MsaaKey {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
         let samples = ShaderDefVal::UInt("MSAA_SAMPLECOUNT".to_owned(), self.samples());
         match self {
@@ -556,6 +559,7 @@ impl SystemKey for MsaaKey {
         }
     }
 }
+
 impl MsaaKey {
     pub fn samples(&self) -> u32 {
         1 << (*self as u32)
@@ -563,6 +567,7 @@ impl MsaaKey {
 }
 
 #[derive(PipelineKeyInRenderCrate, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[custom_shader_defs]
 pub struct HdrKey(pub bool);
 impl SystemKey for HdrKey {
     type Param = ();
@@ -571,8 +576,10 @@ impl SystemKey for HdrKey {
     fn from_params(_: &(), view: &ExtractedView) -> Self {
         Self(view.hdr)
     }
+}
 
-    fn shader_defs(&self) -> Vec<crate::render_resource::ShaderDefVal> {
+impl KeyShaderDefs for HdrKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
         match self.0 {
             false => Vec::default(),
             true => vec!["HDR".into()],

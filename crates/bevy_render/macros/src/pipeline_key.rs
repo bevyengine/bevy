@@ -11,6 +11,8 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
+    let custom_defs = ast.attrs.iter().any(|attr| attr.meta.path().get_ident() == Some(&format_ident!("custom_shader_defs")));
+
     match &ast.data {
         Data::Enum(DataEnum { variants, .. }) => {
             for variant in variants {
@@ -21,6 +23,33 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
 
             let count = variants.len();
             let bits = ((count - 1).ilog2() + 1) as u8;
+
+            let defs_impl = if !custom_defs {
+                quote!{ 
+                    fn shader_defs(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Vec<#render_path::render_resource::ShaderDefVal> {
+                        Vec::default()
+                    }
+                }
+            } else {
+                quote!{ 
+                    fn shader_defs(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Vec<#render_path::render_resource::ShaderDefVal> {
+                        <Self as #render_path::pipeline_keys::KeyShaderDefs>::shader_defs(&Self::unpack(value, store))
+                    }
+                }
+            };
+
+            let custom_defs_impl = if custom_defs {
+                quote!{}
+            } else {
+                // we implement the KeyShaderDefs trait here to force an error if it is manually implemented without #[custom_shader_defs]
+                quote!{
+                    impl #impl_generics #render_path::pipeline_keys::KeyShaderDefs for #struct_name #ty_generics #where_clause {
+                        fn shader_defs(&self) -> Vec<#render_path::render_resource::ShaderDefVal> {
+                            Vec::default()
+                        }
+                    }
+                }
+            };
 
             Ok(TokenStream::from(quote! {
                 impl #impl_generics #render_path::pipeline_keys::AnyKeyType for #struct_name #ty_generics #where_clause {
@@ -41,6 +70,8 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
                         value.into()
                     }
+
+                    #defs_impl
                 }
 
                 impl #impl_generics #render_path::pipeline_keys::FixedSizeKey for #struct_name #ty_generics #where_clause {
@@ -48,6 +79,8 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         #bits
                     }
                 }
+
+                #custom_defs_impl
             }))
         }
         Data::Struct(DataStruct {
@@ -56,6 +89,29 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
         }) => {
             let is_dynamic = ast.attrs.iter().any(|attr| attr.meta.path().get_ident() == Some(&format_ident!("dynamic_key")));
             let is_not_fixed_size = ast.attrs.iter().any(|attr| attr.meta.path().get_ident() == Some(&format_ident!("not_fixed_size")));
+
+            let defs_impl = if !custom_defs {
+                // use the default impl
+                quote!{}
+            } else {
+                quote!{ 
+                    fn shader_defs(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Vec<#render_path::render_resource::ShaderDefVal> {
+                        <Self as #render_path::pipeline_keys::KeyShaderDefs>::shader_defs(&Self::unpack(value, store))
+                    }
+                }
+            };
+
+            let custom_defs_impl = if custom_defs {
+                quote!()
+            } else {
+                quote!{
+                    impl #impl_generics #render_path::pipeline_keys::KeyShaderDefs for #struct_name #ty_generics #where_clause {
+                        fn shader_defs(&self) -> Vec<#render_path::render_resource::ShaderDefVal> {
+                            Vec::default()
+                        }
+                    }
+                }
+            };
 
             if is_dynamic {
                 if fields.len() != 1 {
@@ -96,9 +152,13 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
                             Self(value)
                         }
+
+                        #defs_impl
                     }
 
                     impl #impl_generics #render_path::pipeline_keys::DynamicKey for #struct_name #ty_generics #where_clause {}
+
+                    #custom_defs_impl
                 }));
             }
 
@@ -185,9 +245,13 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         let (#(#field_names,)*) = #render_path::pipeline_keys::KeyTypeConcrete::unpack(value, store);
                         #self_value
                     }
+
+                    #defs_impl
                 }
 
                 #fixed_size_impl
+
+                #custom_defs_impl
             }))
         }
         _ => Err(Error::new_spanned(

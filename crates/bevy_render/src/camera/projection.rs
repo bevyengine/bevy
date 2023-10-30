@@ -11,7 +11,7 @@ use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    pipeline_keys::{AddPipelineKey, SystemKey},
+    pipeline_keys::{AddPipelineKey, SystemKey, KeyShaderDefs},
     render_resource::ShaderDefVal,
     view::ExtractedView,
     RenderApp,
@@ -339,6 +339,7 @@ impl Default for OrthographicProjection {
 
 #[derive(PipelineKeyInRenderCrate, Default, Copy, Clone, FromPrimitive, IntoPrimitive)]
 #[repr(u64)]
+#[custom_shader_defs]
 pub enum ViewProjectionKey {
     #[default]
     NonStandard,
@@ -358,7 +359,9 @@ impl SystemKey for ViewProjectionKey {
             _ => ViewProjectionKey::NonStandard,
         }
     }
+}
 
+impl KeyShaderDefs for ViewProjectionKey {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
         match self {
             ViewProjectionKey::NonStandard => Vec::default(),

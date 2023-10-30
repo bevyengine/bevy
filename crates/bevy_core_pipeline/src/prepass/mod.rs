@@ -32,7 +32,7 @@ use std::{cmp::Reverse, ops::Range};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    pipeline_keys::{PipelineKey, SystemKey},
+    pipeline_keys::{PipelineKey, SystemKey, KeyShaderDefs},
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
@@ -218,6 +218,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
 }
 
 #[derive(Default, PipelineKey, Clone, Copy, Debug)]
+#[custom_shader_defs]
 pub struct PrepassKey {
     pub depth: bool,
     pub normal: bool,
@@ -244,7 +245,9 @@ impl SystemKey for PrepassKey {
             deferred,
         }
     }
+}
 
+impl KeyShaderDefs for PrepassKey {
     fn shader_defs(&self) -> Vec<bevy_render::render_resource::ShaderDefVal> {
         let mut defs = HashSet::default();
         if self.depth {

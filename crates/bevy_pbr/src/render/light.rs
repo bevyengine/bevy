@@ -5,7 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
-    pipeline_keys::{PipelineKey, SystemKey, PipelineKeys},
+    pipeline_keys::{PipelineKey, SystemKey, PipelineKeys, KeyShaderDefs},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -1782,6 +1782,7 @@ impl Node for ShadowPassNode {
 
 #[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
 #[repr(u64)]
+#[custom_shader_defs]
 pub enum DepthClampOrthoKey {
     #[default]
     Off,
@@ -1800,7 +1801,9 @@ impl SystemKey for DepthClampOrthoKey {
             DepthClampOrthoKey::Off
         }
     }
+}
 
+impl KeyShaderDefs for DepthClampOrthoKey {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
         match self {
             DepthClampOrthoKey::Off => Vec::default(),

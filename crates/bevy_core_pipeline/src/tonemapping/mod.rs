@@ -427,6 +427,7 @@ impl_has_world_key!(DebandDitherKey, DebandDither, "DEBAND_DITHER");
 
 #[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u64)]
+#[custom_shader_defs]
 pub enum TonemappingKey {
     #[default]
     None,
@@ -459,7 +460,9 @@ impl SystemKey for TonemappingKey {
             Tonemapping::BlenderFilmic => TonemappingKey::BlenderFilmic,
         }
     }
+}
 
+impl KeyShaderDefs for TonemappingKey {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
         vec![match self {
             TonemappingKey::None => return vec![],

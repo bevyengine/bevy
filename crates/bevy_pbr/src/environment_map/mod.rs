@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    pipeline_keys::{AddPipelineKey, PipelineKey, SystemKey},
+    pipeline_keys::{AddPipelineKey, PipelineKey, SystemKey, KeyShaderDefs},
     render_asset::RenderAssets,
     render_resource::*,
     texture::{FallbackImageCubemap, Image},
@@ -127,6 +127,7 @@ pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntr
 
 #[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
 #[repr(u64)]
+#[custom_shader_defs]
 pub enum EnvironmentMapKey {
     #[default]
     Off,
@@ -146,7 +147,9 @@ impl SystemKey for EnvironmentMapKey {
             EnvironmentMapKey::Off
         }
     }
+}
 
+impl KeyShaderDefs for EnvironmentMapKey {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
         match self {
             EnvironmentMapKey::Off => Vec::default(),

@@ -61,7 +61,7 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     as_bind_group::derive_as_bind_group(input).unwrap_or_else(|err| err.to_compile_error().into())
 }
 
-#[proc_macro_derive(PipelineKey, attributes(dynamic_key, not_fixed_size))]
+#[proc_macro_derive(PipelineKey, attributes(dynamic_key, not_fixed_size, custom_shader_defs))]
 pub fn derive_pipeline_key(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let render_path = BevyManifest::default().get_path("bevy_render");
@@ -69,7 +69,7 @@ pub fn derive_pipeline_key(input: TokenStream) -> TokenStream {
         .unwrap_or_else(|err| err.to_compile_error().into())
 }
 
-#[proc_macro_derive(PipelineKeyInRenderCrate, attributes(dynamic_key, not_fixed_size))]
+#[proc_macro_derive(PipelineKeyInRenderCrate, attributes(dynamic_key, not_fixed_size, custom_shader_defs))]
 pub fn derive_pipeline_key_in_render_crate(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let render_path = syn::Path::from(Crate(Span::call_site()));
