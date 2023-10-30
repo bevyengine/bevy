@@ -38,6 +38,7 @@ impl MeshletMesh {
 
         let mut meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.0);
 
+        // TODO: Parallelize
         let meshlet_bounding_spheres = meshlets
             .iter()
             .map(|meshlet| {
@@ -55,7 +56,7 @@ impl MeshletMesh {
             })
             .collect();
 
-        // TODO: Meshoptimzer seems to pad the buffers themselves?
+        // TODO: Meshoptimizer seems to pad the buffers themselves?
         // Buffer copies need to be in multiples of 4 bytes
         let padding = ((meshlets.triangles.len() + 3) & !0x3) - meshlets.triangles.len();
         meshlets.triangles.extend(iter::repeat(0).take(padding));
