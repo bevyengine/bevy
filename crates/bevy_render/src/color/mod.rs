@@ -5,7 +5,7 @@ pub use colorspace::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Mul, MulAssign};
+use std::ops::{Add, Mul, MulAssign};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
