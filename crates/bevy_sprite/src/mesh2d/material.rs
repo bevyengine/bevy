@@ -34,7 +34,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, OldMesh2dPipelineKey, RenderMesh2dInstances,
     SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 
@@ -205,7 +205,7 @@ pub struct Material2dPipeline<M: Material2d> {
 }
 
 pub struct Material2dKey<M: Material2d> {
-    pub mesh_key: Mesh2dPipelineKey,
+    pub mesh_key: OldMesh2dPipelineKey,
     pub bind_group_data: M::Data,
 }
 
@@ -348,18 +348,18 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
+const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> OldMesh2dPipelineKey {
     match tonemapping {
-        Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
-        Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
-        Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-        Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
+        Tonemapping::None => OldMesh2dPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::Reinhard => OldMesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
+        Tonemapping::ReinhardLuminance => OldMesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
+        Tonemapping::AcesFitted => OldMesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+        Tonemapping::AgX => OldMesh2dPipelineKey::TONEMAP_METHOD_AGX,
         Tonemapping::SomewhatBoringDisplayTransform => {
-            Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            OldMesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
         }
-        Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-        Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+        Tonemapping::TonyMcMapface => OldMesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+        Tonemapping::BlenderFilmic => OldMesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
     }
 }
 
@@ -391,16 +391,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
     for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
-        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+        let mut view_key = OldMesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | OldMesh2dPipelineKey::from_hdr(view.hdr);
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
-                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= OldMesh2dPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
             }
             if let Some(DebandDither::Enabled) = dither {
-                view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
+                view_key |= OldMesh2dPipelineKey::DEBAND_DITHER;
             }
         }
         for visible_entity in &visible_entities.entities {
@@ -417,7 +417,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 continue;
             };
             let mesh_key =
-                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                view_key | OldMesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,

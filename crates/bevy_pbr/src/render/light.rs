@@ -1611,20 +1611,20 @@ pub fn queue_shadows<M: Material>(
                 };
 
                 let mut mesh_key =
-                    MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                        | MeshPipelineKey::DEPTH_PREPASS;
+                    OldMeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
+                        | OldMeshPipelineKey::DEPTH_PREPASS;
                 if mesh.morph_targets.is_some() {
-                    mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                    mesh_key |= OldMeshPipelineKey::MORPH_TARGETS;
                 }
                 if is_directional_light {
-                    mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
+                    mesh_key |= OldMeshPipelineKey::DEPTH_CLAMP_ORTHO;
                 }
                 mesh_key |= match material.properties.alpha_mode {
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
                     | AlphaMode::Premultiplied
-                    | AlphaMode::Add => MeshPipelineKey::MAY_DISCARD,
-                    _ => MeshPipelineKey::NONE,
+                    | AlphaMode::Add => OldMeshPipelineKey::MAY_DISCARD,
+                    _ => OldMeshPipelineKey::NONE,
                 };
                 let pipeline_id = pipelines.specialize(
                     &pipeline_cache,

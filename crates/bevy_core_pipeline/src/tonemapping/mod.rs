@@ -178,29 +178,29 @@ impl Tonemapping {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(PipelineKey, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
-    deband_dither: DebandDither,
-    tonemapping: Tonemapping,
+    deband_dither: DebandDitherKey,
+    tonemapping: TonemappingKey,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
     type Key = TonemappingPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
-        if let DebandDither::Enabled = key.deband_dither {
+        if key.deband_dither.0 {
             shader_defs.push("DEBAND_DITHER".into());
         }
 
         match key.tonemapping {
-            Tonemapping::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
-            Tonemapping::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
-            Tonemapping::ReinhardLuminance => {
+            TonemappingKey::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
+            TonemappingKey::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
+            TonemappingKey::ReinhardLuminance => {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             }
-            Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
-            Tonemapping::AgX => {
+            TonemappingKey::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
+            TonemappingKey::AgX => {
                 #[cfg(not(feature = "tonemapping_luts"))]
                 bevy_log::error!(
                     "AgX tonemapping requires the `tonemapping_luts` feature.
@@ -209,10 +209,10 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 );
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             }
-            Tonemapping::SomewhatBoringDisplayTransform => {
+            TonemappingKey::SomewhatBoringDisplayTransform => {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             }
-            Tonemapping::TonyMcMapface => {
+            TonemappingKey::TonyMcMapface => {
                 #[cfg(not(feature = "tonemapping_luts"))]
                 bevy_log::error!(
                     "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
@@ -221,7 +221,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 );
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
             }
-            Tonemapping::BlenderFilmic => {
+            TonemappingKey::BlenderFilmic => {
                 #[cfg(not(feature = "tonemapping_luts"))]
                 bevy_log::error!(
                     "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
@@ -306,14 +306,15 @@ pub fn prepare_view_tonemapping_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
-    view_targets: Query<(Entity, Option<&Tonemapping>, Option<&DebandDither>), With<ViewTarget>>,
+    view_targets: Query<(Entity, Option<&Tonemapping>, Has<DebandDither>), With<ViewTarget>>,
+    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, tonemapping, dither) in view_targets.iter() {
         let key = TonemappingPipelineKey {
-            deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
-            tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
+            deband_dither: DebandDitherKey::from_params(&(), dither),
+            tonemapping: TonemappingKey::from_params(&(), tonemapping),
         };
-        let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
+        let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, KeyTypeConcrete::pack(&key, &key_store), &key_store);
 
         commands
             .entity(entity)
@@ -424,7 +425,7 @@ pub fn lut_placeholder() -> Image {
 
 impl_has_world_key!(DebandDitherKey, DebandDither, "DEBAND_DITHER");
 
-#[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone)]
+#[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u64)]
 pub enum TonemappingKey {
     #[default]

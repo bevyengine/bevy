@@ -20,8 +20,8 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms, MsaaKey},
+    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete, SystemKey},
 };
 
 use crate::core_3d::CORE_3D_DEPTH_FORMAT;
@@ -119,17 +119,17 @@ impl SkyboxPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PipelineKey, Clone, Copy)]
 struct SkyboxPipelineKey {
     hdr: bool,
-    samples: u32,
+    msaa: MsaaKey,
     depth_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for SkyboxPipeline {
     type Key = SkyboxPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
@@ -158,7 +158,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 },
             }),
             multisample: MultisampleState {
-                count: key.samples,
+                count: key.msaa.samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -191,16 +191,18 @@ fn prepare_skybox_pipelines(
     pipeline: Res<SkyboxPipeline>,
     msaa: Res<Msaa>,
     views: Query<(Entity, &ExtractedView), With<Skybox>>,
+    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, view) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            SkyboxPipelineKey {
+            KeyTypeConcrete::pack(&SkyboxPipelineKey {
                 hdr: view.hdr,
-                samples: msaa.samples(),
+                msaa: MsaaKey::from_params(&msaa, ()),
                 depth_format: CORE_3D_DEPTH_FORMAT,
-            },
+            }, &key_store),
+            &key_store,
         );
 
         commands

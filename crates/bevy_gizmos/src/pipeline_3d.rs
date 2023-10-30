@@ -12,14 +12,14 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
+use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup, OldMeshPipelineKey};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete},
 };
 
 pub struct LineGizmo3dPlugin;
@@ -67,7 +67,7 @@ impl FromWorld for LineGizmoPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
 struct LineGizmoPipelineKey {
     mesh_key: MeshPipelineKey,
     strip: bool,
@@ -77,7 +77,7 @@ struct LineGizmoPipelineKey {
 impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![
             #[cfg(feature = "webgl")]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
@@ -87,7 +87,8 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.mesh_key.contains(MeshPipelineKey::HDR) {
+        let mesh_key = OldMeshPipelineKey::from_bits(key.mesh_key.0).unwrap();
+        let format = if mesh_key.contains(OldMeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -95,7 +96,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         let view_layout = self
             .mesh_pipeline
-            .get_view_layout(key.mesh_key.into())
+            .get_view_layout(mesh_key.into())
             .clone();
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
@@ -127,7 +128,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 bias: DepthBiasState::default(),
             }),
             multisample: MultisampleState {
-                count: key.mesh_key.msaa_samples(),
+                count: mesh_key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -159,6 +160,7 @@ fn queue_line_gizmos_3d(
         &mut RenderPhase<Transparent3d>,
         Option<&RenderLayers>,
     )>,
+    key_store: Res<KeyMetaStore>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
 
@@ -168,8 +170,8 @@ fn queue_line_gizmos_3d(
             continue;
         }
 
-        let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let mesh_key = OldMeshPipelineKey::from_msaa_samples(msaa.samples())
+            | OldMeshPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
@@ -179,11 +181,12 @@ fn queue_line_gizmos_3d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                LineGizmoPipelineKey {
-                    mesh_key,
+                KeyTypeConcrete::pack(&LineGizmoPipelineKey {
+                    mesh_key: MeshPipelineKey(mesh_key.bits()),
                     strip: line_gizmo.strip,
                     perspective: config.line_perspective,
-                },
+                }, &key_store),
+                &key_store,
             );
 
             transparent_phase.add(Transparent3d {

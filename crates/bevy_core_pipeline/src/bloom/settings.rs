@@ -2,7 +2,8 @@ use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
 use bevy_math::{URect, UVec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
+use bevy_render::{extract_component::ExtractComponent, prelude::Camera, pipeline_keys::PipelineKey};
+use num_enum::{FromPrimitive, IntoPrimitive};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -176,8 +177,10 @@ pub struct BloomPrefilterSettings {
     pub threshold_softness: f32,
 }
 
-#[derive(Clone, Reflect, PartialEq, Eq, Hash, Copy)]
+#[derive(PipelineKey, Clone, Reflect, PartialEq, Eq, Hash, Copy, FromPrimitive, IntoPrimitive)]
+#[repr(u64)]
 pub enum BloomCompositeMode {
+    #[default]
     EnergyConserving,
     Additive,
 }

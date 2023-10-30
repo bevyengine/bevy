@@ -1,7 +1,7 @@
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::{quote, format_ident};
-use syn::{Data, DataEnum, DataStruct, Error, Result, Fields};
+use syn::{Data, DataEnum, DataStruct, Error, Result, Fields, PathArguments, PathSegment};
 
 pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
@@ -90,7 +90,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         }
             
                         fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
-                            #render_path::pipeline_keys::PackedPipelineKey::new(value.0, Self::size(store))
+                            #render_path::pipeline_keys::PackedPipelineKey::new(value.0, <Self as #render_path::pipeline_keys::KeyTypeConcrete>::size(store))
                         }
             
                         fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
@@ -120,7 +120,32 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                 quote!{ Self { #(#field_names),* }}
             };
 
-            let field_types = fields.iter().map(|f| f.ty.clone()).collect::<Vec<_>>();
+            let field_types = fields.iter().map(|f| {
+                // turn Option<T> into Option::<T> so we can call functions on it
+                fn colonize_type(ty: &mut syn::Type) {
+                    if let syn::Type::Path(ref mut typath) = ty {
+                        for segment in &mut typath.path.segments {
+                            colonize_segment(segment);
+                        }
+                    }
+                }
+
+                fn colonize_segment(segment: &mut PathSegment) {
+                    let span = segment.ident.span();
+                    if let PathArguments::AngleBracketed(ref mut abgis) = &mut segment.arguments {
+                        abgis.colon2_token = Some(syn::token::PathSep { spans: [span, span] });
+                        for mut arg in &mut abgis.args {
+                            if let syn::GenericArgument::Type(ref mut ty) = &mut arg {
+                                colonize_type(ty);
+                            }
+                        }
+                    }
+                }
+
+                let mut ty = f.ty.clone();
+                colonize_type(&mut ty);
+                ty
+            }).collect::<Vec<_>>();
 
             let fixed_size_impl = if is_not_fixed_size {
                 quote!()
@@ -128,7 +153,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                 quote!{
                     impl #impl_generics #render_path::pipeline_keys::FixedSizeKey for #struct_name #ty_generics #where_clause {
                         fn fixed_size() -> u8 {
-                            #(#field_types::fixed_size())+*
+                            #(#field_types::fixed_size() )+*
                         }
                     }
                 }
@@ -143,11 +168,11 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
         
                 impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
                     fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
-                        #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(Self::size(store), 0u8))])
+                        #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(<Self as #render_path::pipeline_keys::KeyTypeConcrete>::size(store), 0u8))])
                     }
 
                     fn size(store: &#render_path::pipeline_keys::KeyMetaStore) -> u8 {
-                        #(#field_types::size(store))+*
+                        #(<#field_types as #render_path::pipeline_keys::KeyTypeConcrete>::size(store))+*
                     }
         
                     fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {

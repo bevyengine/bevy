@@ -6,7 +6,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Vec4;
-use bevy_render::{render_resource::*, renderer::RenderDevice};
+use bevy_render::{render_resource::*, renderer::RenderDevice, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete}};
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
@@ -21,7 +21,7 @@ pub struct BloomDownsamplingPipeline {
     pub sampler: Sampler,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
 pub struct BloomDownsamplingPipelineKeys {
     prefilter: bool,
     first_downsample: bool,
@@ -99,7 +99,7 @@ impl FromWorld for BloomDownsamplingPipeline {
 impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
     type Key = BloomDownsamplingPipelineKeys;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let layout = vec![self.bind_group_layout.clone()];
 
         let entry_point = if key.first_downsample {
@@ -153,6 +153,7 @@ pub fn prepare_downsampling_pipeline(
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
     pipeline: Res<BloomDownsamplingPipeline>,
     views: Query<(Entity, &BloomSettings)>,
+    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, settings) in &views {
         let prefilter = settings.prefilter_settings.threshold > 0.0;
@@ -160,19 +161,21 @@ pub fn prepare_downsampling_pipeline(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            BloomDownsamplingPipelineKeys {
+            KeyTypeConcrete::pack(&BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: false,
-            },
+            }, &key_store),
+            &key_store,
         );
 
         let pipeline_first_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            BloomDownsamplingPipelineKeys {
+            KeyTypeConcrete::pack(&BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: true,
-            },
+            }, &key_store),
+            &key_store,
         );
 
         commands

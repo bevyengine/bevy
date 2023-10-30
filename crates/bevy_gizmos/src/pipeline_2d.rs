@@ -18,9 +18,9 @@ use bevy_render::{
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyTypeConcrete, KeyMetaStore},
 };
-use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
+use bevy_sprite::{Mesh2dPipeline, OldMesh2dPipelineKey, SetMesh2dViewBindGroup, Mesh2dPipelineKey};
 use bevy_utils::FloatOrd;
 
 pub struct LineGizmo2dPlugin;
@@ -69,7 +69,7 @@ impl FromWorld for LineGizmoPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
 struct LineGizmoPipelineKey {
     mesh_key: Mesh2dPipelineKey,
     strip: bool,
@@ -78,8 +78,9 @@ struct LineGizmoPipelineKey {
 impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
+        let mesh_key = OldMesh2dPipelineKey::from_bits(key.mesh_key.0).unwrap();
+        let format = if mesh_key.contains(OldMesh2dPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -116,7 +117,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState {
-                count: key.mesh_key.msaa_samples(),
+                count: mesh_key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -148,6 +149,7 @@ fn queue_line_gizmos_2d(
         &mut RenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
+    key_store: Res<KeyMetaStore>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
@@ -156,8 +158,8 @@ fn queue_line_gizmos_2d(
         if !config.render_layers.intersects(&render_layers) {
             continue;
         }
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+        let mesh_key = OldMesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | OldMesh2dPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
@@ -167,10 +169,11 @@ fn queue_line_gizmos_2d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                LineGizmoPipelineKey {
-                    mesh_key,
+                KeyTypeConcrete::pack(&LineGizmoPipelineKey {
+                    mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
                     strip: line_gizmo.strip,
-                },
+                }, &key_store),
+                &key_store,
             );
 
             transparent_phase.add(Transparent2d {

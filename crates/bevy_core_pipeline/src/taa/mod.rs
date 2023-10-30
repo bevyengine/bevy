@@ -339,7 +339,7 @@ impl FromWorld for TAAPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
 struct TAAPipelineKey {
     hdr: bool,
     reset: bool,
@@ -348,7 +348,7 @@ struct TAAPipelineKey {
 impl SpecializedRenderPipeline for TAAPipeline {
     type Key = TAAPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
 
         let format = if key.hdr {
@@ -508,18 +508,19 @@ fn prepare_taa_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
+    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TAAPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
         };
-        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
+        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, KeyTypeConcrete::pack(&pipeline_key, &key_store), &key_store);
 
         // Prepare non-reset pipeline anyways - it will be necessary next frame
         if pipeline_key.reset {
             pipeline_key.reset = false;
-            pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
+            pipelines.specialize(&pipeline_cache, &pipeline, KeyTypeConcrete::pack(&pipeline_key, &key_store), &key_store);
         }
 
         commands.entity(entity).insert(TAAPipelineId(pipeline_id));

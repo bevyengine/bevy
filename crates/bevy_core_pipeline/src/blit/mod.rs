@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_render::{render_resource::*, renderer::RenderDevice, RenderApp};
+use bevy_render::{render_resource::*, renderer::RenderDevice, RenderApp, view::MsaaKey, pipeline_keys::PipelineKey};
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
@@ -68,17 +68,17 @@ impl FromWorld for BlitPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PipelineKey, Clone, Copy)]
 pub struct BlitPipelineKey {
     pub texture_format: TextureFormat,
     pub blend_state: Option<BlendState>,
-    pub samples: u32,
+    pub msaa: MsaaKey,
 }
 
 impl SpecializedRenderPipeline for BlitPipeline {
     type Key = BlitPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
             layout: vec![self.texture_bind_group.clone()],
@@ -96,7 +96,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState {
-                count: key.samples,
+                count: key.msaa.samples(),
                 ..Default::default()
             },
             push_constant_ranges: Vec::new(),

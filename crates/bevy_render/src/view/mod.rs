@@ -527,7 +527,7 @@ fn prepare_view_targets(
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive, PartialEq, Eq, Hash, Debug)]
 #[repr(u64)]
 pub enum MsaaKey {
     #[default]
@@ -562,7 +562,7 @@ impl MsaaKey {
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Clone, Copy, PartialEq)]
+#[derive(PipelineKeyInRenderCrate, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct HdrKey(pub bool);
 impl SystemKey for HdrKey {
     type Param = ();

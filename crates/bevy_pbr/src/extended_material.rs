@@ -11,7 +11,7 @@ use bevy_render::{
     texture::{FallbackImage, Image},
 };
 
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
+use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, OldMeshPipelineKey};
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
@@ -21,7 +21,7 @@ pub struct MaterialExtensionPipeline {
 }
 
 pub struct MaterialExtensionKey<E: MaterialExtension> {
-    pub mesh_key: MeshPipelineKey,
+    pub mesh_key: OldMeshPipelineKey,
     pub bind_group_data: E::Data,
 }
 

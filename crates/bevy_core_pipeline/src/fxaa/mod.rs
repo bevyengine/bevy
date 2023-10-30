@@ -17,17 +17,20 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete},
 };
 
 mod node;
 
 pub use node::FxaaNode;
+use num_enum::{FromPrimitive, IntoPrimitive};
 
-#[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(PipelineKey, Reflect, Eq, PartialEq, Hash, Clone, Copy, FromPrimitive, IntoPrimitive)]
 #[reflect(PartialEq, Hash)]
+#[repr(u64)]
 pub enum Sensitivity {
     Low,
+    #[default]
     Medium,
     High,
     Ultra,
@@ -162,7 +165,7 @@ pub struct CameraFxaaPipeline {
     pub pipeline_id: CachedRenderPipelineId,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct FxaaPipelineKey {
     edge_threshold: Sensitivity,
     edge_threshold_min: Sensitivity,
@@ -172,7 +175,7 @@ pub struct FxaaPipelineKey {
 impl SpecializedRenderPipeline for FxaaPipeline {
     type Key = FxaaPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("fxaa".into()),
             layout: vec![self.texture_bind_group.clone()],
@@ -204,6 +207,7 @@ pub fn prepare_fxaa_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
     fxaa_pipeline: Res<FxaaPipeline>,
     views: Query<(Entity, &ExtractedView, &Fxaa)>,
+    key_store: ResMut<KeyMetaStore>,
 ) {
     for (entity, view, fxaa) in &views {
         if !fxaa.enabled {
@@ -212,7 +216,7 @@ pub fn prepare_fxaa_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &fxaa_pipeline,
-            FxaaPipelineKey {
+            KeyTypeConcrete::pack(&FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,
                 edge_threshold_min: fxaa.edge_threshold_min,
                 texture_format: if view.hdr {
@@ -220,7 +224,8 @@ pub fn prepare_fxaa_pipelines(
                 } else {
                     TextureFormat::bevy_default()
                 },
-            },
+            }, &key_store),
+            &key_store,
         );
 
         commands

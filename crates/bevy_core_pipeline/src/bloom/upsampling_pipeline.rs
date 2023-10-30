@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget};
+use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget, pipeline_keys::{KeyMetaStore, PipelineKey, KeyTypeConcrete}};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -21,7 +21,7 @@ pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
     final_pipeline: bool,
@@ -74,7 +74,7 @@ impl FromWorld for BloomUpsamplingPipeline {
 impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
     type Key = BloomUpsamplingPipelineKeys;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let texture_format = if key.final_pipeline {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -148,24 +148,27 @@ pub fn prepare_upsampling_pipeline(
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &BloomSettings)>,
+    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, settings) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            BloomUpsamplingPipelineKeys {
+            KeyTypeConcrete::pack(&BloomUpsamplingPipelineKeys {
                 composite_mode: settings.composite_mode,
                 final_pipeline: false,
-            },
+            }, &key_store),
+            &key_store,
         );
 
         let pipeline_final_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            BloomUpsamplingPipelineKeys {
+            KeyTypeConcrete::pack(&BloomUpsamplingPipelineKeys {
                 composite_mode: settings.composite_mode,
                 final_pipeline: true,
-            },
+            }, &key_store),
+            &key_store,
         );
 
         commands.entity(entity).insert(UpsamplingPipelineIds {

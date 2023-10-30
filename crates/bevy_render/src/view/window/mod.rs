@@ -4,7 +4,7 @@ use crate::{
     },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::{KeyMetaStore, KeyTypeConcrete},
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -246,6 +246,7 @@ pub fn prepare_windows(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     mut msaa: ResMut<Msaa>,
+    key_store: Res<KeyMetaStore>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
@@ -423,7 +424,8 @@ pub fn prepare_windows(
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,
-                surface_configuration.format,
+                KeyTypeConcrete::pack(&surface_configuration.format, &key_store),
+                &key_store,
             );
             window.swap_chain_texture_view = Some(texture_view);
             window.screenshot_memory = Some(ScreenshotPreparedState {

@@ -13,6 +13,7 @@ use self::composite::CompositeKey;
 pub type KeyPrimitive = u64;
 
 mod composite;
+mod packed_types;
 pub struct KeyMeta {
     pub dynamic_components: HashMap<TypeId, SizeOffset>,
     pub size: u8,
@@ -95,12 +96,12 @@ impl KeyMetaStore {
         self.metas.get(id).unwrap_or_else(missing_id).size
     }
 
-    pub fn pipeline_key<K: AnyKeyType + KeyTypeConcrete>(&self, value: KeyPrimitive) -> Option<PipelineKey<K>> {
+    pub fn pipeline_key<K: AnyKeyType + KeyTypeConcrete>(&self, value: KeyPrimitive) -> PipelineKey<K> {
         let value = K::unpack(value, self);
-        Some(PipelineKey {
+        PipelineKey {
             store: self,
             value,
-        })
+        }
     }
 
     pub fn finalize(&mut self) {
@@ -195,7 +196,7 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
         let SizeOffset(size, offset) = positions.get(&TypeId::of::<U>())?;
         let key = T::pack(&self.value, &self.store);
         let value = (key.packed >> offset) & ((1 << size) - 1);
-        self.store.pipeline_key(value)
+        Some(self.store.pipeline_key(value))
     }
 }
 
@@ -229,7 +230,7 @@ impl PipelineKeys {
     }
 
     pub fn get_key<'a, K: AnyKeyType + KeyTypeConcrete>(&self, store: &'a KeyMetaStore) -> Option<PipelineKey<'a, K>> {
-        store.pipeline_key(self.get_raw::<K>()?)
+        Some(store.pipeline_key(self.get_raw::<K>()?))
     }
 }
 
@@ -422,7 +423,7 @@ macro_rules! impl_has_world_key {
     ($key:ident, $component:ident, $def:expr) => {
         use bevy_render::pipeline_keys::*;
         #[derive(
-            PipelineKey, Default, Clone, Copy,
+            PipelineKey, Default, Clone, Copy, Debug, PartialEq, Eq, Hash
         )]
         pub struct $key(bool);
         impl SystemKey for $key {
@@ -442,36 +443,4 @@ macro_rules! impl_has_world_key {
             }
         }
     };
-}
-
-impl AnyKeyType for bool {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for bool {
-    fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(1, 0))])
-    }
-
-    fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
-        let raw = if *value {
-            1
-        } else {
-            0
-        };
-
-        PackedPipelineKey::new(raw, 1)
-    }
-
-    fn unpack(value: KeyPrimitive, _: &KeyMetaStore) -> Self {
-        value != 0
-    }    
-}
-
-impl FixedSizeKey for bool {
-    fn fixed_size() -> u8 {
-        1
-    }
 }

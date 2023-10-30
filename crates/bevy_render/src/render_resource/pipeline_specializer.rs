@@ -1,4 +1,4 @@
-use crate::render_resource::CachedComputePipelineId;
+use crate::{render_resource::CachedComputePipelineId, pipeline_keys::{AnyKeyType, PipelineKey, KeyPrimitive, KeyMetaStore, KeyTypeConcrete, PackedPipelineKey}};
 use crate::{
     mesh::{InnerMeshVertexBufferLayout, MeshVertexBufferLayout, MissingVertexAttributeError},
     render_resource::{
@@ -11,22 +11,23 @@ use bevy_utils::{
     default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap,
     PreHashMapExt,
 };
-use std::{fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 use thiserror::Error;
 
 pub trait SpecializedRenderPipeline {
-    type Key: Clone + Hash + PartialEq + Eq;
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor;
+    type Key: AnyKeyType + KeyTypeConcrete;
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor;
 }
 
 #[derive(Resource)]
 pub struct SpecializedRenderPipelines<S: SpecializedRenderPipeline> {
-    cache: HashMap<S::Key, CachedRenderPipelineId>,
+    cache: HashMap<KeyPrimitive, CachedRenderPipelineId>,
+    _p: PhantomData<fn() -> S>
 }
 
 impl<S: SpecializedRenderPipeline> Default for SpecializedRenderPipelines<S> {
     fn default() -> Self {
-        Self { cache: default() }
+        Self { cache: default(), _p: PhantomData }
     }
 }
 
@@ -35,10 +36,11 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
         &mut self,
         cache: &PipelineCache,
         specialize_pipeline: &S,
-        key: S::Key,
+        key: PackedPipelineKey<S::Key>,
+        store: &KeyMetaStore,
     ) -> CachedRenderPipelineId {
-        *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
+        *self.cache.entry(key.packed).or_insert_with(|| {
+            let descriptor = specialize_pipeline.specialize(store.pipeline_key(key.packed));
             cache.queue_render_pipeline(descriptor)
         })
     }

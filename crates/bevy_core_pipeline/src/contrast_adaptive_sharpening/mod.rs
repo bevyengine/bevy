@@ -15,7 +15,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete},
 };
 
 mod node;
@@ -212,7 +212,7 @@ impl FromWorld for CASPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct CASPipelineKey {
     texture_format: TextureFormat,
     denoise: bool,
@@ -221,7 +221,7 @@ pub struct CASPipelineKey {
 impl SpecializedRenderPipeline for CASPipeline {
     type Key = CASPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
         if key.denoise {
             shader_defs.push("RCAS_DENOISE".into());
@@ -254,19 +254,21 @@ fn prepare_cas_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<CASPipeline>>,
     sharpening_pipeline: Res<CASPipeline>,
     views: Query<(Entity, &ExtractedView, &DenoiseCAS), With<CASUniform>>,
+    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, view, cas_settings) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
-            CASPipelineKey {
+            KeyTypeConcrete::pack(&CASPipelineKey {
                 denoise: cas_settings.0,
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
                     TextureFormat::bevy_default()
                 },
-            },
+            }, &key_store),
+            &key_store,
         );
 
         commands.entity(entity).insert(ViewCASPipeline(pipeline_id));

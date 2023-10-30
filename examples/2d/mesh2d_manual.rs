@@ -23,11 +23,12 @@ use bevy::{
     },
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
-        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
+        OldMesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
         RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
     utils::FloatOrd,
 };
+use bevy_internal::{sprite::Mesh2dPipelineKey, render::pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete}};
 use std::f32::consts::PI;
 
 fn main() {
@@ -132,7 +133,9 @@ impl FromWorld for ColoredMesh2dPipeline {
 impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
+        let key = OldMesh2dPipelineKey::from_bits(key.0).unwrap();
+
         // Customize how to store the meshes' vertex attributes in the vertex buffer
         // Our meshes only have position and color
         let formats = vec![
@@ -145,7 +148,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
+        let format = match key.contains(OldMesh2dPipelineKey::HDR) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
@@ -348,6 +351,7 @@ pub fn queue_colored_mesh2d(
         &mut RenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
+    key_store: Res<KeyMetaStore>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
@@ -356,8 +360,8 @@ pub fn queue_colored_mesh2d(
     for (visible_entities, mut transparent_phase, view) in &mut views {
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+        let mesh_key = OldMesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | OldMesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
         for visible_entity in &visible_entities.entities {
@@ -368,11 +372,12 @@ pub fn queue_colored_mesh2d(
                 let mut mesh2d_key = mesh_key;
                 if let Some(mesh) = render_meshes.get(mesh2d_handle) {
                     mesh2d_key |=
-                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        OldMesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 }
 
                 let pipeline_id =
-                    pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
+                    pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, 
+                        KeyTypeConcrete::pack(&Mesh2dPipelineKey(mesh2d_key.bits()), &key_store), &key_store);
 
                 let mesh_z = mesh2d_transforms.transform.translation.z;
                 transparent_phase.add(Transparent2d {

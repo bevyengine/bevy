@@ -30,7 +30,7 @@ use bevy_render::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility, VisibleEntities,
     },
-    Extract,
+    Extract, pipeline_keys::{PipelineKey, KeyTypeConcrete, KeyMetaStore},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
@@ -133,12 +133,15 @@ impl FromWorld for SpritePipeline {
     }
 }
 
+#[derive(PipelineKey)]
+pub struct SpritePipelineKey(pub u32);
+
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
-    pub struct SpritePipelineKey: u32 {
+    pub struct OldSpritePipelineKey: u32 {
         const NONE                              = 0;
         const COLORED                           = (1 << 0);
         const HDR                               = (1 << 1);
@@ -157,7 +160,7 @@ bitflags::bitflags! {
     }
 }
 
-impl SpritePipelineKey {
+impl OldSpritePipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
@@ -179,18 +182,18 @@ impl SpritePipelineKey {
     #[inline]
     pub const fn from_colored(colored: bool) -> Self {
         if colored {
-            SpritePipelineKey::COLORED
+            OldSpritePipelineKey::COLORED
         } else {
-            SpritePipelineKey::NONE
+            OldSpritePipelineKey::NONE
         }
     }
 
     #[inline]
     pub const fn from_hdr(hdr: bool) -> Self {
         if hdr {
-            SpritePipelineKey::HDR
+            OldSpritePipelineKey::HDR
         } else {
-            SpritePipelineKey::NONE
+            OldSpritePipelineKey::NONE
         }
     }
 }
@@ -198,39 +201,40 @@ impl SpritePipelineKey {
 impl SpecializedRenderPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
+        let key = OldSpritePipelineKey::from_bits(key.0).unwrap();
         let mut shader_defs = Vec::new();
-        if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
+        if key.contains(OldSpritePipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
-            let method = key.intersection(SpritePipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+            let method = key.intersection(OldSpritePipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == SpritePipelineKey::TONEMAP_METHOD_NONE {
+            if method == OldSpritePipelineKey::TONEMAP_METHOD_NONE {
                 shader_defs.push("TONEMAP_METHOD_NONE".into());
-            } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD {
+            } else if method == OldSpritePipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
-            } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
+            } else if method == OldSpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-            } else if method == SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED {
+            } else if method == OldSpritePipelineKey::TONEMAP_METHOD_ACES_FITTED {
                 shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
-            } else if method == SpritePipelineKey::TONEMAP_METHOD_AGX {
+            } else if method == OldSpritePipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            } else if method == OldSpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
             {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-            } else if method == SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+            } else if method == OldSpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-            } else if method == SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
+            } else if method == OldSpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
-            if key.contains(SpritePipelineKey::DEBAND_DITHER) {
+            if key.contains(OldSpritePipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
             }
         }
 
-        let format = match key.contains(SpritePipelineKey::HDR) {
+        let format = match key.contains(OldSpritePipelineKey::HDR) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
@@ -504,46 +508,49 @@ pub fn queue_sprites(
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
+    key_store: Res<KeyMetaStore>,
 ) {
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
+    let msaa_key = OldSpritePipelineKey::from_msaa_samples(msaa.samples());
 
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
     for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
-        let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+        let mut view_key = OldSpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
-                view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+                view_key |= OldSpritePipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {
-                    Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
-                    Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
+                    Tonemapping::None => OldSpritePipelineKey::TONEMAP_METHOD_NONE,
+                    Tonemapping::Reinhard => OldSpritePipelineKey::TONEMAP_METHOD_REINHARD,
                     Tonemapping::ReinhardLuminance => {
-                        SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                        OldSpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
                     }
-                    Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                    Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
+                    Tonemapping::AcesFitted => OldSpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                    Tonemapping::AgX => OldSpritePipelineKey::TONEMAP_METHOD_AGX,
                     Tonemapping::SomewhatBoringDisplayTransform => {
-                        SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                        OldSpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
                     }
-                    Tonemapping::TonyMcMapface => SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                    Tonemapping::BlenderFilmic => SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                    Tonemapping::TonyMcMapface => OldSpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                    Tonemapping::BlenderFilmic => OldSpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
                 };
             }
             if let Some(DebandDither::Enabled) = dither {
-                view_key |= SpritePipelineKey::DEBAND_DITHER;
+                view_key |= OldSpritePipelineKey::DEBAND_DITHER;
             }
         }
 
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &sprite_pipeline,
-            view_key | SpritePipelineKey::from_colored(false),
+            KeyTypeConcrete::pack(&SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(false)).bits()), &key_store),
+            &key_store,
         );
         let colored_pipeline = pipelines.specialize(
             &pipeline_cache,
             &sprite_pipeline,
-            view_key | SpritePipelineKey::from_colored(true),
+            KeyTypeConcrete::pack(&SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(true)).bits()), &key_store),
+            &key_store,
         );
 
         view_entities.clear();

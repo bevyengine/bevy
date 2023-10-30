@@ -243,7 +243,7 @@ where
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
-    pub mesh_key: MeshPipelineKey,
+    pub mesh_key: OldMeshPipelineKey,
     pub bind_group_data: M::Data,
 }
 
@@ -391,30 +391,30 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
 
-const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
+const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> OldMeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
-        AlphaMode::Premultiplied | AlphaMode::Add => MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA,
-        AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
-        AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
-        AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
-        _ => MeshPipelineKey::NONE,
+        AlphaMode::Premultiplied | AlphaMode::Add => OldMeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA,
+        AlphaMode::Blend => OldMeshPipelineKey::BLEND_ALPHA,
+        AlphaMode::Multiply => OldMeshPipelineKey::BLEND_MULTIPLY,
+        AlphaMode::Mask(_) => OldMeshPipelineKey::MAY_DISCARD,
+        _ => OldMeshPipelineKey::NONE,
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
+const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> OldMeshPipelineKey {
     match tonemapping {
-        Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
-        Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
-        Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-        Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
+        Tonemapping::None => OldMeshPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::Reinhard => OldMeshPipelineKey::TONEMAP_METHOD_REINHARD,
+        Tonemapping::ReinhardLuminance => OldMeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
+        Tonemapping::AcesFitted => OldMeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+        Tonemapping::AgX => OldMeshPipelineKey::TONEMAP_METHOD_AGX,
         Tonemapping::SomewhatBoringDisplayTransform => {
-            MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            OldMeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
         }
-        Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-        Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+        Tonemapping::TonyMcMapface => OldMeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+        Tonemapping::BlenderFilmic => OldMeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
     }
 }
 
@@ -453,12 +453,12 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
     )>,
-    store: Res<KeyMetaStore>,
+    _store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
-        keys,
+        _keys,
         view,
         visible_entities,
         tonemapping,
@@ -478,97 +478,97 @@ pub fn queue_material_meshes<M: Material>(
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = OldMeshPipelineKey::from_msaa_samples(msaa.samples())
+            | OldMeshPipelineKey::from_hdr(view.hdr);
 
         if normal_prepass {
-            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+            view_key |= OldMeshPipelineKey::NORMAL_PREPASS;
         }
 
         if depth_prepass {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+            view_key |= OldMeshPipelineKey::DEPTH_PREPASS;
         }
 
         if motion_vector_prepass {
-            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+            view_key |= OldMeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
         if deferred_prepass {
-            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+            view_key |= OldMeshPipelineKey::DEFERRED_PREPASS;
         }
 
         if taa_settings.is_some() {
-            view_key |= MeshPipelineKey::TAA;
+            view_key |= OldMeshPipelineKey::TAA;
         }
         let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
 
         if environment_map_loaded {
-            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+            view_key |= OldMeshPipelineKey::ENVIRONMENT_MAP;
         }
 
         if let Some(projection) = projection {
             view_key |= match projection {
-                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
-                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Perspective(_) => OldMeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => OldMeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
             };
         }
 
         match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
             ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+                view_key |= OldMeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }
             ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+                view_key |= OldMeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
             }
             ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+                view_key |= OldMeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
             }
         }
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= OldMeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
             }
             if let Some(DebandDither::Enabled) = dither {
-                view_key |= MeshPipelineKey::DEBAND_DITHER;
+                view_key |= OldMeshPipelineKey::DEBAND_DITHER;
             }
         }
         if ssao.is_some() {
-            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+            view_key |= OldMeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
         let rangefinder = view.rangefinder3d();
 
-        let view_key_new = keys.unwrap().get_key::<PbrViewKey>(&store).unwrap();
+        // let view_key_new = keys.unwrap().get_key::<PbrViewKey>(&store).unwrap();
 
-        let new_is_hdr = view_key_new.extract::<HdrKey>().unwrap().0;
-        if new_is_hdr != view.hdr {
-            println!("bnoo");
-        }
+        // let new_is_hdr = view_key_new.extract::<HdrKey>().unwrap().0;
+        // if new_is_hdr != view.hdr {
+        //     println!("bnoo");
+        // }
 
-        let new_is_also_hdr = keys.unwrap().get_key::<HdrKey>(&store).unwrap().0;
-        if new_is_also_hdr != view.hdr {
-            println!("bnoo2");
-        }
+        // let new_is_also_hdr = keys.unwrap().get_key::<HdrKey>(&store).unwrap().0;
+        // if new_is_also_hdr != view.hdr {
+        //     println!("bnoo2");
+        // }
 
-        let prepass_key = *view_key_new.extract::<PrepassKey>().unwrap();
-        if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
-            println!("prepass mismatch: {prepass_key:?} / {:?}", (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass));
-        } else {
-            println!("prepass ok: {prepass_key:?}");
-        }
+        // let prepass_key = *view_key_new.extract::<PrepassKey>().unwrap();
+        // if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
+        //     println!("prepass mismatch: {prepass_key:?} / {:?}", (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass));
+        // } else {
+        //     println!("prepass ok: {prepass_key:?}");
+        // }
 
-        let dyn_key_new = keys.unwrap().get_key::<PbrViewKeyDynamic>(&store).unwrap();
-        let new_is_hdr = dyn_key_new.extract::<HdrKey>().unwrap().0;
-        if new_is_hdr != view.hdr {
-            println!("bnoo dyn");
-        }
-        let prepass_key = *dyn_key_new.extract::<PrepassKey>().unwrap();
-        if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
-            println!("dyn prepass mismatch: {prepass_key:?} / {:?}", (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass));
-        } else {
-            println!("dyn prepass ok: {prepass_key:?}");
-        }
+        // let dyn_key_new = keys.unwrap().get_key::<PbrViewKeyDynamic>(&store).unwrap();
+        // let new_is_hdr = dyn_key_new.extract::<HdrKey>().unwrap().0;
+        // if new_is_hdr != view.hdr {
+        //     println!("bnoo dyn");
+        // }
+        // let prepass_key = *dyn_key_new.extract::<PrepassKey>().unwrap();
+        // if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
+        //     println!("dyn prepass mismatch: {prepass_key:?} / {:?}", (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass));
+        // } else {
+        //     println!("dyn prepass ok: {prepass_key:?}");
+        // }
 
 
         for visible_entity in &visible_entities.entities {
@@ -593,10 +593,10 @@ pub fn queue_material_meshes<M: Material>(
 
             let mut mesh_key = view_key;
 
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            mesh_key |= OldMeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
             if mesh.morph_targets.is_some() {
-                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                mesh_key |= OldMeshPipelineKey::MORPH_TARGETS;
             }
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
 

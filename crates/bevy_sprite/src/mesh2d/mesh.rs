@@ -27,7 +27,7 @@ use bevy_render::{
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::PipelineKey,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::EntityHashMap;
@@ -382,13 +382,16 @@ impl GetBatchData for Mesh2dPipeline {
     }
 }
 
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct Mesh2dPipelineKey(pub u32);
+
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     // FIXME: make normals optional?
-    pub struct Mesh2dPipelineKey: u32 {
+    pub struct OldMesh2dPipelineKey: u32 {
         const NONE                              = 0;
         const HDR                               = (1 << 0);
         const TONEMAP_IN_SHADER                 = (1 << 1);
@@ -407,7 +410,7 @@ bitflags::bitflags! {
     }
 }
 
-impl Mesh2dPipelineKey {
+impl OldMesh2dPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
@@ -424,9 +427,9 @@ impl Mesh2dPipelineKey {
 
     pub fn from_hdr(hdr: bool) -> Self {
         if hdr {
-            Mesh2dPipelineKey::HDR
+            OldMesh2dPipelineKey::HDR
         } else {
-            Mesh2dPipelineKey::NONE
+            OldMesh2dPipelineKey::NONE
         }
     }
 
@@ -456,7 +459,7 @@ impl Mesh2dPipelineKey {
 }
 
 impl SpecializedMeshPipeline for Mesh2dPipeline {
-    type Key = Mesh2dPipelineKey;
+    type Key = OldMesh2dPipelineKey;
 
     fn specialize(
         &self,
@@ -491,47 +494,47 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
-        if key.contains(Mesh2dPipelineKey::TONEMAP_IN_SHADER) {
+        if key.contains(OldMesh2dPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
-            let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
+            let method = key.intersection(OldMesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
             match method {
-                Mesh2dPipelineKey::TONEMAP_METHOD_NONE => {
+                OldMesh2dPipelineKey::TONEMAP_METHOD_NONE => {
                     shader_defs.push("TONEMAP_METHOD_NONE".into());
                 }
-                Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
+                OldMesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
                     shader_defs.push("TONEMAP_METHOD_REINHARD".into());
                 }
-                Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE => {
+                OldMesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE => {
                     shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
                 }
-                Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED => {
+                OldMesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED => {
                     shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
                 }
-                Mesh2dPipelineKey::TONEMAP_METHOD_AGX => {
+                OldMesh2dPipelineKey::TONEMAP_METHOD_AGX => {
                     shader_defs.push("TONEMAP_METHOD_AGX".into());
                 }
-                Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM => {
+                OldMesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM => {
                     shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
                 }
-                Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC => {
+                OldMesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC => {
                     shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
                 }
-                Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
+                OldMesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
                     shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
                 }
                 _ => {}
             }
             // Debanding is tied to tonemapping in the shader, cannot run without it.
-            if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
+            if key.contains(OldMesh2dPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
             }
         }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
+        let format = match key.contains(OldMesh2dPipelineKey::HDR) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };

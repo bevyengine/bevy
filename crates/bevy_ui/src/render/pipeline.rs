@@ -3,7 +3,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     texture::BevyDefault,
-    view::{ViewTarget, ViewUniform},
+    view::{ViewTarget, ViewUniform}, pipeline_keys::PipelineKey,
 };
 
 #[derive(Resource)]
@@ -59,7 +59,7 @@ impl FromWorld for UiPipeline {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(PipelineKey, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
 }
@@ -67,7 +67,7 @@ pub struct UiPipelineKey {
 impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Vertex,
             vec![
