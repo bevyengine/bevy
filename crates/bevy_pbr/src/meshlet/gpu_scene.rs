@@ -31,6 +31,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, EntityHashMap, HashMap};
 use std::{
     hash::Hash,
+    mem,
     ops::{DerefMut, Range},
     sync::Arc,
 };
@@ -607,25 +608,39 @@ impl MeshletGpuScene {
         &self.draw_bind_group_layout
     }
 
-    pub fn resources_for_view(
-        &self,
+    pub fn resources_for_view<'a>(
+        &'a self,
         view_entity: Entity,
+        pipeline_cache: &'a PipelineCache,
     ) -> (
         u32,
-        Vec<Option<&(CachedRenderPipelineId, BindGroup)>>,
+        impl Iterator<Item = (u64, &'a BindGroup, &'a RenderPipeline)>,
         Option<&BindGroup>,
         Option<&BindGroup>,
         Option<&Buffer>,
         Option<&Buffer>,
     ) {
-        let mut materials = Vec::new();
-        for material_id in &self.material_order {
-            materials.push(self.materials.get(&(*material_id, view_entity)));
-        }
+        let material_draws = self
+            .material_order
+            .iter()
+            .enumerate()
+            .filter(|(_, material_id)| self.material_vertex_counts.contains_key(*material_id))
+            .map(move |(i, material_id)| (i, &self.materials[&(*material_id, view_entity)]))
+            .filter_map(|(i, (material_pipeline_id, material_bind_group))| {
+                pipeline_cache
+                    .get_render_pipeline(*material_pipeline_id)
+                    .map(|material_pipeline| {
+                        (
+                            (i * mem::size_of::<DrawIndexedIndirect>()) as u64,
+                            material_bind_group,
+                            material_pipeline,
+                        )
+                    })
+            });
 
         (
             self.scene_meshlet_count,
-            materials,
+            material_draws,
             self.culling_bind_groups.get(&view_entity),
             self.draw_bind_groups.get(&view_entity),
             self.draw_index_buffer.as_ref(),

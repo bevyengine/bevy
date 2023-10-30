@@ -61,12 +61,12 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         };
         let (
             scene_meshlet_count,
-            materials,
+            material_draws,
             Some(culling_bind_group),
             Some(draw_bind_group),
             Some(draw_index_buffer),
             Some(draw_command_buffer),
-        ) = gpu_scene.resources_for_view(graph.view_entity())
+        ) = gpu_scene.resources_for_view(graph.view_entity(), pipeline_cache)
         else {
             return Ok(());
         };
@@ -131,17 +131,10 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             );
             draw_pass.set_bind_group(1, draw_bind_group, &[]);
 
-            // TODO: Move this code into MeshletGpuScene::resources(), and have that return an iterator over
-            // (draw_offset, pipeline, material_bind_group)
-            // TODO: Skip indirect draw if 0 vertex count for material
-            for (i, material_resources) in materials.iter().enumerate() {
-                if let Some((pipeline_id, material_bind_group)) = material_resources {
-                    if let Some(pipeline) = pipeline_cache.get_render_pipeline(*pipeline_id) {
-                        draw_pass.set_bind_group(2, material_bind_group, &[]);
-                        draw_pass.set_render_pipeline(pipeline);
-                        draw_pass.draw_indexed_indirect(draw_command_buffer, i as u64 * 20);
-                    }
-                }
+            for (material_draw_offset, material_bind_group, material_pipeline) in material_draws {
+                draw_pass.set_bind_group(2, material_bind_group, &[]);
+                draw_pass.set_render_pipeline(material_pipeline);
+                draw_pass.draw_indexed_indirect(draw_command_buffer, material_draw_offset);
             }
         }
 
