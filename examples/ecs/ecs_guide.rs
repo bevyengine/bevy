@@ -224,7 +224,8 @@ fn exclusive_player_system(world: &mut World) {
 }
 
 // Sometimes systems need to be stateful. Bevy's ECS provides the `Local` system parameter
-// for this case. A `Local<T>` refers to a value owned by the system of type `T`, which is automatically
+// for this case. A `Local<T>` refers to a value of type `T` that is owned by the system. 
+// This value is automatically
 // initialized using `T`'s `FromWorld`* implementation. In this system's `Local` (`counter`), `T` is `u32`.
 // Therefore, on the first turn, `counter` has a value of 0.
 //
