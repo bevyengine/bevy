@@ -1374,13 +1374,8 @@ impl AddAssign<Vec4> for Color {
                 green,
                 blue,
                 alpha,
-            } => {
-                *red += rhs.x;
-                *green += rhs.y;
-                *blue += rhs.z;
-                *alpha += rhs.w;
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red,
                 green,
                 blue,
