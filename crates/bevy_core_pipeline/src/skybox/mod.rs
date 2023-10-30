@@ -8,6 +8,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey, SystemKey},
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -20,8 +21,8 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms, MsaaKey},
-    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete, SystemKey},
+    view::{ExtractedView, Msaa, MsaaKey, ViewTarget, ViewUniform, ViewUniforms},
+    Render, RenderApp, RenderSet,
 };
 
 use crate::core_3d::CORE_3D_DEPTH_FORMAT;
@@ -197,11 +198,14 @@ fn prepare_skybox_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(&SkyboxPipelineKey {
-                hdr: view.hdr,
-                msaa: MsaaKey::from_params(&msaa, ()),
-                depth_format: CORE_3D_DEPTH_FORMAT,
-            }, &key_store),
+            KeyTypeConcrete::pack(
+                &SkyboxPipelineKey {
+                    hdr: view.hdr,
+                    msaa: MsaaKey::from_params(&msaa, ()),
+                    depth_format: CORE_3D_DEPTH_FORMAT,
+                },
+                &key_store,
+            ),
             &key_store,
         );
 

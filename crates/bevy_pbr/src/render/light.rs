@@ -5,7 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
-    pipeline_keys::{PipelineKey, SystemKey, PipelineKeys, KeyShaderDefs},
+    pipeline_keys::{KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,

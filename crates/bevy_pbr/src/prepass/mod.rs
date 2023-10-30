@@ -422,10 +422,9 @@ where
             }
         }
 
-        if key
-            .mesh_key
-            .intersects(OldMeshPipelineKey::MOTION_VECTOR_PREPASS | OldMeshPipelineKey::DEFERRED_PREPASS)
-        {
+        if key.mesh_key.intersects(
+            OldMeshPipelineKey::MOTION_VECTOR_PREPASS | OldMeshPipelineKey::DEFERRED_PREPASS,
+        ) {
             shader_defs.push("MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS".into());
         }
 
@@ -516,7 +515,8 @@ where
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
-            let frag_shader_handle = if key.mesh_key.contains(OldMeshPipelineKey::DEFERRED_PREPASS) {
+            let frag_shader_handle = if key.mesh_key.contains(OldMeshPipelineKey::DEFERRED_PREPASS)
+            {
                 match self.deferred_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
                     _ => PREPASS_SHADER_HANDLE,

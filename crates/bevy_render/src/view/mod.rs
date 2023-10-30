@@ -10,7 +10,7 @@ pub use window::*;
 use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    pipeline_keys::{AddPipelineKey, SystemKey, KeyPrimitive, KeyShaderDefs},
+    pipeline_keys::{AddPipelineKey, KeyPrimitive, KeyShaderDefs, SystemKey},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -527,7 +527,18 @@ fn prepare_view_targets(
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, FromPrimitive, IntoPrimitive, PartialEq, Eq, Hash, Debug)]
+#[derive(
+    PipelineKeyInRenderCrate,
+    Default,
+    Clone,
+    Copy,
+    FromPrimitive,
+    IntoPrimitive,
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+)]
 #[repr(u64)]
 #[custom_shader_defs]
 pub enum MsaaKey {

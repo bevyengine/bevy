@@ -172,7 +172,6 @@ pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
     })
 }
 
-
 #[proc_macro]
 pub fn all_tuples_with_members(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);

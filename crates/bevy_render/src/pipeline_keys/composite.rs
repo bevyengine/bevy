@@ -1,14 +1,16 @@
+use super::*;
 use bevy_ecs::{prelude::*, schedule::NodeConfigs};
 pub use bevy_render_macros::PipelineKey;
-use bevy_utils::{HashMap, intern::Interned};
+use bevy_utils::{intern::Interned, HashMap};
 use std::any::{Any, TypeId};
-use super::*;
 
 #[allow(unused_imports)]
 use bevy_utils::all_tuples;
 
 pub trait CompositeKey: AnyKeyType + KeyTypeConcrete {
-    fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>> where Self: Sized;
+    fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>>
+    where
+        Self: Sized;
     fn set_config() -> NodeConfigs<Interned<dyn bevy_ecs::schedule::SystemSet>>;
 }
 
@@ -30,12 +32,12 @@ macro_rules! impl_composite_key_tuples {
                     let $sz = $K::size(store);
                     offset += $sz;
                 )*
-        
+
                 $(
                     offset -= $sz;
                     result.insert(TypeId::of::<$K>(), SizeOffset($sz, offset));
                 )*
-        
+
                 result
             }
 
@@ -50,10 +52,10 @@ macro_rules! impl_composite_key_tuples {
                     result = (result << size) | packed;
                     total_size += size;
                 )*
-    
+
                 PackedPipelineKey::new(result, total_size)
             }
-            
+
             fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self {
                 let mut shift_bits = 0;
                 $(
@@ -74,16 +76,16 @@ macro_rules! impl_composite_key_tuples {
             fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>> {
                 let mut result = 0 as KeyPrimitive;
                 let mut total_size = 0u8;
-        
+
                 $(
                     let PackedPipelineKey{ packed, size, .. } = keys.get_packed_key::<$K>()?;
                     result = result << size | packed;
                     total_size = total_size + size;
                 )*
-        
+
                 Some(PackedPipelineKey::new(result, total_size))
             }
-        
+
             fn set_config() -> NodeConfigs<Interned<dyn bevy_ecs::schedule::SystemSet>> {
                 let mut config = KeySetMarker::<Self>::default().after(KeySetMarker::<()>::default());
 
@@ -92,8 +94,8 @@ macro_rules! impl_composite_key_tuples {
                 )*
 
                 config
-            }        
-        } 
+            }
+        }
 
         impl<$($K: FixedSizeKey),*> FixedSizeKey for ($($K,)*) {
             fn fixed_size() -> u8 {
@@ -104,4 +106,3 @@ macro_rules! impl_composite_key_tuples {
 }
 
 all_tuples!(impl_composite_key_tuples, 1, 16, K, sz, selfdot);
-

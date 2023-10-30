@@ -1,4 +1,6 @@
-use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings, MeshPipelineKey};
+use crate::{
+    MeshPipeline, MeshPipelineKey, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
@@ -16,13 +18,14 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey, PipelineKeys},
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
     renderer::{RenderContext, RenderDevice},
     texture::Image,
     view::{ViewTarget, ViewUniformOffset},
-    Render, RenderSet, pipeline_keys::{KeyMetaStore, PipelineKeys, PipelineKey, KeyTypeConcrete},
+    Render, RenderSet,
 };
 
 use bevy_render::{
@@ -275,7 +278,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
             } else if method == OldMeshPipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
+            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             } else if method == OldMeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
@@ -477,7 +481,9 @@ pub fn prepare_deferred_lighting_pipelines(
                     Tonemapping::SomewhatBoringDisplayTransform => {
                         OldMeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
                     }
-                    Tonemapping::TonyMcMapface => OldMeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                    Tonemapping::TonyMcMapface => {
+                        OldMeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE
+                    }
                     Tonemapping::BlenderFilmic => OldMeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
                 };
             }
@@ -513,7 +519,6 @@ pub fn prepare_deferred_lighting_pipelines(
         // let view_key_new = keys.get_packed_key().unwrap();
         let key = MeshPipelineKey(view_key.bits());
         let key = KeyTypeConcrete::pack(&key, &key_store);
-
 
         let pipeline_id =
             pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, key, &key_store);

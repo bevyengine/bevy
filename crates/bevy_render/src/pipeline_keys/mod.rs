@@ -22,7 +22,11 @@ pub struct KeyMeta {
 
 impl KeyMeta {
     fn new<K: KeyTypeConcrete + 'static>() -> Self {
-        debug!("new dynamic: {} => {:?}", type_name::<K>(), TypeId::of::<K>());
+        debug!(
+            "new dynamic: {} => {:?}",
+            type_name::<K>(),
+            TypeId::of::<K>()
+        );
         Self {
             shader_def_fn: K::shader_defs,
             dynamic_components: Default::default(),
@@ -31,7 +35,12 @@ impl KeyMeta {
     }
 
     fn new_sized<K: KeyTypeConcrete + FixedSizeKey>() -> Self {
-        debug!("new fixed ({}): {} => {:?}", K::fixed_size(), type_name::<K>(), TypeId::of::<K>());
+        debug!(
+            "new fixed ({}): {} => {:?}",
+            K::fixed_size(),
+            type_name::<K>(),
+            TypeId::of::<K>()
+        );
         Self {
             shader_def_fn: K::shader_defs,
             dynamic_components: Default::default(),
@@ -67,7 +76,8 @@ fn missing_id<U>() -> U {
 
 impl KeyMetaStore {
     pub fn register_fixed_size<K: KeyTypeConcrete + FixedSizeKey>(&mut self) {
-        self.metas.insert(TypeId::of::<K>(), KeyMeta::new_sized::<K>());
+        self.metas
+            .insert(TypeId::of::<K>(), KeyMeta::new_sized::<K>());
     }
 
     pub fn register_dynamic<K: KeyTypeConcrete + 'static>(&mut self) {
@@ -84,15 +94,22 @@ impl KeyMetaStore {
     }
 
     fn meta_mut<K: AnyKeyType>(&mut self) -> &mut KeyMeta {
-        self.metas.get_mut(&TypeId::of::<K>()).unwrap_or_else(missing::<K, _>)
+        self.metas
+            .get_mut(&TypeId::of::<K>())
+            .unwrap_or_else(missing::<K, _>)
     }
 
     pub fn add_dynamic_part<K: AnyKeyType, PART: AnyKeyType>(&mut self) {
         if !self.unfinalized.contains(&TypeId::of::<K>()) {
-            panic!("{} is not dynamic, or keystore is already finalized", type_name::<K>());
+            panic!(
+                "{} is not dynamic, or keystore is already finalized",
+                type_name::<K>()
+            );
         }
 
-        self.meta_mut::<K>().dynamic_components.insert(TypeId::of::<PART>(), SizeOffset(u8::MAX, u8::MAX));
+        self.meta_mut::<K>()
+            .dynamic_components
+            .insert(TypeId::of::<PART>(), SizeOffset(u8::MAX, u8::MAX));
     }
 
     pub fn size_for_id(&self, id: &TypeId) -> u8 {
@@ -103,12 +120,12 @@ impl KeyMetaStore {
         self.metas.get(id).unwrap_or_else(missing_id).shader_def_fn
     }
 
-    pub fn pipeline_key<K: AnyKeyType + KeyTypeConcrete>(&self, value: KeyPrimitive) -> PipelineKey<K> {
+    pub fn pipeline_key<K: AnyKeyType + KeyTypeConcrete>(
+        &self,
+        value: KeyPrimitive,
+    ) -> PipelineKey<K> {
         let value = K::unpack(value, self);
-        PipelineKey {
-            store: self,
-            value,
-        }
+        PipelineKey { store: self, value }
     }
 
     pub fn finalize(&mut self) {
@@ -117,7 +134,10 @@ impl KeyMetaStore {
         while count > 0 {
             todo.retain(|k| {
                 let (k, mut v) = self.metas.remove_entry(k).unwrap();
-                if v.dynamic_components.keys().any(|k| self.unfinalized.contains(k)) {
+                if v.dynamic_components
+                    .keys()
+                    .any(|k| self.unfinalized.contains(k))
+                {
                     self.metas.insert(k, v);
                     return true;
                 }
@@ -145,7 +165,7 @@ impl KeyMetaStore {
 pub struct PackedPipelineKey<T: AnyKeyType> {
     pub packed: KeyPrimitive,
     pub size: u8,
-    _p: PhantomData<fn() -> T>
+    _p: PhantomData<fn() -> T>,
 }
 
 impl<T: AnyKeyType> PackedPipelineKey<T> {
@@ -173,7 +193,9 @@ pub trait KeyTypeConcrete: AnyKeyType {
         Self::positions(store).values().map(|so| so.0).sum()
     }
 
-    fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> where Self: Sized;
+    fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self>
+    where
+        Self: Sized;
 
     fn shader_defs(value: KeyPrimitive, store: &KeyMetaStore) -> Vec<ShaderDefVal> {
         let mut defs = Vec::default();
@@ -228,7 +250,6 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
     }
 }
 
-
 #[derive(Component, Default)]
 pub struct PipelineKeys {
     packed_keys: HashMap<TypeId, (KeyPrimitive, u8)>,
@@ -256,7 +277,10 @@ impl PipelineKeys {
         self.packed_keys.insert(TypeId::of::<K>(), (value, size));
     }
 
-    pub fn get_key<'a, K: AnyKeyType + KeyTypeConcrete>(&self, store: &'a KeyMetaStore) -> Option<PipelineKey<'a, K>> {
+    pub fn get_key<'a, K: AnyKeyType + KeyTypeConcrete>(
+        &self,
+        store: &'a KeyMetaStore,
+    ) -> Option<PipelineKey<'a, K>> {
         Some(store.pipeline_key(self.get_raw::<K>()?))
     }
 }
@@ -332,9 +356,7 @@ pub trait SystemKey: AnyKeyType + KeyTypeConcrete + FixedSizeKey {
 pub trait DynamicKey: AnyKeyType + KeyTypeConcrete {}
 
 pub trait AddPipelineKey {
-    fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(
-        &mut self,
-    ) -> &mut Self;
+    fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(&mut self) -> &mut Self;
     fn register_composite_key<K: CompositeKey, F: ReadOnlyWorldQuery + 'static>(
         &mut self,
     ) -> &mut Self;
@@ -344,20 +366,20 @@ pub trait AddPipelineKey {
 }
 
 impl AddPipelineKey for App {
-    fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(
-        &mut self,
-    ) -> &mut Self {
+    fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(&mut self) -> &mut Self {
         self.world
             .get_resource_mut::<KeyMetaStore>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
             .register_fixed_size::<K>();
         self.add_systems(
             Render,
-            (|p: StaticSystemParam<K::Param>, store: Res<KeyMetaStore>, mut q: Query<(&mut PipelineKeys, K::Query), F>| {
+            (|p: StaticSystemParam<K::Param>,
+              store: Res<KeyMetaStore>,
+              mut q: Query<(&mut PipelineKeys, K::Query), F>| {
                 let p = p.into_inner();
                 for (mut keys, query) in q.iter_mut() {
                     let key = K::from_params(&p, query);
-                    let PackedPipelineKey{ packed, size, .. } = K::pack(&key, &store);
+                    let PackedPipelineKey { packed, size, .. } = K::pack(&key, &store);
                     keys.set_raw::<K>(packed, size);
                 }
             })
@@ -386,7 +408,7 @@ impl AddPipelineKey for App {
             Render,
             (|mut q: Query<&mut PipelineKeys, F>| {
                 for mut keys in q.iter_mut() {
-                    if let Some(PackedPipelineKey{packed, size, ..}) = K::from_keys(&keys) {
+                    if let Some(PackedPipelineKey { packed, size, .. }) = K::from_keys(&keys) {
                         keys.set_raw::<K>(packed, size);
                     }
                 }
@@ -414,7 +436,7 @@ impl AddPipelineKey for App {
                     let mut size = 0;
                     for (id, so) in dynamic_components.iter() {
                         let Some((part, part_size)) = keys.get_raw_and_size_by_id(id) else {
-                            break 'ent
+                            break 'ent;
                         };
 
                         value |= part << so.1;
@@ -446,9 +468,7 @@ impl AddPipelineKey for App {
 macro_rules! impl_has_world_key {
     ($key:ident, $component:ident, $def:expr) => {
         use bevy_render::pipeline_keys::*;
-        #[derive(
-            PipelineKey, Default, Clone, Copy, Debug, PartialEq, Eq, Hash
-        )]
+        #[derive(PipelineKey, Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
         #[custom_shader_defs]
         pub struct $key(bool);
         impl SystemKey for $key {

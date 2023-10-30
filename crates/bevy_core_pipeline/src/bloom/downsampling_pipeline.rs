@@ -6,7 +6,11 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Vec4;
-use bevy_render::{render_resource::*, renderer::RenderDevice, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete}};
+use bevy_render::{
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    render_resource::*,
+    renderer::RenderDevice,
+};
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
@@ -161,20 +165,26 @@ pub fn prepare_downsampling_pipeline(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(&BloomDownsamplingPipelineKeys {
-                prefilter,
-                first_downsample: false,
-            }, &key_store),
+            KeyTypeConcrete::pack(
+                &BloomDownsamplingPipelineKeys {
+                    prefilter,
+                    first_downsample: false,
+                },
+                &key_store,
+            ),
             &key_store,
         );
 
         let pipeline_first_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(&BloomDownsamplingPipelineKeys {
-                prefilter,
-                first_downsample: true,
-            }, &key_store),
+            KeyTypeConcrete::pack(
+                &BloomDownsamplingPipelineKeys {
+                    prefilter,
+                    first_downsample: true,
+                },
+                &key_store,
+            ),
             &key_store,
         );
 

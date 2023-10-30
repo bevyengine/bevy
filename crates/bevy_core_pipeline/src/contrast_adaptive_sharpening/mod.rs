@@ -9,13 +9,14 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_resource::*,
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete},
+    Render, RenderApp, RenderSet,
 };
 
 mod node;
@@ -260,14 +261,17 @@ fn prepare_cas_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
-            KeyTypeConcrete::pack(&CASPipelineKey {
-                denoise: cas_settings.0,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
+            KeyTypeConcrete::pack(
+                &CASPipelineKey {
+                    denoise: cas_settings.0,
+                    texture_format: if view.hdr {
+                        ViewTarget::TEXTURE_FORMAT_HDR
+                    } else {
+                        TextureFormat::bevy_default()
+                    },
                 },
-            }, &key_store),
+                &key_store,
+            ),
             &key_store,
         );
 

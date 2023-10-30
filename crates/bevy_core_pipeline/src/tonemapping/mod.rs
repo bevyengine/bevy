@@ -3,7 +3,6 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::{prelude::*, system::lifetimeless::Read};
 use bevy_reflect::Reflect;
-use bevy_render::{extract_component::{ExtractComponent, ExtractComponentPlugin}, impl_has_world_key};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::renderer::RenderDevice;
@@ -13,6 +12,10 @@ use bevy_render::{
     camera::Camera,
     pipeline_keys::{AddPipelineKey, PipelineKey, SystemKey},
     view::ExtractedView,
+};
+use bevy_render::{
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    impl_has_world_key,
 };
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 
@@ -314,7 +317,12 @@ pub fn prepare_view_tonemapping_pipelines(
             deband_dither: DebandDitherKey::from_params(&(), dither),
             tonemapping: TonemappingKey::from_params(&(), tonemapping),
         };
-        let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, KeyTypeConcrete::pack(&key, &key_store), &key_store);
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &upscaling_pipeline,
+            KeyTypeConcrete::pack(&key, &key_store),
+            &key_store,
+        );
 
         commands
             .entity(entity)
@@ -425,7 +433,9 @@ pub fn lut_placeholder() -> Image {
 
 impl_has_world_key!(DebandDitherKey, DebandDither, "DEBAND_DITHER");
 
-#[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(
+    PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone, Debug, PartialEq, Eq, Hash,
+)]
 #[repr(u64)]
 #[custom_shader_defs]
 pub enum TonemappingKey {
@@ -470,9 +480,12 @@ impl KeyShaderDefs for TonemappingKey {
             TonemappingKey::ReinhardLuminance => "TONEMAP_METHOD_REINHARD_LUMINANCE",
             TonemappingKey::AcesFitted => "TONEMAP_METHOD_ACES_FITTED",
             TonemappingKey::AgX => "TONEMAP_METHOD_AGX",
-            TonemappingKey::SomewhatBoringDisplayTransform => "TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM",
+            TonemappingKey::SomewhatBoringDisplayTransform => {
+                "TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM"
+            }
             TonemappingKey::TonyMcMapface => "TONEMAP_METHOD_TONY_MC_MAPFACE",
             TonemappingKey::BlenderFilmic => "TONEMAP_METHOD_BLENDER_FILMIC",
-        }.into()]
-    }    
+        }
+        .into()]
+    }
 }

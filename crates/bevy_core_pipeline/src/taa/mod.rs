@@ -515,12 +515,22 @@ fn prepare_taa_pipelines(
             hdr: view.hdr,
             reset: taa_settings.reset,
         };
-        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, KeyTypeConcrete::pack(&pipeline_key, &key_store), &key_store);
+        let pipeline_id = pipelines.specialize(
+            &pipeline_cache,
+            &pipeline,
+            KeyTypeConcrete::pack(&pipeline_key, &key_store),
+            &key_store,
+        );
 
         // Prepare non-reset pipeline anyways - it will be necessary next frame
         if pipeline_key.reset {
             pipeline_key.reset = false;
-            pipelines.specialize(&pipeline_cache, &pipeline, KeyTypeConcrete::pack(&pipeline_key, &key_store), &key_store);
+            pipelines.specialize(
+                &pipeline_cache,
+                &pipeline,
+                KeyTypeConcrete::pack(&pipeline_key, &key_store),
+                &key_store,
+            );
         }
 
         commands.entity(entity).insert(TAAPipelineId(pipeline_id));

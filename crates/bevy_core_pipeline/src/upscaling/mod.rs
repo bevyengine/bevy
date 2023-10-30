@@ -1,8 +1,12 @@
 use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_render::{camera::{CameraOutputMode, ExtractedCamera}, view::MsaaKey, pipeline_keys::{KeyMetaStore, KeyTypeConcrete}};
 use bevy_render::view::ViewTarget;
+use bevy_render::{
+    camera::{CameraOutputMode, ExtractedCamera},
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete},
+    view::MsaaKey,
+};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 
 mod node;
@@ -49,7 +53,12 @@ fn prepare_view_upscaling_pipelines(
             msaa: MsaaKey::Off,
         };
 
-        let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, KeyTypeConcrete::pack(&key, &key_store), &key_store);
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &blit_pipeline,
+            KeyTypeConcrete::pack(&key, &key_store),
+            &key_store,
+        );
 
         commands
             .entity(entity)

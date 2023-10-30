@@ -7,11 +7,12 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKeys},
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::BindGroupEntries,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    Render, RenderSet, pipeline_keys::{PipelineKeys, KeyMetaStore, KeyTypeConcrete},
+    Render, RenderSet,
 };
 use bevy_render::{render_resource::*, RenderApp};
 
@@ -132,7 +133,12 @@ fn prepare_msaa_writeback_pipelines(
                 blend_state: None,
             };
 
-            let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, KeyTypeConcrete::pack(&key, &key_store), &key_store);
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &blit_pipeline,
+                KeyTypeConcrete::pack(&key, &key_store),
+                &key_store,
+            );
             commands
                 .entity(entity)
                 .insert(MsaaWritebackBlitPipeline(pipeline));

@@ -17,7 +17,10 @@ mod render;
 mod ssao;
 
 pub use alpha::*;
-use bevy_core_pipeline::{prepass::PrepassKey, tonemapping::{DebandDitherKey, TonemappingKey}};
+use bevy_core_pipeline::{
+    prepass::PrepassKey,
+    tonemapping::{DebandDitherKey, TonemappingKey},
+};
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
@@ -62,18 +65,18 @@ use bevy_render::{
     camera::{CameraUpdateSystem, ViewProjectionKey},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    pipeline_keys::{AddPipelineKey, PipelineKey, KeyPrimitive},
+    pipeline_keys::{AddPipelineKey, KeyPrimitive, PipelineKey},
     prelude::Color,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
     render_resource::Shader,
     texture::Image,
-    view::{ExtractedView, VisibilitySystems, MsaaKey, HdrKey},
+    view::{ExtractedView, HdrKey, MsaaKey, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-use environment_map::{EnvironmentMapPlugin, EnvironmentMapKey};
+use environment_map::{EnvironmentMapKey, EnvironmentMapPlugin};
 
 use crate::deferred::DeferredPbrLightingPlugin;
 
@@ -363,7 +366,7 @@ impl Plugin for PbrPlugin {
             .register_dynamic_key::<PbrViewKeyDynamic, With<ExtractedView>>()
             .register_dynamic_key_part::<PbrViewKeyDynamic, PrepassKey>()
             .register_dynamic_key_part::<PbrViewKeyDynamic, HdrKey>();
-}
+    }
 
     fn finish(&self, app: &mut App) {
         let render_app = match app.get_sub_app_mut(RenderApp) {
@@ -378,7 +381,18 @@ impl Plugin for PbrPlugin {
     }
 }
 
-pub type PbrViewKey = (HdrKey, TonemappingKey, DebandDitherKey, PrepassKey, EnvironmentMapKey, SsaoKey, DepthClampOrthoKey, MsaaKey, ShadowFilteringKey, ViewProjectionKey);
+pub type PbrViewKey = (
+    HdrKey,
+    TonemappingKey,
+    DebandDitherKey,
+    PrepassKey,
+    EnvironmentMapKey,
+    SsaoKey,
+    DepthClampOrthoKey,
+    MsaaKey,
+    ShadowFilteringKey,
+    ViewProjectionKey,
+);
 #[derive(PipelineKey)]
 #[dynamic_key]
 pub struct PbrViewKeyDynamic(KeyPrimitive);

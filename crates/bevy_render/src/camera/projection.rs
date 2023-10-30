@@ -11,7 +11,7 @@ use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    pipeline_keys::{AddPipelineKey, SystemKey, KeyShaderDefs},
+    pipeline_keys::{AddPipelineKey, KeyShaderDefs, SystemKey},
     render_resource::ShaderDefVal,
     view::ExtractedView,
     RenderApp,

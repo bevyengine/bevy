@@ -1,9 +1,10 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    pipeline_keys::PipelineKey,
     render_resource::*,
     renderer::RenderDevice,
     texture::BevyDefault,
-    view::{ViewTarget, ViewUniform}, pipeline_keys::PipelineKey,
+    view::{ViewTarget, ViewUniform},
 };
 
 #[derive(Resource)]

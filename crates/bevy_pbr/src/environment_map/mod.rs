@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    pipeline_keys::{AddPipelineKey, PipelineKey, SystemKey, KeyShaderDefs},
+    pipeline_keys::{AddPipelineKey, KeyShaderDefs, PipelineKey, SystemKey},
     render_asset::RenderAssets,
     render_resource::*,
     texture::{FallbackImageCubemap, Image},

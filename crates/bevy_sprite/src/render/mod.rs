@@ -16,6 +16,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     color::Color,
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
@@ -30,7 +31,7 @@ use bevy_render::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility, VisibleEntities,
     },
-    Extract, pipeline_keys::{PipelineKey, KeyTypeConcrete, KeyMetaStore},
+    Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
@@ -219,7 +220,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
             } else if method == OldSpritePipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == OldSpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            } else if method
+                == OldSpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
             {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             } else if method == OldSpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
@@ -531,8 +533,12 @@ pub fn queue_sprites(
                     Tonemapping::SomewhatBoringDisplayTransform => {
                         OldSpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
                     }
-                    Tonemapping::TonyMcMapface => OldSpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                    Tonemapping::BlenderFilmic => OldSpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                    Tonemapping::TonyMcMapface => {
+                        OldSpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE
+                    }
+                    Tonemapping::BlenderFilmic => {
+                        OldSpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
+                    }
                 };
             }
             if let Some(DebandDither::Enabled) = dither {
@@ -543,13 +549,19 @@ pub fn queue_sprites(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &sprite_pipeline,
-            KeyTypeConcrete::pack(&SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(false)).bits()), &key_store),
+            KeyTypeConcrete::pack(
+                &SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(false)).bits()),
+                &key_store,
+            ),
             &key_store,
         );
         let colored_pipeline = pipelines.specialize(
             &pipeline_cache,
             &sprite_pipeline,
-            KeyTypeConcrete::pack(&SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(true)).bits()), &key_store),
+            KeyTypeConcrete::pack(
+                &SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(true)).bits()),
+                &key_store,
+            ),
             &key_store,
         );
 

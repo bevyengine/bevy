@@ -7,7 +7,8 @@ use bevy::{
         system::{lifetimeless::*, SystemParamItem},
     },
     pbr::{
-        MeshPipeline, OldMeshPipelineKey, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
+        MeshPipeline, OldMeshPipelineKey, RenderMeshInstances, SetMeshBindGroup,
+        SetMeshViewBindGroup,
     },
     prelude::*,
     render::{
@@ -133,7 +134,8 @@ fn queue_custom(
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let key = view_key | OldMeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let key =
+                view_key | OldMeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();

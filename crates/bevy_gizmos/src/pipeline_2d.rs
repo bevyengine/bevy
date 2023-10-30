@@ -13,14 +13,17 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyTypeConcrete, KeyMetaStore},
+    Render, RenderApp, RenderSet,
 };
-use bevy_sprite::{Mesh2dPipeline, OldMesh2dPipelineKey, SetMesh2dViewBindGroup, Mesh2dPipelineKey};
+use bevy_sprite::{
+    Mesh2dPipeline, Mesh2dPipelineKey, OldMesh2dPipelineKey, SetMesh2dViewBindGroup,
+};
 use bevy_utils::FloatOrd;
 
 pub struct LineGizmo2dPlugin;
@@ -169,10 +172,13 @@ fn queue_line_gizmos_2d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                KeyTypeConcrete::pack(&LineGizmoPipelineKey {
-                    mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
-                    strip: line_gizmo.strip,
-                }, &key_store),
+                KeyTypeConcrete::pack(
+                    &LineGizmoPipelineKey {
+                        mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
+                        strip: line_gizmo.strip,
+                    },
+                    &key_store,
+                ),
                 &key_store,
             );
 

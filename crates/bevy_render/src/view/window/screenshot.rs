@@ -13,6 +13,7 @@ use wgpu::{
 };
 
 use crate::{
+    pipeline_keys::PipelineKey,
     prelude::{Image, Shader},
     render_resource::{
         BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, FragmentState, PipelineCache,
@@ -21,7 +22,7 @@ use crate::{
     },
     renderer::RenderDevice,
     texture::TextureFormatPixelInfo,
-    RenderApp, pipeline_keys::PipelineKey,
+    RenderApp,
 };
 
 use super::ExtractedWindows;

@@ -10,6 +10,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_graph::ViewNodeRunner,
@@ -17,7 +18,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete},
+    Render, RenderApp, RenderSet,
 };
 
 mod node;
@@ -216,15 +217,18 @@ pub fn prepare_fxaa_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &fxaa_pipeline,
-            KeyTypeConcrete::pack(&FxaaPipelineKey {
-                edge_threshold: fxaa.edge_threshold,
-                edge_threshold_min: fxaa.edge_threshold_min,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
+            KeyTypeConcrete::pack(
+                &FxaaPipelineKey {
+                    edge_threshold: fxaa.edge_threshold,
+                    edge_threshold_min: fxaa.edge_threshold_min,
+                    texture_format: if view.hdr {
+                        ViewTarget::TEXTURE_FORMAT_HDR
+                    } else {
+                        TextureFormat::bevy_default()
+                    },
                 },
-            }, &key_store),
+                &key_store,
+            ),
             &key_store,
         );
 

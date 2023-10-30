@@ -884,4 +884,8 @@ fn div_ceil(numerator: u32, denominator: u32) -> u32 {
     (numerator + denominator - 1) / denominator
 }
 
-impl_has_world_key!(SsaoKey, ScreenSpaceAmbientOcclusionSettings, "SCREEN_SPACE_AMBIENT_OCCLUSION");
+impl_has_world_key!(
+    SsaoKey,
+    ScreenSpaceAmbientOcclusionSettings,
+    "SCREEN_SPACE_AMBIENT_OCCLUSION"
+);

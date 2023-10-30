@@ -12,14 +12,15 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup, OldMeshPipelineKey};
+use bevy_pbr::{MeshPipeline, MeshPipelineKey, OldMeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete},
+    Render, RenderApp, RenderSet,
 };
 
 pub struct LineGizmo3dPlugin;
@@ -94,10 +95,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             TextureFormat::bevy_default()
         };
 
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(mesh_key.into())
-            .clone();
+        let view_layout = self.mesh_pipeline.get_view_layout(mesh_key.into()).clone();
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
@@ -181,11 +179,14 @@ fn queue_line_gizmos_3d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                KeyTypeConcrete::pack(&LineGizmoPipelineKey {
-                    mesh_key: MeshPipelineKey(mesh_key.bits()),
-                    strip: line_gizmo.strip,
-                    perspective: config.line_perspective,
-                }, &key_store),
+                KeyTypeConcrete::pack(
+                    &LineGizmoPipelineKey {
+                        mesh_key: MeshPipelineKey(mesh_key.bits()),
+                        strip: line_gizmo.strip,
+                        perspective: config.line_perspective,
+                    },
+                    &key_store,
+                ),
                 &key_store,
             );
 

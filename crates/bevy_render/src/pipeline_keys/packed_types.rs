@@ -22,13 +22,16 @@ impl<T: KeyTypeConcrete> KeyTypeConcrete for Option<T> {
         HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(T::size(store) + 1, 0))])
     }
 
-    fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> where Self: Sized {
+    fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self>
+    where
+        Self: Sized,
+    {
         if let Some(inner) = value {
             let packed = T::pack(inner, store);
-            PackedPipelineKey { 
-                packed: packed.packed << 1 | 1, 
-                size: packed.size + 1, 
-                _p: PhantomData 
+            PackedPipelineKey {
+                packed: packed.packed << 1 | 1,
+                size: packed.size + 1,
+                _p: PhantomData,
             }
         } else {
             PackedPipelineKey {
@@ -46,7 +49,6 @@ impl<T: FixedSizeKey> FixedSizeKey for Option<T> {
     }
 }
 
-
 impl AnyKeyType for bool {
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -63,18 +65,14 @@ impl KeyTypeConcrete for bool {
     }
 
     fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
-        let raw = if *value {
-            1
-        } else {
-            0
-        };
+        let raw = if *value { 1 } else { 0 };
 
         PackedPipelineKey::new(raw, 1)
     }
 
     fn unpack(value: KeyPrimitive, _: &KeyMetaStore) -> Self {
         value != 0
-    }    
+    }
 }
 
 impl FixedSizeKey for bool {
@@ -82,7 +80,6 @@ impl FixedSizeKey for bool {
         1
     }
 }
-
 
 impl AnyKeyType for u8 {
     fn as_any(&self) -> &dyn std::any::Any {
@@ -105,7 +102,7 @@ impl KeyTypeConcrete for u8 {
 
     fn unpack(value: KeyPrimitive, _: &KeyMetaStore) -> Self {
         value as u8
-    }    
+    }
 }
 
 impl FixedSizeKey for u8 {
@@ -135,7 +132,7 @@ impl KeyTypeConcrete for u32 {
 
     fn unpack(value: KeyPrimitive, _: &KeyMetaStore) -> Self {
         value as Self
-    }    
+    }
 }
 
 impl FixedSizeKey for u32 {
@@ -150,19 +147,19 @@ fn _check_blendfactor_variant_count(value: &wgpu::BlendFactor) {
     // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
     // 13 variants => 4 bits
     match value {
-        wgpu::BlendFactor::Zero |
-        wgpu::BlendFactor::One |
-        wgpu::BlendFactor::Src |
-        wgpu::BlendFactor::OneMinusSrc |
-        wgpu::BlendFactor::SrcAlpha |
-        wgpu::BlendFactor::OneMinusSrcAlpha |
-        wgpu::BlendFactor::Dst |
-        wgpu::BlendFactor::OneMinusDst |
-        wgpu::BlendFactor::DstAlpha |
-        wgpu::BlendFactor::OneMinusDstAlpha |
-        wgpu::BlendFactor::SrcAlphaSaturated |
-        wgpu::BlendFactor::Constant |
-        wgpu::BlendFactor::OneMinusConstant => (),
+        wgpu::BlendFactor::Zero
+        | wgpu::BlendFactor::One
+        | wgpu::BlendFactor::Src
+        | wgpu::BlendFactor::OneMinusSrc
+        | wgpu::BlendFactor::SrcAlpha
+        | wgpu::BlendFactor::OneMinusSrcAlpha
+        | wgpu::BlendFactor::Dst
+        | wgpu::BlendFactor::OneMinusDst
+        | wgpu::BlendFactor::DstAlpha
+        | wgpu::BlendFactor::OneMinusDstAlpha
+        | wgpu::BlendFactor::SrcAlphaSaturated
+        | wgpu::BlendFactor::Constant
+        | wgpu::BlendFactor::OneMinusConstant => (),
     }
 }
 
@@ -216,9 +213,9 @@ impl KeyTypeConcrete for wgpu::BlendFactor {
             10 => wgpu::BlendFactor::SrcAlphaSaturated,
             11 => wgpu::BlendFactor::Constant,
             12 => wgpu::BlendFactor::OneMinusConstant,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
-    }    
+    }
 }
 
 impl FixedSizeKey for wgpu::BlendFactor {
@@ -227,18 +224,17 @@ impl FixedSizeKey for wgpu::BlendFactor {
     }
 }
 
-
 // blend operation
 fn _check_blendoperation_variant_count(value: &wgpu::BlendOperation) {
     // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
     // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
     // 5 variants => 3 bits
     match value {
-        wgpu::BlendOperation::Add |
-        wgpu::BlendOperation::Subtract |
-        wgpu::BlendOperation::ReverseSubtract |
-        wgpu::BlendOperation::Min |
-        wgpu::BlendOperation::Max => (),
+        wgpu::BlendOperation::Add
+        | wgpu::BlendOperation::Subtract
+        | wgpu::BlendOperation::ReverseSubtract
+        | wgpu::BlendOperation::Min
+        | wgpu::BlendOperation::Max => (),
     }
 }
 
@@ -276,9 +272,9 @@ impl KeyTypeConcrete for wgpu::BlendOperation {
             2 => wgpu::BlendOperation::ReverseSubtract,
             3 => wgpu::BlendOperation::Min,
             4 => wgpu::BlendOperation::Max,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
-    }    
+    }
 }
 
 impl FixedSizeKey for wgpu::BlendOperation {
@@ -286,7 +282,6 @@ impl FixedSizeKey for wgpu::BlendOperation {
         3
     }
 }
-
 
 impl AnyKeyType for wgpu::BlendComponent {
     fn as_any(&self) -> &dyn Any {
@@ -305,7 +300,7 @@ impl KeyTypeConcrete for wgpu::BlendComponent {
 
     fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> {
         let tuple = (value.src_factor, value.dst_factor, value.operation);
-        let PackedPipelineKey{ packed, size, .. } = KeyTypeConcrete::pack(&tuple, store);
+        let PackedPipelineKey { packed, size, .. } = KeyTypeConcrete::pack(&tuple, store);
         PackedPipelineKey::new(packed, size)
     }
 
@@ -325,8 +320,6 @@ impl FixedSizeKey for wgpu::BlendComponent {
     }
 }
 
-
-
 impl AnyKeyType for wgpu::BlendState {
     fn as_any(&self) -> &dyn Any {
         self
@@ -344,16 +337,13 @@ impl KeyTypeConcrete for wgpu::BlendState {
 
     fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> {
         let tuple = (value.color, value.alpha);
-        let PackedPipelineKey{ packed, size, .. } = KeyTypeConcrete::pack(&tuple, store);
+        let PackedPipelineKey { packed, size, .. } = KeyTypeConcrete::pack(&tuple, store);
         PackedPipelineKey::new(packed, size)
     }
 
     fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self {
         let (color, alpha) = KeyTypeConcrete::unpack(value, store);
-        Self {
-            color,
-            alpha,
-        }
+        Self { color, alpha }
     }
 }
 
@@ -363,28 +353,26 @@ impl FixedSizeKey for wgpu::BlendState {
     }
 }
 
-
-
 // AstcBlock
 fn _check_astcblock_variant_count(value: &wgpu::AstcBlock) {
     // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
     // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
     // 14 variants => 4 bits
     match value {
-        wgpu::AstcBlock::B4x4 |
-        wgpu::AstcBlock::B5x4 |
-        wgpu::AstcBlock::B5x5 |
-        wgpu::AstcBlock::B6x5 |
-        wgpu::AstcBlock::B6x6 |
-        wgpu::AstcBlock::B8x5 |
-        wgpu::AstcBlock::B8x6 |
-        wgpu::AstcBlock::B8x8 |
-        wgpu::AstcBlock::B10x5 |
-        wgpu::AstcBlock::B10x6 |
-        wgpu::AstcBlock::B10x8 |
-        wgpu::AstcBlock::B10x10 |
-        wgpu::AstcBlock::B12x10 |
-        wgpu::AstcBlock::B12x12 => (),
+        wgpu::AstcBlock::B4x4
+        | wgpu::AstcBlock::B5x4
+        | wgpu::AstcBlock::B5x5
+        | wgpu::AstcBlock::B6x5
+        | wgpu::AstcBlock::B6x6
+        | wgpu::AstcBlock::B8x5
+        | wgpu::AstcBlock::B8x6
+        | wgpu::AstcBlock::B8x8
+        | wgpu::AstcBlock::B10x5
+        | wgpu::AstcBlock::B10x6
+        | wgpu::AstcBlock::B10x8
+        | wgpu::AstcBlock::B10x10
+        | wgpu::AstcBlock::B12x10
+        | wgpu::AstcBlock::B12x12 => (),
     }
 }
 
@@ -440,9 +428,9 @@ impl KeyTypeConcrete for wgpu::AstcBlock {
             11 => wgpu::AstcBlock::B10x10,
             12 => wgpu::AstcBlock::B12x10,
             13 => wgpu::AstcBlock::B12x12,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
-    }    
+    }
 }
 
 impl FixedSizeKey for wgpu::AstcBlock {
@@ -451,16 +439,13 @@ impl FixedSizeKey for wgpu::AstcBlock {
     }
 }
 
-
 // AstcChannel
 fn _check_astcchannel_variant_count(value: &wgpu::AstcChannel) {
     // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
     // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
     // 3 variants => 2 bits
     match value {
-        wgpu::AstcChannel::Unorm |
-        wgpu::AstcChannel::UnormSrgb |
-        wgpu::AstcChannel::Hdr => (),
+        wgpu::AstcChannel::Unorm | wgpu::AstcChannel::UnormSrgb | wgpu::AstcChannel::Hdr => (),
     }
 }
 
@@ -494,9 +479,9 @@ impl KeyTypeConcrete for wgpu::AstcChannel {
             0 => wgpu::AstcChannel::Unorm,
             1 => wgpu::AstcChannel::UnormSrgb,
             2 => wgpu::AstcChannel::Hdr,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
-    }    
+    }
 }
 
 impl FixedSizeKey for wgpu::AstcChannel {
@@ -504,7 +489,6 @@ impl FixedSizeKey for wgpu::AstcChannel {
         2
     }
 }
-
 
 impl AnyKeyType for wgpu::TextureFormat {
     fn as_any(&self) -> &dyn Any {
@@ -593,7 +577,7 @@ impl KeyTypeConcrete for wgpu::TextureFormat {
             70 => wgpu::TextureFormat::EacRg11Unorm,
             71 => wgpu::TextureFormat::EacRg11Snorm,
             72 => wgpu::TextureFormat::Astc { block, channel },
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -605,7 +589,10 @@ impl KeyTypeConcrete for wgpu::TextureFormat {
         Self::fixed_size()
     }
 
-    fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> where Self: Sized {
+    fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self>
+    where
+        Self: Sized,
+    {
         let variant = match value {
             wgpu::TextureFormat::R8Unorm => 0,
             wgpu::TextureFormat::R8Snorm => 1,
@@ -684,12 +671,16 @@ impl KeyTypeConcrete for wgpu::TextureFormat {
 
         let (block, channel) = match value {
             wgpu::TextureFormat::Astc { block, channel } => (*block, *channel),
-            _ => (wgpu::AstcBlock::B4x4, wgpu::AstcChannel::Unorm) // doesn't matter, won't be read
+            _ => (wgpu::AstcBlock::B4x4, wgpu::AstcChannel::Unorm), // doesn't matter, won't be read
         };
 
         let packed_block_channel = KeyTypeConcrete::pack(&(block, channel), store);
         let packed = (packed_block_channel.packed << WGPU_VARIANT_SIZE) | variant;
-        PackedPipelineKey { packed, size: WGPU_VARIANT_SIZE + packed_block_channel.size, _p: PhantomData }
+        PackedPipelineKey {
+            packed,
+            size: WGPU_VARIANT_SIZE + packed_block_channel.size,
+            _p: PhantomData,
+        }
     }
 }
 
@@ -699,19 +690,17 @@ impl FixedSizeKey for wgpu::TextureFormat {
     }
 }
 
-
-
 // PrimitiveTopology
 fn _check_primitivetopology_variant_count(value: &wgpu::PrimitiveTopology) {
     // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
     // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
     // 5 variants => 3 bits
     match value {
-        wgpu::PrimitiveTopology::PointList |
-        wgpu::PrimitiveTopology::LineList |
-        wgpu::PrimitiveTopology::LineStrip |
-        wgpu::PrimitiveTopology::TriangleList |
-        wgpu::PrimitiveTopology::TriangleStrip => (),
+        wgpu::PrimitiveTopology::PointList
+        | wgpu::PrimitiveTopology::LineList
+        | wgpu::PrimitiveTopology::LineStrip
+        | wgpu::PrimitiveTopology::TriangleList
+        | wgpu::PrimitiveTopology::TriangleStrip => (),
     }
 }
 
@@ -749,9 +738,9 @@ impl KeyTypeConcrete for wgpu::PrimitiveTopology {
             2 => wgpu::PrimitiveTopology::LineStrip,
             3 => wgpu::PrimitiveTopology::TriangleList,
             4 => wgpu::PrimitiveTopology::TriangleStrip,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
-    }    
+    }
 }
 
 impl FixedSizeKey for wgpu::PrimitiveTopology {

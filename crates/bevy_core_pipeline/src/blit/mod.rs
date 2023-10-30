@@ -1,7 +1,10 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_render::{render_resource::*, renderer::RenderDevice, RenderApp, view::MsaaKey, pipeline_keys::PipelineKey};
+use bevy_render::{
+    pipeline_keys::PipelineKey, render_resource::*, renderer::RenderDevice, view::MsaaKey,
+    RenderApp,
+};
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 

@@ -23,12 +23,15 @@ use bevy::{
     },
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
-        OldMesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
+        Mesh2dTransforms, MeshFlags, OldMesh2dPipelineKey, RenderMesh2dInstance,
         RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
     utils::FloatOrd,
 };
-use bevy_internal::{sprite::Mesh2dPipelineKey, render::pipeline_keys::{PipelineKey, KeyMetaStore, KeyTypeConcrete}};
+use bevy_internal::{
+    render::pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    sprite::Mesh2dPipelineKey,
+};
 use std::f32::consts::PI;
 
 fn main() {
@@ -375,9 +378,12 @@ pub fn queue_colored_mesh2d(
                         OldMesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 }
 
-                let pipeline_id =
-                    pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, 
-                        KeyTypeConcrete::pack(&Mesh2dPipelineKey(mesh2d_key.bits()), &key_store), &key_store);
+                let pipeline_id = pipelines.specialize(
+                    &pipeline_cache,
+                    &colored_mesh2d_pipeline,
+                    KeyTypeConcrete::pack(&Mesh2dPipelineKey(mesh2d_key.bits()), &key_store),
+                    &key_store,
+                );
 
                 let mesh_z = mesh2d_transforms.transform.translation.z;
                 transparent_phase.add(Transparent2d {

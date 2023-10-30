@@ -1,10 +1,11 @@
 use crate::{
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete},
     render_resource::{
         BindGroupEntries, PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::{KeyMetaStore, KeyTypeConcrete},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;

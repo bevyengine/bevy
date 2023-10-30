@@ -1,10 +1,15 @@
-use crate::{render_resource::CachedComputePipelineId, pipeline_keys::{AnyKeyType, PipelineKey, KeyPrimitive, KeyMetaStore, KeyTypeConcrete, PackedPipelineKey}};
 use crate::{
     mesh::{InnerMeshVertexBufferLayout, MeshVertexBufferLayout, MissingVertexAttributeError},
     render_resource::{
         CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
         VertexBufferLayout,
     },
+};
+use crate::{
+    pipeline_keys::{
+        AnyKeyType, KeyMetaStore, KeyPrimitive, KeyTypeConcrete, PackedPipelineKey, PipelineKey,
+    },
+    render_resource::CachedComputePipelineId,
 };
 use bevy_ecs::system::Resource;
 use bevy_utils::{
@@ -22,12 +27,15 @@ pub trait SpecializedRenderPipeline {
 #[derive(Resource)]
 pub struct SpecializedRenderPipelines<S: SpecializedRenderPipeline> {
     cache: HashMap<KeyPrimitive, CachedRenderPipelineId>,
-    _p: PhantomData<fn() -> S>
+    _p: PhantomData<fn() -> S>,
 }
 
 impl<S: SpecializedRenderPipeline> Default for SpecializedRenderPipelines<S> {
     fn default() -> Self {
-        Self { cache: default(), _p: PhantomData }
+        Self {
+            cache: default(),
+            _p: PhantomData,
+        }
     }
 }
 

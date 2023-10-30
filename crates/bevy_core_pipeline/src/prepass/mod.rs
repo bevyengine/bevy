@@ -32,7 +32,7 @@ use std::{cmp::Reverse, ops::Range};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    pipeline_keys::{PipelineKey, SystemKey, KeyShaderDefs},
+    pipeline_keys::{KeyShaderDefs, PipelineKey, SystemKey},
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
@@ -270,4 +270,3 @@ impl KeyShaderDefs for PrepassKey {
         defs.into_iter().map(Into::into).collect()
     }
 }
-

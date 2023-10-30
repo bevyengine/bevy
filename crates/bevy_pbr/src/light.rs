@@ -8,7 +8,7 @@ use bevy_render::{
     color::Color,
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
-    pipeline_keys::{PipelineKey, SystemKey, KeyShaderDefs},
+    pipeline_keys::{KeyShaderDefs, PipelineKey, SystemKey},
     prelude::Projection,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
@@ -2301,6 +2301,7 @@ impl KeyShaderDefs for ShadowFilteringKey {
             ShadowFilteringKey::Hardware2x2 => "SHADOW_FILTER_METHOD_HARDWARE_2X2",
             ShadowFilteringKey::Castano13 => "SHADOW_FILTER_METHOD_CASTANO_13",
             ShadowFilteringKey::Jimenez14 => "SHADOW_FILTER_METHOD_JIMENEZ_14",
-        }.into()]
+        }
+        .into()]
     }
 }

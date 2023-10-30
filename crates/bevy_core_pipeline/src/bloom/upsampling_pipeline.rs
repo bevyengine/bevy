@@ -8,7 +8,12 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget, pipeline_keys::{KeyMetaStore, PipelineKey, KeyTypeConcrete}};
+use bevy_render::{
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    render_resource::*,
+    renderer::RenderDevice,
+    view::ViewTarget,
+};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -154,20 +159,26 @@ pub fn prepare_upsampling_pipeline(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(&BloomUpsamplingPipelineKeys {
-                composite_mode: settings.composite_mode,
-                final_pipeline: false,
-            }, &key_store),
+            KeyTypeConcrete::pack(
+                &BloomUpsamplingPipelineKeys {
+                    composite_mode: settings.composite_mode,
+                    final_pipeline: false,
+                },
+                &key_store,
+            ),
             &key_store,
         );
 
         let pipeline_final_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(&BloomUpsamplingPipelineKeys {
-                composite_mode: settings.composite_mode,
-                final_pipeline: true,
-            }, &key_store),
+            KeyTypeConcrete::pack(
+                &BloomUpsamplingPipelineKeys {
+                    composite_mode: settings.composite_mode,
+                    final_pipeline: true,
+                },
+                &key_store,
+            ),
             &key_store,
         );
 

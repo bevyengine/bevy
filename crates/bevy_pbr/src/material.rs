@@ -18,6 +18,7 @@ use bevy_render::{
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
+    pipeline_keys::{KeyMetaStore, PipelineKeys},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
@@ -25,7 +26,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::{PipelineKeys, KeyMetaStore},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
@@ -569,7 +570,6 @@ pub fn queue_material_meshes<M: Material>(
         // } else {
         //     println!("dyn prepass ok: {prepass_key:?}");
         // }
-
 
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {

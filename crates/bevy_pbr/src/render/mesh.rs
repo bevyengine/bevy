@@ -752,7 +752,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
-        if key.contains(OldMeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
+        if key.contains(OldMeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque
+        {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
@@ -783,7 +784,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
             } else if method == OldMeshPipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
+            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             } else if method == OldMeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
