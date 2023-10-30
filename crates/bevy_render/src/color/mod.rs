@@ -1234,6 +1234,13 @@ impl From<Color> for [f32; 4] {
     }
 }
 
+impl From<Color> for [f32; 3] {
+    fn from(color: Color) -> Self {
+        let color: [f32; 4] = color.into();
+        [color[0], color[1], color[2]]
+    }
+}
+
 impl From<[f32; 4]> for Color {
     fn from([r, g, b, a]: [f32; 4]) -> Self {
         Color::rgba(r, g, b, a)
@@ -1256,6 +1263,19 @@ impl From<Color> for Vec4 {
 impl From<Vec4> for Color {
     fn from(vec4: Vec4) -> Self {
         Color::rgba(vec4.x, vec4.y, vec4.z, vec4.w)
+    }
+}
+
+impl From<Color> for Vec3 {
+    fn from(color: Color) -> Self {
+        let color: [f32; 3] = color.into();
+        Vec3::new(color[0], color[1], color[2])
+    }
+}
+
+impl From<Vec3> for Color {
+    fn from(vec3: Vec3) -> Self {
+        Color::rgb(vec3.x, vec3.y, vec3.z)
     }
 }
 
@@ -1899,6 +1919,21 @@ mod tests {
         assert_eq!(
             starting_color * transformation,
             Color::from(starting_vec4 * transformation),
+        );
+    }
+
+    #[test]
+    fn conversions_vec3() {
+        let starting_vec3 = Vec3::new(0.4, 0.5, 0.6);
+        let starting_color = Color::from(starting_vec3);
+
+        assert_eq!(starting_vec3, Vec3::from(starting_color));
+
+        let transformation = Vec3::new(0.5, 0.5, 0.5);
+
+        assert_eq!(
+            starting_color * transformation,
+            Color::from(starting_vec3 * transformation),
         );
     }
 
