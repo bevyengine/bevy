@@ -81,61 +81,57 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             culling_pass.dispatch_workgroups((scene_meshlet_count + 127) / 128, 1, 1);
         }
 
-        {
-            let color_load = if target.is_first_write() {
-                match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                }
-            } else {
-                LoadOp::Load
-            };
-            let depth_load = if depth.is_first_write() {
-                camera_3d.depth_load_op.clone()
-            } else {
-                Camera3dDepthLoadOp::Load
+        let color_load = if target.is_first_write() {
+            match camera_3d.clear_color {
+                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
+                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                ClearColorConfig::None => LoadOp::Load,
             }
-            .into();
+        } else {
+            LoadOp::Load
+        };
+        let depth_load = if depth.is_first_write() {
+            camera_3d.depth_load_op.clone()
+        } else {
+            Camera3dDepthLoadOp::Load
+        }
+        .into();
 
-            let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some(draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: color_load,
+        let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some(draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D),
+            color_attachments: &[Some(target.get_color_attachment(Operations {
+                load: color_load,
+                store: true,
+            }))],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: &depth.view,
+                depth_ops: Some(Operations {
+                    load: depth_load,
                     store: true,
-                }))],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    depth_ops: Some(Operations {
-                        load: depth_load,
-                        store: true,
-                    }),
-                    stencil_ops: None,
                 }),
-            });
-            if let Some(viewport) = camera.viewport.as_ref() {
-                draw_pass.set_camera_viewport(viewport);
-            }
+                stencil_ops: None,
+            }),
+        });
+        if let Some(viewport) = camera.viewport.as_ref() {
+            draw_pass.set_camera_viewport(viewport);
+        }
 
-            draw_pass.set_index_buffer(draw_index_buffer.slice(..), 0, IndexFormat::Uint32);
-            draw_pass.set_bind_group(
-                0,
-                &mesh_view_bind_group.value,
-                &[
-                    view_offset.offset,
-                    view_lights_offset.offset,
-                    view_fog_offset.offset,
-                ],
-            );
-            draw_pass.set_bind_group(1, draw_bind_group, &[]);
+        draw_pass.set_index_buffer(draw_index_buffer.slice(..), 0, IndexFormat::Uint32);
+        draw_pass.set_bind_group(
+            0,
+            &mesh_view_bind_group.value,
+            &[
+                view_offset.offset,
+                view_lights_offset.offset,
+                view_fog_offset.offset,
+            ],
+        );
+        draw_pass.set_bind_group(1, draw_bind_group, &[]);
 
-            for (material_draw_offset, material_bind_group, material_pipeline) in material_draws {
-                draw_pass.set_bind_group(2, material_bind_group, &[]);
-                draw_pass.set_render_pipeline(material_pipeline);
-                draw_pass.draw_indexed_indirect(draw_command_buffer, material_draw_offset);
-            }
+        for (material_draw_offset, material_bind_group, material_pipeline) in material_draws {
+            draw_pass.set_bind_group(2, material_bind_group, &[]);
+            draw_pass.set_render_pipeline(material_pipeline);
+            draw_pass.draw_indexed_indirect(draw_command_buffer, material_draw_offset);
         }
 
         Ok(())
