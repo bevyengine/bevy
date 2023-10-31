@@ -395,79 +395,78 @@ pub fn extract_uinode_outlines(
 ) {
     let image = AssetId::<Image>::default();
     for (node, global_transform, outline, view_visibility, maybe_parent) in uinode_query.iter() {
-            // Skip invisible outlines
-            if !view_visibility.get()
-                || outline.color.is_fully_transparent()
-                || node.outline_width == 0.
-            {
-                continue;
-            }
+        // Skip invisible outlines
+        if !view_visibility.get()
+            || outline.color.is_fully_transparent()
+            || node.outline_width == 0.
+        {
+            continue;
+        }
 
-            // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
-            let clip = maybe_parent
-                .and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
+        // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
+        let clip =
+            maybe_parent.and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
 
-            // Calculate the outline rects.
-            let inner_rect =
-                Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
-            let outer_rect = inner_rect.inset(node.outline_width());
-            let outline_edges = [
-                // Left edge
-                Rect::new(
-                    outer_rect.min.x,
-                    outer_rect.min.y,
-                    inner_rect.min.x,
-                    outer_rect.max.y,
-                ),
-                // Right edge
-                Rect::new(
-                    inner_rect.max.x,
-                    outer_rect.min.y,
-                    outer_rect.max.x,
-                    outer_rect.max.y,
-                ),
-                // Top edge
-                Rect::new(
-                    inner_rect.min.x,
-                    outer_rect.min.y,
-                    inner_rect.max.x,
-                    inner_rect.min.y,
-                ),
-                // Bottom edge
-                Rect::new(
-                    inner_rect.min.x,
-                    inner_rect.max.y,
-                    inner_rect.max.x,
-                    outer_rect.max.y,
-                ),
-            ];
+        // Calculate the outline rects.
+        let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
+        let outer_rect = inner_rect.inset(node.outline_width());
+        let outline_edges = [
+            // Left edge
+            Rect::new(
+                outer_rect.min.x,
+                outer_rect.min.y,
+                inner_rect.min.x,
+                outer_rect.max.y,
+            ),
+            // Right edge
+            Rect::new(
+                inner_rect.max.x,
+                outer_rect.min.y,
+                outer_rect.max.x,
+                outer_rect.max.y,
+            ),
+            // Top edge
+            Rect::new(
+                inner_rect.min.x,
+                outer_rect.min.y,
+                inner_rect.max.x,
+                inner_rect.min.y,
+            ),
+            // Bottom edge
+            Rect::new(
+                inner_rect.min.x,
+                inner_rect.max.y,
+                inner_rect.max.x,
+                outer_rect.max.y,
+            ),
+        ];
 
-            let transform = global_transform.compute_matrix();
+        let transform = global_transform.compute_matrix();
 
-            for edge in outline_edges {
-                if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                    extracted_uinodes.uinodes.insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            stack_index: node.stack_index,
-                            // This translates the uinode's transform to the center of the current border rectangle
-                            transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                            color: outline.color,
-                            rect: Rect {
-                                max: edge.size(),
-                                ..Default::default()
-                            },
-                            image,
-                            atlas_size: None,
-                            clip,
-                            flip_x: false,
-                            flip_y: false,
+        for edge in outline_edges {
+            if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
+                extracted_uinodes.uinodes.insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        stack_index: node.stack_index,
+                        // This translates the uinode's transform to the center of the current border rectangle
+                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        color: outline.color,
+                        rect: Rect {
+                            max: edge.size(),
+                            ..Default::default()
                         },
-                    );
-                }
+                        image,
+                        atlas_size: None,
+                        clip,
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                );
             }
         }
     }
+}
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
