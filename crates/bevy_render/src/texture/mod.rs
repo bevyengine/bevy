@@ -1,5 +1,7 @@
 #[cfg(feature = "basis-universal")]
 mod basis;
+#[cfg(feature = "basis-universal")]
+mod compressed_image_saver;
 #[cfg(feature = "dds")]
 mod dds;
 #[cfg(feature = "exr")]
@@ -9,7 +11,7 @@ mod fallback_image;
 mod hdr_texture_loader;
 #[allow(clippy::module_inception)]
 mod image;
-mod image_texture_loader;
+mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
 mod texture_cache;
@@ -26,22 +28,24 @@ pub use exr_texture_loader::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 
+#[cfg(feature = "basis-universal")]
+pub use compressed_image_saver::*;
 pub use fallback_image::*;
-pub use image_texture_loader::*;
+pub use image_loader::*;
 pub use texture_cache::*;
 
 use crate::{
     render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset, Assets};
+use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
-    pub default_sampler: wgpu::SamplerDescriptor<'static>,
+    pub default_sampler: ImageSamplerDescriptor,
 }
 
 impl Default for ImagePlugin {
@@ -54,14 +58,14 @@ impl ImagePlugin {
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::linear_descriptor(),
+            default_sampler: ImageSamplerDescriptor::linear(),
         }
     }
 
     /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::nearest_descriptor(),
+            default_sampler: ImageSamplerDescriptor::nearest(),
         }
     }
 }
@@ -80,11 +84,22 @@ impl Plugin for ImagePlugin {
 
         app.add_plugins(RenderAssetPlugin::<Image>::default())
             .register_type::<Image>()
-            .add_asset::<Image>()
+            .init_asset::<Image>()
             .register_asset_reflect::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
-            .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
+            .insert(Handle::default(), Image::default());
+        #[cfg(feature = "basis-universal")]
+        if let Some(processor) = app
+            .world
+            .get_resource::<bevy_asset::processor::AssetProcessor>()
+        {
+            processor.register_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>(
+                CompressedImageSaver.into(),
+            );
+            processor
+                .set_default_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>("png");
+        }
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<TextureCache>().add_systems(
@@ -102,7 +117,7 @@ impl Plugin for ImagePlugin {
             feature = "basis-universal",
             feature = "ktx2",
         ))]
-        app.preregister_asset_loader(IMG_FILE_EXTENSIONS);
+        app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
     }
 
     fn finish(&self, app: &mut App) {
@@ -116,21 +131,20 @@ impl Plugin for ImagePlugin {
             feature = "ktx2",
         ))]
         {
-            app.init_asset_loader::<ImageTextureLoader>();
+            app.init_asset_loader::<ImageLoader>();
         }
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
                 let device = render_app.world.resource::<RenderDevice>();
-                device.create_sampler(&self.default_sampler.clone())
+                device.create_sampler(&self.default_sampler.as_wgpu())
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<FallbackImage>()
                 .init_resource::<FallbackImageZero>()
                 .init_resource::<FallbackImageCubemap>()
-                .init_resource::<FallbackImageMsaaCache>()
-                .init_resource::<FallbackImageDepthCache>();
+                .init_resource::<FallbackImageFormatMsaaCache>();
         }
     }
 }

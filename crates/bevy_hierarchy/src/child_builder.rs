@@ -4,7 +4,7 @@ use bevy_ecs::{
     entity::Entity,
     prelude::Events,
     system::{Command, Commands, EntityCommands},
-    world::{EntityMut, World},
+    world::{EntityWorldMut, World},
 };
 use smallvec::SmallVec;
 
@@ -460,7 +460,7 @@ pub struct WorldChildBuilder<'w> {
 impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
+    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityWorldMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -475,7 +475,7 @@ impl<'w> WorldChildBuilder<'w> {
 
     /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn_empty(&mut self) -> EntityMut<'_> {
+    pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         let entity = self.world.spawn(Parent(self.parent)).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -554,7 +554,7 @@ pub trait BuildWorldChildren {
     fn remove_parent(&mut self) -> &mut Self;
 }
 
-impl<'w> BuildWorldChildren for EntityMut<'w> {
+impl<'w> BuildWorldChildren for EntityWorldMut<'w> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {
@@ -664,12 +664,12 @@ mod tests {
     };
 
     /// Assert the (non)existence and state of the child's [`Parent`] component.
-    fn assert_parent(world: &mut World, child: Entity, parent: Option<Entity>) {
+    fn assert_parent(world: &World, child: Entity, parent: Option<Entity>) {
         assert_eq!(world.get::<Parent>(child).map(|p| p.get()), parent);
     }
 
     /// Assert the (non)existence and state of the parent's [`Children`] component.
-    fn assert_children(world: &mut World, parent: Entity, children: Option<&[Entity]>) {
+    fn assert_children(world: &World, parent: Entity, children: Option<&[Entity]>) {
         assert_eq!(world.get::<Children>(parent).map(|c| &**c), children);
     }
 
@@ -904,7 +904,7 @@ mod tests {
     fn push_and_clear_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -942,7 +942,7 @@ mod tests {
     fn push_and_replace_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();

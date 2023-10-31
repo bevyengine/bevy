@@ -5,12 +5,10 @@ use bevy::{
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
-        render_resource::{
-            AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
-        },
-        texture::ImageSampler,
+        render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
+        texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
     },
     utils::HashMap,
@@ -307,10 +305,10 @@ fn update_image_viewer(
 ) {
     let mut new_image: Option<Handle<Image>> = None;
 
-    for event in drop_events.iter() {
+    for event in drop_events.read() {
         match event {
             FileDragAndDrop::DroppedFile { path_buf, .. } => {
-                new_image = Some(asset_server.load(path_buf.to_string_lossy().to_string()));
+                new_image = Some(asset_server.load(&path_buf.to_string_lossy().to_string()));
                 *drop_hovered = false;
             }
             FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
@@ -328,18 +326,18 @@ fn update_image_viewer(
                 }
             }
 
-            for event in image_events.iter() {
-                let image_changed_h = match event {
-                    AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
+            for event in image_events.read() {
+                let image_changed_id = *match event {
+                    AssetEvent::Added { id } | AssetEvent::Modified { id } => id,
                     _ => continue,
                 };
                 if let Some(base_color_texture) = mat.base_color_texture.clone() {
-                    if image_changed_h == &base_color_texture {
-                        if let Some(image_changed) = images.get(image_changed_h) {
-                            let size = image_changed.size().normalize_or_zero() * 1.4;
+                    if image_changed_id == base_color_texture.id() {
+                        if let Some(image_changed) = images.get(image_changed_id) {
+                            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
                             // Resize Mesh
                             let quad = Mesh::from(shape::Quad::new(size));
-                            let _ = meshes.set(mesh_h, quad);
+                            meshes.insert(mesh_h, quad);
                         }
                     }
                 }
@@ -681,7 +679,7 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     );
-    img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
 }
 
@@ -691,8 +689,7 @@ impl Material for ColorGradientMaterial {
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "117f64fe-6844-1822-8926-e3ed372291c8"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct ColorGradientMaterial {}
 
 #[derive(Resource)]

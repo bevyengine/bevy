@@ -1,5 +1,9 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use std::f32::consts::PI;
 
 use bevy::{
@@ -13,8 +17,8 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
-        render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
-        texture::ImageSampler,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };
 
@@ -367,6 +371,6 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     );
-    img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
 }

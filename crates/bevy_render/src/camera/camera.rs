@@ -2,12 +2,13 @@ use crate::{
     camera::CameraProjection,
     camera::{ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
+    primitives::Frustum,
     render_asset::RenderAssets,
     render_resource::TextureView,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -27,7 +28,9 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
 };
 use std::{borrow::Cow, ops::Range};
-use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
+use wgpu::{BlendState, LoadOp, TextureFormat};
+
+use super::Projection;
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -404,7 +407,7 @@ impl CameraRenderGraph {
     }
 }
 
-/// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
+/// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect)]
 pub enum RenderTarget {
@@ -509,9 +512,8 @@ impl NormalizedRenderTarget {
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
-                let Extent3d { width, height, .. } = image.texture_descriptor.size;
                 Some(RenderTargetInfo {
-                    physical_size: UVec2::new(width, height),
+                    physical_size: image.size(),
                     scale_factor: 1.0,
                 })
             }
@@ -528,14 +530,14 @@ impl NormalizedRenderTarget {
     fn is_changed(
         &self,
         changed_window_ids: &HashSet<Entity>,
-        changed_image_handles: &HashSet<&Handle<Image>>,
+        changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool {
         match self {
             NormalizedRenderTarget::Window(window_ref) => {
                 changed_window_ids.contains(&window_ref.entity())
             }
             NormalizedRenderTarget::Image(image_handle) => {
-                changed_image_handles.contains(&image_handle)
+                changed_image_handles.contains(&image_handle.id())
             }
             NormalizedRenderTarget::TextureView(_) => true,
         }
@@ -575,14 +577,14 @@ pub fn camera_system<T: CameraProjection + Component>(
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = HashSet::new();
-    changed_window_ids.extend(window_created_events.iter().map(|event| event.window));
-    changed_window_ids.extend(window_resized_events.iter().map(|event| event.window));
+    changed_window_ids.extend(window_created_events.read().map(|event| event.window));
+    changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
 
-    let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
-        .iter()
+    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
+        .read()
         .filter_map(|event| {
-            if let AssetEvent::Modified { handle } = event {
-                Some(handle)
+            if let AssetEvent::Modified { id } = event {
+                Some(id)
             } else {
                 None
             }
@@ -641,9 +643,11 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
+            &Frustum,
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
+            Option<&Projection>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -655,9 +659,11 @@ pub fn extract_cameras(
         camera_render_graph,
         transform,
         visible_entities,
+        frustum,
         color_grading,
         temporal_jitter,
         render_layers,
+        projection,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -711,6 +717,7 @@ pub fn extract_cameras(
                     color_grading,
                 },
                 visible_entities.clone(),
+                *frustum,
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {
@@ -719,6 +726,10 @@ pub fn extract_cameras(
 
             if let Some(render_layers) = render_layers {
                 commands.insert(*render_layers);
+            }
+
+            if let Some(perspective) = projection {
+                commands.insert(perspective.clone());
             }
         }
     }
@@ -784,7 +795,7 @@ pub fn sort_cameras(
     }
 }
 
-/// A subpixel offset to jitter a perspective camera's fustrum by.
+/// A subpixel offset to jitter a perspective camera's frustum by.
 ///
 /// Useful for temporal rendering techniques.
 ///

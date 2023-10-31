@@ -1,5 +1,7 @@
 use crate::{
-    render_resource::{PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView},
+    render_resource::{
+        BindGroupEntries, PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -10,7 +12,10 @@ use bevy_utils::{default, tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::PoisonError,
+};
 use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
 
 pub mod screenshot;
@@ -106,6 +111,8 @@ fn extract_windows(
     screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closed: Extract<EventReader<WindowClosed>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
+    mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
+    mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
     for (entity, window, handle, primary) in windows.iter() {
         if primary.is_some() {
@@ -161,14 +168,24 @@ fn extract_windows(
         }
     }
 
-    for closed_window in closed.iter() {
+    for closed_window in closed.read() {
         extracted_windows.remove(&closed_window.window);
+        window_surfaces.remove(&closed_window.window);
+    }
+    for removed_window in removed.read() {
+        extracted_windows.remove(&removed_window);
+        window_surfaces.remove(&removed_window);
     }
     // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
     // Even if a user had multiple copies of this system, since the system has a mutable resource access the two systems would never run
     // at the same time
     // TODO: since this is guaranteed, should the lock be replaced with an UnsafeCell to remove the overhead, or is it minor enough to be ignored?
-    for (window, screenshot_func) in screenshot_manager.callbacks.lock().drain() {
+    for (window, screenshot_func) in screenshot_manager
+        .callbacks
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .drain()
+    {
         if let Some(window) = extracted_windows.get_mut(&window) {
             window.screenshot_func = Some(screenshot_func);
         }
@@ -185,6 +202,13 @@ pub struct WindowSurfaces {
     surfaces: HashMap<Entity, SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
+}
+
+impl WindowSurfaces {
+    fn remove(&mut self, window: &Entity) {
+        self.surfaces.remove(window);
+        self.configured_windows.remove(window);
+    }
 }
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
@@ -230,7 +254,7 @@ pub fn prepare_windows(
             .entry(window.entity)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
                 let surface = render_instance
                     .create_surface(&window.handle.get_handle())
                     .expect("Failed to create wgpu surface");
@@ -322,7 +346,9 @@ pub fn prepare_windows(
                 .enumerate_adapters(wgpu::Backends::VULKAN)
                 .any(|adapter| {
                     let name = adapter.get_info().name;
-                    name.starts_with("AMD") || name.starts_with("Intel")
+                    name.starts_with("Radeon")
+                        || name.starts_with("AMD")
+                        || name.starts_with("Intel")
                 })
         };
 
@@ -389,14 +415,11 @@ pub fn prepare_windows(
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("screenshot-to-screen-bind-group"),
-                layout: &screenshot_pipeline.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                }],
-            });
+            let bind_group = render_device.create_bind_group(
+                "screenshot-to-screen-bind-group",
+                &screenshot_pipeline.bind_group_layout,
+                &BindGroupEntries::single(&texture_view),
+            );
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,

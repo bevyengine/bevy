@@ -1,7 +1,7 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
@@ -9,6 +9,7 @@ use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
+    primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -19,7 +20,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::{
@@ -31,8 +32,7 @@ use wgpu::{
     TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 15421373904451797197);
+pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
 
 pub struct ViewPlugin;
 
@@ -40,8 +40,8 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
-        app.register_type::<ComputedVisibility>()
-            .register_type::<ComputedVisibilityFlags>()
+        app.register_type::<InheritedVisibility>()
+            .register_type::<ViewVisibility>()
             .register_type::<Msaa>()
             .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()
@@ -169,6 +169,7 @@ pub struct ViewUniform {
     world_position: Vec3,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
+    frustum: [Vec4; 6],
     color_grading: ColorGrading,
     mip_bias: f32,
 }
@@ -353,13 +354,21 @@ pub fn prepare_view_uniforms(
     views: Query<(
         Entity,
         &ExtractedView,
+        Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
 ) {
-    view_uniforms.uniforms.clear();
-
-    for (entity, camera, temporal_jitter, mip_bias) in &views {
+    let view_iter = views.iter();
+    let view_count = view_iter.len();
+    let Some(mut writer) =
+        view_uniforms
+            .uniforms
+            .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
+    for (entity, camera, frustum, temporal_jitter, mip_bias) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
         let mut projection = unjittered_projection;
@@ -380,8 +389,13 @@ pub fn prepare_view_uniforms(
                 .unwrap_or_else(|| projection * inverse_view)
         };
 
+        // Map Frustum type to shader array<vec4<f32>, 6>
+        let frustum = frustum
+            .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
+            .unwrap_or([Vec4::ZERO; 6]);
+
         let view_uniforms = ViewUniformOffset {
-            offset: view_uniforms.uniforms.push(ViewUniform {
+            offset: writer.write(&ViewUniform {
                 view_proj,
                 unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
@@ -391,6 +405,7 @@ pub fn prepare_view_uniforms(
                 inverse_projection,
                 world_position: camera.transform.translation(),
                 viewport,
+                frustum,
                 color_grading: camera.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
             }),
@@ -398,10 +413,6 @@ pub fn prepare_view_uniforms(
 
         commands.entity(entity).insert(view_uniforms);
     }
-
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Clone)]

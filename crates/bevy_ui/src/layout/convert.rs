@@ -218,6 +218,7 @@ impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
             JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart.into(),
             JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd.into(),
             JustifyContent::Center => taffy::style::JustifyContent::Center.into(),
+            JustifyContent::Stretch => taffy::style::JustifyContent::Stretch.into(),
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween.into(),
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround.into(),
             JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly.into(),
@@ -278,8 +279,8 @@ impl From<GridAutoFlow> for taffy::style::GridAutoFlow {
 
 impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> {
     fn from(value: GridPlacement) -> Self {
-        let span = value.span.unwrap_or(1).max(1);
-        match (value.start, value.end) {
+        let span = value.get_span().unwrap_or(1);
+        match (value.get_start(), value.get_end()) {
             (Some(start), Some(end)) => taffy::geometry::Line {
                 start: style_helpers::line(start),
                 end: style_helpers::line(end),
@@ -620,7 +621,7 @@ mod tests {
                 | (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
                     (a - b).abs() < 0.0001,
                 _ => false,
-            },);
+            });
         }
     }
 }

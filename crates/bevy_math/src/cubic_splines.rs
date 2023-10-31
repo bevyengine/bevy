@@ -28,7 +28,7 @@ impl Point for Vec3A {}
 impl Point for Vec2 {}
 impl Point for f32 {}
 
-/// A spline composed of a series of cubic Bezier curves.
+/// A spline composed of a single cubic Bezier curve.
 ///
 /// Useful for user-drawn curves with local control, or animation easing. See
 /// [`CubicSegment::new_bezier`] for use in easing.
@@ -53,22 +53,22 @@ impl Point for f32 {}
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ]];
-/// let bezier = Bezier::new(points).to_curve();
+/// let bezier = CubicBezier::new(points).to_curve();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
-pub struct Bezier<P: Point> {
+pub struct CubicBezier<P: Point> {
     control_points: Vec<[P; 4]>,
 }
 
-impl<P: Point> Bezier<P> {
-    /// Create a new Bezier curve from sets of control points.
+impl<P: Point> CubicBezier<P> {
+    /// Create a new cubic Bezier curve from sets of control points.
     pub fn new(control_points: impl Into<Vec<[P; 4]>>) -> Self {
         Self {
             control_points: control_points.into(),
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for Bezier<P> {
+impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let char_matrix = [
@@ -120,13 +120,13 @@ impl<P: Point> CubicGenerator<P> for Bezier<P> {
 ///     vec2(0.0, 1.0),
 ///     vec2(0.0, 1.0),
 /// ];
-/// let hermite = Hermite::new(points, tangents).to_curve();
+/// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
-pub struct Hermite<P: Point> {
+pub struct CubicHermite<P: Point> {
     control_points: Vec<(P, P)>,
 }
-impl<P: Point> Hermite<P> {
+impl<P: Point> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
     pub fn new(
         control_points: impl IntoIterator<Item = P>,
@@ -137,7 +137,7 @@ impl<P: Point> Hermite<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for Hermite<P> {
+impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let char_matrix = [
@@ -184,15 +184,15 @@ impl<P: Point> CubicGenerator<P> for Hermite<P> {
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ];
-/// let cardinal = CardinalSpline::new(0.3, points).to_curve();
+/// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
-pub struct CardinalSpline<P: Point> {
+pub struct CubicCardinalSpline<P: Point> {
     tension: f32,
     control_points: Vec<P>,
 }
 
-impl<P: Point> CardinalSpline<P> {
+impl<P: Point> CubicCardinalSpline<P> {
     /// Build a new Cardinal spline.
     pub fn new(tension: f32, control_points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -209,7 +209,7 @@ impl<P: Point> CardinalSpline<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for CardinalSpline<P> {
+impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let s = self.tension;
@@ -252,13 +252,13 @@ impl<P: Point> CubicGenerator<P> for CardinalSpline<P> {
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ];
-/// let b_spline = BSpline::new(points).to_curve();
+/// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
-pub struct BSpline<P: Point> {
+pub struct CubicBSpline<P: Point> {
     control_points: Vec<P>,
 }
-impl<P: Point> BSpline<P> {
+impl<P: Point> CubicBSpline<P> {
     /// Build a new Cardinal spline.
     pub fn new(control_points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -266,7 +266,7 @@ impl<P: Point> BSpline<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for BSpline<P> {
+impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let char_matrix = [
@@ -337,7 +337,7 @@ impl CubicSegment<Vec2> {
     /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
-        let bezier = Bezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
+        let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
         bezier.segments[0].clone()
     }
 
@@ -550,7 +550,7 @@ impl<P: Point> CubicCurve<P> {
 mod tests {
     use glam::{vec2, Vec2};
 
-    use crate::cubic_splines::{Bezier, CubicGenerator, CubicSegment};
+    use crate::cubic_splines::{CubicBezier, CubicGenerator, CubicSegment};
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
@@ -565,7 +565,7 @@ mod tests {
             vec2(5.0, 3.0),
             vec2(9.0, 8.0),
         ]];
-        let bezier = Bezier::new(points).to_curve();
+        let bezier = CubicBezier::new(points).to_curve();
         for i in 0..=N_SAMPLES {
             let t = i as f32 / N_SAMPLES as f32; // Check along entire length
             assert!(bezier.position(t).distance(cubic_manual(t, points[0])) <= FLOAT_EQ);

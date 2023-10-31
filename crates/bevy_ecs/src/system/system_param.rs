@@ -353,7 +353,7 @@ impl_param_set!();
 ///
 /// ```
 /// # let mut world = World::default();
-/// # let mut schedule = Schedule::new();
+/// # let mut schedule = Schedule::default();
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct MyResource { value: u32 }
@@ -685,7 +685,7 @@ pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
 // SAFETY: Local only accesses internal state
 unsafe impl<'s, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'s, T> {}
 
-impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> Deref for Local<'s, T> {
     type Target = T;
 
     #[inline]
@@ -694,7 +694,7 @@ impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
     }
 }
 
-impl<'s, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> DerefMut for Local<'s, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -854,7 +854,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     // ...
 /// });
 ///
-/// let mut schedule = Schedule::new();
+/// let mut schedule = Schedule::default();
 /// // These two systems have no conflicts and will run in parallel.
 /// schedule.add_systems((alert_criminal, alert_monster));
 ///
@@ -1560,7 +1560,7 @@ mod tests {
         query::{ReadOnlyWorldQuery, WorldQuery},
         system::{assert_is_system, Query},
     };
-    use std::marker::PhantomData;
+    use std::{cell::RefCell, marker::PhantomData};
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
@@ -1725,5 +1725,48 @@ mod tests {
 
         fn my_system(_: InvariantParam) {}
         assert_is_system(my_system);
+    }
+
+    // Compile test for https://github.com/bevyengine/bevy/pull/9589.
+    #[test]
+    fn non_sync_local() {
+        fn non_sync_system(cell: Local<RefCell<u8>>) {
+            assert_eq!(*cell.borrow(), 0);
+        }
+
+        let mut world = World::new();
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(non_sync_system);
+        schedule.run(&mut world);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/10207.
+    #[test]
+    fn param_set_non_send_first() {
+        fn non_send_param_set(mut p: ParamSet<(NonSend<*mut u8>, ())>) {
+            let _ = p.p0();
+            p.p1();
+        }
+
+        let mut world = World::new();
+        world.insert_non_send_resource(std::ptr::null_mut::<u8>());
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
+        schedule.run(&mut world);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/10207.
+    #[test]
+    fn param_set_non_send_second() {
+        fn non_send_param_set(mut p: ParamSet<((), NonSendMut<*mut u8>)>) {
+            p.p0();
+            let _ = p.p1();
+        }
+
+        let mut world = World::new();
+        world.insert_non_send_resource(std::ptr::null_mut::<u8>());
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
+        schedule.run(&mut world);
     }
 }

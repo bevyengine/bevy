@@ -37,7 +37,6 @@ gltf = { version = "1.3.0", default-features = false, features = [
     "utils",
 ] }
 thiserror = "1.0"
-anyhow = "1.0.4"
 base64 = "0.13.0"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
