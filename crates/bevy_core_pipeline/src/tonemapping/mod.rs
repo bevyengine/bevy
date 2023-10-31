@@ -314,8 +314,8 @@ pub fn prepare_view_tonemapping_pipelines(
 ) {
     for (entity, tonemapping, dither) in view_targets.iter() {
         let key = TonemappingPipelineKey {
-            deband_dither: DebandDitherKey::from_params(&(), dither),
-            tonemapping: TonemappingKey::from_params(&(), tonemapping),
+            deband_dither: DebandDitherKey::from_params(&(), dither).unwrap(),
+            tonemapping: TonemappingKey::from_params(&(), tonemapping).unwrap(),
         };
         let pipeline = pipelines.specialize(
             &pipeline_cache,
@@ -455,8 +455,8 @@ impl SystemKey for TonemappingKey {
 
     type Query = Option<Read<Tonemapping>>;
 
-    fn from_params(_: &(), tonemapping: Option<&Tonemapping>) -> Self {
-        match tonemapping.unwrap_or(&Tonemapping::None) {
+    fn from_params(_: &(), tonemapping: Option<&Tonemapping>) -> Option<Self> {
+        Some(match tonemapping.unwrap_or(&Tonemapping::None) {
             // TODO this might as well return self?
             Tonemapping::None => TonemappingKey::None,
             Tonemapping::Reinhard => TonemappingKey::Reinhard,
@@ -468,7 +468,7 @@ impl SystemKey for TonemappingKey {
             }
             Tonemapping::TonyMcMapface => TonemappingKey::TonyMcMapface,
             Tonemapping::BlenderFilmic => TonemappingKey::BlenderFilmic,
-        }
+        })
     }
 }
 

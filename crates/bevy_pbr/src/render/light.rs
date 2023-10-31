@@ -1631,7 +1631,7 @@ pub fn queue_shadows<M: Material>(
                     &prepass_pipeline,
                     MaterialPipelineKey {
                         mesh_key,
-                        bind_group_data: material.key.clone(),
+                        bind_group_data: material.key.material_key.clone(),
                     },
                     &mesh.layout,
                 );
@@ -1792,14 +1792,16 @@ impl SystemKey for DepthClampOrthoKey {
     type Param = ();
     type Query = Option<Read<LightEntity>>;
 
-    fn from_params(_: &(), light: Option<&LightEntity>) -> Self {
-        if light.map_or(false, |light| {
-            matches!(light, LightEntity::Directional { .. })
-        }) {
-            DepthClampOrthoKey::On
-        } else {
-            DepthClampOrthoKey::Off
-        }
+    fn from_params(_: &(), light: Option<&LightEntity>) -> Option<Self> {
+        Some(
+            if light.map_or(false, |light| {
+                matches!(light, LightEntity::Directional { .. })
+            }) {
+                DepthClampOrthoKey::On
+            } else {
+                DepthClampOrthoKey::Off
+            },
+        )
     }
 }
 

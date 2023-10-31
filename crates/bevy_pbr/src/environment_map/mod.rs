@@ -140,12 +140,12 @@ impl SystemKey for EnvironmentMapKey {
     fn from_params(
         images: &Res<RenderAssets<Image>>,
         env_map: Option<&EnvironmentMapLight>,
-    ) -> Self {
-        if env_map.map_or(false, |map| map.is_loaded(images)) {
+    ) -> Option<Self> {
+        Some(if env_map.map_or(false, |map| map.is_loaded(images)) {
             EnvironmentMapKey::On
         } else {
             EnvironmentMapKey::Off
-        }
+        })
     }
 }
 

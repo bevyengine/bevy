@@ -468,12 +468,6 @@ impl GetBatchData for MeshPipeline {
     }
 }
 
-#[derive(PipelineKey)]
-pub struct MeshKey {
-    topology: PrimitiveTopology,
-    morph_targets: bool,
-}
-
 #[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct MeshPipelineKey(pub u32);
 

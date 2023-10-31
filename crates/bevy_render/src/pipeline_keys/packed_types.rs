@@ -3,6 +3,43 @@
 
 use crate::pipeline_keys::*;
 
+impl AnyKeyType for () {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl KeyTypeConcrete for () {
+    fn unpack(_: KeyPrimitive, _: &KeyMetaStore) -> Self {
+        ()
+    }
+
+    fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
+        HashMap::default()
+    }
+
+    fn pack(_: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self>
+    where
+        Self: Sized,
+    {
+        PackedPipelineKey {
+            packed: 0,
+            size: 0,
+            _p: PhantomData,
+        }
+    }
+
+    fn size(_: &KeyMetaStore) -> u8 {
+        0
+    }
+}
+
+impl FixedSizeKey for () {
+    fn fixed_size() -> u8 {
+        0
+    }
+}
+
 impl<T: AnyKeyType> AnyKeyType for Option<T> {
     fn as_any(&self) -> &dyn Any {
         self
@@ -119,7 +156,7 @@ impl AnyKeyType for u32 {
 
 impl KeyTypeConcrete for u32 {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(8, 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -136,6 +173,36 @@ impl KeyTypeConcrete for u32 {
 }
 
 impl FixedSizeKey for u32 {
+    fn fixed_size() -> u8 {
+        32
+    }
+}
+
+impl AnyKeyType for i32 {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl KeyTypeConcrete for i32 {
+    fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+    }
+
+    fn size(_: &KeyMetaStore) -> u8 {
+        Self::fixed_size()
+    }
+
+    fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
+        PackedPipelineKey::new(*value as KeyPrimitive, Self::fixed_size())
+    }
+
+    fn unpack(value: KeyPrimitive, _: &KeyMetaStore) -> Self {
+        value as Self
+    }
+}
+
+impl FixedSizeKey for i32 {
     fn fixed_size() -> u8 {
         32
     }
@@ -746,5 +813,54 @@ impl KeyTypeConcrete for wgpu::PrimitiveTopology {
 impl FixedSizeKey for wgpu::PrimitiveTopology {
     fn fixed_size() -> u8 {
         3
+    }
+}
+
+// Face
+fn _check_face_variant_count(value: &wgpu::Face) {
+    // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
+    // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
+    // 2 variants => 1 bits
+    match value {
+        wgpu::Face::Front | wgpu::Face::Back => (),
+    }
+}
+
+impl AnyKeyType for wgpu::Face {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl KeyTypeConcrete for wgpu::Face {
+    fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+    }
+
+    fn size(_: &KeyMetaStore) -> u8 {
+        Self::fixed_size()
+    }
+
+    fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
+        let raw = match value {
+            wgpu::Face::Front => 0,
+            wgpu::Face::Back => 1,
+        };
+
+        PackedPipelineKey::new(raw, Self::fixed_size())
+    }
+
+    fn unpack(value: KeyPrimitive, _: &KeyMetaStore) -> Self {
+        match value {
+            0 => wgpu::Face::Front,
+            1 => wgpu::Face::Back,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl FixedSizeKey for wgpu::Face {
+    fn fixed_size() -> u8 {
+        1
     }
 }

@@ -531,10 +531,11 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 }
 
 /// The pipeline key for [`StandardMaterial`].
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(PipelineKey, Clone, PartialEq, Eq, Hash)]
 pub struct StandardMaterialKey {
     normal_map: bool,
     cull_mode: Option<Face>,
+    // TODO do we really want 32 bits just for depth bias?
     depth_bias: i32,
     relief_mapping: bool,
 }

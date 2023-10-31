@@ -352,12 +352,12 @@ impl SystemKey for ViewProjectionKey {
 
     type Query = Option<Read<Projection>>;
 
-    fn from_params(_: &(), projection: Option<&Projection>) -> Self {
-        match projection {
+    fn from_params(_: &(), projection: Option<&Projection>) -> Option<Self> {
+        Some(match projection {
             Some(Projection::Perspective(_)) => ViewProjectionKey::Perspective,
             Some(Projection::Orthographic(_)) => ViewProjectionKey::Orthographic,
             _ => ViewProjectionKey::NonStandard,
-        }
+        })
     }
 }
 

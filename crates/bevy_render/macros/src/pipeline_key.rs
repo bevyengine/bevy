@@ -265,9 +265,22 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     }
 
                     fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
-                        let tuple = (#(#field_exprs,)*);
-                        let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = #render_path::pipeline_keys::KeyTypeConcrete::pack(&tuple, store);
-                        #render_path::pipeline_keys::PackedPipelineKey::new(packed, size)
+                        // simple destructure to tuple would allow us to reuse the CompositeKey pack impl, but it requires the fields to be Copy
+
+                        // let tuple = (#(#field_exprs,)*);
+                        // let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = #render_path::pipeline_keys::KeyTypeConcrete::pack(&tuple, store);
+                        // #render_path::pipeline_keys::PackedPipelineKey::new(packed, size)
+
+                        let mut result = 0 as #render_path::pipeline_keys::KeyPrimitive;
+                        let mut total_size = 0u8;
+
+                        #(
+                            let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = #render_path::pipeline_keys::KeyTypeConcrete::pack(&#field_exprs, store);
+                            result = (result << size) | packed;
+                            total_size += size;
+                        )*
+
+                        #render_path::pipeline_keys::PackedPipelineKey::new(result, total_size)
                     }
 
                     fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {

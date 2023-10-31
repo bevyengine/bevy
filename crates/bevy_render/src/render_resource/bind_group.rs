@@ -1,5 +1,6 @@
 use crate::{
     define_atomic_id,
+    pipeline_keys::{FixedSizeKey, KeyTypeConcrete},
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
@@ -260,7 +261,7 @@ impl Deref for BindGroup {
 /// ```
 pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
-    type Data: Send + Sync;
+    type Data: Send + Sync + KeyTypeConcrete + FixedSizeKey;
 
     /// label
     fn label() -> Option<&'static str> {

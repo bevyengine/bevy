@@ -835,7 +835,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    bind_group_data: material.key.clone(),
+                    bind_group_data: material.key.material_key.clone(),
                 },
                 &mesh.layout,
             );

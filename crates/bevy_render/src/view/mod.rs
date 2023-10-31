@@ -556,8 +556,8 @@ impl SystemKey for MsaaKey {
     type Param = SRes<Msaa>;
     type Query = ();
 
-    fn from_params(msaa: &Res<Msaa>, _: ()) -> Self {
-        (msaa.samples().trailing_zeros() as KeyPrimitive).into()
+    fn from_params(msaa: &Res<Msaa>, _: ()) -> Option<Self> {
+        Some((msaa.samples().trailing_zeros() as KeyPrimitive).into())
     }
 }
 
@@ -584,8 +584,8 @@ impl SystemKey for HdrKey {
     type Param = ();
     type Query = Read<ExtractedView>;
 
-    fn from_params(_: &(), view: &ExtractedView) -> Self {
-        Self(view.hdr)
+    fn from_params(_: &(), view: &ExtractedView) -> Option<Self> {
+        Some(Self(view.hdr))
     }
 }
 

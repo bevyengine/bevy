@@ -1,5 +1,5 @@
 use super::*;
-use bevy_ecs::{prelude::*, schedule::NodeConfigs};
+use bevy_ecs::schedule::NodeConfigs;
 pub use bevy_render_macros::PipelineKey;
 use bevy_utils::{intern::Interned, HashMap};
 use std::any::{Any, TypeId};

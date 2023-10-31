@@ -237,13 +237,13 @@ impl SystemKey for PrepassKey {
     fn from_params(
         _: &(),
         (depth, normal, motion_vector, deferred): bevy_ecs::query::QueryItem<Self::Query>,
-    ) -> Self {
-        Self {
+    ) -> Option<Self> {
+        Some(Self {
             depth,
             normal,
             motion_vector,
             deferred,
-        }
+        })
     }
 }
 

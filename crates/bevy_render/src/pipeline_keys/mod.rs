@@ -347,7 +347,9 @@ pub trait SystemKey: AnyKeyType + KeyTypeConcrete + FixedSizeKey {
     fn from_params(
         params: &SystemParamItem<Self::Param>,
         query_item: QueryItem<Self::Query>,
-    ) -> Self;
+    ) -> Option<Self>
+    where
+        Self: Sized;
 }
 
 // #[derive(PipelineKey)]
@@ -356,6 +358,7 @@ pub trait SystemKey: AnyKeyType + KeyTypeConcrete + FixedSizeKey {
 pub trait DynamicKey: AnyKeyType + KeyTypeConcrete {}
 
 pub trait AddPipelineKey {
+    fn register_key<K: KeyTypeConcrete + FixedSizeKey + 'static>(&mut self) -> &mut Self;
     fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(&mut self) -> &mut Self;
     fn register_composite_key<K: CompositeKey, F: ReadOnlyWorldQuery + 'static>(
         &mut self,
@@ -366,6 +369,14 @@ pub trait AddPipelineKey {
 }
 
 impl AddPipelineKey for App {
+    fn register_key<K: KeyTypeConcrete + FixedSizeKey + 'static>(&mut self) -> &mut Self {
+        self.world
+            .get_resource_mut::<KeyMetaStore>()
+            .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
+            .register_fixed_size::<K>();
+        self
+    }
+
     fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(&mut self) -> &mut Self {
         self.world
             .get_resource_mut::<KeyMetaStore>()
@@ -378,7 +389,9 @@ impl AddPipelineKey for App {
               mut q: Query<(&mut PipelineKeys, K::Query), F>| {
                 let p = p.into_inner();
                 for (mut keys, query) in q.iter_mut() {
-                    let key = K::from_params(&p, query);
+                    let Some(key) = K::from_params(&p, query) else {
+                        continue;
+                    };
                     let PackedPipelineKey { packed, size, .. } = K::pack(&key, &store);
                     keys.set_raw::<K>(packed, size);
                 }
@@ -475,8 +488,8 @@ macro_rules! impl_has_world_key {
             type Param = ();
             type Query = bevy_ecs::prelude::Has<$component>;
 
-            fn from_params(_: &(), has_component: bool) -> Self {
-                Self(has_component)
+            fn from_params(_: &(), has_component: bool) -> Option<Self> {
+                Some(Self(has_component))
             }
         }
 

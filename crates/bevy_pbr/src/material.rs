@@ -18,7 +18,7 @@ use bevy_render::{
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
-    pipeline_keys::{KeyMetaStore, PipelineKeys},
+    pipeline_keys::{KeyMetaStore, KeyShaderDefs, PipelineKeys},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
@@ -29,6 +29,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
+use num_enum::{FromPrimitive, IntoPrimitive};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -224,7 +225,9 @@ where
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
                     ),
-                );
+                )
+                .register_key::<AlphaKey>()
+                .register_key::<MaterialKey<M>>();
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
@@ -605,7 +608,7 @@ pub fn queue_material_meshes<M: Material>(
                 &material_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    bind_group_data: material.key.clone(),
+                    bind_group_data: material.key.material_key.clone(),
                 },
                 &mesh.layout,
             );
@@ -730,7 +733,7 @@ pub struct MaterialProperties {
 pub struct PreparedMaterial<T: Material> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
-    pub key: T::Data,
+    pub key: MaterialKey<T>,
     pub properties: MaterialProperties,
 }
 
@@ -892,10 +895,14 @@ fn prepare_material<M: Material>(
         OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
         OpaqueRendererMethod::Auto => default_opaque_render_method,
     };
+    let key = MaterialKey {
+        alpha: material.alpha_mode().into(),
+        material_key: prepared.data,
+    };
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
-        key: prepared.data,
+        key,
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
@@ -903,3 +910,66 @@ fn prepare_material<M: Material>(
         },
     })
 }
+
+#[derive(PipelineKey, FromPrimitive, IntoPrimitive, Copy, Clone)]
+#[repr(u64)]
+#[custom_shader_defs]
+pub enum AlphaKey {
+    #[default]
+    Opaque,
+    AlphaBlend,
+    AlphaPremultiplied,
+    AlphaMultiply,
+    AlphaMask,
+}
+
+impl KeyShaderDefs for AlphaKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        match self {
+            AlphaKey::Opaque => vec![],
+            AlphaKey::AlphaBlend => vec!["BLEND_ALPHA"],
+            AlphaKey::AlphaPremultiplied => vec!["BLEND_PREMULTIPLIED_ALPHA", "PREMULTIPLY_ALPHA"],
+            AlphaKey::AlphaMultiply => vec!["BLEND_MULTIPLY", "PREMULTIPLY_ALPHA"],
+            AlphaKey::AlphaMask => vec!["MAY_DISCARD"],
+        }
+        .into_iter()
+        .map(Into::into)
+        .collect()
+    }
+}
+
+impl From<AlphaMode> for AlphaKey {
+    fn from(value: AlphaMode) -> Self {
+        match value {
+            AlphaMode::Opaque => AlphaKey::Opaque,
+            AlphaMode::Mask(_) => AlphaKey::AlphaMask,
+            AlphaMode::Blend => AlphaKey::AlphaBlend,
+            AlphaMode::Premultiplied | AlphaMode::Add => AlphaKey::AlphaPremultiplied,
+            AlphaMode::Multiply => AlphaKey::AlphaMultiply,
+        }
+    }
+}
+
+#[derive(PipelineKey, Clone, Copy)]
+pub struct MaterialKey<M: Material> {
+    pub alpha: AlphaKey,
+    pub material_key: M::Data,
+}
+
+// TODO work out how best to iterate over relevant entities
+// probably .add_system_key<K, F, EI>() ?
+// we could use a custom key-builder impl with it's own query but we want this to work for composites/dynamics as well
+
+// impl<M: Material> SystemKey for MaterialKey<M> {
+//     type Param = (SRes<RenderMaterialInstances<M>>, SRes<RenderMaterials<M>>);
+
+//     type Query = Entity;
+
+//     fn from_params(
+//         (instances, materials): &SystemParamItem<Self::Param>,
+//         entity: Entity,
+//     ) -> Option<Self>
+//     where Self: Sized {
+//         instances.get(&entity).and_then(|asset_id| materials.get(asset_id)).map(|prepared| prepared.key)
+//     }
+// }

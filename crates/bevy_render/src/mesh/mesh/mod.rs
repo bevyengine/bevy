@@ -1,5 +1,6 @@
 mod conversions;
 pub mod skinning;
+use bevy_render_macros::PipelineKeyInRenderCrate;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -1024,6 +1025,12 @@ impl From<&Indices> for IndexFormat {
     }
 }
 
+#[derive(PipelineKeyInRenderCrate, Debug, Clone, Copy)]
+pub struct MeshKey {
+    topology: PrimitiveTopology,
+    morph_targets: bool,
+}
+
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
 #[derive(Debug, Clone)]
@@ -1035,6 +1042,7 @@ pub struct GpuMesh {
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
+    pub key: MeshKey,
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -1087,6 +1095,11 @@ impl RenderAsset for Mesh {
 
         let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
 
+        let mesh_key = MeshKey {
+            topology: mesh.primitive_topology,
+            morph_targets: mesh.morph_targets.is_some(),
+        };
+
         Ok(GpuMesh {
             vertex_buffer,
             vertex_count: mesh.count_vertices() as u32,
@@ -1096,6 +1109,7 @@ impl RenderAsset for Mesh {
             morph_targets: mesh
                 .morph_targets
                 .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
+            key: mesh_key,
         })
     }
 }

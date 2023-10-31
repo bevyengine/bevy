@@ -2285,13 +2285,15 @@ impl SystemKey for ShadowFilteringKey {
 
     type Query = Option<Read<ShadowFilteringMethod>>;
 
-    fn from_params(_: &(), shadow_method: Option<&ShadowFilteringMethod>) -> Self {
-        match shadow_method.unwrap_or(&ShadowFilteringMethod::default()) {
-            // TODO this might as well return self?
-            ShadowFilteringMethod::Hardware2x2 => ShadowFilteringKey::Hardware2x2,
-            ShadowFilteringMethod::Castano13 => ShadowFilteringKey::Castano13,
-            ShadowFilteringMethod::Jimenez14 => ShadowFilteringKey::Jimenez14,
-        }
+    fn from_params(_: &(), shadow_method: Option<&ShadowFilteringMethod>) -> Option<Self> {
+        Some(
+            match shadow_method.unwrap_or(&ShadowFilteringMethod::default()) {
+                // TODO this might as well return self?
+                ShadowFilteringMethod::Hardware2x2 => ShadowFilteringKey::Hardware2x2,
+                ShadowFilteringMethod::Castano13 => ShadowFilteringKey::Castano13,
+                ShadowFilteringMethod::Jimenez14 => ShadowFilteringKey::Jimenez14,
+            },
+        )
     }
 }
 

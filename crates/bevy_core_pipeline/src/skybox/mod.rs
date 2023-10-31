@@ -201,7 +201,7 @@ fn prepare_skybox_pipelines(
             KeyTypeConcrete::pack(
                 &SkyboxPipelineKey {
                     hdr: view.hdr,
-                    msaa: MsaaKey::from_params(&msaa, ()),
+                    msaa: MsaaKey::from_params(&msaa, ()).unwrap(),
                     depth_format: CORE_3D_DEPTH_FORMAT,
                 },
                 &key_store,
