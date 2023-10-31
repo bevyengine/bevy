@@ -121,10 +121,9 @@ fn queue_custom(
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
-
     for (view, mut transparent_phase) in &mut views {
-        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
+        let view_key = MeshPipelineKey::DEFAULT.with_msaa(*msaa).with_hdr(view.hdr);
+
         let rangefinder = view.rangefinder3d();
         for entity in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
@@ -133,7 +132,7 @@ fn queue_custom(
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let key = view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let key = view_key.with_primitive_topology(mesh.primitive_topology.into());
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();

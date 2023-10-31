@@ -57,6 +57,8 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 image = { version = "0.24", default-features = false }
 
 # misc
+arbitrary-int = "1.2.6"
+bitbybit = "1.2.2"
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm

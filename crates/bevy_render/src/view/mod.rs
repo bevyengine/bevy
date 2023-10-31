@@ -83,22 +83,41 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(
-    Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
-)]
+#[bitbybit::bitenum(u3, exhaustive: true)]
+#[derive(Resource, Default, ExtractResource, Reflect, PartialEq, PartialOrd, Debug)]
 #[reflect(Resource)]
 pub enum Msaa {
-    Off = 1,
-    Sample2 = 2,
+    Off = 0,
+    Sample2 = 1,
     #[default]
-    Sample4 = 4,
-    Sample8 = 8,
+    Sample4 = 2,
+    Sample8 = 3,
+    Sample16 = 4,
+    Sample32 = 5,
+    Sample64 = 6,
+    Sample128 = 7,
 }
 
 impl Msaa {
     #[inline]
     pub fn samples(&self) -> u32 {
-        *self as u32
+        1 << u32::from(self.raw_value())
+    }
+    pub fn from_samples(samples: u32) -> Option<Self> {
+        if samples == 0 {
+            return None;
+        }
+        match samples.ilog2() {
+            0 => Some(Msaa::Off),
+            1 => Some(Msaa::Sample2),
+            2 => Some(Msaa::Sample4),
+            3 => Some(Msaa::Sample8),
+            4 => Some(Msaa::Sample16),
+            5 => Some(Msaa::Sample32),
+            6 => Some(Msaa::Sample64),
+            7 => Some(Msaa::Sample128),
+            _ => None,
+        }
     }
 }
 

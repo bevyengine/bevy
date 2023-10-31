@@ -391,33 +391,6 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
 
-const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
-    match alpha_mode {
-        // Premultiplied and Add share the same pipeline key
-        // They're made distinct in the PBR shader, via `premultiply_alpha()`
-        AlphaMode::Premultiplied | AlphaMode::Add => MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA,
-        AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
-        AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
-        AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
-        _ => MeshPipelineKey::NONE,
-    }
-}
-
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
-    match tonemapping {
-        Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
-        Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
-        Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-        Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
-        Tonemapping::SomewhatBoringDisplayTransform => {
-            MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-        }
-        Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-        Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
@@ -475,65 +448,37 @@ pub fn queue_material_meshes<M: Material>(
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
-
-        if normal_prepass {
-            view_key |= MeshPipelineKey::NORMAL_PREPASS;
-        }
-
-        if depth_prepass {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS;
-        }
-
-        if motion_vector_prepass {
-            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
-        }
-
-        if deferred_prepass {
-            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
-        }
-
-        if taa_settings.is_some() {
-            view_key |= MeshPipelineKey::TAA;
-        }
         let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
+        let filtering_method = shadow_filter_method.copied().unwrap_or_default();
 
-        if environment_map_loaded {
-            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
-        }
-
-        if let Some(projection) = projection {
-            view_key |= match projection {
-                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
-                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
-            };
-        }
-
-        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
-            ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
-            }
-            ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
-            }
-            ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
-            }
-        }
+        let view_projection = match projection {
+            Some(Projection::Perspective(_)) => ViewProjection::Perspective,
+            Some(Projection::Orthographic(_)) => ViewProjection::Orthographic,
+            None => ViewProjection::Nonstandard,
+        };
+        let mut view_key = MeshPipelineKey::DEFAULT
+            .with_msaa(*msaa)
+            .with_hdr(view.hdr)
+            .with_normal_prepass(normal_prepass)
+            .with_depth_prepass(depth_prepass)
+            .with_motion_vector_prepass(motion_vector_prepass)
+            .with_deferred_prepass(deferred_prepass)
+            .with_taa(taa_settings.is_some())
+            .with_environment_map(environment_map_loaded)
+            .with_shadow_filter_method(filtering_method)
+            .with_screen_space_ambient_occlusion(ssao.is_some())
+            .with_view_projection(view_projection);
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
+                view_key = view_key
+                    .with_tonemap_in_shader(true)
+                    .with_tonemap_method(*tonemapping);
             }
-            if let Some(DebandDither::Enabled) = dither {
-                view_key |= MeshPipelineKey::DEBAND_DITHER;
-            }
+            let deband_dither = dither.is_some_and(|m| matches!(m, DebandDither::Enabled));
+            view_key = view_key.with_deband_dither(deband_dither);
         }
-        if ssao.is_some() {
-            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
-        }
+
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
@@ -555,14 +500,12 @@ pub fn queue_material_meshes<M: Material>(
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
 
-            let mut mesh_key = view_key;
-
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-
-            if mesh.morph_targets.is_some() {
-                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-            }
-            mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+            let alpha_mode = material.properties.alpha_mode;
+            let mesh_key = view_key
+                .with_primitive_topology(mesh.primitive_topology.into())
+                .with_morph_targets(mesh.morph_targets.is_some())
+                .with_may_discard(alpha_mode.may_discard())
+                .with_blend(alpha_mode.into());
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,

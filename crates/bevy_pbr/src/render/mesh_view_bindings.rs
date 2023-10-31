@@ -91,16 +91,16 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         if value.msaa_samples() > 1 {
             result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
         }
-        if value.contains(MeshPipelineKey::DEPTH_PREPASS) {
+        if value.depth_prepass() {
             result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
         }
-        if value.contains(MeshPipelineKey::NORMAL_PREPASS) {
+        if value.normal_prepass() {
             result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
         }
-        if value.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+        if value.motion_vector_prepass() {
             result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
         }
-        if value.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+        if value.deferred_prepass() {
             result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
         }
 
