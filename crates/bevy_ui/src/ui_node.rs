@@ -14,9 +14,12 @@ use thiserror::Error;
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
-    /// The size of the node as width and height in logical pixels.
+    /// The order of the node in the UI layout.
+    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    pub(crate) stack_index: u32,
+    /// The size of the node as width and height in logical pixels
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
@@ -37,6 +40,12 @@ impl Node {
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// The order of the node in the UI layout.
+    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    pub const fn stack_index(&self) -> u32 {
+        self.stack_index
     }
 
     /// The calculated node size as width and height in logical pixels before rounding.
@@ -92,6 +101,7 @@ impl Node {
 
 impl Node {
     pub const DEFAULT: Self = Self {
+        stack_index: 0,
         calculated_size: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
