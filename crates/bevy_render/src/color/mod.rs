@@ -549,6 +549,25 @@ impl Color {
         self
     }
 
+    /// Determine if the color is fully transparent, i.e. if the alpha is 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_render::color::Color;
+    /// // Fully transparent colors
+    /// assert!(Color::NONE.is_fully_transparent());
+    /// assert!(Color::rgba(1.0, 0.5, 0.5, 0.0).is_fully_transparent());
+    ///
+    /// // (Partially) opaque colors
+    /// assert!(!Color::BLACK.is_fully_transparent());
+    /// assert!(!Color::rgba(1.0, 0.5, 0.5, 0.2).is_fully_transparent());
+    /// ```
+    #[inline(always)]
+    pub fn is_fully_transparent(&self) -> bool {
+        self.a() == 0.0
+    }
+
     /// Converts a `Color` to variant `Color::Rgba`
     pub fn as_rgba(self: &Color) -> Color {
         match self {
