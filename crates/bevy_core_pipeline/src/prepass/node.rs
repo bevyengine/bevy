@@ -50,6 +50,8 @@ impl ViewNode for PrepassNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
+        let _ = view_depth_texture.is_first_write();
+
         let mut color_attachments = vec![
             view_prepass_textures
                 .normal
