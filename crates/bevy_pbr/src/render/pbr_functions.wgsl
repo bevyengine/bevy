@@ -61,6 +61,8 @@ fn prepare_world_normal(
 fn apply_normal_mapping(
     standard_material_flags: u32,
     world_normal: vec3<f32>,
+    double_sided: bool,
+    is_front: bool,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     world_tangent: vec4<f32>,
@@ -106,6 +108,11 @@ fn apply_normal_mapping(
     if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u {
         Nt.y = -Nt.y;
     }
+
+    if double_sided && !is_front {
+        Nt = -Nt;
+    }
+
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
     // the normal map texture in this way to be an EXACT inverse of how the normal map baker
     // calculates the normal maps so there is no error introduced. Do not change this code
