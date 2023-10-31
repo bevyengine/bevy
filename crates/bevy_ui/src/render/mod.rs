@@ -200,7 +200,7 @@ pub fn extract_atlas_uinodes(
     ) in uinode_query.iter()
     {
         // Skip invisible and completely transparent nodes
-        if !view_visibility.get() || color.0.a() == 0.0 {
+        if !view_visibility.get() || color.0.is_fully_transparent() {
             continue;
         }
 
@@ -301,7 +301,7 @@ pub fn extract_uinode_borders(
     {
         // Skip invisible borders
         if !view_visibility.get()
-            || border_color.0.a() == 0.0
+            || border_color.0.is_fully_transparent()
             || node.size().x <= 0.
             || node.size().y <= 0.
         {
@@ -382,7 +382,6 @@ pub fn extract_uinode_borders(
 pub fn extract_uinode_outlines(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -395,13 +394,12 @@ pub fn extract_uinode_outlines(
     clip_query: Query<&CalculatedClip>,
 ) {
     let image = AssetId::<Image>::default();
-
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, outline, view_visibility, maybe_parent)) =
-            uinode_query.get(*entity)
-        {
+    for (node, global_transform, outline, view_visibility, maybe_parent) in uinode_query.iter() {
             // Skip invisible outlines
-            if !view_visibility.get() || outline.color.a() == 0. || node.outline_width == 0. {
+            if !view_visibility.get()
+                || outline.color.is_fully_transparent()
+                || node.outline_width == 0.
+            {
                 continue;
             }
 
@@ -451,7 +449,7 @@ pub fn extract_uinode_outlines(
                     extracted_uinodes.uinodes.insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            stack_index,
+                            stack_index: node.stack_index,
                             // This translates the uinode's transform to the center of the current border rectangle
                             transform: transform * Mat4::from_translation(edge.center().extend(0.)),
                             color: outline.color,
@@ -470,7 +468,6 @@ pub fn extract_uinode_outlines(
             }
         }
     }
-}
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -494,7 +491,7 @@ pub fn extract_uinodes(
         uinode_query.iter()
     {
         // Skip invisible and completely transparent nodes
-        if !view_visibility.get() || color.0.a() == 0.0 {
+        if !view_visibility.get() || color.0.is_fully_transparent() {
             continue;
         }
 

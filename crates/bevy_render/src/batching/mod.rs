@@ -97,7 +97,11 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
         *item.batch_range_mut() = index..index + 1;
         *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 
-        compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
+        if I::AUTOMATIC_BATCHING {
+            compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
+        } else {
+            None
+        }
     };
 
     for mut phase in &mut views {

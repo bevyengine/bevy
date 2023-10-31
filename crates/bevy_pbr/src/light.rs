@@ -598,9 +598,23 @@ impl Default for AmbientLight {
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
+///
+/// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
+/// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
+/// even when [`TransmittedShadowReceiver`] is being used.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
+/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
+///
+/// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
+/// (and potentially even baking a thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
+///
+/// **Note:** Using [`NotShadowReceiver`] overrides this component.
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct TransmittedShadowReceiver;
 
 /// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
 /// to control how to anti-alias shadow edges.
