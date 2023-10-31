@@ -7,7 +7,6 @@
     mesh_view_bindings::{view, previous_view_proj},
     mesh_bindings::mesh,
 }
-
 #import bevy_render::instance_index::get_instance_index
 
 #ifdef DEFERRED_PREPASS
