@@ -3,6 +3,7 @@ mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
+use bevy_render::extract_instances::ExtractInstance;
 use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
@@ -803,11 +804,6 @@ pub fn prepare_uinodes(
         };
     }
 
-    #[inline]
-    fn is_textured(image: AssetId<Image>) -> bool {
-        image != AssetId::default()
-    }
-
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
@@ -828,11 +824,15 @@ pub fn prepare_uinodes(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
-                    let mut existing_batch = batches
-                        .last_mut()
-                        .filter(|_| batch_image_handle == extracted_uinode.image);
-
-                    if existing_batch.is_none() {
+                    let mut existing_batch = batches.last_mut();
+                    
+                    if batch_image_handle == AssetId::invalid()
+                    || existing_batch.is_none()
+                    || (
+                        batch_image_handle != AssetId::default()
+                        && extracted_uinode.image != AssetId::default()
+                        && batch_image_handle != extracted_uinode.image
+                    ) {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                             batch_item_index = item_index;
                             batch_image_handle = extracted_uinode.image;
@@ -862,9 +862,30 @@ pub fn prepare_uinodes(
                         } else {
                             continue;
                         }
+                    } else if batch_image_handle == AssetId::default() && extracted_uinode.image != AssetId::default() {
+                        if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
+                            batch_image_handle = extracted_uinode.image;
+                            existing_batch.as_mut().unwrap().1.image = extracted_uinode.image;
+
+                            image_bind_groups
+                                .values
+                                .entry(batch_image_handle)
+                                .or_insert_with(|| {
+                                    render_device.create_bind_group(
+                                        "ui_material_bind_group",
+                                        &ui_pipeline.image_layout,
+                                        &BindGroupEntries::sequential((
+                                            &gpu_image.texture_view,
+                                            &gpu_image.sampler,
+                                        )),
+                                    )
+                                });
+                        } else {
+                            continue;
+                        }
                     }
 
-                    let mode = if is_textured(extracted_uinode.image) {
+                    let mode = if extracted_uinode.image != AssetId::default() {
                         TEXTURED_QUAD
                     } else {
                         UNTEXTURED_QUAD
@@ -986,6 +1007,7 @@ pub fn prepare_uinodes(
         }
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
+        println!("{}", batches.len());
         commands.insert_or_spawn_batch(batches);
     }
     extracted_uinodes.uinodes.clear();
