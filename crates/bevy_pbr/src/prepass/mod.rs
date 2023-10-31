@@ -818,6 +818,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 | AlphaMode::Multiply => continue,
             }
 
+            if material.properties.reads_view_transmission_texture {
+                // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
+                // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
+                continue;
+            }
+
             let forward = match material.properties.render_method {
                 OpaqueRendererMethod::Forward => true,
                 OpaqueRendererMethod::Deferred => false,

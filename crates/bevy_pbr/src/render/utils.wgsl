@@ -48,3 +48,22 @@ fn octahedral_decode(v: vec2<f32>) -> vec3<f32> {
     n = vec3(n.xy + w, n.z);
     return normalize(n);
 }
+
+// https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
+fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>, frame: u32) -> f32 {
+    let xy = pixel_coordinates + 5.588238 * f32(frame % 64u);
+    return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
+}
+
+// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
+// TODO: Use an array here instead of a bunch of constants, once arrays work properly under DX12.
+// NOTE: The names have a final underscore to avoid the following error:
+// `Composable module identifiers must not require substitution according to naga writeback rules`
+const SPIRAL_OFFSET_0_ = vec2<f32>(-0.7071,  0.7071);
+const SPIRAL_OFFSET_1_ = vec2<f32>(-0.0000, -0.8750);
+const SPIRAL_OFFSET_2_ = vec2<f32>( 0.5303,  0.5303);
+const SPIRAL_OFFSET_3_ = vec2<f32>(-0.6250, -0.0000);
+const SPIRAL_OFFSET_4_ = vec2<f32>( 0.3536, -0.3536);
+const SPIRAL_OFFSET_5_ = vec2<f32>(-0.0000,  0.3750);
+const SPIRAL_OFFSET_6_ = vec2<f32>(-0.1768, -0.1768);
+const SPIRAL_OFFSET_7_ = vec2<f32>( 0.1250,  0.0000);

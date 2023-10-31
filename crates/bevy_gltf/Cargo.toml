@@ -8,6 +8,9 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+pbr_transmission_textures = []
+
 [dependencies]
 # bevy
 bevy_animation = { path = "../bevy_animation", version = "0.12.0-dev", optional = true }
@@ -30,6 +33,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 # other
 gltf = { version = "1.3.0", default-features = false, features = [
     "KHR_lights_punctual",
+    "KHR_materials_transmission",
+    "KHR_materials_ior",
+    "KHR_materials_volume",
     "KHR_materials_unlit",
     "KHR_materials_emissive_strength",
     "extras",
