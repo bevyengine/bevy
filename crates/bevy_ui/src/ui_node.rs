@@ -18,7 +18,7 @@ pub struct Node {
     /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
     /// The size of the node as width and height in logical pixels
-    /// 
+    ///
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
     /// The width of this node's outline.
@@ -47,7 +47,7 @@ impl Node {
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
-    
+
     /// The calculated node size as width and height in logical pixels before rounding.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
