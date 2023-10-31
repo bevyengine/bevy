@@ -935,7 +935,7 @@ fn load_node(
                 gltf::khr_lights_punctual::Kind::Directional => {
                     let mut entity = parent.spawn(DirectionalLightBundle {
                         directional_light: DirectionalLight {
-                            color: Color::rgb_from(light.color()),
+                            color: Color::rgb_from_array(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for directional
                             // lights in lux (lm/m^2) which is what we need.
                             illuminance: light.intensity(),
@@ -955,7 +955,7 @@ fn load_node(
                 gltf::khr_lights_punctual::Kind::Point => {
                     let mut entity = parent.spawn(PointLightBundle {
                         point_light: PointLight {
-                            color: Color::rgb_from(light.color()),
+                            color: Color::rgb_from_array(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for point lights in
                             // candela (lm/sr) which is luminous intensity and we need luminous power.
                             // For a point light, luminous power = 4 * pi * luminous intensity
@@ -981,7 +981,7 @@ fn load_node(
                 } => {
                     let mut entity = parent.spawn(SpotLightBundle {
                         spot_light: SpotLight {
-                            color: Color::rgb_from(light.color()),
+                            color: Color::rgb_from_array(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
                             // candela (lm/sr) which is luminous intensity and we need luminous power.
                             // For a spot light, we map luminous power = 4 * pi * luminous intensity

@@ -1086,56 +1086,56 @@ impl Color {
 
     /// New `Color` from `[f32; 4]` in sRGB colorspace.
     #[inline]
-    pub fn rgba_from(arr: impl Into<[f32; 4]>) -> Self {
+    pub fn rgba_from_array(arr: impl Into<[f32; 4]>) -> Self {
         let [r, g, b, a]: [f32; 4] = arr.into();
         Color::rgba(r, g, b, a)
     }
 
     /// New `Color` from `[f32; 3]` in sRGB colorspace.
     #[inline]
-    pub fn rgb_from(arr: impl Into<[f32; 3]>) -> Self {
+    pub fn rgb_from_array(arr: impl Into<[f32; 3]>) -> Self {
         let [r, g, b]: [f32; 3] = arr.into();
         Color::rgb(r, g, b)
     }
 
     /// New `Color` from `[f32; 4]` in linear RGB colorspace.
     #[inline]
-    pub fn rgba_linear_from(arr: impl Into<[f32; 4]>) -> Self {
+    pub fn rgba_linear_from_array(arr: impl Into<[f32; 4]>) -> Self {
         let [r, g, b, a]: [f32; 4] = arr.into();
         Color::rgba_linear(r, g, b, a)
     }
 
     /// New `Color` from `[f32; 3]` in linear RGB colorspace.
     #[inline]
-    pub fn rgb_linear_from(arr: impl Into<[f32; 3]>) -> Self {
+    pub fn rgb_linear_from_array(arr: impl Into<[f32; 3]>) -> Self {
         let [r, g, b]: [f32; 3] = arr.into();
         Color::rgb_linear(r, g, b)
     }
 
     /// New `Color` from `[f32; 4]` with HSL representation in sRGB colorspace.
     #[inline]
-    pub fn hsla_from(arr: impl Into<[f32; 4]>) -> Self {
+    pub fn hsla_from_array(arr: impl Into<[f32; 4]>) -> Self {
         let [h, s, l, a]: [f32; 4] = arr.into();
         Color::hsla(h, s, l, a)
     }
 
     /// New `Color` from `[f32; 3]` with HSL representation in sRGB colorspace.
     #[inline]
-    pub fn hsl_from(arr: impl Into<[f32; 3]>) -> Self {
+    pub fn hsl_from_array(arr: impl Into<[f32; 3]>) -> Self {
         let [h, s, l]: [f32; 3] = arr.into();
         Color::hsl(h, s, l)
     }
 
     /// New `Color` from `[f32; 4]` with LCH representation in sRGB colorspace.
     #[inline]
-    pub fn lcha_from(arr: impl Into<[f32; 4]>) -> Self {
+    pub fn lcha_from_array(arr: impl Into<[f32; 4]>) -> Self {
         let [l, c, h, a]: [f32; 4] = arr.into();
         Color::lcha(l, c, h, a)
     }
 
     /// New `Color` from `[f32; 3]` with LCH representation in sRGB colorspace.
     #[inline]
-    pub fn lch_from(arr: impl Into<[f32; 3]>) -> Self {
+    pub fn lch_from_array(arr: impl Into<[f32; 3]>) -> Self {
         let [l, c, h]: [f32; 3] = arr.into();
         Color::lch(l, c, h)
     }
@@ -1957,7 +1957,7 @@ mod tests {
     #[test]
     fn conversions_vec4() {
         let starting_vec4 = Vec4::new(0.4, 0.5, 0.6, 1.0);
-        let starting_color = Color::rgba_from(starting_vec4);
+        let starting_color = Color::rgba_from_array(starting_vec4);
 
         assert_eq!(starting_vec4, starting_color.rgba_to_vec4());
 
@@ -1965,7 +1965,7 @@ mod tests {
 
         assert_eq!(
             starting_color * transformation,
-            Color::rgba_from(starting_vec4 * transformation)
+            Color::rgba_from_array(starting_vec4 * transformation)
         );
     }
 
