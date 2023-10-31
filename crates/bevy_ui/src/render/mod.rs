@@ -824,14 +824,13 @@ pub fn prepare_uinodes(
                 let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
                     let mut existing_batch = batches.last_mut();
-                    
+
                     if batch_image_handle == AssetId::invalid()
-                    || existing_batch.is_none()
-                    || (
-                        batch_image_handle != AssetId::default()
-                        && extracted_uinode.image != AssetId::default()
-                        && batch_image_handle != extracted_uinode.image
-                    ) {
+                        || existing_batch.is_none()
+                        || (batch_image_handle != AssetId::default()
+                            && extracted_uinode.image != AssetId::default()
+                            && batch_image_handle != extracted_uinode.image)
+                    {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                             batch_item_index = item_index;
                             batch_image_handle = extracted_uinode.image;
@@ -861,7 +860,9 @@ pub fn prepare_uinodes(
                         } else {
                             continue;
                         }
-                    } else if batch_image_handle == AssetId::default() && extracted_uinode.image != AssetId::default() {
+                    } else if batch_image_handle == AssetId::default()
+                        && extracted_uinode.image != AssetId::default()
+                    {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                             batch_image_handle = extracted_uinode.image;
                             existing_batch.as_mut().unwrap().1.image = extracted_uinode.image;
