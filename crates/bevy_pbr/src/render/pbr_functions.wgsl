@@ -320,20 +320,23 @@ fn apply_pbr_lighting(
         // and the following simplified values for the transmitted environment light contribution
         // approximation:
         //
+        // diffuse_color = vec3<f32>(1.0) // later we use `diffuse_transmissive_color` and `specular_transmissive_color`
         // NdotV = 1.0;
-        // f_ab = vec2<f32>(0.1)
         // R = T // see definition below
-        // F0 = vec3<f32>(0.16)
+        // F0 = vec3<f32>(1.0)
         // occlusion = 1.0
+        //
+        // (This one is slightly different from the other light types above, because the environment
+        // map light returns both diffuse and specular components separately, and we want to use both)
 
         let T = -normalize(
             in.V + // start with view vector at entry point
             refract(in.V, -in.N, 1.0 / ior) * thickness // add refracted vector scaled by thickness, towards exit point
         ); // normalize to find exit point view vector
 
-        let transmitted_environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, T, vec3<f32>(0.16));
-        transmitted_light += transmitted_environment_light.diffuse;
-        specular_transmitted_environment_light = transmitted_environment_light.specular;
+        let transmitted_environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, vec3<f32>(1.0), 1.0, f_ab, -in.N, T, vec3<f32>(1.0));
+        transmitted_light += transmitted_environment_light.diffuse * diffuse_transmissive_color;
+        specular_transmitted_environment_light = transmitted_environment_light.specular * specular_transmissive_color;
     }
 #else
     // If there's no environment map light, there's no transmitted environment
