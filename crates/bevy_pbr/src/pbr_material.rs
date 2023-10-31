@@ -156,7 +156,7 @@ pub struct StandardMaterial {
     ///
     /// - The material's [`StandardMaterial::base_color`] also modulates the transmitted light;
     /// - To receive transmitted shadows on the diffuse transmission lobe (i.e. the “backside”) of the material,
-    ///   use the [`TransmittedShadowReceiver`](crate::light::TransmittedShadowReceiver) component.
+    ///   use the [`TransmittedShadowReceiver`] component.
     #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 
