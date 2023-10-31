@@ -1084,56 +1084,56 @@ impl Color {
         }
     }
 
-    /// New `Color` from `[f32; 4]` in sRGB colorspace.
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with RGB representation in sRGB colorspace.
     #[inline]
     pub fn rgba_from_array(arr: impl Into<[f32; 4]>) -> Self {
         let [r, g, b, a]: [f32; 4] = arr.into();
         Color::rgba(r, g, b, a)
     }
 
-    /// New `Color` from `[f32; 3]` in sRGB colorspace.
+    /// New `Color` from `[f32; 3]` (or a type that can be converted into them) with RGB representation in sRGB colorspace.
     #[inline]
     pub fn rgb_from_array(arr: impl Into<[f32; 3]>) -> Self {
         let [r, g, b]: [f32; 3] = arr.into();
         Color::rgb(r, g, b)
     }
 
-    /// New `Color` from `[f32; 4]` in linear RGB colorspace.
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with RGB representation in linear RGB colorspace.
     #[inline]
     pub fn rgba_linear_from_array(arr: impl Into<[f32; 4]>) -> Self {
         let [r, g, b, a]: [f32; 4] = arr.into();
         Color::rgba_linear(r, g, b, a)
     }
 
-    /// New `Color` from `[f32; 3]` in linear RGB colorspace.
+    /// New `Color` from `[f32; 3]` (or a type that can be converted into them) with RGB representation in linear RGB colorspace.
     #[inline]
     pub fn rgb_linear_from_array(arr: impl Into<[f32; 3]>) -> Self {
         let [r, g, b]: [f32; 3] = arr.into();
         Color::rgb_linear(r, g, b)
     }
 
-    /// New `Color` from `[f32; 4]` with HSL representation in sRGB colorspace.
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with HSL representation in sRGB colorspace.
     #[inline]
     pub fn hsla_from_array(arr: impl Into<[f32; 4]>) -> Self {
         let [h, s, l, a]: [f32; 4] = arr.into();
         Color::hsla(h, s, l, a)
     }
 
-    /// New `Color` from `[f32; 3]` with HSL representation in sRGB colorspace.
+    /// New `Color` from `[f32; 3]` (or a type that can be converted into them) with HSL representation in sRGB colorspace.
     #[inline]
     pub fn hsl_from_array(arr: impl Into<[f32; 3]>) -> Self {
         let [h, s, l]: [f32; 3] = arr.into();
         Color::hsl(h, s, l)
     }
 
-    /// New `Color` from `[f32; 4]` with LCH representation in sRGB colorspace.
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with LCH representation in sRGB colorspace.
     #[inline]
     pub fn lcha_from_array(arr: impl Into<[f32; 4]>) -> Self {
         let [l, c, h, a]: [f32; 4] = arr.into();
         Color::lcha(l, c, h, a)
     }
 
-    /// New `Color` from `[f32; 3]` with LCH representation in sRGB colorspace.
+    /// New `Color` from `[f32; 3]` (or a type that can be converted into them) with LCH representation in sRGB colorspace.
     #[inline]
     pub fn lch_from_array(arr: impl Into<[f32; 3]>) -> Self {
         let [l, c, h]: [f32; 3] = arr.into();
