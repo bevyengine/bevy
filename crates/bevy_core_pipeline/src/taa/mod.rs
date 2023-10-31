@@ -339,7 +339,7 @@ impl FromWorld for TAAPipeline {
     }
 }
 
-#[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 struct TAAPipelineKey {
     hdr: bool,
     reset: bool,

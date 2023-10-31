@@ -1,7 +1,7 @@
 //! A shader that reads a mesh's custom vertex attribute.
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
+    pbr::{MaterialPipeline, NewMaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -12,6 +12,7 @@ use bevy::{
         },
     },
 };
+use bevy_internal::render::pipeline_keys::PipelineKey;
 
 fn main() {
     App::new()
@@ -75,7 +76,7 @@ impl Material for CustomMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        _key: MaterialPipelineKey<Self>,
+        _key: PipelineKey<NewMaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         let vertex_layout = layout.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),

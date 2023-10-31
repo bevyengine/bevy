@@ -1,7 +1,7 @@
 //! Create a custom material to draw basic lines in 3D
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
+    pbr::{MaterialPipeline, NewMaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -12,6 +12,7 @@ use bevy::{
         },
     },
 };
+use bevy_internal::render::pipeline_keys::PipelineKey;
 
 fn main() {
     App::new()
@@ -76,7 +77,7 @@ impl Material for LineMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        _key: MaterialPipelineKey<Self>,
+        _key: PipelineKey<NewMaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // This is the important part to tell bevy to render this material as a line between vertices
         descriptor.primitive.polygon_mode = PolygonMode::Line;

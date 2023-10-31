@@ -16,7 +16,7 @@ use bevy_utils::{
     default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap,
     PreHashMapExt,
 };
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData};
 use thiserror::Error;
 
 pub trait SpecializedRenderPipeline {
@@ -55,18 +55,19 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
 }
 
 pub trait SpecializedComputePipeline {
-    type Key: Clone + Hash + PartialEq + Eq;
-    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor;
+    type Key: AnyKeyType + KeyTypeConcrete;
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> ComputePipelineDescriptor;
 }
 
 #[derive(Resource)]
 pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
-    cache: HashMap<S::Key, CachedComputePipelineId>,
+    cache: HashMap<KeyPrimitive, CachedComputePipelineId>,
+    _p: PhantomData<fn() -> S>,
 }
 
 impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
     fn default() -> Self {
-        Self { cache: default() }
+        Self { cache: default(), _p: PhantomData }
     }
 }
 
@@ -75,20 +76,21 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
         &mut self,
         cache: &PipelineCache,
         specialize_pipeline: &S,
-        key: S::Key,
+        key: PackedPipelineKey<S::Key>,
+        store: &KeyMetaStore,
     ) -> CachedComputePipelineId {
-        *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
+        *self.cache.entry(key.packed).or_insert_with(|| {
+            let descriptor = specialize_pipeline.specialize(store.pipeline_key(key.packed));
             cache.queue_compute_pipeline(descriptor)
         })
     }
 }
 
 pub trait SpecializedMeshPipeline {
-    type Key: Clone + Hash + PartialEq + Eq;
+    type Key: AnyKeyType + KeyTypeConcrete;
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError>;
 }
@@ -96,8 +98,9 @@ pub trait SpecializedMeshPipeline {
 #[derive(Resource)]
 pub struct SpecializedMeshPipelines<S: SpecializedMeshPipeline> {
     mesh_layout_cache:
-        PreHashMap<InnerMeshVertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
-    vertex_layout_cache: HashMap<VertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
+        PreHashMap<InnerMeshVertexBufferLayout, HashMap<KeyPrimitive, CachedRenderPipelineId>>,
+    vertex_layout_cache: HashMap<VertexBufferLayout, HashMap<KeyPrimitive, CachedRenderPipelineId>>,
+    _p: PhantomData<fn() ->S>,
 }
 
 impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {
@@ -105,6 +108,7 @@ impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {
         Self {
             mesh_layout_cache: Default::default(),
             vertex_layout_cache: Default::default(),
+            _p: PhantomData,
         }
     }
 }
@@ -115,17 +119,18 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         &mut self,
         cache: &PipelineCache,
         specialize_pipeline: &S,
-        key: S::Key,
+        key: PackedPipelineKey<S::Key>,
         layout: &MeshVertexBufferLayout,
+        store: &KeyMetaStore,
     ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
         let map = self
             .mesh_layout_cache
             .get_or_insert_with(layout, Default::default);
-        match map.entry(key.clone()) {
+        match map.entry(key.packed) {
             Entry::Occupied(entry) => Ok(*entry.into_mut()),
             Entry::Vacant(entry) => {
                 let descriptor = specialize_pipeline
-                    .specialize(key.clone(), layout)
+                    .specialize(store.pipeline_key(key.packed), layout)
                     .map_err(|mut err| {
                         {
                             let SpecializedMeshPipelineError::MissingVertexAttribute(err) =
@@ -148,7 +153,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                             .1
                     }
                 };
-                Ok(*entry.insert(match layout_map.entry(key) {
+                Ok(*entry.insert(match layout_map.entry(key.packed) {
                     Entry::Occupied(entry) => {
                         if cfg!(debug_assertions) {
                             let stored_descriptor =

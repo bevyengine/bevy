@@ -460,13 +460,15 @@ impl OldMesh2dPipelineKey {
 }
 
 impl SpecializedMeshPipeline for Mesh2dPipeline {
-    type Key = OldMesh2dPipelineKey;
+    type Key = Mesh2dPipelineKey;
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key_in: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let key = OldMesh2dPipelineKey::from_bits(key_in.0).unwrap();
+
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 

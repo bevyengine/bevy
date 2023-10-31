@@ -71,7 +71,7 @@ impl FromWorld for BlitPipeline {
     }
 }
 
-#[derive(PipelineKey, Clone, Copy)]
+#[derive(PipelineKey, Clone, Copy, Debug)]
 pub struct BlitPipelineKey {
     pub texture_format: TextureFormat,
     pub blend_state: Option<BlendState>,

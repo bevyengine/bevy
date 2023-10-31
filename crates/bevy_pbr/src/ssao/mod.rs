@@ -563,23 +563,23 @@ impl FromWorld for SsaoPipelines {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 struct SsaoPipelineKey {
-    ssao_settings: ScreenSpaceAmbientOcclusionSettings,
+    slice_count: u8,
+    sample_count: u8,
     temporal_noise: bool,
 }
 
 impl SpecializedComputePipeline for SsaoPipelines {
     type Key = SsaoPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
-        let (slice_count, samples_per_slice_side) = key.ssao_settings.quality_level.sample_counts();
-
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> ComputePipelineDescriptor {
         let mut shader_defs = vec![
-            ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
+            ShaderDefVal::Int("SLICE_COUNT".to_string(), key.slice_count as i32),
             ShaderDefVal::Int(
                 "SAMPLES_PER_SLICE_SIDE".to_string(),
-                samples_per_slice_side as i32,
+                key.sample_count as i32,
             ),
         ];
 
@@ -730,15 +730,18 @@ fn prepare_ssao_pipelines(
         &ScreenSpaceAmbientOcclusionSettings,
         Option<&TemporalJitter>,
     )>,
+    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, ssao_settings, temporal_jitter) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            SsaoPipelineKey {
-                ssao_settings: ssao_settings.clone(),
+            KeyTypeConcrete::pack(&SsaoPipelineKey {
+                slice_count: ssao_settings.quality_level.sample_counts().0 as u8,
+                sample_count: ssao_settings.quality_level.sample_counts().1 as u8,
                 temporal_noise: temporal_jitter.is_some(),
-            },
+            }, &key_store),
+            &key_store,
         );
 
         commands.entity(entity).insert(SsaoPipelineId(pipeline_id));

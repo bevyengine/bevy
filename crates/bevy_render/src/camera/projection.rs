@@ -337,7 +337,7 @@ impl Default for OrthographicProjection {
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Default, Copy, Clone, FromPrimitive, IntoPrimitive)]
+#[derive(PipelineKeyInRenderCrate, Default, Debug, Copy, Clone, FromPrimitive, IntoPrimitive)]
 #[repr(u64)]
 #[custom_shader_defs]
 pub enum ViewProjectionKey {

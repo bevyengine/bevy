@@ -573,6 +573,7 @@ impl KeyShaderDefs for MsaaKey {
 
 impl MsaaKey {
     pub fn samples(&self) -> u32 {
+        println!("samples for {self:?}: {}", 1 << (*self as u32));
         1 << (*self as u32)
     }
 }
@@ -592,8 +593,18 @@ impl SystemKey for HdrKey {
 impl KeyShaderDefs for HdrKey {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
         match self.0 {
-            false => Vec::default(),
+            false => vec!["TONEMAP_IN_SHADER".into()],
             true => vec!["HDR".into()],
+        }
+    }
+}
+
+impl HdrKey {
+    pub fn format(&self) -> TextureFormat {
+        if self.0 {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
         }
     }
 }

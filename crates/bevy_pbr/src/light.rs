@@ -2270,7 +2270,7 @@ mod test {
     }
 }
 
-#[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone)]
+#[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone, PartialEq, Eq)]
 #[repr(u64)]
 #[custom_shader_defs]
 pub enum ShadowFilteringKey {

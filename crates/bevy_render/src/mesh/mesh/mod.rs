@@ -8,7 +8,7 @@ use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
-    renderer::RenderDevice,
+    renderer::RenderDevice, pipeline_keys::{KeyTypeConcrete, KeyMetaStore, PackedPipelineKey},
 };
 use bevy_asset::{Asset, Handle};
 use bevy_core::cast_slice;
@@ -1027,8 +1027,8 @@ impl From<&Indices> for IndexFormat {
 
 #[derive(PipelineKeyInRenderCrate, Debug, Clone, Copy)]
 pub struct MeshKey {
-    topology: PrimitiveTopology,
-    morph_targets: bool,
+    pub primitive_topology: PrimitiveTopology,
+    pub morph_targets: bool,
 }
 
 /// The GPU-representation of a [`Mesh`].
@@ -1042,7 +1042,7 @@ pub struct GpuMesh {
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
-    pub key: MeshKey,
+    pub packed_key: PackedPipelineKey<MeshKey>,
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -1060,7 +1060,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
+    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>, SRes<KeyMetaStore>);
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -1070,7 +1070,7 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        (render_device, images): &mut SystemParamItem<Self::Param>,
+        (render_device, images, key_store): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -1096,7 +1096,7 @@ impl RenderAsset for Mesh {
         let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
 
         let mesh_key = MeshKey {
-            topology: mesh.primitive_topology,
+            primitive_topology: mesh.primitive_topology,
             morph_targets: mesh.morph_targets.is_some(),
         };
 
@@ -1109,7 +1109,7 @@ impl RenderAsset for Mesh {
             morph_targets: mesh
                 .morph_targets
                 .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
-            key: mesh_key,
+            packed_key: MeshKey::pack(&mesh_key, key_store),
         })
     }
 }

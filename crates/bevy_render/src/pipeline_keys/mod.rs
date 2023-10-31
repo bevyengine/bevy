@@ -70,17 +70,19 @@ fn missing<T, U>() -> U {
         type_name::<T>()
     )
 }
-fn missing_id<U>() -> U {
-    panic!("required composite type id is not present in container")
+fn missing_id<U>(id: &TypeId) -> U {
+    panic!("required type id {id:?} is not present in container")
 }
 
 impl KeyMetaStore {
     pub fn register_fixed_size<K: KeyTypeConcrete + FixedSizeKey>(&mut self) {
+        debug!("fixed size {} -> {:?}", type_name::<K>(), TypeId::of::<K>());
         self.metas
             .insert(TypeId::of::<K>(), KeyMeta::new_sized::<K>());
     }
 
     pub fn register_dynamic<K: KeyTypeConcrete + 'static>(&mut self) {
+        debug!("dynamic {} -> {:?}", type_name::<K>(), TypeId::of::<K>());
         self.metas.insert(TypeId::of::<K>(), KeyMeta::new::<K>());
         self.unfinalized.insert(TypeId::of::<K>());
     }
@@ -113,13 +115,14 @@ impl KeyMetaStore {
     }
 
     pub fn size_for_id(&self, id: &TypeId) -> u8 {
-        self.metas.get(id).unwrap_or_else(missing_id).size
+        self.metas.get(id).unwrap_or_else(|| missing_id(id)).size
     }
 
-    pub fn def_fn_for_id(&self, id: &TypeId) -> ShaderDefFn {
-        self.metas.get(id).unwrap_or_else(missing_id).shader_def_fn
+    pub fn def_fn_for_id(&self, id: &TypeId) -> Option<ShaderDefFn> {
+        self.metas.get(id).map(|meta| meta.shader_def_fn)
     }
 
+    // todo make private when moved into pipeline cache / specializer
     pub fn pipeline_key<K: AnyKeyType + KeyTypeConcrete>(
         &self,
         value: KeyPrimitive,
@@ -162,13 +165,22 @@ impl KeyMetaStore {
         }
     }
 }
+#[derive(Debug)]
 pub struct PackedPipelineKey<T: AnyKeyType> {
     pub packed: KeyPrimitive,
     pub size: u8,
     _p: PhantomData<fn() -> T>,
 }
 
-impl<T: AnyKeyType> PackedPipelineKey<T> {
+impl<T: AnyKeyType> Clone for PackedPipelineKey<T> {
+    fn clone(&self) -> Self {
+        Self { packed: self.packed, size: self.size, _p: PhantomData }
+    }
+}
+
+impl<T: AnyKeyType> Copy for PackedPipelineKey<T> {}
+
+impl<T: AnyKeyType + KeyTypeConcrete> PackedPipelineKey<T> {
     pub fn new(packed: KeyPrimitive, size: u8) -> Self {
         Self {
             packed,
@@ -176,6 +188,23 @@ impl<T: AnyKeyType> PackedPipelineKey<T> {
             _p: Default::default(),
         }
     }
+
+    pub fn insert<K: KeyTypeConcrete>(&mut self, value: &K, store: &KeyMetaStore) {
+        self.insert_packed(K::pack(value, store), store);
+    }
+
+    pub fn insert_packed<K: KeyTypeConcrete>(&mut self, value: PackedPipelineKey<K>, store: &KeyMetaStore) {
+        let positions = T::positions(store);
+        let so = positions.get(&TypeId::of::<K>()).unwrap();
+        self.packed &= !(((1 << so.0) - 1) << so.1);
+        self.packed |= value.packed << so.1;
+    }
+}
+
+pub trait KeyRepack: KeyTypeConcrete {
+    type PackedParts;
+
+    fn repack(source: Self::PackedParts) -> PackedPipelineKey<Self> where Self: Sized;
 }
 
 type ShaderDefFn = fn(KeyPrimitive, &KeyMetaStore) -> Vec<ShaderDefVal>;
@@ -200,7 +229,10 @@ pub trait KeyTypeConcrete: AnyKeyType {
     fn shader_defs(value: KeyPrimitive, store: &KeyMetaStore) -> Vec<ShaderDefVal> {
         let mut defs = Vec::default();
         for (id, so) in Self::positions(store) {
-            let part_def_fn = store.def_fn_for_id(&id);
+            let Some(part_def_fn) = store.def_fn_for_id(&id) else {
+                debug!("{id:?} not registered for shader defs");
+                continue;
+            };
             let part_value = (value >> so.1) & ((1 << so.0) - 1);
             defs.extend(part_def_fn(part_value, store));
         }
@@ -216,7 +248,7 @@ pub trait AnyKeyType: Any + Send + Sync + 'static {
 #[derive(Clone, Copy, Debug)]
 pub struct SizeOffset(pub u8, pub u8);
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct PipelineKey<'a, T: AnyKeyType> {
     store: &'a KeyMetaStore,
     value: T,
@@ -237,7 +269,7 @@ impl<'a, T: AnyKeyType + PartialEq> PartialEq for PipelineKey<'a, T> {
 }
 
 impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
-    pub fn extract<U: AnyKeyType + KeyTypeConcrete>(&'a self) -> Option<PipelineKey<'a, U>> {
+    pub fn try_extract<U: AnyKeyType + KeyTypeConcrete>(&'a self) -> Option<PipelineKey<'a, U>> {
         let positions = T::positions(self.store);
         let SizeOffset(size, offset) = positions.get(&TypeId::of::<U>())?;
         let key = T::pack(&self.value, &self.store);
@@ -245,7 +277,24 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
         Some(self.store.pipeline_key(value))
     }
 
+    pub fn extract<U: AnyKeyType + KeyTypeConcrete>(&'a self) -> PipelineKey<'a, U> {
+        debug!("{} requesting {}, positions: {:?}", type_name::<T>(), type_name::<U>(), T::positions(&self.store));
+        let positions = T::positions(self.store);
+        let SizeOffset(size, offset) = positions.get(&TypeId::of::<U>()).unwrap_or_else(missing::<U, _>);
+        let key = T::pack(&self.value, &self.store);
+        let value = (key.packed >> offset) & ((1 << size) - 1);
+        self.store.pipeline_key(value)
+    }
+
+    pub fn construct<K: KeyTypeConcrete>(&'a self, value: K) -> PipelineKey<'a, K> {
+        PipelineKey {
+            store: self.store,
+            value,
+        }
+    }
+
     pub fn shader_defs(&'a self) -> Vec<ShaderDefVal> {
+        debug!("{} shader defs, positions: {:?}", type_name::<T>(), T::positions(&self.store));
         T::shader_defs(T::pack(&self.value, &self.store).packed, &self.store)
     }
 }
@@ -268,7 +317,7 @@ impl PipelineKeys {
         self.packed_keys.get(id).copied()
     }
 
-    pub fn get_packed_key<K: AnyKeyType>(&self) -> Option<PackedPipelineKey<K>> {
+    pub fn get_packed_key<K: AnyKeyType + KeyTypeConcrete>(&self) -> Option<PackedPipelineKey<K>> {
         let (raw, size) = self.get_raw_and_size_by_id(&TypeId::of::<K>())?;
         Some(PackedPipelineKey::new(raw, size))
     }
@@ -483,7 +532,7 @@ macro_rules! impl_has_world_key {
         use bevy_render::pipeline_keys::*;
         #[derive(PipelineKey, Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
         #[custom_shader_defs]
-        pub struct $key(bool);
+        pub struct $key(pub bool);
         impl SystemKey for $key {
             type Param = ();
             type Query = bevy_ecs::prelude::Has<$component>;
@@ -500,6 +549,12 @@ macro_rules! impl_has_world_key {
                 } else {
                     vec![]
                 }
+            }
+        }
+
+        impl $key {
+            pub fn enabled(&self) -> bool {
+                self.0
             }
         }
     };

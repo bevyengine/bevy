@@ -489,3 +489,18 @@ impl KeyShaderDefs for TonemappingKey {
         .into()]
     }
 }
+
+impl From<TonemappingKey> for Tonemapping {
+    fn from(value: TonemappingKey) -> Self {
+        match value {
+            TonemappingKey::None => Tonemapping::None,
+            TonemappingKey::Reinhard => Tonemapping::Reinhard,
+            TonemappingKey::ReinhardLuminance => Tonemapping::ReinhardLuminance,
+            TonemappingKey::AcesFitted => Tonemapping::AcesFitted,
+            TonemappingKey::AgX => Tonemapping::AgX,
+            TonemappingKey::SomewhatBoringDisplayTransform => Tonemapping::SomewhatBoringDisplayTransform,
+            TonemappingKey::TonyMcMapface => Tonemapping::TonyMcMapface,
+            TonemappingKey::BlenderFilmic => Tonemapping::BlenderFilmic,
+        }
+    }
+}

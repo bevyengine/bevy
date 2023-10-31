@@ -179,7 +179,7 @@ pub struct BloomPrefilterSettings {
     pub threshold_softness: f32,
 }
 
-#[derive(PipelineKey, Clone, Reflect, PartialEq, Eq, Hash, Copy, FromPrimitive, IntoPrimitive)]
+#[derive(PipelineKey, Clone, Reflect, PartialEq, Eq, Hash, Copy, FromPrimitive, IntoPrimitive, Debug)]
 #[repr(u64)]
 pub enum BloomCompositeMode {
     #[default]

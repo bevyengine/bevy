@@ -261,7 +261,7 @@ impl Deref for BindGroup {
 /// ```
 pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
-    type Data: Send + Sync + KeyTypeConcrete + FixedSizeKey;
+    type Data: Send + Sync + KeyTypeConcrete + FixedSizeKey + Clone;
 
     /// label
     fn label() -> Option<&'static str> {

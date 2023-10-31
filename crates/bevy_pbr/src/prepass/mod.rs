@@ -23,8 +23,8 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::{KeyMetaStore, KeyRepack, PipelineKeys, KeyTypeConcrete},
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
@@ -335,22 +335,25 @@ impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    type Key = MaterialPipelineKey<M>;
+    type Key = NewMaterialPipelineKey<M>;
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut bind_group_layouts = vec![if key
-            .mesh_key
-            .contains(OldMeshPipelineKey::MOTION_VECTOR_PREPASS)
+        println!("prepass msaa in spec {:?}", key.view_key.7);
+        let view_key = key.extract::<PbrViewKey>();
+        println!("prepass msaa in spec view_key {:?}", view_key.7);
+        let prepass_key = view_key.extract::<PrepassKey>();
+        let mut bind_group_layouts = vec![if prepass_key.motion_vector
         {
             self.view_layout_motion_vectors.clone()
         } else {
             self.view_layout_no_motion_vectors.clone()
         }];
-        let mut shader_defs = Vec::new();
+
+        let mut shader_defs = key.shader_defs();
         let mut vertex_attributes = Vec::new();
 
         // Let the shader code know that it's running in a prepass pipeline.
@@ -367,31 +370,13 @@ where
 
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
 
-        if key.mesh_key.contains(OldMeshPipelineKey::DEPTH_PREPASS) {
-            shader_defs.push("DEPTH_PREPASS".into());
-        }
-
-        if key.mesh_key.contains(OldMeshPipelineKey::MAY_DISCARD) {
-            shader_defs.push("MAY_DISCARD".into());
-        }
-
-        let blend_key = key
-            .mesh_key
-            .intersection(OldMeshPipelineKey::BLEND_RESERVED_BITS);
-        if blend_key == OldMeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
-            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
-        }
-        if blend_key == OldMeshPipelineKey::BLEND_ALPHA {
-            shader_defs.push("BLEND_ALPHA".into());
-        }
-
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        if key.mesh_key.contains(OldMeshPipelineKey::DEPTH_CLAMP_ORTHO) {
-            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        let depth_clamp_ortho = *view_key.extract::<DepthClampOrthoKey>() == DepthClampOrthoKey::On;
+        if depth_clamp_ortho {
             // PERF: This line forces the "prepass fragment shader" to always run in
             // common scenarios like "directional light calculation". Doing so resolves
             // a pretty nasty depth clamping bug, but it also feels a bit excessive.
@@ -406,49 +391,17 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
-        if key.mesh_key.contains(OldMeshPipelineKey::NORMAL_PREPASS) {
-            shader_defs.push("NORMAL_PREPASS".into());
+        if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
+            shader_defs.push("VERTEX_TANGENTS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
-        if key
-            .mesh_key
-            .intersects(OldMeshPipelineKey::NORMAL_PREPASS | OldMeshPipelineKey::DEFERRED_PREPASS)
-        {
-            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
-            shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
-            if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
-                shader_defs.push("VERTEX_TANGENTS".into());
-                vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
-            }
+        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push("VERTEX_COLORS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(6));
         }
 
-        if key.mesh_key.intersects(
-            OldMeshPipelineKey::MOTION_VECTOR_PREPASS | OldMeshPipelineKey::DEFERRED_PREPASS,
-        ) {
-            shader_defs.push("MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS".into());
-        }
-
-        if key.mesh_key.contains(OldMeshPipelineKey::DEFERRED_PREPASS) {
-            shader_defs.push("DEFERRED_PREPASS".into());
-
-            if layout.contains(Mesh::ATTRIBUTE_COLOR) {
-                shader_defs.push("VERTEX_COLORS".into());
-                vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(6));
-            }
-        }
-
-        if key
-            .mesh_key
-            .contains(OldMeshPipelineKey::MOTION_VECTOR_PREPASS)
-        {
-            shader_defs.push("MOTION_VECTOR_PREPASS".into());
-        }
-
-        if key.mesh_key.intersects(
-            OldMeshPipelineKey::NORMAL_PREPASS
-                | OldMeshPipelineKey::MOTION_VECTOR_PREPASS
-                | OldMeshPipelineKey::DEFERRED_PREPASS,
-        ) {
+        if prepass_key.normal || prepass_key.motion_vector || prepass_key.deferred {
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
@@ -456,7 +409,7 @@ where
             &self.mesh_layouts,
             layout,
             4,
-            &key.mesh_key,
+            &key,
             &mut shader_defs,
             &mut vertex_attributes,
         );
@@ -466,37 +419,29 @@ where
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = vec![
-            key.mesh_key
-                .contains(OldMeshPipelineKey::NORMAL_PREPASS)
-                .then_some(ColorTargetState {
-                    format: NORMAL_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(OldMeshPipelineKey::MOTION_VECTOR_PREPASS)
-                .then_some(ColorTargetState {
-                    format: MOTION_VECTOR_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(OldMeshPipelineKey::DEFERRED_PREPASS)
-                .then_some(ColorTargetState {
-                    format: DEFERRED_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(OldMeshPipelineKey::DEFERRED_PREPASS)
-                .then_some(ColorTargetState {
-                    format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
+            prepass_key.normal.then_some(ColorTargetState {
+                format: NORMAL_PREPASS_FORMAT,
+                // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }),
+            prepass_key.motion_vector.then_some(ColorTargetState {
+                format: MOTION_VECTOR_PREPASS_FORMAT,
+                // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }),
+            prepass_key.deferred.then_some(ColorTargetState {
+                format: DEFERRED_PREPASS_FORMAT,
+                // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }),
+            prepass_key.deferred.then_some(ColorTargetState {
+                format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }),
         ];
 
         if targets.iter().all(Option::is_none) {
@@ -509,13 +454,12 @@ where
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
         // prepass shader or we are clamping the orthographic depth.
         let fragment_required = !targets.is_empty()
-            || key.mesh_key.contains(OldMeshPipelineKey::DEPTH_CLAMP_ORTHO)
-            || (key.mesh_key.contains(OldMeshPipelineKey::MAY_DISCARD)
-                && self.prepass_material_fragment_shader.is_some());
+            || depth_clamp_ortho
+            || (key.material_key.alpha == AlphaKey::AlphaMask && self.prepass_material_fragment_shader.is_some());
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
-            let frag_shader_handle = if key.mesh_key.contains(OldMeshPipelineKey::DEFERRED_PREPASS)
+            let frag_shader_handle = if prepass_key.deferred
             {
                 match self.deferred_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
@@ -537,7 +481,7 @@ where
         });
 
         // Use the vertex shader from the material if present
-        let vert_shader_handle = if key.mesh_key.contains(OldMeshPipelineKey::DEFERRED_PREPASS) {
+        let vert_shader_handle = if prepass_key.deferred {
             if let Some(handle) = &self.deferred_material_vertex_shader {
                 handle.clone()
             } else {
@@ -567,7 +511,7 @@ where
             fragment,
             layout: bind_group_layouts,
             primitive: PrimitiveState {
-                topology: key.mesh_key.primitive_topology(),
+                topology: key.mesh_key.primitive_topology,
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -592,7 +536,7 @@ where
                 },
             }),
             multisample: MultisampleState {
-                count: key.mesh_key.msaa_samples(),
+                count: view_key.extract::<MsaaKey>().samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -716,23 +660,19 @@ pub fn queue_prepass_material_meshes<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut views: Query<
         (
+            &PipelineKeys,
             &ExtractedView,
             &VisibleEntities,
             Option<&mut RenderPhase<Opaque3dPrepass>>,
             Option<&mut RenderPhase<AlphaMask3dPrepass>>,
             Option<&mut RenderPhase<Opaque3dDeferred>>,
             Option<&mut RenderPhase<AlphaMask3dDeferred>>,
-            Option<&DepthPrepass>,
-            Option<&NormalPrepass>,
-            Option<&MotionVectorPrepass>,
-            Option<&DeferredPrepass>,
         ),
         Or<(
             With<RenderPhase<Opaque3dPrepass>>,
@@ -741,6 +681,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             With<RenderPhase<AlphaMask3dDeferred>>,
         )>,
     >,
+    key_store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -761,28 +702,19 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .get_id::<DrawPrepass<M>>()
         .unwrap();
     for (
+        keys,
         view,
         visible_entities,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut opaque_deferred_phase,
         mut alpha_mask_deferred_phase,
-        depth_prepass,
-        normal_prepass,
-        motion_vector_prepass,
-        deferred_prepass,
     ) in &mut views
     {
-        let mut view_key = OldMeshPipelineKey::from_msaa_samples(msaa.samples());
-        if depth_prepass.is_some() {
-            view_key |= OldMeshPipelineKey::DEPTH_PREPASS;
-        }
-        if normal_prepass.is_some() {
-            view_key |= OldMeshPipelineKey::NORMAL_PREPASS;
-        }
-        if motion_vector_prepass.is_some() {
-            view_key |= OldMeshPipelineKey::MOTION_VECTOR_PREPASS;
-        }
+        let Some(view_key) = keys.get_packed_key() else {
+            continue;
+        };
+        println!("prepass queue key {:#b}", view_key.packed);
 
         let mut opaque_phase_deferred = opaque_deferred_phase.as_mut();
         let mut alpha_mask_phase_deferred = alpha_mask_deferred_phase.as_mut();
@@ -803,15 +735,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 continue;
             };
 
-            let mut mesh_key =
-                OldMeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
-            if mesh.morph_targets.is_some() {
-                mesh_key |= OldMeshPipelineKey::MORPH_TARGETS;
-            }
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
-                AlphaMode::Opaque => {}
-                AlphaMode::Mask(_) => mesh_key |= OldMeshPipelineKey::MAY_DISCARD,
+                AlphaMode::Opaque |
+                AlphaMode::Mask(_) => (),
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
@@ -824,20 +751,19 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
 
-            let deferred = deferred_prepass.is_some() && !forward;
+            let deferred = !forward && keys.get_key::<PrepassKey>(&key_store).map_or(false, |pk| pk.deferred);
 
-            if deferred {
-                mesh_key |= OldMeshPipelineKey::DEFERRED_PREPASS;
-            }
+            let pipeline_key = NewMaterialPipelineKey::repack((view_key, mesh.packed_key, material.new_packed_key));
+
+            let npk = NewMaterialPipelineKey::<M>::unpack(pipeline_key.packed, &key_store);
+            println!("queue prepass npk msaa {:?}", npk.view_key.7);
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &prepass_pipeline,
-                MaterialPipelineKey {
-                    mesh_key,
-                    bind_group_data: material.key.material_key.clone(),
-                },
+                pipeline_key,
                 &mesh.layout,
+                &key_store,
             );
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,

@@ -125,7 +125,7 @@ pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntr
     ]
 }
 
-#[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive, PartialEq, Eq, Debug)]
 #[repr(u64)]
 #[custom_shader_defs]
 pub enum EnvironmentMapKey {

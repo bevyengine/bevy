@@ -26,7 +26,7 @@ pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
 }
 
-#[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
     final_pipeline: bool,

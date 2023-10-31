@@ -51,7 +51,7 @@ use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, Mesh, MeshKey, MeshPlugin},
+    mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},

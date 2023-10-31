@@ -5,7 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
-    pipeline_keys::{KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey},
+    pipeline_keys::{KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey, KeyMetaStore, KeyRepack},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -1555,19 +1555,19 @@ pub fn queue_shadows<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
-    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
+    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>, &PipelineKeys)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
     spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
+    key_store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
-            let (light_entity, mut shadow_phase) =
+            let (light_entity, mut shadow_phase, keys) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();
-            let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
             let visible_entities = match light_entity {
                 LightEntity::Directional {
                     light_entity,
@@ -1593,6 +1593,12 @@ pub fn queue_shadows<M: Material>(
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
+
+            let Some(mut view_key) = keys.get_packed_key::<PbrViewKey>() else {
+                continue;
+            };
+            view_key.insert(&MsaaKey::Off, &key_store);
+
             for entity in visible_entities.iter().copied() {
                 let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                     continue;
@@ -1610,30 +1616,23 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 };
 
-                let mut mesh_key =
-                    OldMeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                        | OldMeshPipelineKey::DEPTH_PREPASS;
-                if mesh.morph_targets.is_some() {
-                    mesh_key |= OldMeshPipelineKey::MORPH_TARGETS;
-                }
-                if is_directional_light {
-                    mesh_key |= OldMeshPipelineKey::DEPTH_CLAMP_ORTHO;
-                }
-                mesh_key |= match material.properties.alpha_mode {
+                let mut material_key = material.new_packed_key;
+                match material.properties.alpha_mode {
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
                     | AlphaMode::Premultiplied
-                    | AlphaMode::Add => OldMeshPipelineKey::MAY_DISCARD,
-                    _ => OldMeshPipelineKey::NONE,
+                    | AlphaMode::Add => material_key.insert(&MayDiscard(true), &key_store),
+                    _ => (),
                 };
+
+                let key = NewMaterialPipelineKey::repack((view_key, mesh.packed_key, material_key));
+
                 let pipeline_id = pipelines.specialize(
                     &pipeline_cache,
                     &prepass_pipeline,
-                    MaterialPipelineKey {
-                        mesh_key,
-                        bind_group_data: material.key.material_key.clone(),
-                    },
+                    key,
                     &mesh.layout,
+                    &key_store,
                 );
 
                 let pipeline_id = match pipeline_id {
@@ -1780,7 +1779,7 @@ impl Node for ShadowPassNode {
     }
 }
 
-#[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive, Eq, PartialEq, Debug)]
 #[repr(u64)]
 #[custom_shader_defs]
 pub enum DepthClampOrthoKey {

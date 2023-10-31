@@ -1,4 +1,4 @@
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
+use crate::{Material, MaterialPipeline, NewMaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -8,7 +8,7 @@ use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::*,
-    render_resource::*,
+    render_resource::*, pipeline_keys::PipelineKey,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
@@ -209,7 +209,7 @@ impl Material for WireframeMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        _key: MaterialPipelineKey<Self>,
+        _key: PipelineKey<NewMaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;

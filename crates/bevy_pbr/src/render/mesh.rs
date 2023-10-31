@@ -2,7 +2,7 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
-    deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
+    deferred::{AlphaMask3dDeferred, Opaque3dDeferred}, 
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -22,8 +22,8 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::*,
-    view::{ViewTarget, ViewUniformOffset, ViewVisibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    view::{ViewUniformOffset, ViewVisibility},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::KeyTypeConcrete,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
@@ -425,9 +425,53 @@ impl MeshPipeline {
         }
     }
 
-    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
+    pub fn get_view_layout_old_key(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
         let index = layout_key.bits() as usize;
         let layout = &self.view_layouts[index];
+
+        #[cfg(debug_assertions)]
+        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES
+            && !self.did_warn_about_too_many_textures.load(Ordering::SeqCst)
+        {
+            self.did_warn_about_too_many_textures
+                .store(true, Ordering::SeqCst);
+
+            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
+            warn!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
+        }
+
+        &layout.bind_group_layout
+    } 
+
+    pub fn get_view_layout<T: KeyTypeConcrete>(&self, layout_key: PipelineKey<T>) -> &BindGroupLayout {
+        let mut index = MeshPipelineViewLayoutKey::empty();
+/*
+        const MULTISAMPLED                = (1 << 0);
+        const DEPTH_PREPASS               = (1 << 1);
+        const NORMAL_PREPASS              = (1 << 2);
+        const MOTION_VECTOR_PREPASS       = (1 << 3);
+        const DEFERRED_PREPASS            = (1 << 4);
+ */
+        if layout_key.extract::<MsaaKey>().samples() > 1 {
+            index |= MeshPipelineViewLayoutKey::MULTISAMPLED;
+        }
+
+        if let Some(prepass_key) = layout_key.try_extract::<PrepassKey>() {
+            if prepass_key.depth {
+                index |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
+            }
+            if prepass_key.normal {
+                index |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
+            }
+            if prepass_key.motion_vector {
+                index |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
+            }
+            if prepass_key.deferred {
+                index |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+            }    
+        }
+
+        let layout = &self.view_layouts[index.bits() as usize];
 
         #[cfg(debug_assertions)]
         if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES
@@ -468,17 +512,22 @@ impl GetBatchData for MeshPipeline {
     }
 }
 
-#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct MeshPipelineKey(pub u32);
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy, Debug)]
+pub struct OldMeshPipelineKey(pub u32);
 
-// type NewMeshPipelineKey = (PbrViewKey, MeshKey);
+#[derive(PipelineKey)]
+pub struct NewMeshPipelineKey {
+    pub view_key: PbrViewKey,
+    pub mesh_key: MeshKey,
+    pub alpha_mode: AlphaKey,
+}
 
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
-    pub struct OldMeshPipelineKey: u32 {
+    pub struct OldMeshPipelineKeyBitflags: u32 {
 /* na   */        const NONE                              = 0;
 /* view */        const HDR                               = (1 << 0);
 /* depr */        const TONEMAP_IN_SHADER                 = (1 << 1);
@@ -522,7 +571,7 @@ bitflags::bitflags! {
     }
 }
 
-impl OldMeshPipelineKey {
+impl OldMeshPipelineKeyBitflags {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
 
@@ -554,9 +603,9 @@ impl OldMeshPipelineKey {
 
     pub fn from_hdr(hdr: bool) -> Self {
         if hdr {
-            OldMeshPipelineKey::HDR
+            OldMeshPipelineKeyBitflags::HDR
         } else {
-            OldMeshPipelineKey::NONE
+            OldMeshPipelineKeyBitflags::NONE
         }
     }
 
@@ -588,11 +637,12 @@ impl OldMeshPipelineKey {
 fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
-pub fn setup_morph_and_skinning_defs(
+
+pub fn setup_morph_and_skinning_defs_old_key(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
     offset: u32,
-    key: &OldMeshPipelineKey,
+    key: &OldMeshPipelineKeyBitflags,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
@@ -601,7 +651,7 @@ pub fn setup_morph_and_skinning_defs(
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
-    let is_morphed = key.intersects(OldMeshPipelineKey::MORPH_TARGETS);
+    let is_morphed = key.intersects(OldMeshPipelineKeyBitflags::MORPH_TARGETS);
     match (is_skinned(layout), is_morphed) {
         (true, false) => {
             add_skin_data();
@@ -620,14 +670,46 @@ pub fn setup_morph_and_skinning_defs(
     }
 }
 
+pub fn setup_morph_and_skinning_defs<T: KeyTypeConcrete>(
+    mesh_layouts: &MeshLayouts,
+    layout: &Hashed<InnerMeshVertexBufferLayout>,
+    offset: u32,
+    key: &PipelineKey<T>,
+    shader_defs: &mut Vec<ShaderDefVal>,
+    vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
+) -> BindGroupLayout {
+    let mut add_skin_data = || {
+        shader_defs.push("SKINNED".into());
+        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
+        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
+    };
+    let is_morphed = key.extract::<MeshKey>().morph_targets;
+    match (is_skinned(layout), is_morphed) {
+        (true, false) => {
+            add_skin_data();
+            mesh_layouts.skinned.clone()
+        }
+        (true, true) => {
+            add_skin_data();
+            mesh_layouts.morphed_skinned.clone()
+        }
+        (false, true) => {
+            mesh_layouts.morphed.clone()
+        }
+        (false, false) => mesh_layouts.model_only.clone(),
+    }
+}
+
 impl SpecializedMeshPipeline for MeshPipeline {
-    type Key = OldMeshPipelineKey;
+    type Key = NewMeshPipelineKey;
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        println!("meshPipeline msaa {:?}", key.view_key.7);
+        println!("extracted msaa {:?}", key.extract::<PbrViewKey>().7);
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
@@ -666,11 +748,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
-        let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
-
-        if key.msaa_samples() > 1 {
-            shader_defs.push("MULTISAMPLED".into());
-        };
+        let mut bind_group_layout = vec![self.get_view_layout(key.extract::<PbrViewKey>()).clone()];
 
         bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
@@ -681,145 +759,55 @@ impl SpecializedMeshPipeline for MeshPipeline {
             &mut vertex_attributes,
         ));
 
-        if key.contains(OldMeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
-            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
-        }
-
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
-        let pass = key.intersection(OldMeshPipelineKey::BLEND_RESERVED_BITS);
-        let mut is_opaque = false;
-        if pass == OldMeshPipelineKey::BLEND_ALPHA {
-            label = "alpha_blend_mesh_pipeline".into();
-            blend = Some(BlendState::ALPHA_BLENDING);
-            // For the transparent pass, fragments that are closer will be alpha blended
-            // but their depth is not written to the depth buffer
-            depth_write_enabled = false;
-        } else if pass == OldMeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
-            label = "premultiplied_alpha_mesh_pipeline".into();
-            blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
-            shader_defs.push("PREMULTIPLY_ALPHA".into());
-            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
-            // For the transparent pass, fragments that are closer will be alpha blended
-            // but their depth is not written to the depth buffer
-            depth_write_enabled = false;
-        } else if pass == OldMeshPipelineKey::BLEND_MULTIPLY {
-            label = "multiply_mesh_pipeline".into();
-            blend = Some(BlendState {
-                color: BlendComponent {
-                    src_factor: BlendFactor::Dst,
-                    dst_factor: BlendFactor::OneMinusSrcAlpha,
-                    operation: BlendOperation::Add,
-                },
-                alpha: BlendComponent::OVER,
-            });
-            shader_defs.push("PREMULTIPLY_ALPHA".into());
-            shader_defs.push("BLEND_MULTIPLY".into());
-            // For the multiply pass, fragments that are closer will be alpha blended
-            // but their depth is not written to the depth buffer
-            depth_write_enabled = false;
-        } else {
-            label = "opaque_mesh_pipeline".into();
-            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
-            blend = None;
-            // For the opaque and alpha mask passes, fragments that are closer will replace
-            // the current fragment value in the output and the depth is written to the
-            // depth buffer
-            depth_write_enabled = true;
-            is_opaque = true;
+        match key.alpha_mode {
+            AlphaKey::AlphaBlend => {
+                label = "alpha_blend_mesh_pipeline".into();
+                blend = Some(BlendState::ALPHA_BLENDING);
+                // For the transparent pass, fragments that are closer will be alpha blended
+                // but their depth is not written to the depth buffer
+                depth_write_enabled = false;
+            },
+            AlphaKey::AlphaPremultiplied => {
+                label = "premultiplied_alpha_mesh_pipeline".into();
+                blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+                // For the transparent pass, fragments that are closer will be alpha blended
+                // but their depth is not written to the depth buffer
+                depth_write_enabled = false;
+            },
+            AlphaKey::AlphaMultiply => {
+                label = "multiply_mesh_pipeline".into();
+                blend = Some(BlendState {
+                    color: BlendComponent {
+                        src_factor: BlendFactor::Dst,
+                        dst_factor: BlendFactor::OneMinusSrcAlpha,
+                        operation: BlendOperation::Add,
+                    },
+                    alpha: BlendComponent::OVER,
+                });
+                // For the multiply pass, fragments that are closer will be alpha blended
+                // but their depth is not written to the depth buffer
+                depth_write_enabled = false;
+            },
+            _ => {
+                label = "opaque_mesh_pipeline".into();
+                // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
+                blend = None;
+                // For the opaque and alpha mask passes, fragments that are closer will replace
+                // the current fragment value in the output and the depth is written to the
+                // depth buffer
+                depth_write_enabled = true;
+            }
         }
 
-        if key.contains(OldMeshPipelineKey::NORMAL_PREPASS) {
-            shader_defs.push("NORMAL_PREPASS".into());
-        }
-
-        if key.contains(OldMeshPipelineKey::DEPTH_PREPASS) {
-            shader_defs.push("DEPTH_PREPASS".into());
-        }
-
-        if key.contains(OldMeshPipelineKey::MOTION_VECTOR_PREPASS) {
-            shader_defs.push("MOTION_VECTOR_PREPASS".into());
-        }
-
-        if key.contains(OldMeshPipelineKey::DEFERRED_PREPASS) {
-            shader_defs.push("DEFERRED_PREPASS".into());
-        }
-
-        if key.contains(OldMeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque
-        {
-            shader_defs.push("LOAD_PREPASS_NORMALS".into());
-        }
-
-        let view_projection = key.intersection(OldMeshPipelineKey::VIEW_PROJECTION_RESERVED_BITS);
-        if view_projection == OldMeshPipelineKey::VIEW_PROJECTION_NONSTANDARD {
-            shader_defs.push("VIEW_PROJECTION_NONSTANDARD".into());
-        } else if view_projection == OldMeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE {
-            shader_defs.push("VIEW_PROJECTION_PERSPECTIVE".into());
-        } else if view_projection == OldMeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC {
-            shader_defs.push("VIEW_PROJECTION_ORTHOGRAPHIC".into());
-        }
+        let view_key = key.extract::<PbrViewKey>();
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
 
-        if key.contains(OldMeshPipelineKey::TONEMAP_IN_SHADER) {
-            shader_defs.push("TONEMAP_IN_SHADER".into());
-
-            let method = key.intersection(OldMeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
-
-            if method == OldMeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_REINHARD {
-                shader_defs.push("TONEMAP_METHOD_REINHARD".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
-                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_AGX {
-                shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-            {
-                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
-                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-            } else if method == OldMeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
-            }
-
-            // Debanding is tied to tonemapping in the shader, cannot run without it.
-            if key.contains(OldMeshPipelineKey::DEBAND_DITHER) {
-                shader_defs.push("DEBAND_DITHER".into());
-            }
-        }
-
-        if key.contains(OldMeshPipelineKey::MAY_DISCARD) {
-            shader_defs.push("MAY_DISCARD".into());
-        }
-
-        if key.contains(OldMeshPipelineKey::ENVIRONMENT_MAP) {
-            shader_defs.push("ENVIRONMENT_MAP".into());
-        }
-
-        if key.contains(OldMeshPipelineKey::TAA) {
-            shader_defs.push("TAA".into());
-        }
-
-        let shadow_filter_method =
-            key.intersection(OldMeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
-        if shadow_filter_method == OldMeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
-            shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
-        } else if shadow_filter_method == OldMeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
-            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
-        } else if shadow_filter_method == OldMeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
-            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
-        }
-
-        let format = if key.contains(OldMeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = view_key.extract::<HdrKey>().format();
 
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
@@ -864,7 +852,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: key.primitive_topology(),
+                topology: key.mesh_key.primitive_topology,
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
@@ -884,7 +872,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 },
             }),
             multisample: MultisampleState {
-                count: key.msaa_samples(),
+                count: view_key.extract::<MsaaKey>().samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -1107,11 +1095,11 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
 
 #[cfg(test)]
 mod tests {
-    use super::OldMeshPipelineKey;
+    use super::OldMeshPipelineKeyBitflags;
     #[test]
     fn mesh_key_msaa_samples() {
         for i in [1, 2, 4, 8, 16, 32, 64, 128] {
-            assert_eq!(OldMeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
+            assert_eq!(OldMeshPipelineKeyBitflags::from_msaa_samples(i).msaa_samples(), i);
         }
     }
 }

@@ -17,8 +17,8 @@ use bevy_render::{
     camera::Projection,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    pipeline_keys::{KeyMetaStore, KeyShaderDefs, PipelineKeys},
+    mesh::{Mesh, MeshVertexBufferLayout, MeshKey},
+    pipeline_keys::{KeyMetaStore, KeyShaderDefs, PipelineKeys, KeyTypeConcrete, KeyRepack, PackedPipelineKey},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
@@ -166,7 +166,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: MaterialPipelineKey<Self>,
+        key: PipelineKey<NewMaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
@@ -226,8 +226,7 @@ where
                             .after(prepare_materials::<M>),
                     ),
                 )
-                .register_key::<AlphaKey>()
-                .register_key::<MaterialKey<M>>();
+                .register_key::<AlphaKey>();
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
@@ -245,43 +244,11 @@ where
     }
 }
 
-/// A key uniquely identifying a specialized [`MaterialPipeline`].
-pub struct MaterialPipelineKey<M: Material> {
-    pub mesh_key: OldMeshPipelineKey,
-    pub bind_group_data: M::Data,
-}
-
-impl<M: Material> Eq for MaterialPipelineKey<M> where M::Data: PartialEq {}
-
-impl<M: Material> PartialEq for MaterialPipelineKey<M>
-where
-    M::Data: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data
-    }
-}
-
-impl<M: Material> Clone for MaterialPipelineKey<M>
-where
-    M::Data: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            mesh_key: self.mesh_key,
-            bind_group_data: self.bind_group_data.clone(),
-        }
-    }
-}
-
-impl<M: Material> Hash for MaterialPipelineKey<M>
-where
-    M::Data: Hash,
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.mesh_key.hash(state);
-        self.bind_group_data.hash(state);
-    }
+#[derive(PipelineKey)]
+pub struct NewMaterialPipelineKey<M: Material> {
+    pub view_key: PbrViewKey,
+    pub mesh_key: MeshKey,
+    pub material_key: NewMaterialKey<M>,
 }
 
 /// Render pipeline data for a given [`Material`].
@@ -310,14 +277,20 @@ impl<M: Material> SpecializedMeshPipeline for MaterialPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    type Key = MaterialPipelineKey<M>;
+    type Key = NewMaterialPipelineKey<M>;
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
+        let mesh_pipeline_key = key.construct(NewMeshPipelineKey{
+            view_key: key.view_key,
+            mesh_key: key.mesh_key,
+            alpha_mode: key.material_key.alpha,
+        });
+        println!("calling mesh_pipeline specialize with {:?} / {:?}", key.view_key.7, mesh_pipeline_key.view_key.7);
+        let mut descriptor = self.mesh_pipeline.specialize(mesh_pipeline_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -395,30 +368,30 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
 
-const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> OldMeshPipelineKey {
+const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> OldMeshPipelineKeyBitflags {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
-        AlphaMode::Premultiplied | AlphaMode::Add => OldMeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA,
-        AlphaMode::Blend => OldMeshPipelineKey::BLEND_ALPHA,
-        AlphaMode::Multiply => OldMeshPipelineKey::BLEND_MULTIPLY,
-        AlphaMode::Mask(_) => OldMeshPipelineKey::MAY_DISCARD,
-        _ => OldMeshPipelineKey::NONE,
+        AlphaMode::Premultiplied | AlphaMode::Add => OldMeshPipelineKeyBitflags::BLEND_PREMULTIPLIED_ALPHA,
+        AlphaMode::Blend => OldMeshPipelineKeyBitflags::BLEND_ALPHA,
+        AlphaMode::Multiply => OldMeshPipelineKeyBitflags::BLEND_MULTIPLY,
+        AlphaMode::Mask(_) => OldMeshPipelineKeyBitflags::MAY_DISCARD,
+        _ => OldMeshPipelineKeyBitflags::NONE,
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> OldMeshPipelineKey {
+const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> OldMeshPipelineKeyBitflags {
     match tonemapping {
-        Tonemapping::None => OldMeshPipelineKey::TONEMAP_METHOD_NONE,
-        Tonemapping::Reinhard => OldMeshPipelineKey::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => OldMeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
-        Tonemapping::AcesFitted => OldMeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-        Tonemapping::AgX => OldMeshPipelineKey::TONEMAP_METHOD_AGX,
+        Tonemapping::None => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_NONE,
+        Tonemapping::Reinhard => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_REINHARD,
+        Tonemapping::ReinhardLuminance => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_REINHARD_LUMINANCE,
+        Tonemapping::AcesFitted => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_ACES_FITTED,
+        Tonemapping::AgX => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_AGX,
         Tonemapping::SomewhatBoringDisplayTransform => {
-            OldMeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            OldMeshPipelineKeyBitflags::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
         }
-        Tonemapping::TonyMcMapface => OldMeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-        Tonemapping::BlenderFilmic => OldMeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+        Tonemapping::TonyMcMapface => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_TONY_MC_MAPFACE,
+        Tonemapping::BlenderFilmic => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_BLENDER_FILMIC,
     }
 }
 
@@ -457,12 +430,12 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
     )>,
-    _store: Res<KeyMetaStore>,
+    key_store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
-        _keys,
+        keys,
         view,
         visible_entities,
         tonemapping,
@@ -482,68 +455,68 @@ pub fn queue_material_meshes<M: Material>(
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
-        let mut view_key = OldMeshPipelineKey::from_msaa_samples(msaa.samples())
-            | OldMeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = OldMeshPipelineKeyBitflags::from_msaa_samples(msaa.samples())
+            | OldMeshPipelineKeyBitflags::from_hdr(view.hdr);
 
         if normal_prepass {
-            view_key |= OldMeshPipelineKey::NORMAL_PREPASS;
+            view_key |= OldMeshPipelineKeyBitflags::NORMAL_PREPASS;
         }
 
         if depth_prepass {
-            view_key |= OldMeshPipelineKey::DEPTH_PREPASS;
+            view_key |= OldMeshPipelineKeyBitflags::DEPTH_PREPASS;
         }
 
         if motion_vector_prepass {
-            view_key |= OldMeshPipelineKey::MOTION_VECTOR_PREPASS;
+            view_key |= OldMeshPipelineKeyBitflags::MOTION_VECTOR_PREPASS;
         }
 
         if deferred_prepass {
-            view_key |= OldMeshPipelineKey::DEFERRED_PREPASS;
+            view_key |= OldMeshPipelineKeyBitflags::DEFERRED_PREPASS;
         }
 
         if taa_settings.is_some() {
-            view_key |= OldMeshPipelineKey::TAA;
+            view_key |= OldMeshPipelineKeyBitflags::TAA;
         }
         let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
 
         if environment_map_loaded {
-            view_key |= OldMeshPipelineKey::ENVIRONMENT_MAP;
+            view_key |= OldMeshPipelineKeyBitflags::ENVIRONMENT_MAP;
         }
 
         if let Some(projection) = projection {
             view_key |= match projection {
-                Projection::Perspective(_) => OldMeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
-                Projection::Orthographic(_) => OldMeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Perspective(_) => OldMeshPipelineKeyBitflags::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => OldMeshPipelineKeyBitflags::VIEW_PROJECTION_ORTHOGRAPHIC,
             };
         }
 
         match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
             ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= OldMeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+                view_key |= OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }
             ShadowFilteringMethod::Castano13 => {
-                view_key |= OldMeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+                view_key |= OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_CASTANO_13;
             }
             ShadowFilteringMethod::Jimenez14 => {
-                view_key |= OldMeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+                view_key |= OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_JIMENEZ_14;
             }
         }
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
-                view_key |= OldMeshPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= OldMeshPipelineKeyBitflags::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
             }
             if let Some(DebandDither::Enabled) = dither {
-                view_key |= OldMeshPipelineKey::DEBAND_DITHER;
+                view_key |= OldMeshPipelineKeyBitflags::DEBAND_DITHER;
             }
         }
         if ssao.is_some() {
-            view_key |= OldMeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+            view_key |= OldMeshPipelineKeyBitflags::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
         let rangefinder = view.rangefinder3d();
 
-        // let view_key_new = keys.unwrap().get_key::<PbrViewKey>(&store).unwrap();
+        let view_key_new = keys.unwrap().get_packed_key::<PbrViewKey>().unwrap();
 
         // let new_is_hdr = view_key_new.extract::<HdrKey>().unwrap().0;
         // if new_is_hdr != view.hdr {
@@ -596,21 +569,24 @@ pub fn queue_material_meshes<M: Material>(
 
             let mut mesh_key = view_key;
 
-            mesh_key |= OldMeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            mesh_key |= OldMeshPipelineKeyBitflags::from_primitive_topology(mesh.primitive_topology);
 
             if mesh.morph_targets.is_some() {
-                mesh_key |= OldMeshPipelineKey::MORPH_TARGETS;
+                mesh_key |= OldMeshPipelineKeyBitflags::MORPH_TARGETS;
             }
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+
+            let mesh_key_new = render_meshes.get(mesh_instance.mesh_asset_id).unwrap().packed_key;
+            let material_key_new = render_materials.get(material_asset_id).unwrap().new_packed_key;
+
+            let composite_key = NewMaterialPipelineKey::repack((view_key_new, mesh_key_new, material_key_new));
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material_pipeline,
-                MaterialPipelineKey {
-                    mesh_key,
-                    bind_group_data: material.key.material_key.clone(),
-                },
+                composite_key,
                 &mesh.layout,
+                &key_store,
             );
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
@@ -733,7 +709,7 @@ pub struct MaterialProperties {
 pub struct PreparedMaterial<T: Material> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
-    pub key: MaterialKey<T>,
+    pub new_packed_key: PackedPipelineKey<NewMaterialKey<T>>,
     pub properties: MaterialProperties,
 }
 
@@ -833,6 +809,7 @@ pub fn prepare_materials<M: Material>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
     default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
+    key_store: Res<KeyMetaStore>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets.into_iter() {
@@ -843,6 +820,7 @@ pub fn prepare_materials<M: Material>(
             &fallback_image,
             &pipeline,
             default_opaque_render_method.0,
+            &key_store,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
@@ -865,6 +843,7 @@ pub fn prepare_materials<M: Material>(
             &fallback_image,
             &pipeline,
             default_opaque_render_method.0,
+            &key_store,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
@@ -883,6 +862,7 @@ fn prepare_material<M: Material>(
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,
     default_opaque_render_method: OpaqueRendererMethod,
+    key_store: &KeyMetaStore,
 ) -> Result<PreparedMaterial<M>, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &pipeline.material_layout,
@@ -895,14 +875,16 @@ fn prepare_material<M: Material>(
         OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
         OpaqueRendererMethod::Auto => default_opaque_render_method,
     };
-    let key = MaterialKey {
+    let key = NewMaterialKey {
         alpha: material.alpha_mode().into(),
-        material_key: prepared.data,
+        may_discard: MayDiscard(matches!(material.alpha_mode(), AlphaMode::Mask(_))),
+        material_data: prepared.data,
     };
+    let packed_key = KeyTypeConcrete::pack(&key, &key_store);
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
-        key,
+        new_packed_key: packed_key,
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
@@ -911,7 +893,7 @@ fn prepare_material<M: Material>(
     })
 }
 
-#[derive(PipelineKey, FromPrimitive, IntoPrimitive, Copy, Clone)]
+#[derive(PipelineKey, FromPrimitive, IntoPrimitive, Copy, Clone, PartialEq, Eq)]
 #[repr(u64)]
 #[custom_shader_defs]
 pub enum AlphaKey {
@@ -951,25 +933,22 @@ impl From<AlphaMode> for AlphaKey {
 }
 
 #[derive(PipelineKey, Clone, Copy)]
-pub struct MaterialKey<M: Material> {
-    pub alpha: AlphaKey,
-    pub material_key: M::Data,
+#[custom_shader_defs]
+pub struct MayDiscard(pub bool);
+
+impl KeyShaderDefs for MayDiscard {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        if self.0 {
+            vec!["MAY_DISCARD".into()]
+        } else {
+            vec![]
+        }
+    }
 }
 
-// TODO work out how best to iterate over relevant entities
-// probably .add_system_key<K, F, EI>() ?
-// we could use a custom key-builder impl with it's own query but we want this to work for composites/dynamics as well
-
-// impl<M: Material> SystemKey for MaterialKey<M> {
-//     type Param = (SRes<RenderMaterialInstances<M>>, SRes<RenderMaterials<M>>);
-
-//     type Query = Entity;
-
-//     fn from_params(
-//         (instances, materials): &SystemParamItem<Self::Param>,
-//         entity: Entity,
-//     ) -> Option<Self>
-//     where Self: Sized {
-//         instances.get(&entity).and_then(|asset_id| materials.get(asset_id)).map(|prepared| prepared.key)
-//     }
-// }
+#[derive(PipelineKey, Clone, Copy)]
+pub struct NewMaterialKey<M: Material> {
+    pub alpha: AlphaKey,
+    pub may_discard: MayDiscard,
+    pub material_data: M::Data,
+}

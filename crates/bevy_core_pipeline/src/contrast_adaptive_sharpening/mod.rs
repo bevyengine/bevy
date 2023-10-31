@@ -213,7 +213,7 @@ impl FromWorld for CASPipeline {
     }
 }
 
-#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct CASPipelineKey {
     texture_format: TextureFormat,
     denoise: bool,

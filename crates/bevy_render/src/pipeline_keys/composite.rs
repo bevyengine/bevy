@@ -49,8 +49,11 @@ macro_rules! impl_composite_key_tuples {
 
                 $(
                     let PackedPipelineKey{ packed, size, .. } = $K::pack($value, store);
+                    assert_eq!(size, $K::size(store), "{} mismatch", type_name::<$K>());
+
                     result = (result << size) | packed;
                     total_size += size;
+                    debug!("{} added {}={:#b} @ {} -> {:#b}", type_name::<Self>(), type_name::<$K>(), packed, size, result);
                 )*
 
                 PackedPipelineKey::new(result, total_size)
@@ -100,6 +103,23 @@ macro_rules! impl_composite_key_tuples {
         impl<$($K: FixedSizeKey),*> FixedSizeKey for ($($K,)*) {
             fn fixed_size() -> u8 {
                 $($K::fixed_size() + )* 0
+            }
+        }
+
+        impl<$($K: KeyTypeConcrete),*> KeyRepack for ($($K,)*) {
+            type PackedParts = ($(PackedPipelineKey<$K>,)*);
+
+            fn repack( ( $($value,)* ): Self::PackedParts) -> PackedPipelineKey<Self> {
+                let mut result = 0 as KeyPrimitive;
+                let mut total_size = 0u8;
+
+                $(
+                    let PackedPipelineKey{ packed, size, .. } = $value;
+                    result = (result << size) | packed;
+                    total_size += size;
+                )*
+
+                PackedPipelineKey::new(result, total_size)
             }
         }
     }

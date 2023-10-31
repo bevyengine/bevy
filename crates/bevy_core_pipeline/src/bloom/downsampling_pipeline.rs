@@ -25,7 +25,7 @@ pub struct BloomDownsamplingPipeline {
     pub sampler: Sampler,
 }
 
-#[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct BloomDownsamplingPipelineKeys {
     prefilter: bool,
     first_downsample: bool,

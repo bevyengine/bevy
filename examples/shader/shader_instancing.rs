@@ -7,7 +7,7 @@ use bevy::{
         system::{lifetimeless::*, SystemParamItem},
     },
     pbr::{
-        MeshPipeline, OldMeshPipelineKey, RenderMeshInstances, SetMeshBindGroup,
+        MeshPipeline, OldMeshPipelineKeyBitflags, RenderMeshInstances, SetMeshBindGroup,
         SetMeshViewBindGroup,
     },
     prelude::*,
@@ -25,6 +25,7 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
+use bevy_internal::{render::pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey}, pbr::{OldMeshPipelineKey, NewMeshPipelineKey}};
 use bytemuck::{Pod, Zeroable};
 
 fn main() {
@@ -119,13 +120,14 @@ fn queue_custom(
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    key_store: Res<KeyMetaStore>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    let msaa_key = OldMeshPipelineKey::from_msaa_samples(msaa.samples());
+    let msaa_key = OldMeshPipelineKeyBitflags::from_msaa_samples(msaa.samples());
 
     for (view, mut transparent_phase) in &mut views {
-        let view_key = msaa_key | OldMeshPipelineKey::from_hdr(view.hdr);
+        let view_key = msaa_key | OldMeshPipelineKeyBitflags::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for entity in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
@@ -135,9 +137,10 @@ fn queue_custom(
                 continue;
             };
             let key =
-                view_key | OldMeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                view_key | OldMeshPipelineKeyBitflags::from_primitive_topology(mesh.primitive_topology);
+            let key = KeyTypeConcrete::pack(key, &key_store);
             let pipeline = pipelines
-                .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
+                .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout, &key_store)
                 .unwrap();
             transparent_phase.add(Transparent3d {
                 entity,
@@ -197,11 +200,11 @@ impl FromWorld for CustomPipeline {
 }
 
 impl SpecializedMeshPipeline for CustomPipeline {
-    type Key = OldMeshPipelineKey;
+    type Key = NewMeshPipelineKey;
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;

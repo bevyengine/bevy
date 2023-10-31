@@ -12,7 +12,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_pbr::{MeshPipeline, MeshPipelineKey, OldMeshPipelineKey, SetMeshViewBindGroup};
+use bevy_pbr::{MeshPipeline, OldMeshPipelineKey, OldMeshPipelineKeyBitflags, SetMeshViewBindGroup};
 use bevy_render::{
     pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
     render_asset::{prepare_assets, RenderAssets},
@@ -70,7 +70,7 @@ impl FromWorld for LineGizmoPipeline {
 
 #[derive(PipelineKey, PartialEq, Eq, Hash, Clone)]
 struct LineGizmoPipelineKey {
-    mesh_key: MeshPipelineKey,
+    mesh_key: OldMeshPipelineKey,
     strip: bool,
     perspective: bool,
 }
@@ -88,14 +88,14 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let mesh_key = OldMeshPipelineKey::from_bits(key.mesh_key.0).unwrap();
-        let format = if mesh_key.contains(OldMeshPipelineKey::HDR) {
+        let mesh_key = OldMeshPipelineKeyBitflags::from_bits(key.mesh_key.0).unwrap();
+        let format = if mesh_key.contains(OldMeshPipelineKeyBitflags::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
         };
 
-        let view_layout = self.mesh_pipeline.get_view_layout(mesh_key.into()).clone();
+        let view_layout = self.mesh_pipeline.get_view_layout_old_key(mesh_key.into()).clone();
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
@@ -168,8 +168,8 @@ fn queue_line_gizmos_3d(
             continue;
         }
 
-        let mesh_key = OldMeshPipelineKey::from_msaa_samples(msaa.samples())
-            | OldMeshPipelineKey::from_hdr(view.hdr);
+        let mesh_key = OldMeshPipelineKeyBitflags::from_msaa_samples(msaa.samples())
+            | OldMeshPipelineKeyBitflags::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
@@ -181,7 +181,7 @@ fn queue_line_gizmos_3d(
                 &pipeline,
                 KeyTypeConcrete::pack(
                     &LineGizmoPipelineKey {
-                        mesh_key: MeshPipelineKey(mesh_key.bits()),
+                        mesh_key: OldMeshPipelineKey(mesh_key.bits()),
                         strip: line_gizmo.strip,
                         perspective: config.line_perspective,
                     },

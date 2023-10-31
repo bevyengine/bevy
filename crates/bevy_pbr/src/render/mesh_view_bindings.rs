@@ -26,7 +26,7 @@ use bevy_render::{
 
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, MeshPipeline, OldMeshPipelineKey,
+    GpuPointLights, LightMeta, MeshPipeline, OldMeshPipelineKeyBitflags,
     ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
 };
 
@@ -84,23 +84,23 @@ impl MeshPipelineViewLayoutKey {
     }
 }
 
-impl From<OldMeshPipelineKey> for MeshPipelineViewLayoutKey {
-    fn from(value: OldMeshPipelineKey) -> Self {
+impl From<OldMeshPipelineKeyBitflags> for MeshPipelineViewLayoutKey {
+    fn from(value: OldMeshPipelineKeyBitflags) -> Self {
         let mut result = MeshPipelineViewLayoutKey::empty();
 
         if value.msaa_samples() > 1 {
             result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
         }
-        if value.contains(OldMeshPipelineKey::DEPTH_PREPASS) {
+        if value.contains(OldMeshPipelineKeyBitflags::DEPTH_PREPASS) {
             result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
         }
-        if value.contains(OldMeshPipelineKey::NORMAL_PREPASS) {
+        if value.contains(OldMeshPipelineKeyBitflags::NORMAL_PREPASS) {
             result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
         }
-        if value.contains(OldMeshPipelineKey::MOTION_VECTOR_PREPASS) {
+        if value.contains(OldMeshPipelineKeyBitflags::MOTION_VECTOR_PREPASS) {
             result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
         }
-        if value.contains(OldMeshPipelineKey::DEFERRED_PREPASS) {
+        if value.contains(OldMeshPipelineKeyBitflags::DEFERRED_PREPASS) {
             result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
         }
 
@@ -399,7 +399,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
                 .unwrap_or(&fallback_ssao);
 
-            let layout = &mesh_pipeline.get_view_layout(
+            let layout = &mesh_pipeline.get_view_layout_old_key(
                 MeshPipelineViewLayoutKey::from(*msaa)
                     | MeshPipelineViewLayoutKey::from(prepass_textures),
             );

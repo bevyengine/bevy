@@ -257,7 +257,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
 
                 impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
                     fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
-                        #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(<Self as #render_path::pipeline_keys::KeyTypeConcrete>::size(store), 0u8))])
+                        <( #(#field_types,)* ) as #render_path::pipeline_keys::KeyTypeConcrete>::positions(store)
                     }
 
                     fn size(store: &#render_path::pipeline_keys::KeyMetaStore) -> u8 {
@@ -265,12 +265,6 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     }
 
                     fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
-                        // simple destructure to tuple would allow us to reuse the CompositeKey pack impl, but it requires the fields to be Copy
-
-                        // let tuple = (#(#field_exprs,)*);
-                        // let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = #render_path::pipeline_keys::KeyTypeConcrete::pack(&tuple, store);
-                        // #render_path::pipeline_keys::PackedPipelineKey::new(packed, size)
-
                         let mut result = 0 as #render_path::pipeline_keys::KeyPrimitive;
                         let mut total_size = 0u8;
 
@@ -294,6 +288,15 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                 #fixed_size_impl
 
                 #custom_defs_impl
+
+                impl #impl_generics #render_path::pipeline_keys::KeyRepack for #struct_name #ty_generics #where_clause {
+                    type PackedParts = (#(#render_path::pipeline_keys::PackedPipelineKey<#field_types>,)*);
+
+                    fn repack(source: Self::PackedParts) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
+                        let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = <( #(#field_types,)* ) as #render_path::pipeline_keys::KeyRepack>::repack(source);
+                        #render_path::pipeline_keys::PackedPipelineKey::new(packed, size)
+                    }
+                }
             }))
         }
         _ => Err(Error::new_spanned(

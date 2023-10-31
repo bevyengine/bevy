@@ -1,7 +1,7 @@
 //! A shader that uses "shaders defs", which selectively toggle parts of a shader.
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
+    pbr::{MaterialPipeline, NewMaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -11,6 +11,7 @@ use bevy::{
         },
     },
 };
+use bevy_internal::render::pipeline_keys::PipelineKey;
 
 fn main() {
     App::new()
@@ -63,9 +64,9 @@ impl Material for CustomMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        key: MaterialPipelineKey<Self>,
+        key: PipelineKey<NewMaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        if key.bind_group_data.is_red {
+        if key.material_key.material_data.is_red {
             let fragment = descriptor.fragment.as_mut().unwrap();
             fragment.shader_defs.push("IS_RED".into());
         }
@@ -86,7 +87,7 @@ pub struct CustomMaterial {
 // In this case, we specialize on whether or not to configure the "IS_RED" shader def.
 // Specialization keys should be kept as small / cheap to hash as possible,
 // as they will be used to look up the pipeline for each drawn entity with this material type.
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(PipelineKey, Eq, PartialEq, Hash, Clone)]
 pub struct CustomMaterialKey {
     is_red: bool,
 }

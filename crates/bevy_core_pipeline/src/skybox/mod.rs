@@ -120,7 +120,7 @@ impl SkyboxPipeline {
     }
 }
 
-#[derive(PipelineKey, Clone, Copy)]
+#[derive(PipelineKey, Clone, Copy, Debug)]
 struct SkyboxPipelineKey {
     hdr: bool,
     msaa: MsaaKey,

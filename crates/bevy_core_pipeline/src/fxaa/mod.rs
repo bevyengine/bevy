@@ -26,7 +26,7 @@ mod node;
 pub use node::FxaaNode;
 use num_enum::{FromPrimitive, IntoPrimitive};
 
-#[derive(PipelineKey, Reflect, Eq, PartialEq, Hash, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[derive(PipelineKey, Reflect, Eq, PartialEq, Hash, Clone, Copy, FromPrimitive, IntoPrimitive, Debug)]
 #[reflect(PartialEq, Hash)]
 #[repr(u64)]
 pub enum Sensitivity {
@@ -166,7 +166,7 @@ pub struct CameraFxaaPipeline {
     pub pipeline_id: CachedRenderPipelineId,
 }
 
-#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct FxaaPipelineKey {
     edge_threshold: Sensitivity,
     edge_threshold_min: Sensitivity,

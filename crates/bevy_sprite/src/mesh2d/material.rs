@@ -26,7 +26,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyTypeConcrete, KeyMetaStore},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
@@ -35,7 +35,7 @@ use std::marker::PhantomData;
 
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, OldMesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup, Mesh2dPipelineKey,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -118,7 +118,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: Material2dKey<Self>,
+        key: PipelineKey<Material2dKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
@@ -204,8 +204,9 @@ pub struct Material2dPipeline<M: Material2d> {
     marker: PhantomData<M>,
 }
 
+#[derive(PipelineKey)]
 pub struct Material2dKey<M: Material2d> {
-    pub mesh_key: OldMesh2dPipelineKey,
+    pub mesh_key: Mesh2dPipelineKey,
     pub bind_group_data: M::Data,
 }
 
@@ -262,10 +263,10 @@ where
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
+        let mut descriptor = self.mesh2d_pipeline.specialize(key.extract::<Mesh2dPipelineKey>(), layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -381,6 +382,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         Option<&DebandDither>,
         &mut RenderPhase<Transparent2d>,
     )>,
+    key_store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -422,11 +424,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material2d_pipeline,
-                Material2dKey {
-                    mesh_key,
+                KeyTypeConcrete::pack(&Material2dKey {
+                    mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
                     bind_group_data: material2d.key.clone(),
-                },
+                }, &key_store),
                 &mesh.layout,
+                &key_store,
             );
 
             let pipeline_id = match pipeline_id {
