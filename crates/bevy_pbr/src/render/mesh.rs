@@ -750,7 +750,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
-
+        
         let mut bind_group_layout = vec![self.get_view_layout(key.extract::<PbrViewKey>()).clone()];
 
         bind_group_layout.push(setup_morph_and_skinning_defs(
@@ -806,6 +806,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         let view_key = key.extract::<PbrViewKey>();
+
+        // TODO is this right?
+        if view_key.extract::<PrepassKey>().normal && view_key.extract::<MsaaKey>().samples() == 1 && key.alpha_mode == AlphaKey::Opaque {
+            shader_defs.push("LOAD_PREPASS_NORMALS".into());
+        }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
