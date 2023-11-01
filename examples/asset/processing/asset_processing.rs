@@ -17,18 +17,19 @@ use thiserror::Error;
 
 fn main() {
     App::new()
-        // Enabling `processed_dev` will configure the AssetPlugin to use asset processing.
-        // This will run the AssetProcessor in the background, which will listen for changes to
-        // the `assets` folder, run them through configured asset processors, and write the results
-        // to the `imported_assets` folder.
+        // Using the "processed" mode will configure the AssetPlugin to use asset processing.
+        // If you also enable the `asset_processor` cargo feature, this will run the AssetProcessor
+        // in the background, run them through configured asset processors, and write the results to
+        // the `imported_assets` folder. If you also enable the `file_watcher` cargo feature, changes to the
+        // source assets will be detected and they will be reprocessed.
         //
         // The AssetProcessor will create `.meta` files automatically for assets in the `assets` folder,
         // which can then be used to configure how the asset will be processed.
         .add_plugins((
             DefaultPlugins.set(AssetPlugin {
+                mode: AssetMode::Processed,
                 // This is just overriding the default paths to scope this to the correct example folder
                 // You can generally skip this in your own projects
-                mode: AssetMode::ProcessedDev,
                 file_path: "examples/asset/processing/assets".to_string(),
                 processed_file_path: "examples/asset/processing/imported_assets/Default"
                     .to_string(),
@@ -216,15 +217,22 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     });
 }
 
-fn print_text(handles: Res<TextAssets>, texts: Res<Assets<Text>>) {
-    // This prints the current values of the assets
-    // Hot-reloading is supported, so try modifying the source assets (and their meta files)!
-    println!("Current Values:");
-    println!("  a: {:?}", texts.get(&handles.a));
-    println!("  b: {:?}", texts.get(&handles.b));
-    println!("  c: {:?}", texts.get(&handles.c));
-    println!("  d: {:?}", texts.get(&handles.d));
-    println!("  e: {:?}", texts.get(&handles.e));
-    println!("(You can modify source assets and their .meta files to hot-reload changes!)");
-    println!();
+fn print_text(
+    handles: Res<TextAssets>,
+    texts: Res<Assets<Text>>,
+    mut asset_events: EventReader<AssetEvent<Text>>,
+) {
+    if !asset_events.is_empty() {
+        // This prints the current values of the assets
+        // Hot-reloading is supported, so try modifying the source assets (and their meta files)!
+        println!("Current Values:");
+        println!("  a: {:?}", texts.get(&handles.a));
+        println!("  b: {:?}", texts.get(&handles.b));
+        println!("  c: {:?}", texts.get(&handles.c));
+        println!("  d: {:?}", texts.get(&handles.d));
+        println!("  e: {:?}", texts.get(&handles.e));
+        println!("(You can modify source assets and their .meta files to hot-reload changes!)");
+        println!();
+        asset_events.clear();
+    }
 }

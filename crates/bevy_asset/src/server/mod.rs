@@ -13,16 +13,17 @@ use crate::{
     },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, Assets, DeserializeMetaError,
-    ErasedLoadedAsset, Handle, UntypedAssetId, UntypedHandle,
+    ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{CowArc, HashMap, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
 use parking_lot::RwLock;
+use std::path::PathBuf;
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -288,6 +289,71 @@ impl AssetServer {
         self.load_internal(None, path, false, None).await
     }
 
+    /// Load an asset without knowing it's type. The method returns a handle to a [`LoadedUntypedAsset`].
+    ///
+    /// Once the [`LoadedUntypedAsset`] is loaded, an untyped handle for the requested path can be
+    /// retrieved from it.
+    ///
+    /// ```
+    /// use bevy_asset::{Assets, Handle, LoadedUntypedAsset};
+    /// use bevy_ecs::system::{Res, Resource};
+    ///
+    /// #[derive(Resource)]
+    /// struct LoadingUntypedHandle(Handle<LoadedUntypedAsset>);
+    ///
+    /// fn resolve_loaded_untyped_handle(loading_handle: Res<LoadingUntypedHandle>, loaded_untyped_assets: Res<Assets<LoadedUntypedAsset>>) {
+    ///     if let Some(loaded_untyped_asset) = loaded_untyped_assets.get(&loading_handle.0) {
+    ///         let handle = loaded_untyped_asset.handle.clone();
+    ///         // continue working with `handle` which points to the asset at the originally requested path
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// This indirection enables a non blocking load of an untyped asset, since I/O is
+    /// required to figure out the asset type before a handle can be created.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
+    pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
+        let path = path.into().into_owned();
+        let untyped_source = AssetSourceId::Name(match path.source() {
+            AssetSourceId::Default => CowArc::Borrowed(UNTYPED_SOURCE_SUFFIX),
+            AssetSourceId::Name(source) => {
+                CowArc::Owned(format!("{source}--{UNTYPED_SOURCE_SUFFIX}").into())
+            }
+        });
+        let (handle, should_load) = self
+            .data
+            .infos
+            .write()
+            .get_or_create_path_handle::<LoadedUntypedAsset>(
+                path.clone().with_source(untyped_source),
+                HandleLoadingMode::Request,
+                None,
+            );
+        if !should_load {
+            return handle;
+        }
+        let id = handle.id().untyped();
+
+        let server = self.clone();
+        IoTaskPool::get()
+            .spawn(async move {
+                match server.load_untyped_async(path).await {
+                    Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
+                        id,
+                        loaded_asset: LoadedAsset::new_with_dependencies(
+                            LoadedUntypedAsset { handle },
+                            None,
+                        )
+                        .into(),
+                    }),
+                    Err(_) => server.send_asset_event(InternalAssetEvent::Failed { id }),
+                }
+            })
+            .detach();
+
+        handle
+    }
+
     /// Performs an async asset load.
     ///
     /// `input_handle` must only be [`Some`] if `should_load` was true when retrieving `input_handle`. This is an optimization to
@@ -460,15 +526,33 @@ impl AssetServer {
     /// Loads all assets from the specified folder recursively. The [`LoadedFolder`] asset (when it loads) will
     /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedFolder`]'s
     /// [`RecursiveDependencyLoadState`].
+    ///
+    /// Loading the same folder multiple times will return the same handle. If the `file_watcher`
+    /// feature is enabled, [`LoadedFolder`] handles will reload when a file in the folder is
+    /// removed, added or moved. This includes files in subdirectories and moving, adding,
+    /// or removing complete subdirectories.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_folder<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedFolder> {
-        let handle = {
-            let mut infos = self.data.infos.write();
-            infos.create_loading_handle::<LoadedFolder>()
-        };
-        let id = handle.id().untyped();
         let path = path.into().into_owned();
+        let (handle, should_load) = self
+            .data
+            .infos
+            .write()
+            .get_or_create_path_handle::<LoadedFolder>(
+                path.clone(),
+                HandleLoadingMode::Request,
+                None,
+            );
+        if !should_load {
+            return handle;
+        }
+        let id = handle.id().untyped();
+        self.load_folder_internal(id, path);
 
+        handle
+    }
+
+    pub(crate) fn load_folder_internal(&self, id: UntypedAssetId, path: AssetPath) {
         fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
@@ -503,6 +587,7 @@ impl AssetServer {
             })
         }
 
+        let path = path.into_owned();
         let server = self.clone();
         IoTaskPool::get()
             .spawn(async move {
@@ -542,8 +627,6 @@ impl AssetServer {
                 }
             })
             .detach();
-
-        handle
     }
 
     fn send_asset_event(&self, event: InternalAssetEvent) {
@@ -795,6 +878,19 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
+        let reload_parent_folders = |path: PathBuf, source: &AssetSourceId<'static>| {
+            let mut current_folder = path;
+            while let Some(parent) = current_folder.parent() {
+                current_folder = parent.to_path_buf();
+                let parent_asset_path =
+                    AssetPath::from(current_folder.clone()).with_source(source.clone());
+                if let Some(folder_handle) = infos.get_path_handle(parent_asset_path.clone()) {
+                    info!("Reloading folder {parent_asset_path} because the content has changed");
+                    server.load_folder_internal(folder_handle.id(), parent_asset_path);
+                }
+            }
+        };
+
         let mut paths_to_reload = HashSet::new();
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
@@ -804,6 +900,16 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     let path = AssetPath::from(path).with_source(source);
                     queue_ancestors(&path, &infos, &mut paths_to_reload);
                     paths_to_reload.insert(path);
+                }
+                AssetSourceEvent::RenamedFolder { old, new } => {
+                    reload_parent_folders(old, &source);
+                    reload_parent_folders(new, &source);
+                }
+                AssetSourceEvent::AddedAsset(path)
+                | AssetSourceEvent::RemovedAsset(path)
+                | AssetSourceEvent::RemovedFolder(path)
+                | AssetSourceEvent::AddedFolder(path) => {
+                    reload_parent_folders(path, &source);
                 }
                 _ => {}
             }
@@ -982,3 +1088,7 @@ impl std::fmt::Debug for AssetServer {
             .finish()
     }
 }
+
+/// This is appended to asset sources when loading a [`LoadedUntypedAsset`]. This provides a unique
+/// source for a given [`AssetPath`].
+const UNTYPED_SOURCE_SUFFIX: &str = "--untyped";

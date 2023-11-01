@@ -400,7 +400,7 @@ mod tests {
 
     #[test]
     fn par_for_each_dense() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         let e1 = world.spawn(A(1)).id();
         let e2 = world.spawn(A(2)).id();
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn par_for_each_sparse() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         let e1 = world.spawn(SparseStored(1)).id();
         let e2 = world.spawn(SparseStored(2)).id();

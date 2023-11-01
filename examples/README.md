@@ -53,6 +53,7 @@ git checkout v0.4.0
   - [Scene](#scene)
   - [Shaders](#shaders)
   - [Stress Tests](#stress-tests)
+  - [Time](#time)
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
@@ -141,6 +142,7 @@ Example | Description
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
 [Texture](../examples/3d/texture.rs) | Shows configuration of texture materials
 [Tonemapping](../examples/3d/tonemapping.rs) | Compares tonemapping options
+[Transmission](../examples/3d/transmission.rs) | Showcases light transmission in the PBR material
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
@@ -180,7 +182,7 @@ Example | Description
 Example | Description
 --- | ---
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
-[Asset Processing](../examples/asset/processing/processing.rs) | Demonstrates how to process and load custom assets
+[Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
@@ -233,8 +235,6 @@ Example | Description
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
-[Time handling](../examples/ecs/time.rs) | Explains how Time is handled in ECS
-[Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games
 
@@ -292,6 +292,7 @@ Example | Description
 [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
+[Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
 [Instancing](../examples/shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
@@ -324,6 +325,14 @@ Example | Description
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
 [Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
+
+## Time
+
+Example | Description
+--- | ---
+[Time handling](../examples/time/time.rs) | Explains how Time is handled in ECS
+[Timers](../examples/time/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
+[Virtual time](../examples/time/virtual_time.rs) | Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game.
 
 ## Tools
 
@@ -542,6 +551,14 @@ ruby -run -ehttpd examples/wasm
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
+
+WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
+
+```sh
+RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build ...
+```
+
+Check `wasm-bindgen` [docs on Unstable APIs](https://rustwasm.github.io/wasm-bindgen/web-sys/unstable-apis.html) for more details.
 
 Bevy has an helper to build its examples:
 

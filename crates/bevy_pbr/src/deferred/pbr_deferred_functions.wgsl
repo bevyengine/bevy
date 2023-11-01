@@ -1,42 +1,19 @@
 #define_import_path bevy_pbr::pbr_deferred_functions
-#import bevy_pbr::pbr_types PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT
-#import bevy_pbr::pbr_deferred_types as deferred_types
-#import bevy_pbr::pbr_functions as pbr_functions
-#import bevy_pbr::rgb9e5 as rgb9e5
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::mesh_view_bindings view
-#import bevy_pbr::utils octahedral_encode, octahedral_decode
 
-// ---------------------------
-// from https://github.com/DGriffin91/bevy_coordinate_systems/blob/main/src/transformations.wgsl
-// ---------------------------
-
-/// Convert a ndc space position to world space
-fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
-    let world_pos = view.inverse_view_proj * vec4(ndc_pos, 1.0);
-    return world_pos.xyz / world_pos.w;
+#import bevy_pbr::{
+    pbr_types::{PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    pbr_deferred_types as deferred_types,
+    pbr_functions,
+    rgb9e5,
+    mesh_view_bindings::view,
+    utils::{octahedral_encode, octahedral_decode},
+    prepass_io::{VertexOutput, FragmentOutput},
+    view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
 
-/// Convert ndc space xy coordinate [-1.0 .. 1.0] to uv [0.0 .. 1.0]
-fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
-    return ndc * vec2(0.5, -0.5) + vec2(0.5);
-}
-
-/// Convert uv [0.0 .. 1.0] coordinate to ndc space xy [-1.0 .. 1.0]
-fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
-    return uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
-}
-
-/// Returns the (0.0, 0.0) .. (1.0, 1.0) position within the viewport for the current render target.
-/// [0 .. render target viewport size] eg. [(0.0, 0.0) .. (1280.0, 720.0)] to [(0.0, 0.0) .. (1.0, 1.0)]
-fn frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
-    return (frag_coord - view.viewport.xy) / view.viewport.zw;
-}
-
-/// Convert frag coord to ndc.
-fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
-    return vec3(uv_to_ndc(frag_coord_to_uv(frag_coord.xy)), frag_coord.z);
-}
+#ifdef MOTION_VECTOR_PREPASS
+    #import bevy_pbr::pbr_prepass_functions::calculate_motion_vector
+#endif
 
 // Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
@@ -126,4 +103,23 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     return pbr;
 }
 
+#ifdef PREPASS_PIPELINE
+fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
+    var out: FragmentOutput;
 
+    // gbuffer
+    out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
+    // lighting pass id (used to determine which lighting shader to run for the fragment)
+    out.deferred_lighting_pass_id = pbr_input.material.deferred_lighting_pass_id;
+    // normal if required
+#ifdef NORMAL_PREPASS
+    out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+#endif
+    // motion vectors if required
+#ifdef MOTION_VECTOR_PREPASS
+    out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
+
+    return out;
+}
+#endif

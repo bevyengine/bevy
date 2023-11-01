@@ -17,12 +17,7 @@ use bevy_render::{
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{tracing::warn, HashMap};
 
-use crate::{
-    calculate_cluster_factors, spot_light_projection_matrix, spot_light_view_matrix,
-    CascadesVisibleEntities, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, CUBE_MAP_FACES, MAX_UNIFORM_BUFFER_POINT_LIGHTS,
-    POINT_LIGHT_NEAR_Z,
-};
+use crate::*;
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -603,9 +598,23 @@ impl Default for AmbientLight {
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
+///
+/// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
+/// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
+/// even when [`TransmittedShadowReceiver`] is being used.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
+/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
+///
+/// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
+/// (and potentially even baking a thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
+///
+/// **Note:** Using [`NotShadowReceiver`] overrides this component.
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct TransmittedShadowReceiver;
 
 /// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
 /// to control how to anti-alias shadow edges.

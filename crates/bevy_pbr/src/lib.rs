@@ -6,6 +6,7 @@ mod alpha;
 mod bundle;
 pub mod deferred;
 mod environment_map;
+mod extended_material;
 mod fog;
 mod light;
 mod material;
@@ -18,6 +19,7 @@ mod ssao;
 pub use alpha::*;
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
+pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
 pub use material::*;
@@ -71,14 +73,18 @@ pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(56
 pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416725);
 pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
 pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
+pub const PBR_TRANSMISSION_HANDLE: Handle<Shader> = Handle::weak_from_u128(77319684653223658032);
 pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
 pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(3145627513789590502);
+pub const PBR_FRAGMENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2295049283805286543);
 pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
 pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
 pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(17035894873630133905);
+pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2098345702398750291);
 pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(73204817249182637);
 pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
@@ -132,6 +138,12 @@ impl Plugin for PbrPlugin {
         );
         load_internal_asset!(
             app,
+            PBR_TRANSMISSION_HANDLE,
+            "render/pbr_transmission.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             SHADOWS_HANDLE,
             "render/shadows.wgsl",
             Shader::from_wgsl
@@ -172,6 +184,12 @@ impl Plugin for PbrPlugin {
             "render/pbr_ambient.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            PBR_FRAGMENT_HANDLE,
+            "render/pbr_fragment.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -189,6 +207,12 @@ impl Plugin for PbrPlugin {
             app,
             PARALLAX_MAPPING_SHADER_HANDLE,
             "render/parallax_mapping.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            VIEW_TRANSFORMATIONS_SHADER_HANDLE,
+            "render/view_transformations.wgsl",
             Shader::from_wgsl
         );
 
