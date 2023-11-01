@@ -1102,6 +1102,22 @@ impl Color {
             }
         }
     }
+
+    /// Performs a linear interpolation between `self` and `rhs` based on the value `s`.
+    ///
+    /// When `s` is `0.0`, the result will be equal to `self`.  When `s` is `1.0`, the result
+    /// will be equal to `rhs`. When `s` is outside of range `[0, 1]`, the result is linearly
+    /// extrapolated.
+    ///
+    /// **Note:** To ensure mathematically correct results, interpolation takes place in linear RGB
+    /// colorspace. Both `self` and `rhs` will be converted as necessary, before the operation.
+    #[doc(alias = "mix")]
+    #[inline]
+    pub fn lerp(&self, rhs: Color, s: f32) -> Color {
+        let linear_self = self.as_rgba_linear();
+        let linear_rhs = rhs.as_rgba_linear();
+        linear_self * (1.0 - s) + linear_rhs * s
+    }
 }
 
 impl Default for Color {
