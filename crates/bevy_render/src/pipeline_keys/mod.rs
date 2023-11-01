@@ -185,11 +185,7 @@ pub struct PackedPipelineKey<T: AnyKeyType> {
 
 impl<T: AnyKeyType> Clone for PackedPipelineKey<T> {
     fn clone(&self) -> Self {
-        Self {
-            packed: self.packed,
-            size: self.size,
-            _p: PhantomData,
-        }
+        *self
     }
 }
 
@@ -295,23 +291,17 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
     pub fn try_extract<U: AnyKeyType + KeyTypeConcrete>(&'a self) -> Option<PipelineKey<'a, U>> {
         let positions = T::positions(self.store);
         let SizeOffset(size, offset) = positions.get(&TypeId::of::<U>())?;
-        let key = T::pack(&self.value, &self.store);
+        let key = T::pack(&self.value, self.store);
         let value = (key.packed >> offset) & ((1 << size) - 1);
         Some(self.store.pipeline_key(value))
     }
 
     pub fn extract<U: AnyKeyType + KeyTypeConcrete>(&'a self) -> PipelineKey<'a, U> {
-        debug!(
-            "{} requesting {}, positions: {:?}",
-            type_name::<T>(),
-            type_name::<U>(),
-            T::positions(&self.store)
-        );
         let positions = T::positions(self.store);
         let SizeOffset(size, offset) = positions
             .get(&TypeId::of::<U>())
             .unwrap_or_else(missing::<U, _>);
-        let key = T::pack(&self.value, &self.store);
+        let key = T::pack(&self.value, self.store);
         let value = (key.packed >> offset) & ((1 << size) - 1);
         self.store.pipeline_key(value)
     }
@@ -327,9 +317,9 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
         debug!(
             "{} shader defs, positions: {:?}",
             type_name::<T>(),
-            T::positions(&self.store)
+            T::positions(self.store)
         );
-        T::shader_defs(T::pack(&self.value, &self.store).packed, &self.store)
+        T::shader_defs(T::pack(&self.value, self.store).packed, self.store)
     }
 }
 
@@ -395,7 +385,7 @@ impl<T> PartialEq for KeySetMarker<T> {
 
 impl<T> Clone for KeySetMarker<T> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 
@@ -407,8 +397,9 @@ impl<T> Default for KeySetMarker<T> {
 
 impl Plugin for PipelineKeyPlugin {
     fn build(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
-            .insert_resource(KeyMetaStoreInitializer(Some(KeyMetaStore::default())));
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.insert_resource(KeyMetaStoreInitializer(Some(KeyMetaStore::default())));
+        }
     }
 }
 
@@ -564,7 +555,6 @@ impl AddPipelineKey for App {
 }
 
 /// generate a binary pipeline key based on the presence of a marker component
-/// TODO scope needs some work, requires num_enum in scope currently
 #[macro_export]
 macro_rules! impl_has_world_key {
     ($key:ident, $component:ident, $def:expr) => {

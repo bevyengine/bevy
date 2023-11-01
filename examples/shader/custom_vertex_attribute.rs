@@ -6,13 +6,13 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
+        pipeline_keys::PipelineKey,
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
             VertexFormat,
         },
     },
 };
-use bevy_internal::render::pipeline_keys::PipelineKey;
 
 fn main() {
     App::new()

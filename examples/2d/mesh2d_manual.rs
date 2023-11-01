@@ -9,6 +9,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute},
+        pipeline_keys::PipelineKey,
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
@@ -23,12 +24,11 @@ use bevy::{
     },
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
-        Mesh2dTransforms, MeshFlags, OldMesh2dPipelineKey, RenderMesh2dInstance,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, OldMesh2dPipelineKey, RenderMesh2dInstance,
         RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
     utils::FloatOrd,
 };
-use bevy_internal::{render::pipeline_keys::PipelineKey, sprite::Mesh2dPipelineKey};
 use std::f32::consts::PI;
 
 fn main() {

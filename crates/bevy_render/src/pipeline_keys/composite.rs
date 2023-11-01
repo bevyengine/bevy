@@ -83,7 +83,7 @@ macro_rules! impl_composite_key_tuples {
                 $(
                     let PackedPipelineKey{ packed, size, .. } = keys.get_packed_key::<$K>()?;
                     result = result << size | packed;
-                    total_size = total_size + size;
+                    total_size += size;
                 )*
 
                 Some(PackedPipelineKey::new(result, total_size))

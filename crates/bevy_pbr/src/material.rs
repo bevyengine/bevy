@@ -300,10 +300,9 @@ where
         let mut descriptor = self.mesh_pipeline.specialize(mesh_pipeline_key, layout)?;
         // add shader defs for the full key (including non-MeshPipelineKey parts of the key)
         descriptor.vertex.shader_defs.extend(key.shader_defs());
-        descriptor
-            .fragment
-            .as_mut()
-            .map(|frag| frag.shader_defs.extend(key.shader_defs()));
+        if let Some(frag) = descriptor.fragment.as_mut() {
+            frag.shader_defs.extend(key.shader_defs());
+        }
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }

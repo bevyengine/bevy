@@ -10,9 +10,7 @@ impl AnyKeyType for () {
 }
 
 impl KeyTypeConcrete for () {
-    fn unpack(_: KeyPrimitive, _: &KeyMetaStore) -> Self {
-        ()
-    }
+    fn unpack(_: KeyPrimitive, _: &KeyMetaStore) -> Self {}
 
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
         HashMap::default()

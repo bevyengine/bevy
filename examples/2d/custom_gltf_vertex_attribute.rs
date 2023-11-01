@@ -6,11 +6,11 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
+        pipeline_keys::PipelineKey,
         render_resource::*,
     },
     sprite::{Material2d, Material2dKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle},
 };
-use bevy_internal::render::pipeline_keys::PipelineKey;
 
 /// This vertex attribute supplies barycentric coordinates for each triangle.
 /// Each component of the vector corresponds to one corner of a triangle. It's

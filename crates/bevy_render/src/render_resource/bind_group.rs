@@ -247,7 +247,7 @@ impl Deref for BindGroup {
 ///     is_shaded: bool,
 /// }
 ///
-/// #[derive(Copy, Clone, Hash, Eq, PartialEq)]
+/// #[derive(PipelineKey, Copy, Clone, Hash, Eq, PartialEq)]
 /// struct CoolMaterialKey {
 ///     is_shaded: bool,
 /// }
