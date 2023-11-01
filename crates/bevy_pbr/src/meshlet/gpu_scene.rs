@@ -457,6 +457,7 @@ pub struct MeshletGpuScene {
 
     culling_bind_group_layout: BindGroupLayout,
     draw_bind_group_layout: BindGroupLayout,
+    // TODO: Should the below resources be per-view, or a single resourced shared between all views?
     draw_command_buffers: EntityHashMap<Entity, Buffer>,
     draw_index_buffer: Option<Buffer>,
     culling_bind_groups: EntityHashMap<Entity, BindGroup>,
