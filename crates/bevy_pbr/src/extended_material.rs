@@ -82,7 +82,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialExtensionPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     /// Specialization for the base material is applied before this function is called.
     #[allow(unused_variables)]
     #[inline]

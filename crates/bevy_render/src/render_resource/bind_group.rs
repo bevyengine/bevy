@@ -238,7 +238,7 @@ impl Deref for BindGroup {
 ///
 /// Setting `bind_group_data` looks like this:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{color::Color, render_resource::AsBindGroup, pipeline_keys::PipelineKey};
 /// #[derive(AsBindGroup)]
 /// #[bind_group_data(CoolMaterialKey)]
 /// struct CoolMaterial {
