@@ -29,6 +29,7 @@ pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
     fn default() -> Self {
-        Self(Color::rgb(0.4, 0.4, 0.4))
+        // Match the bevy website code block color by default.
+        Self(Color::rgb_u8(43, 44, 47))
     }
 }

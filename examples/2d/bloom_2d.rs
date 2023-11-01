@@ -11,7 +11,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update_bloom_settings)

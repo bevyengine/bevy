@@ -216,7 +216,6 @@ fn setup(
             "",
             TextStyle {
                 font_size: 18.0,
-                color: Color::WHITE,
                 ..default()
             },
         )
