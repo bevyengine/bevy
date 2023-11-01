@@ -567,7 +567,7 @@ impl FromWorld for SsaoPipelines {
 struct SsaoPipelineKey {
     slice_count: u8,
     sample_count: u8,
-    temporal_noise: bool,
+    temporal_jitter: bool,
 }
 
 impl SpecializedComputePipeline for SsaoPipelines {
@@ -582,8 +582,8 @@ impl SpecializedComputePipeline for SsaoPipelines {
             ),
         ];
 
-        if key.temporal_noise {
-            shader_defs.push("TEMPORAL_NOISE".into());
+        if key.temporal_jitter {
+            shader_defs.push("TEMPORAL_JITTER".into());
         }
 
         ComputePipelineDescriptor {
@@ -737,7 +737,7 @@ fn prepare_ssao_pipelines(
             pipeline_cache.pack_key(&SsaoPipelineKey {
                 slice_count: ssao_settings.quality_level.sample_counts().0 as u8,
                 sample_count: ssao_settings.quality_level.sample_counts().1 as u8,
-                temporal_noise: temporal_jitter.is_some(),
+                temporal_jitter: temporal_jitter.is_some(),
             }),
         );
 

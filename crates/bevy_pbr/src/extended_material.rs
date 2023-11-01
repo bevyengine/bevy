@@ -213,6 +213,10 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         B::depth_bias(&self.base)
     }
 
+    fn reads_view_transmission_texture(&self) -> bool {
+        B::reads_view_transmission_texture(&self.base)
+    }
+
     fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
         B::opaque_render_method(&self.base)
     }

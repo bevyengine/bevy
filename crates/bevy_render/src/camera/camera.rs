@@ -3,6 +3,7 @@ use crate::{
     camera::{ManualTextureViewHandle, ManualTextureViews},
     pipeline_keys::PipelineKeys,
     prelude::Image,
+    primitives::Frustum,
     render_asset::RenderAssets,
     render_resource::TextureView,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
@@ -643,6 +644,7 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
+            &Frustum,
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
@@ -658,6 +660,7 @@ pub fn extract_cameras(
         camera_render_graph,
         transform,
         visible_entities,
+        frustum,
         color_grading,
         temporal_jitter,
         render_layers,
@@ -715,6 +718,7 @@ pub fn extract_cameras(
                     color_grading,
                 },
                 visible_entities.clone(),
+                *frustum,
                 PipelineKeys::default(),
             ));
 

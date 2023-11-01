@@ -26,7 +26,6 @@ use bevy_render::{
 /// blurred (lower frequency) images generated from the camera's view.
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
-#[allow(clippy::doc_markdown)]
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default)]
 pub struct BloomSettings {

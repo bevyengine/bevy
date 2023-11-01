@@ -186,7 +186,7 @@ pub fn update_previous_view_projections(
     query: Query<(Entity, &Camera, &GlobalTransform), (With<Camera3d>, With<MotionVectorPrepass>)>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        commands.entity(entity).insert(PreviousViewProjection {
+        commands.entity(entity).try_insert(PreviousViewProjection {
             view_proj: camera.projection_matrix() * camera_transform.compute_matrix().inverse(),
         });
     }
@@ -206,7 +206,7 @@ pub fn update_mesh_previous_global_transforms(
         for (entity, transform) in &meshes {
             commands
                 .entity(entity)
-                .insert(PreviousGlobalTransform(transform.affine()));
+                .try_insert(PreviousGlobalTransform(transform.affine()));
         }
     }
 }
@@ -743,6 +743,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => continue,
+            }
+
+            if material.properties.reads_view_transmission_texture {
+                // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
+                // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
+                continue;
             }
 
             let forward = match material.properties.render_method {
