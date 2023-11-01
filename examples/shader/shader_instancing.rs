@@ -7,14 +7,14 @@ use bevy::{
         system::{lifetimeless::*, SystemParamItem},
     },
     pbr::{
-        MeshPipeline, RenderMeshInstances, SetMeshBindGroup,
-        SetMeshViewBindGroup, NewMeshPipelineKey, AlphaKey
+        AlphaKey, MeshPipeline, NewMeshPipelineKey, RenderMeshInstances, SetMeshBindGroup,
+        SetMeshViewBindGroup,
     },
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
-        pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey, KeyRepack, PipelineKeys},
+        pipeline_keys::{KeyMetaStore, KeyRepack, KeyTypeConcrete, PipelineKey, PipelineKeys},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -118,7 +118,11 @@ fn queue_custom(
     meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>, &PipelineKeys)>,
+    mut views: Query<(
+        &ExtractedView,
+        &mut RenderPhase<Transparent3d>,
+        &PipelineKeys,
+    )>,
     key_store: Res<KeyMetaStore>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
@@ -137,7 +141,7 @@ fn queue_custom(
                 continue;
             };
             let mesh_key = mesh.packed_key;
-            let alpha_key = AlphaKey::pack(&AlphaKey::Opaque, &key_store);
+            let alpha_key = pipeline_cache.pack(&AlphaKey::Opaque);
             let key = NewMeshPipelineKey::repack((view_key, mesh_key, alpha_key));
             let pipeline = pipelines
                 .specialize(
@@ -145,7 +149,6 @@ fn queue_custom(
                     &custom_pipeline,
                     key,
                     &mesh.layout,
-                    &key_store,
                 )
                 .unwrap();
             transparent_phase.add(Transparent3d {

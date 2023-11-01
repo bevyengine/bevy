@@ -1625,12 +1625,8 @@ pub fn queue_shadows<M: Material>(
 
                 let key = NewMaterialPipelineKey::repack((view_key, mesh.packed_key, material_key));
 
-                let pipeline_id = pipelines.specialize(
-                    &pipeline_cache,
-                    &prepass_pipeline,
-                    key,
-                    &mesh.layout,
-                );
+                let pipeline_id =
+                    pipelines.specialize(&pipeline_cache, &prepass_pipeline, key, &mesh.layout);
 
                 let pipeline_id = match pipeline_id {
                     Ok(id) => id,

@@ -171,12 +171,10 @@ fn queue_line_gizmos_2d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                pipeline_cache.pack_key(
-                    &LineGizmoPipelineKey {
-                        mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
-                        strip: line_gizmo.strip,
-                    }
-                ),
+                pipeline_cache.pack_key(&LineGizmoPipelineKey {
+                    mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
+                    strip: line_gizmo.strip,
+                }),
             );
 
             transparent_phase.add(Transparent2d {

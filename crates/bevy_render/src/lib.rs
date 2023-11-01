@@ -52,11 +52,12 @@ use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
+    pipeline_keys::KeyMetaStoreInitializer,
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
-    view::{ViewPlugin, WindowRenderPlugin}, pipeline_keys::KeyMetaStoreInitializer,
+    view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
@@ -375,7 +376,10 @@ impl Plugin for RenderPlugin {
 
             let render_app = app.sub_app_mut(RenderApp);
 
-            let key_store = render_app.world.resource_mut::<KeyMetaStoreInitializer>().take_final();
+            let key_store = render_app
+                .world
+                .resource_mut::<KeyMetaStoreInitializer>()
+                .take_final();
 
             render_app
                 .insert_resource(instance)

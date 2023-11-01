@@ -548,16 +548,16 @@ pub fn queue_sprites(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &sprite_pipeline,
-            pipeline_cache.pack_key(
-                &SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(false)).bits())
-            ),
+            pipeline_cache.pack_key(&SpritePipelineKey(
+                (view_key | OldSpritePipelineKey::from_colored(false)).bits(),
+            )),
         );
         let colored_pipeline = pipelines.specialize(
             &pipeline_cache,
             &sprite_pipeline,
-            pipeline_cache.pack_key(
-                &SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(true)).bits()),
-            ),
+            pipeline_cache.pack_key(&SpritePipelineKey(
+                (view_key | OldSpritePipelineKey::from_colored(true)).bits(),
+            )),
         );
 
         view_entities.clear();

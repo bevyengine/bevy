@@ -426,12 +426,10 @@ pub fn queue_material2d_meshes<M: Material2d>(
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material2d_pipeline,
-                pipeline_cache.pack_key(
-                    &Material2dKey {
-                        mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
-                        bind_group_data: material2d.key.clone(),
-                    }
-                ),
+                pipeline_cache.pack_key(&Material2dKey {
+                    mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
+                    bind_group_data: material2d.key.clone(),
+                }),
                 &mesh.layout,
             );
 

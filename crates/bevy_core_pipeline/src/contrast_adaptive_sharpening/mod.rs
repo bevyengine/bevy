@@ -260,16 +260,14 @@ fn prepare_cas_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
-            pipeline_cache.pack_key(
-                &CASPipelineKey {
-                    denoise: cas_settings.0,
-                    texture_format: if view.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
-                }
-            ),
+            pipeline_cache.pack_key(&CASPipelineKey {
+                denoise: cas_settings.0,
+                texture_format: if view.hdr {
+                    ViewTarget::TEXTURE_FORMAT_HDR
+                } else {
+                    TextureFormat::bevy_default()
+                },
+            }),
         );
 
         commands.entity(entity).insert(ViewCASPipeline(pipeline_id));

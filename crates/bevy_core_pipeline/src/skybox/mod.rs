@@ -197,13 +197,11 @@ fn prepare_skybox_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            pipeline_cache.pack_key(
-                &SkyboxPipelineKey {
-                    hdr: view.hdr,
-                    msaa: MsaaKey::from_params(&msaa, ()).unwrap(),
-                    depth_format: CORE_3D_DEPTH_FORMAT,
-                }
-            ),
+            pipeline_cache.pack_key(&SkyboxPipelineKey {
+                hdr: view.hdr,
+                msaa: MsaaKey::from_params(&msaa, ()).unwrap(),
+                depth_format: CORE_3D_DEPTH_FORMAT,
+            }),
         );
 
         commands

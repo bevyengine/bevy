@@ -407,7 +407,8 @@ impl<T> Default for KeySetMarker<T> {
 
 impl Plugin for PipelineKeyPlugin {
     fn build(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp).insert_resource(KeyMetaStoreInitializer(Some(KeyMetaStore::default())));
+        app.sub_app_mut(RenderApp)
+            .insert_resource(KeyMetaStoreInitializer(Some(KeyMetaStore::default())));
     }
 }
 
@@ -480,14 +481,6 @@ impl AddPipelineKey for App {
             .in_set(KeySetMarker::<K>::default())
             .in_set(RenderSet::PrepareKeys),
         );
-        self.add_systems(
-            ExtractSchedule,
-            |mut commands: Commands, q: Query<Entity, F>| {
-                for ent in q.iter() {
-                    commands.entity(ent).insert(PipelineKeys::default());
-                }
-            },
-        );
         self
     }
 
@@ -552,11 +545,15 @@ impl AddPipelineKey for App {
     }
 
     fn register_dynamic_key_part<K: DynamicKey, PART: AnyKeyType>(&mut self) -> &mut Self {
-        let mut init =self.world
+        let mut init = self
+            .world
             .get_resource_mut::<KeyMetaStoreInitializer>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin");
-        let store = init.0.as_mut().expect("keys must be registered before RenderPlugin::finish");
-    
+        let store = init
+            .0
+            .as_mut()
+            .expect("keys must be registered before RenderPlugin::finish");
+
         store.add_dynamic_part::<K, PART>();
         self.configure_sets(
             Render,

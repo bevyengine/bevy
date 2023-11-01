@@ -18,7 +18,7 @@ use bevy_render::{
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshKey, MeshVertexBufferLayout},
-    pipeline_keys::{KeyRepack, KeyShaderDefs, PackedPipelineKey, PipelineKeys,},
+    pipeline_keys::{KeyRepack, KeyShaderDefs, PackedPipelineKey, PipelineKeys},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,

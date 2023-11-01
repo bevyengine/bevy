@@ -1,11 +1,12 @@
 use crate::{
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PackedPipelineKey},
     render_resource::{
         BindGroupLayout, BindGroupLayoutId, ComputePipeline, ComputePipelineDescriptor,
         RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport, Source,
     },
     renderer::RenderDevice,
-    Extract, pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PackedPipelineKey},
+    Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};

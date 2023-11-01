@@ -214,17 +214,15 @@ pub fn prepare_fxaa_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &fxaa_pipeline,
-            pipeline_cache.pack_key(
-                &FxaaPipelineKey {
-                    edge_threshold: fxaa.edge_threshold,
-                    edge_threshold_min: fxaa.edge_threshold_min,
-                    texture_format: if view.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
-                }
-            ),
+            pipeline_cache.pack_key(&FxaaPipelineKey {
+                edge_threshold: fxaa.edge_threshold,
+                edge_threshold_min: fxaa.edge_threshold_min,
+                texture_format: if view.hdr {
+                    ViewTarget::TEXTURE_FORMAT_HDR
+                } else {
+                    TextureFormat::bevy_default()
+                },
+            }),
         );
 
         commands

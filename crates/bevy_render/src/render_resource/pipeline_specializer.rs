@@ -6,9 +6,7 @@ use crate::{
     },
 };
 use crate::{
-    pipeline_keys::{
-        AnyKeyType, KeyPrimitive, KeyTypeConcrete, PackedPipelineKey, PipelineKey,
-    },
+    pipeline_keys::{AnyKeyType, KeyPrimitive, KeyTypeConcrete, PackedPipelineKey, PipelineKey},
     render_resource::CachedComputePipelineId,
 };
 use bevy_ecs::system::Resource;
@@ -47,7 +45,8 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
         key: PackedPipelineKey<S::Key>,
     ) -> CachedRenderPipelineId {
         *self.cache.entry(key.packed).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(cache.key_store().pipeline_key(key.packed));
+            let descriptor =
+                specialize_pipeline.specialize(cache.key_store().pipeline_key(key.packed));
             cache.queue_render_pipeline(descriptor)
         })
     }
@@ -81,7 +80,8 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
         key: PackedPipelineKey<S::Key>,
     ) -> CachedComputePipelineId {
         *self.cache.entry(key.packed).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(cache.key_store().pipeline_key(key.packed));
+            let descriptor =
+                specialize_pipeline.specialize(cache.key_store().pipeline_key(key.packed));
             cache.queue_compute_pipeline(descriptor)
         })
     }

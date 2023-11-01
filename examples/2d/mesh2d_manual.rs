@@ -28,10 +28,7 @@ use bevy::{
     },
     utils::FloatOrd,
 };
-use bevy_internal::{
-    render::pipeline_keys::PipelineKey,
-    sprite::Mesh2dPipelineKey,
-};
+use bevy_internal::{render::pipeline_keys::PipelineKey, sprite::Mesh2dPipelineKey};
 use std::f32::consts::PI;
 
 fn main() {

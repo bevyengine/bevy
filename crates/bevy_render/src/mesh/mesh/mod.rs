@@ -8,7 +8,7 @@ use crate::{
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{Buffer, TextureView, VertexBufferLayout, PipelineCache},
+    render_resource::{Buffer, PipelineCache, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
 use bevy_asset::{Asset, Handle};

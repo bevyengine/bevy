@@ -183,13 +183,11 @@ fn queue_line_gizmos_3d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                pipeline_cache.pack_key(
-                    &LineGizmoPipelineKey {
-                        mesh_key: OldMeshPipelineKey(mesh_key.bits()),
-                        strip: line_gizmo.strip,
-                        perspective: config.line_perspective,
-                    }
-                ),
+                pipeline_cache.pack_key(&LineGizmoPipelineKey {
+                    mesh_key: OldMeshPipelineKey(mesh_key.bits()),
+                    strip: line_gizmo.strip,
+                    perspective: config.line_perspective,
+                }),
             );
 
             transparent_phase.add(Transparent3d {

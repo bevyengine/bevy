@@ -734,13 +734,11 @@ fn prepare_ssao_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            pipeline_cache.pack_key(
-                &SsaoPipelineKey {
-                    slice_count: ssao_settings.quality_level.sample_counts().0 as u8,
-                    sample_count: ssao_settings.quality_level.sample_counts().1 as u8,
-                    temporal_noise: temporal_jitter.is_some(),
-                }
-            ),
+            pipeline_cache.pack_key(&SsaoPipelineKey {
+                slice_count: ssao_settings.quality_level.sample_counts().0 as u8,
+                sample_count: ssao_settings.quality_level.sample_counts().1 as u8,
+                temporal_noise: temporal_jitter.is_some(),
+            }),
         );
 
         commands.entity(entity).insert(SsaoPipelineId(pipeline_id));

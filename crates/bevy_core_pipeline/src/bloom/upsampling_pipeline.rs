@@ -9,10 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    pipeline_keys::PipelineKey,
-    render_resource::*,
-    renderer::RenderDevice,
-    view::ViewTarget,
+    pipeline_keys::PipelineKey, render_resource::*, renderer::RenderDevice, view::ViewTarget,
 };
 
 #[derive(Component)]
@@ -158,23 +155,19 @@ pub fn prepare_upsampling_pipeline(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            pipeline_cache.pack_key(
-                &BloomUpsamplingPipelineKeys {
-                    composite_mode: settings.composite_mode,
-                    final_pipeline: false,
-                }
-            ),
+            pipeline_cache.pack_key(&BloomUpsamplingPipelineKeys {
+                composite_mode: settings.composite_mode,
+                final_pipeline: false,
+            }),
         );
 
         let pipeline_final_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            pipeline_cache.pack_key(
-                &BloomUpsamplingPipelineKeys {
-                    composite_mode: settings.composite_mode,
-                    final_pipeline: true,
-                }
-            ),
+            pipeline_cache.pack_key(&BloomUpsamplingPipelineKeys {
+                composite_mode: settings.composite_mode,
+                final_pipeline: true,
+            }),
         );
 
         commands.entity(entity).insert(UpsamplingPipelineIds {

@@ -537,24 +537,24 @@ bitflags::bitflags! {
     pub struct OldMeshPipelineKeyBitflags: u32 {
 /* na   */        const NONE                              = 0;
 /* view */        const HDR                               = (1 << 0);
-/* depr */        const TONEMAP_IN_SHADER                 = (1 << 1);
+/* view */        const TONEMAP_IN_SHADER                 = (1 << 1);
 /* view */        const DEBAND_DITHER                     = (1 << 2);
 /* view */        const DEPTH_PREPASS                     = (1 << 3);
 /* view */        const NORMAL_PREPASS                    = (1 << 4);
 /* view */        const DEFERRED_PREPASS                  = (1 << 5);
 /* view */        const MOTION_VECTOR_PREPASS             = (1 << 6);
-        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
-                                                            // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
+/* mat  */        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+/*      */                                                            // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
 /* view */        const ENVIRONMENT_MAP                   = (1 << 8);
 /* view */        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
 /* view */        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
 /* view */        const TAA                               = (1 << 11);
 /* mesh */        const MORPH_TARGETS                     = (1 << 12);
-        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
-        const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
-        const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
-        const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
-        const BLEND_ALPHA                       = (3 << Self::BLEND_SHIFT_BITS);
+/* alpha*/        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
+/* alpha*/        const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
+/* alpha*/        const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
+/* alpha*/        const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
+/* alpha*/        const BLEND_ALPHA                       = (3 << Self::BLEND_SHIFT_BITS);
 /* view */        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
 /* mesh */        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
 /* view */        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -750,7 +750,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
-        
+
         let mut bind_group_layout = vec![self.get_view_layout(key.extract::<PbrViewKey>()).clone()];
 
         bind_group_layout.push(setup_morph_and_skinning_defs(
@@ -808,7 +808,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let view_key = key.extract::<PbrViewKey>();
 
         // TODO is this right?
-        if view_key.extract::<PrepassKey>().normal && view_key.extract::<MsaaKey>().samples() == 1 && key.alpha_mode == AlphaKey::Opaque {
+        if view_key.extract::<PrepassKey>().normal
+            && view_key.extract::<MsaaKey>().samples() == 1
+            && key.alpha_mode == AlphaKey::Opaque
+        {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 

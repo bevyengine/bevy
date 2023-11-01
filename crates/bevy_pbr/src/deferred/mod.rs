@@ -529,8 +529,7 @@ pub fn prepare_deferred_lighting_pipelines(
         let key = OldMeshPipelineKey(view_key.bits());
         let key = pipeline_cache.pack_key(&key);
 
-        let pipeline_id =
-            pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, key);
+        let pipeline_id = pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, key);
 
         commands
             .entity(entity)
