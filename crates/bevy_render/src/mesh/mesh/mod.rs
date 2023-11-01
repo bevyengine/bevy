@@ -4,7 +4,7 @@ use bevy_render_macros::PipelineKeyInRenderCrate;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
-    pipeline_keys::PackedPipelineKey,
+    pipeline_keys::{KeyShaderDefs, PackedPipelineKey},
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
@@ -1029,7 +1029,21 @@ impl From<&Indices> for IndexFormat {
 #[derive(PipelineKeyInRenderCrate, Debug, Clone, Copy)]
 pub struct MeshKey {
     pub primitive_topology: PrimitiveTopology,
-    pub morph_targets: bool,
+    pub morph_targets: MorphTargetsKey,
+}
+
+#[derive(PipelineKeyInRenderCrate, Debug, Clone, Copy)]
+#[custom_shader_defs]
+pub struct MorphTargetsKey(pub bool);
+
+impl KeyShaderDefs for MorphTargetsKey {
+    fn shader_defs(&self) -> Vec<crate::render_resource::ShaderDefVal> {
+        if self.0 {
+            vec!["MORPH_TARGETS".into()]
+        } else {
+            Vec::default()
+        }
+    }
 }
 
 /// The GPU-representation of a [`Mesh`].
@@ -1102,7 +1116,7 @@ impl RenderAsset for Mesh {
 
         let mesh_key = MeshKey {
             primitive_topology: mesh.primitive_topology,
-            morph_targets: mesh.morph_targets.is_some(),
+            morph_targets: MorphTargetsKey(mesh.morph_targets.is_some()),
         };
 
         Ok(GpuMesh {

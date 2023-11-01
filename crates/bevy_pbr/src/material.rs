@@ -289,7 +289,7 @@ where
             alpha_mode: key.material_key.alpha,
         });
         let mut descriptor = self.mesh_pipeline.specialize(mesh_pipeline_key, layout)?;
-        // add shader defs for the full key (non-MeshPipelineKey parts of the key
+        // add shader defs for the full key (including non-MeshPipelineKey parts of the key)
         descriptor.vertex.shader_defs.extend(key.shader_defs());
         descriptor
             .fragment

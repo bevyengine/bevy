@@ -690,7 +690,7 @@ pub fn setup_morph_and_skinning_defs<T: KeyTypeConcrete>(
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
-    let is_morphed = key.extract::<MeshKey>().morph_targets;
+    let is_morphed = key.extract::<MeshKey>().morph_targets.0;
     match (is_skinned(layout), is_morphed) {
         (true, false) => {
             add_skin_data();

@@ -14,7 +14,7 @@ use bevy::{
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
-        pipeline_keys::{KeyMetaStore, KeyRepack, KeyTypeConcrete, PipelineKey, PipelineKeys},
+        pipeline_keys::{KeyRepack, PipelineKey, PipelineKeys},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -123,7 +123,6 @@ fn queue_custom(
         &mut RenderPhase<Transparent3d>,
         &PipelineKeys,
     )>,
-    key_store: Res<KeyMetaStore>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
@@ -141,15 +140,10 @@ fn queue_custom(
                 continue;
             };
             let mesh_key = mesh.packed_key;
-            let alpha_key = pipeline_cache.pack(&AlphaKey::Opaque);
+            let alpha_key = pipeline_cache.pack_key(&AlphaKey::Opaque);
             let key = NewMeshPipelineKey::repack((view_key, mesh_key, alpha_key));
             let pipeline = pipelines
-                .specialize(
-                    &pipeline_cache,
-                    &custom_pipeline,
-                    key,
-                    &mesh.layout,
-                )
+                .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
             transparent_phase.add(Transparent3d {
                 entity,

@@ -6,7 +6,9 @@ pub mod shape;
 
 pub use mesh::*;
 
-use crate::{prelude::Image, render_asset::RenderAssetPlugin};
+use crate::{
+    pipeline_keys::AddPipelineKey, prelude::Image, render_asset::RenderAssetPlugin, RenderApp,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetApp, Handle};
 use bevy_ecs::entity::Entity;
@@ -27,5 +29,11 @@ impl Plugin for MeshPlugin {
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<Mesh, Image>::default());
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .register_key::<MeshKey>()
+                .register_key::<MorphTargetsKey>();
+        }
     }
 }
