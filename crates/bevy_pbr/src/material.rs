@@ -1,34 +1,30 @@
 use crate::*;
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
-use bevy_core_pipeline::{
-    core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
-        Transparent3d,
-    },
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    tonemapping::{DebandDither, Tonemapping},
+use bevy_core_pipeline::core_3d::{
+    AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d, Transparent3d,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::SRes, SystemParamItem},
+    system::{
+        lifetimeless::{Read, SRes},
+        SystemParamItem,
+    },
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::Projection,
-    camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshKey, MeshVertexBufferLayout},
-    pipeline_keys::{KeyRepack, KeyShaderDefs, PackedPipelineKey, PipelineKeys},
+    pipeline_keys::{KeyRepack, KeyShaderDefs, PackedPipelineKey, PipelineKeys, SystemKey},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, VisibleEntities},
+    view::{ExtractedView, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
@@ -385,56 +381,6 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
 
-const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> OldMeshPipelineKeyBitflags {
-    match alpha_mode {
-        // Premultiplied and Add share the same pipeline key
-        // They're made distinct in the PBR shader, via `premultiply_alpha()`
-        AlphaMode::Premultiplied | AlphaMode::Add => {
-            OldMeshPipelineKeyBitflags::BLEND_PREMULTIPLIED_ALPHA
-        }
-        AlphaMode::Blend => OldMeshPipelineKeyBitflags::BLEND_ALPHA,
-        AlphaMode::Multiply => OldMeshPipelineKeyBitflags::BLEND_MULTIPLY,
-        AlphaMode::Mask(_) => OldMeshPipelineKeyBitflags::MAY_DISCARD,
-        _ => OldMeshPipelineKeyBitflags::NONE,
-    }
-}
-
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> OldMeshPipelineKeyBitflags {
-    match tonemapping {
-        Tonemapping::None => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_NONE,
-        Tonemapping::Reinhard => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => {
-            OldMeshPipelineKeyBitflags::TONEMAP_METHOD_REINHARD_LUMINANCE
-        }
-        Tonemapping::AcesFitted => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_ACES_FITTED,
-        Tonemapping::AgX => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_AGX,
-        Tonemapping::SomewhatBoringDisplayTransform => {
-            OldMeshPipelineKeyBitflags::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-        }
-        Tonemapping::TonyMcMapface => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_TONY_MC_MAPFACE,
-        Tonemapping::BlenderFilmic => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_BLENDER_FILMIC,
-    }
-}
-
-const fn screen_space_specular_transmission_pipeline_key(
-    screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
-) -> MeshPipelineKey {
-    match screen_space_transmissive_blur_quality {
-        ScreenSpaceTransmissionQuality::Low => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW
-        }
-        ScreenSpaceTransmissionQuality::Medium => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM
-        }
-        ScreenSpaceTransmissionQuality::High => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH
-        }
-        ScreenSpaceTransmissionQuality::Ultra => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
-        }
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
@@ -444,30 +390,14 @@ pub fn queue_material_meshes<M: Material>(
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
     mut views: Query<(
-        Option<&PipelineKeys>,
+        &PipelineKeys,
         &ExtractedView,
         &VisibleEntities,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&EnvironmentMapLight>,
-        Option<&ShadowFilteringMethod>,
-        Option<&ScreenSpaceAmbientOcclusionSettings>,
-        (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
-        ),
-        Option<&Camera3d>,
-        Option<&TemporalJitter>,
-        Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
@@ -480,15 +410,6 @@ pub fn queue_material_meshes<M: Material>(
         keys,
         view,
         visible_entities,
-        tonemapping,
-        dither,
-        environment_map,
-        shadow_filter_method,
-        ssao,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-        camera_3d,
-        temporal_jitter,
-        projection,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transmissive_phase,
@@ -500,78 +421,11 @@ pub fn queue_material_meshes<M: Material>(
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
-        let mut view_key = OldMeshPipelineKeyBitflags::from_msaa_samples(msaa.samples())
-            | OldMeshPipelineKeyBitflags::from_hdr(view.hdr);
+        let Some(view_key_new) = keys.get_packed_key::<PbrViewKey>() else {
+            continue;
+        };
 
-        if normal_prepass {
-            view_key |= OldMeshPipelineKeyBitflags::NORMAL_PREPASS;
-        }
-
-        if depth_prepass {
-            view_key |= OldMeshPipelineKeyBitflags::DEPTH_PREPASS;
-        }
-
-        if motion_vector_prepass {
-            view_key |= OldMeshPipelineKeyBitflags::MOTION_VECTOR_PREPASS;
-        }
-
-        if deferred_prepass {
-            view_key |= OldMeshPipelineKeyBitflags::DEFERRED_PREPASS;
-        }
-
-        if temporal_jitter.is_some() {
-            view_key |= OldMeshPipelineKeyBitflags::TEMPORAL_JITTER;
-        }
-
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-
-        if environment_map_loaded {
-            view_key |= OldMeshPipelineKeyBitflags::ENVIRONMENT_MAP;
-        }
-
-        if let Some(projection) = projection {
-            view_key |= match projection {
-                Projection::Perspective(_) => {
-                    OldMeshPipelineKeyBitflags::VIEW_PROJECTION_PERSPECTIVE
-                }
-                Projection::Orthographic(_) => {
-                    OldMeshPipelineKeyBitflags::VIEW_PROJECTION_ORTHOGRAPHIC
-                }
-            };
-        }
-
-        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
-            ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_HARDWARE_2X2;
-            }
-            ShadowFilteringMethod::Castano13 => {
-                view_key |= OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_CASTANO_13;
-            }
-            ShadowFilteringMethod::Jimenez14 => {
-                view_key |= OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_JIMENEZ_14;
-            }
-        }
-
-        if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= OldMeshPipelineKeyBitflags::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
-            if let Some(DebandDither::Enabled) = dither {
-                view_key |= OldMeshPipelineKeyBitflags::DEBAND_DITHER;
-            }
-        }
-        if ssao.is_some() {
-            view_key |= OldMeshPipelineKeyBitflags::SCREEN_SPACE_AMBIENT_OCCLUSION;
-        }
-        if let Some(camera_3d) = camera_3d {
-            view_key |= screen_space_specular_transmission_pipeline_key(
-                camera_3d.screen_space_specular_transmission_quality,
-            );
-        }
         let rangefinder = view.rangefinder3d();
-
-        let view_key_new = keys.unwrap().get_packed_key::<PbrViewKey>().unwrap();
 
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
@@ -592,16 +446,6 @@ pub fn queue_material_meshes<M: Material>(
                 OpaqueRendererMethod::Deferred => false,
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
-
-            let mut mesh_key = view_key;
-
-            mesh_key |=
-                OldMeshPipelineKeyBitflags::from_primitive_topology(mesh.primitive_topology);
-
-            if mesh.morph_targets.is_some() {
-                mesh_key |= OldMeshPipelineKeyBitflags::MORPH_TARGETS;
-            }
-            mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
 
             let mesh_key_new = render_meshes
                 .get(mesh_instance.mesh_asset_id)
@@ -1020,4 +864,52 @@ pub struct NewMaterialKey<M: Material> {
     pub opaque_method: OpaqueMethodKey,
     pub may_discard: MayDiscard,
     pub material_data: M::Data,
+}
+
+#[derive(PipelineKey, Clone, Copy)]
+#[repr(u8)]
+#[custom_shader_defs]
+pub enum ScreenSpaceTransmissionQualityKey {
+    None,
+    Low,
+    Medium,
+    High,
+    Ultra,
+}
+
+impl SystemKey for ScreenSpaceTransmissionQualityKey {
+    type Param = ();
+
+    type Query = Option<Read<Camera3d>>;
+
+    fn from_params(_: &(), camera: Option<&Camera3d>) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let Some(camera) = camera else {
+            return Some(ScreenSpaceTransmissionQualityKey::None);
+        };
+        Some(match camera.screen_space_specular_transmission_quality {
+            ScreenSpaceTransmissionQuality::Low => Self::Low,
+            ScreenSpaceTransmissionQuality::Medium => Self::Medium,
+            ScreenSpaceTransmissionQuality::High => Self::High,
+            ScreenSpaceTransmissionQuality::Ultra => Self::Ultra,
+        })
+    }
+}
+
+impl KeyShaderDefs for ScreenSpaceTransmissionQualityKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        let taps = match self {
+            ScreenSpaceTransmissionQualityKey::None => return Vec::default(),
+            ScreenSpaceTransmissionQualityKey::Low => 4,
+            ScreenSpaceTransmissionQualityKey::Medium => 8,
+            ScreenSpaceTransmissionQualityKey::High => 16,
+            ScreenSpaceTransmissionQualityKey::Ultra => 32,
+        };
+        vec![ShaderDefVal::UInt(
+            "SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS".into(),
+            taps,
+        )]
+    }
 }

@@ -10,7 +10,7 @@ use std::{
 
 use self::composite::CompositeKey;
 
-pub type KeyPrimitive = u64;
+pub type KeyPrimitive = u128;
 
 mod composite;
 mod packed_types;

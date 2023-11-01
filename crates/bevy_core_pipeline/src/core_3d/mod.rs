@@ -56,7 +56,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{BevyDefault, TextureCache},
-    view::{ExtractedView, {ExtractedView, ViewDepthTexture}, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{nonmax::NonMaxU32, tracing::warn, FloatOrd, HashMap};
