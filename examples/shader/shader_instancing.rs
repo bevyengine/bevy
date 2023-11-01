@@ -25,7 +25,10 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_internal::{render::pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey}, pbr::{OldMeshPipelineKey, NewMeshPipelineKey}};
+use bevy_internal::{
+    pbr::{NewMeshPipelineKey, OldMeshPipelineKey},
+    render::pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+};
 use bytemuck::{Pod, Zeroable};
 
 fn main() {
@@ -136,11 +139,17 @@ fn queue_custom(
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let key =
-                view_key | OldMeshPipelineKeyBitflags::from_primitive_topology(mesh.primitive_topology);
+            let key = view_key
+                | OldMeshPipelineKeyBitflags::from_primitive_topology(mesh.primitive_topology);
             let key = KeyTypeConcrete::pack(key, &key_store);
             let pipeline = pipelines
-                .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout, &key_store)
+                .specialize(
+                    &pipeline_cache,
+                    &custom_pipeline,
+                    key,
+                    &mesh.layout,
+                    &key_store,
+                )
                 .unwrap();
             transparent_phase.add(Transparent3d {
                 entity,

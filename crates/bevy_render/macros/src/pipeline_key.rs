@@ -1,7 +1,9 @@
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{Data, DataEnum, DataStruct, Error, Fields, PathArguments, PathSegment, Result};
+use syn::{
+    parse_quote, Data, DataEnum, DataStruct, Error, Fields, PathArguments, PathSegment, Result,
+};
 
 pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
@@ -18,14 +20,50 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
 
     match &ast.data {
         Data::Enum(DataEnum { variants, .. }) => {
-            for variant in variants {
+            let mut variant_numbers = Vec::default();
+            let mut variant_names = Vec::default();
+            for (i, variant) in variants.iter().enumerate() {
                 if !variant.fields.is_empty() {
                     return Err(Error::new_spanned(
-                        ast,
+                        variant,
                         "PipelineKey target must be either a unit enum or a struct of KeyTypes",
                     ));
                 }
+                if variant.discriminant.is_some() {
+                    return Err(Error::new_spanned(
+                        variant,
+                        "no explicit discriminants please, we're pipeline keys",
+                    ));
+                }
+                let name = &variant.ident;
+                variant_numbers.push(quote! { #i });
+                variant_names.push(quote! { #name });
             }
+
+            let Some(repr_attr) = ast
+                .attrs
+                .iter()
+                .find(|attr| attr.meta.path().get_ident() == Some(&format_ident!("repr")))
+            else {
+                return Err(Error::new_spanned(
+                    ast,
+                    "PipelineKey enum requires a #[repr({integer})] annotation",
+                ));
+            };
+            let syn::Meta::List(meta_list) = &repr_attr.meta else {
+                return Err(Error::new_spanned(
+                    repr_attr,
+                    "repr needs exactly one argument",
+                ));
+            };
+            let mut meta_list = meta_list.tokens.clone().into_iter();
+            let (Some(repr), None) = (meta_list.next(), meta_list.next()) else {
+                return Err(Error::new_spanned(
+                    repr_attr,
+                    "repr needs exactly one argument",
+                ));
+            };
+            let repr: syn::Ident = parse_quote! { #repr };
 
             let count = variants.len();
             let bits = ((count - 1).ilog2() + 1) as u8;
@@ -70,11 +108,11 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     }
 
                     fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
-                        #render_path::pipeline_keys::PackedPipelineKey::new(#render_path::pipeline_keys::KeyPrimitive::from(*value), #bits)
+                        #render_path::pipeline_keys::PackedPipelineKey::new((*value as #repr) as #render_path::pipeline_keys::KeyPrimitive, #bits)
                     }
 
                     fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
-                        value.into()
+                        Self::from(value as #repr)
                     }
 
                     #defs_impl
@@ -83,6 +121,21 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                 impl #impl_generics #render_path::pipeline_keys::FixedSizeKey for #struct_name #ty_generics #where_clause {
                     fn fixed_size() -> u8 {
                         #bits
+                    }
+                }
+
+                impl #impl_generics ::core::convert::From<#repr> for #struct_name #ty_generics #where_clause {
+                    #[inline]
+                    fn from (
+                        number: #repr,
+                    ) -> Self {
+                        match number {
+                            #(
+                                n if n as usize == #variant_numbers => Self::#variant_names,
+                            )*
+                            #[allow(unreachable_patterns)]
+                            _ => panic!("unexpected value in from"),
+                        }
                     }
                 }
 

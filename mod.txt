@@ -1,0 +1,269 @@
+    Finished dev [unoptimized + debuginfo] target(s) in 0.30s
+     Running `target\debug\examples\shader_prepass.exe`
+[2m2023-11-01T01:01:56.451337Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_render::view with defs: {}
+[2m2023-11-01T01:01:56.453033Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_render::view with defs: {"AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576)}
+[2m2023-11-01T01:01:56.455257Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for  with defs: {"AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576)}
+[2m2023-11-01T01:01:56.461916Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::mesh_types with defs: {}
+[2m2023-11-01T01:01:56.462501Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::skinning with defs: {}
+[2m2023-11-01T01:01:56.462993Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::forward_io with defs: {}
+[2m2023-11-01T01:01:56.463237Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_render::instance_index with defs: {}
+[2m2023-11-01T01:01:56.464571Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::mesh_view_types with defs: {"MAX_DIRECTIONAL_LIGHTS": UInt(10), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.464818Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_render::globals with defs: {}
+[2m2023-11-01T01:01:56.465773Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::mesh_view_bindings with defs: {}
+[2m2023-11-01T01:01:56.468227Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::view_transformations with defs: {}
+[2m2023-11-01T01:01:56.468874Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::morph with defs: {}
+[2m2023-11-01T01:01:56.469083Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_render::maths with defs: {}
+[2m2023-11-01T01:01:56.469310Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::mesh_bindings with defs: {}
+[2m2023-11-01T01:01:56.470310Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::mesh_functions with defs: {}
+[2m2023-11-01T01:01:56.471795Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::skinning with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.472690Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::morph with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.473345Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_render::instance_index with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.483286Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::mesh_view_types with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.485693Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_render::globals with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.486170Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::mesh_view_bindings with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.489712Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::view_transformations with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.497417Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_render::maths with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.498844Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::mesh_types with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.499731Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::mesh_bindings with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.500474Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::mesh_functions with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.504754Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::forward_io with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.506844Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for  with defs: {"MESH_PIPELINE": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_NORMALS": Bool(true)}
+[2m2023-11-01T01:01:56.511440Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::utils with defs: {}
+[2m2023-11-01T01:01:56.515133Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::lighting with defs: {}
+[2m2023-11-01T01:01:56.515558Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::ambient with defs: {}
+[2m2023-11-01T01:01:56.516701Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::pbr_types with defs: {}
+[2m2023-11-01T01:01:56.517367Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::environment_map with defs: {}
+[2m2023-11-01T01:01:56.520809Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_core_pipeline::tonemapping with defs: {}
+[2m2023-11-01T01:01:56.522271Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::clustered_forward with defs: {}
+[2m2023-11-01T01:01:56.523106Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::fog with defs: {}
+[2m2023-11-01T01:01:56.524743Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::shadow_sampling with defs: {}
+[2m2023-11-01T01:01:56.527104Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::shadows with defs: {}
+[2m2023-11-01T01:01:56.527358Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::pbr_bindings with defs: {}
+[2m2023-11-01T01:01:56.532033Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::pbr_functions with defs: {}
+[2m2023-11-01T01:01:56.532827Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::prepass_io with defs: {}
+[2m2023-11-01T01:01:56.533514Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::rgb9e5 with defs: {}
+[2m2023-11-01T01:01:56.534513Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::pbr_deferred_types with defs: {}
+[2m2023-11-01T01:01:56.534630Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::prepass_bindings with defs: {}
+[2m2023-11-01T01:01:56.535381Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::pbr_prepass_functions with defs: {}
+[2m2023-11-01T01:01:56.536927Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::pbr_deferred_functions with defs: {}
+[2m2023-11-01T01:01:56.537322Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::gtao_utils with defs: {}
+[2m2023-11-01T01:01:56.538937Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::parallax_mapping with defs: {}
+[2m2023-11-01T01:01:56.539354Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::prepass_utils with defs: {}
+[2m2023-11-01T01:01:56.541212Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_pbr::pbr_fragment with defs: {}
+[2m2023-11-01T01:01:56.560219Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::utils with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.562695Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::lighting with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.572265Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::pbr_types with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.575640Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::ambient with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.585317Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::shadow_sampling with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.591347Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::shadows with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.600028Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::clustered_forward with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.604731Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::fog with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.607696Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::pbr_functions with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.619983Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::pbr_bindings with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.621465Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::pbr_fragment with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.635312Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::pbr_deferred_types with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.639803Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::rgb9e5 with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.642167Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::pbr_deferred_functions with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.651718Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::prepass_io with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.653237Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for  with defs: {"VERTEX_UVS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "VERTEX_POSITIONS": Bool(true), "MESH_PIPELINE": Bool(true), "VERTEX_NORMALS": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4)}
+[2m2023-11-01T01:01:56.746989Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_core_pipeline::fullscreen_vertex_shader with defs: {"AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576)}
+[2m2023-11-01T01:01:56.748140Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m adding module definition for bevy_core_pipeline::fullscreen_vertex_shader with defs: {}
+[2m2023-11-01T01:01:56.749107Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_core_pipeline::fullscreen_vertex_shader with defs: {"AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576)}
+[2m2023-11-01T01:01:56.750305Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for  with defs: {"AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576)}
+[2m2023-11-01T01:01:56.760891Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::mesh_view_bindings with defs: {"MAX_CASCADES_PER_LIGHT": UInt(4), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "PREPASS_PIPELINE": Bool(true), "MOTION_VECTOR_PREPASS": Bool(true), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_POSITIONS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "DEBAND_DITHER": Bool(true), "PREPASS_FRAGMENT": Bool(true), "TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "DEPTH_PREPASS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "TONEMAP_IN_SHADER": Bool(true), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_UVS": Bool(true)}
+[2m2023-11-01T01:01:56.764487Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::view_transformations with defs: {"MAX_CASCADES_PER_LIGHT": UInt(4), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "PREPASS_PIPELINE": Bool(true), "MOTION_VECTOR_PREPASS": Bool(true), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_POSITIONS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "DEBAND_DITHER": Bool(true), "PREPASS_FRAGMENT": Bool(true), "TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "DEPTH_PREPASS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "TONEMAP_IN_SHADER": Bool(true), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_UVS": Bool(true)}
+[2m2023-11-01T01:01:56.769678Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::mesh_functions with defs: {"MAX_CASCADES_PER_LIGHT": UInt(4), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "PREPASS_PIPELINE": Bool(true), "MOTION_VECTOR_PREPASS": Bool(true), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_POSITIONS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "DEBAND_DITHER": Bool(true), "PREPASS_FRAGMENT": Bool(true), "TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "DEPTH_PREPASS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "TONEMAP_IN_SHADER": Bool(true), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_UVS": Bool(true)}
+[2m2023-11-01T01:01:56.774186Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::prepass_io with defs: {"MAX_CASCADES_PER_LIGHT": UInt(4), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "PREPASS_PIPELINE": Bool(true), "MOTION_VECTOR_PREPASS": Bool(true), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_POSITIONS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "DEBAND_DITHER": Bool(true), "PREPASS_FRAGMENT": Bool(true), "TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "DEPTH_PREPASS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "TONEMAP_IN_SHADER": Bool(true), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_UVS": Bool(true)}
+[2m2023-11-01T01:01:56.775106Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::prepass_bindings with defs: {"MAX_CASCADES_PER_LIGHT": UInt(4), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "PREPASS_PIPELINE": Bool(true), "MOTION_VECTOR_PREPASS": Bool(true), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_POSITIONS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "DEBAND_DITHER": Bool(true), "PREPASS_FRAGMENT": Bool(true), "TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "DEPTH_PREPASS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "TONEMAP_IN_SHADER": Bool(true), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_UVS": Bool(true)}
+[2m2023-11-01T01:01:56.777991Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for  with defs: {"MAX_CASCADES_PER_LIGHT": UInt(4), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "PREPASS_PIPELINE": Bool(true), "MOTION_VECTOR_PREPASS": Bool(true), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "VERTEX_POSITIONS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "DEBAND_DITHER": Bool(true), "PREPASS_FRAGMENT": Bool(true), "TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "DEPTH_PREPASS": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "TONEMAP_IN_SHADER": Bool(true), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_UVS": Bool(true)}
+[2m2023-11-01T01:01:56.794743Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_core_pipeline::tonemapping with defs: {"TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "DEBAND_DITHER": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "PREPASS_FRAGMENT": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "TONEMAP_IN_SHADER": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "MOTION_VECTOR_PREPASS": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "DEPTH_PREPASS": Bool(true), "PREPASS_PIPELINE": Bool(true)}
+[2m2023-11-01T01:01:56.801694Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::pbr_functions with defs: {"TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "DEBAND_DITHER": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "PREPASS_FRAGMENT": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "TONEMAP_IN_SHADER": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "MOTION_VECTOR_PREPASS": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "DEPTH_PREPASS": Bool(true), "PREPASS_PIPELINE": Bool(true)}
+[2m2023-11-01T01:01:56.809478Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for bevy_pbr::pbr_prepass_functions with defs: {"TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "DEBAND_DITHER": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "PREPASS_FRAGMENT": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "TONEMAP_IN_SHADER": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "MOTION_VECTOR_PREPASS": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "DEPTH_PREPASS": Bool(true), "PREPASS_PIPELINE": Bool(true)}
+[2m2023-11-01T01:01:56.812723Z[0m [34mDEBUG[0m [2mnaga_oil::compose[0m[2m:[0m creating IR for  with defs: {"TONEMAP_METHOD_TONY_MC_MAPFACE": Bool(true), "NORMAL_PREPASS": Bool(true), "VERTEX_OUTPUT_INSTANCE_INDEX": Bool(true), "DEBAND_DITHER": Bool(true), "VERTEX_POSITIONS": Bool(true), "VERTEX_UVS": Bool(true), "PREPASS_FRAGMENT": Bool(true), "MAX_CASCADES_PER_LIGHT": UInt(4), "AVAILABLE_STORAGE_BUFFER_BINDINGS": UInt(1048576), "NORMAL_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS": Bool(true), "SHADOW_FILTER_METHOD_CASTANO_13": Bool(true), "VIEW_PROJECTION_PERSPECTIVE": Bool(true), "TONEMAP_IN_SHADER": Bool(true), "MAX_DIRECTIONAL_LIGHTS": UInt(10), "MOTION_VECTOR_PREPASS": Bool(true), "MSAA_SAMPLECOUNT": UInt(1), "DEPTH_PREPASS": Bool(true), "PREPASS_PIPELINE": Bool(true)}
+[2m2023-11-01T01:01:56.819054Z[0m [31mERROR[0m [2mwgpu::backend::direct[0m[2m:[0m Handling wgpu errors as fatal by default    
+thread 'Compute Task Pool (15)' panicked at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\wgpu-0.17.1\src\backend\direct.rs:3056:5:
+wgpu error: Validation Error
+
+Caused by:
+    In Device::create_render_pipeline
+      note: label = `pbr_prepass_pipeline`
+    Error matching ShaderStages(VERTEX) shader requirements against the pipeline
+    Location[2] Float32x3 interpolated as Some(Perspective) with sampling Some(Center) is not provided by the previous stage outputs
+    Input is not provided by the earlier stage in the pipeline
+
+
+stack backtrace:
+   0: std::panicking::begin_panic_handler
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33/library\std\src\panicking.rs:595
+   1: core::panicking::panic_fmt
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33/library\core\src\panicking.rs:67
+   2: wgpu::backend::direct::default_error_handler
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\wgpu-0.17.1\src\backend\direct.rs:3056
+   3: core::ops::function::Fn::call<void (*)(enum2$<wgpu::Error>),tuple$<enum2$<wgpu::Error> > >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\ops\function.rs:79
+   4: alloc::boxed::impl$49::call<tuple$<enum2$<wgpu::Error> >,dyn$<wgpu::UncapturedErrorHandler<assoc$<Output,tuple$<> > > >,alloc::alloc::Global>
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\alloc\src\boxed.rs:2021
+   5: wgpu::backend::direct::ErrorSinkRaw::handle_error
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\wgpu-0.17.1\src\backend\direct.rs:3042
+   6: wgpu::backend::direct::Context::handle_error<enum2$<wgpu_core::pipeline::CreateRenderPipelineError> >
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\wgpu-0.17.1\src\backend\direct.rs:324
+   7: wgpu::backend::direct::impl$7::device_create_render_pipeline
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\wgpu-0.17.1\src\backend\direct.rs:1214
+   8: wgpu::context::impl$5::device_create_render_pipeline<wgpu::backend::direct::Context>
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\wgpu-0.17.1\src\context.rs:2312
+   9: wgpu::Device::create_render_pipeline
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\wgpu-0.17.1\src\lib.rs:2402
+  10: bevy_render::renderer::render_device::RenderDevice::create_render_pipeline
+             at .\crates\bevy_render\src\renderer\render_device.rs:122
+  11: bevy_render::render_resource::pipeline_cache::PipelineCache::process_render_pipeline
+             at .\crates\bevy_render\src\render_resource\pipeline_cache.rs:732
+  12: bevy_render::render_resource::pipeline_cache::PipelineCache::process_queue
+             at .\crates\bevy_render\src\render_resource\pipeline_cache.rs:806
+  13: bevy_render::render_resource::pipeline_cache::PipelineCache::process_pipeline_queue_system
+             at .\crates\bevy_render\src\render_resource\pipeline_cache.rs:838
+  14: core::ops::function::FnMut::call_mut<void (*)(bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::PipelineCache>),tuple$<bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::PipelineCache> > >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\ops\function.rs:166
+  15: core::ops::function::impls::impl$3::call_mut<tuple$<bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::PipelineCache> >,void (*)(bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::PipelineCache>)
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\ops\function.rs:294
+  16: bevy_ecs::system::function_system::impl$11::run::call_inner<tuple$<>,bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::PipelineCache>,ref_mut$<void (*)(bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipelin
+             at .\crates\bevy_ecs\src\system\function_system.rs:642
+  17: bevy_ecs::system::function_system::impl$11::run<tuple$<>,void (*)(bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::PipelineCache>),bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::PipelineCac
+             at .\crates\bevy_ecs\src\system\function_system.rs:645
+  18: bevy_ecs::system::function_system::impl$6::run_unsafe<void (*)(bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::PipelineCache>),void (*)(bevy_ecs::change_detection::ResMut<bevy_render::render_resource::pipeline_cache::Pipel
+             at .\crates\bevy_ecs\src\system\function_system.rs:485
+  19: bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block$0::closure$0
+             at .\crates\bevy_ecs\src\schedule\executor\multi_threaded.rs:505
+  20: core::ops::function::FnOnce::call_once<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block$0::closure_env$0,tuple$<> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\ops\function.rs:250
+  21: core::panic::unwind_safe::impl$23::call_once<tuple$<>,bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block$0::closure_env$0>
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\panic\unwind_safe.rs:271
+  22: std::panicking::try::do_call<core::panic::unwind_safe::AssertUnwindSafe<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block$0::closure_env$0>,tuple$<> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:502
+  23: std::panicking::try::do_catch<core::panic::unwind_safe::AssertUnwindSafe<bevy_ecs::schedule::executor::multi_threaded::apply_deferred::closure_env$0>,tuple$<> >
+  24: std::panicking::try<tuple$<>,core::panic::unwind_safe::AssertUnwindSafe<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block$0::closure_env$0> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:466
+  25: std::panic::catch_unwind<core::panic::unwind_safe::AssertUnwindSafe<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block$0::closure_env$0>,tuple$<> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panic.rs:142
+  26: bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block$0
+             at .\crates\bevy_ecs\src\schedule\executor\multi_threaded.rs:500
+  27: core::panic::unwind_safe::impl$26::poll<enum2$<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block_env$0> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\panic\unwind_safe.rs:296
+  28: futures_lite::future::impl$14::poll::closure$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block_env$0> > >
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:626
+  29: core::panic::unwind_safe::impl$23::call_once<enum2$<core::task::poll::Poll<tuple$<> > >,futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\panic\unwind_safe.rs:271
+  30: std::panicking::try::do_call<core::panic::unwind_safe::AssertUnwindSafe<futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_blo
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:502
+  31: std::panicking::try::do_catch<core::panic::unwind_safe::AssertUnwindSafe<bevy_ecs::schedule::executor::multi_threaded::apply_deferred::closure_env$0>,tuple$<> >
+  32: std::panicking::try<enum2$<core::task::poll::Poll<tuple$<> > >,core::panic::unwind_safe::AssertUnwindSafe<futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_ecs::schedule::executor::multi_threaded::im
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:466
+  33: std::panic::catch_unwind<core::panic::unwind_safe::AssertUnwindSafe<futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block_e
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panic.rs:142
+  34: futures_lite::future::impl$14::poll<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_ecs::schedule::executor::multi_threaded::impl$3::spawn_system_task::async_block_env$0> > >
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:626
+  35: async_executor::impl$5::spawn::async_block$0<enum2$<core::result::Result<tuple$<>,alloc::boxed::Box<dyn$<core::any::Any,core::marker::Send>,alloc::alloc::Global> > >,futures_lite::future::CatchUnwind<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-executor-1.6.0\src\lib.rs:151
+  36: async_task::raw::RawTask<enum2$<async_executor::impl$5::spawn::async_block_env$0<enum2$<core::result::Result<tuple$<>,alloc::boxed::Box<dyn$<core::any::Any,core::marker::Send>,alloc::alloc::Global> > >,futures_lite::future::CatchUnwind<core::panic::unwind
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-task-4.5.0\src\raw.rs:568
+  37: async_task::runnable::Runnable<tuple$<> >::run<tuple$<> >
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-task-4.5.0\src\runnable.rs:784
+  38: async_executor::impl$5::run::async_fn$0::async_block$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure$0::async_block_en
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-executor-1.6.0\src\lib.rs:243
+  39: futures_lite::future::impl$12::poll<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure$0::async_block_env$0>,async_channel:
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:529
+  40: async_executor::impl$5::run::async_fn$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure$0::async_block_env$0>,async_chan
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-executor-1.6.0\src\lib.rs:250
+  41: futures_lite::future::block_on::closure$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,enum2$<async_executor::impl$5::run::async_fn_env$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:89
+  42: std::thread::local::LocalKey<core::cell::RefCell<tuple$<parking::Parker,core::task::wake::Waker> > >::try_with<core::cell::RefCell<tuple$<parking::Parker,core::task::wake::Waker> >,futures_lite::future::block_on::closure_env$0<enum2$<core::result::Result<
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\thread\local.rs:270
+  43: std::thread::local::LocalKey<core::cell::RefCell<tuple$<parking::Parker,core::task::wake::Waker> > >::with<core::cell::RefCell<tuple$<parking::Parker,core::task::wake::Waker> >,futures_lite::future::block_on::closure_env$0<enum2$<core::result::Result<tupl
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\thread\local.rs:246
+  44: futures_lite::future::block_on<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,enum2$<async_executor::impl$5::run::async_fn_env$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<bevy_tasks:
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:79
+  45: bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure$0
+             at .\crates\bevy_tasks\src\task_pool.rs:180
+  46: std::panicking::try::do_call<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure_env$0,enum2$<core::result::Result<tuple$<>,async_channel::RecvError> > >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:502
+  47: std::panicking::try::do_catch<core::panic::unwind_safe::AssertUnwindSafe<std::sys::common::thread_local::fast_local::destroy_value::closure_env$0<alloc::sync::Arc<bevy_tasks::thread_executor::ThreadExecutor,alloc::alloc::Global> > >,tuple$<> >
+  48: std::panicking::try<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure_env$0>
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:466
+  49: std::panic::catch_unwind<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure_env$0,enum2$<core::result::Result<tuple$<>,async_channel::RecvError> > >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panic.rs:142
+  50: bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0
+             at .\crates\bevy_tasks\src\task_pool.rs:174
+  51: std::thread::local::LocalKey<async_executor::LocalExecutor>::try_with<async_executor::LocalExecutor,bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure_env$0,tuple$<> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\thread\local.rs:270
+  52: std::thread::local::LocalKey<async_executor::LocalExecutor>::with<async_executor::LocalExecutor,bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure_env$0,tuple$<> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\thread\local.rs:246
+  53: bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0
+             at .\crates\bevy_tasks\src\task_pool.rs:167
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+Encountered a panic in system `bevy_render::render_resource::pipeline_cache::PipelineCache::process_pipeline_queue_system`!
+thread 'Compute Task Pool (13)' panicked at crates\bevy_render\src\pipelined_rendering.rs:145:45:
+called `Result::unwrap()` on an `Err` value: RecvError
+stack backtrace:
+   0: std::panicking::begin_panic_handler
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33/library\std\src\panicking.rs:595
+   1: core::panicking::panic_fmt
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33/library\core\src\panicking.rs:67
+   2: core::result::unwrap_failed
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33/library\core\src\result.rs:1652
+   3: enum2$<core::result::Result<bevy_app::app::SubApp,async_channel::RecvError> >::unwrap<bevy_app::app::SubApp,async_channel::RecvError>
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\result.rs:1077
+   4: bevy_render::pipelined_rendering::update_rendering::closure$0::closure$0::async_block$0
+             at .\crates\bevy_render\src\pipelined_rendering.rs:145
+   5: core::panic::unwind_safe::impl$26::poll<enum2$<bevy_render::pipelined_rendering::update_rendering::closure$0::closure$0::async_block_env$0> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\panic\unwind_safe.rs:296
+   6: futures_lite::future::impl$14::poll::closure$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_render::pipelined_rendering::update_rendering::closure$0::closure$0::async_block_env$0> > >
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:626
+   7: core::panic::unwind_safe::impl$23::call_once<enum2$<core::task::poll::Poll<bevy_app::app::SubApp> >,futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_render::pipelined_rendering::update_rendering::cl
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\core\src\panic\unwind_safe.rs:271
+   8: std::panicking::try::do_call<core::panic::unwind_safe::AssertUnwindSafe<futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_render::pipelined_rendering::update_rendering::closure$0::closure$0::async_bl
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:502
+   9: std::panicking::try::do_catch<core::panic::unwind_safe::AssertUnwindSafe<futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<async_executor::impl$5::run::async_fn_env$0<tuple$<>,enum2$<bevy_tasks::task_pool
+  10: std::panicking::try<enum2$<core::task::poll::Poll<bevy_app::app::SubApp> >,core::panic::unwind_safe::AssertUnwindSafe<futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_render::pipelined_rendering::up
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:466
+  11: std::panic::catch_unwind<core::panic::unwind_safe::AssertUnwindSafe<futures_lite::future::impl$14::poll::closure_env$0<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_render::pipelined_rendering::update_rendering::closure$0::closure$0::async_block_
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panic.rs:142
+  12: futures_lite::future::impl$14::poll<core::panic::unwind_safe::AssertUnwindSafe<enum2$<bevy_render::pipelined_rendering::update_rendering::closure$0::closure$0::async_block_env$0> > >
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:626
+  13: async_executor::impl$5::spawn::async_block$0<enum2$<core::result::Result<bevy_app::app::SubApp,alloc::boxed::Box<dyn$<core::any::Any,core::marker::Send>,alloc::alloc::Global> > >,futures_lite::future::CatchUnwind<core::panic::unwind_safe::AssertUnwindSafe
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-executor-1.6.0\src\lib.rs:151
+  14: async_task::raw::RawTask<enum2$<async_executor::impl$5::spawn::async_block_env$0<enum2$<core::result::Result<bevy_app::app::SubApp,alloc::boxed::Box<dyn$<core::any::Any,core::marker::Send>,alloc::alloc::Global> > >,futures_lite::future::CatchUnwind<core::
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-task-4.5.0\src\raw.rs:568
+  15: async_task::runnable::Runnable<tuple$<> >::run<tuple$<> >
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-task-4.5.0\src\runnable.rs:784
+  16: async_executor::impl$5::run::async_fn$0::async_block$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure$0::async_block_en
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-executor-1.6.0\src\lib.rs:243
+  17: futures_lite::future::impl$12::poll<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure$0::async_block_env$0>,async_channel:
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:529
+  18: async_executor::impl$5::run::async_fn$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure$0::async_block_env$0>,async_chan
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\async-executor-1.6.0\src\lib.rs:250
+  19: futures_lite::future::block_on::closure$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,enum2$<async_executor::impl$5::run::async_fn_env$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:89
+  20: std::thread::local::LocalKey<core::cell::RefCell<tuple$<parking::Parker,core::task::wake::Waker> > >::try_with<core::cell::RefCell<tuple$<parking::Parker,core::task::wake::Waker> >,futures_lite::future::block_on::closure_env$0<enum2$<core::result::Result<
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\thread\local.rs:270
+  21: std::thread::local::LocalKey<core::cell::RefCell<tuple$<parking::Parker,core::task::wake::Waker> > >::with<core::cell::RefCell<tuple$<parking::Parker,core::task::wake::Waker> >,futures_lite::future::block_on::closure_env$0<enum2$<core::result::Result<tupl
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\thread\local.rs:246
+  22: futures_lite::future::block_on<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,enum2$<async_executor::impl$5::run::async_fn_env$0<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,futures_lite::future::Or<enum2$<bevy_tasks:
+             at C:\Users\robfm\.cargo\registry\src\index.crates.io-6f17d22bba15001f\futures-lite-1.13.0\src\future.rs:79
+  23: bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure$0
+             at .\crates\bevy_tasks\src\task_pool.rs:180
+  24: std::panicking::try::do_call<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure_env$0,enum2$<core::result::Result<tuple$<>,async_channel::RecvError> > >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:502
+  25: std::panicking::try::do_catch<core::panic::unwind_safe::AssertUnwindSafe<std::sys::common::thread_local::fast_local::destroy_value::closure_env$0<alloc::sync::Arc<bevy_tasks::thread_executor::ThreadExecutor,alloc::alloc::Global> > >,tuple$<> >
+  26: std::panicking::try<enum2$<core::result::Result<tuple$<>,async_channel::RecvError> >,bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure_env$0>
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panicking.rs:466
+  27: std::panic::catch_unwind<bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0::closure_env$0,enum2$<core::result::Result<tuple$<>,async_channel::RecvError> > >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\panic.rs:142
+  28: bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure$0
+             at .\crates\bevy_tasks\src\task_pool.rs:174
+  29: std::thread::local::LocalKey<async_executor::LocalExecutor>::try_with<async_executor::LocalExecutor,bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure_env$0,tuple$<> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\thread\local.rs:270
+  30: std::thread::local::LocalKey<async_executor::LocalExecutor>::with<async_executor::LocalExecutor,bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0::closure_env$0,tuple$<> >
+             at /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\library\std\src\thread\local.rs:246
+  31: bevy_tasks::task_pool::impl$2::new_internal::closure$0::closure$0
+             at .\crates\bevy_tasks\src\task_pool.rs:167
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+error: process didn't exit successfully: `target\debug\examples\shader_prepass.exe` (exit code: 101)

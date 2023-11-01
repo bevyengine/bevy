@@ -1,17 +1,21 @@
 use bevy_asset::{Asset, Handle};
 use bevy_reflect::TypePath;
 use bevy_render::{
-    mesh::{MeshVertexBufferLayout, MeshKey},
+    mesh::{MeshKey, MeshVertexBufferLayout},
+    pipeline_keys::PipelineKey,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image}, pipeline_keys::PipelineKey,
+    texture::{FallbackImage, Image},
 };
 
-use crate::{Material, MaterialPipeline, MeshPipeline, NewMaterialPipelineKey, NewMaterialKey, PbrViewKey, AlphaKey, MayDiscard};
+use crate::{
+    AlphaKey, Material, MaterialPipeline, MayDiscard, MeshPipeline, NewMaterialKey,
+    NewMaterialPipelineKey, OpaqueMethodKey, PbrViewKey,
+};
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
@@ -20,9 +24,10 @@ pub struct MaterialExtensionPipeline {
     pub fragment_shader: Option<Handle<Shader>>,
 }
 
-#[derive(PipelineKey,)]
+#[derive(PipelineKey)]
 pub struct MaterialExtensionKey<E: MaterialExtension> {
     pub alpha: AlphaKey,
+    pub opaque_method: OpaqueMethodKey,
     pub may_discard: MayDiscard,
     pub material_key: E::Data,
 }
@@ -238,6 +243,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             mesh_key: key.mesh_key,
             material_key: NewMaterialKey {
                 alpha: key.material_key.alpha,
+                opaque_method: key.material_key.opaque_method,
                 may_discard: key.material_key.may_discard,
                 material_data: key.material_key.material_data.0.clone(),
             },
@@ -259,6 +265,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             mesh_key: key.mesh_key,
             material_key: MaterialExtensionKey {
                 alpha: key.material_key.alpha,
+                opaque_method: key.material_key.opaque_method,
                 may_discard: key.material_key.may_discard,
                 material_key: key.material_key.material_data.1.clone(),
             },

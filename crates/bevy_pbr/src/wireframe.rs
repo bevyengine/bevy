@@ -1,4 +1,4 @@
-use crate::{Material, MaterialPipeline, NewMaterialPipelineKey, MaterialPlugin};
+use crate::{Material, MaterialPipeline, MaterialPlugin, NewMaterialPipelineKey};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -7,8 +7,9 @@ use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
+    pipeline_keys::PipelineKey,
     prelude::*,
-    render_resource::*, pipeline_keys::PipelineKey,
+    render_resource::*,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);

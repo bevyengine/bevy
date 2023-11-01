@@ -1,5 +1,5 @@
 use crate::{
-    MeshPipeline, OldMeshPipelineKey, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings,
+    MeshPipeline, MeshViewBindGroup, OldMeshPipelineKey, ScreenSpaceAmbientOcclusionSettings,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
@@ -278,7 +278,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
             } else if method == OldMeshPipelineKeyBitflags::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
-            } else if method == OldMeshPipelineKeyBitflags::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            } else if method
+                == OldMeshPipelineKeyBitflags::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
             {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             } else if method == OldMeshPipelineKeyBitflags::TONEMAP_METHOD_BLENDER_FILMIC {
@@ -320,9 +321,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             key.intersection(OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_RESERVED_BITS);
         if shadow_filter_method == OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
             shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
-        } else if shadow_filter_method == OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_CASTANO_13 {
+        } else if shadow_filter_method
+            == OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_CASTANO_13
+        {
             shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
-        } else if shadow_filter_method == OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_JIMENEZ_14 {
+        } else if shadow_filter_method
+            == OldMeshPipelineKeyBitflags::SHADOW_FILTER_METHOD_JIMENEZ_14
+        {
             shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
         }
 
@@ -332,7 +337,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                self.mesh_pipeline.get_view_layout_old_key(key.into()).clone(),
+                self.mesh_pipeline
+                    .get_view_layout_old_key(key.into())
+                    .clone(),
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {
@@ -476,7 +483,9 @@ pub fn prepare_deferred_lighting_pipelines(
                     Tonemapping::ReinhardLuminance => {
                         OldMeshPipelineKeyBitflags::TONEMAP_METHOD_REINHARD_LUMINANCE
                     }
-                    Tonemapping::AcesFitted => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_ACES_FITTED,
+                    Tonemapping::AcesFitted => {
+                        OldMeshPipelineKeyBitflags::TONEMAP_METHOD_ACES_FITTED
+                    }
                     Tonemapping::AgX => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_AGX,
                     Tonemapping::SomewhatBoringDisplayTransform => {
                         OldMeshPipelineKeyBitflags::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
@@ -484,7 +493,9 @@ pub fn prepare_deferred_lighting_pipelines(
                     Tonemapping::TonyMcMapface => {
                         OldMeshPipelineKeyBitflags::TONEMAP_METHOD_TONY_MC_MAPFACE
                     }
-                    Tonemapping::BlenderFilmic => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_BLENDER_FILMIC,
+                    Tonemapping::BlenderFilmic => {
+                        OldMeshPipelineKeyBitflags::TONEMAP_METHOD_BLENDER_FILMIC
+                    }
                 };
             }
             if let Some(DebandDither::Enabled) = dither {

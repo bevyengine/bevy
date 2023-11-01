@@ -7,7 +7,6 @@ use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
 use bevy_render_macros::PipelineKeyInRenderCrate;
-use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -337,8 +336,8 @@ impl Default for OrthographicProjection {
     }
 }
 
-#[derive(PipelineKeyInRenderCrate, Default, Debug, Copy, Clone, FromPrimitive, IntoPrimitive)]
-#[repr(u64)]
+#[derive(PipelineKeyInRenderCrate, Default, Debug, Copy, Clone)]
+#[repr(u8)]
 #[custom_shader_defs]
 pub enum ViewProjectionKey {
     #[default]

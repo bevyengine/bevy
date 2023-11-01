@@ -174,7 +174,11 @@ pub struct PackedPipelineKey<T: AnyKeyType> {
 
 impl<T: AnyKeyType> Clone for PackedPipelineKey<T> {
     fn clone(&self) -> Self {
-        Self { packed: self.packed, size: self.size, _p: PhantomData }
+        Self {
+            packed: self.packed,
+            size: self.size,
+            _p: PhantomData,
+        }
     }
 }
 
@@ -193,7 +197,11 @@ impl<T: AnyKeyType + KeyTypeConcrete> PackedPipelineKey<T> {
         self.insert_packed(K::pack(value, store), store);
     }
 
-    pub fn insert_packed<K: KeyTypeConcrete>(&mut self, value: PackedPipelineKey<K>, store: &KeyMetaStore) {
+    pub fn insert_packed<K: KeyTypeConcrete>(
+        &mut self,
+        value: PackedPipelineKey<K>,
+        store: &KeyMetaStore,
+    ) {
         let positions = T::positions(store);
         let so = positions.get(&TypeId::of::<K>()).unwrap();
         self.packed &= !(((1 << so.0) - 1) << so.1);
@@ -204,7 +212,9 @@ impl<T: AnyKeyType + KeyTypeConcrete> PackedPipelineKey<T> {
 pub trait KeyRepack: KeyTypeConcrete {
     type PackedParts;
 
-    fn repack(source: Self::PackedParts) -> PackedPipelineKey<Self> where Self: Sized;
+    fn repack(source: Self::PackedParts) -> PackedPipelineKey<Self>
+    where
+        Self: Sized;
 }
 
 type ShaderDefFn = fn(KeyPrimitive, &KeyMetaStore) -> Vec<ShaderDefVal>;
@@ -278,9 +288,16 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
     }
 
     pub fn extract<U: AnyKeyType + KeyTypeConcrete>(&'a self) -> PipelineKey<'a, U> {
-        debug!("{} requesting {}, positions: {:?}", type_name::<T>(), type_name::<U>(), T::positions(&self.store));
+        debug!(
+            "{} requesting {}, positions: {:?}",
+            type_name::<T>(),
+            type_name::<U>(),
+            T::positions(&self.store)
+        );
         let positions = T::positions(self.store);
-        let SizeOffset(size, offset) = positions.get(&TypeId::of::<U>()).unwrap_or_else(missing::<U, _>);
+        let SizeOffset(size, offset) = positions
+            .get(&TypeId::of::<U>())
+            .unwrap_or_else(missing::<U, _>);
         let key = T::pack(&self.value, &self.store);
         let value = (key.packed >> offset) & ((1 << size) - 1);
         self.store.pipeline_key(value)
@@ -294,7 +311,11 @@ impl<'a, T: AnyKeyType + KeyTypeConcrete> PipelineKey<'a, T> {
     }
 
     pub fn shader_defs(&'a self) -> Vec<ShaderDefVal> {
-        debug!("{} shader defs, positions: {:?}", type_name::<T>(), T::positions(&self.store));
+        debug!(
+            "{} shader defs, positions: {:?}",
+            type_name::<T>(),
+            T::positions(&self.store)
+        );
         T::shader_defs(T::pack(&self.value, &self.store).packed, &self.store)
     }
 }

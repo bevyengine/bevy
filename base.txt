@@ -1,0 +1,892 @@
+    Finished dev [unoptimized + debuginfo] target(s) in 0.30s
+     Running `target\debug\examples\shader_prepass.exe`
+[2m2023-11-01T01:41:50.807758Z[0m [32m INFO[0m [2mbevy_winit::system[0m[2m:[0m Creating new window "App" (0v0)
+[2m2023-11-01T01:41:51.028688Z[0m [32m INFO[0m [2mbevy_render::renderer[0m[2m:[0m AdapterInfo { name: "NVIDIA GeForce RTX 3070", vendor: 4318, device: 9352, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "472.12", backend: Vulkan }
+[2m2023-11-01T01:41:51.652658Z[0m [32m INFO[0m [2mbevy_diagnostic::system_information_diagnostics_plugin::internal[0m[2m:[0m SystemInfo { os: "Windows 11 Home", kernel: "22621", cpu: "AMD Ryzen 9 5900X 12-Core Processor", core_count: "12", memory: "31.9 GiB" }
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass msaa in spec Off
+prepass msaa in spec view_key Off
+samples for Off: 1
+prepass defs: [Bool("DEBAND_DITHER", true), Bool("TONEMAP_IN_SHADER", true), Bool("VIEW_PROJECTION_PERSPECTIVE", true), UInt("MSAA_SAMPLECOUNT", 1), Bool("DEPTH_PREPASS", true), Bool("MOTION_VECTOR_PREPASS", true), Bool("NORMAL_PREPASS", true), Bool("MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS", true), Bool("NORMAL_PREPASS_OR_DEFERRED_PREPASS", true), Bool("SHADOW_FILTER_METHOD_CASTANO_13", true), Bool("TONEMAP_METHOD_TONY_MC_MAPFACE", true)]
+samples for Off: 1
+calling mesh_pipeline specialize with Off / Off
+meshPipeline msaa Off
+extracted msaa Off
+samples for Off: 1
+samples for Off: 1
+calling mesh_pipeline specialize with Off / Off
+meshPipeline msaa Off
+extracted msaa Off
+samples for Off: 1
+samples for Off: 1
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass msaa in spec Off
+prepass msaa in spec view_key Off
+samples for Off: 1
+prepass defs: [Bool("DEBAND_DITHER", true), Bool("TONEMAP_IN_SHADER", true), Bool("VIEW_PROJECTION_PERSPECTIVE", true), UInt("MSAA_SAMPLECOUNT", 1), Bool("DEPTH_PREPASS", true), Bool("MOTION_VECTOR_PREPASS", true), Bool("NORMAL_PREPASS", true), Bool("MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS", true), Bool("NORMAL_PREPASS_OR_DEFERRED_PREPASS", true), Bool("SHADOW_FILTER_METHOD_CASTANO_13", true), Bool("TONEMAP_METHOD_TONY_MC_MAPFACE", true)]
+samples for Off: 1
+queue prepass npk msaa Off
+prepass msaa in spec Off
+prepass msaa in spec view_key Off
+samples for Off: 1
+prepass defs: [Bool("DEBAND_DITHER", true), Bool("TONEMAP_IN_SHADER", true), Bool("VIEW_PROJECTION_PERSPECTIVE", true), UInt("MSAA_SAMPLECOUNT", 1), Bool("DEPTH_PREPASS", true), Bool("MOTION_VECTOR_PREPASS", true), Bool("NORMAL_PREPASS", true), Bool("MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS", true), Bool("NORMAL_PREPASS_OR_DEFERRED_PREPASS", true), Bool("SHADOW_FILTER_METHOD_CASTANO_13", true), Bool("TONEMAP_METHOD_TONY_MC_MAPFACE", true)]
+samples for Off: 1
+calling mesh_pipeline specialize with Off / Off
+meshPipeline msaa Off
+extracted msaa Off
+samples for Off: 1
+samples for Off: 1
+calling mesh_pipeline specialize with Off / Off
+meshPipeline msaa Off
+extracted msaa Off
+samples for Off: 1
+samples for Off: 1
+calling mesh_pipeline specialize with Off / Off
+meshPipeline msaa Off
+extracted msaa Off
+samples for Off: 1
+samples for Off: 1
+samples for Off: 1
+[2m2023-11-01T01:41:52.049338Z[0m [31mERROR[0m [2mbevy_render::render_resource::pipeline_cache[0m[2m:[0m failed to process shader:
+[0m[1m[38;5;9merror[0m[1m: no definition in scope for identifier: 'bevy_pbr::prepass_utils::prepass_depth'[0m
+   [0m[36m┌─[0m shaders/show_prepass.wgsl:23:21
+   [0m[36m│[0m
+[0m[36m23[0m [0m[36m│[0m         let depth = [0m[bevy_pbr::prepass_utils::31mprepass_depth[0m(mesh.position, sample_index);
+   [0m[36m│[0m                     [0m[31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [0m[31munknown identifier[0m
+   [0m[36m│[0m
+   [0m[36m=[0m no definition in scope for identifier: 'bevy_pbr::prepass_utils::prepass_depth'
+
+
+[2m2023-11-01T01:41:52.202636Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m VALIDATION [VUID-RuntimeSpirv-OpVariable-06373 (0x91bee4c0)]
+	Validation Error: [ VUID-RuntimeSpirv-OpVariable-06373 ] Object 0: handle = 0x4c05820000000170, type = VK_OBJECT_TYPE_SHADER_MODULE; | MessageID = 0x91bee4c0 | vkCreateShaderModule(): VkPhysicalDeviceZeroInitializeWorkgroupMemoryFeaturesKHR::shaderZeroInitializeWorkgroupMemory is not enabled, but shader contains an OpVariable with Workgroup Storage Class with an Initializer operand.
+%31 = OpVariable %32 4 33 The Vulkan spec states: Any OpVariable with Workgroup as its Storage Class must not have an Initializer operand (https://vulkan.lunarg.com/doc/view/1.3.239.0/windows/1.3-extensions/vkspec.html#VUID-RuntimeSpirv-OpVariable-06373)    
+[2m2023-11-01T01:41:52.202725Z[0m [31mERROR[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: SHADER_MODULE, hndl: 0x4c05820000000170, name: ?)    
+prepass msaa in spec Off
+prepass queue key 0b110111100000000101
+prepass msaa in spec view_key Off
+queue prepass npk msaa Off
+samples for Off: 1
+prepass defs: [Bool("TONEMAP_IN_SHADER", true), UInt("MSAA_SAMPLECOUNT", 1), Bool("SHADOW_FILTER_METHOD_CASTANO_13", true)]
+samples for Off: 1
+prepass msaa in spec Off
+prepass msaa in spec view_key Off
+samples for Off: 1
+prepass defs: [Bool("TONEMAP_IN_SHADER", true), UInt("MSAA_SAMPLECOUNT", 1), Bool("SHADOW_FILTER_METHOD_CASTANO_13", true)]
+samples for Off: 1
+prepass queue key 0b110111100000000101
+prepass msaa in spec Off
+queue prepass npk msaa Off
+prepass msaa in spec view_key Off
+queue prepass npk msaa Off
+samples for Off: 1
+prepass defs: [Bool("TONEMAP_IN_SHADER", true), UInt("MSAA_SAMPLECOUNT", 1), Bool("SHADOW_FILTER_METHOD_CASTANO_13", true)]
+samples for Off: 1
+prepass msaa in spec Off
+prepass msaa in spec view_key Off
+samples for Off: 1
+prepass defs: [Bool("TONEMAP_IN_SHADER", true), UInt("MSAA_SAMPLECOUNT", 1), Bool("SHADOW_FILTER_METHOD_CASTANO_13", true)]
+samples for Off: 1
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+prepass queue key 0b110111100000000101
+queue prepass npk msaa Off
+queue prepass npk msaa Off
+[2m2023-11-01T01:41:55.019133Z[0m [32m INFO[0m [2mbevy_window::system[0m[2m:[0m No windows are open, exiting
+[2m2023-11-01T01:41:55.020292Z[0m [32m INFO[0m [2mbevy_winit::system[0m[2m:[0m Closing window 0v0

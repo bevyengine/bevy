@@ -17,8 +17,10 @@ use bevy_render::{
     camera::Projection,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout, MeshKey},
-    pipeline_keys::{KeyMetaStore, KeyShaderDefs, PipelineKeys, KeyTypeConcrete, KeyRepack, PackedPipelineKey},
+    mesh::{Mesh, MeshKey, MeshVertexBufferLayout},
+    pipeline_keys::{
+        KeyMetaStore, KeyRepack, KeyShaderDefs, KeyTypeConcrete, PackedPipelineKey, PipelineKeys,
+    },
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
@@ -29,7 +31,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
-use num_enum::{FromPrimitive, IntoPrimitive};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -284,13 +285,18 @@ where
         key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mesh_pipeline_key = key.construct(NewMeshPipelineKey{
+        let mesh_pipeline_key = key.construct(NewMeshPipelineKey {
             view_key: key.view_key,
             mesh_key: key.mesh_key,
             alpha_mode: key.material_key.alpha,
         });
-        println!("calling mesh_pipeline specialize with {:?} / {:?}", key.view_key.7, mesh_pipeline_key.view_key.7);
         let mut descriptor = self.mesh_pipeline.specialize(mesh_pipeline_key, layout)?;
+        // add shader defs for the full key (non-MeshPipelineKey parts of the key
+        descriptor.vertex.shader_defs.extend(key.shader_defs());
+        descriptor
+            .fragment
+            .as_mut()
+            .map(|frag| frag.shader_defs.extend(key.shader_defs()));
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -372,7 +378,9 @@ const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> OldMeshPipelineKeyBit
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
-        AlphaMode::Premultiplied | AlphaMode::Add => OldMeshPipelineKeyBitflags::BLEND_PREMULTIPLIED_ALPHA,
+        AlphaMode::Premultiplied | AlphaMode::Add => {
+            OldMeshPipelineKeyBitflags::BLEND_PREMULTIPLIED_ALPHA
+        }
         AlphaMode::Blend => OldMeshPipelineKeyBitflags::BLEND_ALPHA,
         AlphaMode::Multiply => OldMeshPipelineKeyBitflags::BLEND_MULTIPLY,
         AlphaMode::Mask(_) => OldMeshPipelineKeyBitflags::MAY_DISCARD,
@@ -384,7 +392,9 @@ const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> OldMeshPipelineKe
     match tonemapping {
         Tonemapping::None => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_REINHARD_LUMINANCE,
+        Tonemapping::ReinhardLuminance => {
+            OldMeshPipelineKeyBitflags::TONEMAP_METHOD_REINHARD_LUMINANCE
+        }
         Tonemapping::AcesFitted => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_ACES_FITTED,
         Tonemapping::AgX => OldMeshPipelineKeyBitflags::TONEMAP_METHOD_AGX,
         Tonemapping::SomewhatBoringDisplayTransform => {
@@ -485,8 +495,12 @@ pub fn queue_material_meshes<M: Material>(
 
         if let Some(projection) = projection {
             view_key |= match projection {
-                Projection::Perspective(_) => OldMeshPipelineKeyBitflags::VIEW_PROJECTION_PERSPECTIVE,
-                Projection::Orthographic(_) => OldMeshPipelineKeyBitflags::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Perspective(_) => {
+                    OldMeshPipelineKeyBitflags::VIEW_PROJECTION_PERSPECTIVE
+                }
+                Projection::Orthographic(_) => {
+                    OldMeshPipelineKeyBitflags::VIEW_PROJECTION_ORTHOGRAPHIC
+                }
             };
         }
 
@@ -518,35 +532,6 @@ pub fn queue_material_meshes<M: Material>(
 
         let view_key_new = keys.unwrap().get_packed_key::<PbrViewKey>().unwrap();
 
-        // let new_is_hdr = view_key_new.extract::<HdrKey>().unwrap().0;
-        // if new_is_hdr != view.hdr {
-        //     println!("bnoo");
-        // }
-
-        // let new_is_also_hdr = keys.unwrap().get_key::<HdrKey>(&store).unwrap().0;
-        // if new_is_also_hdr != view.hdr {
-        //     println!("bnoo2");
-        // }
-
-        // let prepass_key = *view_key_new.extract::<PrepassKey>().unwrap();
-        // if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
-        //     println!("prepass mismatch: {prepass_key:?} / {:?}", (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass));
-        // } else {
-        //     println!("prepass ok: {prepass_key:?}");
-        // }
-
-        // let dyn_key_new = keys.unwrap().get_key::<PbrViewKeyDynamic>(&store).unwrap();
-        // let new_is_hdr = dyn_key_new.extract::<HdrKey>().unwrap().0;
-        // if new_is_hdr != view.hdr {
-        //     println!("bnoo dyn");
-        // }
-        // let prepass_key = *dyn_key_new.extract::<PrepassKey>().unwrap();
-        // if prepass_key.depth != depth_prepass || prepass_key.normal != normal_prepass || prepass_key.motion_vector != motion_vector_prepass || prepass_key.deferred != deferred_prepass {
-        //     println!("dyn prepass mismatch: {prepass_key:?} / {:?}", (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass));
-        // } else {
-        //     println!("dyn prepass ok: {prepass_key:?}");
-        // }
-
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
@@ -569,17 +554,25 @@ pub fn queue_material_meshes<M: Material>(
 
             let mut mesh_key = view_key;
 
-            mesh_key |= OldMeshPipelineKeyBitflags::from_primitive_topology(mesh.primitive_topology);
+            mesh_key |=
+                OldMeshPipelineKeyBitflags::from_primitive_topology(mesh.primitive_topology);
 
             if mesh.morph_targets.is_some() {
                 mesh_key |= OldMeshPipelineKeyBitflags::MORPH_TARGETS;
             }
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
 
-            let mesh_key_new = render_meshes.get(mesh_instance.mesh_asset_id).unwrap().packed_key;
-            let material_key_new = render_materials.get(material_asset_id).unwrap().new_packed_key;
+            let mesh_key_new = render_meshes
+                .get(mesh_instance.mesh_asset_id)
+                .unwrap()
+                .packed_key;
+            let material_key_new = render_materials
+                .get(material_asset_id)
+                .unwrap()
+                .new_packed_key;
 
-            let composite_key = NewMaterialPipelineKey::repack((view_key_new, mesh_key_new, material_key_new));
+            let composite_key =
+                NewMaterialPipelineKey::repack((view_key_new, mesh_key_new, material_key_new));
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
@@ -877,6 +870,11 @@ fn prepare_material<M: Material>(
     };
     let key = NewMaterialKey {
         alpha: material.alpha_mode().into(),
+        opaque_method: match method {
+            OpaqueRendererMethod::Forward => OpaqueMethodKey::Forward,
+            OpaqueRendererMethod::Deferred => OpaqueMethodKey::Deferred,
+            OpaqueRendererMethod::Auto => unreachable!(),
+        },
         may_discard: MayDiscard(matches!(material.alpha_mode(), AlphaMode::Mask(_))),
         material_data: prepared.data,
     };
@@ -893,11 +891,10 @@ fn prepare_material<M: Material>(
     })
 }
 
-#[derive(PipelineKey, FromPrimitive, IntoPrimitive, Copy, Clone, PartialEq, Eq)]
-#[repr(u64)]
+#[derive(PipelineKey, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
 #[custom_shader_defs]
 pub enum AlphaKey {
-    #[default]
     Opaque,
     AlphaBlend,
     AlphaPremultiplied,
@@ -946,9 +943,17 @@ impl KeyShaderDefs for MayDiscard {
     }
 }
 
+#[derive(PipelineKey, Clone, Copy, PartialEq)]
+#[repr(u8)]
+pub enum OpaqueMethodKey {
+    Forward,
+    Deferred,
+}
+
 #[derive(PipelineKey, Clone, Copy)]
 pub struct NewMaterialKey<M: Material> {
     pub alpha: AlphaKey,
+    pub opaque_method: OpaqueMethodKey,
     pub may_discard: MayDiscard,
     pub material_data: M::Data,
 }

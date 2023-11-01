@@ -24,14 +24,12 @@ use bevy_render::{
 mod node;
 
 pub use node::FxaaNode;
-use num_enum::{FromPrimitive, IntoPrimitive};
 
-#[derive(PipelineKey, Reflect, Eq, PartialEq, Hash, Clone, Copy, FromPrimitive, IntoPrimitive, Debug)]
+#[derive(PipelineKey, Reflect, Eq, PartialEq, Hash, Clone, Copy, Debug)]
 #[reflect(PartialEq, Hash)]
-#[repr(u64)]
+#[repr(u8)]
 pub enum Sensitivity {
     Low,
-    #[default]
     Medium,
     High,
     Ultra,

@@ -12,7 +12,9 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_pbr::{MeshPipeline, OldMeshPipelineKey, OldMeshPipelineKeyBitflags, SetMeshViewBindGroup};
+use bevy_pbr::{
+    MeshPipeline, OldMeshPipelineKey, OldMeshPipelineKeyBitflags, SetMeshViewBindGroup,
+};
 use bevy_render::{
     pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
     render_asset::{prepare_assets, RenderAssets},
@@ -95,7 +97,10 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             TextureFormat::bevy_default()
         };
 
-        let view_layout = self.mesh_pipeline.get_view_layout_old_key(mesh_key.into()).clone();
+        let view_layout = self
+            .mesh_pipeline
+            .get_view_layout_old_key(mesh_key.into())
+            .clone();
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
 

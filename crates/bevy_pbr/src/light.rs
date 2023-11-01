@@ -17,7 +17,6 @@ use bevy_render::{
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{tracing::warn, HashMap};
-use num_enum::{FromPrimitive, IntoPrimitive};
 
 use crate::*;
 
@@ -2270,11 +2269,10 @@ mod test {
     }
 }
 
-#[derive(PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone, PartialEq, Eq)]
-#[repr(u64)]
+#[derive(PipelineKey, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
 #[custom_shader_defs]
 pub enum ShadowFilteringKey {
-    #[default]
     Hardware2x2,
     Castano13,
     Jimenez14,

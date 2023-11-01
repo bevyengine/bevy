@@ -5,7 +5,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent, pipeline_keys::PipelineKey, prelude::Camera,
 };
-use num_enum::{FromPrimitive, IntoPrimitive};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -179,10 +178,9 @@ pub struct BloomPrefilterSettings {
     pub threshold_softness: f32,
 }
 
-#[derive(PipelineKey, Clone, Reflect, PartialEq, Eq, Hash, Copy, FromPrimitive, IntoPrimitive, Debug)]
-#[repr(u64)]
+#[derive(PipelineKey, Clone, Reflect, PartialEq, Eq, Hash, Copy, Debug)]
+#[repr(u8)]
 pub enum BloomCompositeMode {
-    #[default]
     EnergyConserving,
     Additive,
 }

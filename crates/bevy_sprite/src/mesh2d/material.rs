@@ -12,6 +12,7 @@ use bevy_ecs::{
 use bevy_log::error;
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -26,7 +27,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, KeyTypeConcrete, KeyMetaStore},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
@@ -34,8 +35,8 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, OldMesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup, Mesh2dPipelineKey,
+    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, OldMesh2dPipelineKey,
+    RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -266,7 +267,9 @@ where
         key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh2d_pipeline.specialize(key.extract::<Mesh2dPipelineKey>(), layout)?;
+        let mut descriptor = self
+            .mesh2d_pipeline
+            .specialize(key.extract::<Mesh2dPipelineKey>(), layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -424,10 +427,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material2d_pipeline,
-                KeyTypeConcrete::pack(&Material2dKey {
-                    mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
-                    bind_group_data: material2d.key.clone(),
-                }, &key_store),
+                KeyTypeConcrete::pack(
+                    &Material2dKey {
+                        mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
+                        bind_group_data: material2d.key.clone(),
+                    },
+                    &key_store,
+                ),
                 &mesh.layout,
                 &key_store,
             );

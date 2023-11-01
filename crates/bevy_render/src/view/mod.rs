@@ -3,14 +3,13 @@ pub mod window;
 
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_render_macros::PipelineKeyInRenderCrate;
-use num_enum::{FromPrimitive, IntoPrimitive};
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    pipeline_keys::{AddPipelineKey, KeyPrimitive, KeyShaderDefs, SystemKey},
+    pipeline_keys::{AddPipelineKey, KeyShaderDefs, SystemKey},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -527,19 +526,8 @@ fn prepare_view_targets(
     }
 }
 
-#[derive(
-    PipelineKeyInRenderCrate,
-    Default,
-    Clone,
-    Copy,
-    FromPrimitive,
-    IntoPrimitive,
-    PartialEq,
-    Eq,
-    Hash,
-    Debug,
-)]
-#[repr(u64)]
+#[derive(PipelineKeyInRenderCrate, Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[repr(u8)]
 #[custom_shader_defs]
 pub enum MsaaKey {
     #[default]
@@ -557,7 +545,7 @@ impl SystemKey for MsaaKey {
     type Query = ();
 
     fn from_params(msaa: &Res<Msaa>, _: ()) -> Option<Self> {
-        Some((msaa.samples().trailing_zeros() as KeyPrimitive).into())
+        Some((msaa.samples().trailing_zeros() as u8).into())
     }
 }
 
@@ -573,7 +561,6 @@ impl KeyShaderDefs for MsaaKey {
 
 impl MsaaKey {
     pub fn samples(&self) -> u32 {
-        println!("samples for {self:?}: {}", 1 << (*self as u32));
         1 << (*self as u32)
     }
 }

@@ -563,7 +563,6 @@ impl FromWorld for SsaoPipelines {
     }
 }
 
-
 #[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 struct SsaoPipelineKey {
     slice_count: u8,
@@ -736,11 +735,14 @@ fn prepare_ssao_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(&SsaoPipelineKey {
-                slice_count: ssao_settings.quality_level.sample_counts().0 as u8,
-                sample_count: ssao_settings.quality_level.sample_counts().1 as u8,
-                temporal_noise: temporal_jitter.is_some(),
-            }, &key_store),
+            KeyTypeConcrete::pack(
+                &SsaoPipelineKey {
+                    slice_count: ssao_settings.quality_level.sample_counts().0 as u8,
+                    sample_count: ssao_settings.quality_level.sample_counts().1 as u8,
+                    temporal_noise: temporal_jitter.is_some(),
+                },
+                &key_store,
+            ),
             &key_store,
         );
 

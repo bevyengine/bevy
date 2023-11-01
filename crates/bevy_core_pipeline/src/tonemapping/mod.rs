@@ -23,7 +23,6 @@ mod node;
 
 use bevy_utils::default;
 pub use node::TonemappingNode;
-use num_enum::{FromPrimitive, IntoPrimitive};
 
 const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
 
@@ -433,10 +432,8 @@ pub fn lut_placeholder() -> Image {
 
 impl_has_world_key!(DebandDitherKey, DebandDither, "DEBAND_DITHER");
 
-#[derive(
-    PipelineKey, Default, FromPrimitive, IntoPrimitive, Copy, Clone, Debug, PartialEq, Eq, Hash,
-)]
-#[repr(u64)]
+#[derive(PipelineKey, Default, Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(u8)]
 #[custom_shader_defs]
 pub enum TonemappingKey {
     #[default]
@@ -498,7 +495,9 @@ impl From<TonemappingKey> for Tonemapping {
             TonemappingKey::ReinhardLuminance => Tonemapping::ReinhardLuminance,
             TonemappingKey::AcesFitted => Tonemapping::AcesFitted,
             TonemappingKey::AgX => Tonemapping::AgX,
-            TonemappingKey::SomewhatBoringDisplayTransform => Tonemapping::SomewhatBoringDisplayTransform,
+            TonemappingKey::SomewhatBoringDisplayTransform => {
+                Tonemapping::SomewhatBoringDisplayTransform
+            }
             TonemappingKey::TonyMcMapface => Tonemapping::TonyMcMapface,
             TonemappingKey::BlenderFilmic => Tonemapping::BlenderFilmic,
         }

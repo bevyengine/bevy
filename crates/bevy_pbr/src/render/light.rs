@@ -5,7 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
-    pipeline_keys::{KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey, KeyMetaStore, KeyRepack},
+    pipeline_keys::{KeyMetaStore, KeyRepack, KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -21,7 +21,6 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use num_enum::{FromPrimitive, IntoPrimitive};
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;
@@ -1779,11 +1778,10 @@ impl Node for ShadowPassNode {
     }
 }
 
-#[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive, Eq, PartialEq, Debug)]
-#[repr(u64)]
+#[derive(PipelineKey, Clone, Copy, Eq, PartialEq, Debug)]
+#[repr(u8)]
 #[custom_shader_defs]
 pub enum DepthClampOrthoKey {
-    #[default]
     Off,
     On,
 }

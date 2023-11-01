@@ -19,7 +19,6 @@ use bevy_render::{
     view::ExtractedView,
     RenderApp,
 };
-use num_enum::{FromPrimitive, IntoPrimitive};
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
@@ -125,8 +124,8 @@ pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntr
     ]
 }
 
-#[derive(PipelineKey, Default, Clone, Copy, FromPrimitive, IntoPrimitive, PartialEq, Eq, Debug)]
-#[repr(u64)]
+#[derive(PipelineKey, Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(u8)]
 #[custom_shader_defs]
 pub enum EnvironmentMapKey {
     #[default]

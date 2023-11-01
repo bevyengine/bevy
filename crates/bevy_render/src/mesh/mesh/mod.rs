@@ -4,11 +4,12 @@ use bevy_render_macros::PipelineKeyInRenderCrate;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
+    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PackedPipelineKey},
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
-    renderer::RenderDevice, pipeline_keys::{KeyTypeConcrete, KeyMetaStore, PackedPipelineKey},
+    renderer::RenderDevice,
 };
 use bevy_asset::{Asset, Handle};
 use bevy_core::cast_slice;
@@ -1060,7 +1061,11 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>, SRes<KeyMetaStore>);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderAssets<Image>>,
+        SRes<KeyMetaStore>,
+    );
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {

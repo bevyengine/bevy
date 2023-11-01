@@ -67,7 +67,10 @@ pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
 
 impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
     fn default() -> Self {
-        Self { cache: default(), _p: PhantomData }
+        Self {
+            cache: default(),
+            _p: PhantomData,
+        }
     }
 }
 
@@ -100,7 +103,7 @@ pub struct SpecializedMeshPipelines<S: SpecializedMeshPipeline> {
     mesh_layout_cache:
         PreHashMap<InnerMeshVertexBufferLayout, HashMap<KeyPrimitive, CachedRenderPipelineId>>,
     vertex_layout_cache: HashMap<VertexBufferLayout, HashMap<KeyPrimitive, CachedRenderPipelineId>>,
-    _p: PhantomData<fn() ->S>,
+    _p: PhantomData<fn() -> S>,
 }
 
 impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {

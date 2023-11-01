@@ -2,7 +2,7 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
-    deferred::{AlphaMask3dDeferred, Opaque3dDeferred}, 
+    deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -17,13 +17,14 @@ use bevy_render::{
         NoAutomaticBatching,
     },
     mesh::*,
+    pipeline_keys::KeyTypeConcrete,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::*,
     view::{ViewUniformOffset, ViewVisibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::KeyTypeConcrete,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
@@ -425,7 +426,10 @@ impl MeshPipeline {
         }
     }
 
-    pub fn get_view_layout_old_key(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
+    pub fn get_view_layout_old_key(
+        &self,
+        layout_key: MeshPipelineViewLayoutKey,
+    ) -> &BindGroupLayout {
         let index = layout_key.bits() as usize;
         let layout = &self.view_layouts[index];
 
@@ -441,17 +445,20 @@ impl MeshPipeline {
         }
 
         &layout.bind_group_layout
-    } 
+    }
 
-    pub fn get_view_layout<T: KeyTypeConcrete>(&self, layout_key: PipelineKey<T>) -> &BindGroupLayout {
+    pub fn get_view_layout<T: KeyTypeConcrete>(
+        &self,
+        layout_key: PipelineKey<T>,
+    ) -> &BindGroupLayout {
         let mut index = MeshPipelineViewLayoutKey::empty();
-/*
-        const MULTISAMPLED                = (1 << 0);
-        const DEPTH_PREPASS               = (1 << 1);
-        const NORMAL_PREPASS              = (1 << 2);
-        const MOTION_VECTOR_PREPASS       = (1 << 3);
-        const DEFERRED_PREPASS            = (1 << 4);
- */
+        /*
+               const MULTISAMPLED                = (1 << 0);
+               const DEPTH_PREPASS               = (1 << 1);
+               const NORMAL_PREPASS              = (1 << 2);
+               const MOTION_VECTOR_PREPASS       = (1 << 3);
+               const DEFERRED_PREPASS            = (1 << 4);
+        */
         if layout_key.extract::<MsaaKey>().samples() > 1 {
             index |= MeshPipelineViewLayoutKey::MULTISAMPLED;
         }
@@ -468,7 +475,7 @@ impl MeshPipeline {
             }
             if prepass_key.deferred {
                 index |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
-            }    
+            }
         }
 
         let layout = &self.view_layouts[index.bits() as usize];
@@ -693,9 +700,7 @@ pub fn setup_morph_and_skinning_defs<T: KeyTypeConcrete>(
             add_skin_data();
             mesh_layouts.morphed_skinned.clone()
         }
-        (false, true) => {
-            mesh_layouts.morphed.clone()
-        }
+        (false, true) => mesh_layouts.morphed.clone(),
         (false, false) => mesh_layouts.model_only.clone(),
     }
 }
@@ -708,9 +713,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        println!("meshPipeline msaa {:?}", key.view_key.7);
-        println!("extracted msaa {:?}", key.extract::<PbrViewKey>().7);
-        let mut shader_defs = Vec::new();
+        let mut shader_defs = key.shader_defs();
         let mut vertex_attributes = Vec::new();
 
         // Let the shader code know that it's running in a mesh pipeline.
@@ -769,14 +772,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 // For the transparent pass, fragments that are closer will be alpha blended
                 // but their depth is not written to the depth buffer
                 depth_write_enabled = false;
-            },
+            }
             AlphaKey::AlphaPremultiplied => {
                 label = "premultiplied_alpha_mesh_pipeline".into();
                 blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
                 // For the transparent pass, fragments that are closer will be alpha blended
                 // but their depth is not written to the depth buffer
                 depth_write_enabled = false;
-            },
+            }
             AlphaKey::AlphaMultiply => {
                 label = "multiply_mesh_pipeline".into();
                 blend = Some(BlendState {
@@ -790,7 +793,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 // For the multiply pass, fragments that are closer will be alpha blended
                 // but their depth is not written to the depth buffer
                 depth_write_enabled = false;
-            },
+            }
             _ => {
                 label = "opaque_mesh_pipeline".into();
                 // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
@@ -1099,7 +1102,10 @@ mod tests {
     #[test]
     fn mesh_key_msaa_samples() {
         for i in [1, 2, 4, 8, 16, 32, 64, 128] {
-            assert_eq!(OldMeshPipelineKeyBitflags::from_msaa_samples(i).msaa_samples(), i);
+            assert_eq!(
+                OldMeshPipelineKeyBitflags::from_msaa_samples(i).msaa_samples(),
+                i
+            );
         }
     }
 }
