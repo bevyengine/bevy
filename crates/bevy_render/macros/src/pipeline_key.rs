@@ -129,9 +129,9 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     fn from (
                         number: #repr,
                     ) -> Self {
-                        match number {
+                        match number as usize {
                             #(
-                                n if n as usize == #variant_numbers => Self::#variant_names,
+                                #variant_numbers => Self::#variant_names,
                             )*
                             #[allow(unreachable_patterns)]
                             _ => panic!("unexpected value in from"),

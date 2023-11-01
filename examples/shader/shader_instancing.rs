@@ -7,13 +7,14 @@ use bevy::{
         system::{lifetimeless::*, SystemParamItem},
     },
     pbr::{
-        MeshPipeline, OldMeshPipelineKeyBitflags, RenderMeshInstances, SetMeshBindGroup,
-        SetMeshViewBindGroup,
+        MeshPipeline, RenderMeshInstances, SetMeshBindGroup,
+        SetMeshViewBindGroup, NewMeshPipelineKey, AlphaKey
     },
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
+        pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey, KeyRepack, PipelineKeys},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -24,10 +25,6 @@ use bevy::{
         view::{ExtractedView, NoFrustumCulling},
         Render, RenderApp, RenderSet,
     },
-};
-use bevy_internal::{
-    pbr::{NewMeshPipelineKey, OldMeshPipelineKey},
-    render::pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
 };
 use bytemuck::{Pod, Zeroable};
 
@@ -116,21 +113,21 @@ struct InstanceData {
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
-    msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>, &PipelineKeys)>,
     key_store: Res<KeyMetaStore>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    let msaa_key = OldMeshPipelineKeyBitflags::from_msaa_samples(msaa.samples());
+    for (view, mut transparent_phase, keys) in &mut views {
+        let Some(view_key) = keys.get_packed_key() else {
+            continue;
+        };
 
-    for (view, mut transparent_phase) in &mut views {
-        let view_key = msaa_key | OldMeshPipelineKeyBitflags::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for entity in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
@@ -139,9 +136,9 @@ fn queue_custom(
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let key = view_key
-                | OldMeshPipelineKeyBitflags::from_primitive_topology(mesh.primitive_topology);
-            let key = KeyTypeConcrete::pack(key, &key_store);
+            let mesh_key = mesh.packed_key;
+            let alpha_key = AlphaKey::pack(&AlphaKey::Opaque, &key_store);
+            let key = NewMeshPipelineKey::repack((view_key, mesh_key, alpha_key));
             let pipeline = pipelines
                 .specialize(
                     &pipeline_cache,
