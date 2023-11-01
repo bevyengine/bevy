@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_log::error;
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    pipeline_keys::PipelineKey,
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -385,7 +385,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
         Option<&DebandDither>,
         &mut RenderPhase<Transparent2d>,
     )>,
-    key_store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -427,15 +426,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material2d_pipeline,
-                KeyTypeConcrete::pack(
+                pipeline_cache.pack_key(
                     &Material2dKey {
                         mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
                         bind_group_data: material2d.key.clone(),
-                    },
-                    &key_store,
+                    }
                 ),
                 &mesh.layout,
-                &key_store,
             );
 
             let pipeline_id = match pipeline_id {

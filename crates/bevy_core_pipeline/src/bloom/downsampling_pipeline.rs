@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec4;
 use bevy_render::{
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    pipeline_keys::PipelineKey,
     render_resource::*,
     renderer::RenderDevice,
 };
@@ -157,7 +157,6 @@ pub fn prepare_downsampling_pipeline(
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
     pipeline: Res<BloomDownsamplingPipeline>,
     views: Query<(Entity, &BloomSettings)>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, settings) in &views {
         let prefilter = settings.prefilter_settings.threshold > 0.0;
@@ -165,27 +164,23 @@ pub fn prepare_downsampling_pipeline(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(
+            pipeline_cache.pack_key(
                 &BloomDownsamplingPipelineKeys {
                     prefilter,
                     first_downsample: false,
-                },
-                &key_store,
+                }
             ),
-            &key_store,
         );
 
         let pipeline_first_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(
+            pipeline_cache.pack_key(
                 &BloomDownsamplingPipelineKeys {
                     prefilter,
                     first_downsample: true,
-                },
-                &key_store,
+                }
             ),
-            &key_store,
         );
 
         commands

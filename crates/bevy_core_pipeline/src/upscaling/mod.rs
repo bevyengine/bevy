@@ -4,7 +4,6 @@ use bevy_ecs::prelude::*;
 use bevy_render::view::ViewTarget;
 use bevy_render::{
     camera::{CameraOutputMode, ExtractedCamera},
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete},
     view::MsaaKey,
 };
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
@@ -35,7 +34,6 @@ fn prepare_view_upscaling_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, view_target, camera) in view_targets.iter() {
         let blend_state = if let Some(ExtractedCamera {
@@ -56,8 +54,7 @@ fn prepare_view_upscaling_pipelines(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &blit_pipeline,
-            KeyTypeConcrete::pack(&key, &key_store),
-            &key_store,
+            pipeline_cache.pack_key(&key),
         );
 
         commands

@@ -10,7 +10,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    pipeline_keys::PipelineKey,
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_graph::ViewNodeRunner,
@@ -206,7 +206,6 @@ pub fn prepare_fxaa_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
     fxaa_pipeline: Res<FxaaPipeline>,
     views: Query<(Entity, &ExtractedView, &Fxaa)>,
-    key_store: ResMut<KeyMetaStore>,
 ) {
     for (entity, view, fxaa) in &views {
         if !fxaa.enabled {
@@ -215,7 +214,7 @@ pub fn prepare_fxaa_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &fxaa_pipeline,
-            KeyTypeConcrete::pack(
+            pipeline_cache.pack_key(
                 &FxaaPipelineKey {
                     edge_threshold: fxaa.edge_threshold,
                     edge_threshold_min: fxaa.edge_threshold_min,
@@ -224,10 +223,8 @@ pub fn prepare_fxaa_pipelines(
                     } else {
                         TextureFormat::bevy_default()
                     },
-                },
-                &key_store,
+                }
             ),
-            &key_store,
         );
 
         commands

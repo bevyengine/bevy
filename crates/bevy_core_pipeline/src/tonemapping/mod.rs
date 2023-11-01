@@ -309,7 +309,6 @@ pub fn prepare_view_tonemapping_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
     view_targets: Query<(Entity, Option<&Tonemapping>, Has<DebandDither>), With<ViewTarget>>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, tonemapping, dither) in view_targets.iter() {
         let key = TonemappingPipelineKey {
@@ -319,8 +318,7 @@ pub fn prepare_view_tonemapping_pipelines(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &upscaling_pipeline,
-            KeyTypeConcrete::pack(&key, &key_store),
-            &key_store,
+            pipeline_cache.pack_key(&key),
         );
 
         commands

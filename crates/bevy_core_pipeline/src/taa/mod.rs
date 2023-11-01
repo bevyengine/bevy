@@ -508,7 +508,6 @@ fn prepare_taa_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TAAPipelineKey {
@@ -518,8 +517,7 @@ fn prepare_taa_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(&pipeline_key, &key_store),
-            &key_store,
+            pipeline_cache.pack_key(&pipeline_key),
         );
 
         // Prepare non-reset pipeline anyways - it will be necessary next frame
@@ -528,8 +526,7 @@ fn prepare_taa_pipelines(
             pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                KeyTypeConcrete::pack(&pipeline_key, &key_store),
-                &key_store,
+                pipeline_cache.pack_key(&pipeline_key),
             );
         }
 

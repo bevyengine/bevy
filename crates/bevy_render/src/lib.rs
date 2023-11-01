@@ -56,7 +56,7 @@ use crate::{
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
-    view::{ViewPlugin, WindowRenderPlugin},
+    view::{ViewPlugin, WindowRenderPlugin}, pipeline_keys::KeyMetaStoreInitializer,
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
@@ -375,9 +375,11 @@ impl Plugin for RenderPlugin {
 
             let render_app = app.sub_app_mut(RenderApp);
 
+            let key_store = render_app.world.resource_mut::<KeyMetaStoreInitializer>().take_final();
+
             render_app
                 .insert_resource(instance)
-                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(PipelineCache::new(device.clone(), key_store))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)

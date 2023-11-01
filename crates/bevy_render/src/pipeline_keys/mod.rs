@@ -49,8 +49,19 @@ impl KeyMeta {
     }
 }
 
+#[derive(Resource)]
+pub struct KeyMetaStoreInitializer(pub(crate) Option<KeyMetaStore>);
+
+impl KeyMetaStoreInitializer {
+    pub(crate) fn take_final(&mut self) -> KeyMetaStore {
+        let mut store = self.0.take().expect("key store already taken");
+        store.finalize();
+        store
+    }
+}
+
 /// provides the means to turn a raw u32 into a key
-#[derive(Resource, Default)]
+#[derive(Default)]
 pub struct KeyMetaStore {
     metas: HashMap<TypeId, KeyMeta>,
     unfinalized: HashSet<TypeId>,
@@ -193,15 +204,17 @@ impl<T: AnyKeyType + KeyTypeConcrete> PackedPipelineKey<T> {
         }
     }
 
-    pub fn insert<K: KeyTypeConcrete>(&mut self, value: &K, store: &KeyMetaStore) {
-        self.insert_packed(K::pack(value, store), store);
+    pub fn insert<K: KeyTypeConcrete>(&mut self, value: &K, cache: &PipelineCache) {
+        let store = cache.key_store();
+        self.insert_packed(K::pack(value, store), cache);
     }
 
     pub fn insert_packed<K: KeyTypeConcrete>(
         &mut self,
         value: PackedPipelineKey<K>,
-        store: &KeyMetaStore,
+        cache: &PipelineCache,
     ) {
+        let store = cache.key_store();
         let positions = T::positions(store);
         let so = positions.get(&TypeId::of::<K>()).unwrap();
         self.packed &= !(((1 << so.0) - 1) << so.1);
@@ -349,9 +362,9 @@ impl PipelineKeys {
 
     pub fn get_key<'a, K: AnyKeyType + KeyTypeConcrete>(
         &self,
-        store: &'a KeyMetaStore,
+        cache: &'a PipelineCache,
     ) -> Option<PipelineKey<'a, K>> {
-        Some(store.pipeline_key(self.get_raw::<K>()?))
+        Some(cache.key_store().pipeline_key(self.get_raw::<K>()?))
     }
 }
 
@@ -394,15 +407,7 @@ impl<T> Default for KeySetMarker<T> {
 
 impl Plugin for PipelineKeyPlugin {
     fn build(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp).init_resource::<KeyMetaStore>();
-        // app.add_systems()
-    }
-
-    fn finish(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
-            .world
-            .resource_mut::<KeyMetaStore>()
-            .finalize();
+        app.sub_app_mut(RenderApp).insert_resource(KeyMetaStoreInitializer(Some(KeyMetaStore::default())));
     }
 }
 
@@ -441,28 +446,34 @@ pub trait AddPipelineKey {
 impl AddPipelineKey for App {
     fn register_key<K: KeyTypeConcrete + FixedSizeKey + 'static>(&mut self) -> &mut Self {
         self.world
-            .get_resource_mut::<KeyMetaStore>()
+            .get_resource_mut::<KeyMetaStoreInitializer>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
+            .0
+            .as_mut()
+            .expect("keys must be registered before RenderPlugin::finish")
             .register_fixed_size::<K>();
         self
     }
 
     fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(&mut self) -> &mut Self {
         self.world
-            .get_resource_mut::<KeyMetaStore>()
+            .get_resource_mut::<KeyMetaStoreInitializer>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
+            .0
+            .as_mut()
+            .expect("keys must be registered before RenderPlugin::finish")
             .register_fixed_size::<K>();
         self.add_systems(
             Render,
             (|p: StaticSystemParam<K::Param>,
-              store: Res<KeyMetaStore>,
+              cache: Res<PipelineCache>,
               mut q: Query<(&mut PipelineKeys, K::Query), F>| {
                 let p = p.into_inner();
                 for (mut keys, query) in q.iter_mut() {
                     let Some(key) = K::from_params(&p, query) else {
                         continue;
                     };
-                    let PackedPipelineKey { packed, size, .. } = K::pack(&key, &store);
+                    let PackedPipelineKey { packed, size, .. } = cache.pack_key(&key);
                     keys.set_raw::<K>(packed, size);
                 }
             })
@@ -484,8 +495,11 @@ impl AddPipelineKey for App {
         &mut self,
     ) -> &mut Self {
         self.world
-            .get_resource_mut::<KeyMetaStore>()
+            .get_resource_mut::<KeyMetaStoreInitializer>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
+            .0
+            .as_mut()
+            .expect("keys must be registered before RenderPlugin::finish")
             .register_dynamic::<K>();
         self.add_systems(
             Render,
@@ -507,13 +521,16 @@ impl AddPipelineKey for App {
         &mut self,
     ) -> &mut Self {
         self.world
-            .get_resource_mut::<KeyMetaStore>()
+            .get_resource_mut::<KeyMetaStoreInitializer>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
+            .0
+            .as_mut()
+            .expect("keys must be registered before RenderPlugin::finish")
             .register_dynamic::<K>();
         self.add_systems(
             Render,
-            (|store: Res<KeyMetaStore>, mut q: Query<&mut PipelineKeys, F>| {
-                let dynamic_components = store.meta::<K>().dynamic_components.clone();
+            (|cache: Res<PipelineCache>, mut q: Query<&mut PipelineKeys, F>| {
+                let dynamic_components = &cache.key_store().meta::<K>().dynamic_components;
                 'ent: for mut keys in q.iter_mut() {
                     let mut value = 0;
                     let mut size = 0;
@@ -535,7 +552,11 @@ impl AddPipelineKey for App {
     }
 
     fn register_dynamic_key_part<K: DynamicKey, PART: AnyKeyType>(&mut self) -> &mut Self {
-        let mut store = self.world.resource_mut::<KeyMetaStore>();
+        let mut init =self.world
+            .get_resource_mut::<KeyMetaStoreInitializer>()
+            .expect("should be run on the RenderApp after adding the PipelineKeyPlugin");
+        let store = init.0.as_mut().expect("keys must be registered before RenderPlugin::finish");
+    
         store.add_dynamic_part::<K, PART>();
         self.configure_sets(
             Render,

@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     color::Color,
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    pipeline_keys::PipelineKey,
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
@@ -510,7 +510,6 @@ pub fn queue_sprites(
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
-    key_store: Res<KeyMetaStore>,
 ) {
     let msaa_key = OldSpritePipelineKey::from_msaa_samples(msaa.samples());
 
@@ -549,20 +548,16 @@ pub fn queue_sprites(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &sprite_pipeline,
-            KeyTypeConcrete::pack(
-                &SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(false)).bits()),
-                &key_store,
+            pipeline_cache.pack_key(
+                &SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(false)).bits())
             ),
-            &key_store,
         );
         let colored_pipeline = pipelines.specialize(
             &pipeline_cache,
             &sprite_pipeline,
-            KeyTypeConcrete::pack(
+            pipeline_cache.pack_key(
                 &SpritePipelineKey((view_key | OldSpritePipelineKey::from_colored(true)).bits()),
-                &key_store,
             ),
-            &key_store,
         );
 
         view_entities.clear();

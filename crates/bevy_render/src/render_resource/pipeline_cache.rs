@@ -5,7 +5,7 @@ use crate::{
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport, Source,
     },
     renderer::RenderDevice,
-    Extract,
+    Extract, pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PackedPipelineKey},
 };
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
@@ -476,6 +476,7 @@ pub struct PipelineCache {
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    key_store: KeyMetaStore,
 }
 
 impl PipelineCache {
@@ -484,7 +485,7 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(device: RenderDevice, key_store: KeyMetaStore) -> Self {
         Self {
             shader_cache: ShaderCache::new(&device),
             device,
@@ -492,7 +493,16 @@ impl PipelineCache {
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            key_store,
         }
+    }
+
+    pub(crate) fn key_store(&self) -> &KeyMetaStore {
+        &self.key_store
+    }
+
+    pub fn pack_key<K: KeyTypeConcrete>(&self, value: &K) -> PackedPipelineKey<K> {
+        K::pack(value, &self.key_store)
     }
 
     /// Get the state of a cached render pipeline.

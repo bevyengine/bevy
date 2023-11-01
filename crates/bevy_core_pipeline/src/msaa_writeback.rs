@@ -7,7 +7,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKeys},
+    pipeline_keys::PipelineKeys,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::BindGroupEntries,
     renderer::RenderContext,
@@ -120,7 +120,6 @@ fn prepare_msaa_writeback_pipelines(
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &PipelineKeys)>,
     msaa: Res<Msaa>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, view_target, camera, keys) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,
@@ -129,15 +128,14 @@ fn prepare_msaa_writeback_pipelines(
         {
             let key = BlitPipelineKey {
                 texture_format: view_target.main_texture_format(),
-                msaa: *keys.get_key(&key_store).unwrap(),
+                msaa: *keys.get_key(&pipeline_cache).unwrap(),
                 blend_state: None,
             };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &blit_pipeline,
-                KeyTypeConcrete::pack(&key, &key_store),
-                &key_store,
+                pipeline_cache.pack_key(&key),
             );
             commands
                 .entity(entity)

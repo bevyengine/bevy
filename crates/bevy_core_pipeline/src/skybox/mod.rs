@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey, SystemKey},
+    pipeline_keys::{PipelineKey, SystemKey},
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -192,21 +192,18 @@ fn prepare_skybox_pipelines(
     pipeline: Res<SkyboxPipeline>,
     msaa: Res<Msaa>,
     views: Query<(Entity, &ExtractedView), With<Skybox>>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, view) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(
+            pipeline_cache.pack_key(
                 &SkyboxPipelineKey {
                     hdr: view.hdr,
                     msaa: MsaaKey::from_params(&msaa, ()).unwrap(),
                     depth_format: CORE_3D_DEPTH_FORMAT,
-                },
-                &key_store,
+                }
             ),
-            &key_store,
         );
 
         commands

@@ -5,7 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
-    pipeline_keys::{KeyMetaStore, KeyRepack, KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey},
+    pipeline_keys::{KeyRepack, KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -1558,7 +1558,6 @@ pub fn queue_shadows<M: Material>(
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
     spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
-    key_store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1596,7 +1595,7 @@ pub fn queue_shadows<M: Material>(
             let Some(mut view_key) = keys.get_packed_key::<PbrViewKey>() else {
                 continue;
             };
-            view_key.insert(&MsaaKey::Off, &key_store);
+            view_key.insert(&MsaaKey::Off, &pipeline_cache);
 
             for entity in visible_entities.iter().copied() {
                 let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
@@ -1620,7 +1619,7 @@ pub fn queue_shadows<M: Material>(
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
                     | AlphaMode::Premultiplied
-                    | AlphaMode::Add => material_key.insert(&MayDiscard(true), &key_store),
+                    | AlphaMode::Add => material_key.insert(&MayDiscard(true), &pipeline_cache),
                     _ => (),
                 };
 
@@ -1631,7 +1630,6 @@ pub fn queue_shadows<M: Material>(
                     &prepass_pipeline,
                     key,
                     &mesh.layout,
-                    &key_store,
                 );
 
                 let pipeline_id = match pipeline_id {

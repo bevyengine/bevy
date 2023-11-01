@@ -18,7 +18,7 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey, PipelineKeys},
+    pipeline_keys::{PipelineKey, PipelineKeys},
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
@@ -443,7 +443,6 @@ pub fn prepare_deferred_lighting_pipelines(
         With<DeferredPrepass>,
     >,
     images: Res<RenderAssets<Image>>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (
         entity,
@@ -527,12 +526,11 @@ pub fn prepare_deferred_lighting_pipelines(
             }
         }
 
-        // let view_key_new = keys.get_packed_key().unwrap();
         let key = OldMeshPipelineKey(view_key.bits());
-        let key = KeyTypeConcrete::pack(&key, &key_store);
+        let key = pipeline_cache.pack_key(&key);
 
         let pipeline_id =
-            pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, key, &key_store);
+            pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, key);
 
         commands
             .entity(entity)

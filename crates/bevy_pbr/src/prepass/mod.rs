@@ -18,7 +18,7 @@ use bevy_render::{
     batching::batch_and_prepare_render_phase,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
-    pipeline_keys::{KeyMetaStore, KeyRepack, PipelineKeys},
+    pipeline_keys::{KeyRepack, PipelineKeys},
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::*,
@@ -418,9 +418,6 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        println!("prepass with {:?}", prepass_key);
-        println!("shader defs: {:?}", shader_defs);
-
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = vec![
             prepass_key.normal.then_some(ColorTargetState {
@@ -687,7 +684,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
             With<RenderPhase<AlphaMask3dDeferred>>,
         )>,
     >,
-    key_store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -757,7 +753,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             let deferred = !forward
                 && keys
-                    .get_key::<PrepassKey>(&key_store)
+                    .get_key::<PrepassKey>(&pipeline_cache)
                     .map_or(false, |pk| pk.deferred);
 
             let pipeline_key = NewMaterialPipelineKey::repack((
@@ -771,7 +767,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 &prepass_pipeline,
                 pipeline_key,
                 &mesh.layout,
-                &key_store,
             );
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,

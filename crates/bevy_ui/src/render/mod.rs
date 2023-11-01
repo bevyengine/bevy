@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKeys},
+    pipeline_keys::PipelineKeys,
     render_phase::PhaseItem,
 };
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
@@ -749,15 +749,13 @@ pub fn queue_uinodes(
     mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
-    key_store: Res<KeyMetaStore>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (view, mut transparent_phase) in &mut views {
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
-            KeyTypeConcrete::pack(&UiPipelineKey { hdr: view.hdr }, &key_store),
-            &key_store,
+            pipeline_cache.pack_key(&UiPipelineKey { hdr: view.hdr }),
         );
         transparent_phase
             .items

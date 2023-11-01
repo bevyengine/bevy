@@ -7,7 +7,7 @@ use crate::{
 };
 use crate::{
     pipeline_keys::{
-        AnyKeyType, KeyMetaStore, KeyPrimitive, KeyTypeConcrete, PackedPipelineKey, PipelineKey,
+        AnyKeyType, KeyPrimitive, KeyTypeConcrete, PackedPipelineKey, PipelineKey,
     },
     render_resource::CachedComputePipelineId,
 };
@@ -45,10 +45,9 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
         cache: &PipelineCache,
         specialize_pipeline: &S,
         key: PackedPipelineKey<S::Key>,
-        store: &KeyMetaStore,
     ) -> CachedRenderPipelineId {
         *self.cache.entry(key.packed).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(store.pipeline_key(key.packed));
+            let descriptor = specialize_pipeline.specialize(cache.key_store().pipeline_key(key.packed));
             cache.queue_render_pipeline(descriptor)
         })
     }
@@ -80,10 +79,9 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
         cache: &PipelineCache,
         specialize_pipeline: &S,
         key: PackedPipelineKey<S::Key>,
-        store: &KeyMetaStore,
     ) -> CachedComputePipelineId {
         *self.cache.entry(key.packed).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(store.pipeline_key(key.packed));
+            let descriptor = specialize_pipeline.specialize(cache.key_store().pipeline_key(key.packed));
             cache.queue_compute_pipeline(descriptor)
         })
     }
@@ -124,7 +122,6 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         specialize_pipeline: &S,
         key: PackedPipelineKey<S::Key>,
         layout: &MeshVertexBufferLayout,
-        store: &KeyMetaStore,
     ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
         let map = self
             .mesh_layout_cache
@@ -133,7 +130,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             Entry::Occupied(entry) => Ok(*entry.into_mut()),
             Entry::Vacant(entry) => {
                 let descriptor = specialize_pipeline
-                    .specialize(store.pipeline_key(key.packed), layout)
+                    .specialize(cache.key_store().pipeline_key(key.packed), layout)
                     .map_err(|mut err| {
                         {
                             let SpecializedMeshPipelineError::MissingVertexAttribute(err) =

@@ -1,5 +1,4 @@
 use crate::{
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete},
     render_resource::{
         BindGroupEntries, PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView,
     },
@@ -247,7 +246,6 @@ pub fn prepare_windows(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     mut msaa: ResMut<Msaa>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
@@ -425,8 +423,7 @@ pub fn prepare_windows(
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,
-                KeyTypeConcrete::pack(&surface_configuration.format, &key_store),
-                &key_store,
+                pipeline_cache.pack_key(&surface_configuration.format),
             );
             window.swap_chain_texture_view = Some(texture_view);
             window.screenshot_memory = Some(ScreenshotPreparedState {

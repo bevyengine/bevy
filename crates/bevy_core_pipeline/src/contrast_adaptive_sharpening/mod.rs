@@ -9,7 +9,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    pipeline_keys::PipelineKey,
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_resource::*,
@@ -255,13 +255,12 @@ fn prepare_cas_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<CASPipeline>>,
     sharpening_pipeline: Res<CASPipeline>,
     views: Query<(Entity, &ExtractedView, &DenoiseCAS), With<CASUniform>>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, view, cas_settings) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
-            KeyTypeConcrete::pack(
+            pipeline_cache.pack_key(
                 &CASPipelineKey {
                     denoise: cas_settings.0,
                     texture_format: if view.hdr {
@@ -269,10 +268,8 @@ fn prepare_cas_pipelines(
                     } else {
                         TextureFormat::bevy_default()
                     },
-                },
-                &key_store,
+                }
             ),
-            &key_store,
         );
 
         commands.entity(entity).insert(ViewCASPipeline(pipeline_id));

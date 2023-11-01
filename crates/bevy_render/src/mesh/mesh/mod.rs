@@ -4,11 +4,11 @@ use bevy_render_macros::PipelineKeyInRenderCrate;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PackedPipelineKey},
+    pipeline_keys::PackedPipelineKey,
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{Buffer, TextureView, VertexBufferLayout},
+    render_resource::{Buffer, TextureView, VertexBufferLayout, PipelineCache},
     renderer::RenderDevice,
 };
 use bevy_asset::{Asset, Handle};
@@ -1064,7 +1064,7 @@ impl RenderAsset for Mesh {
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderAssets<Image>>,
-        SRes<KeyMetaStore>,
+        SRes<PipelineCache>,
     );
 
     /// Clones the mesh.
@@ -1075,7 +1075,7 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        (render_device, images, key_store): &mut SystemParamItem<Self::Param>,
+        (render_device, images, pipeline_cache): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -1114,7 +1114,7 @@ impl RenderAsset for Mesh {
             morph_targets: mesh
                 .morph_targets
                 .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
-            packed_key: MeshKey::pack(&mesh_key, key_store),
+            packed_key: pipeline_cache.pack_key(&mesh_key),
         })
     }
 }

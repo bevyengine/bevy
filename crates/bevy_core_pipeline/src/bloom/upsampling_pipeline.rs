@@ -9,7 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    pipeline_keys::PipelineKey,
     render_resource::*,
     renderer::RenderDevice,
     view::ViewTarget,
@@ -153,33 +153,28 @@ pub fn prepare_upsampling_pipeline(
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &BloomSettings)>,
-    key_store: Res<KeyMetaStore>,
 ) {
     for (entity, settings) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(
+            pipeline_cache.pack_key(
                 &BloomUpsamplingPipelineKeys {
                     composite_mode: settings.composite_mode,
                     final_pipeline: false,
-                },
-                &key_store,
+                }
             ),
-            &key_store,
         );
 
         let pipeline_final_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            KeyTypeConcrete::pack(
+            pipeline_cache.pack_key(
                 &BloomUpsamplingPipelineKeys {
                     composite_mode: settings.composite_mode,
                     final_pipeline: true,
-                },
-                &key_store,
+                }
             ),
-            &key_store,
         );
 
         commands.entity(entity).insert(UpsamplingPipelineIds {

@@ -18,9 +18,7 @@ use bevy_render::{
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshKey, MeshVertexBufferLayout},
-    pipeline_keys::{
-        KeyMetaStore, KeyRepack, KeyShaderDefs, KeyTypeConcrete, PackedPipelineKey, PipelineKeys,
-    },
+    pipeline_keys::{KeyRepack, KeyShaderDefs, PackedPipelineKey, PipelineKeys,},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
@@ -440,7 +438,6 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
     )>,
-    key_store: Res<KeyMetaStore>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -579,7 +576,6 @@ pub fn queue_material_meshes<M: Material>(
                 &material_pipeline,
                 composite_key,
                 &mesh.layout,
-                &key_store,
             );
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
@@ -802,7 +798,7 @@ pub fn prepare_materials<M: Material>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
     default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
-    key_store: Res<KeyMetaStore>,
+    pipeline_cache: Res<PipelineCache>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets.into_iter() {
@@ -813,7 +809,7 @@ pub fn prepare_materials<M: Material>(
             &fallback_image,
             &pipeline,
             default_opaque_render_method.0,
-            &key_store,
+            &pipeline_cache,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
@@ -836,7 +832,7 @@ pub fn prepare_materials<M: Material>(
             &fallback_image,
             &pipeline,
             default_opaque_render_method.0,
-            &key_store,
+            &pipeline_cache,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
@@ -855,7 +851,7 @@ fn prepare_material<M: Material>(
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,
     default_opaque_render_method: OpaqueRendererMethod,
-    key_store: &KeyMetaStore,
+    pipeline_cache: &PipelineCache,
 ) -> Result<PreparedMaterial<M>, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &pipeline.material_layout,
@@ -878,7 +874,7 @@ fn prepare_material<M: Material>(
         may_discard: MayDiscard(matches!(material.alpha_mode(), AlphaMode::Mask(_))),
         material_data: prepared.data,
     };
-    let packed_key = KeyTypeConcrete::pack(&key, &key_store);
+    let packed_key = pipeline_cache.pack_key(&key);
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,

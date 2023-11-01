@@ -29,7 +29,7 @@ use bevy::{
     utils::FloatOrd,
 };
 use bevy_internal::{
-    render::pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    render::pipeline_keys::PipelineKey,
     sprite::Mesh2dPipelineKey,
 };
 use std::f32::consts::PI;
@@ -354,7 +354,6 @@ pub fn queue_colored_mesh2d(
         &mut RenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
-    key_store: Res<KeyMetaStore>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
@@ -381,8 +380,7 @@ pub fn queue_colored_mesh2d(
                 let pipeline_id = pipelines.specialize(
                     &pipeline_cache,
                     &colored_mesh2d_pipeline,
-                    KeyTypeConcrete::pack(&Mesh2dPipelineKey(mesh2d_key.bits()), &key_store),
-                    &key_store,
+                    pipeline_cache.pack_key(&Mesh2dPipelineKey(mesh2d_key.bits())),
                 );
 
                 let mesh_z = mesh2d_transforms.transform.translation.z;

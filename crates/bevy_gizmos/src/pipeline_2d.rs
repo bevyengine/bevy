@@ -13,7 +13,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    pipeline_keys::PipelineKey,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
@@ -152,7 +152,6 @@ fn queue_line_gizmos_2d(
         &mut RenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
-    key_store: Res<KeyMetaStore>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
@@ -172,14 +171,12 @@ fn queue_line_gizmos_2d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                KeyTypeConcrete::pack(
+                pipeline_cache.pack_key(
                     &LineGizmoPipelineKey {
                         mesh_key: Mesh2dPipelineKey(mesh_key.bits()),
                         strip: line_gizmo.strip,
-                    },
-                    &key_store,
+                    }
                 ),
-                &key_store,
             );
 
             transparent_phase.add(Transparent2d {

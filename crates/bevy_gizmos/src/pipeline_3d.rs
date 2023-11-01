@@ -16,7 +16,7 @@ use bevy_pbr::{
     MeshPipeline, OldMeshPipelineKey, OldMeshPipelineKeyBitflags, SetMeshViewBindGroup,
 };
 use bevy_render::{
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PipelineKey},
+    pipeline_keys::PipelineKey,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
@@ -163,7 +163,6 @@ fn queue_line_gizmos_3d(
         &mut RenderPhase<Transparent3d>,
         Option<&RenderLayers>,
     )>,
-    key_store: Res<KeyMetaStore>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
 
@@ -184,15 +183,13 @@ fn queue_line_gizmos_3d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                KeyTypeConcrete::pack(
+                pipeline_cache.pack_key(
                     &LineGizmoPipelineKey {
                         mesh_key: OldMeshPipelineKey(mesh_key.bits()),
                         strip: line_gizmo.strip,
                         perspective: config.line_perspective,
-                    },
-                    &key_store,
+                    }
                 ),
-                &key_store,
             );
 
             transparent_phase.add(Transparent3d {
