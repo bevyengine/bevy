@@ -14,7 +14,7 @@ fn main() {
 }
 
 // We can create our own gizmo config!
-#[derive(Default)]
+#[derive(Default, Reflect)]
 struct MyRoundGizmoConfig {}
 
 impl CustomGizmoConfig for MyRoundGizmoConfig {}

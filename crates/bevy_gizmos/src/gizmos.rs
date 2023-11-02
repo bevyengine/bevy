@@ -102,7 +102,8 @@ const _: () = {
                 &mut state.state, system_meta, world, change_tick
             );
             // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
-            // Implementing SystemParam manually allows us to do it to here:
+            // Implementing SystemParam manually allows us to do it to here
+            // Having config available allows for early returns when gizmos are disabled
             let config = f1.get::<T>().0.clone();
             Gizmos {
                 buffer: f0,

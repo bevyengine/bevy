@@ -14,7 +14,7 @@ fn main() {
 }
 
 // We can create our own gizmo config!
-#[derive(Default)]
+#[derive(Default, Reflect)]
 struct MyRoundGizmoConfig {}
 
 impl CustomGizmoConfig for MyRoundGizmoConfig {}
@@ -120,12 +120,12 @@ fn update_config(
     time: Res<Time>,
 ) {
     if keyboard.just_pressed(KeyCode::D) {
-        for config in config_store.iter_mut() {
+        for (_, config, _) in config_store.iter_mut() {
             config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
         }
     }
     if keyboard.just_pressed(KeyCode::P) {
-        for config in config_store.iter_mut() {
+        for (_, config, _) in config_store.iter_mut() {
             // Toggle line_perspective
             config.line_perspective ^= true;
             // Increase the line width when line_perspective is on
