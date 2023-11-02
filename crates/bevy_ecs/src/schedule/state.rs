@@ -137,12 +137,12 @@ impl<S: States> NextState<S> {
 /// This resource is only present during the execution of [`apply_state_transition::<S>`]
 /// and can be used by the transition schedules to access the exiting and entering states.
 #[derive(Resource, Debug)]
-pub struct StateTransition<S: States> {
+pub struct ActiveTransition<S: States> {
     from: S,
     to: S,
 }
 
-impl<S: States> StateTransition<S> {
+impl<S: States> ActiveTransition<S> {
     /// Get the state being exited.
     pub fn from(&self) -> &S {
         &self.from
@@ -163,12 +163,12 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
-/// - Inserts the [`StateTransition<S>`] resource with the exiting and entering states.
+/// - Inserts the [`ActiveTransition<S>`] resource with the exiting and entering states.
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition::<S>::Any`](OnTransition), if it exists.
 /// - Runs the [`OnTransition::Exact { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-/// - Removes the [`StateTransition<S>`] resource.
+/// - Removes the [`ActiveTransition<S>`] resource.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
@@ -180,7 +180,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         if *state_resource != entered {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
 
-            world.insert_resource(StateTransition {
+            world.insert_resource(ActiveTransition {
                 from: exited.clone(),
                 to: entered.clone(),
             });
@@ -196,7 +196,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
                 .ok();
             world.try_run_schedule(OnEnter(entered)).ok();
 
-            world.remove_resource::<StateTransition<S>>();
+            world.remove_resource::<ActiveTransition<S>>();
         }
     }
 }
