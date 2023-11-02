@@ -185,14 +185,12 @@ pub struct ShowAabbGizmo {
 
 fn draw_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
-    config_store: Res<GizmoConfigStore>,
     mut gizmos: Gizmos<AabbGizmoConfig>,
 ) {
-    let (_config, ext) = config_store.get::<AabbGizmoConfig>();
     for (entity, &aabb, &transform, gizmo) in &query {
         let color = gizmo
             .color
-            .or(ext.default_color)
+            .or(gizmos.config_ext.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
         gizmos.cuboid(aabb_transform(aabb, transform), color);
     }
@@ -200,12 +198,10 @@ fn draw_aabbs(
 
 fn draw_all_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
-    config_store: Res<GizmoConfigStore>,
     mut gizmos: Gizmos<AabbGizmoConfig>,
 ) {
-    let (_, ext) = config_store.get::<AabbGizmoConfig>();
     for (entity, &aabb, &transform) in &query {
-        let color = ext
+        let color = gizmos.config_ext
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
         gizmos.cuboid(aabb_transform(aabb, transform), color);

@@ -50,8 +50,11 @@ impl<T: CustomGizmoConfig> Default for GizmoStorage<T> {
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
 pub struct Gizmos<'w, 's, T: CustomGizmoConfig = DefaultGizmoConfig> {
     buffer: Deferred<'s, GizmoBuffer<T>>,
-    _groups: Res<'w, GizmoConfigStore>,
-    config: GizmoConfig,
+    //_store: Res<'w, GizmoConfigStore>,
+    /// The currently used [`GizmoConfig`]
+    pub config: &'w GizmoConfig,
+    /// The currently used [`CustomGizmoConfig`]
+    pub config_ext: &'w T
 }
 
 const _: () = {
@@ -104,11 +107,12 @@ const _: () = {
             // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
             // Implementing SystemParam manually allows us to do it to here
             // Having config available allows for early returns when gizmos are disabled
-            let config = f1.get::<T>().0.clone();
+            let (config, config_ext) = f1.into_inner().get::<T>();
             Gizmos {
                 buffer: f0,
-                _groups: f1,
+                //_store: f1,
                 config,
+                config_ext
             }
         }
     }
