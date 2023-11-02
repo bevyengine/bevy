@@ -7,10 +7,7 @@
 // type aliases tends to obfuscate code while offering no improvement in code cleanliness.
 #![allow(clippy::type_complexity)]
 
-use bevy::{
-    asset::LoadState, gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*,
-    scene::InstanceId,
-};
+use bevy::{asset::LoadState, gltf::Gltf, prelude::*, scene::InstanceId};
 
 use std::f32::consts::*;
 use std::fmt;
@@ -43,6 +40,8 @@ const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
+    B           - toggle bounding boxes
+    F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     compile with "--features animation" for animation controls.
@@ -54,6 +53,7 @@ Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     B           - toggle bounding boxes
+    F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     Space       - Play/Pause animation
@@ -72,19 +72,18 @@ impl Plugin for SceneViewerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraTracker>()
             .add_systems(PreUpdate, scene_load_check)
-            .add_systems(
-                Update,
-                (
-                    update_lights,
-                    camera_tracker,
-                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::B)),
-                ),
-            );
+            .add_systems(Update, (update_lights, camera_tracker, toggle_gizmos));
     }
 }
 
-fn toggle_bounding_boxes(mut config: ResMut<GizmoConfig>) {
-    config.aabb.draw_all ^= true;
+fn toggle_gizmos(keyboard_input: Res<Input<KeyCode>>, mut config: ResMut<GizmoConfig>) {
+    if keyboard_input.just_pressed(KeyCode::B) {
+        config.aabb.draw_all ^= true;
+    }
+
+    if keyboard_input.just_pressed(KeyCode::F) {
+        config.frustum.draw_all ^= true;
+    }
 }
 
 fn scene_load_check(

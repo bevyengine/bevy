@@ -144,6 +144,7 @@ fn queue_line_gizmos_2d(
     line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
+        Entity,
         &ExtractedView,
         &mut RenderPhase<Transparent2d>,
         Option<&RenderLayers>,
@@ -151,7 +152,7 @@ fn queue_line_gizmos_2d(
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
-    for (view, mut transparent_phase, render_layers) in &mut views {
+    for (view_entity, view, mut transparent_phase, render_layers) in &mut views {
         let render_layers = render_layers.copied().unwrap_or_default();
         if !config.render_layers.intersects(&render_layers) {
             continue;
@@ -160,6 +161,12 @@ fn queue_line_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
+            // The frustum gizmo adds a linegizmo to the same entity.
+            // We can use that here to prevent views from rendering their own frustum.
+            if entity == view_entity {
+                continue;
+            }
+
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
                 continue;
             };

@@ -185,6 +185,30 @@ impl HalfSpace {
     pub fn normal_d(&self) -> Vec4 {
         self.normal_d
     }
+
+    /// Returns the intersection position if the three halfspaces all intersect at a single point.
+    pub fn intersect(a: HalfSpace, b: HalfSpace, c: HalfSpace) -> Option<Vec3> {
+        let an = a.normal();
+        let bn = b.normal();
+        let cn = c.normal();
+
+        let x = Vec3::new(an.x, bn.x, cn.x);
+        let y = Vec3::new(an.y, bn.y, cn.y);
+        let z = Vec3::new(an.z, bn.z, cn.z);
+
+        let d = -Vec3::new(a.d(), b.d(), c.d());
+
+        let u = y.cross(z);
+        let v = x.cross(d);
+
+        let denom = x.dot(u);
+
+        if denom.abs() < f32::EPSILON {
+            return None;
+        }
+
+        Some(Vec3::new(d.dot(u), z.dot(v), -y.dot(v)) / denom)
+    }
 }
 
 /// A region of 3D space defined by the intersection of 6 [`HalfSpace`]s.
@@ -300,6 +324,22 @@ impl Frustum {
             }
         }
         true
+    }
+
+    /// Calculates the corners of this frustum. Returns `None` if the frustum isn't properly defined.
+    pub fn corners(&self) -> Option<[Vec3; 8]> {
+        // TODO Why are these intersection tests failing on spotlight frusta?
+        let [left, right, top, bottom, near, far] = self.half_spaces;
+        Some([
+            HalfSpace::intersect(top, left, near)?,
+            HalfSpace::intersect(top, right, near)?,
+            HalfSpace::intersect(bottom, right, near)?,
+            HalfSpace::intersect(bottom, left, near)?,
+            HalfSpace::intersect(top, left, far)?,
+            HalfSpace::intersect(top, right, far)?,
+            HalfSpace::intersect(bottom, right, far)?,
+            HalfSpace::intersect(bottom, left, far)?,
+        ])
     }
 }
 

@@ -16,6 +16,7 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+pub mod frustum;
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
@@ -26,7 +27,11 @@ mod pipeline_3d;
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
+    pub use crate::{
+        frustum::{FrustumGizmo, FrustumGizmoConfig},
+        gizmos::Gizmos,
+        AabbGizmo, AabbGizmoConfig, GizmoConfig,
+    };
 }
 
 use bevy_app::{Last, Plugin, PostUpdate};
@@ -68,6 +73,8 @@ use bevy_transform::{
 use gizmos::{GizmoStorage, Gizmos};
 use std::mem;
 
+use crate::frustum::{FrustumGizmoConfig, FrustumGizmoPlugin};
+
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
@@ -77,21 +84,24 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .init_asset::<LineGizmo>()
-            .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
-            .init_resource::<LineGizmoHandles>()
-            .init_resource::<GizmoConfig>()
-            .init_resource::<GizmoStorage>()
-            .add_systems(Last, update_gizmo_meshes)
-            .add_systems(
-                PostUpdate,
-                (
-                    draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
-                )
-                    .after(TransformSystem::TransformPropagate),
-            );
+        app.add_plugins((
+            FrustumGizmoPlugin,
+            UniformComponentPlugin::<LineGizmoUniform>::default(),
+            RenderAssetPlugin::<LineGizmo>::default(),
+        ))
+        .init_asset::<LineGizmo>()
+        .init_resource::<LineGizmoHandles>()
+        .init_resource::<GizmoConfig>()
+        .init_resource::<GizmoStorage>()
+        .add_systems(Last, update_gizmo_meshes)
+        .add_systems(
+            PostUpdate,
+            (
+                draw_aabbs,
+                draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
+            )
+                .after(TransformSystem::TransformPropagate),
+        );
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -168,6 +178,8 @@ pub struct GizmoConfig {
     pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
+    /// Configuration for the [`frustum::FrustumGizmo`].
+    pub frustum: FrustumGizmoConfig,
     /// Describes which rendering layers gizmos will be rendered to.
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
@@ -182,6 +194,7 @@ impl Default for GizmoConfig {
             line_perspective: false,
             depth_bias: 0.,
             aabb: Default::default(),
+            frustum: Default::default(),
             render_layers: Default::default(),
         }
     }
@@ -319,6 +332,7 @@ fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfig>>,
+    linegizmo_query: Extract<Query<(Entity, &Handle<LineGizmo>)>>,
 ) {
     if config.is_changed() {
         commands.insert_resource(config.clone());
@@ -330,6 +344,18 @@ fn extract_gizmo_data(
 
     for handle in [&handles.list, &handles.strip].into_iter().flatten() {
         commands.spawn((
+            LineGizmoUniform {
+                line_width: config.line_width,
+                depth_bias: config.depth_bias,
+                #[cfg(feature = "webgl")]
+                _padding: Default::default(),
+            },
+            handle.clone_weak(),
+        ));
+    }
+
+    for (entity, handle) in &linegizmo_query {
+        commands.get_or_spawn(entity).insert((
             LineGizmoUniform {
                 line_width: config.line_width,
                 depth_bias: config.depth_bias,
