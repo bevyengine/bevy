@@ -28,6 +28,22 @@ necessary servers for passing graphics and audio between Windows and the WSL ins
 With WSLg, a user's WSL instance can use X11 as well as Wayland.
 For more information, see WSLg [documentation](https://github.com/microsoft/wslg#wslg-architecture-overview).
 
+Aside from the Bevy dependencies require for your WSL2 distro, make sure to have the
+following additional dependencies:
+```bash
+sudo apt-get install libxcursor-dev libxrandr libxi6 mesa-vulkan-drivers
+```
+
+Also, ensure Vulkan is used as wgpu backend, either using `WGPU_BACKEND=vulkan` or Bevy plugin settings:
+```rust
+  .add_plugins(DefaultPlugins.set(RenderPlugin {
+      wgpu_settings: WgpuSettings {
+          backends: Some(Backends::VULKAN),
+          ..default()
+      },
+  }))
+```
+
 Prior to the release of [WSL Gui (WSLg)](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux#WSLg)
 around 4/20/2021, users had to [manually set up servers](https://wiki.ubuntu.com/WSL#Advanced_Topics) on windows for graphic and audio.
 Make note of the date for documentation found across the internet.
