@@ -1,7 +1,7 @@
 //! A shader that uses the GLSL shading language.
 
 use bevy::{
-    pbr::{MaterialPipeline, NewMaterialPipelineKey},
+    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -80,7 +80,7 @@ impl Material for CustomMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        _key: PipelineKey<NewMaterialPipelineKey<Self>>,
+        _key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.vertex.entry_point = "main".into();
         descriptor.fragment.as_mut().unwrap().entry_point = "main".into();

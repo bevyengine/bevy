@@ -14,7 +14,7 @@ use bevy_render::{
 
 use crate::{
     AlphaKey, Material, MaterialPipeline, MayDiscard, MeshPipeline, NewMaterialKey,
-    NewMaterialPipelineKey, OpaqueMethodKey, PbrViewKey,
+    MaterialPipelineKey, OpaqueMethodKey, PbrViewKey,
 };
 
 pub struct MaterialExtensionPipeline {
@@ -225,7 +225,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: PipelineKey<NewMaterialPipelineKey<Self>>,
+        key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function
         let MaterialPipeline::<Self> {
@@ -242,7 +242,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             fragment_shader,
             marker: Default::default(),
         };
-        let base_key = NewMaterialPipelineKey::<B> {
+        let base_key = MaterialPipelineKey::<B> {
             view_key: key.view_key,
             mesh_key: key.mesh_key,
             material_key: NewMaterialKey {

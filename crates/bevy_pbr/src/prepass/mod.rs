@@ -336,7 +336,7 @@ impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    type Key = NewMaterialPipelineKey<M>;
+    type Key = MaterialPipelineKey<M>;
 
     fn specialize(
         &self,
@@ -762,7 +762,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                     .get_key::<PrepassKey>(&pipeline_cache)
                     .map_or(false, |pk| pk.deferred);
 
-            let pipeline_key = NewMaterialPipelineKey::repack((
+            let pipeline_key = MaterialPipelineKey::repack((
                 view_key,
                 mesh.packed_key,
                 material.new_packed_key,

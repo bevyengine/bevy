@@ -755,7 +755,7 @@ impl Material for StandardMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        key: PipelineKey<NewMaterialPipelineKey<Self>>,
+        key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         let standard_material_data = &key.material_key.material_data;
         if let Some(fragment) = descriptor.fragment.as_mut() {

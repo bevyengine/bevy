@@ -1,4 +1,4 @@
-use crate::{Material, MaterialPipeline, MaterialPlugin, NewMaterialPipelineKey};
+use crate::{Material, MaterialPipeline, MaterialPlugin, MaterialPipelineKey};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -210,7 +210,7 @@ impl Material for WireframeMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        _key: PipelineKey<NewMaterialPipelineKey<Self>>,
+        _key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;

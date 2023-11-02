@@ -1,7 +1,7 @@
 //! A shader that uses "shaders defs", which selectively toggle parts of a shader.
 
 use bevy::{
-    pbr::{MaterialPipeline, NewMaterialPipelineKey},
+    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -64,7 +64,7 @@ impl Material for CustomMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        key: PipelineKey<NewMaterialPipelineKey<Self>>,
+        key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.material_key.material_data.is_red {
             let fragment = descriptor.fragment.as_mut().unwrap();

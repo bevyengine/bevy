@@ -173,7 +173,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: PipelineKey<NewMaterialPipelineKey<Self>>,
+        key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
@@ -253,7 +253,7 @@ where
 }
 
 #[derive(PipelineKey)]
-pub struct NewMaterialPipelineKey<M: Material> {
+pub struct MaterialPipelineKey<M: Material> {
     pub view_key: PbrViewKey,
     pub mesh_key: MeshKey,
     pub material_key: NewMaterialKey<M>,
@@ -285,7 +285,7 @@ impl<M: Material> SpecializedMeshPipeline for MaterialPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    type Key = NewMaterialPipelineKey<M>;
+    type Key = MaterialPipelineKey<M>;
 
     fn specialize(
         &self,
@@ -456,7 +456,7 @@ pub fn queue_material_meshes<M: Material>(
                 .new_packed_key;
 
             let composite_key =
-                NewMaterialPipelineKey::repack((view_key_new, mesh_key_new, material_key_new));
+                MaterialPipelineKey::repack((view_key_new, mesh_key_new, material_key_new));
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
