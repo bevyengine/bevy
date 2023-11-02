@@ -762,11 +762,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                     .get_key::<PrepassKey>(&pipeline_cache)
                     .map_or(false, |pk| pk.deferred);
 
-            let pipeline_key = MaterialPipelineKey::repack((
-                view_key,
-                mesh.packed_key,
-                material.new_packed_key,
-            ));
+            let pipeline_key =
+                MaterialPipelineKey::repack((view_key, mesh.packed_key, material.packed_key));
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,

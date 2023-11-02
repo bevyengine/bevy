@@ -13,8 +13,8 @@ use bevy_render::{
 };
 
 use crate::{
-    AlphaKey, Material, MaterialPipeline, MayDiscard, MeshPipeline, NewMaterialKey,
-    MaterialPipelineKey, OpaqueMethodKey, PbrViewKey,
+    AlphaKey, Material, MaterialPipeline, MaterialPipelineKey, MayDiscard, MeshPipeline,
+    NewMaterialKey, OpaqueMethodKey, PbrViewKey,
 };
 
 pub struct MaterialExtensionPipeline {

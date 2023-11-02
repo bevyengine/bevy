@@ -450,10 +450,7 @@ pub fn queue_material_meshes<M: Material>(
                 .get(mesh_instance.mesh_asset_id)
                 .unwrap()
                 .packed_key;
-            let material_key_new = render_materials
-                .get(material_asset_id)
-                .unwrap()
-                .new_packed_key;
+            let material_key_new = render_materials.get(material_asset_id).unwrap().packed_key;
 
             let composite_key =
                 MaterialPipelineKey::repack((view_key_new, mesh_key_new, material_key_new));
@@ -608,7 +605,7 @@ pub struct MaterialProperties {
 pub struct PreparedMaterial<T: Material> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
-    pub new_packed_key: PackedPipelineKey<NewMaterialKey<T>>,
+    pub packed_key: PackedPipelineKey<NewMaterialKey<T>>,
     pub properties: MaterialProperties,
 }
 
@@ -788,7 +785,7 @@ fn prepare_material<M: Material>(
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
-        new_packed_key: packed_key,
+        packed_key,
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),

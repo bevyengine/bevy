@@ -1,4 +1,4 @@
-use crate::{Material, MaterialPipeline, MaterialPlugin, MaterialPipelineKey};
+use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;

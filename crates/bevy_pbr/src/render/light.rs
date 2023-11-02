@@ -1614,7 +1614,7 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 };
 
-                let mut material_key = material.new_packed_key;
+                let mut material_key = material.packed_key;
                 match material.properties.alpha_mode {
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
