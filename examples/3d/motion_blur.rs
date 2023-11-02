@@ -180,10 +180,12 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(UVSphere::default().into()),
             material: sphere_matl(Color::WHITE),
-            transform: Transform::from_xyz(100.0, 50.0, -100.0).with_scale(Vec3::splat(60.0)),
+            transform: Transform::from_xyz(100.0, 50.0, -100.0)
+                .with_scale(Vec3::splat(60.0))
+                .with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
             ..default()
         },
-        Rotates(5.0),
+        Rotates(30.0),
     ));
 }
 
@@ -237,7 +239,7 @@ fn translate(time: Res<Time>, mut moves: Query<(&mut Transform, &Translates)>) {
 
 fn rotate(time: Res<Time>, mut moves: Query<(&mut Transform, &Rotates)>) {
     for (mut transform, rotate) in &mut moves {
-        transform.rotate_x(rotate.0 * time.delta_seconds());
+        transform.rotate_local_z(rotate.0 * time.delta_seconds());
     }
 }
 

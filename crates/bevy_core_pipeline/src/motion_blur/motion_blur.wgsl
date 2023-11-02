@@ -48,6 +48,8 @@ fn fragment(
     // ensures we always have at least one sample, the central sample, which will be unjittered.
     let n_samples = i32(clamp(speed, 2.0, f32(settings.max_samples)) / 2.0) * 2 + 1;
 
+    var step_vector = exposure_vector / f32(n_samples - 1);
+
 #ifdef NO_DEPTH_TEXTURE_SUPPORT
     let this_depth = 0.0;
     let depth_supported = false;
@@ -60,20 +62,14 @@ fn fragment(
 #endif
 #endif
 
-    var weight_total = 0.0;
-    var accumulator = vec4<f32>(0.0);
-    let noise = hash_noise(frag_coords, globals.frame_count) * 2.0 - 1.0;
+    var sample_uv = in.uv;
+    var weight_total = 1.0;
+    var accumulator = textureSample(screen_texture, texture_sampler, sample_uv);
+    let noise = hash_noise(frag_coords, globals.frame_count); // 0 to 1
     let jitter = noise / f32(n_samples - 1);
-
-    for (var i = 0; i < n_samples; i++) {
-        let sample_percent = f32(i) / f32(n_samples - 1) - 0.5;
-
-        var offset = vec2<f32>(0.0);
-        if n_samples > 1 && abs(sample_percent) > 0.001 {
-            // We want the central sample to have an offset of zero.
-            offset = exposure_vector * (sample_percent + jitter);
-        }
-        let sample_uv = in.uv + offset;
+    
+    for (var i = 0; i < (n_samples - 1) / 2; i++) {
+        sample_uv += step_vector;
         let sample_coords = vec2<i32>(sample_uv * texture_size);
 
         // If depth is not considered during sampling, you can end up sampling objects in front of a
@@ -101,9 +97,9 @@ fn fragment(
         // their motion vectors are. This is because that means the sampled fragment is more likely
         // to have occupied this fragment during the course of its motion.
         if sample_depth > this_depth || !depth_supported {
-            let this_len = length(this_motion_vector);
+            let this_len = length(step_vector * f32(n_samples - 1));
             let sample_len = length(sample_motion_vector);
-            let cos_angle = dot(this_motion_vector, sample_motion_vector) / (this_len * sample_len);
+            let cos_angle = dot(step_vector * f32(n_samples - 1), sample_motion_vector) / (this_len * sample_len);
             let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
             // If the foreground sampled frag is not moving much, we definitely shouldn't sample it,
             // because there is no way that it could've contributed to this fragment's color.
@@ -113,7 +109,55 @@ fn fragment(
         }
         weight_total += weight;
         accumulator += weight * textureSample(screen_texture, texture_sampler, sample_uv);
+
+        step_vector = sample_motion_vector / f32(n_samples - 1);
     }
+
+
+
+
+    step_vector = exposure_vector / f32(n_samples - 1);
+    sample_uv = in.uv;
+
+    for (var i = 0; i < (n_samples - 1) / 2; i++) {
+        sample_uv -= step_vector;
+        let sample_coords = vec2<i32>(sample_uv * texture_size);
+
+        // If depth is not considered during sampling, you can end up sampling objects in front of a
+        // fast moving object, which will cause the (possibly stationary) objects in front of that
+        // fast moving object to smear. To prevent this, we check the depth and velocity of the
+        // fragment we are sampling.
+    #ifdef NO_DEPTH_TEXTURE_SUPPORT
+        let sample_depth = 0.0;
+    #else
+    #ifdef MULTISAMPLED
+        let sample_depth = textureLoad(depth, sample_coords, i32(sample_index));
+    #else
+        let sample_depth = textureSample(depth, texture_sampler, sample_uv);
+    #endif
+    #endif
+        
+    #ifdef MULTISAMPLED
+        let sample_motion_vector = textureLoad(motion_vectors, sample_coords, i32(sample_index)).rg;
+    #else
+        let sample_motion_vector = textureSample(motion_vectors, texture_sampler, sample_uv).rg;
+    #endif
+
+        var weight = 1.0;
+        // if sample_depth > this_depth || !depth_supported {
+            let this_len = length(step_vector * f32(n_samples - 1));
+            let sample_len = length(sample_motion_vector);
+            let cos_angle = dot(step_vector * f32(n_samples - 1), sample_motion_vector) / (this_len * sample_len);
+            let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
+            let length_ratio = clamp(sample_len / this_len, 0.0, 1.0);
+            weight = pow(motion_similarity * length_ratio, 2.0);
+        // }
+        weight_total += weight;
+        accumulator += weight * textureSample(screen_texture, texture_sampler, sample_uv);
+
+        step_vector = sample_motion_vector / f32(n_samples - 1);
+    }
+
 
     return accumulator / weight_total;
 }
