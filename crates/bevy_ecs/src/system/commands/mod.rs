@@ -146,6 +146,11 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.queue.append(other);
+    }
+
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
     /// and returns its corresponding [`EntityCommands`].
     ///
@@ -1301,6 +1306,25 @@ mod tests {
         }
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
+        assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn append() {
+        let mut world = World::default();
+        let mut queue_1 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_1, &world);
+            commands.insert_resource(W(123i32));
+        }
+        let mut queue_2 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_2, &world);
+            commands.insert_resource(W(456.0f64));
+        }
+        queue_1.append(&mut queue_2);
+        queue_1.apply(&mut world);
+        assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
     }
 }
