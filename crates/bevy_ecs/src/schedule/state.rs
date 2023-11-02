@@ -135,7 +135,7 @@ impl<S: States> NextState<S> {
 /// The state transition that is currently being applied by [`apply_state_transition::<S>`].
 ///
 /// This resource is only present during the execution of [`apply_state_transition::<S>`]
-/// and can be used by the transition schedules to access the exiting and entering states.
+/// and can only be use by the [`OnTransition`] schedules.
 #[derive(Resource, Debug)]
 pub struct ActiveTransition<S: States> {
     from: S,
@@ -163,12 +163,12 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
-/// - Inserts the [`ActiveTransition<S>`] resource with the exiting and entering states.
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
+/// - Inserts the [`ActiveTransition<S>`] resource with the exiting and entering states.
 /// - Runs the [`OnTransition::<S>::Any`](OnTransition), if it exists.
 /// - Runs the [`OnTransition::Exact { from: exited_state, to: entered_state }`](OnTransition), if it exists.
-/// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 /// - Removes the [`ActiveTransition<S>`] resource.
+/// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
@@ -180,13 +180,13 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         if *state_resource != entered {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
 
+            // Try to run the schedules if they exist.
+            world.try_run_schedule(OnExit(exited.clone())).ok();
+
             world.insert_resource(ActiveTransition {
                 from: exited.clone(),
                 to: entered.clone(),
             });
-
-            // Try to run the schedules if they exist.
-            world.try_run_schedule(OnExit(exited.clone())).ok();
             world.try_run_schedule(OnTransition::<S>::Any).ok();
             world
                 .try_run_schedule(OnTransition::Exact {
@@ -194,9 +194,9 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
                     to: entered.clone(),
                 })
                 .ok();
-            world.try_run_schedule(OnEnter(entered)).ok();
-
             world.remove_resource::<ActiveTransition<S>>();
+
+            world.try_run_schedule(OnEnter(entered)).ok();
         }
     }
 }
