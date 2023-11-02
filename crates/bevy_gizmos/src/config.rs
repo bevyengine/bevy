@@ -141,12 +141,12 @@ impl Default for GizmoConfig {
     }
 }
 
-/// Configuration for drawing the [`Aabb`] component on entities.
+/// Configuration for drawing the [Aabb](bevy_render::primitives::Aabb) component on entities.
 #[derive(Default, Reflect)]
 pub struct AabbGizmoConfig {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///
-    /// To draw a specific entity's bounding box, you can add the [`AabbGizmo`] component.
+    /// To draw a specific entity's bounding box, you can add the [ShowAabbGizmo](crate::ShowAabbGizmo) component.
     ///
     /// Defaults to `false`.
     pub draw_all: bool,

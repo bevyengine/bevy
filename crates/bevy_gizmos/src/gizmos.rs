@@ -54,7 +54,7 @@ pub struct Gizmos<'w, 's, T: CustomGizmoConfig = DefaultGizmoConfig> {
     /// The currently used [`GizmoConfig`]
     pub config: &'w GizmoConfig,
     /// The currently used [`CustomGizmoConfig`]
-    pub config_ext: &'w T
+    pub config_ext: &'w T,
 }
 
 const _: () = {
@@ -112,7 +112,7 @@ const _: () = {
                 buffer: f0,
                 //_store: f1,
                 config,
-                config_ext
+                config_ext,
             }
         }
     }

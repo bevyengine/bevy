@@ -179,7 +179,7 @@ impl AppGizmoBuilder for App {
 pub struct ShowAabbGizmo {
     /// The color of the box.
     ///
-    /// The default color from the [`GizmoConfig`] resource is used if `None`,
+    /// The default color from the [`AabbGizmoConfig`] resource is used if `None`,
     pub color: Option<Color>,
 }
 
@@ -201,7 +201,8 @@ fn draw_all_aabbs(
     mut gizmos: Gizmos<AabbGizmoConfig>,
 ) {
     for (entity, &aabb, &transform) in &query {
-        let color = gizmos.config_ext
+        let color = gizmos
+            .config_ext
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
         gizmos.cuboid(aabb_transform(aabb, transform), color);
