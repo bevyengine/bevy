@@ -30,11 +30,13 @@ For more information, see WSLg [documentation](https://github.com/microsoft/wslg
 
 Aside from the Bevy dependencies require for your WSL2 distro, make sure to have the
 following additional dependencies:
+
 ```bash
 sudo apt-get install libxcursor-dev libxrandr libxi6 mesa-vulkan-drivers
 ```
 
 Also, ensure Vulkan is used as wgpu backend, either using `WGPU_BACKEND=vulkan` or Bevy plugin settings:
+
 ```rust
   .add_plugins(DefaultPlugins.set(RenderPlugin {
       wgpu_settings: WgpuSettings {
