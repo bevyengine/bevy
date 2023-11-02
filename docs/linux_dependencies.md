@@ -28,7 +28,7 @@ necessary servers for passing graphics and audio between Windows and the WSL ins
 With WSLg, a user's WSL instance can use X11 as well as Wayland.
 For more information, see WSLg [documentation](https://github.com/microsoft/wslg#wslg-architecture-overview).
 
-Aside from the Bevy dependencies require for your WSL2 distro, make sure to have the
+Aside from the Bevy dependencies required for your WSL2 distro, make sure to have the
 following additional dependencies:
 
 ```bash
