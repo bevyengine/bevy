@@ -431,7 +431,6 @@ where
 
         if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             shader_defs.push("DEFERRED_PREPASS".into());
-
         }
 
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
