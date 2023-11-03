@@ -19,7 +19,7 @@ mod ssao;
 pub use alpha::*;
 use bevy_core_pipeline::{
     prepass::PrepassKey,
-    tonemapping::{DebandDitherKey, TonemappingKey},
+    tonemapping::{DebandDitherKey, Tonemapping},
 };
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
@@ -368,7 +368,7 @@ impl Plugin for PbrPlugin {
 
         render_app
             .register_system_key::<DepthClampOrthoKey, With<ExtractedView>>()
-            .register_system_key::<ShadowFilteringKey, With<ExtractedView>>()
+            .register_system_key::<ShadowFilteringMethod, With<ExtractedView>>()
             .register_system_key::<ScreenSpaceTransmissionQualityKey, With<ExtractedView>>()
             .register_composite_key::<PbrViewKey, With<ExtractedView>>();
         // .register_dynamic_key::<PbrViewKeyDynamic, With<ExtractedView>>()
@@ -391,14 +391,14 @@ impl Plugin for PbrPlugin {
 
 pub type PbrViewKey = (
     HdrKey,
-    TonemappingKey,
+    Tonemapping,
     DebandDitherKey,
     PrepassKey,
     EnvironmentMapKey,
     SsaoKey,
     DepthClampOrthoKey,
     MsaaKey,
-    ShadowFilteringKey,
+    ShadowFilteringMethod,
     ViewProjectionKey,
     ScreenSpaceTransmissionQualityKey,
 );

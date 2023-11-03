@@ -106,7 +106,7 @@ impl Plugin for TonemappingPlugin {
                     prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
                 )
                 .register_system_key::<DebandDitherKey, With<ExtractedView>>()
-                .register_system_key::<TonemappingKey, With<ExtractedView>>();
+                .register_system_key::<Tonemapping, With<ExtractedView>>();
         }
     }
 
@@ -124,10 +124,12 @@ pub struct TonemappingPipeline {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 #[derive(
-    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
+    PipelineKey, Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
+#[custom_shader_defs]
+#[repr(u8)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -183,56 +185,30 @@ impl Tonemapping {
 #[derive(PipelineKey, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
     deband_dither: DebandDitherKey,
-    tonemapping: TonemappingKey,
+    tonemapping: Tonemapping,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
     type Key = TonemappingPipelineKey;
 
     fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
-        let mut shader_defs = Vec::new();
-        if key.deband_dither.0 {
-            shader_defs.push("DEBAND_DITHER".into());
+        let shader_defs = key.shader_defs();
+
+        #[cfg(not(feature = "tonemapping_luts"))]
+        match key.tonemapping {
+            Tonemapping::AgX |
+            Tonemapping::TonyMcMapface |
+            Tonemapping::BlenderFilmic => {
+                bevy_log::error!(
+                    "{} tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`.",
+                    key.tonemapping
+                );
+            },
+            _ => ()
         }
 
-        match key.tonemapping {
-            TonemappingKey::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
-            TonemappingKey::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
-            TonemappingKey::ReinhardLuminance => {
-                shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-            }
-            TonemappingKey::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
-            TonemappingKey::AgX => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
-                    "AgX tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
-                );
-                shader_defs.push("TONEMAP_METHOD_AGX".into());
-            }
-            TonemappingKey::SomewhatBoringDisplayTransform => {
-                shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-            }
-            TonemappingKey::TonyMcMapface => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
-                    "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
-                );
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
-            }
-            TonemappingKey::BlenderFilmic => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
-                    "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
-                );
-                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-            }
-        }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
             layout: vec![self.texture_bind_group.clone()],
@@ -313,7 +289,7 @@ pub fn prepare_view_tonemapping_pipelines(
     for (entity, tonemapping, dither) in view_targets.iter() {
         let key = TonemappingPipelineKey {
             deband_dither: DebandDitherKey::from_params(&(), dither).unwrap(),
-            tonemapping: TonemappingKey::from_params(&(), tonemapping).unwrap(),
+            tonemapping: Tonemapping::from_params(&(), tonemapping).unwrap(),
         };
         let pipeline = pipelines.specialize(
             &pipeline_cache,
@@ -430,74 +406,30 @@ pub fn lut_placeholder() -> Image {
 
 impl_has_world_key!(DebandDitherKey, DebandDither, "DEBAND_DITHER");
 
-#[derive(PipelineKey, Default, Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[repr(u8)]
-#[custom_shader_defs]
-pub enum TonemappingKey {
-    #[default]
-    None,
-    Reinhard,
-    ReinhardLuminance,
-    AcesFitted,
-    AgX,
-    SomewhatBoringDisplayTransform,
-    TonyMcMapface,
-    BlenderFilmic,
-}
-
-impl SystemKey for TonemappingKey {
+impl SystemKey for Tonemapping {
     type Param = ();
 
     type Query = Option<Read<Tonemapping>>;
 
     fn from_params(_: &(), tonemapping: Option<&Tonemapping>) -> Option<Self> {
-        Some(match tonemapping.unwrap_or(&Tonemapping::None) {
-            // TODO this might as well return self?
-            Tonemapping::None => TonemappingKey::None,
-            Tonemapping::Reinhard => TonemappingKey::Reinhard,
-            Tonemapping::ReinhardLuminance => TonemappingKey::ReinhardLuminance,
-            Tonemapping::AcesFitted => TonemappingKey::AcesFitted,
-            Tonemapping::AgX => TonemappingKey::AgX,
-            Tonemapping::SomewhatBoringDisplayTransform => {
-                TonemappingKey::SomewhatBoringDisplayTransform
-            }
-            Tonemapping::TonyMcMapface => TonemappingKey::TonyMcMapface,
-            Tonemapping::BlenderFilmic => TonemappingKey::BlenderFilmic,
-        })
+        Some(tonemapping.copied().unwrap_or(Tonemapping::None))
     }
 }
 
-impl KeyShaderDefs for TonemappingKey {
+impl KeyShaderDefs for Tonemapping {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
         vec![match self {
-            TonemappingKey::None => return vec![],
-            TonemappingKey::Reinhard => "TONEMAP_METHOD_REINHARD",
-            TonemappingKey::ReinhardLuminance => "TONEMAP_METHOD_REINHARD_LUMINANCE",
-            TonemappingKey::AcesFitted => "TONEMAP_METHOD_ACES_FITTED",
-            TonemappingKey::AgX => "TONEMAP_METHOD_AGX",
-            TonemappingKey::SomewhatBoringDisplayTransform => {
+            Tonemapping::None => return vec![],
+            Tonemapping::Reinhard => "TONEMAP_METHOD_REINHARD",
+            Tonemapping::ReinhardLuminance => "TONEMAP_METHOD_REINHARD_LUMINANCE",
+            Tonemapping::AcesFitted => "TONEMAP_METHOD_ACES_FITTED",
+            Tonemapping::AgX => "TONEMAP_METHOD_AGX",
+            Tonemapping::SomewhatBoringDisplayTransform => {
                 "TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM"
             }
-            TonemappingKey::TonyMcMapface => "TONEMAP_METHOD_TONY_MC_MAPFACE",
-            TonemappingKey::BlenderFilmic => "TONEMAP_METHOD_BLENDER_FILMIC",
+            Tonemapping::TonyMcMapface => "TONEMAP_METHOD_TONY_MC_MAPFACE",
+            Tonemapping::BlenderFilmic => "TONEMAP_METHOD_BLENDER_FILMIC",
         }
         .into()]
-    }
-}
-
-impl From<TonemappingKey> for Tonemapping {
-    fn from(value: TonemappingKey) -> Self {
-        match value {
-            TonemappingKey::None => Tonemapping::None,
-            TonemappingKey::Reinhard => Tonemapping::Reinhard,
-            TonemappingKey::ReinhardLuminance => Tonemapping::ReinhardLuminance,
-            TonemappingKey::AcesFitted => Tonemapping::AcesFitted,
-            TonemappingKey::AgX => Tonemapping::AgX,
-            TonemappingKey::SomewhatBoringDisplayTransform => {
-                Tonemapping::SomewhatBoringDisplayTransform
-            }
-            TonemappingKey::TonyMcMapface => Tonemapping::TonyMcMapface,
-            TonemappingKey::BlenderFilmic => Tonemapping::BlenderFilmic,
-        }
     }
 }
