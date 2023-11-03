@@ -17,7 +17,7 @@ use bevy_render::{
         NoAutomaticBatching,
     },
     mesh::*,
-    pipeline_keys::KeyTypeConcrete,
+    pipeline_keys::PipelineKeyType,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
@@ -454,7 +454,7 @@ impl MeshPipeline {
         &layout.bind_group_layout
     }
 
-    pub fn get_view_layout<T: KeyTypeConcrete>(
+    pub fn get_view_layout<T: PipelineKeyType>(
         &self,
         layout_key: PipelineKey<T>,
     ) -> &BindGroupLayout {
@@ -693,7 +693,7 @@ pub fn setup_morph_and_skinning_defs_old_key(
     }
 }
 
-pub fn setup_morph_and_skinning_defs<T: KeyTypeConcrete>(
+pub fn setup_morph_and_skinning_defs<T: PipelineKeyType>(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
     offset: u32,

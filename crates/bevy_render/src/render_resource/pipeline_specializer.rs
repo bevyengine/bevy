@@ -6,7 +6,7 @@ use crate::{
     },
 };
 use crate::{
-    pipeline_keys::{AnyKeyType, KeyPrimitive, KeyTypeConcrete, PackedPipelineKey, PipelineKey},
+    pipeline_keys::{KeyPrimitive, PipelineKeyType, PackedPipelineKey, PipelineKey},
     render_resource::CachedComputePipelineId,
 };
 use bevy_ecs::system::Resource;
@@ -18,7 +18,7 @@ use std::{fmt::Debug, marker::PhantomData};
 use thiserror::Error;
 
 pub trait SpecializedRenderPipeline {
-    type Key: AnyKeyType + KeyTypeConcrete;
+    type Key: PipelineKeyType;
     fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor;
 }
 
@@ -53,7 +53,7 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
 }
 
 pub trait SpecializedComputePipeline {
-    type Key: AnyKeyType + KeyTypeConcrete;
+    type Key: PipelineKeyType;
     fn specialize(&self, key: PipelineKey<Self::Key>) -> ComputePipelineDescriptor;
 }
 
@@ -88,7 +88,7 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
 }
 
 pub trait SpecializedMeshPipeline {
-    type Key: AnyKeyType + KeyTypeConcrete;
+    type Key: PipelineKeyType;
     fn specialize(
         &self,
         key: PipelineKey<Self::Key>,

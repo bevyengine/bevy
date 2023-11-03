@@ -96,15 +96,9 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
             };
 
             Ok(TokenStream::from(quote! {
-                impl #impl_generics #render_path::pipeline_keys::AnyKeyType for #struct_name #ty_generics #where_clause {
-                    fn as_any(&self) -> &dyn core::any::Any {
-                        self
-                    }
-                }
-
-                impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
+                impl #impl_generics #render_path::pipeline_keys::PipelineKeyType for #struct_name #ty_generics #where_clause {
                     fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
-                        #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset(#bits, 0u8))])
+                        #utils_path::HashMap::from_iter([(core::any::TypeId::of::<Self>(), #render_path::pipeline_keys::SizeOffset{ size: #bits, offset: 0u8 })])
                     }
 
                     fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
@@ -191,16 +185,9 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                 };
 
                 return Ok(TokenStream::from(quote! {
-                    impl #impl_generics #render_path::pipeline_keys::AnyKeyType for #struct_name #ty_generics #where_clause {
-                        fn as_any(&self) -> &dyn core::any::Any {
-                            self
-                        }
-                    }
-
-                    impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
+                    impl #impl_generics #render_path::pipeline_keys::PipelineKeyType for #struct_name #ty_generics #where_clause {
                         fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
-                            let res = store.meta::<Self>().dynamic_components.clone();
-                            res
+                            store.meta::<Self>().dynamic_components.clone()
                         }
 
                         fn size(store: &#render_path::pipeline_keys::KeyMetaStore) -> u8 {
@@ -208,7 +195,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         }
 
                         fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
-                            #render_path::pipeline_keys::PackedPipelineKey::new(value.0, <Self as #render_path::pipeline_keys::KeyTypeConcrete>::size(store))
+                            #render_path::pipeline_keys::PackedPipelineKey::new(value.0, <Self as #render_path::pipeline_keys::PipelineKeyType>::size(store))
                         }
 
                         fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
@@ -302,19 +289,13 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
             };
 
             Ok(TokenStream::from(quote! {
-                impl #impl_generics #render_path::pipeline_keys::AnyKeyType for #struct_name #ty_generics #where_clause {
-                    fn as_any(&self) -> &dyn core::any::Any {
-                        self
-                    }
-                }
-
-                impl #impl_generics #render_path::pipeline_keys::KeyTypeConcrete for #struct_name #ty_generics #where_clause {
+                impl #impl_generics #render_path::pipeline_keys::PipelineKeyType for #struct_name #ty_generics #where_clause {
                     fn positions(store: &#render_path::pipeline_keys::KeyMetaStore) -> #utils_path::HashMap<core::any::TypeId, #render_path::pipeline_keys::SizeOffset> {
-                        <( #(#field_types,)* ) as #render_path::pipeline_keys::KeyTypeConcrete>::positions(store)
+                        <( #(#field_types,)* ) as #render_path::pipeline_keys::PipelineKeyType>::positions(store)
                     }
 
                     fn size(store: &#render_path::pipeline_keys::KeyMetaStore) -> u8 {
-                        #(<#field_types as #render_path::pipeline_keys::KeyTypeConcrete>::size(store))+*
+                        #(<#field_types as #render_path::pipeline_keys::PipelineKeyType>::size(store))+*
                     }
 
                     fn pack(value: &Self, store: &#render_path::pipeline_keys::KeyMetaStore) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
@@ -322,7 +303,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                         let mut total_size = 0u8;
 
                         #(
-                            let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = #render_path::pipeline_keys::KeyTypeConcrete::pack(&#field_exprs, store);
+                            let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = #render_path::pipeline_keys::PipelineKeyType::pack(&#field_exprs, store);
                             result = (result << size) | packed;
                             total_size += size;
                         )*
@@ -331,7 +312,7 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     }
 
                     fn unpack(value: #render_path::pipeline_keys::KeyPrimitive, store: &#render_path::pipeline_keys::KeyMetaStore) -> Self {
-                        let (#(#field_names,)*) = #render_path::pipeline_keys::KeyTypeConcrete::unpack(value, store);
+                        let (#(#field_names,)*) = #render_path::pipeline_keys::PipelineKeyType::unpack(value, store);
                         #self_value
                     }
 

@@ -3,13 +3,7 @@
 
 use crate::pipeline_keys::*;
 
-impl AnyKeyType for () {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for () {
+impl PipelineKeyType for () {
     fn unpack(_: KeyPrimitive, _: &KeyMetaStore) -> Self {}
 
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
@@ -38,13 +32,7 @@ impl FixedSizeKey for () {
     }
 }
 
-impl<T: AnyKeyType> AnyKeyType for Option<T> {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl<T: KeyTypeConcrete> KeyTypeConcrete for Option<T> {
+impl<T: PipelineKeyType> PipelineKeyType for Option<T> {
     fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self {
         if value & 1 == 0 {
             None
@@ -54,7 +42,7 @@ impl<T: KeyTypeConcrete> KeyTypeConcrete for Option<T> {
     }
 
     fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(T::size(store) + 1, 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: T::size(store) + 1, offset: 0 })])
     }
 
     fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self>
@@ -84,15 +72,9 @@ impl<T: FixedSizeKey> FixedSizeKey for Option<T> {
     }
 }
 
-impl AnyKeyType for bool {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for bool {
+impl PipelineKeyType for bool {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(1, 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: 1, offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -116,15 +98,9 @@ impl FixedSizeKey for bool {
     }
 }
 
-impl AnyKeyType for u8 {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for u8 {
+impl PipelineKeyType for u8 {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(8, 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: 8, offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -146,15 +122,9 @@ impl FixedSizeKey for u8 {
     }
 }
 
-impl AnyKeyType for u32 {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for u32 {
+impl PipelineKeyType for u32 {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -176,15 +146,9 @@ impl FixedSizeKey for u32 {
     }
 }
 
-impl AnyKeyType for i32 {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for i32 {
+impl PipelineKeyType for i32 {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -228,15 +192,9 @@ fn _check_blendfactor_variant_count(value: &wgpu::BlendFactor) {
     }
 }
 
-impl AnyKeyType for wgpu::BlendFactor {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for wgpu::BlendFactor {
+impl PipelineKeyType for wgpu::BlendFactor {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -303,15 +261,9 @@ fn _check_blendoperation_variant_count(value: &wgpu::BlendOperation) {
     }
 }
 
-impl AnyKeyType for wgpu::BlendOperation {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for wgpu::BlendOperation {
+impl PipelineKeyType for wgpu::BlendOperation {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -348,15 +300,9 @@ impl FixedSizeKey for wgpu::BlendOperation {
     }
 }
 
-impl AnyKeyType for wgpu::BlendComponent {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for wgpu::BlendComponent {
-    fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::size(store), 0u8))])
+impl PipelineKeyType for wgpu::BlendComponent {
+    fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -365,12 +311,12 @@ impl KeyTypeConcrete for wgpu::BlendComponent {
 
     fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> {
         let tuple = (value.src_factor, value.dst_factor, value.operation);
-        let PackedPipelineKey { packed, size, .. } = KeyTypeConcrete::pack(&tuple, store);
+        let PackedPipelineKey { packed, size, .. } = PipelineKeyType::pack(&tuple, store);
         PackedPipelineKey::new(packed, size)
     }
 
     fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self {
-        let (src_factor, dst_factor, operation) = KeyTypeConcrete::unpack(value, store);
+        let (src_factor, dst_factor, operation) = PipelineKeyType::unpack(value, store);
         Self {
             src_factor,
             dst_factor,
@@ -385,15 +331,9 @@ impl FixedSizeKey for wgpu::BlendComponent {
     }
 }
 
-impl AnyKeyType for wgpu::BlendState {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for wgpu::BlendState {
-    fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::size(store), 0u8))])
+impl PipelineKeyType for wgpu::BlendState {
+    fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -402,12 +342,12 @@ impl KeyTypeConcrete for wgpu::BlendState {
 
     fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self> {
         let tuple = (value.color, value.alpha);
-        let PackedPipelineKey { packed, size, .. } = KeyTypeConcrete::pack(&tuple, store);
+        let PackedPipelineKey { packed, size, .. } = PipelineKeyType::pack(&tuple, store);
         PackedPipelineKey::new(packed, size)
     }
 
     fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self {
-        let (color, alpha) = KeyTypeConcrete::unpack(value, store);
+        let (color, alpha) = PipelineKeyType::unpack(value, store);
         Self { color, alpha }
     }
 }
@@ -441,15 +381,9 @@ fn _check_astcblock_variant_count(value: &wgpu::AstcBlock) {
     }
 }
 
-impl AnyKeyType for wgpu::AstcBlock {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for wgpu::AstcBlock {
+impl PipelineKeyType for wgpu::AstcBlock {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -514,15 +448,9 @@ fn _check_astcchannel_variant_count(value: &wgpu::AstcChannel) {
     }
 }
 
-impl AnyKeyType for wgpu::AstcChannel {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for wgpu::AstcChannel {
+impl PipelineKeyType for wgpu::AstcChannel {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -555,18 +483,12 @@ impl FixedSizeKey for wgpu::AstcChannel {
     }
 }
 
-impl AnyKeyType for wgpu::TextureFormat {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
 const WGPU_VARIANT_SIZE: u8 = 8;
-impl KeyTypeConcrete for wgpu::TextureFormat {
+impl PipelineKeyType for wgpu::TextureFormat {
     fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self {
         let variant = value & ((1 << WGPU_VARIANT_SIZE) - 1);
         let value = value >> WGPU_VARIANT_SIZE;
-        let (block, channel) = KeyTypeConcrete::unpack(value, store);
+        let (block, channel) = PipelineKeyType::unpack(value, store);
 
         match variant {
             0 => wgpu::TextureFormat::R8Unorm,
@@ -647,7 +569,7 @@ impl KeyTypeConcrete for wgpu::TextureFormat {
     }
 
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0u8))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -739,7 +661,7 @@ impl KeyTypeConcrete for wgpu::TextureFormat {
             _ => (wgpu::AstcBlock::B4x4, wgpu::AstcChannel::Unorm), // doesn't matter, won't be read
         };
 
-        let packed_block_channel = KeyTypeConcrete::pack(&(block, channel), store);
+        let packed_block_channel = PipelineKeyType::pack(&(block, channel), store);
         let packed = (packed_block_channel.packed << WGPU_VARIANT_SIZE) | variant;
         PackedPipelineKey {
             packed,
@@ -769,15 +691,9 @@ fn _check_primitivetopology_variant_count(value: &wgpu::PrimitiveTopology) {
     }
 }
 
-impl AnyKeyType for wgpu::PrimitiveTopology {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for wgpu::PrimitiveTopology {
+impl PipelineKeyType for wgpu::PrimitiveTopology {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -824,15 +740,9 @@ fn _check_face_variant_count(value: &wgpu::Face) {
     }
 }
 
-impl AnyKeyType for wgpu::Face {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl KeyTypeConcrete for wgpu::Face {
+impl PipelineKeyType for wgpu::Face {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset(Self::fixed_size(), 0))])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {

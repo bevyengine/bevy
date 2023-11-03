@@ -2,12 +2,12 @@ use super::*;
 use bevy_ecs::schedule::NodeConfigs;
 pub use bevy_render_macros::PipelineKey;
 use bevy_utils::{intern::Interned, HashMap};
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 
 #[allow(unused_imports)]
 use bevy_utils::all_tuples;
 
-pub trait CompositeKey: AnyKeyType + KeyTypeConcrete {
+pub trait CompositeKey: PipelineKeyType {
     fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>>
     where
         Self: Sized;
@@ -17,13 +17,7 @@ pub trait CompositeKey: AnyKeyType + KeyTypeConcrete {
 #[allow(unused_macros)]
 macro_rules! impl_composite_key_tuples {
     ($(($K:ident, $sz:ident, $value:ident)),*) => {
-        impl<$($K: AnyKeyType),*> AnyKeyType for ($($K,)*) {
-            fn as_any(&self) -> &dyn Any {
-                self
-            }
-        }
-
-        impl<$($K: AnyKeyType + KeyTypeConcrete),*> KeyTypeConcrete for ($($K,)*) {
+        impl<$($K: PipelineKeyType),*> PipelineKeyType for ($($K,)*) {
             fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
                 let mut result = HashMap::default();
                 let mut offset = 0;
@@ -35,7 +29,7 @@ macro_rules! impl_composite_key_tuples {
 
                 $(
                     offset -= $sz;
-                    result.insert(TypeId::of::<$K>(), SizeOffset($sz, offset));
+                    result.insert(TypeId::of::<$K>(), SizeOffset{ size: $sz, offset });
                 )*
 
                 result
@@ -75,7 +69,7 @@ macro_rules! impl_composite_key_tuples {
             }
         }
 
-        impl<$($K: AnyKeyType + KeyTypeConcrete),*> CompositeKey for ($($K,)*) {
+        impl<$($K: PipelineKeyType),*> CompositeKey for ($($K,)*) {
             fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>> {
                 let mut result = 0 as KeyPrimitive;
                 let mut total_size = 0u8;
@@ -106,7 +100,7 @@ macro_rules! impl_composite_key_tuples {
             }
         }
 
-        impl<$($K: KeyTypeConcrete),*> KeyRepack for ($($K,)*) {
+        impl<$($K: PipelineKeyType),*> KeyRepack for ($($K,)*) {
             type PackedParts = ($(PackedPipelineKey<$K>,)*);
 
             fn repack( ( $($value,)* ): Self::PackedParts) -> PackedPipelineKey<Self> {

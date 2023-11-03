@@ -1,5 +1,5 @@
 use crate::{
-    pipeline_keys::{KeyMetaStore, KeyTypeConcrete, PackedPipelineKey},
+    pipeline_keys::{KeyMetaStore, PipelineKeyType, PackedPipelineKey},
     render_resource::{
         BindGroupLayout, BindGroupLayoutId, ComputePipeline, ComputePipelineDescriptor,
         RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
@@ -502,7 +502,8 @@ impl PipelineCache {
         &self.key_store
     }
 
-    pub fn pack_key<K: KeyTypeConcrete>(&self, value: &K) -> PackedPipelineKey<K> {
+    /// Transform a `PipelineKeyType` into a PackedPipelineKey
+    pub fn pack_key<K: PipelineKeyType>(&self, value: &K) -> PackedPipelineKey<K> {
         K::pack(value, &self.key_store)
     }
 
