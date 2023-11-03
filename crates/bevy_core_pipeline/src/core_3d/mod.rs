@@ -450,10 +450,10 @@ pub fn extract_camera_prepass_phase(
             (
                 Entity,
                 &Camera,
-                Option<&DepthPrepass>,
-                Option<&NormalPrepass>,
-                Option<&MotionVectorPrepass>,
-                Option<&DeferredPrepass>,
+                Has<DepthPrepass>,
+                Has<NormalPrepass>,
+                Has<MotionVectorPrepass>,
+                Has<DeferredPrepass>,
             ),
             With<Camera3d>,
         >,
@@ -465,33 +465,30 @@ pub fn extract_camera_prepass_phase(
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
 
-            if depth_prepass.is_some()
-                || normal_prepass.is_some()
-                || motion_vector_prepass.is_some()
-            {
+            if depth_prepass || normal_prepass || motion_vector_prepass {
                 entity.insert((
                     RenderPhase::<Opaque3dPrepass>::default(),
                     RenderPhase::<AlphaMask3dPrepass>::default(),
                 ));
             }
 
-            if deferred_prepass.is_some() {
+            if deferred_prepass {
                 entity.insert((
                     RenderPhase::<Opaque3dDeferred>::default(),
                     RenderPhase::<AlphaMask3dDeferred>::default(),
                 ));
             }
 
-            if depth_prepass.is_some() {
+            if depth_prepass {
                 entity.insert(DepthPrepass);
             }
-            if normal_prepass.is_some() {
+            if normal_prepass {
                 entity.insert(NormalPrepass);
             }
-            if motion_vector_prepass.is_some() {
+            if motion_vector_prepass {
                 entity.insert(MotionVectorPrepass);
             }
-            if deferred_prepass.is_some() {
+            if deferred_prepass {
                 entity.insert(DeferredPrepass);
             }
         }
@@ -685,15 +682,17 @@ pub fn prepare_prepass_textures(
         (
             Entity,
             &ExtractedCamera,
-            Option<&DepthPrepass>,
-            Option<&NormalPrepass>,
-            Option<&MotionVectorPrepass>,
-            Option<&DeferredPrepass>,
+            Has<DepthPrepass>,
+            Has<NormalPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
         ),
-        (
+        Or<(
             With<RenderPhase<Opaque3dPrepass>>,
             With<RenderPhase<AlphaMask3dPrepass>>,
-        ),
+            With<RenderPhase<Opaque3dDeferred>>,
+            With<RenderPhase<AlphaMask3dDeferred>>,
+        )>,
     >,
 ) {
     let mut depth_textures = HashMap::default();
@@ -714,7 +713,7 @@ pub fn prepare_prepass_textures(
             height: physical_target_size.y,
         };
 
-        let cached_depth_texture = depth_prepass.is_some().then(|| {
+        let cached_depth_texture = depth_prepass.then(|| {
             depth_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -735,7 +734,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_normals_texture = normal_prepass.is_some().then(|| {
+        let cached_normals_texture = normal_prepass.then(|| {
             normal_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -757,7 +756,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_motion_vectors_texture = motion_vector_prepass.is_some().then(|| {
+        let cached_motion_vectors_texture = motion_vector_prepass.then(|| {
             motion_vectors_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -779,7 +778,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_deferred_texture = deferred_prepass.is_some().then(|| {
+        let cached_deferred_texture = deferred_prepass.then(|| {
             deferred_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -801,7 +800,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let deferred_lighting_pass_id_texture = deferred_prepass.is_some().then(|| {
+        let deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
