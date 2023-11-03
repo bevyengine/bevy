@@ -123,7 +123,7 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
 
 /// Generates the implementation of the `ReflectRemote` trait for the given derive data and remote type.
 ///
-/// # Note
+/// # Note to Developers
 ///
 /// The `ReflectRemote` trait could likely be made with default method implementations.
 /// However, this makes it really easy for a user to accidentally implement this trait in an unsafe way.
