@@ -5,7 +5,7 @@ pub use bevy_render_macros::PipelineKey;
 use bevy_utils::{HashMap, HashSet};
 use std::{
     any::{type_name, TypeId},
-    marker::PhantomData,
+    marker::PhantomData, mem::size_of,
 };
 
 use self::composite::CompositeKey;
@@ -83,6 +83,7 @@ impl<T: PipelineKeyType> Copy for PackedPipelineKey<T> {}
 
 impl<T: PipelineKeyType> PackedPipelineKey<T> {
     pub fn new(packed: KeyPrimitive, size: u8) -> Self {
+        assert!((size as usize) < size_of::<KeyPrimitive>() * 8);
         Self {
             packed,
             size,
