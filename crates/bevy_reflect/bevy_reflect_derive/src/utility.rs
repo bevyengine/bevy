@@ -1,10 +1,10 @@
 //! General-purpose utility functions for internal usage within this crate.
 
 use crate::derive_data::{ReflectMeta, StructField};
-use crate::field_attributes::ReflectIgnoreBehavior;
-use crate::fq_std::{FQAny, FQOption, FQSend, FQSync};
-use bevy_macro_utils::BevyManifest;
-use bit_set::BitSet;
+use bevy_macro_utils::{
+    fq_std::{FQAny, FQOption, FQSend, FQSync},
+    BevyManifest,
+};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{spanned::Spanned, LitStr, Member, Path, Type, WhereClause};
@@ -152,16 +152,22 @@ impl WhereClauseOptions {
             })
             .unzip();
 
-        let (parameter_types, parameter_trait_bounds): (Vec<_>, Vec<_>) = meta
-            .type_path()
-            .generics()
-            .type_params()
-            .map(|param| {
-                let ident = param.ident.clone();
-                let bounds = quote!(#bevy_reflect_path::TypePath);
-                (ident, bounds)
-            })
-            .unzip();
+        let (parameter_types, parameter_trait_bounds): (Vec<_>, Vec<_>) =
+            if meta.traits().type_path_attrs().should_auto_derive() {
+                meta.type_path()
+                    .generics()
+                    .type_params()
+                    .map(|param| {
+                        let ident = param.ident.clone();
+                        let bounds = quote!(#bevy_reflect_path::TypePath);
+                        (ident, bounds)
+                    })
+                    .unzip()
+            } else {
+                // If we don't need to derive `TypePath` for the type parameters,
+                // we can skip adding its bound to the `where` clause.
+                (Vec::new(), Vec::new())
+            };
 
         Self {
             active_types: active_types.into_boxed_slice(),
@@ -276,42 +282,6 @@ impl<T> ResultSifter<T> {
             Ok(self.items)
         }
     }
-}
-
-/// Converts an iterator over ignore behavior of members to a bitset of ignored members.
-///
-/// Takes into account the fact that always ignored (non-reflected) members are skipped.
-///
-/// # Example
-/// ```rust,ignore
-/// pub struct HelloWorld {
-///     reflected_field: u32      // index: 0
-///
-///     #[reflect(ignore)]
-///     non_reflected_field: u32  // index: N/A (not 1!)
-///
-///     #[reflect(skip_serializing)]
-///     non_serialized_field: u32 // index: 1
-/// }
-/// ```
-/// Would convert to the `0b01` bitset (i.e second field is NOT serialized)
-///
-pub(crate) fn members_to_serialization_denylist<T>(member_iter: T) -> BitSet<u32>
-where
-    T: Iterator<Item = ReflectIgnoreBehavior>,
-{
-    let mut bitset = BitSet::default();
-
-    member_iter.fold(0, |next_idx, member| match member {
-        ReflectIgnoreBehavior::IgnoreAlways => next_idx,
-        ReflectIgnoreBehavior::IgnoreSerialization => {
-            bitset.insert(next_idx);
-            next_idx + 1
-        }
-        ReflectIgnoreBehavior::None => next_idx + 1,
-    });
-
-    bitset
 }
 
 /// Turns an `Option<TokenStream>` into a `TokenStream` for an `Option`.

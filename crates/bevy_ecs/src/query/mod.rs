@@ -1,6 +1,7 @@
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod error;
 mod fetch;
 mod filter;
 mod iter;
@@ -8,6 +9,7 @@ mod par_iter;
 mod state;
 
 pub use access::*;
+pub use error::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
@@ -778,7 +780,7 @@ mod tests {
         world.spawn((A(1), B(1)));
 
         fn propagate_system(mut query: Query<(&A, &mut B), Changed<A>>) {
-            query.par_iter_mut().for_each_mut(|(a, mut b)| {
+            query.par_iter_mut().for_each(|(a, mut b)| {
                 b.0 = a.0;
             });
         }
@@ -789,7 +791,7 @@ mod tests {
             }
         }
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((propagate_system, modify_system).chain());
         schedule.run(&mut world);
         world.clear_trackers();

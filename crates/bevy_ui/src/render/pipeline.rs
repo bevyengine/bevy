@@ -62,7 +62,6 @@ impl FromWorld for UiPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
-    pub msaa_samples: u32,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -86,13 +85,13 @@ impl SpecializedRenderPipeline for UiPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
+                shader: super::UI_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
+                shader: super::UI_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -118,7 +117,7 @@ impl SpecializedRenderPipeline for UiPipeline {
             },
             depth_stencil: None,
             multisample: MultisampleState {
-                count: key.msaa_samples,
+                count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },

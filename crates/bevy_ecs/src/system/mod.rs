@@ -6,7 +6,7 @@
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS state.
 //! Only types that implement [`SystemParam`] can be used, automatically fetching data from
-//! the [`World`](crate::world::World).
+//! the [`World`].
 //!
 //! System functions often look like this:
 //!
@@ -46,7 +46,7 @@
 //! You can **explicitly order** systems:
 //!
 //! - by calling the `.before(this_system)` or `.after(that_system)` methods when adding them to your schedule
-//! - by adding them to a [`SystemSet`], and then using `.configure_set(ThisSet.before(ThatSet))` syntax to configure many systems at once
+//! - by adding them to a [`SystemSet`], and then using `.configure_sets(ThisSet.before(ThatSet))` syntax to configure many systems at once
 //! - through the use of `.add_systems((system_a, system_b, system_c).chain())`
 //!
 //! [`SystemSet`]: crate::schedule::SystemSet
@@ -55,7 +55,7 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut schedule = Schedule::new();
+//! # let mut schedule = Schedule::default();
 //! # let mut world = World::new();
 //! // Configure these systems to run in order using `chain()`.
 //! schedule.add_systems((print_first, print_last).chain());
@@ -102,6 +102,7 @@
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 
+mod adapter_system;
 mod combinator;
 mod commands;
 mod exclusive_function_system;
@@ -111,9 +112,11 @@ mod query;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_param;
+mod system_registry;
 
 use std::borrow::Cow;
 
+pub use adapter_system::*;
 pub use combinator::*;
 pub use commands::*;
 pub use exclusive_function_system::*;
@@ -122,6 +125,7 @@ pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_param::*;
+pub use system_registry::*;
 
 use crate::world::World;
 
@@ -162,6 +166,34 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
         PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
+
+    /// Pass the output of this system into the passed function `f`, creating a new system that
+    /// outputs the value returned from the function.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut schedule = Schedule::default();
+    /// // Ignores the output of a system that may fail.
+    /// schedule.add_systems(my_system.map(std::mem::drop));
+    /// # let mut world = World::new();
+    /// # world.insert_resource(T);
+    /// # schedule.run(&mut world);
+    ///
+    /// # #[derive(Resource)] struct T;
+    /// # type Err = ();
+    /// fn my_system(res: Res<T>) -> Result<(), Err> {
+    ///     // ...
+    ///     # Err(())
+    /// }
+    /// ```
+    fn map<T, F>(self, f: F) -> AdapterSystem<F, Self::System>
+    where
+        F: Send + Sync + 'static + FnMut(Out) -> T,
+    {
+        let system = Self::into_system(self);
+        let name = system.name();
+        AdapterSystem::new(f, system, name)
+    }
 }
 
 // All systems implicitly implement IntoSystem.
@@ -201,6 +233,7 @@ impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
 pub struct In<In>(pub In);
 
 /// A collection of common adapters for [piping](crate::system::PipeSystem) the result of a system.
+#[deprecated = "this form of system adapter has been deprecated in favor of `system.map(...)`"]
 pub mod adapter {
     use crate::system::In;
     use bevy_utils::tracing;
@@ -223,6 +256,7 @@ pub mod adapter {
     ///     println!("{x:?}");
     /// }
     /// ```
+    #[deprecated = "use `.map(...)` instead"]
     pub fn new<T, U>(mut f: impl FnMut(T) -> U) -> impl FnMut(In<T>) -> U {
         move |In(x)| f(x)
     }
@@ -260,6 +294,7 @@ pub mod adapter {
     /// # fn open_file(name: &str) -> Result<&'static str, std::io::Error>
     /// # { Ok("hello world") }
     /// ```
+    #[deprecated = "use `.map(Result::unwrap)` instead"]
     pub fn unwrap<T, E: Debug>(In(res): In<Result<T, E>>) -> T {
         res.unwrap()
     }
@@ -287,6 +322,7 @@ pub mod adapter {
     ///     "42".to_string()
     /// }
     /// ```
+    #[deprecated = "use `.map(bevy_utils::info)` instead"]
     pub fn info<T: Debug>(In(data): In<T>) {
         tracing::info!("{:?}", data);
     }
@@ -314,6 +350,7 @@ pub mod adapter {
     ///     Ok("42".parse()?)
     /// }
     /// ```
+    #[deprecated = "use `.map(bevy_utils::dbg)` instead"]
     pub fn dbg<T: Debug>(In(data): In<T>) {
         tracing::debug!("{:?}", data);
     }
@@ -341,6 +378,7 @@ pub mod adapter {
     ///     Err("Got to rusty?".to_string())
     /// }
     /// ```
+    #[deprecated = "use `.map(bevy_utils::warn)` instead"]
     pub fn warn<E: Debug>(In(res): In<Result<(), E>>) {
         if let Err(warn) = res {
             tracing::warn!("{:?}", warn);
@@ -369,6 +407,7 @@ pub mod adapter {
     ///    Err("Some error".to_owned())
     /// }
     /// ```
+    #[deprecated = "use `.map(bevy_utils::error)` instead"]
     pub fn error<E: Debug>(In(res): In<Result<(), E>>) {
         if let Err(error) = res {
             tracing::error!("{:?}", error);
@@ -409,6 +448,7 @@ pub mod adapter {
     ///     Some(())
     /// }
     /// ```
+    #[deprecated = "use `.map(std::mem::drop)` instead"]
     pub fn ignore<T>(In(_): In<T>) {}
 }
 
@@ -510,8 +550,8 @@ mod tests {
             Schedule,
         },
         system::{
-            adapter::new, Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            QueryComponentError, Res, ResMut, Resource, System, SystemState,
+            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
+            Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -1134,7 +1174,7 @@ mod tests {
             mut n_systems: ResMut<NSystems>,
         ) {
             assert_eq!(
-                removed_i32.iter().collect::<Vec<_>>(),
+                removed_i32.read().collect::<Vec<_>>(),
                 &[despawned.0],
                 "despawning causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
@@ -1162,7 +1202,7 @@ mod tests {
             // The despawned entity from the previous frame was
             // double buffered so we now have it in this system as well.
             assert_eq!(
-                removed_i32.iter().collect::<Vec<_>>(),
+                removed_i32.read().collect::<Vec<_>>(),
                 &[despawned.0, removed.0],
                 "removing a component causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
@@ -1721,6 +1761,8 @@ mod tests {
 
     #[test]
     fn readonly_query_get_mut_component_fails() {
+        use crate::query::QueryComponentError;
+
         let mut world = World::new();
         let entity = world.spawn(W(42u32)).id();
         run_system(&mut world, move |q: Query<&mut W<u32>>| {
@@ -1733,7 +1775,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Attempted to use bevy_ecs::query::state::QueryState<()> with a mismatched World."]
+    #[should_panic = "Encountered a mismatched World."]
     fn query_validates_world_id() {
         let mut world1 = World::new();
         let world2 = World::new();
@@ -1785,10 +1827,10 @@ mod tests {
             !val
         }
 
-        assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
-        assert_is_system(returning::<Option<()>>.pipe(ignore));
-        assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
-        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(returning::<Result<u32, std::io::Error>>.map(Result::unwrap));
+        assert_is_system(returning::<Option<()>>.map(std::mem::drop));
+        assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
         returning::<()>.run_if(returning::<bool>.pipe(not));
@@ -1878,7 +1920,7 @@ mod tests {
 
         world.insert_resource(A);
         world.insert_resource(C(0));
-        let mut sched = Schedule::new();
+        let mut sched = Schedule::default();
         sched.add_systems(
             (
                 (|mut res: ResMut<C>| {

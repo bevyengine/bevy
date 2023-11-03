@@ -1,12 +1,13 @@
 use bevy_reflect_derive::impl_type_path;
+use bevy_utils::all_tuples;
 
+use crate::TypePathTable;
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
     UnnamedField,
 };
 use std::any::{Any, TypeId};
-use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
@@ -138,7 +139,7 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info.
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
@@ -152,9 +153,9 @@ impl TupleInfo {
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
@@ -183,11 +184,21 @@ impl TupleInfo {
         self.fields.len()
     }
 
-    /// The [type name] of the tuple.
+    /// A representation of the type path of the tuple.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the tuple.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the tuple.
@@ -210,7 +221,6 @@ impl TupleInfo {
 /// A tuple which allows fields to be added at runtime.
 #[derive(Default, Debug)]
 pub struct DynamicTuple {
-    name: Cow<'static, str>,
     represented_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn Reflect>>,
 }
@@ -230,8 +240,6 @@ impl DynamicTuple {
                 "expected TypeInfo::Tuple but received: {:?}",
                 represented_type
             );
-
-            self.name = Cow::Borrowed(represented_type.type_name());
         }
         self.represented_type = represented_type;
     }
@@ -240,28 +248,12 @@ impl DynamicTuple {
     pub fn insert_boxed(&mut self, value: Box<dyn Reflect>) {
         self.represented_type = None;
         self.fields.push(value);
-        self.generate_name();
     }
 
     /// Appends a typed element with value `value` to the tuple.
     pub fn insert<T: Reflect>(&mut self, value: T) {
         self.represented_type = None;
         self.insert_boxed(Box::new(value));
-        self.generate_name();
-    }
-
-    fn generate_name(&mut self) {
-        let mut name = self.name.to_string();
-        name.clear();
-        name.push('(');
-        for (i, field) in self.fields.iter().enumerate() {
-            if i > 0 {
-                name.push_str(", ");
-            }
-            name.push_str(field.type_name());
-        }
-        name.push(')');
-        self.name = Cow::Owned(name);
     }
 }
 
@@ -297,7 +289,6 @@ impl Tuple for DynamicTuple {
     #[inline]
     fn clone_dynamic(&self) -> DynamicTuple {
         DynamicTuple {
-            name: self.name.clone(),
             represented_type: self.represented_type,
             fields: self
                 .fields
@@ -309,13 +300,6 @@ impl Tuple for DynamicTuple {
 }
 
 impl Reflect for DynamicTuple {
-    #[inline]
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_else(|| &self.name)
-    }
-
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
@@ -514,7 +498,6 @@ macro_rules! impl_reflect_tuple {
             fn clone_dynamic(&self) -> DynamicTuple {
                 let info = self.get_represented_type_info();
                 DynamicTuple {
-                    name: Cow::Borrowed(::core::any::type_name::<Self>()),
                     represented_type: info,
                     fields: self
                         .iter_fields()
@@ -525,10 +508,6 @@ macro_rules! impl_reflect_tuple {
         }
 
         impl<$($name: Reflect + TypePath),*> Reflect for ($($name,)*) {
-            fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
-            }
-
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
@@ -600,22 +579,6 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect + TypePath),*> TypePath for ($($name,)*) {
-            fn type_path() -> &'static str {
-                static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    "(".to_owned() $(+ <$name as TypePath>::type_path())* + ")"
-                })
-            }
-
-            fn short_type_path() -> &'static str {
-                static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    "(".to_owned() $(+ <$name as TypePath>::short_type_path())* + ")"
-                })
-            }
-        }
-
 
         impl<$($name: Reflect + TypePath),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
@@ -655,3 +618,56 @@ impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I}
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J}
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K}
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
+
+macro_rules! impl_type_path_tuple {
+    () => {
+        impl TypePath for () {
+            fn type_path() -> &'static str {
+                "()"
+            }
+
+            fn short_type_path() -> &'static str {
+                "()"
+            }
+        }
+    };
+
+    ($param:ident) => {
+        impl <$param: TypePath> TypePath for ($param,) {
+            fn type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() + $param::type_path() + ",)"
+                })
+            }
+
+            fn short_type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() + $param::short_type_path() + ",)"
+                })
+            }
+        }
+    };
+
+    ($last:ident $(,$param:ident)*) => {
+
+        impl <$($param: TypePath,)* $last: TypePath> TypePath for ($($param,)* $last) {
+            fn type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() $(+ $param::type_path() + ", ")* + $last::type_path() + ")"
+                })
+            }
+
+            fn short_type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    "(".to_owned() $(+ $param::short_type_path() + ", ")* + $last::short_type_path() + ")"
+                })
+            }
+        }
+    };
+}
+
+all_tuples!(impl_type_path_tuple, 0, 12, P);

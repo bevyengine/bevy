@@ -1,4 +1,3 @@
-#[cfg(target_arch = "wasm32")]
 use std::sync::Arc;
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
@@ -6,26 +5,26 @@ thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
 }
 
-/// Used to create a TaskPool
+/// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
 
 /// This is a dummy struct for wasm support to provide the same api as with the multithreaded
 /// task pool. In the case of the multithreaded task pool this struct is used to spawn
 /// tasks on a specific thread. But the wasm task pool just calls
-/// [`wasm_bindgen_futures::spawn_local`] for spawning which just runs tasks on the main thread
+/// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
 /// and so the [`ThreadExecutor`] does nothing.
 #[derive(Default)]
 pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
 impl<'a> ThreadExecutor<'a> {
     /// Creates a new `ThreadExecutor`
     pub fn new() -> Self {
-        Self(PhantomData::default())
+        Self::default()
     }
 }
 
 impl TaskPoolBuilder {
-    /// Creates a new TaskPoolBuilder instance
+    /// Creates a new `TaskPoolBuilder` instance
     pub fn new() -> Self {
         Self::default()
     }
@@ -77,7 +76,7 @@ impl TaskPool {
         1
     }
 
-    /// Allows spawning non-'static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
@@ -90,7 +89,7 @@ impl TaskPool {
         self.scope_with_executor(false, None, f)
     }
 
-    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
@@ -160,7 +159,7 @@ impl TaskPool {
         FakeTask
     }
 
-    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskSpool::spawn`].
+    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
@@ -241,7 +240,8 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         let result = Rc::new(RefCell::new(None));
         self.results.borrow_mut().push(result.clone());
         let f = async move {
-            result.borrow_mut().replace(f.await);
+            let temp_result = f.await;
+            result.borrow_mut().replace(temp_result);
         };
         self.executor.spawn(f).detach();
     }

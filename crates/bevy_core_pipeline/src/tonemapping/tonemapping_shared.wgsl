@@ -1,18 +1,14 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
-#import bevy_render::view View, ColorGrading
+#import bevy_render::view::ColorGrading
 
 // hack !! not sure what to do with this
 #ifdef TONEMAPPING_PASS
-    @group(0) @binding(3)
-    var dt_lut_texture: texture_3d<f32>;
-    @group(0) @binding(4)
-    var dt_lut_sampler: sampler;
+    @group(0) @binding(3) var dt_lut_texture: texture_3d<f32>;
+    @group(0) @binding(4) var dt_lut_sampler: sampler;
 #else
-    @group(0) @binding(15)
-    var dt_lut_texture: texture_3d<f32>;
-    @group(0) @binding(16)
-    var dt_lut_sampler: sampler;
+    @group(0) @binding(15) var dt_lut_texture: texture_3d<f32>;
+    @group(0) @binding(16) var dt_lut_sampler: sampler;
 #endif
 
 fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
@@ -92,18 +88,11 @@ fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
 // By Tomasz Stachowiak
 // https://github.com/h3r2tic/tony-mc-mapface
 
-const TONY_MC_MAPFACE_LUT_EV_RANGE = vec2<f32>(-13.0, 8.0);
 const TONY_MC_MAPFACE_LUT_DIMS: f32 = 48.0;
 
-fn tony_mc_mapface_lut_range_encode(x: vec3<f32>) -> vec3<f32> {
-    return x / (x + 1.0);
-}
-
 fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
-    let range = tony_mc_mapface_lut_range_encode(exp2(TONY_MC_MAPFACE_LUT_EV_RANGE.xyy)).xy;
-    let normalized = (tony_mc_mapface_lut_range_encode(stimulus) - range.x) / (range.y - range.x);
-    var uv = saturate(normalized * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS));
-    return sample_current_lut(uv).rgb;
+    var uv = (stimulus / (stimulus + 1.0)) * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS);
+    return sample_current_lut(saturate(uv)).rgb;
 }
 
 // ---------------------------------
@@ -327,3 +316,12 @@ fn tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
     return vec4(color, in.a);
 }
 
+// This is an **incredibly crude** approximation of the inverse of the tone mapping function.
+// We assume here that there's a simple linear relationship between the input and output
+// which is not true at all, but useful to at least preserve the overall luminance of colors
+// when sampling from an already tonemapped image. (e.g. for transmissive materials when HDR is off)
+fn approximate_inverse_tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
+    let out = tone_mapping(in, color_grading);
+    let approximate_ratio = length(in.rgb) / length(out.rgb);
+    return vec4(in.rgb * approximate_ratio, in.a);
+}

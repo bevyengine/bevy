@@ -53,6 +53,7 @@ git checkout v0.4.0
   - [Scene](#scene)
   - [Shaders](#shaders)
   - [Stress Tests](#stress-tests)
+  - [Time](#time)
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
@@ -95,6 +96,7 @@ Example | Description
 [2D Gizmos](../examples/2d/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders a rectangle, circle, and hexagon
+[2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
 [Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
@@ -116,9 +118,11 @@ Example | Description
 [3D Gizmos](../examples/3d/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
+[3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
+[Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
@@ -138,6 +142,7 @@ Example | Description
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
 [Texture](../examples/3d/texture.rs) | Shows configuration of texture materials
 [Tonemapping](../examples/3d/tonemapping.rs) | Compares tonemapping options
+[Transmission](../examples/3d/transmission.rs) | Showcases light transmission in the PBR material
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
@@ -177,8 +182,9 @@ Example | Description
 Example | Description
 --- | ---
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
+[Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
-[Custom Asset IO](../examples/asset/custom_asset_io.rs) | Implements a custom asset io loader
+[Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
 ## Async Tasks
@@ -195,6 +201,7 @@ Example | Description
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
+[Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
 
@@ -219,6 +226,7 @@ Example | Description
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
+[One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
@@ -227,7 +235,6 @@ Example | Description
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
-[Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games
 
@@ -285,6 +292,7 @@ Example | Description
 [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
+[Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
 [Instancing](../examples/shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
@@ -317,6 +325,14 @@ Example | Description
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
 [Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
+
+## Time
+
+Example | Description
+--- | ---
+[Time handling](../examples/time/time.rs) | Explains how Time is handled in ECS
+[Timers](../examples/time/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
+[Virtual time](../examples/time/virtual_time.rs) | Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game.
 
 ## Tools
 
@@ -506,7 +522,7 @@ Following is an example for `lighting`. For other examples, change the `lighting
 following commands.
 
 ```sh
-cargo build --release --example lighting --target wasm32-unknown-unknown --features webgl
+cargo build --release --example lighting --target wasm32-unknown-unknown
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
   --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
@@ -514,7 +530,7 @@ wasm-bindgen --out-name wasm_example \
 
 The first command will build the example for the wasm target, creating a binary. Then,
 [wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
-javascript bindings to this wasm file, which can be loaded using this
+javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`, which can be loaded using this
 [example HTML file](./wasm/index.html).
 
 Then serve `examples/wasm` directory to browser. i.e.
@@ -535,6 +551,14 @@ ruby -run -ehttpd examples/wasm
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
+
+WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
+
+```sh
+RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build ...
+```
+
+Check `wasm-bindgen` [docs on Unstable APIs](https://rustwasm.github.io/wasm-bindgen/web-sys/unstable-apis.html) for more details.
 
 Bevy has an helper to build its examples:
 
@@ -608,7 +632,7 @@ mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```
 
 For a small project with a basic 3d model and two lights,
-the generated file sizes are, as of Jully 2022 as following:
+the generated file sizes are, as of July 2022, as follows:
 
 |profile                           | wasm-opt | no wasm-opt |
 |----------------------------------|----------|-------------|

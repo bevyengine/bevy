@@ -9,7 +9,7 @@ use crate::{IRect, Rect, UVec2};
 /// methods instead, which will ensure this invariant is met, unless you already have
 /// the minimum and maximum corners.
 #[repr(C)]
-#[derive(Default, Clone, Copy, Debug, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct URect {
     /// The minimum corner point of the rect.
@@ -130,7 +130,7 @@ impl URect {
     /// assert_eq!(r.width(), 5);
     /// ```
     #[inline]
-    pub fn width(&self) -> u32 {
+    pub const fn width(&self) -> u32 {
         self.max.x - self.min.x
     }
 
@@ -144,7 +144,7 @@ impl URect {
     /// assert_eq!(r.height(), 1);
     /// ```
     #[inline]
-    pub fn height(&self) -> u32 {
+    pub const fn height(&self) -> u32 {
         self.max.y - self.min.y
     }
 

@@ -1,8 +1,7 @@
 // TODO use common view binding
-#import bevy_render::view View
+#import bevy_render::view::View
 
-@group(0) @binding(0)
-var<uniform> view: View;
+@group(0) @binding(0) var<uniform> view: View;
 
 
 struct LineGizmoUniform {
@@ -14,8 +13,7 @@ struct LineGizmoUniform {
 #endif
 }
 
-@group(1) @binding(0)
-var<uniform> line_gizmo: LineGizmoUniform;
+@group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
 
 struct VertexInput {
     @location(0) position_a: vec3<f32>,
@@ -43,8 +41,13 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let position = positions[vertex.index];
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    let clip_a = view.view_proj * vec4(vertex.position_a, 1.);
-    let clip_b = view.view_proj * vec4(vertex.position_b, 1.);
+    var clip_a = view.view_proj * vec4(vertex.position_a, 1.);
+    var clip_b = view.view_proj * vec4(vertex.position_b, 1.);
+
+    // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
+    clip_a = clip_near_plane(clip_a, clip_b);
+    clip_b = clip_near_plane(clip_b, clip_a);
+
     let clip = mix(clip_a, clip_b, position.z);
 
     let resolution = view.viewport.zw;
@@ -64,7 +67,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 #endif
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
-    if line_width < 1. {
+    if line_width > 0.0 && line_width < 1. {
         color.a *= line_width;
         line_width = 1.;
     }
@@ -79,10 +82,10 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         let epsilon = 4.88e-04;
         // depth * (clip.w / depth)^-depth_bias. So that when -depth_bias is 1.0, this is equal to clip.w
         // and when equal to 0.0, it is exactly equal to depth.
-        // the epsilon is here to prevent the depth from exceeding clip.w when -depth_bias = 1.0 
+        // the epsilon is here to prevent the depth from exceeding clip.w when -depth_bias = 1.0
         // clip.w represents the near plane in homogeneous clip space in bevy, having a depth
         // of this value means nothing can be in front of this
-        // The reason this uses an exponential function is that it makes it much easier for the 
+        // The reason this uses an exponential function is that it makes it much easier for the
         // user to chose a value that is convenient for them
         depth = clip.z * exp2(-line_gizmo.depth_bias * log2(clip.w / clip.z - epsilon));
     }
@@ -90,6 +93,18 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
     return VertexOutput(clip_position, color);
+}
+
+fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
+    // Move a if a is behind the near plane and b is in front. 
+    if a.z > a.w && b.z <= b.w {
+        // Interpolate a towards b until it's at the near plane.
+        let distance_a = a.z - a.w;
+        let distance_b = b.z - b.w;
+        let t = distance_a / (distance_a - distance_b);
+        return a + (b - a) * t;
+    }
+    return a;
 }
 
 struct FragmentInput {
