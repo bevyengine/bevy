@@ -116,7 +116,7 @@ pub struct SpotLight {
 
 impl SpotLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
-    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
+    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
 }
 
 impl Default for SpotLight {
@@ -210,7 +210,7 @@ impl Default for DirectionalLight {
 
 impl DirectionalLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
-    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
+    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
 }
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
