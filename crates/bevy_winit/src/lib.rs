@@ -732,14 +732,14 @@ pub fn winit_runner(mut app: App) {
                 });
             }
             event::Event::Suspended => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.lifetime.send(ApplicationLifetime::Suspended);
                 // Mark the state as `WillSuspend`. This will let the schedule run one last time
                 // before actually suspending to let the application react
                 runner_state.active = ActiveState::WillSuspend;
             }
             event::Event::Resumed => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 match runner_state.active {
                     ActiveState::NotYetStarted => {
                         event_writers.lifetime.send(ApplicationLifetime::Started);
