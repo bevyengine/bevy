@@ -15,7 +15,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // plane
+    // circular base
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Circle::new(4.0).into()),
         material: materials.add(Color::WHITE.into()),

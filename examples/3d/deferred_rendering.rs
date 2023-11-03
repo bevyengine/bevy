@@ -52,7 +52,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba(0.25, 0.25, 0.25, 1.0),
+            color: Color::rgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -93,11 +93,11 @@ fn setup(
     });
     commands.spawn(SceneBundle {
         scene: helmet_scene,
-        transform: Transform::from_xyz(-3.0, 0.0, -3.0),
+        transform: Transform::from_xyz(-4.0, 0.0, -3.0),
         ..default()
     });
 
-    let mut forward_mat: StandardMaterial = Color::rgb(0.1, 0.2, 0.1).into();
+    let mut forward_mat: StandardMaterial = Color::GRAY.into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 

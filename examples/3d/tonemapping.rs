@@ -64,6 +64,14 @@ fn setup(
             transform: camera_transform.0,
             ..default()
         },
+        FogSettings {
+            color: Color::rgba_u8(43, 44, 47, 255),
+            falloff: FogFalloff::Linear {
+                start: 1.0,
+                end: 8.0,
+            },
+            ..default()
+        },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -98,15 +106,8 @@ fn setup_basic_scene(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane {
-                size: 5.0,
-                ..default()
-            })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.3, 0.5, 0.3),
-                perceptual_roughness: 0.5,
-                ..default()
-            }),
+            mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+            material: materials.add(Color::GRAY.into()),
             ..default()
         },
         SceneNumber(1),
