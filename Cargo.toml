@@ -2412,6 +2412,17 @@ description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
 wasm = true
 
+[[example]]
+name = "ui_material"
+path = "examples/ui/ui_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_material]
+name = "UI Material"
+description = "Demonstrates creating and using custom Ui materials"
+category = "UI (User Interface)"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
