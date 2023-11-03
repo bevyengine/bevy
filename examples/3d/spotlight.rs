@@ -9,10 +9,15 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
+        .insert_resource(AmbientLight {
+            brightness: 0.02,
+            ..default()
+        })
         .add_plugins((
             DefaultPlugins,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
+            bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))
@@ -31,21 +36,14 @@ fn setup(
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Plane::from_size(100.0).into()),
-        material: materials.add(StandardMaterial {
-            base_color: Color::GREEN,
-            perceptual_roughness: 1.0,
-            ..default()
-        }),
+        material: materials.add(Color::WHITE.into()),
         ..default()
     });
 
     // cubes
     let mut rng = StdRng::seed_from_u64(19878367467713);
     let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.5 }));
-    let blue = materials.add(StandardMaterial {
-        base_color: Color::BLUE,
-        ..default()
-    });
+    let blue = materials.add(Color::rgb_u8(124, 144, 255).into());
     for _ in 0..40 {
         let x = rng.gen_range(-5.0..5.0);
         let y = rng.gen_range(0.0..3.0);
@@ -60,12 +58,6 @@ fn setup(
             Movable,
         ));
     }
-
-    // ambient light
-    commands.insert_resource(AmbientLight {
-        color: Color::rgb(0.0, 1.0, 1.0),
-        brightness: 0.14,
-    });
 
     let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
         radius: 0.05,
@@ -124,10 +116,14 @@ fn setup(
     }
 
     // camera
-    commands.spawn(Camera3dBundle {
+    commands.spawn((Camera3dBundle {
+        camera: Camera {
+            hdr: true,
+            ..default()
+        },
         transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
-    });
+    },));
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {

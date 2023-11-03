@@ -260,6 +260,9 @@ shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
+# Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
+pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
+
 # Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
@@ -797,6 +800,16 @@ doc-scrape-examples = true
 [package.metadata.example.transparency_3d]
 name = "Transparency in 3D"
 description = "Demonstrates transparency in 3d"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "transmission"
+path = "examples/3d/transmission.rs"
+
+[package.metadata.example.transmission]
+name = "Transmission"
+description = "Showcases light transmission in the PBR material"
 category = "3D Rendering"
 wasm = true
 

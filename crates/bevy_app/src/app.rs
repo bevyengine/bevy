@@ -8,7 +8,7 @@ use bevy_ecs::{
         ScheduleBuildSettings, ScheduleLabel,
     },
 };
-use bevy_utils::{intern::Interned, tracing::debug, HashMap, HashSet};
+use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
 use std::{
     fmt::Debug,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
@@ -28,7 +28,9 @@ pub use bevy_utils::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
+#[derive(Debug, Error)]
 pub(crate) enum AppError {
+    #[error("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
 }
 

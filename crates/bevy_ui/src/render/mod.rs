@@ -15,7 +15,7 @@ pub use ui_material_pipeline::*;
 use crate::Outline;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
-    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
+    Style, UiImage, UiScale, UiTextureAtlasImage, Val,
 };
 
 use bevy_app::prelude::*;
@@ -154,7 +154,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 }
 
 pub struct ExtractedUiNode {
-    pub stack_index: usize,
+    pub stack_index: u32,
     pub transform: Mat4,
     pub color: Color,
     pub rect: Rect,
@@ -174,7 +174,6 @@ pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
             (
@@ -191,70 +190,68 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
-            entity,
-            uinode,
-            transform,
-            color,
-            view_visibility,
-            clip,
-            texture_atlas_handle,
-            atlas_image,
-        )) = uinode_query.get(*entity)
-        {
-            // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || color.0.a() == 0.0 {
-                continue;
-            }
-
-            let (mut atlas_rect, mut atlas_size, image) =
-                if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-                    let atlas_rect = *texture_atlas
-                        .textures
-                        .get(atlas_image.index)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "Atlas index {:?} does not exist for texture atlas handle {:?}.",
-                                atlas_image.index,
-                                texture_atlas_handle.id(),
-                            )
-                        });
-                    (
-                        atlas_rect,
-                        texture_atlas.size,
-                        texture_atlas.texture.clone(),
-                    )
-                } else {
-                    // Atlas not present in assets resource (should this warn the user?)
-                    continue;
-                };
-
-            // Skip loading images
-            if !images.contains(&image) {
-                continue;
-            }
-
-            let scale = uinode.size() / atlas_rect.size();
-            atlas_rect.min *= scale;
-            atlas_rect.max *= scale;
-            atlas_size *= scale;
-
-            extracted_uinodes.uinodes.insert(
-                entity,
-                ExtractedUiNode {
-                    stack_index,
-                    transform: transform.compute_matrix(),
-                    color: color.0,
-                    rect: atlas_rect,
-                    clip: clip.map(|clip| clip.clip),
-                    image: image.id(),
-                    atlas_size: Some(atlas_size),
-                    flip_x: atlas_image.flip_x,
-                    flip_y: atlas_image.flip_y,
-                },
-            );
+    for (
+        entity,
+        uinode,
+        transform,
+        color,
+        view_visibility,
+        clip,
+        texture_atlas_handle,
+        atlas_image,
+    ) in uinode_query.iter()
+    {
+        // Skip invisible and completely transparent nodes
+        if !view_visibility.get() || color.0.is_fully_transparent() {
+            continue;
         }
+
+        let (mut atlas_rect, mut atlas_size, image) =
+            if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+                let atlas_rect = *texture_atlas
+                    .textures
+                    .get(atlas_image.index)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Atlas index {:?} does not exist for texture atlas handle {:?}.",
+                            atlas_image.index,
+                            texture_atlas_handle.id(),
+                        )
+                    });
+                (
+                    atlas_rect,
+                    texture_atlas.size,
+                    texture_atlas.texture.clone(),
+                )
+            } else {
+                // Atlas not present in assets resource (should this warn the user?)
+                continue;
+            };
+
+        // Skip loading images
+        if !images.contains(&image) {
+            continue;
+        }
+
+        let scale = uinode.size() / atlas_rect.size();
+        atlas_rect.min *= scale;
+        atlas_rect.max *= scale;
+        atlas_size *= scale;
+
+        extracted_uinodes.uinodes.insert(
+            entity,
+            ExtractedUiNode {
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: atlas_rect,
+                clip: clip.map(|clip| clip.clip),
+                image: image.id(),
+                atlas_size: Some(atlas_size),
+                flip_x: atlas_image.flip_x,
+                flip_y: atlas_image.flip_y,
+            },
+        );
     }
 }
 
@@ -275,7 +272,6 @@ pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
             (
@@ -302,92 +298,84 @@ pub fn extract_uinode_borders(
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0 as f32;
 
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, style, border_color, parent, view_visibility, clip)) =
-            uinode_query.get(*entity)
+    for (node, global_transform, style, border_color, parent, view_visibility, clip) in
+        uinode_query.iter()
+    {
+        // Skip invisible borders
+        if !view_visibility.get()
+            || border_color.0.is_fully_transparent()
+            || node.size().x <= 0.
+            || node.size().y <= 0.
         {
-            // Skip invisible borders
-            if !view_visibility.get()
-                || border_color.0.a() == 0.0
-                || node.size().x <= 0.
-                || node.size().y <= 0.
-            {
-                continue;
-            }
+            continue;
+        }
 
-            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-            let parent_width = parent
-                .and_then(|parent| node_query.get(parent.get()).ok())
-                .map(|parent_node| parent_node.size().x)
-                .unwrap_or(ui_logical_viewport_size.x);
-            let left =
-                resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
-            let right = resolve_border_thickness(
-                style.border.right,
-                parent_width,
-                ui_logical_viewport_size,
-            );
-            let top =
-                resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
-            let bottom = resolve_border_thickness(
-                style.border.bottom,
-                parent_width,
-                ui_logical_viewport_size,
-            );
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
 
-            // Calculate the border rects, ensuring no overlap.
-            // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
-            let max = 0.5 * node.size();
-            let min = -max;
-            let inner_min = min + Vec2::new(left, top);
-            let inner_max = (max - Vec2::new(right, bottom)).max(inner_min);
-            let border_rects = [
-                // Left border
-                Rect {
-                    min,
-                    max: Vec2::new(inner_min.x, max.y),
-                },
-                // Right border
-                Rect {
-                    min: Vec2::new(inner_max.x, min.y),
-                    max,
-                },
-                // Top border
-                Rect {
-                    min: Vec2::new(inner_min.x, min.y),
-                    max: Vec2::new(inner_max.x, inner_min.y),
-                },
-                // Bottom border
-                Rect {
-                    min: Vec2::new(inner_min.x, inner_max.y),
-                    max: Vec2::new(inner_max.x, max.y),
-                },
-            ];
+        // Calculate the border rects, ensuring no overlap.
+        // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
+        let max = 0.5 * node.size();
+        let min = -max;
+        let inner_min = min + Vec2::new(left, top);
+        let inner_max = (max - Vec2::new(right, bottom)).max(inner_min);
+        let border_rects = [
+            // Left border
+            Rect {
+                min,
+                max: Vec2::new(inner_min.x, max.y),
+            },
+            // Right border
+            Rect {
+                min: Vec2::new(inner_max.x, min.y),
+                max,
+            },
+            // Top border
+            Rect {
+                min: Vec2::new(inner_min.x, min.y),
+                max: Vec2::new(inner_max.x, inner_min.y),
+            },
+            // Bottom border
+            Rect {
+                min: Vec2::new(inner_min.x, inner_max.y),
+                max: Vec2::new(inner_max.x, max.y),
+            },
+        ];
 
-            let transform = global_transform.compute_matrix();
+        let transform = global_transform.compute_matrix();
 
-            for edge in border_rects {
-                if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                    extracted_uinodes.uinodes.insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            stack_index,
-                            // This translates the uinode's transform to the center of the current border rectangle
-                            transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                            color: border_color.0,
-                            rect: Rect {
-                                max: edge.size(),
-                                ..Default::default()
-                            },
-                            image,
-                            atlas_size: None,
-                            clip: clip.map(|clip| clip.clip),
-                            flip_x: false,
-                            flip_y: false,
+        for edge in border_rects {
+            if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
+                extracted_uinodes.uinodes.insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        stack_index: node.stack_index,
+                        // This translates the uinode's transform to the center of the current border rectangle
+                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        color: border_color.0,
+                        rect: Rect {
+                            max: edge.size(),
+                            ..Default::default()
                         },
-                    );
-                }
+                        image,
+                        atlas_size: None,
+                        clip: clip.map(|clip| clip.clip),
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                );
             }
         }
     }
@@ -396,7 +384,6 @@ pub fn extract_uinode_borders(
 pub fn extract_uinode_outlines(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -409,78 +396,75 @@ pub fn extract_uinode_outlines(
     clip_query: Query<&CalculatedClip>,
 ) {
     let image = AssetId::<Image>::default();
-
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, outline, view_visibility, maybe_parent)) =
-            uinode_query.get(*entity)
+    for (node, global_transform, outline, view_visibility, maybe_parent) in uinode_query.iter() {
+        // Skip invisible outlines
+        if !view_visibility.get()
+            || outline.color.is_fully_transparent()
+            || node.outline_width == 0.
         {
-            // Skip invisible outlines
-            if !view_visibility.get() || outline.color.a() == 0. || node.outline_width == 0. {
-                continue;
-            }
+            continue;
+        }
 
-            // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
-            let clip = maybe_parent
-                .and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
+        // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
+        let clip =
+            maybe_parent.and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
 
-            // Calculate the outline rects.
-            let inner_rect =
-                Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
-            let outer_rect = inner_rect.inset(node.outline_width());
-            let outline_edges = [
-                // Left edge
-                Rect::new(
-                    outer_rect.min.x,
-                    outer_rect.min.y,
-                    inner_rect.min.x,
-                    outer_rect.max.y,
-                ),
-                // Right edge
-                Rect::new(
-                    inner_rect.max.x,
-                    outer_rect.min.y,
-                    outer_rect.max.x,
-                    outer_rect.max.y,
-                ),
-                // Top edge
-                Rect::new(
-                    inner_rect.min.x,
-                    outer_rect.min.y,
-                    inner_rect.max.x,
-                    inner_rect.min.y,
-                ),
-                // Bottom edge
-                Rect::new(
-                    inner_rect.min.x,
-                    inner_rect.max.y,
-                    inner_rect.max.x,
-                    outer_rect.max.y,
-                ),
-            ];
+        // Calculate the outline rects.
+        let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
+        let outer_rect = inner_rect.inset(node.outline_width());
+        let outline_edges = [
+            // Left edge
+            Rect::new(
+                outer_rect.min.x,
+                outer_rect.min.y,
+                inner_rect.min.x,
+                outer_rect.max.y,
+            ),
+            // Right edge
+            Rect::new(
+                inner_rect.max.x,
+                outer_rect.min.y,
+                outer_rect.max.x,
+                outer_rect.max.y,
+            ),
+            // Top edge
+            Rect::new(
+                inner_rect.min.x,
+                outer_rect.min.y,
+                inner_rect.max.x,
+                inner_rect.min.y,
+            ),
+            // Bottom edge
+            Rect::new(
+                inner_rect.min.x,
+                inner_rect.max.y,
+                inner_rect.max.x,
+                outer_rect.max.y,
+            ),
+        ];
 
-            let transform = global_transform.compute_matrix();
+        let transform = global_transform.compute_matrix();
 
-            for edge in outline_edges {
-                if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                    extracted_uinodes.uinodes.insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            stack_index,
-                            // This translates the uinode's transform to the center of the current border rectangle
-                            transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                            color: outline.color,
-                            rect: Rect {
-                                max: edge.size(),
-                                ..Default::default()
-                            },
-                            image,
-                            atlas_size: None,
-                            clip,
-                            flip_x: false,
-                            flip_y: false,
+        for edge in outline_edges {
+            if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
+                extracted_uinodes.uinodes.insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        stack_index: node.stack_index,
+                        // This translates the uinode's transform to the center of the current border rectangle
+                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        color: outline.color,
+                        rect: Rect {
+                            max: edge.size(),
+                            ..Default::default()
                         },
-                    );
-                }
+                        image,
+                        atlas_size: None,
+                        clip,
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                );
             }
         }
     }
@@ -489,7 +473,6 @@ pub fn extract_uinode_outlines(
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
             (
@@ -505,43 +488,41 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, transform, color, maybe_image, view_visibility, clip)) =
-            uinode_query.get(*entity)
-        {
-            // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || color.0.a() == 0.0 {
+    for (entity, uinode, transform, color, maybe_image, view_visibility, clip) in
+        uinode_query.iter()
+    {
+        // Skip invisible and completely transparent nodes
+        if !view_visibility.get() || color.0.is_fully_transparent() {
+            continue;
+        }
+
+        let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+            // Skip loading images
+            if !images.contains(&image.texture) {
                 continue;
             }
-
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
-                    continue;
-                }
-                (image.texture.id(), image.flip_x, image.flip_y)
-            } else {
-                (AssetId::default(), false, false)
-            };
-
-            extracted_uinodes.uinodes.insert(
-                entity,
-                ExtractedUiNode {
-                    stack_index,
-                    transform: transform.compute_matrix(),
-                    color: color.0,
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: uinode.calculated_size,
-                    },
-                    clip: clip.map(|clip| clip.clip),
-                    image,
-                    atlas_size: None,
-                    flip_x,
-                    flip_y,
-                },
-            );
+            (image.texture.id(), image.flip_x, image.flip_y)
+        } else {
+            (AssetId::default(), false, false)
         };
+
+        extracted_uinodes.uinodes.insert(
+            entity,
+            ExtractedUiNode {
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                },
+                clip: clip.map(|clip| clip.clip),
+                image,
+                atlas_size: None,
+                flip_x,
+                flip_y,
+            },
+        );
     }
 }
 
@@ -624,7 +605,6 @@ pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    ui_stack: Extract<Res<UiStack>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
@@ -646,51 +626,49 @@ pub fn extract_text_uinodes(
 
     let inverse_scale_factor = (scale_factor as f32).recip();
 
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, global_transform, text, text_layout_info, view_visibility, clip)) =
-            uinode_query.get(*entity)
+    for (uinode, global_transform, text, text_layout_info, view_visibility, clip) in
+        uinode_query.iter()
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
+            continue;
+        }
+        let transform = global_transform.compute_matrix()
+            * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
+
+        let mut color = Color::WHITE;
+        let mut current_section = usize::MAX;
+        for PositionedGlyph {
+            position,
+            atlas_info,
+            section_index,
+            ..
+        } in &text_layout_info.glyphs
         {
-            // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
-                continue;
+            if *section_index != current_section {
+                color = text.sections[*section_index].style.color.as_rgba_linear();
+                current_section = *section_index;
             }
-            let transform = global_transform.compute_matrix()
-                * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
+            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let mut color = Color::WHITE;
-            let mut current_section = usize::MAX;
-            for PositionedGlyph {
-                position,
-                atlas_info,
-                section_index,
-                ..
-            } in &text_layout_info.glyphs
-            {
-                if *section_index != current_section {
-                    color = text.sections[*section_index].style.color.as_rgba_linear();
-                    current_section = *section_index;
-                }
-                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-
-                let mut rect = atlas.textures[atlas_info.glyph_index];
-                rect.min *= inverse_scale_factor;
-                rect.max *= inverse_scale_factor;
-                extracted_uinodes.uinodes.insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        stack_index,
-                        transform: transform
-                            * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                        color,
-                        rect,
-                        image: atlas.texture.id(),
-                        atlas_size: Some(atlas.size * inverse_scale_factor),
-                        clip: clip.map(|clip| clip.clip),
-                        flip_x: false,
-                        flip_y: false,
-                    },
-                );
-            }
+            let mut rect = atlas.textures[atlas_info.glyph_index];
+            rect.min *= inverse_scale_factor;
+            rect.max *= inverse_scale_factor;
+            extracted_uinodes.uinodes.insert(
+                commands.spawn_empty().id(),
+                ExtractedUiNode {
+                    stack_index: uinode.stack_index,
+                    transform: transform
+                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                    color,
+                    rect,
+                    image: atlas.texture.id(),
+                    atlas_size: Some(atlas.size * inverse_scale_factor),
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x: false,
+                    flip_y: false,
+                },
+            );
         }
     }
 }
@@ -756,6 +734,7 @@ pub fn queue_uinodes(
         transparent_phase
             .items
             .reserve(extracted_uinodes.uinodes.len());
+
         for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
             transparent_phase.add(TransparentUi {
                 draw_function,
@@ -805,11 +784,6 @@ pub fn prepare_uinodes(
         };
     }
 
-    #[inline]
-    fn is_textured(image: AssetId<Image>) -> bool {
-        image != AssetId::default()
-    }
-
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
@@ -822,7 +796,6 @@ pub fn prepare_uinodes(
 
         // Vertex buffer index
         let mut index = 0;
-
         for mut ui_phase in &mut phases {
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
@@ -830,11 +803,14 @@ pub fn prepare_uinodes(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
-                    let mut existing_batch = batches
-                        .last_mut()
-                        .filter(|_| batch_image_handle == extracted_uinode.image);
+                    let mut existing_batch = batches.last_mut();
 
-                    if existing_batch.is_none() {
+                    if batch_image_handle == AssetId::invalid()
+                        || existing_batch.is_none()
+                        || (batch_image_handle != AssetId::default()
+                            && extracted_uinode.image != AssetId::default()
+                            && batch_image_handle != extracted_uinode.image)
+                    {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                             batch_item_index = item_index;
                             batch_image_handle = extracted_uinode.image;
@@ -864,9 +840,32 @@ pub fn prepare_uinodes(
                         } else {
                             continue;
                         }
+                    } else if batch_image_handle == AssetId::default()
+                        && extracted_uinode.image != AssetId::default()
+                    {
+                        if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
+                            batch_image_handle = extracted_uinode.image;
+                            existing_batch.as_mut().unwrap().1.image = extracted_uinode.image;
+
+                            image_bind_groups
+                                .values
+                                .entry(batch_image_handle)
+                                .or_insert_with(|| {
+                                    render_device.create_bind_group(
+                                        "ui_material_bind_group",
+                                        &ui_pipeline.image_layout,
+                                        &BindGroupEntries::sequential((
+                                            &gpu_image.texture_view,
+                                            &gpu_image.sampler,
+                                        )),
+                                    )
+                                });
+                        } else {
+                            continue;
+                        }
                     }
 
-                    let mode = if is_textured(extracted_uinode.image) {
+                    let mode = if extracted_uinode.image != AssetId::default() {
                         TEXTURED_QUAD
                     } else {
                         UNTEXTURED_QUAD

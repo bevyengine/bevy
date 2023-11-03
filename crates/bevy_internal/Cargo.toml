@@ -72,6 +72,9 @@ x11 = ["bevy_winit/x11"]
 # enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
+# Transmission textures in `StandardMaterial`:
+pbr_transmission_textures = ["bevy_pbr?/pbr_transmission_textures", "bevy_gltf?/pbr_transmission_textures"]
+
 # Optimise for WebGL2
 webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl", "bevy_gizmos?/webgl", "bevy_sprite?/webgl"]
 

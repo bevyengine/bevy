@@ -263,8 +263,8 @@ fn setup(
 ) {
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        material: materials.add(Color::GRAY.into()),
         ..default()
     });
 
@@ -323,6 +323,18 @@ fn setup(
         },
         ContrastAdaptiveSharpeningSettings {
             enabled: false,
+            ..default()
+        },
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+        },
+        FogSettings {
+            color: Color::rgba_u8(43, 44, 47, 255),
+            falloff: FogFalloff::Linear {
+                start: 1.0,
+                end: 4.0,
+            },
             ..default()
         },
     ));
