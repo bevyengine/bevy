@@ -84,7 +84,7 @@ impl<T: PipelineKeyType> Copy for PackedPipelineKey<T> {}
 
 impl<T: PipelineKeyType> PackedPipelineKey<T> {
     pub fn new(packed: KeyPrimitive, size: u8) -> Self {
-        assert!((size as usize) < size_of::<KeyPrimitive>() * 8);
+        assert!((size as u32) < KeyPrimitive::BITS);
         Self {
             packed,
             size,
