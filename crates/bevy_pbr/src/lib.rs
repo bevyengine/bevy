@@ -62,24 +62,19 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{{CameraUpdateSystem, Projection},
-    ViewProjectionKey},
+    camera::{
+        ViewProjectionKey, {CameraUpdateSystem, Projection},
+    },
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-   
     pipeline_keys::{AddPipelineKey, KeyPrimitive, PipelineKey},
     prelude::Color,
-   
     render_asset::prepare_assets,
     render_graph::RenderGraph,
-   
     render_phase::sort_phase_system,
-   
     render_resource::Shader,
     texture::Image,
-   
     view::{ExtractedView, HdrKey, MsaaKey, VisibilitySystems},
-   
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
