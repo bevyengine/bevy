@@ -32,7 +32,7 @@ Aside from the Bevy dependencies required for your WSL2 distro, make sure to hav
 following additional dependencies:
 
 ```bash
-sudo apt-get install libxcursor-dev libxrandr libxi6 mesa-vulkan-drivers
+sudo apt-get install libxcursor-dev libxrandr2 libxi6 mesa-vulkan-drivers
 ```
 
 Also, ensure Vulkan is used as wgpu backend, either using `WGPU_BACKEND=vulkan` or Bevy plugin settings:
