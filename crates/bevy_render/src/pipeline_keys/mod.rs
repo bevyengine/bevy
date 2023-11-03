@@ -5,7 +5,8 @@ pub use bevy_render_macros::PipelineKey;
 use bevy_utils::{HashMap, HashSet};
 use std::{
     any::{type_name, TypeId},
-    marker::PhantomData, mem::size_of,
+    marker::PhantomData,
+    mem::size_of,
 };
 
 use self::composite::CompositeKey;
