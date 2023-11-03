@@ -717,9 +717,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
             continue;
         };
 
-        let mut opaque_phase_deferred = opaque_deferred_phase.as_mut();
-        let mut alpha_mask_phase_deferred = alpha_mask_deferred_phase.as_mut();
-
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
@@ -785,7 +782,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             match alpha_mode {
                 AlphaMode::Opaque => {
                     if deferred {
-                        opaque_phase_deferred
+                        opaque_deferred_phase
                             .as_mut()
                             .unwrap()
                             .add(Opaque3dDeferred {
@@ -796,8 +793,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
-                    } else {
-                        opaque_phase.as_mut().unwrap().add(Opaque3dPrepass {
+                    } else if let Some(opaque_phase) = opaque_phase.as_mut() {
+                        opaque_phase.add(Opaque3dPrepass {
                             entity: *visible_entity,
                             draw_function: opaque_draw_prepass,
                             pipeline_id,
@@ -809,7 +806,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
                 AlphaMode::Mask(_) => {
                     if deferred {
-                        alpha_mask_phase_deferred
+                        alpha_mask_deferred_phase
                             .as_mut()
                             .unwrap()
                             .add(AlphaMask3dDeferred {
@@ -820,8 +817,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
-                    } else {
-                        alpha_mask_phase.as_mut().unwrap().add(AlphaMask3dPrepass {
+                    } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
+                        alpha_mask_phase.add(AlphaMask3dPrepass {
                             entity: *visible_entity,
                             draw_function: alpha_mask_draw_prepass,
                             pipeline_id,
