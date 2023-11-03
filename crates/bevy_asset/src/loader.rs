@@ -412,7 +412,6 @@ impl<'a> LoadContext<'a> {
         &self.asset_path
     }
 
-    /// Gets the source asset path for this load context.
     pub async fn read_asset_bytes<'b, 'c>(
         &'b mut self,
         path: impl Into<AssetPath<'c>>,
