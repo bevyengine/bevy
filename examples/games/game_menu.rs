@@ -793,17 +793,15 @@ mod menu {
     }
 
     fn menu_action(
-        interaction_query: Query<
-            (&Interaction, &MenuButtonAction),
-            (Changed<Interaction>, With<Button>),
-        >,
+        mut click_events: EventReader<Clicked>,
+        menu_buttons: Query<&MenuButtonAction>,
         mut app_exit_events: EventWriter<AppExit>,
         mut menu_state: ResMut<NextState<MenuState>>,
         mut game_state: ResMut<NextState<GameState>>,
     ) {
-        for (interaction, menu_button_action) in &interaction_query {
-            if *interaction == Interaction::Pressed {
-                match menu_button_action {
+        for event in click_events.read() {
+            if let Ok(menu_button) = menu_buttons.get(event.0) {
+                match menu_button {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {
                         game_state.set(GameState::Game);

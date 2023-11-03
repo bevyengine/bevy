@@ -431,16 +431,18 @@ where
 }
 
 fn buttons_handler<T>(
+    mut click_events: EventReader<Clicked>,
+    visibility_button_query: Query<(&Target<T>, &Children)>,
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
-    mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
     mut text_query: Query<&mut Text>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
 {
-    for (target, interaction, children) in visibility_button_query.iter_mut() {
-        if matches!(interaction, Interaction::Pressed) {
+    for event in click_events.read() {
+        if let Ok((target, children)) = visibility_button_query.get(event.0) {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
+
             for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {
                     text.sections[0].value = target.update_target(target_value.as_mut());

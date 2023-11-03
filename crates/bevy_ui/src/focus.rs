@@ -3,7 +3,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    prelude::{Component, With},
+    event::EventWriter,
+    prelude::{Component, Event, With},
     query::WorldQuery,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
@@ -54,6 +55,15 @@ impl Default for Interaction {
         Self::DEFAULT
     }
 }
+
+/// Used to publish which entity was clicked
+///
+/// Commonly used by creating a UI node and using [`EventReader<Clicked>`](bevy_ecs::event::EventReader)
+/// to obtain the list of clicked UI nodes.
+///
+/// **Note:** This captures the full click/press-release action, i.e. it is emitted after release.
+#[derive(Event)]
+pub struct Clicked(pub Entity);
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
@@ -142,6 +152,7 @@ pub fn ui_focus_system(
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
+    mut click_events: EventWriter<Clicked>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -152,12 +163,14 @@ pub fn ui_focus_system(
         }
     }
 
+    let mut was_pressed = false;
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for node in &mut node_query {
             if let Some(mut interaction) = node.interaction {
                 if *interaction == Interaction::Pressed {
+                    was_pressed = true;
                     *interaction = Interaction::None;
                 }
             }
@@ -245,6 +258,10 @@ pub fn ui_focus_system(
                 }
 
                 if contains_cursor {
+                    // Emit a click event only if mouse was released under the button
+                    if mouse_released && was_pressed {
+                        click_events.send(Clicked(*entity));
+                    }
                     Some(*entity)
                 } else {
                     if let Some(mut interaction) = node.interaction {

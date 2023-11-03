@@ -5,9 +5,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_event::<ButtonActivatedEvent>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, (update_buttons, update_radio_buttons_colors))
+        .add_systems(Startup, setup_system)
+        .add_systems(Update, (hover_system, click_system))
         .run();
 }
 
@@ -35,10 +34,7 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
-#[derive(Event)]
-struct ButtonActivatedEvent(Entity);
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2dBundle::default());
 
@@ -294,36 +290,14 @@ fn spawn_button(
         });
 }
 
-fn update_buttons(
-    mut button_query: Query<
-        (Entity, &Interaction, &Constraint, &ButtonValue),
-        Changed<Interaction>,
-    >,
-    mut bar_query: Query<&mut Style, With<Bar>>,
+fn hover_system(
+    mut button_query: Query<(Entity, &Interaction), Changed<Interaction>>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
-    mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
-    let mut style = bar_query.single_mut();
-    for (button_id, interaction, constraint, value) in button_query.iter_mut() {
+    for (button_id, interaction) in button_query.iter_mut() {
         match interaction {
-            Interaction::Pressed => {
-                button_activated_event.send(ButtonActivatedEvent(button_id));
-                match constraint {
-                    Constraint::FlexBasis => {
-                        style.flex_basis = value.0;
-                    }
-                    Constraint::Width => {
-                        style.width = value.0;
-                    }
-                    Constraint::MinWidth => {
-                        style.min_width = value.0;
-                    }
-                    Constraint::MaxWidth => {
-                        style.max_width = value.0;
-                    }
-                }
-            }
+            Interaction::Pressed => (),
             Interaction::Hovered => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
@@ -358,15 +332,36 @@ fn update_buttons(
     }
 }
 
-fn update_radio_buttons_colors(
-    mut event_reader: EventReader<ButtonActivatedEvent>,
+fn click_system(
+    mut click_events: EventReader<Clicked>,
+    clicked_query: Query<(&Constraint, &ButtonValue)>,
     button_query: Query<(Entity, &Constraint, &Interaction)>,
+    mut bar_query: Query<&mut Style, With<Bar>>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
-    for &ButtonActivatedEvent(button_id) in event_reader.read() {
-        let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
+    for &Clicked(button_id) in click_events.read() {
+        let Ok((target_constraint, value)) = clicked_query.get(button_id) else {
+            continue;
+        };
+
+        let mut style = bar_query.single_mut();
+        match target_constraint {
+            Constraint::FlexBasis => {
+                style.flex_basis = value.0;
+            }
+            Constraint::Width => {
+                style.width = value.0;
+            }
+            Constraint::MinWidth => {
+                style.min_width = value.0;
+            }
+            Constraint::MaxWidth => {
+                style.max_width = value.0;
+            }
+        }
+
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {
                 let (border_color, inner_color, text_color) = if id == button_id {
