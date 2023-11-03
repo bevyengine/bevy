@@ -124,7 +124,17 @@ pub struct TonemappingPipeline {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 #[derive(
-    PipelineKey, Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
+    PipelineKey,
+    Component,
+    Debug,
+    Hash,
+    Clone,
+    Copy,
+    Reflect,
+    Default,
+    ExtractComponent,
+    PartialEq,
+    Eq,
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -196,17 +206,15 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 
         #[cfg(not(feature = "tonemapping_luts"))]
         match key.tonemapping {
-            Tonemapping::AgX |
-            Tonemapping::TonyMcMapface |
-            Tonemapping::BlenderFilmic => {
+            Tonemapping::AgX | Tonemapping::TonyMcMapface | Tonemapping::BlenderFilmic => {
                 bevy_log::error!(
                     "{} tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
                     or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`.",
                     key.tonemapping
                 );
-            },
-            _ => ()
+            }
+            _ => (),
         }
 
         RenderPipelineDescriptor {

@@ -18,7 +18,7 @@ mod packed_types;
 /// Pipeline keys are used to cache pipeline variants, so it must be possible to obtain all information that can change
 /// the pipeline (shader defs, bindings, outputs, entry points, etc) from the pipeline's key value.
 /// Keys may specify a set of `ShaderDefVal`s (based on the key value) that can be applied to the vertex and fragment states
-/// of a RenderPipelineDescriptor or ComputePipelineDescriptor, via the `KeyShaderDefs` trait.
+/// of a `RenderPipelineDescriptor` or `ComputePipelineDescriptor`, via the `KeyShaderDefs` trait.
 /// Key values can be calculated independently for a given entity via the `SystemKey` trait.
 /// Keys can also be composites of other keys, either as simple tuples, as structs, or as dynamic keys, the components of which
 /// can be independently registered to allow extensibility.
@@ -26,19 +26,19 @@ mod packed_types;
 /// The primitive type underlying packed pipeline keys.
 pub type KeyPrimitive = u128;
 
-/// Main trait for a pipeline key struct. This trait implementation will typically be derived with 
+/// Main trait for a pipeline key struct. This trait implementation will typically be derived with
 /// #[derive(PipelineKey)]
 pub trait PipelineKeyType: 'static {
-    /// Pack an instance of the type into a KeyPrimitive and store in a typed `PackedPipelineKey`` struct
+    /// Pack an instance of the type into a `KeyPrimitive` and store in a typed `PackedPipelineKey` struct
     fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self>
     where
         Self: Sized;
 
-    /// unpack a KeyPrimitive and return an instance of the original type
+    /// unpack a `KeyPrimitive` and return an instance of the original type
     fn unpack(value: KeyPrimitive, store: &KeyMetaStore) -> Self;
 
-    /// For composite keys (structs, tuples and dynamic keys), returns a `HashMap` containing the `TypeId`s of 
-    /// component key types within this key, and the bitsize and offset into the KeyPrimitive at which
+    /// For composite keys (structs, tuples and dynamic keys), returns a `HashMap` containing the `TypeId`s of
+    /// component key types within this key, and the bitsize and offset into the `KeyPrimitive` at which
     /// they are stored in the packed representation of this type.
     fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset>;
 
@@ -48,8 +48,8 @@ pub trait PipelineKeyType: 'static {
     }
 
     /// `ShaderDefVal`s that correspond to the given packed value of this key type.
-    /// The default implementation unpacks all components and returns the set of 
-    /// `ShaderDefVal`s of the components. 
+    /// The default implementation unpacks all components and returns the set of
+    /// `ShaderDefVal`s of the components.
     fn shader_defs(value: KeyPrimitive, store: &KeyMetaStore) -> Vec<ShaderDefVal> {
         let mut defs = Vec::default();
         for (id, so) in Self::positions(store) {
@@ -65,7 +65,7 @@ pub trait PipelineKeyType: 'static {
     }
 }
 
-/// A packed representation of a PipelineKeyType value.
+/// A packed representation of a `PipelineKeyType` value.
 #[derive(Debug)]
 pub struct PackedPipelineKey<T: PipelineKeyType> {
     pub packed: KeyPrimitive,
@@ -90,14 +90,14 @@ impl<T: PipelineKeyType> PackedPipelineKey<T> {
         }
     }
 
-    /// Helper function to set the value for a component of a composite PipelineKeyType
+    /// Helper function to set the value for a component of a composite `PipelineKeyType`
     /// to a new value
     pub fn insert<K: PipelineKeyType>(&mut self, value: &K, cache: &PipelineCache) {
         let store = cache.key_store();
         self.insert_packed(K::pack(value, store), cache);
     }
 
-    /// Helper function to set the value for a component of a composite PipelineKeyType
+    /// Helper function to set the value for a component of a composite `PipelineKeyType`
     /// to a new packed value
     pub fn insert_packed<K: PipelineKeyType>(
         &mut self,
@@ -112,10 +112,10 @@ impl<T: PipelineKeyType> PackedPipelineKey<T> {
     }
 }
 
-/// PipelineKeyTypes withmanual implementations of this trait can provide shader defs that may be used
+/// `PipelineKeyType`s with manual implementations of this trait can provide shader defs that may be used
 /// by the pipeline to specify the shader defs on the pipeline's shader.
-/// To specify shader defs, the derive macro must have a `#[custom_shader_defs]` attribute, and must 
-/// be registered via the AddPipelineKey trait of the `App`.
+/// To specify shader defs, the derive macro must have a `#[custom_shader_defs]` attribute, and must
+/// be registered via the `AddPipelineKey` trait of the `App`.
 pub trait KeyShaderDefs {
     fn shader_defs(&self) -> Vec<ShaderDefVal>;
 }
@@ -123,52 +123,52 @@ pub trait KeyShaderDefs {
 /// Provides a means to construct a packed composite pipeline key from the packed components.
 /// This trait is implemented for tuple and struct composite keys.
 pub trait KeyRepack: PipelineKeyType {
-    /// For a composite tuple the `PackedParts`` will be a tuple of `PackedPipelineKey`s corresponding 
+    /// For a composite tuple the `PackedParts` will be a tuple of `PackedPipelineKey`s corresponding
     /// to the tuple members.
-    /// For a composite struct, the `PackedParts`` for a struct will be a tuple of `PackedPipelineKey`s 
-    /// corresponding to the struct fields. 
+    /// For a composite struct, the `PackedParts` for a struct will be a tuple of `PackedPipelineKey`s
+    /// corresponding to the struct fields.
     type PackedParts;
 
-    /// Construct a composite PackedPipelineKey from packed components.
+    /// Construct a composite `PackedPipelineKey` from packed components.
     fn repack(source: Self::PackedParts) -> PackedPipelineKey<Self>
     where
         Self: Sized;
 }
 
-/// Component for storing packed PipelineKeyType values on an entity.
+/// Component for storing packed `PipelineKeyType` values on an entity.
 #[derive(Component, Default)]
 pub struct PipelineKeys {
     packed_keys: HashMap<TypeId, (KeyPrimitive, u8)>,
 }
 
 impl PipelineKeys {
-    /// Get the KeyPrimitive value for a given TypeId
+    /// Get the `KeyPrimitive` value for a given `TypeId`
     pub fn get_raw_by_id(&self, id: &TypeId) -> Option<KeyPrimitive> {
         self.packed_keys.get(id).map(|(v, _)| *v)
     }
 
-    /// Get the KeyPrimitive value for a given PipelineKeyType
+    /// Get the `KeyPrimitive` value for a given `PipelineKeyType`
     pub fn get_raw<K: PipelineKeyType>(&self) -> Option<KeyPrimitive> {
         self.get_raw_by_id(&TypeId::of::<K>())
     }
 
-    /// Get the KeyPrimitive value and size for a given TypeId
+    /// Get the `KeyPrimitive` value and size for a given `TypeId`
     pub fn get_raw_and_size_by_id(&self, id: &TypeId) -> Option<(KeyPrimitive, u8)> {
         self.packed_keys.get(id).copied()
     }
 
-    /// Get the KeyPrimitive value and size for a given PipelineKeyType
+    /// Get the `KeyPrimitive` value and size for a given `PipelineKeyType`
     pub fn get_packed_key<K: PipelineKeyType>(&self) -> Option<PackedPipelineKey<K>> {
         let (raw, size) = self.get_raw_and_size_by_id(&TypeId::of::<K>())?;
         Some(PackedPipelineKey::new(raw, size))
     }
 
-    /// Set the value of a given PipelineKeyType for the containing entity
+    /// Set the value of a given `PipelineKeyType` for the containing entity
     pub fn set_raw<K: PipelineKeyType>(&mut self, value: KeyPrimitive, size: u8) {
         self.packed_keys.insert(TypeId::of::<K>(), (value, size));
     }
 
-    /// Get a `PipelineKey` struct containing a reconstructed instance of a given PipelineKeyType for the containing entity
+    /// Get a `PipelineKey` struct containing a reconstructed instance of a given `PipelineKeyType` for the containing entity
     pub fn get_key<'a, K: PipelineKeyType>(
         &self,
         cache: &'a PipelineCache,
@@ -177,7 +177,7 @@ impl PipelineKeys {
     }
 }
 
-/// A wrapper around the underlying `PipelineKeyType` that also contains a reference to the KeyMetaStore,
+/// A wrapper around the underlying `PipelineKeyType` that also contains a reference to the `KeyMetaStore`,
 /// allowing access to dynamic key components, and to `ShaderDefVal`s that the key's value (or components) specify.
 #[derive(Debug, Copy, Clone)]
 pub struct PipelineKey<'a, T: PipelineKeyType> {
@@ -205,7 +205,7 @@ impl<'a, T: PipelineKeyType> PipelineKey<'a, T> {
     /// but may also be useful for obtaining a `PipelineKey` wrapper of a component.
     pub fn try_extract<U: PipelineKeyType>(&'a self) -> Option<PipelineKey<'a, U>> {
         let positions = T::positions(self.store);
-        let SizeOffset{ size, offset } = positions.get(&TypeId::of::<U>())?;
+        let SizeOffset { size, offset } = positions.get(&TypeId::of::<U>())?;
         let key = T::pack(&self.value, self.store);
         let value = (key.packed >> offset) & ((1 << size) - 1);
         Some(self.store.pipeline_key(value))
@@ -214,7 +214,7 @@ impl<'a, T: PipelineKeyType> PipelineKey<'a, T> {
     /// Extract a `PipelineKey` for a given component of this key, panics if not found.
     pub fn extract<U: PipelineKeyType>(&'a self) -> PipelineKey<'a, U> {
         let positions = T::positions(self.store);
-        let SizeOffset{ size, offset } = positions
+        let SizeOffset { size, offset } = positions
             .get(&TypeId::of::<U>())
             .unwrap_or_else(missing::<U, _>);
         let key = T::pack(&self.value, self.store);
@@ -222,7 +222,7 @@ impl<'a, T: PipelineKeyType> PipelineKey<'a, T> {
         self.store.pipeline_key(value)
     }
 
-    /// construct a `PipelineKey` for an arbitrary type, using the KeyMetaStore reference from this key.
+    /// construct a `PipelineKey` for an arbitrary type, using the `KeyMetaStore` reference from this key.
     pub fn construct<K: PipelineKeyType>(&'a self, value: K) -> PipelineKey<'a, K> {
         PipelineKey {
             store: self.store,
@@ -260,26 +260,28 @@ pub trait SystemKey: PipelineKeyType + FixedSizeKey {
 }
 
 /// Marker trait for dynamic keys. This shouldn't be implemented directly, instead use :
+/// ```no_compile
 /// #[derive(PipelineKey)]
 /// #[dynamic_key]
+/// ```
 pub trait DynamicKey: PipelineKeyType {}
 
 /// App trait for registering `PipelineKeyType`s
 pub trait AddPipelineKey {
     /// Register a key. This is required for a key to provide `ShaderDefVal`s.
     fn register_key<K: PipelineKeyType + FixedSizeKey + 'static>(&mut self) -> &mut Self;
-    
-    /// Register a SystemKey. The key's value will be generated and stored in the `PipelineKeys` component for entities 
+
+    /// Register a `SystemKey`. The key's value will be generated and stored in the `PipelineKeys` component for entities
     /// matching the query filter `F`.
     fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(&mut self) -> &mut Self;
 
-    /// Register a composite (tuple or struct) key. The key's value will be generated and stored in the `PipelineKeys` 
+    /// Register a composite (tuple or struct) key. The key's value will be generated and stored in the `PipelineKeys`
     /// component for entities matching the query filter `F`, and where all the component keys are generated.
     fn register_composite_key<K: CompositeKey, F: ReadOnlyWorldQuery + 'static>(
         &mut self,
     ) -> &mut Self;
 
-    /// Register a dynamic key. The key's value will be generated and stored in the `PipelineKeys` 
+    /// Register a dynamic key. The key's value will be generated and stored in the `PipelineKeys`
     /// component for entities matching the query filter `F`, and where all the component keys are generated.
     fn register_dynamic_key<K: DynamicKey, F: ReadOnlyWorldQuery + 'static>(&mut self)
         -> &mut Self;
@@ -288,9 +290,7 @@ pub trait AddPipelineKey {
     fn register_dynamic_key_part<K: DynamicKey, PART: PipelineKeyType>(&mut self) -> &mut Self;
 }
 
-
 // ---- implementation details that you probably don't need to know about below this line ---- //
-
 
 type ShaderDefFn = fn(KeyPrimitive, &KeyMetaStore) -> Vec<ShaderDefVal>;
 
@@ -409,9 +409,13 @@ impl KeyMetaStore {
             );
         }
 
-        self.meta_mut::<K>()
-            .dynamic_components
-            .insert(TypeId::of::<PART>(), SizeOffset{ size: u8::MAX, offset: u8::MAX });
+        self.meta_mut::<K>().dynamic_components.insert(
+            TypeId::of::<PART>(),
+            SizeOffset {
+                size: u8::MAX,
+                offset: u8::MAX,
+            },
+        );
     }
 
     fn size_for_id(&self, id: &TypeId) -> u8 {
@@ -422,10 +426,7 @@ impl KeyMetaStore {
         self.metas.get(id).map(|meta| meta.shader_def_fn)
     }
 
-    pub(crate) fn pipeline_key<K: PipelineKeyType>(
-        &self,
-        value: KeyPrimitive,
-    ) -> PipelineKey<K> {
+    pub(crate) fn pipeline_key<K: PipelineKeyType>(&self, value: KeyPrimitive) -> PipelineKey<K> {
         let value = K::unpack(value, self);
         PipelineKey { store: self, value }
     }
@@ -637,7 +638,7 @@ impl AddPipelineKey for App {
     }
 }
 
-/// Generate a binary pipeline key based on the presence of a marker component, and add a given ShaderDefVal when enabled.
+/// Generate a boolean pipeline key based on the presence of a marker component, and add a given `ShaderDefVal` when enabled.
 #[macro_export]
 macro_rules! impl_has_world_key {
     ($key:ident, $component:ident, $def:expr) => {

@@ -624,7 +624,9 @@ pub struct TransmittedShadowReceiver;
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
 ///
 /// Currently does not affect point lights.
-#[derive(PipelineKey, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(
+    PipelineKey, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default,
+)]
 #[reflect(Component, Default)]
 #[repr(u8)]
 #[custom_shader_defs]

@@ -63,15 +63,15 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
 
 /// Implements `PipelineKeyType` trait for an enum or struct.
 /// Enums must be unit enums, and will be packed into the number of bits required by the variant count. They must
-/// also be annotated with a `#[repr(u8)]` (or larger uXX if required) attribute.
-/// 
-/// Structs must contain packable types (other PipelineKeys, bool, u8, u32 primitives, and some wgpu types, see 
+/// also be annotated with a `#[repr(u8)]` (or larger integer type if required) attribute.
+///
+/// Structs must contain packable types (other `PipelineKey`s, bool, u8, u32 primitives, and some wgpu types, see
 /// `bevy_render::pipeline_keys::packed_types`)
-/// 
-/// Dynamic keys can be derived with the #[dynamic_key] attribute.
-/// Keys that provide `ShaderDefVal`s must use the #[custom_shader_defs] attribute, and manually implement the `KeyShaderDefs` trait.
-/// Keys that contain dynamic keys must use the #[not_fixed_size] attribute.
-/// 
+///
+/// Dynamic keys can be derived with the `#[dynamic_key]` attribute.
+/// Keys that provide `ShaderDefVal`s must use the `#[custom_shader_defs]` attribute, and manually implement the `KeyShaderDefs` trait.
+/// Keys that contain dynamic keys must use the `#[not_fixed_size]` attribute.
+///
 /// You can also implement `SystemKey` trait for structs or enums to enable automatic calculation of the key value for matching entities,
 /// see the `AddPipelineKey` trait for further details.
 #[proc_macro_derive(
@@ -85,7 +85,7 @@ pub fn derive_pipeline_key(input: TokenStream) -> TokenStream {
         .unwrap_or_else(|err| err.to_compile_error().into())
 }
 
-/// Above macro but for use in the bevy_render crate, separated due to path issues.
+/// Above macro but for use in the `bevy_render` crate, separated due to path issues.
 #[proc_macro_derive(
     PipelineKeyInRenderCrate,
     attributes(dynamic_key, not_fixed_size, custom_shader_defs)

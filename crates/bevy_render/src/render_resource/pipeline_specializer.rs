@@ -6,7 +6,7 @@ use crate::{
     },
 };
 use crate::{
-    pipeline_keys::{KeyPrimitive, PipelineKeyType, PackedPipelineKey, PipelineKey},
+    pipeline_keys::{KeyPrimitive, PackedPipelineKey, PipelineKey, PipelineKeyType},
     render_resource::CachedComputePipelineId,
 };
 use bevy_ecs::system::Resource;

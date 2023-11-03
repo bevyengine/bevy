@@ -42,7 +42,13 @@ impl<T: PipelineKeyType> PipelineKeyType for Option<T> {
     }
 
     fn positions(store: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: T::size(store) + 1, offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: T::size(store) + 1,
+                offset: 0,
+            },
+        )])
     }
 
     fn pack(value: &Self, store: &KeyMetaStore) -> PackedPipelineKey<Self>
@@ -74,7 +80,7 @@ impl<T: FixedSizeKey> FixedSizeKey for Option<T> {
 
 impl PipelineKeyType for bool {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: 1, offset: 0 })])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset { size: 1, offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -100,7 +106,7 @@ impl FixedSizeKey for bool {
 
 impl PipelineKeyType for u8 {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: 8, offset: 0 })])
+        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset { size: 8, offset: 0 })])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -124,7 +130,13 @@ impl FixedSizeKey for u8 {
 
 impl PipelineKeyType for u32 {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -148,7 +160,13 @@ impl FixedSizeKey for u32 {
 
 impl PipelineKeyType for i32 {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -194,7 +212,13 @@ fn _check_blendfactor_variant_count(value: &wgpu::BlendFactor) {
 
 impl PipelineKeyType for wgpu::BlendFactor {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -263,7 +287,13 @@ fn _check_blendoperation_variant_count(value: &wgpu::BlendOperation) {
 
 impl PipelineKeyType for wgpu::BlendOperation {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -302,7 +332,13 @@ impl FixedSizeKey for wgpu::BlendOperation {
 
 impl PipelineKeyType for wgpu::BlendComponent {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -333,7 +369,13 @@ impl FixedSizeKey for wgpu::BlendComponent {
 
 impl PipelineKeyType for wgpu::BlendState {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -383,7 +425,13 @@ fn _check_astcblock_variant_count(value: &wgpu::AstcBlock) {
 
 impl PipelineKeyType for wgpu::AstcBlock {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -450,7 +498,13 @@ fn _check_astcchannel_variant_count(value: &wgpu::AstcChannel) {
 
 impl PipelineKeyType for wgpu::AstcChannel {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -569,7 +623,13 @@ impl PipelineKeyType for wgpu::TextureFormat {
     }
 
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -693,7 +753,13 @@ fn _check_primitivetopology_variant_count(value: &wgpu::PrimitiveTopology) {
 
 impl PipelineKeyType for wgpu::PrimitiveTopology {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
@@ -742,7 +808,13 @@ fn _check_face_variant_count(value: &wgpu::Face) {
 
 impl PipelineKeyType for wgpu::Face {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
-        HashMap::from_iter([(TypeId::of::<Self>(), SizeOffset{ size: Self::fixed_size(), offset: 0 })])
+        HashMap::from_iter([(
+            TypeId::of::<Self>(),
+            SizeOffset {
+                size: Self::fixed_size(),
+                offset: 0,
+            },
+        )])
     }
 
     fn size(_: &KeyMetaStore) -> u8 {
