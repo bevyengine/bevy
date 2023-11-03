@@ -3,21 +3,21 @@
 #import bevy_pbr::mesh_types::Mesh
 #import bevy_render::view::View
 
-struct PackedVertex {
+struct PackedMeshletVertex {
     a: vec4<f32>,
     b: vec4<f32>,
     tangent: vec4<f32>,
 }
 
-struct Vertex {
+struct MeshletVertex {
     position: vec3<f32>,
     normal: vec3<f32>,
     uv: vec2<f32>,
     tangent: vec4<f32>,
 }
 
-fn unpack_vertex(packed: PackedVertex) -> Vertex {
-    var vertex: Vertex;
+fn unpack_meshlet_vertex(packed: PackedMeshletVertex) -> MeshletVertex {
+    var vertex: MeshletVertex;
     vertex.position = packed.a.xyz;
     vertex.normal = vec3(packed.a.w, packed.b.xy);
     vertex.uv = packed.b.zw;
@@ -46,22 +46,23 @@ struct DrawIndexedIndirect {
 }
 
 #ifndef MESHLET_CULLING_BINDINGS
-@group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlet_vertex_data: array<PackedVertex>;
+@group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlet_vertex_data: array<PackedMeshletVertex>;
 @group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_vertex_ids: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(2) var meshlet_visibility_buffer: texture_2d<u32>;
 #endif
 
-@group(#{MESHLET_BIND_GROUP}) @binding(2) var<storage, read> meshlets: array<Meshlet>;
-@group(#{MESHLET_BIND_GROUP}) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
-@group(#{MESHLET_BIND_GROUP}) @binding(4) var<storage, read> meshlet_thread_instance_ids: array<u32>;
-@group(#{MESHLET_BIND_GROUP}) @binding(5) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(3) var<storage, read> meshlets: array<Meshlet>;
+@group(#{MESHLET_BIND_GROUP}) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
+@group(#{MESHLET_BIND_GROUP}) @binding(5) var<storage, read> meshlet_thread_instance_ids: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(6) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
 
 #ifdef MESHLET_CULLING_BINDINGS
-@group(#{MESHLET_BIND_GROUP}) @binding(6) var<storage, read> meshlet_instance_material_ids: array<u32>;
-@group(#{MESHLET_BIND_GROUP}) @binding(7) var<storage, read> meshlet_indices: array<u32>; // packed u8's
-@group(#{MESHLET_BIND_GROUP}) @binding(8) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
-@group(#{MESHLET_BIND_GROUP}) @binding(9) var<storage, read_write> draw_command_buffer: array<DrawIndexedIndirect>;
-@group(#{MESHLET_BIND_GROUP}) @binding(10) var<storage, write> draw_index_buffer: array<u32>;
-@group(#{MESHLET_BIND_GROUP}) @binding(11) var<uniform> view: View;
+@group(#{MESHLET_BIND_GROUP}) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(8) var<storage, read> meshlet_indices: array<u32>; // packed u8's
+@group(#{MESHLET_BIND_GROUP}) @binding(9) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
+@group(#{MESHLET_BIND_GROUP}) @binding(10) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
+@group(#{MESHLET_BIND_GROUP}) @binding(11) var<storage, write> draw_index_buffer: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(12) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];

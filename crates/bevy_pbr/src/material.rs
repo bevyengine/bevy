@@ -1,6 +1,6 @@
 use crate::meshlet::{
     prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
-    MESHLET_RASTER_SHADER_HANDLE,
+    MESHLET_MATERIAL_SHADER_HANDLE,
 };
 use crate::*;
 use bevy_app::{App, Plugin};
@@ -341,7 +341,7 @@ where
         // and return an error if the material explicitly sets any vertex stuff
         // that would interfere with the meshlet vertex shader
         if key.for_meshlet_mesh {
-            descriptor.vertex.shader = MESHLET_RASTER_SHADER_HANDLE;
+            descriptor.vertex.shader = MESHLET_MATERIAL_SHADER_HANDLE;
             descriptor.vertex.entry_point = "meshlet_vertex".into();
             descriptor.vertex.buffers = Vec::new();
 
