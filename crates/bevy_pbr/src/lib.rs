@@ -62,17 +62,24 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{CameraUpdateSystem, ViewProjectionKey},
+    camera::{{CameraUpdateSystem, Projection},
+    ViewProjectionKey},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
+   
     pipeline_keys::{AddPipelineKey, KeyPrimitive, PipelineKey},
     prelude::Color,
+   
     render_asset::prepare_assets,
     render_graph::RenderGraph,
+   
     render_phase::sort_phase_system,
+   
     render_resource::Shader,
     texture::Image,
+   
     view::{ExtractedView, HdrKey, MsaaKey, VisibilitySystems},
+   
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -285,7 +292,11 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
                         .after(CameraUpdateSystem),
-                    update_directional_light_cascades
+                    (
+                        clear_directional_light_cascades,
+                        build_directional_light_cascades::<Projection>,
+                    )
+                        .chain()
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystem::TransformPropagate)
                         .after(CameraUpdateSystem),

@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0, // Nice and big so you can see it!
-                color: Color::WHITE,
+                ..default()
             },
         )
         // Set the style of the TextBundle itself.
