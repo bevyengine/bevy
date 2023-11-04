@@ -650,11 +650,34 @@ impl MeshletGpuScene {
     }
 
     pub fn visibility_buffer_bind_group_layout(&self) -> BindGroupLayout {
-        todo!()
+        self.visibility_buffer_bind_group_layout.clone()
     }
 
     pub fn material_draw_bind_group_layout(&self) -> BindGroupLayout {
-        todo!()
+        self.material_draw_bind_group_layout.clone()
+    }
+
+    pub fn visibility_buffer_resources_for_view(
+        &self,
+        view_entity: &Entity,
+    ) -> (
+        u32,
+        Option<&BindGroup>,
+        Option<&BindGroup>,
+        Option<&Buffer>,
+        Option<&Buffer>,
+        Option<&TextureView>,
+    ) {
+        (
+            self.scene_meshlet_count,
+            self.culling_bind_groups.get(view_entity),
+            self.visibility_buffer_bind_groups.get(view_entity),
+            self.draw_index_buffer.as_ref(),
+            self.draw_command_buffers.get(view_entity),
+            self.visibility_buffers
+                .get(view_entity)
+                .map(|t| &t.default_view),
+        )
     }
 }
 
