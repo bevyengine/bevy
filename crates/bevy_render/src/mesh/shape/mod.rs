@@ -135,6 +135,8 @@ pub struct Quad {
     pub size: Vec2,
     /// Horizontally-flip the texture coordinates of the resulting mesh.
     pub flip: bool,
+    /// Scale the texture coords, for a tiled texture
+    pub uv_scale: Vec2,
 }
 
 impl Default for Quad {
@@ -145,11 +147,27 @@ impl Default for Quad {
 
 impl Quad {
     pub fn new(size: Vec2) -> Self {
-        Self { size, flip: false }
+        Self {
+            size,
+            flip: false,
+            uv_scale: Vec2::splat(1.0),
+        }
     }
 
     pub fn flipped(size: Vec2) -> Self {
-        Self { size, flip: true }
+        Self {
+            size,
+            flip: true,
+            uv_scale: Vec2::splat(1.0),
+        }
+    }
+
+    pub fn tiled(size: Vec2, uv_scale: Vec2) -> Self {
+        Self {
+            size,
+            flip: false,
+            uv_scale,
+        }
     }
 }
 
@@ -158,12 +176,24 @@ impl From<Quad> for Mesh {
         let extent_x = quad.size.x / 2.0;
         let extent_y = quad.size.y / 2.0;
 
-        let (u_left, u_right) = if quad.flip { (1.0, 0.0) } else { (0.0, 1.0) };
+        let (u_left, u_right) = if quad.flip {
+            (quad.uv_scale.x, 0.0)
+        } else {
+            (0.0, quad.uv_scale.x)
+        };
         let vertices = [
-            ([-extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 1.0]),
+            (
+                [-extent_x, -extent_y, 0.0],
+                [0.0, 0.0, 1.0],
+                [u_left, quad.uv_scale.y],
+            ),
             ([-extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 0.0]),
             ([extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 0.0]),
-            ([extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 1.0]),
+            (
+                [extent_x, -extent_y, 0.0],
+                [0.0, 0.0, 1.0],
+                [u_right, quad.uv_scale.y],
+            ),
         ];
 
         let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
