@@ -52,7 +52,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba(0.25, 0.25, 0.25, 1.0),
+            color: Color::rgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -93,7 +93,7 @@ fn setup(
     });
     commands.spawn(SceneBundle {
         scene: helmet_scene,
-        transform: Transform::from_xyz(-3.0, 0.0, -3.0),
+        transform: Transform::from_xyz(-4.0, 0.0, -3.0),
         ..default()
     });
 
@@ -216,7 +216,6 @@ fn setup(
             "",
             TextStyle {
                 font_size: 18.0,
-                color: Color::WHITE,
                 ..default()
             },
         )
