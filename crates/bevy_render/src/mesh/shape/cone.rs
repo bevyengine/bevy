@@ -1,4 +1,5 @@
 use crate::mesh::{Indices, Mesh};
+use bevy_math::Vec3;
 use wgpu::PrimitiveTopology;
 
 /// A cone which stands on the XZ plane.
@@ -28,10 +29,10 @@ impl Default for Cone {
     fn default() -> Self {
         Self {
             top_radius: 0.0,
-            bottom_radius: 1.0,
+            bottom_radius: 0.5,
             height: 1.0,
-            resolution: 16,
-            segments: 1,
+            resolution: 64,
+            segments: 4,
         }
     }
 }
@@ -70,7 +71,11 @@ impl From<Cone> for Mesh {
                 let (sin, cos) = theta.sin_cos();
 
                 positions.push([radius * cos, y, radius * sin]);
-                normals.push([cos, 0., sin]);
+                normals.push(
+                    Vec3::new(cos, (c.bottom_radius - c.top_radius) / c.height, sin)
+                        .normalize()
+                        .to_array(),
+                );
                 uvs.push([
                     segment as f32 / c.resolution as f32,
                     ring as f32 / c.segments as f32,
