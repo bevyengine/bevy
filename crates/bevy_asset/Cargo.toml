@@ -27,8 +27,8 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 
 async-broadcast = "0.5"
-async-fs = "1.5"
-async-lock = "2.8"
+async-fs = "2.0"
+async-lock = "3.0"
 crossbeam-channel = "0.5"
 downcast-rs = "1.2"
 futures-io = "0.3"
