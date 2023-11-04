@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use crate::{
+    sorting::ComputedSorting,
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
     Sprite, SPRITE_SHADER_HANDLE,
 };
@@ -327,6 +328,7 @@ pub struct ExtractedSprite {
     /// For cases where additional ExtractedSprites are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
+    pub order: f32,
 }
 
 #[derive(Resource, Default)]
@@ -361,6 +363,7 @@ pub fn extract_sprites(
             &Sprite,
             &GlobalTransform,
             &Handle<Image>,
+            &ComputedSorting,
         )>,
     >,
     atlas_query: Extract<
@@ -370,12 +373,13 @@ pub fn extract_sprites(
             &TextureAtlasSprite,
             &GlobalTransform,
             &Handle<TextureAtlas>,
+            &ComputedSorting,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
 
-    for (entity, view_visibility, sprite, transform, handle) in sprite_query.iter() {
+    for (entity, view_visibility, sprite, transform, handle, sorting) in sprite_query.iter() {
         if !view_visibility.get() {
             continue;
         }
@@ -393,10 +397,11 @@ pub fn extract_sprites(
                 image_handle_id: handle.id(),
                 anchor: sprite.anchor.as_vec(),
                 original_entity: None,
+                order: sorting.order,
             },
         );
     }
-    for (entity, view_visibility, atlas_sprite, transform, texture_atlas_handle) in
+    for (entity, view_visibility, atlas_sprite, transform, texture_atlas_handle, sorting) in
         atlas_query.iter()
     {
         if !view_visibility.get() {
@@ -429,6 +434,7 @@ pub fn extract_sprites(
                     image_handle_id: texture_atlas.texture.id(),
                     anchor: atlas_sprite.anchor.as_vec(),
                     original_entity: None,
+                    order: sorting.order,
                 },
             );
         }
@@ -561,7 +567,7 @@ pub fn queue_sprites(
             }
 
             // These items will be sorted by depth with other phase items
-            let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
+            let sort_key = FloatOrd(extracted_sprite.order);
 
             // Add the item to the render phase
             if extracted_sprite.color != Color::WHITE {

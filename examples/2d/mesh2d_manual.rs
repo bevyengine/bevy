@@ -303,12 +303,21 @@ pub fn extract_colored_mesh2d(
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
     query: Extract<
-        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle), With<ColoredMesh2d>>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &GlobalTransform,
+                &Mesh2dHandle,
+                &ComputedSorting,
+            ),
+            With<ColoredMesh2d>,
+        >,
     >,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, view_visibility, transform, handle) in &query {
+    for (entity, view_visibility, transform, handle, computed_sorting) in &query {
         if !view_visibility.get() {
             continue;
         }
@@ -326,6 +335,7 @@ pub fn extract_colored_mesh2d(
                 transforms,
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: false,
+                order: computed_sorting.order,
             },
         );
     }

@@ -34,8 +34,8 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+    ComputedSorting, DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey,
+    RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, Sorting,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -439,7 +439,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
 
             mesh_instance.material_bind_group_id = material2d.get_bind_group_id();
 
-            let mesh_z = mesh_instance.transforms.transform.translation.z;
             transparent_phase.add(Transparent2d {
                 entity: *visible_entity,
                 draw_function: draw_transparent_pbr,
@@ -448,7 +447,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 // lowest sort key and getting closer should increase. As we have
                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                 // camera. As such we can just use mesh_z as the distance
-                sort_key: FloatOrd(mesh_z),
+                sort_key: FloatOrd(mesh_instance.order),
                 // Batching is done in batch_and_prepare_render_phase
                 batch_range: 0..1,
                 dynamic_offset: None,
@@ -633,6 +632,9 @@ pub struct MaterialMesh2dBundle<M: Material2d> {
     pub inherited_visibility: InheritedVisibility,
     // Indication of whether an entity is visible in any view.
     pub view_visibility: ViewVisibility,
+    /// Controls in what order entities are rendered
+    pub sorting: Sorting,
+    pub computed_sorting: ComputedSorting,
 }
 
 impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
@@ -645,6 +647,8 @@ impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
             visibility: Default::default(),
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
+            sorting: Default::default(),
+            computed_sorting: Default::default(),
         }
     }
 }

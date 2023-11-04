@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.gen::<f32>());
+            let translation = (position * tile_size).extend(0.);
             let rotation = Quat::from_rotation_z(rng.gen::<f32>());
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
 
@@ -89,6 +89,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
                     },
                     ..default()
                 },
+                sorting: Sorting::from_order(rng.gen::<f32>()),
                 ..default()
             });
         }
