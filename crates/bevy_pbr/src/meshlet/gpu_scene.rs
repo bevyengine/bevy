@@ -406,36 +406,60 @@ pub fn prepare_meshlet_per_frame_bind_groups(
 
     for view_entity in &views {
         let entries = BindGroupEntries::sequential((
-            gpu_scene.vertex_data.binding(),
-            gpu_scene.vertex_ids.binding(),
-            &gpu_scene.visibility_buffers[&view_entity].default_view,
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.instance_material_ids.binding().unwrap(),
-            gpu_scene.indices.binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
             gpu_scene.draw_command_buffers[&view_entity].as_entire_binding(),
             draw_index_buffer.as_entire_binding(),
             view_uniforms.clone(),
         ));
-
         gpu_scene.culling_bind_groups.insert(
             view_entity,
             render_device.create_bind_group(
                 "meshlet_culling_bind_group",
                 &gpu_scene.culling_bind_group_layout,
-                &entries[3..13],
+                &entries,
             ),
         );
 
-        gpu_scene.draw_bind_groups.insert(
+        let entries = BindGroupEntries::sequential((
+            gpu_scene.meshlets.binding(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
+            gpu_scene.thread_instance_ids.binding().unwrap(),
+            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.vertex_data.binding(),
+            gpu_scene.vertex_ids.binding(),
+            gpu_scene.indices.binding(),
+            gpu_scene.instance_material_ids.binding().unwrap(),
+            view_uniforms.clone(),
+        ));
+        gpu_scene.visibility_buffer_bind_groups.insert(
             view_entity,
             render_device.create_bind_group(
-                "meshlet_draw_bind_group",
-                &gpu_scene.draw_bind_group_layout,
-                &entries[0..7],
+                "meshlet_visibility_buffer_bind_group",
+                &gpu_scene.visibility_buffer_bind_group_layout,
+                &entries,
+            ),
+        );
+
+        let entries = BindGroupEntries::sequential((
+            gpu_scene.meshlets.binding(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
+            gpu_scene.thread_instance_ids.binding().unwrap(),
+            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.vertex_data.binding(),
+            gpu_scene.vertex_ids.binding(),
+            gpu_scene.indices.binding(),
+            &gpu_scene.visibility_buffers[&view_entity].default_view,
+        ));
+        gpu_scene.material_draw_bind_groups.insert(
+            view_entity,
+            render_device.create_bind_group(
+                "meshlet_mesh_material_draw_bind_group",
+                &gpu_scene.material_draw_bind_group_layout,
+                &entries,
             ),
         );
     }
@@ -463,13 +487,15 @@ pub struct MeshletGpuScene {
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
 
     culling_bind_group_layout: BindGroupLayout,
-    draw_bind_group_layout: BindGroupLayout,
+    visibility_buffer_bind_group_layout: BindGroupLayout,
+    material_draw_bind_group_layout: BindGroupLayout,
     draw_command_buffers: EntityHashMap<Entity, Buffer>,
     visibility_buffers: EntityHashMap<Entity, CachedTexture>,
     // TODO: Should draw_index_buffer be per-view, or a single resource shared between all views?
     draw_index_buffer: Option<Buffer>,
     culling_bind_groups: EntityHashMap<Entity, BindGroup>,
-    draw_bind_groups: EntityHashMap<Entity, BindGroup>,
+    visibility_buffer_bind_groups: EntityHashMap<Entity, BindGroup>,
+    material_draw_bind_groups: EntityHashMap<Entity, BindGroup>,
 }
 
 impl FromWorld for MeshletGpuScene {
@@ -518,20 +544,27 @@ impl FromWorld for MeshletGpuScene {
             culling_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
                     label: Some("meshlet_culling_bind_group_layout"),
-                    entries: &bind_group_layout_entries()[3..13],
+                    entries: &culling_bind_group_layout_entries(),
                 },
             ),
-            draw_bind_group_layout: render_device.create_bind_group_layout(
+            visibility_buffer_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
-                    label: Some("meshlet_draw_bind_group_layout"),
-                    entries: &bind_group_layout_entries()[0..7],
+                    label: Some("meshlet_visibility_buffer_bind_group_layout"),
+                    entries: &visibility_buffer_bind_group_layout_entries(),
+                },
+            ),
+            material_draw_bind_group_layout: render_device.create_bind_group_layout(
+                &BindGroupLayoutDescriptor {
+                    label: Some("meshlet_mesh_material_draw_bind_group_layout"),
+                    entries: &material_draw_bind_group_layout_entries(),
                 },
             ),
             draw_command_buffers: EntityHashMap::default(),
             visibility_buffers: EntityHashMap::default(),
             draw_index_buffer: None,
             culling_bind_groups: EntityHashMap::default(),
-            draw_bind_groups: EntityHashMap::default(),
+            visibility_buffer_bind_groups: EntityHashMap::default(),
+            material_draw_bind_groups: EntityHashMap::default(),
         }
     }
 }
@@ -554,7 +587,8 @@ impl MeshletGpuScene {
         self.visibility_buffers.clear();
         self.draw_index_buffer = None;
         self.culling_bind_groups.clear();
-        self.draw_bind_groups.clear();
+        self.visibility_buffer_bind_groups.clear();
+        self.material_draw_bind_groups.clear();
     }
 
     fn queue_meshlet_mesh_upload(
@@ -624,46 +658,13 @@ impl MeshletGpuScene {
     }
 }
 
-fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
+fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
     // TODO: min_binding_size
     [
-        // Vertex data
-        BindGroupLayoutEntry {
-            binding: 0,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
-        // Vertex IDs
-        BindGroupLayoutEntry {
-            binding: 1,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
-        // Visibility buffer
-        BindGroupLayoutEntry {
-            binding: 2,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                sample_type: TextureSampleType::Uint,
-                view_dimension: TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        },
         // Meshlets
         BindGroupLayoutEntry {
-            binding: 3,
-            visibility: ShaderStages::COMPUTE | ShaderStages::FRAGMENT,
+            binding: 0,
+            visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
@@ -673,8 +674,8 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
         },
         // Instance uniforms
         BindGroupLayoutEntry {
-            binding: 4,
-            visibility: ShaderStages::COMPUTE | ShaderStages::FRAGMENT,
+            binding: 1,
+            visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
@@ -684,8 +685,8 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
         },
         // Thread instance IDs
         BindGroupLayoutEntry {
-            binding: 5,
-            visibility: ShaderStages::COMPUTE | ShaderStages::FRAGMENT,
+            binding: 2,
+            visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
@@ -695,29 +696,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
         },
         // Thread meshlet IDs
         BindGroupLayoutEntry {
-            binding: 6,
-            visibility: ShaderStages::COMPUTE | ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
-        // Instance material IDs
-        BindGroupLayoutEntry {
-            binding: 7,
-            visibility: ShaderStages::COMPUTE,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
-        // Indices
-        BindGroupLayoutEntry {
-            binding: 8,
+            binding: 3,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
@@ -728,7 +707,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
         },
         // Meshlet bounding spheres
         BindGroupLayoutEntry {
-            binding: 9,
+            binding: 4,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
@@ -739,7 +718,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
         },
         // Draw command buffer
         BindGroupLayoutEntry {
-            binding: 10,
+            binding: 5,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: false },
@@ -750,7 +729,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
         },
         // Draw index buffer
         BindGroupLayoutEntry {
-            binding: 11,
+            binding: 6,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: false },
@@ -761,12 +740,211 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
         },
         // View
         BindGroupLayoutEntry {
-            binding: 12,
+            binding: 7,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: true,
                 min_binding_size: None,
+            },
+            count: None,
+        },
+    ]
+}
+
+fn visibility_buffer_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
+    // TODO: min_binding_size
+    [
+        // Meshlets
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Instance uniforms
+        BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Thread instance IDs
+        BindGroupLayoutEntry {
+            binding: 2,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Thread meshlet IDs
+        BindGroupLayoutEntry {
+            binding: 3,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Vertex data
+        BindGroupLayoutEntry {
+            binding: 4,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Vertex IDs
+        BindGroupLayoutEntry {
+            binding: 5,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Indices
+        BindGroupLayoutEntry {
+            binding: 6,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Instance material IDs
+        BindGroupLayoutEntry {
+            binding: 7,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // View
+        BindGroupLayoutEntry {
+            binding: 8,
+            visibility: ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: true,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+    ]
+}
+
+fn material_draw_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
+    // TODO: min_binding_size
+    [
+        // Meshlets
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Instance uniforms
+        BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Thread instance IDs
+        BindGroupLayoutEntry {
+            binding: 2,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Thread meshlet IDs
+        BindGroupLayoutEntry {
+            binding: 3,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Vertex data
+        BindGroupLayoutEntry {
+            binding: 4,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Vertex IDs
+        BindGroupLayoutEntry {
+            binding: 5,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Indices
+        BindGroupLayoutEntry {
+            binding: 6,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Visibility buffer
+        BindGroupLayoutEntry {
+            binding: 7,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Uint,
+                view_dimension: TextureViewDimension::D2,
+                multisampled: false,
             },
             count: None,
         },
