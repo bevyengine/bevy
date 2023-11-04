@@ -1,6 +1,6 @@
 use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
-use bevy_math::{URect, UVec4, Vec4};
+use bevy_math::{AspectRatio, URect, UVec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
@@ -210,7 +210,7 @@ impl ExtractComponent for BloomSettings {
                     viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
-                    aspect: size.x as f32 / size.y as f32,
+                    aspect: AspectRatio::new(size.x as f32, size.y as f32).into(),
                 };
 
                 Some((settings.clone(), uniform))
