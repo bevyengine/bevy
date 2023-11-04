@@ -9,12 +9,11 @@ impl AspectRatio {
     pub fn new(width: f32, height: f32) -> Self {
         Self(width / height)
     }
-}
 
-impl From<(f32, f32)> for AspectRatio {
+    /// Create a new `AspectRatio` from a given amount of `x` pixels and `y` pixels.
     #[inline]
-    fn from((width, height): (f32, f32)) -> Self {
-        Self::new(width, height)
+    pub fn from_pixels(x: u32, y: u32) -> Self {
+        Self::new(x as f32, y as f32)
     }
 }
 

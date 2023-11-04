@@ -722,7 +722,7 @@ impl ClusterConfig {
                 total, z_slices, ..
             } => {
                 let aspect_ratio: f32 =
-                    AspectRatio::new(screen_size.x as f32, screen_size.y as f32).into();
+                    AspectRatio::from_pixels(screen_size.x, screen_size.y).into();
                 let mut z_slices = *z_slices;
                 if *total < z_slices {
                     warn!("ClusterConfig has more z-slices than total clusters!");
