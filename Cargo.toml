@@ -441,6 +441,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_mask"
+path = "examples/2d/sprite_mask.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_mask]
+name = "Sprite Mask"
+description = "Partially render sprites based on an intersecting mask"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 doc-scrape-examples = true

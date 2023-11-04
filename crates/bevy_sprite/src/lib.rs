@@ -2,6 +2,7 @@
 
 mod bundle;
 mod dynamic_texture_atlas_builder;
+mod mask;
 mod mesh2d;
 mod render;
 mod sprite;
@@ -22,6 +23,7 @@ pub mod prelude {
 
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
+pub use mask::*;
 pub use mesh2d::*;
 pub use render::*;
 pub use sprite::*;
@@ -64,6 +66,8 @@ impl Plugin for SpritePlugin {
             .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
             .register_type::<TextureAtlasSprite>()
+            .register_type::<Mask>()
+            .register_type::<Masked>()
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
             .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
@@ -79,6 +83,7 @@ impl Plugin for SpritePlugin {
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<SpriteAssetEvents>()
+                .init_resource::<MaskUniforms>()
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
                     ExtractSchedule,
@@ -93,6 +98,7 @@ impl Plugin for SpritePlugin {
                         queue_sprites
                             .in_set(RenderSet::Queue)
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                        prepare_mask_uniforms.in_set(RenderSet::PrepareResources),
                         prepare_sprites.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );

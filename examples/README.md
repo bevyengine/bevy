@@ -106,6 +106,7 @@ Example | Description
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
+[Sprite Mask](../examples/2d/sprite_mask.rs) | Partially render sprites based on an intersecting mask
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
