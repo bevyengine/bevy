@@ -178,6 +178,13 @@ impl<A: Asset> From<&Handle<A>> for AssetId<A> {
     }
 }
 
+impl<A: Asset> From<&mut Handle<A>> for AssetId<A> {
+    #[inline]
+    fn from(value: &mut Handle<A>) -> Self {
+        value.id()
+    }
+}
+
 impl<A: Asset> From<UntypedHandle> for AssetId<A> {
     #[inline]
     fn from(value: UntypedHandle) -> Self {
