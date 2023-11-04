@@ -40,7 +40,7 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
-pub(crate) const MESHLET_MATERIAL_SHADER_HANDLE: Handle<Shader> =
+pub(crate) const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2325134235233421);
 
 pub struct MeshletPlugin;
@@ -67,8 +67,8 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_MATERIAL_SHADER_HANDLE,
-            "meshlet_material.wgsl",
+            MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+            "meshlet_mesh_material.wgsl",
             Shader::from_wgsl
         );
         app.init_asset::<MeshletMesh>();

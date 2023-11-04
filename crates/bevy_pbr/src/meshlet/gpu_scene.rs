@@ -28,10 +28,9 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, HashMap};
+use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
 use std::{
     hash::Hash,
-    mem,
     ops::{DerefMut, Range},
     sync::Arc,
 };
@@ -136,7 +135,8 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     if material_pipeline.meshlet_layout.is_none() {
-        material_pipeline.meshlet_layout = Some(gpu_scene.draw_bind_group_layout().clone());
+        material_pipeline.meshlet_layout =
+            Some(gpu_scene.material_draw_bind_group_layout().clone());
     }
 
     let fake_vertex_buffer_layout = &MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout::new(
@@ -309,7 +309,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
             .expect("TODO")
             .untyped();
 
-        *gpu_scene.materials_used.insert(material_id);
+        gpu_scene.materials_used.insert(material_id);
 
         gpu_scene.instance_material_ids.get_mut().push(
             *gpu_scene
@@ -408,7 +408,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
         let entries = BindGroupEntries::sequential((
             gpu_scene.vertex_data.binding(),
             gpu_scene.vertex_ids.binding(),
-            gpu_scene.visibility_buffers[&view_entity],
+            &gpu_scene.visibility_buffers[&view_entity].default_view,
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
@@ -611,12 +611,16 @@ impl MeshletGpuScene {
         }
     }
 
-    pub fn culling_bind_group_layout(&self) -> &BindGroupLayout {
-        &self.culling_bind_group_layout
+    pub fn culling_bind_group_layout(&self) -> BindGroupLayout {
+        self.culling_bind_group_layout.clone()
     }
 
-    pub fn draw_bind_group_layout(&self) -> &BindGroupLayout {
-        &self.draw_bind_group_layout
+    pub fn visibility_buffer_bind_group_layout(&self) -> BindGroupLayout {
+        todo!()
+    }
+
+    pub fn material_draw_bind_group_layout(&self) -> BindGroupLayout {
+        todo!()
     }
 }
 

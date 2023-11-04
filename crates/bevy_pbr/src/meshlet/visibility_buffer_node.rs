@@ -55,7 +55,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         let (
             Some(gpu_scene),
             Some(pipeline_cache),
-            (Some(culling_pipeline), Some(visibility_buffer_pipeline)),
+            Some((Some(culling_pipeline), Some(visibility_buffer_pipeline))),
         ) = (
             world.get_resource::<MeshletGpuScene>(),
             world.get_resource::<PipelineCache>(),
