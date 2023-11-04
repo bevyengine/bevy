@@ -174,7 +174,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [docs: Use intradoc links for method references.][9958]
 - [Remove States::variants and remove enum-only restriction its derive][9945]
 - [`as_deref_mut()` method for Mut-like types][9912]
-- [refactor: Change Option<With<T>> query params to Has<T>][9959]
+- [refactor: Change `Option<With<T>>` query params to `Has<T>`][9959]
 - [Hide `UnsafeWorldCell::unsafe_world`][9741]
 - [Add a public API to ArchetypeGeneration/Id][9825]
 - [Ignore ambiguous components or resources][9895]
