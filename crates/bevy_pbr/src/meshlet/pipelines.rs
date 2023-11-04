@@ -7,9 +7,9 @@ use bevy_ecs::{
 };
 use bevy_render::render_resource::*;
 
-pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4325134235233421);
+pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3325134235233421);
 pub const MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(5325134235233421);
+    Handle::weak_from_u128(4325134235233421);
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
@@ -31,7 +31,7 @@ impl FromWorld for MeshletPipelines {
                 push_constant_ranges: vec![],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
-                    "MESHLET_CULLING_BINDINGS".into(),
+                    "MESHLET_CULLING_PASS".into(),
                     ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 0),
                 ],
                 entry_point: "cull_meshlets".into(),
@@ -44,7 +44,7 @@ impl FromWorld for MeshletPipelines {
                 vertex: VertexState {
                     shader: MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
                     shader_defs: vec![
-                        "MESHLET_CULLING_PASS".into(),
+                        "MESHLET_VISIBILITY_BUFFER_PASS".into(),
                         ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 0),
                     ],
                     entry_point: "vertex".into(),
