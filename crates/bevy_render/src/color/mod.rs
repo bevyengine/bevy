@@ -518,6 +518,31 @@ impl Color {
         self
     }
 
+    /// Converts a Color to variant [`Color::Lcha`] and returns chroma
+    pub fn c(&self) -> f32 {
+        match self.as_lcha() {
+            Color::Lcha { chroma, .. } => chroma,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Converts a Color to variant [`Color::Lcha`] and set chroma
+    pub fn set_c(&mut self, c: f32) -> &mut Self {
+        *self = self.as_lcha();
+        match self {
+            Color::Lcha { chroma, .. } => *chroma = c,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Lcha`] and return this color with chroma set to a new value
+    #[must_use]
+    pub fn with_c(mut self, c: f32) -> Self {
+        self.set_c(l);
+        self
+    }
+
     /// Get alpha.
     #[inline(always)]
     pub fn a(&self) -> f32 {
