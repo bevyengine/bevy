@@ -539,7 +539,7 @@ impl Color {
     /// Converts a Color to variant [`Color::Lcha`] and return this color with chroma set to a new value
     #[must_use]
     pub fn with_c(mut self, c: f32) -> Self {
-        self.set_c(l);
+        self.set_c(c);
         self
     }
 
