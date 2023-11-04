@@ -5,23 +5,47 @@ use wgpu::PrimitiveTopology;
 /// A cone which stands on the XZ plane.
 ///
 /// If either radius is 0., the tip will be sharp. Otherwise, the cone will appear truncated, with flat surfaces on either end.
+///
+/// # Diagram
+///
+/// See an illustrative diagram [here](https://github.com/bevyengine/bevy/blob/main/assets/docs/Cone.png).
+/// The diagram illustrates the following properties:
+///
+/// * The height of the cone is evenly split by the XZ plane, so half height above, half below.
+/// * A resolution of 8 means each horizontal (XZ) face has 8 vertices.
+/// * A top radius of 0.0 means a sharp tip.
+/// * 3 segments (divided by the dotted lines) means there are 3 segments of quads enveloping the cone.
+///
+/// Note that the sharp tip still contains the same amount of vertices as the bottom.
 #[derive(Clone, Copy, Debug)]
 pub struct Cone {
     /// Radius in the XZ plane at the upper face.
+    ///
+    /// Can be zero for a sharp tip, but both top and bottom should not be zero at the same time.
     pub top_radius: f32,
 
     /// Radius in the XZ plane at the bottom face.
+    ///
+    /// Can be zero for a sharp tip, but both top and bottom should not be zero at the same time.
     pub bottom_radius: f32,
 
     /// Height of the cone in the Y axis.
+    ///
+    /// Should be greater than zero.
     pub height: f32,
+
     /// The number of vertices around each horizontal slice of the cone. If you are looking at the cone from
     /// above, this is the number of points you will see on the circle.
     /// A higher number will make it appear more circular.
+    ///
+    /// Should be above two.
     pub resolution: u32,
+
     /// The number of segments between the two ends. Setting this to 1 will have triangles spanning the full
     /// height of the cone. Setting it to 2 will have two sets of triangles with a horizontal slice in the middle of
     /// the cone. Greater numbers increase triangles/slices in the same way.
+    ///
+    /// Should be greater than zero.
     pub segments: u32,
 }
 
