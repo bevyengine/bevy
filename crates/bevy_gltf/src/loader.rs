@@ -787,7 +787,7 @@ fn load_material(
                     .transmission_texture()
                     .map(|transmission_texture| {
                         // TODO: handle transmission_texture.tex_coord() (the *set* index for the right texcoords)
-                        texture_handle(load_context, &transmission_texture.texture())
+                        texture_handle(load_context, &transmission_texture.texture(), settings)
                     });
 
                 (transmission.transmission_factor(), transmission_texture)
@@ -805,7 +805,7 @@ fn load_material(
                 let thickness_texture: Option<Handle<Image>> =
                     volume.thickness_texture().map(|thickness_texture| {
                         // TODO: handle thickness_texture.tex_coord() (the *set* index for the right texcoords)
-                        texture_handle(load_context, &thickness_texture.texture())
+                        texture_handle(load_context, &thickness_texture.texture(), settings)
                     });
 
                 (
