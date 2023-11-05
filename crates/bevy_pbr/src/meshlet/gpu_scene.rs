@@ -12,9 +12,10 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
-    query::{Has, With},
-    system::{Query, Res, ResMut, Resource},
+    query::Has,
+    system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_render::{
@@ -28,7 +29,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
+use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::{
     hash::Hash,
     ops::{DerefMut, Range},
@@ -321,6 +322,7 @@ pub fn prepare_meshlet_per_frame_resources(
     mut texture_cache: ResMut<TextureCache>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
+    mut commands: Commands,
 ) {
     if gpu_scene.scene_meshlet_count == 0 {
         return;
@@ -339,30 +341,15 @@ pub fn prepare_meshlet_per_frame_resources(
         .thread_meshlet_ids
         .write_buffer(&render_device, &render_queue);
 
-    gpu_scene.draw_index_buffer = Some(render_device.create_buffer(&BufferDescriptor {
-        label: Some("meshlet_draw_index_buffer"),
+    // TODO: Should draw_index_buffer be per-view, or a single resource shared between all views?
+    let visibility_buffer_draw_index_buffer = render_device.create_buffer(&BufferDescriptor {
+        label: Some("meshlet_visibility_buffer_draw_index_buffer"),
         size: 4 * gpu_scene.scene_vertex_count,
         usage: BufferUsages::STORAGE | BufferUsages::INDEX,
         mapped_at_creation: false,
-    }));
+    });
 
     for (view_entity, view) in &views {
-        let draw_command_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("meshlet_draw_command_buffer"),
-            contents: DrawIndexedIndirect {
-                vertex_count: 0,
-                instance_count: 1,
-                base_index: 0,
-                vertex_offset: 0,
-                base_instance: 0,
-            }
-            .as_bytes(),
-            usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
-        });
-        gpu_scene
-            .draw_command_buffers
-            .insert(view_entity, draw_command_buffer);
-
         let visibility_buffer = TextureDescriptor {
             label: Some("meshlet_visibility_buffer"),
             size: Extent3d {
@@ -377,46 +364,60 @@ pub fn prepare_meshlet_per_frame_resources(
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         };
-        gpu_scene.visibility_buffers.insert(
-            view_entity,
-            texture_cache.get(&render_device, visibility_buffer),
-        );
+
+        let visibility_buffer_draw_command_buffer =
+            render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("meshlet_visibility_buffer_draw_command_buffer"),
+                contents: DrawIndexedIndirect {
+                    vertex_count: 0,
+                    instance_count: 1,
+                    base_index: 0,
+                    vertex_offset: 0,
+                    base_instance: 0,
+                }
+                .as_bytes(),
+                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
+            });
+
+        commands.entity(view_entity).insert(MeshletViewResources {
+            scene_meshlet_count: gpu_scene.scene_meshlet_count,
+            visibility_buffer: texture_cache.get(&render_device, visibility_buffer),
+            visibility_buffer_draw_command_buffer,
+            visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
+        });
     }
 }
 
-pub fn prepare_meshlet_per_frame_bind_groups(
-    mut gpu_scene: ResMut<MeshletGpuScene>,
-    views: Query<Entity, With<ExtractedView>>,
+pub fn prepare_meshlet_view_bind_groups(
+    gpu_scene: Res<MeshletGpuScene>,
+    views: Query<(Entity, &MeshletViewResources)>,
     view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
+    mut commands: Commands,
 ) {
-    let gpu_scene = gpu_scene.deref_mut();
-
-    let (Some(draw_index_buffer), Some(view_uniforms)) = (
-        &gpu_scene.draw_index_buffer,
-        view_uniforms.uniforms.binding(),
-    ) else {
+    let Some(view_uniforms) = view_uniforms.uniforms.binding() else {
         return;
     };
 
-    for view_entity in &views {
+    for (view_entity, view_resources) in &views {
         let entries = BindGroupEntries::sequential((
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            gpu_scene.draw_command_buffers[&view_entity].as_entire_binding(),
-            draw_index_buffer.as_entire_binding(),
+            view_resources
+                .visibility_buffer_draw_command_buffer
+                .as_entire_binding(),
+            view_resources
+                .visibility_buffer_draw_index_buffer
+                .as_entire_binding(),
             view_uniforms.clone(),
         ));
-        gpu_scene.culling_bind_groups.insert(
-            view_entity,
-            render_device.create_bind_group(
-                "meshlet_culling_bind_group",
-                &gpu_scene.culling_bind_group_layout,
-                &entries,
-            ),
+        let culling = render_device.create_bind_group(
+            "meshlet_culling_bind_group",
+            &gpu_scene.culling_bind_group_layout,
+            &entries,
         );
 
         let entries = BindGroupEntries::sequential((
@@ -430,13 +431,10 @@ pub fn prepare_meshlet_per_frame_bind_groups(
             gpu_scene.instance_material_ids.binding().unwrap(),
             view_uniforms.clone(),
         ));
-        gpu_scene.visibility_buffer_bind_groups.insert(
-            view_entity,
-            render_device.create_bind_group(
-                "meshlet_visibility_buffer_bind_group",
-                &gpu_scene.visibility_buffer_bind_group_layout,
-                &entries,
-            ),
+        let visibility_buffer = render_device.create_bind_group(
+            "meshlet_visibility_buffer_bind_group",
+            &gpu_scene.visibility_buffer_bind_group_layout,
+            &entries,
         );
 
         let entries = BindGroupEntries::sequential((
@@ -447,16 +445,19 @@ pub fn prepare_meshlet_per_frame_bind_groups(
             gpu_scene.vertex_data.binding(),
             gpu_scene.vertex_ids.binding(),
             gpu_scene.indices.binding(),
-            &gpu_scene.visibility_buffers[&view_entity].default_view,
+            &view_resources.visibility_buffer.default_view,
         ));
-        gpu_scene.material_draw_bind_groups.insert(
-            view_entity,
-            render_device.create_bind_group(
-                "meshlet_mesh_material_draw_bind_group",
-                &gpu_scene.material_draw_bind_group_layout,
-                &entries,
-            ),
+        let material_draw = render_device.create_bind_group(
+            "meshlet_mesh_material_draw_bind_group",
+            &gpu_scene.material_draw_bind_group_layout,
+            &entries,
         );
+
+        commands.entity(view_entity).insert(MeshletViewBindGroups {
+            culling,
+            visibility_buffer,
+            material_draw,
+        });
     }
 }
 
@@ -484,13 +485,6 @@ pub struct MeshletGpuScene {
     culling_bind_group_layout: BindGroupLayout,
     visibility_buffer_bind_group_layout: BindGroupLayout,
     material_draw_bind_group_layout: BindGroupLayout,
-    draw_command_buffers: EntityHashMap<Entity, Buffer>,
-    visibility_buffers: EntityHashMap<Entity, CachedTexture>,
-    // TODO: Should draw_index_buffer be per-view, or a single resource shared between all views?
-    draw_index_buffer: Option<Buffer>,
-    culling_bind_groups: EntityHashMap<Entity, BindGroup>,
-    visibility_buffer_bind_groups: EntityHashMap<Entity, BindGroup>,
-    material_draw_bind_groups: EntityHashMap<Entity, BindGroup>,
 }
 
 impl FromWorld for MeshletGpuScene {
@@ -554,12 +548,6 @@ impl FromWorld for MeshletGpuScene {
                     entries: &material_draw_bind_group_layout_entries(),
                 },
             ),
-            draw_command_buffers: EntityHashMap::default(),
-            visibility_buffers: EntityHashMap::default(),
-            draw_index_buffer: None,
-            culling_bind_groups: EntityHashMap::default(),
-            visibility_buffer_bind_groups: EntityHashMap::default(),
-            material_draw_bind_groups: EntityHashMap::default(),
         }
     }
 }
@@ -578,12 +566,6 @@ impl MeshletGpuScene {
         self.instance_material_ids.get_mut().clear();
         self.thread_instance_ids.get_mut().clear();
         self.thread_meshlet_ids.get_mut().clear();
-        self.draw_command_buffers.clear();
-        self.visibility_buffers.clear();
-        self.draw_index_buffer = None;
-        self.culling_bind_groups.clear();
-        self.visibility_buffer_bind_groups.clear();
-        self.material_draw_bind_groups.clear();
     }
 
     fn queue_meshlet_mesh_upload(
@@ -647,29 +629,21 @@ impl MeshletGpuScene {
     pub fn visibility_buffer_bind_group_layout(&self) -> BindGroupLayout {
         self.visibility_buffer_bind_group_layout.clone()
     }
+}
 
-    pub fn visibility_buffer_resources_for_view(
-        &self,
-        view_entity: &Entity,
-    ) -> (
-        u32,
-        Option<&BindGroup>,
-        Option<&BindGroup>,
-        Option<&Buffer>,
-        Option<&Buffer>,
-        Option<&TextureView>,
-    ) {
-        (
-            self.scene_meshlet_count,
-            self.culling_bind_groups.get(view_entity),
-            self.visibility_buffer_bind_groups.get(view_entity),
-            self.draw_index_buffer.as_ref(),
-            self.draw_command_buffers.get(view_entity),
-            self.visibility_buffers
-                .get(view_entity)
-                .map(|t| &t.default_view),
-        )
-    }
+#[derive(Component)]
+pub struct MeshletViewResources {
+    pub scene_meshlet_count: u32,
+    pub visibility_buffer: CachedTexture,
+    pub visibility_buffer_draw_command_buffer: Buffer,
+    pub visibility_buffer_draw_index_buffer: Buffer,
+}
+
+#[derive(Component)]
+pub struct MeshletViewBindGroups {
+    pub culling: BindGroup,
+    pub visibility_buffer: BindGroup,
+    pub material_draw: BindGroup,
 }
 
 fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {

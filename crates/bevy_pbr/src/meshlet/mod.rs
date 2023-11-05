@@ -20,7 +20,7 @@ use self::{
     draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS,
     gpu_scene::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
-        prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources,
+        prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
     },
     pipelines::{
         MeshletPipelines, MESHLET_CULLING_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
@@ -93,7 +93,7 @@ impl Plugin for MeshletPlugin {
             (
                 perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
                 prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
-                prepare_meshlet_per_frame_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
             ),
         );
     }
