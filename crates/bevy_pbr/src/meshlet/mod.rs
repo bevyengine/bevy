@@ -34,7 +34,7 @@ use bevy_ecs::{bundle::Bundle, schedule::IntoSystemConfigs};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::Shader,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
+    view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -71,7 +71,8 @@ impl Plugin for MeshletPlugin {
             "meshlet_mesh_material.wgsl",
             Shader::from_wgsl
         );
-        app.init_asset::<MeshletMesh>();
+
+        app.init_asset::<MeshletMesh>().insert_resource(Msaa::Off);
     }
 
     fn finish(&self, app: &mut App) {
