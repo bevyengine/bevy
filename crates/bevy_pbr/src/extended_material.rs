@@ -213,7 +213,6 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         let MaterialPipeline::<Self> {
             mesh_pipeline,
             material_layout,
-            meshlet_layout,
             vertex_shader,
             fragment_shader,
             ..
@@ -221,7 +220,6 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         let base_pipeline = MaterialPipeline::<B> {
             mesh_pipeline,
             material_layout,
-            meshlet_layout,
             vertex_shader,
             fragment_shader,
             marker: Default::default(),

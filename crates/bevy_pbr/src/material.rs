@@ -295,7 +295,6 @@ where
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
     pub material_layout: BindGroupLayout,
-    pub meshlet_layout: Option<BindGroupLayout>,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
     pub marker: PhantomData<M>,
@@ -306,7 +305,6 @@ impl<M: Material> Clone for MaterialPipeline<M> {
         Self {
             mesh_pipeline: self.mesh_pipeline.clone(),
             material_layout: self.material_layout.clone(),
-            meshlet_layout: self.meshlet_layout.clone(),
             vertex_shader: self.vertex_shader.clone(),
             fragment_shader: self.fragment_shader.clone(),
             marker: PhantomData,
@@ -348,7 +346,6 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             material_layout: M::bind_group_layout(render_device),
-            meshlet_layout: None,
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),

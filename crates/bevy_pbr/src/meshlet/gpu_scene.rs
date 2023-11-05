@@ -110,7 +110,7 @@ pub fn perform_pending_meshlet_mesh_writes(
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_for_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
-    mut material_pipeline: ResMut<MaterialPipeline<M>>,
+    material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
@@ -135,11 +135,6 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    if material_pipeline.meshlet_layout.is_none() {
-        material_pipeline.meshlet_layout =
-            Some(gpu_scene.material_draw_bind_group_layout().clone());
-    }
-
     let fake_vertex_buffer_layout = &MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout::new(
         vec![
             Mesh::ATTRIBUTE_POSITION.id,
@@ -651,10 +646,6 @@ impl MeshletGpuScene {
 
     pub fn visibility_buffer_bind_group_layout(&self) -> BindGroupLayout {
         self.visibility_buffer_bind_group_layout.clone()
-    }
-
-    pub fn material_draw_bind_group_layout(&self) -> BindGroupLayout {
-        self.material_draw_bind_group_layout.clone()
     }
 
     pub fn visibility_buffer_resources_for_view(
