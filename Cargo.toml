@@ -1108,7 +1108,7 @@ doc-scrape-examples = true
 name = "Embedded Asset"
 description = "Embed an asset in the application binary and load it"
 category = "Assets"
-wasm = false
+wasm = true
 
 [[example]]
 name = "hot_asset_reloading"
