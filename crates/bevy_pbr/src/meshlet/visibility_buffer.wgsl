@@ -1,12 +1,18 @@
 #import bevy_pbr::{
-    meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, view, get_meshlet_index, unpack_meshlet_vertex},
+    meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_instance_material_ids, view, get_meshlet_index, unpack_meshlet_vertex},
     mesh_functions,
 }
 #import bevy_render::maths::affine_to_square
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) @interpolate(flat) output: u32,
+    @location(0) @interpolate(flat) visibility: u32,
+    @location(1) @interpolate(flat) material_depth: u32,
+}
+
+struct FragmentOutput {
+    @location(0) visibility: vec4<u32>,
+    @location(1) material_depth: vec4<u32>,
 }
 
 @vertex
@@ -20,6 +26,7 @@ fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);
     let instance_id = meshlet_thread_instance_ids[thread_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
+    let material_id = meshlet_instance_material_ids[instance_id];
 
     let model = affine_to_square(instance_uniform.model);
     let world_position = mesh_functions::mesh_position_local_to_world(model, vec4(vertex.position, 1.0));
@@ -28,11 +35,14 @@ fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
     clip_position.z = min(clip_position.z, 1.0);
 #endif
 
-    let output = (thread_id << 8u) | (index_id / 3u);
-    return VertexOutput(clip_position, output);
+    let visibility = (thread_id << 8u) | (index_id / 3u);
+    return VertexOutput(clip_position, visibility, material_id);
 }
 
 @fragment
-fn fragment(vertex_output: VertexOutput) -> @location(0) vec4<u32> {
-    return vec4(vertex_output.output, 0u, 0u, 0u);
+fn fragment(vertex_output: VertexOutput) -> FragmentOutput {
+    return FragmentOutput(
+        vec4(vertex_output.visibility, 0u, 0u, 0u),
+        vec4(vertex_output.material_depth, 0u, 0u, 0u),
+    );
 }

@@ -41,8 +41,11 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         (camera, camera_3d, depth, view_offset, meshlet_view_bind_groups, meshlet_view_resources): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let Some((Some(culling_pipeline), Some(visibility_buffer_pipeline))) =
-            MeshletPipelines::get(world)
+        let Some((
+            Some(culling_pipeline),
+            Some(visibility_buffer_pipeline),
+            Some(copy_material_depth_pipeline),
+        )) = MeshletPipelines::get(world)
         else {
             return Ok(());
         };
@@ -56,16 +59,12 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
 
         {
             let command_encoder = render_context.command_encoder();
-            let mut culling_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("meshlet_culling_pass"),
             });
-            culling_pass.set_bind_group(
-                0,
-                &meshlet_view_bind_groups.culling,
-                &[view_offset.offset],
-            );
-            culling_pass.set_pipeline(culling_pipeline);
-            culling_pass.dispatch_workgroups(
+            cull_pass.set_bind_group(0, &meshlet_view_bind_groups.culling, &[view_offset.offset]);
+            cull_pass.set_pipeline(culling_pipeline);
+            cull_pass.dispatch_workgroups(
                 (meshlet_view_resources.scene_meshlet_count + 127) / 128,
                 1,
                 1,
@@ -75,14 +74,24 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         {
             let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some(draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &meshlet_view_resources.visibility_buffer.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK.into()),
-                        store: true,
-                    },
-                })],
+                color_attachments: &[
+                    Some(RenderPassColorAttachment {
+                        view: &meshlet_view_resources.visibility_buffer.default_view,
+                        resolve_target: None,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color::BLACK.into()),
+                            store: true,
+                        },
+                    }),
+                    Some(RenderPassColorAttachment {
+                        view: &meshlet_view_resources.material_depth_color.default_view,
+                        resolve_target: None,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color::BLACK.into()),
+                            store: true,
+                        },
+                    }),
+                ],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     depth_ops: Some(Operations {
@@ -113,6 +122,28 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                 &meshlet_view_resources.visibility_buffer_draw_command_buffer,
                 0,
             );
+        }
+
+        {
+            let mut copy_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                label: Some("meshlet_copy_material_depth_pass"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &meshlet_view_resources.material_depth.default_view,
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Clear(0.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            });
+            if let Some(viewport) = camera.viewport.as_ref() {
+                copy_pass.set_camera_viewport(viewport);
+            }
+
+            copy_pass.set_bind_group(0, &meshlet_view_bind_groups.copy_material_depth, &[]);
+            copy_pass.set_render_pipeline(copy_material_depth_pipeline);
+            copy_pass.draw(0..3, 0..1);
         }
 
         Ok(())

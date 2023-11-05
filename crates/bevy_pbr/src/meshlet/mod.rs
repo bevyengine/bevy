@@ -23,7 +23,8 @@ use self::{
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
     },
     pipelines::{
-        MeshletPipelines, MESHLET_CULLING_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
+        MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
+        MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
     },
 };
 use crate::Material;
@@ -69,6 +70,12 @@ impl Plugin for MeshletPlugin {
             app,
             MESHLET_MESH_MATERIAL_SHADER_HANDLE,
             "meshlet_mesh_material.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE,
+            "copy_material_depth.wgsl",
             Shader::from_wgsl
         );
 

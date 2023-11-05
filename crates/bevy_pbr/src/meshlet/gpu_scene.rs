@@ -381,11 +381,43 @@ pub fn prepare_meshlet_per_frame_resources(
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
 
+        let material_depth_color = TextureDescriptor {
+            label: Some("meshlet_material_depth_color"),
+            size: Extent3d {
+                width: view.viewport.z,
+                height: view.viewport.w,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::R16Uint,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+
+        let material_depth = TextureDescriptor {
+            label: Some("meshlet_material_depth"),
+            size: Extent3d {
+                width: view.viewport.z,
+                height: view.viewport.w,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Depth16Unorm,
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        };
+
         commands.entity(view_entity).insert(MeshletViewResources {
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
             visibility_buffer: texture_cache.get(&render_device, visibility_buffer),
             visibility_buffer_draw_command_buffer,
             visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
+            material_depth_color: texture_cache.get(&render_device, material_depth_color),
+            material_depth: texture_cache.get(&render_device, material_depth),
         });
     }
 }
@@ -455,9 +487,21 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
+        let copy_material_depth = render_device.create_bind_group(
+            "meshlet_copy_material_depth_bind_group",
+            &gpu_scene.copy_material_depth_bind_group_layout,
+            &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::TextureView(
+                    &view_resources.material_depth_color.default_view,
+                ),
+            }],
+        );
+
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             culling,
             visibility_buffer,
+            copy_material_depth,
             material_draw,
         });
     }
@@ -486,6 +530,7 @@ pub struct MeshletGpuScene {
 
     culling_bind_group_layout: BindGroupLayout,
     visibility_buffer_bind_group_layout: BindGroupLayout,
+    copy_material_depth_bind_group_layout: BindGroupLayout,
     material_draw_bind_group_layout: BindGroupLayout,
 }
 
@@ -542,6 +587,21 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutDescriptor {
                     label: Some("meshlet_visibility_buffer_bind_group_layout"),
                     entries: &visibility_buffer_bind_group_layout_entries(),
+                },
+            ),
+            copy_material_depth_bind_group_layout: render_device.create_bind_group_layout(
+                &BindGroupLayoutDescriptor {
+                    label: Some("meshlet_copy_material_depth_bind_group_layout"),
+                    entries: &[BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Uint,
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    }],
                 },
             ),
             material_draw_bind_group_layout: render_device.create_bind_group_layout(
@@ -631,6 +691,10 @@ impl MeshletGpuScene {
     pub fn visibility_buffer_bind_group_layout(&self) -> BindGroupLayout {
         self.visibility_buffer_bind_group_layout.clone()
     }
+
+    pub fn copy_material_depth_bind_group_layout(&self) -> BindGroupLayout {
+        self.copy_material_depth_bind_group_layout.clone()
+    }
 }
 
 #[derive(Component)]
@@ -639,12 +703,15 @@ pub struct MeshletViewResources {
     pub visibility_buffer: CachedTexture,
     pub visibility_buffer_draw_command_buffer: Buffer,
     pub visibility_buffer_draw_index_buffer: Buffer,
+    pub material_depth_color: CachedTexture,
+    pub material_depth: CachedTexture,
 }
 
 #[derive(Component)]
 pub struct MeshletViewBindGroups {
     pub culling: BindGroup,
     pub visibility_buffer: BindGroup,
+    pub copy_material_depth: BindGroup,
     pub material_draw: BindGroup,
 }
 
