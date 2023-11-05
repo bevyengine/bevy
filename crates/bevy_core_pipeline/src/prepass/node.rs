@@ -3,13 +3,13 @@ use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Color,
-    render_graph::{NodeRunError, RenderGraphContext},
-    render_phase::RenderPhase,
-    render_resource::{
+    gpu_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
     },
+    prelude::Color,
+    render_graph::{NodeRunError, RenderGraphContext},
+    render_phase::RenderPhase,
     renderer::RenderContext,
     view::ViewDepthTexture,
 };

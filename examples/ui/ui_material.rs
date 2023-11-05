@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
-use bevy::render::render_resource::*;
+use bevy::render::gpu_resource::*;
 
 fn main() {
     App::new()

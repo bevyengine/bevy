@@ -5,8 +5,8 @@ use bevy_ecs::{prelude::Component, query::With};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    gpu_resource::*,
     render_asset::RenderAssets,
-    render_resource::*,
     texture::{FallbackImageCubemap, Image},
 };
 

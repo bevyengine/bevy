@@ -16,10 +16,7 @@ use bevy::{
         extract_component::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
-        render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
-        },
-        render_resource::{
+        gpu_resource::{
             BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
             BindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState,
             MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
@@ -27,7 +24,10 @@ use bevy::{
             SamplerDescriptor, ShaderStages, ShaderType, TextureFormat, TextureSampleType,
             TextureViewDimension,
         },
-        renderer::{RenderContext, RenderDevice},
+        render_graph::{
+            NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
+        },
+        renderer::{GpuDevice, RenderContext},
         texture::BevyDefault,
         view::ViewTarget,
         RenderApp,
@@ -176,7 +176,7 @@ impl ViewNode for PostProcessNode {
         // The reason it doesn't work is because each post_process_write will alternate the source/destination.
         // The only way to have the correct source/destination for the bind_group
         // is to make sure you get it during the node execution.
-        let bind_group = render_context.render_device().create_bind_group(
+        let bind_group = render_context.gpu_device().create_bind_group(
             "post_process_bind_group",
             &post_process_pipeline.layout,
             // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
@@ -223,10 +223,10 @@ struct PostProcessPipeline {
 
 impl FromWorld for PostProcessPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
         // We need to define the bind group layout used for our pipeline
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("post_process_bind_group_layout"),
             entries: &[
                 // The screen texture
@@ -252,7 +252,7 @@ impl FromWorld for PostProcessPipeline {
                     binding: 2,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: bevy::render::render_resource::BufferBindingType::Uniform,
+                        ty: bevy::render::gpu_resource::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         min_binding_size: Some(PostProcessSettings::min_size()),
                     },
@@ -262,7 +262,7 @@ impl FromWorld for PostProcessPipeline {
         });
 
         // We can create the sampler here since it won't change at runtime and doesn't depend on the view
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+        let sampler = gpu_device.create_sampler(&SamplerDescriptor::default());
 
         // Get the shader handle
         let shader = world

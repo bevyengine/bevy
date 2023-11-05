@@ -2,7 +2,7 @@ use bevy::{
     asset::LoadState,
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::gpu_resource::{AsBindGroup, ShaderRef},
 };
 
 /// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader

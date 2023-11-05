@@ -2,9 +2,9 @@
 // ! assign a custom UV mapping for a custom texture,
 // ! and how to change the UV mapping at run-time.
 use bevy::prelude::*;
+use bevy::render::gpu_resource::PrimitiveTopology;
 use bevy::render::mesh::Indices;
 use bevy::render::mesh::VertexAttributeValues;
-use bevy::render::render_resource::PrimitiveTopology;
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.

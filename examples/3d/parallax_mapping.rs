@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_esc};
+use bevy::{prelude::*, render::gpu_resource::TextureFormat, window::close_on_esc};
 
 fn main() {
     App::new()

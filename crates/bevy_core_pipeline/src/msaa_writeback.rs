@@ -7,13 +7,13 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
+    gpu_resource::BindGroupEntries,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
-    render_resource::BindGroupEntries,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
     Render, RenderSet,
 };
-use bevy_render::{render_resource::*, RenderApp};
+use bevy_render::{gpu_resource::*, RenderApp};
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that field for more information.
@@ -91,7 +91,7 @@ impl Node for MsaaWritebackNode {
                 depth_stencil_attachment: None,
             };
 
-            let bind_group = render_context.render_device().create_bind_group(
+            let bind_group = render_context.gpu_device().create_bind_group(
                 None,
                 &blit_pipeline.texture_bind_group,
                 &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),

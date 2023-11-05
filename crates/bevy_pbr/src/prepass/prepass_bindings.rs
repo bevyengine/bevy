@@ -1,5 +1,5 @@
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
-use bevy_render::render_resource::{
+use bevy_render::gpu_resource::{
     BindGroupLayoutEntry, BindingType, ShaderStages, TextureAspect, TextureSampleType, TextureView,
     TextureViewDescriptor, TextureViewDimension,
 };

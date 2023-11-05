@@ -1,6 +1,6 @@
 use crate::{
+    gpu_resource::{Extent3d, TextureDimension, TextureFormat},
     mesh::Mesh,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
 use bevy_app::{Plugin, PostUpdate};

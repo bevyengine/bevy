@@ -1,4 +1,4 @@
-use crate::{render_resource::*, texture::DefaultImageSampler};
+use crate::{gpu_resource::*, texture::DefaultImageSampler};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
@@ -9,7 +9,7 @@ use wgpu::{Extent3d, TextureFormat};
 
 use crate::{
     prelude::Image,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{image::TextureFormatPixelInfo, BevyDefault, GpuImage, ImageSampler},
 };
 
@@ -51,8 +51,8 @@ pub struct FallbackImageZero(GpuImage);
 pub struct FallbackImageCubemap(GpuImage);
 
 fn fallback_image_new(
-    render_device: &RenderDevice,
-    render_queue: &RenderQueue,
+    gpu_device: &GpuDevice,
+    gpu_queue: &GpuQueue,
     default_sampler: &DefaultImageSampler,
     format: TextureFormat,
     dimension: TextureViewDimension,
@@ -90,9 +90,9 @@ fn fallback_image_new(
     }
 
     let texture = if create_texture_with_data {
-        render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
+        gpu_device.create_texture_with_data(gpu_queue, &image.texture_descriptor, &image.data)
     } else {
-        render_device.create_texture(&image.texture_descriptor)
+        gpu_device.create_texture(&image.texture_descriptor)
     };
 
     let texture_view = texture.create_view(&TextureViewDescriptor {
@@ -103,7 +103,7 @@ fn fallback_image_new(
     let sampler = match image.sampler {
         ImageSampler::Default => (**default_sampler).clone(),
         ImageSampler::Descriptor(ref descriptor) => {
-            render_device.create_sampler(&descriptor.as_wgpu())
+            gpu_device.create_sampler(&descriptor.as_wgpu())
         }
     };
     GpuImage {
@@ -118,13 +118,13 @@ fn fallback_image_new(
 
 impl FromWorld for FallbackImage {
     fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
+        let gpu_device = world.resource::<GpuDevice>();
+        let gpu_queue = world.resource::<GpuQueue>();
         let default_sampler = world.resource::<DefaultImageSampler>();
         Self {
             d1: fallback_image_new(
-                render_device,
-                render_queue,
+                gpu_device,
+                gpu_queue,
                 default_sampler,
                 TextureFormat::bevy_default(),
                 TextureViewDimension::D1,
@@ -132,8 +132,8 @@ impl FromWorld for FallbackImage {
                 255,
             ),
             d2: fallback_image_new(
-                render_device,
-                render_queue,
+                gpu_device,
+                gpu_queue,
                 default_sampler,
                 TextureFormat::bevy_default(),
                 TextureViewDimension::D2,
@@ -141,8 +141,8 @@ impl FromWorld for FallbackImage {
                 255,
             ),
             d2_array: fallback_image_new(
-                render_device,
-                render_queue,
+                gpu_device,
+                gpu_queue,
                 default_sampler,
                 TextureFormat::bevy_default(),
                 TextureViewDimension::D2Array,
@@ -150,8 +150,8 @@ impl FromWorld for FallbackImage {
                 255,
             ),
             cube: fallback_image_new(
-                render_device,
-                render_queue,
+                gpu_device,
+                gpu_queue,
                 default_sampler,
                 TextureFormat::bevy_default(),
                 TextureViewDimension::Cube,
@@ -159,8 +159,8 @@ impl FromWorld for FallbackImage {
                 255,
             ),
             cube_array: fallback_image_new(
-                render_device,
-                render_queue,
+                gpu_device,
+                gpu_queue,
                 default_sampler,
                 TextureFormat::bevy_default(),
                 TextureViewDimension::CubeArray,
@@ -168,8 +168,8 @@ impl FromWorld for FallbackImage {
                 255,
             ),
             d3: fallback_image_new(
-                render_device,
-                render_queue,
+                gpu_device,
+                gpu_queue,
                 default_sampler,
                 TextureFormat::bevy_default(),
                 TextureViewDimension::D3,
@@ -182,12 +182,12 @@ impl FromWorld for FallbackImage {
 
 impl FromWorld for FallbackImageZero {
     fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
+        let gpu_device = world.resource::<GpuDevice>();
+        let gpu_queue = world.resource::<GpuQueue>();
         let default_sampler = world.resource::<DefaultImageSampler>();
         Self(fallback_image_new(
-            render_device,
-            render_queue,
+            gpu_device,
+            gpu_queue,
             default_sampler,
             TextureFormat::bevy_default(),
             TextureViewDimension::D2,
@@ -199,12 +199,12 @@ impl FromWorld for FallbackImageZero {
 
 impl FromWorld for FallbackImageCubemap {
     fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
+        let gpu_device = world.resource::<GpuDevice>();
+        let gpu_queue = world.resource::<GpuQueue>();
         let default_sampler = world.resource::<DefaultImageSampler>();
         Self(fallback_image_new(
-            render_device,
-            render_queue,
+            gpu_device,
+            gpu_queue,
             default_sampler,
             TextureFormat::bevy_default(),
             TextureViewDimension::Cube,
@@ -225,8 +225,8 @@ pub struct FallbackImageFormatMsaaCache(HashMap<(u32, TextureFormat), GpuImage>)
 #[derive(SystemParam)]
 pub struct FallbackImageMsaa<'w> {
     cache: ResMut<'w, FallbackImageFormatMsaaCache>,
-    render_device: Res<'w, RenderDevice>,
-    render_queue: Res<'w, RenderQueue>,
+    gpu_device: Res<'w, GpuDevice>,
+    gpu_queue: Res<'w, GpuQueue>,
     default_sampler: Res<'w, DefaultImageSampler>,
 }
 
@@ -234,8 +234,8 @@ impl<'w> FallbackImageMsaa<'w> {
     pub fn image_for_samplecount(&mut self, sample_count: u32, format: TextureFormat) -> &GpuImage {
         self.cache.entry((sample_count, format)).or_insert_with(|| {
             fallback_image_new(
-                &self.render_device,
-                &self.render_queue,
+                &self.gpu_device,
+                &self.gpu_queue,
                 &self.default_sampler,
                 format,
                 TextureViewDimension::D2,

@@ -4,8 +4,8 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    render_resource::{DynamicUniformBuffer, Shader, ShaderType},
-    renderer::{RenderDevice, RenderQueue},
+    gpu_resource::{DynamicUniformBuffer, Shader, ShaderType},
+    renderer::{GpuDevice, GpuQueue},
     view::ExtractedView,
     Render, RenderApp, RenderSet,
 };
@@ -47,8 +47,8 @@ pub struct FogMeta {
 /// Prepares fog metadata and writes the fog-related uniform buffers to the GPU
 pub fn prepare_fog(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut fog_meta: ResMut<FogMeta>,
     views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
 ) {
@@ -56,7 +56,7 @@ pub fn prepare_fog(
     let view_count = views_iter.len();
     let Some(mut writer) = fog_meta
         .gpu_fogs
-        .get_writer(view_count, &render_device, &render_queue)
+        .get_writer(view_count, &gpu_device, &gpu_queue)
     else {
         return;
     };

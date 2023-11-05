@@ -20,12 +20,12 @@ use bevy_render::{
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
+    gpu_resource::*,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
-    render_resource::*,
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -49,7 +49,7 @@ use std::marker::PhantomData;
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::{TypeUuid, TypePath};
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::{gpu_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
@@ -345,11 +345,11 @@ where
 impl<M: Material> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-            material_layout: M::bind_group_layout(render_device),
+            material_layout: M::bind_group_layout(gpu_device),
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -856,7 +856,7 @@ pub fn prepare_materials<M: Material>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedMaterials<M>>,
     mut render_materials: ResMut<RenderMaterials<M>>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
@@ -866,7 +866,7 @@ pub fn prepare_materials<M: Material>(
     for (id, material) in queued_assets.into_iter() {
         match prepare_material(
             &material,
-            &render_device,
+            &gpu_device,
             &images,
             &fallback_image,
             &pipeline,
@@ -888,7 +888,7 @@ pub fn prepare_materials<M: Material>(
     for (id, material) in std::mem::take(&mut extracted_assets.extracted) {
         match prepare_material(
             &material,
-            &render_device,
+            &gpu_device,
             &images,
             &fallback_image,
             &pipeline,
@@ -906,7 +906,7 @@ pub fn prepare_materials<M: Material>(
 
 fn prepare_material<M: Material>(
     material: &M,
-    render_device: &RenderDevice,
+    gpu_device: &GpuDevice,
     images: &RenderAssets<Image>,
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,
@@ -914,7 +914,7 @@ fn prepare_material<M: Material>(
 ) -> Result<PreparedMaterial<M>, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &pipeline.material_layout,
-        render_device,
+        gpu_device,
         images,
         fallback_image,
     )?;

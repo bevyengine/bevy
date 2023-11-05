@@ -12,8 +12,8 @@ use bevy::{
     pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
-        render_resource::WgpuFeatures,
-        settings::{RenderCreation, WgpuSettings},
+        gpu_resource::GpuFeatures,
+        settings::{GpuSettings, RenderCreation},
         RenderPlugin,
     },
 };
@@ -22,9 +22,9 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: RenderCreation::Automatic(GpuSettings {
                     // WARN this is a native only feature. It will not work with webgl or webgpu
-                    features: WgpuFeatures::POLYGON_MODE_LINE,
+                    features: GpuFeatures::POLYGON_MODE_LINE,
                     ..default()
                 }),
             }),

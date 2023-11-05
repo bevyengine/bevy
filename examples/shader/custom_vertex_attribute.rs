@@ -5,11 +5,11 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
-        render_resource::{
+        gpu_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
             VertexFormat,
         },
+        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
     },
 };
 

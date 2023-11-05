@@ -4,12 +4,12 @@ use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles
 use bevy_render::{
     camera::Camera,
     color::Color,
+    gpu_resource::*,
     mesh::Mesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
-    render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue, RenderContext},
     texture::*,
     view::{ExtractedView, ViewVisibility, VisibleEntities},
     Extract,
@@ -118,10 +118,10 @@ impl GpuPointLights {
         }
     }
 
-    fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+    fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         match self {
-            GpuPointLights::Uniform(buffer) => buffer.write_buffer(render_device, render_queue),
-            GpuPointLights::Storage(buffer) => buffer.write_buffer(render_device, render_queue),
+            GpuPointLights::Uniform(buffer) => buffer.write_buffer(gpu_device, gpu_queue),
+            GpuPointLights::Storage(buffer) => buffer.write_buffer(gpu_device, gpu_queue),
         }
     }
 
@@ -220,10 +220,10 @@ pub struct ShadowSamplers {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for ShadowSamplers {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
         ShadowSamplers {
-            point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+            point_light_sampler: gpu_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
@@ -233,7 +233,7 @@ impl FromWorld for ShadowSamplers {
                 compare: Some(CompareFunction::GreaterEqual),
                 ..Default::default()
             }),
-            directional_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+            directional_light_sampler: gpu_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
@@ -548,7 +548,7 @@ impl FromWorld for GlobalLightMeta {
     fn from_world(world: &mut World) -> Self {
         Self::new(
             world
-                .resource::<RenderDevice>()
+                .resource::<GpuDevice>()
                 .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
         )
     }
@@ -636,8 +636,8 @@ pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     images: Res<RenderAssets<Image>>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
@@ -662,7 +662,7 @@ pub fn prepare_lights(
     let Some(mut view_gpu_lights_writer) =
         light_meta
             .view_gpu_lights
-            .get_writer(views_count, &render_device, &render_queue)
+            .get_writer(views_count, &gpu_device, &gpu_queue)
     else {
         return;
     };
@@ -681,7 +681,7 @@ pub fn prepare_lights(
     let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
 
     #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
-    let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
+    let max_texture_array_layers = gpu_device.limits().max_texture_array_layers as usize;
     #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     let max_texture_cubes = max_texture_array_layers / 6;
     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
@@ -888,12 +888,12 @@ pub fn prepare_lights(
     global_light_meta.gpu_point_lights.set(gpu_point_lights);
     global_light_meta
         .gpu_point_lights
-        .write_buffer(&render_device, &render_queue);
+        .write_buffer(&gpu_device, &gpu_queue);
 
     // set up light data for each view
     for (entity, extracted_view, clusters, environment_map) in &views {
         let point_light_depth_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 size: Extent3d {
                     width: point_light_shadow_map.size as u32,
@@ -910,13 +910,13 @@ pub fn prepare_lights(
             },
         );
         let directional_light_depth_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 size: Extent3d {
                     width: (directional_light_shadow_map.size as u32)
-                        .min(render_device.limits().max_texture_dimension_2d),
+                        .min(gpu_device.limits().max_texture_dimension_2d),
                     height: (directional_light_shadow_map.size as u32)
-                        .min(render_device.limits().max_texture_dimension_2d),
+                        .min(gpu_device.limits().max_texture_dimension_2d),
                     depth_or_array_layers: (num_directional_cascades_enabled
                         + spot_light_shadow_maps_count)
                         .max(1) as u32,
@@ -1408,21 +1408,21 @@ impl ViewClusterBindings {
         self.n_indices += 1;
     }
 
-    pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+    pub fn write_buffers(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_light_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                cluster_light_index_lists.write_buffer(render_device, render_queue);
-                cluster_offsets_and_counts.write_buffer(render_device, render_queue);
+                cluster_light_index_lists.write_buffer(gpu_device, gpu_queue);
+                cluster_offsets_and_counts.write_buffer(gpu_device, gpu_queue);
             }
             ViewClusterBuffers::Storage {
                 cluster_light_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                cluster_light_index_lists.write_buffer(render_device, render_queue);
-                cluster_offsets_and_counts.write_buffer(render_device, render_queue);
+                cluster_light_index_lists.write_buffer(gpu_device, gpu_queue);
+                cluster_offsets_and_counts.write_buffer(gpu_device, gpu_queue);
             }
         }
     }
@@ -1474,8 +1474,8 @@ impl ViewClusterBindings {
 
 pub fn prepare_clusters(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_light_meta: Res<GlobalLightMeta>,
     views: Query<
@@ -1487,7 +1487,7 @@ pub fn prepare_clusters(
         With<RenderPhase<Transparent3d>>,
     >,
 ) {
-    let render_device = render_device.into_inner();
+    let gpu_device = gpu_device.into_inner();
     let supports_storage_buffers = matches!(
         mesh_pipeline.clustered_forward_buffer_binding_type,
         BufferBindingType::Storage { .. }
@@ -1533,7 +1533,7 @@ pub fn prepare_clusters(
             }
         }
 
-        view_clusters_bindings.write_buffers(render_device, &render_queue);
+        view_clusters_bindings.write_buffers(gpu_device, &gpu_queue);
 
         commands.get_or_spawn(entity).insert(view_clusters_bindings);
     }

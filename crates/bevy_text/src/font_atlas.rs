@@ -2,7 +2,7 @@ use ab_glyph::{GlyphId, Point};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::{
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
+    gpu_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};

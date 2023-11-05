@@ -34,9 +34,7 @@ pub use fallback_image::*;
 pub use image_loader::*;
 pub use texture_cache::*;
 
-use crate::{
-    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
-};
+use crate::{render_asset::RenderAssetPlugin, renderer::GpuDevice, Render, RenderApp, RenderSet};
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -136,8 +134,8 @@ impl Plugin for ImagePlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
-                let device = render_app.world.resource::<RenderDevice>();
-                device.create_sampler(&self.default_sampler.as_wgpu())
+                let gpu_device = render_app.world.resource::<GpuDevice>();
+                gpu_device.create_sampler(&self.default_sampler.as_wgpu())
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))

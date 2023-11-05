@@ -18,9 +18,7 @@ use bevy_math::vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
-    prelude::{Camera, Projection},
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{
+    gpu_resource::{
         BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
         BindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode,
         FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
@@ -29,7 +27,9 @@ use bevy_render::{
         SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages, TextureViewDimension,
     },
-    renderer::{RenderContext, RenderDevice},
+    prelude::{Camera, Projection},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    renderer::{GpuDevice, RenderContext},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
@@ -200,7 +200,7 @@ impl ViewNode for TemporalAntiAliasNode {
         };
         let view_target = view_target.post_process_write();
 
-        let taa_bind_group = render_context.render_device().create_bind_group(
+        let taa_bind_group = render_context.gpu_device().create_bind_group(
             "taa_bind_group",
             &pipelines.taa_bind_group_layout,
             &BindGroupEntries::sequential((
@@ -251,15 +251,15 @@ struct TaaPipeline {
 
 impl FromWorld for TaaPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
-        let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
+        let nearest_sampler = gpu_device.create_sampler(&SamplerDescriptor {
             label: Some("taa_nearest_sampler"),
             mag_filter: FilterMode::Nearest,
             min_filter: FilterMode::Nearest,
             ..SamplerDescriptor::default()
         });
-        let linear_sampler = render_device.create_sampler(&SamplerDescriptor {
+        let linear_sampler = gpu_device.create_sampler(&SamplerDescriptor {
             label: Some("taa_linear_sampler"),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
@@ -267,7 +267,7 @@ impl FromWorld for TaaPipeline {
         });
 
         let taa_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("taa_bind_group_layout"),
                 entries: &[
                     // View target (read)
@@ -451,7 +451,7 @@ pub struct TemporalAntiAliasHistoryTextures {
 fn prepare_taa_history_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     frame_count: Res<FrameCount>,
     views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasSettings>>,
 ) {
@@ -477,10 +477,10 @@ fn prepare_taa_history_textures(
             };
 
             texture_descriptor.label = Some("taa_history_1_texture");
-            let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
+            let history_1_texture = texture_cache.get(&gpu_device, texture_descriptor.clone());
 
             texture_descriptor.label = Some("taa_history_2_texture");
-            let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
+            let history_2_texture = texture_cache.get(&gpu_device, texture_descriptor);
 
             let textures = if frame_count.0 % 2 == 0 {
                 TemporalAntiAliasHistoryTextures {

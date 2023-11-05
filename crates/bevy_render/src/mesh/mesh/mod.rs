@@ -3,11 +3,14 @@ pub mod skinning;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
+    gpu_resource::{
+        Buffer, BufferInitDescriptor, BufferUsages, IndexFormat, TextureView, VertexAttribute,
+        VertexBufferLayout, VertexFormat, VertexStepMode,
+    },
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{Buffer, TextureView, VertexBufferLayout},
-    renderer::RenderDevice,
+    renderer::GpuDevice,
 };
 use bevy_asset::{Asset, Handle};
 use bevy_core::cast_slice;
@@ -19,10 +22,6 @@ use bevy_reflect::Reflect;
 use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
-use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
-    VertexStepMode,
-};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -47,7 +46,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// `StandardMaterial` or `ColorMaterial`:
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
-/// # use bevy_render::render_resource::PrimitiveTopology;
+/// # use bevy_render::gpu_resource::PrimitiveTopology;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
 ///     Mesh::new(PrimitiveTopology::TriangleList)
@@ -105,7 +104,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
 /// [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
 /// because simple meshes are smooth and they don't require complex light calculations.
-/// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
+/// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::gpu_resource::Face),
 /// which means that Bevy would *only* render the "front" of each triangle, which
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
@@ -351,7 +350,7 @@ impl Mesh {
 
     /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in [`SpecializedMeshPipeline`].
     ///
-    /// [`SpecializedMeshPipeline`]: crate::render_resource::SpecializedMeshPipeline
+    /// [`SpecializedMeshPipeline`]: crate::gpu_resource::SpecializedMeshPipeline
     pub fn get_mesh_vertex_buffer_layout(&self) -> MeshVertexBufferLayout {
         let mut attributes = Vec::with_capacity(self.attributes.len());
         let mut attribute_ids = Vec::with_capacity(self.attributes.len());
@@ -757,7 +756,7 @@ pub trait VertexFormatSize {
     fn get_size(self) -> u64;
 }
 
-impl VertexFormatSize for wgpu::VertexFormat {
+impl VertexFormatSize for VertexFormat {
     #[allow(clippy::match_same_arms)]
     fn get_size(self) -> u64 {
         match self {
@@ -1054,7 +1053,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
+    type Param = (SRes<GpuDevice>, SRes<RenderAssets<Image>>);
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -1064,10 +1063,10 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        (render_device, images): &mut SystemParamItem<Self::Param>,
+        (gpu_device, images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
-        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+        let vertex_buffer = gpu_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
@@ -1075,7 +1074,7 @@ impl RenderAsset for Mesh {
 
         let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
             GpuBufferInfo::Indexed {
-                buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
+                buffer: gpu_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
                     label: Some("Mesh Index Buffer"),
@@ -1232,7 +1231,7 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use wgpu::PrimitiveTopology;
+    use crate::gpu_resource::PrimitiveTopology;
 
     #[test]
     #[should_panic]

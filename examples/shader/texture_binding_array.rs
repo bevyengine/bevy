@@ -5,8 +5,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssets, render_resource::*, renderer::RenderDevice,
-        texture::FallbackImage, RenderApp,
+        gpu_resource::*, render_asset::RenderAssets, renderer::GpuDevice, texture::FallbackImage,
+        RenderApp,
     },
 };
 use std::{num::NonZeroU32, process::exit};
@@ -37,13 +37,13 @@ impl Plugin for GpuFeatureSupportChecker {
             return;
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>();
+        let gpu_device = render_app.world.resource::<GpuDevice>();
 
         // Check if the device support the required feature. If not, exit the example.
         // In a real application, you should setup a fallback for the missing feature
-        if !render_device
+        if !gpu_device
             .features()
-            .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
+            .contains(GpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
         {
             error!(
                 "Render device doesn't support feature \
@@ -91,7 +91,7 @@ impl AsBindGroup for BindlessMaterial {
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
-        render_device: &RenderDevice,
+        gpu_device: &GpuDevice,
         image_assets: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
@@ -116,7 +116,7 @@ impl AsBindGroup for BindlessMaterial {
             textures[id] = &*image.texture_view;
         }
 
-        let bind_group = render_device.create_bind_group(
+        let bind_group = gpu_device.create_bind_group(
             "bindless_material_bind_group",
             layout,
             &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
@@ -132,7 +132,7 @@ impl AsBindGroup for BindlessMaterial {
     fn unprepared_bind_group(
         &self,
         _: &BindGroupLayout,
-        _: &RenderDevice,
+        _: &GpuDevice,
         _: &RenderAssets<Image>,
         _: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
@@ -141,7 +141,7 @@ impl AsBindGroup for BindlessMaterial {
         // or rather, they can be owned, but then you can't make a `&'a [&'a TextureView]` from a vec of them in get_binding().
     }
 
-    fn bind_group_layout_entries(_: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    fn bind_group_layout_entries(_: &GpuDevice) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
     {

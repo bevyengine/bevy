@@ -16,11 +16,11 @@ use bevy_render::{
         NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
+    gpu_resource::*,
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
@@ -116,7 +116,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
+                render_app.world.resource::<GpuDevice>(),
             ) {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -126,7 +126,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
             render_app
                 .insert_resource(GpuArrayBuffer::<Mesh2dUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
+                    render_app.world.resource::<GpuDevice>(),
                 ))
                 .init_resource::<Mesh2dPipeline>();
         }
@@ -250,13 +250,13 @@ pub struct Mesh2dPipeline {
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<RenderQueue>,
+            Res<GpuDevice>,
+            Res<GpuQueue>,
             Res<DefaultImageSampler>,
         )> = SystemState::new(world);
-        let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
-        let render_device = render_device.into_inner();
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let (gpu_device, gpu_queue, default_sampler) = system_state.get_mut(world);
+        let gpu_device = gpu_device.into_inner();
+        let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
                 BindGroupLayoutEntry {
@@ -283,27 +283,27 @@ impl FromWorld for Mesh2dPipeline {
             label: Some("mesh2d_view_layout"),
         });
 
-        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let mesh_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[GpuArrayBuffer::<Mesh2dUniform>::binding_layout(
                 0,
                 ShaderStages::VERTEX_FRAGMENT,
-                render_device,
+                gpu_device,
             )],
             label: Some("mesh2d_layout"),
         });
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::default();
-            let texture = render_device.create_texture(&image.texture_descriptor);
+            let texture = gpu_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(&descriptor.as_wgpu())
+                    gpu_device.create_sampler(&descriptor.as_wgpu())
                 }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
+            gpu_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
                     mip_level: 0,
@@ -333,9 +333,7 @@ impl FromWorld for Mesh2dPipeline {
             view_layout,
             mesh_layout,
             dummy_white_gpu_image,
-            per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_device,
-            ),
+            per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(gpu_device),
         }
     }
 }
@@ -590,12 +588,12 @@ pub struct Mesh2dBindGroup {
 pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     mesh2d_uniforms: Res<GpuArrayBuffer<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.binding() {
         commands.insert_resource(Mesh2dBindGroup {
-            value: render_device.create_bind_group(
+            value: gpu_device.create_bind_group(
                 "mesh2d_bind_group",
                 &mesh2d_pipeline.mesh_layout,
                 &BindGroupEntries::single(binding),
@@ -611,7 +609,7 @@ pub struct Mesh2dViewBindGroup {
 
 pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<Entity, With<ExtractedView>>,
@@ -622,7 +620,7 @@ pub fn prepare_mesh2d_view_bind_groups(
         globals_buffer.buffer.binding(),
     ) {
         for entity in &views {
-            let view_bind_group = render_device.create_bind_group(
+            let view_bind_group = gpu_device.create_bind_group(
                 "mesh2d_view_bind_group",
                 &mesh2d_pipeline.view_layout,
                 &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),

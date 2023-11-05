@@ -16,17 +16,17 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
+    gpu_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
-    renderer::{RenderContext, RenderDevice},
+    renderer::{GpuDevice, RenderContext},
     texture::Image,
     view::{ViewTarget, ViewUniformOffset},
     Render, RenderSet,
 };
 
 use bevy_render::{
-    render_graph::RenderGraphApp, render_resource::*, texture::BevyDefault, view::ExtractedView,
+    gpu_resource::*, render_graph::RenderGraphApp, texture::BevyDefault, view::ExtractedView,
     RenderApp,
 };
 
@@ -191,7 +191,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
-        let bind_group_1 = render_context.render_device().create_bind_group(
+        let bind_group_1 = render_context.gpu_device().create_bind_group(
             "deferred_lighting_layout_group_1",
             &deferred_lighting_layout.bind_group_layout_1,
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
@@ -375,14 +375,14 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
 impl FromWorld for DeferredLightingLayout {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let gpu_device = world.resource::<GpuDevice>();
+        let layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("deferred_lighting_layout"),
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX_FRAGMENT,
                 ty: BindingType::Buffer {
-                    ty: render_resource::BufferBindingType::Uniform,
+                    ty: gpu_resource::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: Some(PbrDeferredLightingDepthId::min_size()),
                 },

@@ -1,10 +1,10 @@
 use crate::{
     camera::CameraProjection,
     camera::{ManualTextureViewHandle, ManualTextureViews},
+    gpu_resource::{BlendState, GpuColor, LoadOp, TextureFormat, TextureView},
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
-    render_resource::TextureView,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
@@ -28,7 +28,6 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
 };
 use std::{borrow::Cow, ops::Range};
-use wgpu::{BlendState, LoadOp, TextureFormat};
 
 use super::Projection;
 
@@ -368,7 +367,7 @@ pub enum CameraOutputMode {
         blend_state: Option<BlendState>,
         /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
         /// target texture.
-        color_attachment_load_op: wgpu::LoadOp<wgpu::Color>,
+        color_attachment_load_op: LoadOp<GpuColor>,
     },
     /// Skips writing the camera output to the configured render target. The output will remain in the
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target

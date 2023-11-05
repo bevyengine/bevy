@@ -1,4 +1,5 @@
 use super::{Indices, Mesh};
+use crate::gpu_resource::PrimitiveTopology;
 use bevy_math::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -274,4 +275,3 @@ pub use icosphere::Icosphere;
 pub use regular_polygon::{Circle, RegularPolygon};
 pub use torus::Torus;
 pub use uvsphere::UVSphere;
-use wgpu::PrimitiveTopology;

@@ -4,7 +4,7 @@ use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*, texture::Image,
+    color::Color, gpu_resource::*, prelude::Shader, render_asset::RenderAssets, texture::Image,
 };
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =

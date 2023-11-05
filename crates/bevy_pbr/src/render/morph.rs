@@ -4,9 +4,9 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     batching::NoAutomaticBatching,
+    gpu_resource::{BufferUsages, BufferVec},
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
-    render_resource::{BufferUsages, BufferVec},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     view::ViewVisibility,
     Extract,
 };
@@ -35,16 +35,16 @@ impl Default for MorphUniform {
 }
 
 pub fn prepare_morphs(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut uniform: ResMut<MorphUniform>,
 ) {
     if uniform.buffer.is_empty() {
         return;
     }
     let len = uniform.buffer.len();
-    uniform.buffer.reserve(len, &render_device);
-    uniform.buffer.write_buffer(&render_device, &render_queue);
+    uniform.buffer.reserve(len, &gpu_device);
+    uniform.buffer.write_buffer(&gpu_device, &gpu_queue);
 }
 
 const fn can_align(step: usize, target: usize) -> bool {

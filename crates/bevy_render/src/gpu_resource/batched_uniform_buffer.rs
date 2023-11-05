@@ -1,7 +1,7 @@
 use super::{GpuArrayBufferIndex, GpuArrayBufferable};
 use crate::{
-    render_resource::DynamicUniformBuffer,
-    renderer::{RenderDevice, RenderQueue},
+    gpu_resource::{BindingResource, DynamicUniformBuffer, GpuLimits},
+    renderer::{GpuDevice, GpuQueue},
 };
 use bevy_utils::nonmax::NonMaxU32;
 use encase::{
@@ -9,7 +9,6 @@ use encase::{
     ShaderType,
 };
 use std::{marker::PhantomData, num::NonZeroU64};
-use wgpu::{BindingResource, Limits};
 
 // 1MB else we will make really large arrays on macOS which reports very large
 // `max_uniform_buffer_binding_size`. On macOS this ends up being the minimum
@@ -45,14 +44,14 @@ pub struct BatchedUniformBuffer<T: GpuArrayBufferable> {
 }
 
 impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
-    pub fn batch_size(limits: &Limits) -> usize {
+    pub fn batch_size(limits: &GpuLimits) -> usize {
         (limits
             .max_uniform_buffer_binding_size
             .min(MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE) as u64
             / T::min_size().get()) as usize
     }
 
-    pub fn new(limits: &Limits) -> Self {
+    pub fn new(limits: &GpuLimits) -> Self {
         let capacity = Self::batch_size(limits);
         let alignment = limits.min_uniform_buffer_offset_alignment;
 
@@ -97,11 +96,11 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
         self.temp.0.clear();
     }
 
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         if !self.temp.0.is_empty() {
             self.flush();
         }
-        self.uniforms.write_buffer(device, queue);
+        self.uniforms.write_buffer(gpu_device, gpu_queue);
     }
 
     #[inline]

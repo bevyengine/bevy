@@ -6,8 +6,8 @@ use bevy::{
     input::mouse::MouseMotion,
     prelude::*,
     render::{
-        render_resource::{TextureViewDescriptor, TextureViewDimension},
-        renderer::RenderDevice,
+        gpu_resource::{TextureViewDescriptor, TextureViewDimension},
+        renderer::GpuDevice,
         texture::CompressedImageFormats,
     },
 };
@@ -100,7 +100,7 @@ fn cycle_cubemap_asset(
     mut next_swap: Local<f32>,
     mut cubemap: ResMut<Cubemap>,
     asset_server: Res<AssetServer>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
 ) {
     let now = time.elapsed_seconds();
     if *next_swap == 0.0 {
@@ -111,8 +111,7 @@ fn cycle_cubemap_asset(
     }
     *next_swap += CUBEMAP_SWAP_DELAY;
 
-    let supported_compressed_formats =
-        CompressedImageFormats::from_features(render_device.features());
+    let supported_compressed_formats = CompressedImageFormats::from_features(gpu_device.features());
 
     let mut new_index = cubemap.index;
     for _ in 0..CUBEMAPS.len() {

@@ -6,9 +6,9 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
+    gpu_resource::{Sampler, Texture, TextureView},
     render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{Sampler, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::BevyDefault,
 };
 use bevy_asset::Asset;
@@ -290,7 +290,7 @@ impl Default for ImageSamplerDescriptor {
 }
 
 impl ImageSamplerDescriptor {
-    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    /// Returns a sampler descriptor with [`Linear`](crate::gpu_resource::FilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear() -> ImageSamplerDescriptor {
         ImageSamplerDescriptor {
@@ -301,7 +301,7 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    /// Returns a sampler descriptor with [`Nearest`](crate::gpu_resource::FilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest() -> ImageSamplerDescriptor {
         ImageSamplerDescriptor {
@@ -802,11 +802,7 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderQueue>,
-        SRes<DefaultImageSampler>,
-    );
+    type Param = (SRes<GpuDevice>, SRes<GpuQueue>, SRes<DefaultImageSampler>);
 
     /// Clones the Image.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -816,13 +812,10 @@ impl RenderAsset for Image {
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
-        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
+        (gpu_device, gpu_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let texture = render_device.create_texture_with_data(
-            render_queue,
-            &image.texture_descriptor,
-            &image.data,
-        );
+        let texture =
+            gpu_device.create_texture_with_data(gpu_queue, &image.texture_descriptor, &image.data);
 
         let texture_view = texture.create_view(
             image
@@ -838,7 +831,7 @@ impl RenderAsset for Image {
         let sampler = match image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
-                render_device.create_sampler(&descriptor.as_wgpu())
+                gpu_device.create_sampler(&descriptor.as_wgpu())
             }
         };
 

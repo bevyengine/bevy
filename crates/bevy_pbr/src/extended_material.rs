@@ -1,13 +1,13 @@
 use bevy_asset::{Asset, Handle};
 use bevy_reflect::TypePath;
 use bevy_render::{
-    mesh::MeshVertexBufferLayout,
-    render_asset::RenderAssets,
-    render_resource::{
+    gpu_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
-    renderer::RenderDevice,
+    mesh::MeshVertexBufferLayout,
+    render_asset::RenderAssets,
+    renderer::GpuDevice,
     texture::{FallbackImage, Image},
 };
 
@@ -109,23 +109,17 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
-        render_device: &RenderDevice,
+        gpu_device: &GpuDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
-    ) -> Result<bevy_render::render_resource::UnpreparedBindGroup<Self::Data>, AsBindGroupError>
-    {
+    ) -> Result<bevy_render::gpu_resource::UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
             mut bindings,
             data: base_data,
-        } = B::unprepared_bind_group(&self.base, layout, render_device, images, fallback_image)?;
-        let extended_bindgroup = E::unprepared_bind_group(
-            &self.extension,
-            layout,
-            render_device,
-            images,
-            fallback_image,
-        )?;
+        } = B::unprepared_bind_group(&self.base, layout, gpu_device, images, fallback_image)?;
+        let extended_bindgroup =
+            E::unprepared_bind_group(&self.extension, layout, gpu_device, images, fallback_image)?;
 
         bindings.extend(extended_bindgroup.bindings);
 
@@ -136,55 +130,55 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     }
 
     fn bind_group_layout_entries(
-        render_device: &RenderDevice,
-    ) -> Vec<bevy_render::render_resource::BindGroupLayoutEntry>
+        gpu_device: &GpuDevice,
+    ) -> Vec<bevy_render::gpu_resource::BindGroupLayoutEntry>
     where
         Self: Sized,
     {
         // add together the bindings of the standard material and the user material
-        let mut entries = B::bind_group_layout_entries(render_device);
-        entries.extend(E::bind_group_layout_entries(render_device));
+        let mut entries = B::bind_group_layout_entries(gpu_device);
+        entries.extend(E::bind_group_layout_entries(gpu_device));
         entries
     }
 }
 
 impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
-    fn vertex_shader() -> bevy_render::render_resource::ShaderRef {
+    fn vertex_shader() -> bevy_render::gpu_resource::ShaderRef {
         match E::vertex_shader() {
             ShaderRef::Default => B::vertex_shader(),
             specified => specified,
         }
     }
 
-    fn fragment_shader() -> bevy_render::render_resource::ShaderRef {
+    fn fragment_shader() -> bevy_render::gpu_resource::ShaderRef {
         match E::fragment_shader() {
             ShaderRef::Default => B::fragment_shader(),
             specified => specified,
         }
     }
 
-    fn prepass_vertex_shader() -> bevy_render::render_resource::ShaderRef {
+    fn prepass_vertex_shader() -> bevy_render::gpu_resource::ShaderRef {
         match E::prepass_vertex_shader() {
             ShaderRef::Default => B::prepass_vertex_shader(),
             specified => specified,
         }
     }
 
-    fn prepass_fragment_shader() -> bevy_render::render_resource::ShaderRef {
+    fn prepass_fragment_shader() -> bevy_render::gpu_resource::ShaderRef {
         match E::prepass_fragment_shader() {
             ShaderRef::Default => B::prepass_fragment_shader(),
             specified => specified,
         }
     }
 
-    fn deferred_vertex_shader() -> bevy_render::render_resource::ShaderRef {
+    fn deferred_vertex_shader() -> bevy_render::gpu_resource::ShaderRef {
         match E::deferred_vertex_shader() {
             ShaderRef::Default => B::deferred_vertex_shader(),
             specified => specified,
         }
     }
 
-    fn deferred_fragment_shader() -> bevy_render::render_resource::ShaderRef {
+    fn deferred_fragment_shader() -> bevy_render::gpu_resource::ShaderRef {
         match E::deferred_fragment_shader() {
             ShaderRef::Default => B::deferred_fragment_shader(),
             specified => specified,

@@ -7,8 +7,8 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
+    gpu_resource::{LoadOp, TextureUsages},
     primitives::Frustum,
-    render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};

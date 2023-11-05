@@ -1,7 +1,7 @@
 use crate::define_atomic_id;
 use std::ops::Deref;
 
-use crate::render_resource::resource_macros::*;
+use crate::gpu_resource::resource_macros::*;
 
 define_atomic_id!(TextureId);
 render_resource_wrapper!(ErasedTexture, wgpu::Texture);
@@ -9,7 +9,7 @@ render_resource_wrapper!(ErasedTexture, wgpu::Texture);
 /// A GPU-accessible texture.
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
-/// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+/// Can be created via [`GpuDevice::create_texture`](crate::renderer::GpuDevice::create_texture).
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
@@ -118,7 +118,7 @@ render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
 ///
 /// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
-/// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
+/// Can be created via [`GpuDevice::create_sampler`](crate::renderer::GpuDevice::create_sampler).
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,

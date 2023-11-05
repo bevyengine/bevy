@@ -1,7 +1,7 @@
 use bevy_ecs::entity::Entity;
 use std::{borrow::Cow, fmt};
 
-use crate::render_resource::{Buffer, Sampler, TextureView};
+use crate::gpu_resource::{Buffer, Sampler, TextureView};
 
 /// A value passed between render [`Nodes`](super::Node).
 /// Corresponds to the [`SlotType`] specified in the [`RenderGraph`](super::RenderGraph).

@@ -18,8 +18,8 @@
 //!
 //! Therefore each phase item is assigned a [`Draw`] function.
 //! These set up the state of the [`TrackedRenderPass`] (i.e. select the
-//! [`RenderPipeline`](crate::render_resource::RenderPipeline), configure the
-//! [`BindGroup`](crate::render_resource::BindGroup)s, etc.) and then issue a draw call,
+//! [`RenderPipeline`](crate::gpu_resource::RenderPipeline), configure the
+//! [`BindGroup`](crate::gpu_resource::BindGroup)s, etc.) and then issue a draw call,
 //! for the corresponding item.
 //!
 //! The [`Draw`] function trait can either be implemented directly or such a function can be
@@ -34,7 +34,7 @@ pub use draw::*;
 pub use draw_state::*;
 pub use rangefinder::*;
 
-use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
+use crate::gpu_resource::{CachedRenderPipelineId, PipelineCache};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},

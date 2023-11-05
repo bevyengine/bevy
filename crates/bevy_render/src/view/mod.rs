@@ -8,12 +8,16 @@ pub use window::*;
 use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
+    gpu_resource::{
+        DynamicUniformBuffer, Extent3d, GpuColor, Operations, RenderPassColorAttachment,
+        ShaderType, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+        TextureView,
+    },
     prelude::{Image, Shader},
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{BevyDefault, CachedTexture, TextureCache},
     Render, RenderApp, RenderSet,
 };
@@ -26,10 +30,6 @@ use bevy_utils::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
-};
-use wgpu::{
-    Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsages,
 };
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
@@ -205,7 +205,7 @@ impl ViewTarget {
 
     /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture_view`] and resolve to [`Self::main_texture`] if
     /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
-    pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
+    pub fn get_color_attachment(&self, ops: Operations<GpuColor>) -> RenderPassColorAttachment {
         match &self.main_textures.sampled {
             Some(CachedTexture {
                 default_view: sampled_texture_view,
@@ -222,7 +222,7 @@ impl ViewTarget {
     /// Retrieve an "unsampled" color attachment using [`Self::main_texture`].
     pub fn get_unsampled_color_attachment(
         &self,
-        ops: Operations<Color>,
+        ops: Operations<GpuColor>,
     ) -> RenderPassColorAttachment {
         RenderPassColorAttachment {
             view: self.main_texture_view(),
@@ -348,8 +348,8 @@ pub struct ViewDepthTexture {
 
 pub fn prepare_view_uniforms(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
     views: Query<(
         Entity,
@@ -361,10 +361,9 @@ pub fn prepare_view_uniforms(
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
-    let Some(mut writer) =
-        view_uniforms
-            .uniforms
-            .get_writer(view_count, &render_device, &render_queue)
+    let Some(mut writer) = view_uniforms
+        .uniforms
+        .get_writer(view_count, &gpu_device, &gpu_queue)
     else {
         return;
     };
@@ -431,7 +430,7 @@ fn prepare_view_targets(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
     manual_texture_views: Res<ManualTextureViews>,
@@ -475,14 +474,14 @@ fn prepare_view_targets(
                             },
                         };
                         let a = texture_cache.get(
-                            &render_device,
+                            &gpu_device,
                             TextureDescriptor {
                                 label: Some("main_texture_a"),
                                 ..descriptor
                             },
                         );
                         let b = texture_cache.get(
-                            &render_device,
+                            &gpu_device,
                             TextureDescriptor {
                                 label: Some("main_texture_b"),
                                 ..descriptor
@@ -490,7 +489,7 @@ fn prepare_view_targets(
                         );
                         let sampled = if msaa.samples() > 1 {
                             let sampled = texture_cache.get(
-                                &render_device,
+                                &gpu_device,
                                 TextureDescriptor {
                                     label: Some("main_texture_sampled"),
                                     size,

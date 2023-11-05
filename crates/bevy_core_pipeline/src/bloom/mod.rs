@@ -17,10 +17,10 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
+    gpu_resource::*,
     prelude::Color,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::{GpuDevice, RenderContext},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     Render, RenderApp, RenderSet,
@@ -170,7 +170,7 @@ impl ViewNode for BloomNode {
 
         // First downsample pass
         {
-            let downsampling_first_bind_group = render_context.render_device().create_bind_group(
+            let downsampling_first_bind_group = render_context.gpu_device().create_bind_group(
                 "bloom_downsampling_first_bind_group",
                 &downsampling_pipeline_res.bind_group_layout,
                 &BindGroupEntries::sequential((
@@ -325,7 +325,7 @@ impl BloomTexture {
 fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
 ) {
     for (entity, camera) in &views {
@@ -354,12 +354,12 @@ fn prepare_bloom_textures(
             };
 
             #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
-            let texture = texture_cache.get(&render_device, texture_descriptor);
+            let texture = texture_cache.get(&gpu_device, texture_descriptor);
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
             let texture: Vec<CachedTexture> = (0..mip_count)
                 .map(|mip| {
                     texture_cache.get(
-                        &render_device,
+                        &gpu_device,
                         TextureDescriptor {
                             size: Extent3d {
                                 width: (texture_descriptor.size.width >> mip).max(1),
@@ -389,7 +389,7 @@ struct BloomBindGroups {
 
 fn prepare_bloom_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     downsampling_pipeline: Res<BloomDownsamplingPipeline>,
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &BloomTexture)>,
@@ -402,7 +402,7 @@ fn prepare_bloom_bind_groups(
 
         let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in 1..bloom_texture.mip_count {
-            downsampling_bind_groups.push(render_device.create_bind_group(
+            downsampling_bind_groups.push(gpu_device.create_bind_group(
                 "bloom_downsampling_bind_group",
                 &downsampling_pipeline.bind_group_layout,
                 &BindGroupEntries::sequential((
@@ -415,7 +415,7 @@ fn prepare_bloom_bind_groups(
 
         let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in (0..bloom_texture.mip_count).rev() {
-            upsampling_bind_groups.push(render_device.create_bind_group(
+            upsampling_bind_groups.push(gpu_device.create_bind_group(
                 "bloom_upsampling_bind_group",
                 &upsampling_pipeline.bind_group_layout,
                 &BindGroupEntries::sequential((

@@ -5,11 +5,11 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::{MeshVertexBufferLayout, PrimitiveTopology},
-        render_resource::{
+        gpu_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
         },
+        mesh::{MeshVertexBufferLayout, PrimitiveTopology},
     },
 };
 

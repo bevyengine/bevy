@@ -1,12 +1,12 @@
-use crate::extract_resource::ExtractResource;
-use crate::render_resource::TextureView;
-use crate::texture::BevyDefault;
-use bevy_ecs::system::Resource;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use crate::{
+    extract_resource::ExtractResource,
+    gpu_resource::{TextureFormat, TextureView},
+    texture::BevyDefault,
+};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent, system::Resource};
 use bevy_math::UVec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::HashMap;
-use wgpu::TextureFormat;
 
 /// A unique id that corresponds to a specific [`ManualTextureView`] in the [`ManualTextureViews`] collection.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]

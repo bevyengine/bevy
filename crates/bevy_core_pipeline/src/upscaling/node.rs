@@ -2,11 +2,11 @@ use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ExtractedCamera},
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{
+    gpu_resource::{
         BindGroup, BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
         RenderPassDescriptor, SamplerDescriptor, TextureViewId,
     },
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
     view::ViewTarget,
 };
@@ -53,10 +53,10 @@ impl ViewNode for UpscalingNode {
             Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
-                    .render_device()
+                    .gpu_device()
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group = render_context.render_device().create_bind_group(
+                let bind_group = render_context.gpu_device().create_bind_group(
                     None,
                     &blit_pipeline.texture_bind_group,
                     &BindGroupEntries::sequential((upscaled_texture, &sampler)),

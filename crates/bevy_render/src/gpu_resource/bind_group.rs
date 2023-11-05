@@ -1,9 +1,9 @@
 use crate::{
     define_atomic_id,
+    gpu_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::FallbackImage,
 };
 pub use bevy_render_macros::AsBindGroup;
@@ -20,7 +20,7 @@ render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 /// This makes them accessible in the pipeline (shaders) as uniforms.
 ///
 /// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
-/// Can be created via [`RenderDevice::create_bind_group`](crate::renderer::RenderDevice::create_bind_group).
+/// Can be created via [`GpuDevice::create_bind_group`](crate::renderer::GpuDevice::create_bind_group).
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
@@ -59,12 +59,12 @@ impl Deref for BindGroup {
 /// This is an opinionated trait that is intended to make it easy to generically
 /// convert a type into a [`BindGroup`]. It provides access to specific render resources,
 /// such as [`RenderAssets<Image>`] and [`FallbackImage`]. If a type has a [`Handle<Image>`](bevy_asset::Handle),
-/// these can be used to retrieve the corresponding [`Texture`](crate::render_resource::Texture) resource.
+/// these can be used to retrieve the corresponding [`Texture`](crate::gpu_resource::Texture) resource.
 ///
 /// [`AsBindGroup::as_bind_group`] is intended to be called once, then the result cached somewhere. It is generally
 /// ok to do "expensive" work here, such as creating a [`Buffer`] for a uniform.
 ///
-/// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::render_resource::Texture)
+/// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::gpu_resource::Texture)
 /// for an [`Image`] hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
 /// should retry again later.
 ///
@@ -74,7 +74,7 @@ impl Deref for BindGroup {
 /// what their binding type is, and what index they should be bound at:
 ///
 /// ```
-/// # use bevy_render::{color::Color, render_resource::*, texture::Image};
+/// # use bevy_render::{color::Color, gpu_resource::*, texture::Image};
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -109,7 +109,7 @@ impl Deref for BindGroup {
 ///   [`Color`](crate::color::Color). It can also be derived for custom structs.
 ///
 /// * `texture(BINDING_INDEX, arguments)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
+///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::gpu_resource::Texture)
 ///     GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
@@ -146,7 +146,7 @@ impl Deref for BindGroup {
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{color::Color, gpu_resource::AsBindGroup};
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -158,7 +158,7 @@ impl Deref for BindGroup {
 ///
 ///  As mentioned above, [`Option<Handle<Image>>`] is also supported:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup, texture::Image};
+/// # use bevy_render::{color::Color, gpu_resource::AsBindGroup, texture::Image};
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -174,7 +174,7 @@ impl Deref for BindGroup {
 ///
 /// Field uniforms with the same index will be combined into a single binding:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{color::Color, gpu_resource::AsBindGroup};
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
@@ -206,12 +206,12 @@ impl Deref for BindGroup {
 ///     * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
 ///     as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
 ///     the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
-///     is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
+///     is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::gpu_resource::SpecializedRenderPipeline).
 ///
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::{AsBindGroup, ShaderType}};
+/// # use bevy_render::{color::Color, gpu_resource::{AsBindGroup, ShaderType}};
 /// #[derive(AsBindGroup)]
 /// #[uniform(0, CoolMaterialUniform)]
 /// struct CoolMaterial {
@@ -237,7 +237,7 @@ impl Deref for BindGroup {
 ///
 /// Setting `bind_group_data` looks like this:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{color::Color, gpu_resource::AsBindGroup};
 /// #[derive(AsBindGroup)]
 /// #[bind_group_data(CoolMaterialKey)]
 /// struct CoolMaterial {
@@ -272,12 +272,12 @@ pub trait AsBindGroup {
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
-        render_device: &RenderDevice,
+        gpu_device: &GpuDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let UnpreparedBindGroup { bindings, data } =
-            Self::unprepared_bind_group(self, layout, render_device, images, fallback_image)?;
+            Self::unprepared_bind_group(self, layout, gpu_device, images, fallback_image)?;
 
         let entries = bindings
             .iter()
@@ -287,7 +287,7 @@ pub trait AsBindGroup {
             })
             .collect::<Vec<_>>();
 
-        let bind_group = render_device.create_bind_group(Self::label(), layout, &entries);
+        let bind_group = gpu_device.create_bind_group(Self::label(), layout, &entries);
 
         Ok(PreparedBindGroup {
             bindings,
@@ -303,24 +303,24 @@ pub trait AsBindGroup {
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
-        render_device: &RenderDevice,
+        gpu_device: &GpuDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    fn bind_group_layout(gpu_device: &GpuDevice) -> BindGroupLayout
     where
         Self: Sized,
     {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Self::label(),
-            entries: &Self::bind_group_layout_entries(render_device),
+            entries: &Self::bind_group_layout_entries(gpu_device),
         })
     }
 
     /// Returns a vec of bind group layout entries
-    fn bind_group_layout_entries(render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    fn bind_group_layout_entries(gpu_device: &GpuDevice) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized;
 }

@@ -7,9 +7,9 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
+    gpu_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
     renderer::*,
     view::*,
 };

@@ -7,9 +7,9 @@ use bevy_ecs::{
 use bevy_utils::nonmax::NonMaxU32;
 
 use crate::{
+    gpu_resource::{CachedRenderPipelineId, GpuArrayBuffer, GpuArrayBufferable},
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, RenderPhase},
-    render_resource::{CachedRenderPipelineId, GpuArrayBuffer, GpuArrayBufferable},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
 };
 
 /// Add this component to mesh entities to disable automatic batching
@@ -121,11 +121,11 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
 }
 
 pub fn write_batched_instance_buffer<F: GetBatchData>(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
 ) {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
-    gpu_array_buffer.write_buffer(&render_device, &render_queue);
+    gpu_array_buffer.write_buffer(&gpu_device, &gpu_queue);
     gpu_array_buffer.clear();
 }

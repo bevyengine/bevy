@@ -2,7 +2,7 @@ use bevy_asset::{AssetId, Assets};
 use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_render::{
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
+    gpu_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::{Image, TextureFormatPixelInfo},
 };
 use bevy_utils::HashMap;
