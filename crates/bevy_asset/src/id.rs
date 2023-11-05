@@ -2,9 +2,10 @@ use crate::{Asset, AssetIndex, Handle, UntypedHandle};
 use bevy_reflect::{Reflect, Uuid};
 use std::{
     any::TypeId,
+    borrow::Borrow,
     fmt::{Debug, Display},
     hash::Hash,
-    marker::PhantomData, borrow::Borrow,
+    marker::PhantomData,
 };
 
 /// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
