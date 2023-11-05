@@ -109,7 +109,7 @@ macro_rules! embedded_path {
 
     ($source_path: expr, $path_str: expr) => {{
         let crate_name = module_path!().split(':').next().unwrap();
-        let after_src = file!().split($source_path).nth(1).unwrap();
+        let after_src = file!().split($source_path).nth(0).unwrap();
         let file_path = std::path::Path::new(after_src)
             .parent()
             .unwrap()
