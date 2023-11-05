@@ -1,6 +1,5 @@
 use crate::meshlet::{
     prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
-    MESHLET_MESH_MATERIAL_SHADER_HANDLE,
 };
 use crate::*;
 use bevy_app::{App, Plugin};
@@ -255,7 +254,6 @@ where
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
     pub mesh_key: MeshPipelineKey,
-    pub for_meshlet_mesh: bool,
     pub bind_group_data: M::Data,
 }
 
@@ -277,7 +275,6 @@ where
     fn clone(&self) -> Self {
         Self {
             mesh_key: self.mesh_key,
-            for_meshlet_mesh: self.for_meshlet_mesh,
             bind_group_data: self.bind_group_data.clone(),
         }
     }
@@ -337,39 +334,8 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        // TODO: Should maybe move this after the material specialization,
-        // and return an error if the material explicitly sets any vertex stuff
-        // that would interfere with the meshlet vertex shader
-        if key.for_meshlet_mesh {
-            descriptor.vertex.shader = MESHLET_MESH_MATERIAL_SHADER_HANDLE;
-            descriptor.vertex.entry_point = "meshlet_vertex".into();
-            descriptor.vertex.buffers = Vec::new();
-
-            let _mesh_bind_group = descriptor.layout.pop().unwrap();
-            descriptor.layout.extend_from_slice(&[
-                self.meshlet_layout.clone().expect("TODO"),
-                self.material_layout.clone(),
-            ]);
-
-            let sd1 = ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1);
-            let sd2 = ShaderDefVal::UInt("MATERIAL_BIND_GROUP".into(), 2);
-            descriptor.vertex.shader_defs.push(sd1.clone());
-            descriptor.vertex.shader_defs.push(sd2.clone());
-            if let Some(f) = descriptor.fragment.as_mut() {
-                f.shader_defs.push(sd1);
-                f.shader_defs.push(sd2);
-            }
-        } else {
-            descriptor.layout.insert(1, self.material_layout.clone());
-
-            let sd = ShaderDefVal::UInt("MATERIAL_BIND_GROUP".into(), 1);
-            descriptor.vertex.shader_defs.push(sd.clone());
-            if let Some(f) = descriptor.fragment.as_mut() {
-                f.shader_defs.push(sd);
-            }
-        }
-
         M::specialize(self, &mut descriptor, layout, key)?;
+
         Ok(descriptor)
     }
 }
@@ -617,7 +583,6 @@ pub fn queue_material_meshes<M: Material>(
                 &material_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    for_meshlet_mesh: false,
                     bind_group_data: material.key.clone(),
                 },
                 &mesh.layout,

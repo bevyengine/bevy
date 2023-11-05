@@ -1626,7 +1626,6 @@ pub fn queue_shadows<M: Material>(
                     &prepass_pipeline,
                     MaterialPipelineKey {
                         mesh_key,
-                        for_meshlet_mesh: false,
                         bind_group_data: material.key.clone(),
                     },
                     &mesh.layout,

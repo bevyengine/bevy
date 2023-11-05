@@ -105,6 +105,7 @@ pub fn perform_pending_meshlet_mesh_writes(
         .perform_writes(&render_queue, &render_device);
 }
 
+// TODO: Figure out how to handle materials for meshlet meshes and (prepass, main pass, shadow pass)
 // TODO: Deduplicate view logic shared between many systems
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_for_meshlet_meshes<M: Material>(
@@ -267,7 +268,6 @@ pub fn prepare_material_for_meshlet_meshes<M: Material>(
                 &material_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    for_meshlet_mesh: true,
                     bind_group_data: material.key.clone(),
                 },
                 fake_vertex_buffer_layout,
