@@ -1100,6 +1100,17 @@ category = "Assets"
 wasm = true
 
 [[example]]
+name = "embedded_asset"
+path = "examples/asset/embedded.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.embedded_asset]
+name = "Embedded Asset"
+description = "Embed an asset in the application binary and load it"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 doc-scrape-examples = true
