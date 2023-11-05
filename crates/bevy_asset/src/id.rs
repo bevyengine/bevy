@@ -4,7 +4,7 @@ use std::{
     any::TypeId,
     fmt::{Debug, Display},
     hash::Hash,
-    marker::PhantomData,
+    marker::PhantomData, borrow::Borrow,
 };
 
 /// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
@@ -164,24 +164,10 @@ impl<A: Asset> From<Uuid> for AssetId<A> {
     }
 }
 
-impl<A: Asset> From<Handle<A>> for AssetId<A> {
+impl<T: Borrow<Handle<A>>, A: Asset> From<T> for AssetId<A> {
     #[inline]
-    fn from(value: Handle<A>) -> Self {
-        value.id()
-    }
-}
-
-impl<A: Asset> From<&Handle<A>> for AssetId<A> {
-    #[inline]
-    fn from(value: &Handle<A>) -> Self {
-        value.id()
-    }
-}
-
-impl<A: Asset> From<&mut Handle<A>> for AssetId<A> {
-    #[inline]
-    fn from(value: &mut Handle<A>) -> Self {
-        value.id()
+    fn from(value: T) -> Self {
+        value.borrow().id()
     }
 }
 
