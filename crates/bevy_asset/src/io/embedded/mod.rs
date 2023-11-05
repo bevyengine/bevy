@@ -104,16 +104,16 @@ impl EmbeddedAssetRegistry {
 #[macro_export]
 macro_rules! embedded_path {
     ($path_str: expr) => {{
-        embedded_path!("/src/", $path_str)
+        embedded_path!("src", $path_str)
     }};
 
     ($source_path: expr, $path_str: expr) => {{
         let crate_name = module_path!().split(':').next().unwrap();
-        let after_src = file!().split($source_path).nth(1).unwrap();
-        let file_path = std::path::Path::new(after_src)
-            .parent()
-            .unwrap()
-            .join($path_str);
+        let file_path = std::path::Path::new(file!());
+        let after_src = file_path
+            .strip_prefix($source_path)
+            .unwrap_or_else(|_| panic!("{file_path:?} does not have prefix {}", $source_path));
+        let file_path = after_src.parent().unwrap().join($path_str);
         std::path::Path::new(crate_name).join(file_path)
     }};
 }
@@ -186,7 +186,7 @@ macro_rules! embedded_path {
 #[macro_export]
 macro_rules! embedded_asset {
     ($app: ident, $path: expr) => {{
-        embedded_asset!($app, "/src/", $path)
+        embedded_asset!($app, "src", $path)
     }};
 
     ($app: ident, $source_path: expr, $path: expr) => {{
