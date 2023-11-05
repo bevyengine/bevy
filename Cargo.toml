@@ -579,6 +579,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "cpu_draw"
+path = "examples/2d/cpu_draw.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.cpu_draw]
+name = "CPU Drawing"
+description = "Manually read/write the pixels of a texture"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 doc-scrape-examples = true
