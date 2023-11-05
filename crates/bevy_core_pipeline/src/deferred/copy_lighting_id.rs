@@ -128,9 +128,9 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("copy_deferred_lighting_id_bind_group_layout"),
-            entries: &[BindGroupLayoutEntry {
+        let layout = render_device.create_bind_group_layout(
+            "copy_deferred_lighting_id_bind_group_layout",
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Texture {
@@ -140,7 +140,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                 },
                 count: None,
             }],
-        });
+        );
 
         let pipeline_id =
             world

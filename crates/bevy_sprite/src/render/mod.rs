@@ -53,8 +53,9 @@ impl FromWorld for SpritePipeline {
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
+        let view_layout = render_device.create_bind_group_layout(
+            "sprite_view_layout",
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
@@ -64,11 +65,11 @@ impl FromWorld for SpritePipeline {
                 },
                 count: None,
             }],
-            label: Some("sprite_view_layout"),
-        });
+        );
 
-        let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        let material_layout = render_device.create_bind_group_layout(
+            "sprite_material_layout",
+            &[
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::FRAGMENT,
@@ -86,8 +87,7 @@ impl FromWorld for SpritePipeline {
                     count: None,
                 },
             ],
-            label: Some("sprite_material_layout"),
-        });
+        );
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);

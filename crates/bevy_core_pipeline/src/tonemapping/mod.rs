@@ -280,10 +280,7 @@ impl FromWorld for TonemappingPipeline {
 
         let tonemap_texture_bind_group = render_world
             .resource::<RenderDevice>()
-            .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("tonemapping_hdr_texture_bind_group_layout"),
-                entries: &entries,
-            });
+            .create_bind_group_layout("tonemapping_hdr_texture_bind_group_layout", &entries);
 
         TonemappingPipeline {
             texture_bind_group: tonemap_texture_bind_group,

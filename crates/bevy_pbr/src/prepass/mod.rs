@@ -229,74 +229,72 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         let render_device = world.resource::<RenderDevice>();
         let asset_server = world.resource::<AssetServer>();
 
-        let view_layout_motion_vectors =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[
-                    // View
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(ViewUniform::min_size()),
-                        },
-                        count: None,
+        let view_layout_motion_vectors = render_device.create_bind_group_layout(
+            "prepass_view_layout_motion_vectors",
+            &[
+                // View
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(ViewUniform::min_size()),
                     },
-                    // Globals
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::VERTEX_FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: Some(GlobalsUniform::min_size()),
-                        },
-                        count: None,
+                    count: None,
+                },
+                // Globals
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
-                    // PreviousViewProjection
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(PreviousViewProjection::min_size()),
-                        },
-                        count: None,
+                    count: None,
+                },
+                // PreviousViewProjection
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(PreviousViewProjection::min_size()),
                     },
-                ],
-                label: Some("prepass_view_layout_motion_vectors"),
-            });
+                    count: None,
+                },
+            ],
+        );
 
-        let view_layout_no_motion_vectors =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[
-                    // View
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(ViewUniform::min_size()),
-                        },
-                        count: None,
+        let view_layout_no_motion_vectors = render_device.create_bind_group_layout(
+            "prepass_view_layout_no_motion_vectors",
+            &[
+                // View
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(ViewUniform::min_size()),
                     },
-                    // Globals
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::VERTEX_FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: Some(GlobalsUniform::min_size()),
-                        },
-                        count: None,
+                    count: None,
+                },
+                // Globals
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
-                ],
-                label: Some("prepass_view_layout_no_motion_vectors"),
-            });
+                    count: None,
+                },
+            ],
+        );
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
 

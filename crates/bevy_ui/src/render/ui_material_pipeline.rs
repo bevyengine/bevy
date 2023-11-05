@@ -223,8 +223,9 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
         let render_device = world.resource::<RenderDevice>();
         let ui_layout = M::bind_group_layout(render_device);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
+        let view_layout = render_device.create_bind_group_layout(
+            "ui_view_layout",
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
@@ -234,8 +235,7 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
                 },
                 count: None,
             }],
-            label: Some("ui_view_layout"),
-        });
+        );
         UiMaterialPipeline {
             ui_layout,
             view_layout,

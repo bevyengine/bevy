@@ -16,8 +16,9 @@ impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
+        let view_layout = render_device.create_bind_group_layout(
+            "ui_view_layout",
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
@@ -27,11 +28,11 @@ impl FromWorld for UiPipeline {
                 },
                 count: None,
             }],
-            label: Some("ui_view_layout"),
-        });
+        );
 
-        let image_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        let image_layout = render_device.create_bind_group_layout(
+            "ui_image_layout",
+            &[
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::FRAGMENT,
@@ -49,8 +50,7 @@ impl FromWorld for UiPipeline {
                     count: None,
                 },
             ],
-            label: Some("ui_image_layout"),
-        });
+        );
 
         UiPipeline {
             view_layout,

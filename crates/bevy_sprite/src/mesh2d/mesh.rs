@@ -256,8 +256,9 @@ impl FromWorld for Mesh2dPipeline {
         )> = SystemState::new(world);
         let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
         let render_device = render_device.into_inner();
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        let view_layout = render_device.create_bind_group_layout(
+            "mesh2d_view_layout",
+            &[
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -280,17 +281,16 @@ impl FromWorld for Mesh2dPipeline {
                     count: None,
                 },
             ],
-            label: Some("mesh2d_view_layout"),
-        });
+        );
 
-        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[GpuArrayBuffer::<Mesh2dUniform>::binding_layout(
+        let mesh_layout = render_device.create_bind_group_layout(
+            "mesh2d_layout",
+            &[GpuArrayBuffer::<Mesh2dUniform>::binding_layout(
                 0,
                 ShaderStages::VERTEX_FRAGMENT,
                 render_device,
             )],
-            label: Some("mesh2d_layout"),
-        });
+        );
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::default();

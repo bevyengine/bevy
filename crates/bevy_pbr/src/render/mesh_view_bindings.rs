@@ -16,7 +16,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType,
         BufferBindingType, DynamicBindGroupEntries, SamplerBindingType, ShaderStages, ShaderType,
         TextureFormat, TextureSampleType, TextureViewDimension,
     },
@@ -347,10 +347,8 @@ pub fn generate_view_layouts(
             .count();
 
         MeshPipelineViewLayout {
-            bind_group_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some(key.label().as_str()),
-                entries: &entries,
-            }),
+            bind_group_layout: render_device
+                .create_bind_group_layout(key.label().as_str(), &entries),
             #[cfg(debug_assertions)]
             texture_count,
         }

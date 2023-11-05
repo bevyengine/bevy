@@ -10,7 +10,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntry, BindingType, BufferBindingType, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
         FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
@@ -80,41 +80,38 @@ struct SkyboxPipeline {
 
 impl SkyboxPipeline {
     fn new(render_device: &RenderDevice) -> Self {
-        let bind_group_layout_descriptor = BindGroupLayoutDescriptor {
-            label: Some("skybox_bind_group_layout"),
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::Cube,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-        };
-
         Self {
-            bind_group_layout: render_device
-                .create_bind_group_layout(&bind_group_layout_descriptor),
+            bind_group_layout: render_device.create_bind_group_layout(
+                "skybox_bind_group_layout",
+                &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float { filterable: true },
+                            view_dimension: TextureViewDimension::Cube,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStages::VERTEX_FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(ViewUniform::min_size()),
+                        },
+                        count: None,
+                    },
+                ],
+            ),
         }
     }
 }

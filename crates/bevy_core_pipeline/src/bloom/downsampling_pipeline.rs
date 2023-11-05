@@ -74,11 +74,10 @@ impl FromWorld for BloomDownsamplingPipeline {
         };
 
         // Bind group layout
-        let bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("bloom_downsampling_bind_group_layout_with_settings"),
-                entries: &[texture, sampler, settings],
-            });
+        let bind_group_layout = render_device.create_bind_group_layout(
+            Some("bloom_downsampling_bind_group_layout_with_settings"),
+            &[texture, sampler, settings],
+        );
 
         // Sampler
         let sampler = render_device.create_sampler(&SamplerDescriptor {

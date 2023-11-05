@@ -201,9 +201,9 @@ impl FromWorld for ScreenshotToScreenPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let device = render_world.resource::<RenderDevice>();
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("screenshot-to-screen-bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
+        let bind_group_layout = device.create_bind_group_layout(
+            "screenshot-to-screen-bgl",
+            &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
@@ -213,7 +213,7 @@ impl FromWorld for ScreenshotToScreenPipeline {
                 },
                 count: None,
             }],
-        });
+        );
 
         Self { bind_group_layout }
     }

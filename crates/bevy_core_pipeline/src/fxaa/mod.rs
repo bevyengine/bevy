@@ -131,9 +131,9 @@ impl FromWorld for FxaaPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let texture_bind_group = render_world
             .resource::<RenderDevice>()
-            .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("fxaa_texture_bind_group_layout"),
-                entries: &[
+            .create_bind_group_layout(
+                "fxaa_texture_bind_group_layout",
+                &[
                     BindGroupLayoutEntry {
                         binding: 0,
                         visibility: ShaderStages::FRAGMENT,
@@ -151,7 +151,7 @@ impl FromWorld for FxaaPipeline {
                         count: None,
                     },
                 ],
-            });
+            );
 
         FxaaPipeline { texture_bind_group }
     }

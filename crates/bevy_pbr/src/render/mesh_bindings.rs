@@ -133,40 +133,38 @@ impl MeshLayouts {
     // ---------- create individual BindGroupLayouts ----------
 
     fn model_only_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[layout_entry::model(render_device, 0)],
-            label: Some("mesh_layout"),
-        })
+        render_device
+            .create_bind_group_layout("mesh_layout", &[layout_entry::model(render_device, 0)])
     }
     fn skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        render_device.create_bind_group_layout(
+            "skinned_mesh_layout",
+            &[
                 layout_entry::model(render_device, 0),
                 layout_entry::skinning(1),
             ],
-            label: Some("skinned_mesh_layout"),
-        })
+        )
     }
     fn morphed_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        render_device.create_bind_group_layout(
+            "morphed_mesh_layout",
+            &[
                 layout_entry::model(render_device, 0),
                 layout_entry::weights(2),
                 layout_entry::targets(3),
             ],
-            label: Some("morphed_mesh_layout"),
-        })
+        )
     }
     fn morphed_skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        render_device.create_bind_group_layout(
+            "morphed_skinned_mesh_layout",
+            &[
                 layout_entry::model(render_device, 0),
                 layout_entry::skinning(1),
                 layout_entry::weights(2),
                 layout_entry::targets(3),
             ],
-            label: Some("morphed_skinned_mesh_layout"),
-        })
+        )
     }
 
     // ---------- BindGroup methods ----------

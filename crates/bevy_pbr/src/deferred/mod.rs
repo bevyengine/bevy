@@ -376,9 +376,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 impl FromWorld for DeferredLightingLayout {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("deferred_lighting_layout"),
-            entries: &[BindGroupLayoutEntry {
+        let layout = render_device.create_bind_group_layout(
+            "deferred_lighting_layout",
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX_FRAGMENT,
                 ty: BindingType::Buffer {
@@ -388,7 +388,7 @@ impl FromWorld for DeferredLightingLayout {
                 },
                 count: None,
             }],
-        });
+        );
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             bind_group_layout_1: layout,
