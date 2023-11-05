@@ -300,19 +300,21 @@ pub fn queue_material_meshlet_meshes<M: Material>(
     let gpu_scene = gpu_scene.deref_mut();
 
     for instance in &gpu_scene.instances {
-        let material_id = render_material_instances
+        let material_asset_id = render_material_instances
             .get(instance)
             .expect("TODO")
             .untyped();
 
-        gpu_scene.materials_used.insert(material_id);
+        gpu_scene.materials_used.insert(material_asset_id);
 
-        gpu_scene.instance_material_ids.get_mut().push(
-            *gpu_scene
-                .material_order_lookup
-                .get(&material_id)
-                .expect("TODO: Will this error ever occur?"),
-        );
+        let material_id = *gpu_scene
+            .material_order_lookup
+            .get(&material_asset_id)
+            .expect("TODO: Will this error ever occur?");
+        gpu_scene
+            .instance_material_ids
+            .get_mut()
+            .push(material_id + 1);
     }
 }
 
