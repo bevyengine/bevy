@@ -119,7 +119,7 @@ use bevy_utils::Duration;
 /// struct PauseEvent(bool);
 ///
 /// fn pause_system(mut time: ResMut<Time<Virtual>>, mut events: EventReader<PauseEvent>) {
-///     for ev in events.iter() {
+///     for ev in events.read() {
 ///         if ev.0 {
 ///             time.pause();
 ///         } else {
