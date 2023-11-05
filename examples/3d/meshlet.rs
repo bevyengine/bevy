@@ -10,6 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(MeshletPlugin)
+        .insert_resource(Msaa::Off) // TODO: MSAA support
         .add_systems(Update, (setup, camera_controller))
         .run();
 }

@@ -4,6 +4,7 @@
     morph::morph,
     forward_io::{Vertex, VertexOutput},
     view_transformations::position_world_to_clip,
+    mesh_bindings::mesh,
 }
 #import bevy_render::instance_index::get_instance_index
 
