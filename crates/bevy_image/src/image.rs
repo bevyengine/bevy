@@ -1014,10 +1014,10 @@ impl Image {
                 Ok(Color::rgba_linear(r, g, 0.0, 1.0))
             }
             _ => {
-                return Err(TextureAccessError::UnsupportedTextureFormat(format!(
+                Err(TextureAccessError::UnsupportedTextureFormat(format!(
                     "{:?}",
                     self.texture_descriptor.format
-                )));
+                )))
             }
         }
     }
