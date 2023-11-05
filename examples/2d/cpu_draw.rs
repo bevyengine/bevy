@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             let center = Vec2::new(IMAGE_WIDTH as f32 / 2.0, IMAGE_HEIGHT as f32 / 2.0);
             let max_radius = IMAGE_HEIGHT.min(IMAGE_WIDTH) as f32 / 2.0;
             let r = Vec2::new(x as f32, y as f32).distance(center);
-            let a = 1.0 - (r / max_radius as f32).clamp(0.0, 1.0);
+            let a = 1.0 - (r / max_radius).clamp(0.0, 1.0);
 
             // here we will set the A value by accessing the raw data bytes
             // (it is the 4th byte of each pixel, as per our `TextureFormat`)
