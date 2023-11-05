@@ -14,7 +14,7 @@ pub const MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
 #[derive(Resource)]
 pub struct MeshletPipelines {
     cull: CachedComputePipelineId,
-    visibility_buffer: CachedRenderPipelineId,
+    visibility_buffer: CachedRenderPipelineId, // TODO: Need two variants? With and without DEPTH_CLAMP_ORTHO?
 }
 
 impl FromWorld for MeshletPipelines {

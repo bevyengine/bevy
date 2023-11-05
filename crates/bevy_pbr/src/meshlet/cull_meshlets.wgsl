@@ -29,8 +29,8 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let draw_index_buffer_start = atomicAdd(&draw_command_buffer.vertex_count, meshlet_vertex_count);
 
         let packed_thread_id = thread_id.x << 8u;
-        for (var offset = 0u; offset < meshlet_vertex_count; offset++) {
-            draw_index_buffer[draw_index_buffer_start + offset] = packed_thread_id | offset;
+        for (var index_id = 0u; index_id < meshlet_vertex_count; index_id++) {
+            draw_index_buffer[draw_index_buffer_start + index_id] = packed_thread_id | index_id;
         }
     }
 }
