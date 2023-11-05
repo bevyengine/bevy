@@ -86,7 +86,7 @@ fn print_real_time(time: Res<Time<Real>>) {
     );
 }
 
-fn print_fixed_time(time: Res<Fixed>) {
+fn print_fixed_time(time: Res<Time<Fixed>>) {
     println!(
         "FixedUpdate: this is generic time clock inside fixed, delta is {:?} and elapsed is {:?}",
         time.delta(),
