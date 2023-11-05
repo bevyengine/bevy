@@ -12,31 +12,39 @@
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
 // We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
-fn prepass_alpha_discard(in: VertexOutput) {
-
-#ifdef MAY_DISCARD
-    var output_color: vec4<f32> = pbr_bindings::material.base_color;
-
-#ifdef VERTEX_UVS
-    if (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, in.uv, view.mip_bias);
-    }
-#endif // VERTEX_UVS
-
-    let alpha_mode = pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
-        if output_color.a < pbr_bindings::material.alpha_cutoff {
+fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) {
+    let alpha_mode = material_flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+        if output_color.a < alpha_cutoff {
             discard;
         }
-    } else if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
+    } else if (alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
         if output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
             discard;
         }
-    } else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
+    } else if alpha_mode == bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
         if all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
             discard;
         }
     }
+}
+
+fn prepass_sample_color_and_alpha_discard(in: FragmentInput) {
+
+#ifdef MAY_DISCARD
+    var output_color: vec4<f32> = bevy_pbr::pbr_bindings::material.base_color;
+
+#ifdef VERTEX_UVS
+    if (bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
+        output_color = output_color * textureSampleBias(bevy_pbr::pbr_bindings::base_color_texture, bevy_pbr::pbr_bindings::base_color_sampler, in.uv, bevy_pbr::prepass_bindings::view.mip_bias);
+    }
+#endif // VERTEX_UVS
+
+    prepass_alpha_discard(
+        bevy_pbr::pbr_bindings::material.flags,
+        bevy_pbr::pbr_bindings::material.alpha_cutoff,
+        output_color
+    );
 
 #endif // MAY_DISCARD
 }

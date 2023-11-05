@@ -13,7 +13,7 @@ fn fragment(
     in: prepass_io::VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> prepass_io::FragmentOutput {
-    pbr_prepass_functions::prepass_alpha_discard(in);
+    pbr_prepass_functions::prepass_sample_color_and_alpha_discard(in);
 
     var out: prepass_io::FragmentOutput;
 
@@ -63,6 +63,6 @@ fn fragment(
 #else
 @fragment
 fn fragment(in: prepass_io::VertexOutput) {
-    pbr_prepass_functions::prepass_alpha_discard(in);
+    pbr_prepass_functions::prepass_sample_color_and_alpha_discard(in);
 }
 #endif // PREPASS_FRAGMENT
