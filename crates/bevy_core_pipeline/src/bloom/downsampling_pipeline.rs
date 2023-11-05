@@ -41,42 +41,20 @@ impl FromWorld for BloomDownsamplingPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        // Input texture binding
-        let texture = BindGroupLayoutEntry {
-            binding: 0,
-            ty: BindingType::Texture {
-                sample_type: TextureSampleType::Float { filterable: true },
-                view_dimension: TextureViewDimension::D2,
-                multisampled: false,
-            },
-            visibility: ShaderStages::FRAGMENT,
-            count: None,
-        };
-
-        // Sampler binding
-        let sampler = BindGroupLayoutEntry {
-            binding: 1,
-            ty: BindingType::Sampler(SamplerBindingType::Filtering),
-            visibility: ShaderStages::FRAGMENT,
-            count: None,
-        };
-
-        // Downsampling settings binding
-        let settings = BindGroupLayoutEntry {
-            binding: 2,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(BloomUniforms::min_size()),
-            },
-            visibility: ShaderStages::FRAGMENT,
-            count: None,
-        };
-
         // Bind group layout
         let bind_group_layout = render_device.create_bind_group_layout(
-            Some("bloom_downsampling_bind_group_layout_with_settings"),
-            &[texture, sampler, settings],
+            "bloom_downsampling_bind_group_layout_with_settings",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    // Input texture binding
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    // Sampler binding
+                    sampler(SamplerBindingType::Filtering),
+                    // Downsampling settings binding
+                    uniform_buffer(true, Some(BloomUniforms::min_size())),
+                ),
+            ),
         );
 
         // Sampler

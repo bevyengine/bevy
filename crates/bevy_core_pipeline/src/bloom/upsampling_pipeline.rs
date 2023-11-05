@@ -33,37 +33,17 @@ impl FromWorld for BloomUpsamplingPipeline {
 
         let bind_group_layout = render_device.create_bind_group_layout(
             "bloom_upsampling_bind_group_layout",
-            &[
-                // Input texture
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    visibility: ShaderStages::FRAGMENT,
-                    count: None,
-                },
-                // Sampler
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    visibility: ShaderStages::FRAGMENT,
-                    count: None,
-                },
-                // BloomUniforms
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(BloomUniforms::min_size()),
-                    },
-                    visibility: ShaderStages::FRAGMENT,
-                    count: None,
-                },
-            ],
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    // Input texture
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    // Sampler
+                    sampler(SamplerBindingType::Filtering),
+                    // BloomUniforms
+                    uniform_buffer(true, Some(BloomUniforms::min_size())),
+                ),
+            ),
         );
 
         BloomUpsamplingPipeline { bind_group_layout }
