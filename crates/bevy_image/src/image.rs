@@ -1013,12 +1013,10 @@ impl Image {
                 let g = f32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
                 Ok(Color::rgba_linear(r, g, 0.0, 1.0))
             }
-            _ => {
-                Err(TextureAccessError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    self.texture_descriptor.format
-                )))
-            }
+            _ => Err(TextureAccessError::UnsupportedTextureFormat(format!(
+                "{:?}",
+                self.texture_descriptor.format
+            ))),
         }
     }
 
