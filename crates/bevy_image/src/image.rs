@@ -878,8 +878,14 @@ impl Image {
     ///
     /// Supports many of the common [`TextureFormat`]s:
     ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
-    ///  - 16-bit and 32-bit unsigned integer (some precision may be lost, as [`Color`] uses `f32`)
+    ///  - 16-bit and 32-bit unsigned integer
     ///  - 32-bit float
+    ///
+    /// Be careful: as the data is converted to [`Color`] (which uses `f32` internally),
+    /// there may be issues with precision when using non-float [`TextureFormat`]s.
+    /// If you read a value you previously wrote using `set_color_at`, it will not match.
+    /// If you are working with a 32-bit integer [`TextureFormat`], the value will be
+    /// inaccurate (as `f32` does not have enough bits to represent it exactly).
     ///
     /// Single channel (R) formats are assumed to represent greyscale, so the value
     /// will be copied to all three RGB channels in the resulting [`Color`].
@@ -1026,6 +1032,10 @@ impl Image {
     ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
     ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses `f32`)
     ///  - 32-bit float
+    ///
+    /// Be careful: writing to non-float [`TextureFormat`]s is lossy! The data has to be converted,
+    /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
+    /// you used when writing it using this function.
     ///
     /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
     ///
