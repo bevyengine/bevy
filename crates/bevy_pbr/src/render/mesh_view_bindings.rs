@@ -16,9 +16,9 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType,
-        BufferBindingType, DynamicBindGroupEntries, SamplerBindingType, ShaderStages, ShaderType,
-        TextureFormat, TextureSampleType, TextureViewDimension,
+        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType, BufferBindingType,
+        DynamicBindGroupEntries, SamplerBindingType, ShaderStages, ShaderType, TextureFormat,
+        TextureSampleType, TextureViewDimension,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, FallbackImageZero, Image},

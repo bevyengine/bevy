@@ -54,10 +54,9 @@ use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
-        BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
-        VertexFormat, VertexStepMode,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntry, BindingType, Buffer,
+        BufferBindingType, BufferInitDescriptor, BufferUsages, Shader, ShaderStages, ShaderType,
+        VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
     view::RenderLayers,
