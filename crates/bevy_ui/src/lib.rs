@@ -196,8 +196,17 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 resolve_outlines_system
                     .in_set(UiSystem::Outlines)
-                    .after(UiSystem::Layout),
-                ui_stack_system.in_set(UiSystem::Stack),
+                    .after(UiSystem::Layout)
+                    // clipping doesn't care about outlines
+                    .ambiguous_with(update_clipping_system)
+                    .ambiguous_with(widget::text_system),
+                ui_stack_system
+                    .in_set(UiSystem::Stack)
+                    // the systems don't care about stack index
+                    .ambiguous_with(update_clipping_system)
+                    .ambiguous_with(resolve_outlines_system)
+                    .ambiguous_with(ui_layout_system)
+                    .ambiguous_with(widget::text_system),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
         );
