@@ -365,7 +365,7 @@ impl Plugin for PbrPlugin {
             bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
         );
 
-        render_app.ambiguous_with(
+        render_app.ignore_ambiguities(
             bevy_render::Render,
             bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
             bevy_render::batching::batch_and_prepare_render_phase::<

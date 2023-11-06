@@ -991,7 +991,7 @@ impl App {
     /// However, sometimes two independant plugins `A` and `B` are reported as ambiguous, which you
     /// can only supress as the consumer of both.
     #[track_caller]
-    pub fn ambiguous_with<M1, M2, S1, S2>(
+    pub fn ignore_ambiguities<M1, M2, S1, S2>(
         &mut self,
         schedule: impl ScheduleLabel,
         a: S1,
@@ -1006,10 +1006,10 @@ impl App {
 
         if let Some(schedule) = schedules.get_mut(schedule) {
             let schedule: &mut Schedule = schedule;
-            schedule.ambiguous_with(a, b);
+            schedule.ignore_ambiguities(a, b);
         } else {
             let mut new_schedule = Schedule::new(schedule);
-            (&mut new_schedule).ambiguous_with(a, b);
+            new_schedule.ignore_ambiguities(a, b);
             schedules.insert(new_schedule);
         }
 
