@@ -27,7 +27,11 @@ impl ReflectMapEntities {
     /// An example of this: A scene can be loaded with `Parent` components, but then a `Parent` component can be added
     /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`](Self::map_all_entities), those `Parent`
     /// components with already valid entity references could be updated to point at something else entirely.
-    pub fn map_all_entities(&self, world: &mut World, entity_map: &mut EntityHashMap<Entity, Entity>) {
+    pub fn map_all_entities(
+        &self,
+        world: &mut World,
+        entity_map: &mut EntityHashMap<Entity, Entity>,
+    ) {
         EntityMapper::world_scope(entity_map, world, self.map_all_entities);
     }
 
