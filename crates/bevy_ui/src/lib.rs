@@ -153,14 +153,26 @@ impl Plugin for UiPlugin {
                     // Potential conflict: `Assets<Image>`
                     // Since both systems will only ever insert new [`Image`] assets,
                     // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout)
+                    // We assume Text is on disjoint UI entities to UiImage and UiTextureAtlasImage
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(widget::update_image_content_size_system)
+                    .ambiguous_with(widget::update_atlas_content_size_system),
+                widget::text_system
+                    .after(UiSystem::Layout)
+                    .after(bevy_text::remove_dropped_font_atlas_sets)
+                    // Text2d and bevy_ui text are entirely on separate entities
                     .ambiguous_with(bevy_text::update_text2d_layout),
-                widget::text_system.after(UiSystem::Layout),
             ),
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
-            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
+            let system = widget::update_image_content_size_system
+                .before(UiSystem::Layout)
+                // We assume UiImage, UiTextureAtlasImage are disjoint UI entities
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                .ambiguous_with(widget::update_atlas_content_size_system);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
