@@ -39,7 +39,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 20.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -47,7 +47,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 30.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -55,7 +55,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 20.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -63,7 +63,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 30.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -71,7 +71,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 18.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -79,7 +79,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font,
                     font_size: 25.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
         ])
@@ -97,7 +97,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 100.0,
-                color: Color::WHITE,
+                ..default()
             },
         ),
         ..default()

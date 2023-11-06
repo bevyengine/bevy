@@ -43,7 +43,6 @@ fn setup(mut commands: Commands) {
             value: "0123456789".repeat(10_000),
             style: TextStyle {
                 font_size: 4.,
-                color: Color::WHITE,
                 ..default()
             },
         }],
