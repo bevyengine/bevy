@@ -57,7 +57,7 @@ fn derive_dependency_visitor_internal(
                 None => {
                     let index = syn::Index::from(i);
                     visit_dep(quote!(&self.#index))
-                },
+                }
             });
             Some(quote!( #(#field_visitors)* ))
         }
