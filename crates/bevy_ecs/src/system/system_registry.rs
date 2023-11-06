@@ -7,18 +7,18 @@ use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-struct RegisteredSystem<I> {
+struct RegisteredSystem<I, O> {
     initialized: bool,
-    system: BoxedSystem<I>,
+    system: BoxedSystem<I, O>,
 }
 
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
 ///
 /// This struct is returned by [`World::remove_system`].
-pub struct RemovedSystem<I = ()> {
+pub struct RemovedSystem<I = (), O = ()> {
     initialized: bool,
-    system: BoxedSystem<I>,
+    system: BoxedSystem<I, O>,
 }
 
 impl RemovedSystem {
@@ -39,29 +39,29 @@ impl RemovedSystem {
 /// These are opaque identifiers, keyed to a specific [`World`],
 /// and are created via [`World::register_system`].
 #[derive(Eq)]
-pub struct SystemId<I = ()>(Entity, std::marker::PhantomData<I>);
+pub struct SystemId<I = (), O = ()>(Entity, std::marker::PhantomData<fn(I) -> O>);
 
-// A manual impl is used because the trait bounds should ignore the `I` phantom parameter.
-impl<I> Copy for SystemId<I> {}
-// A manual impl is used because the trait bounds should ignore the `I` phantom parameter.
-impl<I> Clone for SystemId<I> {
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I, O> Copy for SystemId<I, O> {}
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I, O> Clone for SystemId<I, O> {
     fn clone(&self) -> Self {
         *self
     }
 }
-// A manual impl is used because the trait bounds should ignore the `I` phantom parameter.
-impl<I> PartialEq for SystemId<I> {
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I, O> PartialEq for SystemId<I, O> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
     }
 }
-// A manual impl is used because the trait bounds should ignore the `I` phantom parameter.
-impl<I> std::hash::Hash for SystemId<I> {
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I, O> std::hash::Hash for SystemId<I, O> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
-impl<I> std::fmt::Debug for SystemId<I> {
+impl<I, O> std::fmt::Debug for SystemId<I, O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // The PhantomData field is omitted for simplicity.
         f.debug_tuple("SystemId").field(&self.0).finish()
@@ -78,10 +78,10 @@ impl World {
     /// This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and abillity to run non-conflicting systems simultaneously.
-    pub fn register_system<I: 'static, M, S: IntoSystem<I, (), M> + 'static>(
+    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
         system: S,
-    ) -> SystemId<I> {
+    ) -> SystemId<I, O> {
         self.register_boxed_system(Box::new(IntoSystem::into_system(system)))
     }
 
@@ -89,7 +89,10 @@ impl World {
     ///
     ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
     /// [`System`](crate::system::System) trait object and put in a [`Box`].
-    pub fn register_boxed_system<I: 'static>(&mut self, system: BoxedSystem<I>) -> SystemId<I> {
+    pub fn register_boxed_system<I: 'static, O: 'static>(
+        &mut self,
+        system: BoxedSystem<I, O>,
+    ) -> SystemId<I, O> {
         SystemId(
             self.spawn(RegisteredSystem {
                 initialized: false,
@@ -106,14 +109,14 @@ impl World {
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
-    pub fn remove_system<I: 'static>(
+    pub fn remove_system<I: 'static, O: 'static>(
         &mut self,
-        id: SystemId<I>,
-    ) -> Result<RemovedSystem<I>, RegisteredSystemError<I>> {
+        id: SystemId<I, O>,
+    ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>> {
         match self.get_entity_mut(id.0) {
             Some(mut entity) => {
                 let registered_system = entity
-                    .take::<RegisteredSystem<I>>()
+                    .take::<RegisteredSystem<I, O>>()
                     .ok_or(RegisteredSystemError::SelfRemove(id))?;
                 entity.despawn();
                 Ok(RemovedSystem {
@@ -140,6 +143,8 @@ impl World {
     ///
     /// # Examples
     ///
+    /// ## Running a system
+    ///
     /// ```rust
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
@@ -158,7 +163,7 @@ impl World {
     /// world.run_system(counter_two); // -> 1
     /// ```
     ///
-    /// Change detection:
+    /// ## Change detection
     ///
     /// ```rust
     /// # use bevy_ecs::prelude::*;
@@ -181,7 +186,43 @@ impl World {
     /// world.resource_mut::<ChangeDetector>().set_changed();
     /// let _ = world.run_system(detector); // -> Something happened!
     /// ```
-    pub fn run_system(&mut self, id: SystemId) -> Result<(), RegisteredSystemError> {
+    ///
+    /// ## Getting system output
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource)]
+    /// struct PlayerScore(i32);
+    ///
+    /// #[derive(Resource)]
+    /// struct OpponentScore(i32);
+    ///
+    /// fn get_player_score(player_score: Res<PlayerScore>) -> i32 {
+    ///   player_score.0
+    /// }
+    ///
+    /// fn get_opponent_score(opponent_score: Res<OpponentScore>) -> i32 {
+    ///   opponent_score.0
+    /// }
+    ///
+    /// let mut world = World::default();
+    /// world.insert_resource(PlayerScore(3));
+    /// world.insert_resource(OpponentScore(2));
+    ///
+    /// let scoring_systems = [
+    ///   ("player", world.register_system(get_player_score)),
+    ///   ("opponent", world.register_system(get_opponent_score)),
+    /// ];
+    ///
+    /// for (label, scoring_system) in scoring_systems {
+    ///   println!("{label} has score {}", world.run_system(scoring_system).expect("system succeeded"));
+    /// }
+    /// ```
+    pub fn run_system<O: 'static>(
+        &mut self,
+        id: SystemId<(), O>,
+    ) -> Result<O, RegisteredSystemError<(), O>> {
         self.run_system_with_input(id, ())
     }
 
@@ -215,11 +256,11 @@ impl World {
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
-    pub fn run_system_with_input<I: 'static>(
+    pub fn run_system_with_input<I: 'static, O: 'static>(
         &mut self,
-        id: SystemId<I>,
+        id: SystemId<I, O>,
         input: I,
-    ) -> Result<(), RegisteredSystemError<I>> {
+    ) -> Result<O, RegisteredSystemError<I, O>> {
         // lookup
         let mut entity = self
             .get_entity_mut(id.0)
@@ -230,7 +271,7 @@ impl World {
             mut initialized,
             mut system,
         } = entity
-            .take::<RegisteredSystem<I>>()
+            .take::<RegisteredSystem<I, O>>()
             .ok_or(RegisteredSystemError::Recursive(id))?;
 
         // run the system
@@ -238,17 +279,17 @@ impl World {
             system.initialize(self);
             initialized = true;
         }
-        system.run(input, self);
+        let result = system.run(input, self);
         system.apply_deferred(self);
 
         // return ownership of system trait object (if entity still exists)
         if let Some(mut entity) = self.get_entity_mut(id.0) {
-            entity.insert::<RegisteredSystem<I>>(RegisteredSystem {
+            entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
             });
         }
-        Ok(())
+        Ok(result)
     }
 }
 
@@ -277,21 +318,21 @@ impl Command for RunSystem {
 
 /// An operation with stored systems failed.
 #[derive(Error)]
-pub enum RegisteredSystemError<I = ()> {
+pub enum RegisteredSystemError<I = (), O = ()> {
     /// A system was run by id, but no system with that id was found.
     ///
     /// Did you forget to register it?
     #[error("System {0:?} was not registered")]
-    SystemIdNotRegistered(SystemId<I>),
+    SystemIdNotRegistered(SystemId<I, O>),
     /// A system tried to run itself recursively.
     #[error("System {0:?} tried to run itself recursively")]
-    Recursive(SystemId<I>),
+    Recursive(SystemId<I, O>),
     /// A system tried to remove itself.
     #[error("System {0:?} tried to remove itself")]
-    SelfRemove(SystemId<I>),
+    SelfRemove(SystemId<I, O>),
 }
 
-impl<I> std::fmt::Debug for RegisteredSystemError<I> {
+impl<I, O> std::fmt::Debug for RegisteredSystemError<I, O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SystemIdNotRegistered(arg0) => {
@@ -399,6 +440,34 @@ mod tests {
             .run_system_with_input(id, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(24));
+    }
+
+    #[test]
+    fn output_values() {
+        // Verify that a non-Copy, non-Clone type can be returned.
+        #[derive(Eq, PartialEq, Debug)]
+        struct NonCopy(u8);
+
+        fn increment_sys(mut counter: ResMut<Counter>) -> NonCopy {
+            counter.0 += 1;
+            NonCopy(counter.0)
+        }
+
+        let mut world = World::new();
+
+        let id = world.register_system(increment_sys);
+
+        // Insert the resource after registering the system.
+        world.insert_resource(Counter(1));
+        assert_eq!(*world.resource::<Counter>(), Counter(1));
+
+        let output = world.run_system(id).expect("system runs successfully");
+        assert_eq!(*world.resource::<Counter>(), Counter(2));
+        assert_eq!(output, NonCopy(2));
+
+        let output = world.run_system(id).expect("system runs successfully");
+        assert_eq!(*world.resource::<Counter>(), Counter(3));
+        assert_eq!(output, NonCopy(3));
     }
 
     #[test]
