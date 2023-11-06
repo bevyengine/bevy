@@ -998,8 +998,8 @@ impl App {
         b: S2,
     ) -> &mut Self
     where
-        S1: IntoSystemSet<M1> + IntoSystem<(), (), M1>,
-        S2: IntoSystemSet<M2> + IntoSystem<(), (), M2>,
+        S1: IntoSystemSet<M1>,
+        S2: IntoSystemSet<M2>,
     {
         let schedule = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();

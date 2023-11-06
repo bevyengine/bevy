@@ -21,7 +21,7 @@ use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
-    system::{BoxedSystem, IntoSystem, Resource, System},
+    system::{BoxedSystem, Resource, System},
     world::World,
 };
 
@@ -237,8 +237,8 @@ impl Schedule {
     #[track_caller]
     pub fn ignore_ambiguities<M1, M2, S1, S2>(&mut self, a: S1, b: S2) -> &mut Self
     where
-        S1: IntoSystemSet<M1> + IntoSystem<(), (), M1>,
-        S2: IntoSystemSet<M2> + IntoSystem<(), (), M2>,
+        S1: IntoSystemSet<M1>,
+        S2: IntoSystemSet<M2>,
     {
         let a = a.into_system_set();
         let b = b.into_system_set();
