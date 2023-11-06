@@ -91,7 +91,7 @@ impl GizmoConfigStore {
             .insert(TypeId::of::<T>(), (config, Box::new(ext_config)));
     }
 
-    pub(crate) fn regsiter<T: CustomGizmoConfig>(&mut self) {
+    pub(crate) fn register<T: CustomGizmoConfig>(&mut self) {
         self.insert(GizmoConfig::default(), T::default());
     }
 }

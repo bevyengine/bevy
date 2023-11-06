@@ -161,7 +161,7 @@ impl AppGizmoBuilder for App {
 
         self.world
             .resource_mut::<GizmoConfigStore>()
-            .regsiter::<T>();
+            .register::<T>();
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
             return self;
