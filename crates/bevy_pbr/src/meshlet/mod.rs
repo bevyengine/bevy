@@ -3,11 +3,13 @@ mod from_mesh;
 mod gpu_scene;
 mod persistent_buffer;
 mod pipelines;
+mod prepare_materials;
 mod psb_impls;
 mod visibility_buffer_node;
 
-pub(crate) use self::gpu_scene::{
-    prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
+pub(crate) use self::{
+    gpu_scene::{queue_material_meshlet_meshes, MeshletGpuScene},
+    prepare_materials::prepare_material_meshlet_meshes,
 };
 
 pub use self::{

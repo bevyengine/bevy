@@ -1,5 +1,5 @@
 use crate::meshlet::{
-    prepare_material_for_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
+    prepare_material_meshlet_meshes, queue_material_meshlet_meshes, MeshletGpuScene,
 };
 use crate::*;
 use bevy_app::{App, Plugin};
@@ -159,6 +159,13 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Returns this material's [`MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh fragment shader will be used.
+    #[allow(unused_variables)]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     #[allow(unused_variables)]
@@ -225,7 +232,7 @@ where
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
-                        prepare_material_for_meshlet_meshes::<M>
+                        prepare_material_meshlet_meshes::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_materials::<M>)
                             .run_if(resource_exists::<MeshletGpuScene>()),

@@ -1,16 +1,9 @@
 use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use crate::{
-    tonemapping_pipeline_key, AlphaMode, EnvironmentMapLight, Material, MaterialPipeline,
-    MaterialPipelineKey, MeshFlags, MeshPipelineKey, MeshTransforms, MeshUniform, NotShadowCaster,
-    NotShadowReceiver, PreviousGlobalTransform, RenderMaterialInstances, RenderMaterials,
-    ScreenSpaceAmbientOcclusionSettings, ShadowFilteringMethod,
+    Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, RenderMaterialInstances,
 };
 use bevy_asset::{AssetId, Assets, Handle, UntypedAssetId};
-use bevy_core_pipeline::{
-    experimental::taa::TemporalAntiAliasSettings,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    tonemapping::{DebandDither, Tonemapping},
-};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -19,19 +12,15 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    camera::Projection,
-    mesh::{InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout},
-    render_asset::RenderAssets,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{CachedTexture, Image, TextureCache},
-    view::{ExtractedView, Msaa, ViewUniforms},
+    texture::{CachedTexture, TextureCache},
+    view::{ExtractedView, ViewUniforms},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use std::{
-    hash::Hash,
     ops::{DerefMut, Range},
     sync::Arc,
 };
@@ -106,215 +95,23 @@ pub fn perform_pending_meshlet_mesh_writes(
         .perform_writes(&render_queue, &render_device);
 }
 
-// TODO: Figure out how to handle materials for meshlet meshes and (prepass, main pass, shadow pass)
-// TODO: Deduplicate view logic shared between many systems
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_material_for_meshlet_meshes<M: Material>(
-    mut gpu_scene: ResMut<MeshletGpuScene>,
-    material_pipeline: Res<MaterialPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_materials: Res<RenderMaterials<M>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&EnvironmentMapLight>,
-        Option<&ShadowFilteringMethod>,
-        Option<&ScreenSpaceAmbientOcclusionSettings>,
-        Has<NormalPrepass>,
-        Has<DepthPrepass>,
-        Has<MotionVectorPrepass>,
-        Has<DeferredPrepass>,
-        Option<&TemporalAntiAliasSettings>,
-        Option<&Projection>,
-    )>,
-) where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    let fake_vertex_buffer_layout = &MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout::new(
-        vec![
-            Mesh::ATTRIBUTE_POSITION.id,
-            Mesh::ATTRIBUTE_NORMAL.id,
-            Mesh::ATTRIBUTE_UV_0.id,
-            Mesh::ATTRIBUTE_TANGENT.id,
-        ],
-        VertexBufferLayout {
-            array_stride: 48,
-            step_mode: VertexStepMode::Vertex,
-            attributes: vec![
-                VertexAttribute {
-                    format: Mesh::ATTRIBUTE_POSITION.format,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                VertexAttribute {
-                    format: Mesh::ATTRIBUTE_NORMAL.format,
-                    offset: 12,
-                    shader_location: 1,
-                },
-                VertexAttribute {
-                    format: Mesh::ATTRIBUTE_UV_0.format,
-                    offset: 24,
-                    shader_location: 2,
-                },
-                VertexAttribute {
-                    format: Mesh::ATTRIBUTE_TANGENT.format,
-                    offset: 32,
-                    shader_location: 3,
-                },
-            ],
-        },
-    ));
-
-    for (
-        view_entity,
-        view,
-        tonemapping,
-        dither,
-        environment_map,
-        shadow_filter_method,
-        ssao,
-        normal_prepass,
-        depth_prepass,
-        motion_vector_prepass,
-        deferred_prepass,
-        taa_settings,
-        projection,
-    ) in &views
-    {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
-
-        if normal_prepass {
-            view_key |= MeshPipelineKey::NORMAL_PREPASS;
-        }
-
-        if depth_prepass {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS;
-        }
-
-        if motion_vector_prepass {
-            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
-        }
-
-        if deferred_prepass {
-            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
-        }
-
-        if taa_settings.is_some() {
-            view_key |= MeshPipelineKey::TAA;
-        }
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-
-        if environment_map_loaded {
-            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
-        }
-
-        if let Some(projection) = projection {
-            view_key |= match projection {
-                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
-                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
-            };
-        }
-
-        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
-            ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
-            }
-            ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
-            }
-            ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
-            }
-        }
-
-        if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
-            if let Some(DebandDither::Enabled) = dither {
-                view_key |= MeshPipelineKey::DEBAND_DITHER;
-            }
-        }
-        if ssao.is_some() {
-            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
-        }
-
-        let mut mesh_key = view_key;
-
-        mesh_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
-
-        for material_id in render_material_instances.values() {
-            let Some(material) = render_materials.get(material_id) else {
-                continue;
-            };
-            if material.properties.alpha_mode != AlphaMode::Opaque {
-                continue;
-            }
-
-            let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
-                &material_pipeline,
-                MaterialPipelineKey {
-                    mesh_key,
-                    bind_group_data: material.key.clone(),
-                },
-                fake_vertex_buffer_layout,
-            );
-            let pipeline_id = match pipeline_id {
-                Ok(id) => id,
-                Err(err) => {
-                    error!("{}", err);
-                    continue;
-                }
-            };
-
-            let material_id = material_id.untyped();
-            gpu_scene.materials.insert(
-                (material_id, view_entity),
-                (pipeline_id, material.bind_group.clone()),
-            );
-
-            if !gpu_scene.material_order_lookup.contains_key(&material_id) {
-                let i = gpu_scene.material_order.len();
-                gpu_scene.material_order.push(material_id);
-                gpu_scene
-                    .material_order_lookup
-                    .insert(material_id, i as u32);
-            }
-        }
-    }
-}
-
 pub fn queue_material_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
 ) {
     let gpu_scene = gpu_scene.deref_mut();
-
     for instance in &gpu_scene.instances {
         let material_asset_id = render_material_instances
             .get(instance)
             .expect("TODO")
             .untyped();
-
-        gpu_scene.materials_used.insert(material_asset_id);
-
         let material_id = *gpu_scene
-            .material_order_lookup
+            .material_id_lookup
             .get(&material_asset_id)
             .expect("TODO: Will this error ever occur?");
-        gpu_scene
-            .instance_material_ids
-            .get_mut()
-            .push(material_id + 1);
+
+        gpu_scene.material_ids_used.insert(material_id);
+        gpu_scene.instance_material_ids.get_mut().push(material_id);
     }
 }
 
@@ -515,13 +312,12 @@ pub struct MeshletGpuScene {
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, (Range<u32>, u64)>,
-    materials: HashMap<(UntypedAssetId, Entity), (CachedRenderPipelineId, BindGroup)>,
 
     scene_meshlet_count: u32,
     scene_vertex_count: u64,
-    material_order: Vec<UntypedAssetId>,
-    material_order_lookup: HashMap<UntypedAssetId, u32>,
-    materials_used: HashSet<UntypedAssetId>,
+    next_material_id: u32,
+    material_id_lookup: HashMap<UntypedAssetId, u32>,
+    material_ids_used: HashSet<u32>,
     instances: Vec<Entity>,
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
@@ -548,13 +344,12 @@ impl FromWorld for MeshletGpuScene {
                 render_device,
             ),
             meshlet_mesh_slices: HashMap::new(),
-            materials: HashMap::new(),
 
             scene_meshlet_count: 0,
             scene_vertex_count: 0,
-            material_order: Vec::new(),
-            material_order_lookup: HashMap::new(),
-            materials_used: HashSet::new(),
+            next_material_id: 0,
+            material_id_lookup: HashMap::new(),
+            material_ids_used: HashSet::new(),
             instances: Vec::new(),
             instance_uniforms: {
                 let mut buffer = StorageBuffer::default();
@@ -617,12 +412,11 @@ impl FromWorld for MeshletGpuScene {
 impl MeshletGpuScene {
     fn reset(&mut self) {
         // TODO: Shrink capacity if saturation is low
-        self.materials.clear();
         self.scene_meshlet_count = 0;
         self.scene_vertex_count = 0;
-        self.material_order.clear();
-        self.material_order_lookup.clear();
-        self.materials_used.clear();
+        self.next_material_id = 0;
+        self.material_id_lookup.clear();
+        self.material_ids_used.clear();
         self.instances.clear();
         self.instance_uniforms.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
@@ -682,6 +476,20 @@ impl MeshletGpuScene {
             self.thread_instance_ids.get_mut().push(instance_index);
             self.thread_meshlet_ids.get_mut().push(meshlet_index);
         }
+    }
+
+    pub fn get_material_id(&mut self, material_id: UntypedAssetId) -> u32 {
+        *self
+            .material_id_lookup
+            .entry(material_id)
+            .or_insert_with(|| {
+                self.next_material_id += 1;
+                self.next_material_id
+            })
+    }
+
+    pub fn materials_ids_used(&self) -> &HashSet<u32> {
+        &self.material_ids_used
     }
 
     pub fn culling_bind_group_layout(&self) -> BindGroupLayout {
