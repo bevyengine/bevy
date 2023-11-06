@@ -364,6 +364,15 @@ impl Plugin for PbrPlugin {
             draw_3d_graph::node::SHADOW_PASS,
             bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
         );
+
+        render_app.ambiguous_with(
+            bevy_render::Render,
+            bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
+            bevy_render::batching::batch_and_prepare_render_phase::<
+                bevy_core_pipeline::core_3d::Transmissive3d,
+                MeshPipeline,
+            >,
+        );
     }
 
     fn finish(&self, app: &mut App) {
