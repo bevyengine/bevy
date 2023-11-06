@@ -44,87 +44,54 @@ fn derive_dependency_visitor_internal(
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let visit_dep = |to_read| quote!(#bevy_asset_path::VisitAssetDependencies::visit_dependencies(#to_read, visit););
+    let is_dep_attribute = |a: &syn::Attribute| a.path().is_ident(DEPENDENCY_ATTRIBUTE);
+    let field_has_dep = |f: &syn::Field| f.attrs.iter().any(is_dep_attribute);
+
     let body = match &ast.data {
         Data::Struct(data_struct) => {
-            let mut field_visitors = Vec::new();
-
-            for field in &data_struct.fields {
-                if field
-                    .attrs
-                    .iter()
-                    .any(|a| a.path().is_ident(DEPENDENCY_ATTRIBUTE))
-                {
-                    if let Some(field_ident) = &field.ident {
-                        field_visitors.push(quote! {
-                            #bevy_asset_path::VisitAssetDependencies::visit_dependencies(&self.#field_ident, visit);
-                        });
-                    }
-                }
-            }
-
-            quote! {
-                #(#field_visitors)*
-            }
+            let fields = data_struct.fields.iter();
+            let field_visitors = fields.enumerate().filter(|(_, f)| field_has_dep(f));
+            let field_visitors = field_visitors.map(|(i, field)| match &field.ident {
+                Some(ident) => visit_dep(quote!(&self.#ident)),
+                None => visit_dep(quote!(&self.#i)),
+            });
+            Some(quote!( #(#field_visitors)* ))
         }
         Data::Enum(data_enum) => {
-            let mut any_case_required = false;
-            let cases = data_enum.variants.iter().map(|variant| {
-                let mut any_member_omitted = false;
-                let mut field_names = Vec::new();
-                let mut field_visitors = Vec::new();
+            let variant_has_dep = |v: &syn::Variant| v.fields.iter().any(field_has_dep);
+            let any_case_required = data_enum.variants.iter().any(variant_has_dep);
+            let cases = data_enum.variants.iter().filter(|v| variant_has_dep(v));
+            let cases = cases.map(|variant| {
+                let ident = &variant.ident;
+                let fields = &variant.fields;
 
-                for (i, field) in variant.fields.iter().enumerate() {
-                    if field
-                        .attrs
-                        .iter()
-                        .any(|a| a.path().is_ident(DEPENDENCY_ATTRIBUTE))
-                    {
-                        if let Some(field_ident) = &field.ident {
-                            field_names.push(quote!{ #field_ident });
-                            field_visitors.push(quote! {
-                                #bevy_asset_path::VisitAssetDependencies::visit_dependencies(#field_ident, visit);
-                            });
-                        } else {
-                            let name = format_ident!("member_{i}");
-                            field_names.push(quote!{ #name });
-                            field_visitors.push(quote! {
-                                #bevy_asset_path::VisitAssetDependencies::visit_dependencies(#name, visit);
-                            });
-                        }
-                    } else {
-                        any_member_omitted = true;
+                let field_visitors = fields.iter().enumerate().filter(|(_, f)| field_has_dep(f));
+
+                let field_visitors = field_visitors.map(|(i, field)| match &field.ident {
+                    Some(ident) => visit_dep(quote!(#ident)),
+                    None => {
+                        let ident = format_ident!("member{i}");
+                        visit_dep(quote!(#ident))
                     }
-                }
-
-                if any_member_omitted {
-                    field_names.push(quote!{ .. });
-                }
-
-                let field_data = match variant.fields {
-                    syn::Fields::Named(_) => quote! { {#(#field_names,)*} },
-                    syn::Fields::Unnamed(_) => quote! { (#(#field_names,)*) },
-                    syn::Fields::Unit => quote! { },
+                });
+                let fields = match fields {
+                    syn::Fields::Named(fields) => {
+                        let named = fields.named.iter().map(|f| f.ident.as_ref());
+                        quote!({ #(#named,)* .. })
+                    }
+                    syn::Fields::Unnamed(fields) => {
+                        let named = (0..fields.unnamed.len()).map(|i| format_ident!("member{i}"));
+                        quote!( ( #(#named,)* ) )
+                    }
+                    syn::Fields::Unit => unreachable!("Can't pass filter is_dep_attribute"),
                 };
+                quote!(Self::#ident #fields => {
+                    #(#field_visitors)*
+                })
+            });
 
-                any_case_required |= !field_visitors.is_empty();
-
-                let var_ident = &variant.ident;
-                quote! {
-                    Self::#var_ident #field_data => {
-                        #(#field_visitors)*
-                    }
-                }
-            }).collect::<Vec<_>>();
-
-            if !any_case_required {
-                quote! {}
-            } else {
-                quote! {
-                    match self {
-                        #(#cases)*
-                    }
-                }
-            }
+            any_case_required.then(|| quote!(match self { #(#cases)*, _ => {} }))
         }
         Data::Union(_) => {
             return Err(syn::Error::new(
@@ -135,7 +102,7 @@ fn derive_dependency_visitor_internal(
     };
 
     // prevent unused variable warning in case there are no dependencies
-    let visit = if body.is_empty() {
+    let visit = if body.is_none() {
         quote! { _visit }
     } else {
         quote! { visit }
