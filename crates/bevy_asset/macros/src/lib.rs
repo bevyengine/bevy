@@ -117,7 +117,7 @@ fn derive_dependency_visitor_internal(
             }).collect::<Vec<_>>();
 
             if !any_case_required {
-                quote! { }
+                quote! {}
             } else {
                 quote! {
                     match self {
