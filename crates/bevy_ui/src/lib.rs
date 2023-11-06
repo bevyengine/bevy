@@ -47,10 +47,9 @@ use crate::prelude::UiCameraConfig;
 #[cfg(feature = "bevy_text")]
 use crate::widget::TextFlags;
 use bevy_app::prelude::*;
-use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{extract_component::ExtractComponentPlugin, texture::Image, RenderApp};
+use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
@@ -155,9 +154,7 @@ impl Plugin for UiPlugin {
                     // Since both systems will only ever insert new [`Image`] assets,
                     // they will never observe each other's effects.
                     .ambiguous_with(bevy_text::update_text2d_layout),
-                widget::text_system
-                    .after(UiSystem::Layout)
-                    .before(Assets::<Image>::track_assets),
+                widget::text_system.after(UiSystem::Layout),
             ),
         );
         #[cfg(feature = "bevy_text")]
