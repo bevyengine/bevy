@@ -4,18 +4,8 @@ pub use prepass_bindings::*;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::{load_internal_asset, AssetServer, Handle};
-use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT,
-    deferred::{
-        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
-        DEFERRED_PREPASS_FORMAT,
-    },
-    prelude::Camera3d,
-    prepass::{
-        AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-        Opaque3dPrepass, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
-    },
-};
+use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, prelude::Camera3d};
+use bevy_core_pipeline::{deferred::*, prepass::*};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -30,19 +20,8 @@ use bevy_render::{
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
-    render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
-    },
-    render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BufferBindingType, ColorTargetState, ColorWrites,
-        CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer, FragmentState,
-        FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PushConstantRange,
-        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilState, VertexState,
-    },
+    render_phase::*,
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -50,12 +29,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
-use crate::{
-    prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
-    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    OpaqueRendererMethod, RenderMaterialInstances, RenderMaterials, RenderMeshInstances,
-    SetMaterialBindGroup, SetMeshBindGroup,
-};
+use crate::*;
 
 use std::{hash::Hash, marker::PhantomData};
 
@@ -211,7 +185,7 @@ pub fn update_previous_view_projections(
     query: Query<(Entity, &Camera, &GlobalTransform), (With<Camera3d>, With<MotionVectorPrepass>)>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        commands.entity(entity).insert(PreviousViewProjection {
+        commands.entity(entity).try_insert(PreviousViewProjection {
             view_proj: camera.projection_matrix() * camera_transform.compute_matrix().inverse(),
         });
     }
@@ -231,7 +205,7 @@ pub fn update_mesh_previous_global_transforms(
         for (entity, transform) in &meshes {
             commands
                 .entity(entity)
-                .insert(PreviousGlobalTransform(transform.affine()));
+                .try_insert(PreviousGlobalTransform(transform.affine()));
         }
     }
 }
@@ -457,11 +431,11 @@ where
 
         if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             shader_defs.push("DEFERRED_PREPASS".into());
+        }
 
-            if layout.contains(Mesh::ATTRIBUTE_COLOR) {
-                shader_defs.push("VERTEX_COLORS".into());
-                vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(6));
-            }
+        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push("VERTEX_COLORS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(6));
         }
 
         if key
@@ -810,9 +784,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        let mut opaque_phase_deferred = opaque_deferred_phase.as_mut();
-        let mut alpha_mask_phase_deferred = alpha_mask_deferred_phase.as_mut();
-
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
@@ -842,6 +813,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => continue,
+            }
+
+            if material.properties.reads_view_transmission_texture {
+                // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
+                // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
+                continue;
             }
 
             let forward = match material.properties.render_method {
@@ -879,7 +856,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             match alpha_mode {
                 AlphaMode::Opaque => {
                     if deferred {
-                        opaque_phase_deferred
+                        opaque_deferred_phase
                             .as_mut()
                             .unwrap()
                             .add(Opaque3dDeferred {
@@ -890,8 +867,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
-                    } else {
-                        opaque_phase.as_mut().unwrap().add(Opaque3dPrepass {
+                    } else if let Some(opaque_phase) = opaque_phase.as_mut() {
+                        opaque_phase.add(Opaque3dPrepass {
                             entity: *visible_entity,
                             draw_function: opaque_draw_prepass,
                             pipeline_id,
@@ -903,7 +880,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
                 AlphaMode::Mask(_) => {
                     if deferred {
-                        alpha_mask_phase_deferred
+                        alpha_mask_deferred_phase
                             .as_mut()
                             .unwrap()
                             .add(AlphaMask3dDeferred {
@@ -914,8 +891,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
-                    } else {
-                        alpha_mask_phase.as_mut().unwrap().add(AlphaMask3dPrepass {
+                    } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
+                        alpha_mask_phase.add(AlphaMask3dPrepass {
                             entity: *visible_entity,
                             draw_function: alpha_mask_draw_prepass,
                             pipeline_id,

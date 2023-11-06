@@ -1,8 +1,3 @@
-use crate::{
-    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, AlphaMode, Material, MaterialPipeline,
-    MaterialPipelineKey, OpaqueRendererMethod, ParallaxMappingMethod, PBR_PREPASS_SHADER_HANDLE,
-    PBR_SHADER_HANDLE,
-};
 use bevy_asset::{Asset, Handle};
 use bevy_math::Vec4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -10,6 +5,9 @@ use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
 };
+
+use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
+use crate::*;
 
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here
@@ -140,6 +138,152 @@ pub struct StandardMaterial {
     #[doc(alias = "specular_intensity")]
     pub reflectance: f32,
 
+    /// The amount of light transmitted _diffusely_ through the material (i.e. “translucency”)
+    ///
+    /// Implemented as a second, flipped [Lambertian diffuse](https://en.wikipedia.org/wiki/Lambertian_reflectance) lobe,
+    /// which provides an inexpensive but plausible approximation of translucency for thin dieletric objects (e.g. paper,
+    /// leaves, some fabrics) or thicker volumetric materials with short scattering distances (e.g. porcelain, wax).
+    ///
+    /// For specular transmission usecases with refraction (e.g. glass) use the [`StandardMaterial::specular_transmission`] and
+    /// [`StandardMaterial::ior`] properties instead.
+    ///
+    /// - When set to `0.0` (the default) no diffuse light is transmitted;
+    /// - When set to `1.0` all diffuse light is transmitted through the material;
+    /// - Values higher than `0.5` will cause more diffuse light to be transmitted than reflected, resulting in a “darker”
+    ///   appearance on the side facing the light than the opposite side. (e.g. plant leaves)
+    ///
+    /// ## Notes
+    ///
+    /// - The material's [`StandardMaterial::base_color`] also modulates the transmitted light;
+    /// - To receive transmitted shadows on the diffuse transmission lobe (i.e. the “backside”) of the material,
+    ///   use the [`TransmittedShadowReceiver`] component.
+    #[doc(alias = "translucency")]
+    pub diffuse_transmission: f32,
+
+    /// A map that modulates diffuse transmission via its alpha channel. Multiplied by [`StandardMaterial::diffuse_transmission`]
+    /// to obtain the final result.
+    ///
+    /// **Important:** The [`StandardMaterial::diffuse_transmission`] property must be set to a value higher than 0.0,
+    /// or this texture won't have any effect.
+    #[texture(17)]
+    #[sampler(18)]
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub diffuse_transmission_texture: Option<Handle<Image>>,
+
+    /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
+    ///
+    /// - When set to `0.0` (the default) no light is transmitted.
+    /// - When set to `1.0` all light is transmitted through the material.
+    ///
+    /// The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
+    ///
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`], [`StandardMaterial::ior`] and [`StandardMaterial::perceptual_roughness`].
+    ///
+    /// ## Performance
+    ///
+    /// Specular transmission is implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material,
+    /// with distortion and blur effects.
+    ///
+    /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
+    /// to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
+    ///     - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
+    /// [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
+    /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
+    /// for a much less expensive effect.
+    /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
+    ///   won't be visible through specular transmissive materials.
+    #[doc(alias = "refraction")]
+    pub specular_transmission: f32,
+
+    /// A map that modulates specular transmission via its red channel. Multiplied by [`StandardMaterial::specular_transmission`]
+    /// to obtain the final result.
+    ///
+    /// **Important:** The [`StandardMaterial::specular_transmission`] property must be set to a value higher than 0.0,
+    /// or this texture won't have any effect.
+    #[texture(13)]
+    #[sampler(14)]
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub specular_transmission_texture: Option<Handle<Image>>,
+
+    /// Thickness of the volume beneath the material surface.
+    ///
+    /// When set to `0.0` (the default) the material appears as an infinitely-thin film,
+    /// transmitting light without distorting it.
+    ///
+    /// When set to any other value, the material distorts light like a thick lens.
+    ///
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::specular_transmission`] and [`StandardMaterial::ior`], or with
+    /// [`StandardMaterial::diffuse_transmission`].
+    #[doc(alias = "volume")]
+    #[doc(alias = "thin_walled")]
+    pub thickness: f32,
+
+    /// A map that modulates thickness via its green channel. Multiplied by [`StandardMaterial::thickness`]
+    /// to obtain the final result.
+    ///
+    /// **Important:** The [`StandardMaterial::thickness`] property must be set to a value higher than 0.0,
+    /// or this texture won't have any effect.
+    #[texture(15)]
+    #[sampler(16)]
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub thickness_texture: Option<Handle<Image>>,
+
+    /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
+    ///
+    /// Defaults to 1.5.
+    ///
+    /// | Material        | Index of Refraction  |
+    /// |:----------------|:---------------------|
+    /// | Vacuum          | 1                    |
+    /// | Air             | 1.00                 |
+    /// | Ice             | 1.31                 |
+    /// | Water           | 1.33                 |
+    /// | Eyes            | 1.38                 |
+    /// | Quartz          | 1.46                 |
+    /// | Olive Oil       | 1.47                 |
+    /// | Honey           | 1.49                 |
+    /// | Acrylic         | 1.49                 |
+    /// | Window Glass    | 1.52                 |
+    /// | Polycarbonate   | 1.58                 |
+    /// | Flint Glass     | 1.69                 |
+    /// | Ruby            | 1.71                 |
+    /// | Glycerine       | 1.74                 |
+    /// | Saphire         | 1.77                 |
+    /// | Cubic Zirconia  | 2.15                 |
+    /// | Diamond         | 2.42                 |
+    /// | Moissanite      | 2.65                 |
+    ///
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::specular_transmission`] and [`StandardMaterial::thickness`].
+    #[doc(alias = "index_of_refraction")]
+    #[doc(alias = "refraction_index")]
+    #[doc(alias = "refractive_index")]
+    pub ior: f32,
+
+    /// How far, on average, light travels through the volume beneath the material's
+    /// surface before being absorbed.
+    ///
+    /// Defaults to [`f32::INFINITY`], i.e. light is never absorbed.
+    ///
+    /// **Note:** To have any effect, must be used in conjunction with:
+    /// - [`StandardMaterial::attenuation_color`];
+    /// - [`StandardMaterial::thickness`];
+    /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::specular_transmission`].
+    #[doc(alias = "absorption_distance")]
+    #[doc(alias = "extinction_distance")]
+    pub attenuation_distance: f32,
+
+    /// The resulting (non-absorbed) color after white light travels through the attenuation distance.
+    ///
+    /// Defaults to [`Color::WHITE`], i.e. no change.
+    ///
+    /// **Note:** To have any effect, must be used in conjunction with:
+    /// - [`StandardMaterial::attenuation_distance`];
+    /// - [`StandardMaterial::thickness`];
+    /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::specular_transmission`].
+    #[doc(alias = "absorption_color")]
+    #[doc(alias = "extinction_color")]
+    pub attenuation_color: Color,
+
     /// Used to fake the lighting of bumps and dents on a material.
     ///
     /// A typical usage would be faking cobblestones on a flat plane mesh in 3D.
@@ -269,7 +413,7 @@ pub struct StandardMaterial {
     /// Use the [`parallax_mapping_method`] and [`max_parallax_layer_count`] fields
     /// to tweak the shader, trading graphical quality for performance.
     ///
-    /// To improve performance, set your `depth_map`'s [`Image::sampler_descriptor`]
+    /// To improve performance, set your `depth_map`'s [`Image::sampler`]
     /// filter mode to `FilterMode::Nearest`, as [this paper] indicates, it improves
     /// performance a bit.
     ///
@@ -345,6 +489,18 @@ impl Default for StandardMaterial {
             // Expressed in a linear scale and equivalent to 4% reflectance see
             // <https://google.github.io/filament/Material%20Properties.pdf>
             reflectance: 0.5,
+            diffuse_transmission: 0.0,
+            #[cfg(feature = "pbr_transmission_textures")]
+            diffuse_transmission_texture: None,
+            specular_transmission: 0.0,
+            #[cfg(feature = "pbr_transmission_textures")]
+            specular_transmission_texture: None,
+            thickness: 0.0,
+            #[cfg(feature = "pbr_transmission_textures")]
+            thickness_texture: None,
+            ior: 1.5,
+            attenuation_color: Color::WHITE,
+            attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
             normal_map_texture: None,
             flip_normal_map_y: false,
@@ -403,6 +559,10 @@ bitflags::bitflags! {
         const FLIP_NORMAL_MAP_Y          = (1 << 7);
         const FOG_ENABLED                = (1 << 8);
         const DEPTH_MAP                  = (1 << 9); // Used for parallax mapping
+        const SPECULAR_TRANSMISSION_TEXTURE = (1 << 10);
+        const THICKNESS_TEXTURE          = (1 << 11);
+        const DIFFUSE_TRANSMISSION_TEXTURE = (1 << 12);
+        const ATTENUATION_ENABLED        = (1 << 13);
         const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
@@ -437,6 +597,18 @@ pub struct StandardMaterialUniform {
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
+    /// Amount of diffuse light transmitted through the material
+    pub diffuse_transmission: f32,
+    /// Amount of specular light transmitted through the material
+    pub specular_transmission: f32,
+    /// Thickness of the volume underneath the material surface
+    pub thickness: f32,
+    /// Index of Refraction
+    pub ior: f32,
+    /// How far light travels through the volume underneath the material surface before being absorbed
+    pub attenuation_distance: f32,
+    /// Color white light takes after travelling through the attenuation distance underneath the material surface
+    pub attenuation_color: Vec4,
     /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
@@ -483,6 +655,18 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.depth_map.is_some() {
             flags |= StandardMaterialFlags::DEPTH_MAP;
         }
+        #[cfg(feature = "pbr_transmission_textures")]
+        {
+            if self.specular_transmission_texture.is_some() {
+                flags |= StandardMaterialFlags::SPECULAR_TRANSMISSION_TEXTURE;
+            }
+            if self.thickness_texture.is_some() {
+                flags |= StandardMaterialFlags::THICKNESS_TEXTURE;
+            }
+            if self.diffuse_transmission_texture.is_some() {
+                flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_TEXTURE;
+            }
+        }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
             let normal_map_id = self.normal_map_texture.as_ref().map(|h| h.id()).unwrap();
@@ -516,12 +700,22 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
         };
 
+        if self.attenuation_distance.is_finite() {
+            flags |= StandardMaterialFlags::ATTENUATION_ENABLED;
+        }
+
         StandardMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
+            diffuse_transmission: self.diffuse_transmission,
+            specular_transmission: self.specular_transmission,
+            thickness: self.thickness,
+            ior: self.ior,
+            attenuation_distance: self.attenuation_distance,
+            attenuation_color: self.attenuation_color.as_linear_rgba_f32().into(),
             flags: flags.bits(),
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,
@@ -605,7 +799,24 @@ impl Material for StandardMaterial {
     }
 
     #[inline]
+    fn reads_view_transmission_texture(&self) -> bool {
+        self.specular_transmission > 0.0
+    }
+
+    #[inline]
     fn opaque_render_method(&self) -> OpaqueRendererMethod {
-        self.opaque_render_method
+        match self.opaque_render_method {
+            // For now, diffuse transmission doesn't work under deferred rendering as we don't pack
+            // the required data into the GBuffer. If this material is set to `Auto`, we report it as
+            // `Forward` so that it's rendered correctly, even when the `DefaultOpaqueRendererMethod`
+            // is set to `Deferred`.
+            //
+            // If the developer explicitly sets the `OpaqueRendererMethod` to `Deferred`, we assume
+            // they know what they're doing and don't override it.
+            OpaqueRendererMethod::Auto if self.diffuse_transmission > 0.0 => {
+                OpaqueRendererMethod::Forward
+            }
+            other => other,
+        }
     }
 }

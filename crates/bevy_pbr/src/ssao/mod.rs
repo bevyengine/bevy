@@ -20,15 +20,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{
-        AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BufferBindingType, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache,
-        Sampler, SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages,
-        ShaderType, SpecializedComputePipeline, SpecializedComputePipelines, StorageTextureAccess,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        TextureView, TextureViewDescriptor, TextureViewDimension,
-    },
+    render_resource::*,
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -568,7 +560,7 @@ impl FromWorld for SsaoPipelines {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct SsaoPipelineKey {
     ssao_settings: ScreenSpaceAmbientOcclusionSettings,
-    temporal_noise: bool,
+    temporal_jitter: bool,
 }
 
 impl SpecializedComputePipeline for SsaoPipelines {
@@ -585,8 +577,8 @@ impl SpecializedComputePipeline for SsaoPipelines {
             ),
         ];
 
-        if key.temporal_noise {
-            shader_defs.push("TEMPORAL_NOISE".into());
+        if key.temporal_jitter {
+            shader_defs.push("TEMPORAL_JITTER".into());
         }
 
         ComputePipelineDescriptor {
@@ -739,7 +731,7 @@ fn prepare_ssao_pipelines(
             &pipeline,
             SsaoPipelineKey {
                 ssao_settings: ssao_settings.clone(),
-                temporal_noise: temporal_jitter.is_some(),
+                temporal_jitter: temporal_jitter.is_some(),
             },
         );
 

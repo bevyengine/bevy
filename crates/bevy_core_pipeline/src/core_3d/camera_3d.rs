@@ -25,6 +25,31 @@ pub struct Camera3d {
     pub depth_load_op: Camera3dDepthLoadOp,
     /// The texture usages for the depth texture created for the main 3d pass.
     pub depth_texture_usages: Camera3dDepthTextureUsage,
+    /// How many individual steps should be performed in the [`Transmissive3d`](crate::core_3d::Transmissive3d) pass.
+    ///
+    /// Roughly corresponds to how many “layers of transparency” are rendered for screen space
+    /// specular transmissive objects. Each step requires making one additional
+    /// texture copy, so it's recommended to keep this number to a resonably low value. Defaults to `1`.
+    ///
+    /// ### Notes
+    ///
+    /// - No copies will be performed if there are no transmissive materials currently being rendered,
+    ///   regardless of this setting.
+    /// - Setting this to `0` disables the screen-space refraction effect entirely, and falls
+    ///   back to refracting only the environment map light's texture.
+    /// - If set to more than `0`, any opaque [`clear_color`](Camera3d::clear_color) will obscure the environment
+    ///   map light's texture, preventing it from being visible “through” transmissive materials. If you'd like
+    ///   to still have the environment map show up in your refractions, you can set the clear color's alpha to `0.0`.
+    ///   Keep in mind that depending on the platform and your window settings, this may cause the window to become
+    ///   transparent.
+    pub screen_space_specular_transmission_steps: usize,
+    /// The quality of the screen space specular transmission blur effect, applied to whatever's “behind” transmissive
+    /// objects when their `roughness` is greater than `0.0`.
+    ///
+    /// Higher qualities are more GPU-intensive.
+    ///
+    /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
+    pub screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality,
 }
 
 impl Default for Camera3d {
@@ -33,6 +58,8 @@ impl Default for Camera3d {
             clear_color: ClearColorConfig::Default,
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
+            screen_space_specular_transmission_steps: 1,
+            screen_space_specular_transmission_quality: Default::default(),
         }
     }
 }
@@ -75,6 +102,37 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
             Camera3dDepthLoadOp::Load => LoadOp::Load,
         }
     }
+}
+
+/// The quality of the screen space transmission blur effect, applied to whatever's “behind” transmissive
+/// objects when their `roughness` is greater than `0.0`.
+///
+/// Higher qualities are more GPU-intensive.
+///
+/// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
+#[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
+#[reflect(Resource)]
+pub enum ScreenSpaceTransmissionQuality {
+    /// Best performance at the cost of quality. Suitable for lower end GPUs. (e.g. Mobile)
+    ///
+    /// `num_taps` = 4
+    Low,
+
+    /// A balanced option between quality and performance.
+    ///
+    /// `num_taps` = 8
+    #[default]
+    Medium,
+
+    /// Better quality. Suitable for high end GPUs. (e.g. Desktop)
+    ///
+    /// `num_taps` = 16
+    High,
+
+    /// The highest quality, suitable for non-realtime rendering. (e.g. Pre-rendered cinematics and photo mode)
+    ///
+    /// `num_taps` = 32
+    Ultra,
 }
 
 #[derive(Bundle)]

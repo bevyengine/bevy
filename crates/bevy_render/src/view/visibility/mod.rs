@@ -310,10 +310,10 @@ fn visibility_propagate_system(
         let is_visible = match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => false,
-            Visibility::Inherited => match parent {
-                None => true,
-                Some(parent) => visibility_query.get(parent.get()).unwrap().1.get(),
-            },
+            // fall back to true if no parent is found or parent lacks components
+            Visibility::Inherited => parent
+                .and_then(|p| visibility_query.get(p.get()).ok())
+                .map_or(true, |(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
             .get_mut(entity)
@@ -390,19 +390,10 @@ pub fn check_visibility(
         &InheritedVisibility,
         &mut ViewVisibility,
         Option<&RenderLayers>,
-        &Aabb,
+        Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
-    mut visible_no_aabb_query: Query<
-        (
-            Entity,
-            &InheritedVisibility,
-            &mut ViewVisibility,
-            Option<&RenderLayers>,
-        ),
-        Without<Aabb>,
-    >,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
@@ -414,7 +405,7 @@ pub fn check_visibility(
                 inherited_visibility,
                 mut view_visibility,
                 maybe_entity_mask,
-                model_aabb,
+                maybe_model_aabb,
                 transform,
                 no_frustum_culling,
             ) = query_item;
@@ -430,42 +421,23 @@ pub fn check_visibility(
                 return;
             }
 
-            // If we have an aabb and transform, do frustum culling
+            // If we have an aabb, do frustum culling
             if !no_frustum_culling {
-                let model = transform.affine();
-                let model_sphere = Sphere {
-                    center: model.transform_point3a(model_aabb.center),
-                    radius: transform.radius_vec3a(model_aabb.half_extents),
-                };
-                // Do quick sphere-based frustum culling
-                if !frustum.intersects_sphere(&model_sphere, false) {
-                    return;
+                if let Some(model_aabb) = maybe_model_aabb {
+                    let model = transform.affine();
+                    let model_sphere = Sphere {
+                        center: model.transform_point3a(model_aabb.center),
+                        radius: transform.radius_vec3a(model_aabb.half_extents),
+                    };
+                    // Do quick sphere-based frustum culling
+                    if !frustum.intersects_sphere(&model_sphere, false) {
+                        return;
+                    }
+                    // Do aabb-based frustum culling
+                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                        return;
+                    }
                 }
-                // If we have an aabb, do aabb-based frustum culling
-                if !frustum.intersects_obb(model_aabb, &model, true, false) {
-                    return;
-                }
-            }
-
-            view_visibility.set();
-            let cell = thread_queues.get_or_default();
-            let mut queue = cell.take();
-            queue.push(entity);
-            cell.set(queue);
-        });
-
-        visible_no_aabb_query.par_iter_mut().for_each(|query_item| {
-            let (entity, inherited_visibility, mut view_visibility, maybe_entity_mask) = query_item;
-
-            // Skip computing visibility for entities that are configured to be hidden.
-            // `ViewVisibility` has already been reset in `reset_view_visibility`.
-            if !inherited_visibility.get() {
-                return;
-            }
-
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
-                return;
             }
 
             view_visibility.set();
@@ -719,6 +691,24 @@ mod test {
         assert!(!q.get(&world, id2).unwrap().is_changed());
         assert!(!q.get(&world, id3).unwrap().is_changed());
         assert!(!q.get(&world, id4).unwrap().is_changed());
+    }
+
+    #[test]
+    fn visibility_propagation_with_invalid_parent() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(visibility_propagate_system);
+
+        let parent = world.spawn(()).id();
+        let child = world.spawn(VisibilityBundle::default()).id();
+        world.entity_mut(parent).push_children(&[child]);
+
+        schedule.run(&mut world);
+        world.clear_trackers();
+
+        let child_visible = world.entity(child).get::<InheritedVisibility>().unwrap().0;
+        // defaults to same behavior of parent not found: visible = true
+        assert!(child_visible);
     }
 
     #[test]

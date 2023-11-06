@@ -1,14 +1,7 @@
-use crate::{
-    generate_view_layouts, prepare_mesh_view_bind_groups, MaterialBindGroupId,
-    MeshPipelineViewLayout, MeshPipelineViewLayoutKey, MeshViewBindGroup, NotShadowCaster,
-    NotShadowReceiver, PreviousGlobalTransform, Shadow, ViewFogUniformOffset,
-    ViewLightsUniformOffset, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
-};
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -17,23 +10,18 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Vec2, Vec4};
+use bevy_math::{Affine3, Vec4};
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
-    mesh::{
-        GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
-        VertexAttributeDescriptor,
-    },
+    mesh::*,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    texture::*,
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -58,6 +46,7 @@ use crate::render::{
     skin::{extract_skins, no_automatic_skin_batching, prepare_skins, SkinUniform},
     MeshLayouts,
 };
+use crate::*;
 
 use super::skin::SkinIndices;
 
@@ -143,6 +132,7 @@ impl Plugin for MeshRenderPlugin {
                     (
                         (
                             batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
@@ -232,12 +222,13 @@ impl From<&MeshTransforms> for MeshUniform {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
-        const SHADOW_RECEIVER            = (1 << 0);
+        const SHADOW_RECEIVER             = (1 << 0);
+        const TRANSMITTED_SHADOW_RECEIVER = (1 << 1);
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
-        const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
+        const SIGN_DETERMINANT_MODEL_3X3  = (1 << 31);
+        const NONE                        = 0;
+        const UNINITIALIZED               = 0xFFFF;
     }
 }
 
@@ -268,6 +259,7 @@ pub fn extract_meshes(
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
             Has<NotShadowReceiver>,
+            Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
         )>,
@@ -281,6 +273,7 @@ pub fn extract_meshes(
             previous_transform,
             handle,
             not_receiver,
+            transmitted_receiver,
             not_caster,
             no_automatic_batching,
         )| {
@@ -294,6 +287,9 @@ pub fn extract_meshes(
             } else {
                 MeshFlags::SHADOW_RECEIVER
             };
+            if transmitted_receiver {
+                flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
+            }
             if transform.matrix3.determinant().is_sign_positive() {
                 flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
             }
@@ -372,9 +368,11 @@ impl FromWorld for MeshPipeline {
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
+            let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+                ImageSampler::Descriptor(ref descriptor) => {
+                    render_device.create_sampler(&descriptor.as_wgpu())
+                }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
@@ -388,7 +386,7 @@ impl FromWorld for MeshPipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
+                    bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -400,10 +398,7 @@ impl FromWorld for MeshPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Vec2::new(
-                    image.texture_descriptor.size.width as f32,
-                    image.texture_descriptor.size.height as f32,
-                ),
+                size: image.size_f32(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -499,7 +494,7 @@ bitflags::bitflags! {
         const ENVIRONMENT_MAP                   = (1 << 8);
         const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
         const DEPTH_CLAMP_ORTHO                 = (1 << 10);
-        const TAA                               = (1 << 11);
+        const TEMPORAL_JITTER                   = (1 << 11);
         const MORPH_TARGETS                     = (1 << 12);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
@@ -521,6 +516,16 @@ bitflags::bitflags! {
         const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_CASTANO_13    = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_JIMENEZ_14    = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const VIEW_PROJECTION_RESERVED_BITS     = Self::VIEW_PROJECTION_MASK_BITS << Self::VIEW_PROJECTION_SHIFT_BITS;
+        const VIEW_PROJECTION_NONSTANDARD       = 0 << Self::VIEW_PROJECTION_SHIFT_BITS;
+        const VIEW_PROJECTION_PERSPECTIVE       = 1 << Self::VIEW_PROJECTION_SHIFT_BITS;
+        const VIEW_PROJECTION_ORTHOGRAPHIC      = 2 << Self::VIEW_PROJECTION_SHIFT_BITS;
+        const VIEW_PROJECTION_RESERVED          = 3 << Self::VIEW_PROJECTION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW = 0 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
     }
 }
 
@@ -543,6 +548,14 @@ impl MeshPipelineKey {
     const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
     const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
         Self::TONEMAP_METHOD_SHIFT_BITS - Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones();
+
+    const VIEW_PROJECTION_MASK_BITS: u32 = 0b11;
+    const VIEW_PROJECTION_SHIFT_BITS: u32 =
+        Self::SHADOW_FILTER_METHOD_SHIFT_BITS - Self::VIEW_PROJECTION_MASK_BITS.count_ones();
+
+    const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u32 = 0b11;
+    const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u32 = Self::VIEW_PROJECTION_SHIFT_BITS
+        - Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -664,6 +677,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
+        if cfg!(feature = "pbr_transmission_textures") {
+            shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+        }
+
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
         if key.msaa_samples() > 1 {
@@ -748,6 +765,15 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
+        let view_projection = key.intersection(MeshPipelineKey::VIEW_PROJECTION_RESERVED_BITS);
+        if view_projection == MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD {
+            shader_defs.push("VIEW_PROJECTION_NONSTANDARD".into());
+        } else if view_projection == MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE {
+            shader_defs.push("VIEW_PROJECTION_PERSPECTIVE".into());
+        } else if view_projection == MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC {
+            shader_defs.push("VIEW_PROJECTION_ORTHOGRAPHIC".into());
+        }
+
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
 
@@ -788,8 +814,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::TAA) {
-            shader_defs.push("TAA".into());
+        if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
+            shader_defs.push("TEMPORAL_JITTER".into());
         }
 
         let shadow_filter_method =
@@ -801,6 +827,20 @@ impl SpecializedMeshPipeline for MeshPipeline {
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
             shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
         }
+
+        let blur_quality =
+            key.intersection(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS);
+
+        shader_defs.push(ShaderDefVal::Int(
+            "SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS".into(),
+            match blur_quality {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW => 4,
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM => 8,
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH => 16,
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA => 32,
+                _ => unreachable!(), // Not possible, since the mask is 2 bits, and we've covered all 4 cases
+            },
+        ));
 
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR

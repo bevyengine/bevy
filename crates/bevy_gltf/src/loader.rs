@@ -22,9 +22,10 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::Aabb,
-    render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
+    render_resource::{Face, PrimitiveTopology},
     texture::{
-        CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageType, TextureError,
+        CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
+        ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
     },
 };
 use bevy_scene::Scene;
@@ -256,9 +257,14 @@ async fn load_gltf<'a, 'b, 'c>(
     ) {
         let handle = match texture {
             ImageOrPath::Image { label, image } => load_context.add_labeled_asset(label, image),
-            ImageOrPath::Path { path, is_srgb } => {
+            ImageOrPath::Path {
+                path,
+                is_srgb,
+                sampler_descriptor,
+            } => {
                 load_context.load_with_settings(path, move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
+                    settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
                 })
             }
         };
@@ -667,18 +673,19 @@ async fn load_image<'a, 'b>(
     supported_compressed_formats: CompressedImageFormats,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
+    let sampler_descriptor = texture_sampler(&gltf_texture);
     match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            let mut image = Image::from_buffer(
+            let image = Image::from_buffer(
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
+                ImageSampler::Descriptor(sampler_descriptor),
             )?;
-            image.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
             Ok(ImageOrPath::Image {
                 image,
                 label: texture_label(&gltf_texture),
@@ -698,6 +705,7 @@ async fn load_image<'a, 'b>(
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
                         is_srgb,
+                        ImageSampler::Descriptor(sampler_descriptor),
                     )?,
                     label: texture_label(&gltf_texture),
                 })
@@ -706,6 +714,7 @@ async fn load_image<'a, 'b>(
                 Ok(ImageOrPath::Path {
                     path: image_path,
                     is_srgb,
+                    sampler_descriptor,
                 })
             }
         }
@@ -754,6 +763,56 @@ fn load_material(
             texture_handle(load_context, &info.texture())
         });
 
+        #[cfg(feature = "pbr_transmission_textures")]
+        let (specular_transmission, specular_transmission_texture) =
+            material.transmission().map_or((0.0, None), |transmission| {
+                let transmission_texture: Option<Handle<Image>> = transmission
+                    .transmission_texture()
+                    .map(|transmission_texture| {
+                        // TODO: handle transmission_texture.tex_coord() (the *set* index for the right texcoords)
+                        texture_handle(load_context, &transmission_texture.texture())
+                    });
+
+                (transmission.transmission_factor(), transmission_texture)
+            });
+
+        #[cfg(not(feature = "pbr_transmission_textures"))]
+        let specular_transmission = material
+            .transmission()
+            .map_or(0.0, |transmission| transmission.transmission_factor());
+
+        #[cfg(feature = "pbr_transmission_textures")]
+        let (thickness, thickness_texture, attenuation_distance, attenuation_color) = material
+            .volume()
+            .map_or((0.0, None, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                let thickness_texture: Option<Handle<Image>> =
+                    volume.thickness_texture().map(|thickness_texture| {
+                        // TODO: handle thickness_texture.tex_coord() (the *set* index for the right texcoords)
+                        texture_handle(load_context, &thickness_texture.texture())
+                    });
+
+                (
+                    volume.thickness_factor(),
+                    thickness_texture,
+                    volume.attenuation_distance(),
+                    volume.attenuation_color(),
+                )
+            });
+
+        #[cfg(not(feature = "pbr_transmission_textures"))]
+        let (thickness, attenuation_distance, attenuation_color) =
+            material
+                .volume()
+                .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                    (
+                        volume.thickness_factor(),
+                        volume.attenuation_distance(),
+                        volume.attenuation_color(),
+                    )
+                });
+
+        let ior = material.ior().unwrap_or(1.5);
+
         StandardMaterial {
             base_color: Color::rgba_linear(color[0], color[1], color[2], color[3]),
             base_color_texture,
@@ -773,6 +832,19 @@ fn load_material(
             emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2])
                 * material.emissive_strength().unwrap_or(1.0),
             emissive_texture,
+            specular_transmission,
+            #[cfg(feature = "pbr_transmission_textures")]
+            specular_transmission_texture,
+            thickness,
+            #[cfg(feature = "pbr_transmission_textures")]
+            thickness_texture,
+            ior,
+            attenuation_distance,
+            attenuation_color: Color::rgb_linear(
+                attenuation_color[0],
+                attenuation_color[1],
+                attenuation_color[2],
+            ),
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
             ..Default::default()
@@ -1110,32 +1182,32 @@ fn skin_label(skin: &gltf::Skin) -> String {
 }
 
 /// Extracts the texture sampler data from the glTF texture.
-fn texture_sampler<'a>(texture: &gltf::Texture) -> SamplerDescriptor<'a> {
+fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
     let gltf_sampler = texture.sampler();
 
-    SamplerDescriptor {
+    ImageSamplerDescriptor {
         address_mode_u: texture_address_mode(&gltf_sampler.wrap_s()),
         address_mode_v: texture_address_mode(&gltf_sampler.wrap_t()),
 
         mag_filter: gltf_sampler
             .mag_filter()
             .map(|mf| match mf {
-                MagFilter::Nearest => FilterMode::Nearest,
-                MagFilter::Linear => FilterMode::Linear,
+                MagFilter::Nearest => ImageFilterMode::Nearest,
+                MagFilter::Linear => ImageFilterMode::Linear,
             })
-            .unwrap_or(SamplerDescriptor::default().mag_filter),
+            .unwrap_or(ImageSamplerDescriptor::default().mag_filter),
 
         min_filter: gltf_sampler
             .min_filter()
             .map(|mf| match mf {
                 MinFilter::Nearest
                 | MinFilter::NearestMipmapNearest
-                | MinFilter::NearestMipmapLinear => FilterMode::Nearest,
+                | MinFilter::NearestMipmapLinear => ImageFilterMode::Nearest,
                 MinFilter::Linear
                 | MinFilter::LinearMipmapNearest
-                | MinFilter::LinearMipmapLinear => FilterMode::Linear,
+                | MinFilter::LinearMipmapLinear => ImageFilterMode::Linear,
             })
-            .unwrap_or(SamplerDescriptor::default().min_filter),
+            .unwrap_or(ImageSamplerDescriptor::default().min_filter),
 
         mipmap_filter: gltf_sampler
             .min_filter()
@@ -1143,23 +1215,23 @@ fn texture_sampler<'a>(texture: &gltf::Texture) -> SamplerDescriptor<'a> {
                 MinFilter::Nearest
                 | MinFilter::Linear
                 | MinFilter::NearestMipmapNearest
-                | MinFilter::LinearMipmapNearest => FilterMode::Nearest,
+                | MinFilter::LinearMipmapNearest => ImageFilterMode::Nearest,
                 MinFilter::NearestMipmapLinear | MinFilter::LinearMipmapLinear => {
-                    FilterMode::Linear
+                    ImageFilterMode::Linear
                 }
             })
-            .unwrap_or(SamplerDescriptor::default().mipmap_filter),
+            .unwrap_or(ImageSamplerDescriptor::default().mipmap_filter),
 
         ..Default::default()
     }
 }
 
 /// Maps the texture address mode form glTF to wgpu.
-fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> AddressMode {
+fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> ImageAddressMode {
     match gltf_address_mode {
-        WrappingMode::ClampToEdge => AddressMode::ClampToEdge,
-        WrappingMode::Repeat => AddressMode::Repeat,
-        WrappingMode::MirroredRepeat => AddressMode::MirrorRepeat,
+        WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
+        WrappingMode::Repeat => ImageAddressMode::Repeat,
+        WrappingMode::MirroredRepeat => ImageAddressMode::MirrorRepeat,
     }
 }
 
@@ -1280,8 +1352,15 @@ fn resolve_node_hierarchy(
 }
 
 enum ImageOrPath {
-    Image { image: Image, label: String },
-    Path { path: PathBuf, is_srgb: bool },
+    Image {
+        image: Image,
+        label: String,
+    },
+    Path {
+        path: PathBuf,
+        is_srgb: bool,
+        sampler_descriptor: ImageSamplerDescriptor,
+    },
 }
 
 struct DataUri<'a> {

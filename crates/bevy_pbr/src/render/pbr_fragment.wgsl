@@ -100,11 +100,13 @@ fn pbr_input_from_standard_material(
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
-
         pbr_input.material.reflectance = pbr_bindings::material.reflectance;
+        pbr_input.material.ior = pbr_bindings::material.ior;
+        pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
+        pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 
-        // emissive       
+        // emissive
         // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
@@ -128,6 +130,34 @@ fn pbr_input_from_standard_material(
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
+        var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
+#ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
+            specular_transmission *= textureSample(pbr_bindings::specular_transmission_texture, pbr_bindings::specular_transmission_sampler, uv).r;
+        }
+#endif
+        pbr_input.material.specular_transmission = specular_transmission;
+
+        var thickness: f32 = pbr_bindings::material.thickness;
+#ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
+            thickness *= textureSample(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv).g;
+        }
+#endif
+        // scale thickness, accounting for non-uniform scaling (e.g. a “squished” mesh)
+        thickness *= length(
+            (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
+        );
+        pbr_input.material.thickness = thickness;
+
+        var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
+#ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
+            diffuse_transmission *= textureSample(pbr_bindings::diffuse_transmission_texture, pbr_bindings::diffuse_transmission_sampler, uv).a;
+        }
+#endif
+        pbr_input.material.diffuse_transmission = diffuse_transmission;
+
         // occlusion
         // TODO: Split into diffuse/specular occlusion?
         var occlusion: vec3<f32> = vec3(1.0);
@@ -148,6 +178,8 @@ fn pbr_input_from_standard_material(
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
             pbr_input.world_normal,
+            double_sided,
+            is_front,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
             in.world_tangent,
