@@ -109,13 +109,41 @@ macro_rules! embedded_path {
 
     ($source_path: expr, $path_str: expr) => {{
         let crate_name = module_path!().split(':').next().unwrap();
-        let file_path = std::path::Path::new(file!());
-        let after_src = file_path
-            .strip_prefix($source_path)
-            .unwrap_or_else(|_| panic!("{file_path:?} does not have prefix {}", $source_path));
-        let file_path = after_src.parent().unwrap().join($path_str);
-        std::path::Path::new(crate_name).join(file_path)
+        $crate::io::embedded::_embedded_asset_path(
+            crate_name,
+            $source_path.as_ref(),
+            file!().as_ref(),
+            $path_str.as_ref(),
+        )
     }};
+}
+
+/// Implementation detail of `embedded_path`, do not use this!
+///
+/// Returns an embedded asset path, given:
+///   - `crate_name`: name of the crate where the asset is embedded
+///   - `src_prefix`: path prefix of the crate's source directory, relative to the workspace root
+///   - `file_path`: `std::file!()` path of the source file where `embedded_path!` is called
+///   - `asset_path`: path of the embedded asset relative to `file_path`
+#[doc(hidden)]
+pub fn _embedded_asset_path(
+    crate_name: &str,
+    src_prefix: &Path,
+    file_path: &Path,
+    asset_path: &Path,
+) -> PathBuf {
+    let mut maybe_parent = file_path.parent();
+    let after_src = loop {
+        let Some(parent) = maybe_parent else {
+            panic!("Failed to find src_prefix {src_prefix:?} in {file_path:?}")
+        };
+        if parent.ends_with(src_prefix) {
+            break file_path.strip_prefix(parent).unwrap();
+        }
+        maybe_parent = parent.parent();
+    };
+    let asset_path = after_src.parent().unwrap().join(asset_path);
+    Path::new(crate_name).join(asset_path)
 }
 
 /// Creates a new `embedded` asset by embedding the bytes of the given path into the current binary
@@ -249,4 +277,64 @@ macro_rules! load_internal_binary_asset {
             ),
         );
     }};
+}
+
+#[cfg(test)]
+mod tests {
+    use super::_embedded_asset_path;
+    use std::path::Path;
+
+    // Relative paths show up if this macro is being invoked by a local crate.
+    // In this case we know the relative path is a sub- path of the workspace
+    // root.
+
+    #[test]
+    fn embedded_asset_path_from_local_crate() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "src".as_ref(),
+            "src/foo/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+    }
+
+    #[test]
+    fn embedded_asset_path_from_local_example_crate() {
+        let asset_path = _embedded_asset_path(
+            "example_name",
+            "examples/foo".as_ref(),
+            "examples/foo/example.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("example_name/the/asset.png"));
+    }
+
+    // Absolute paths show up if this macro is being invoked by an external
+    // dependency, e.g. one that's being checked out from a crates repo or git.
+
+    #[test]
+    fn embedded_asset_path_from_external_crate() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "src".as_ref(),
+            "/path/to/crate/src/foo/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+    }
+
+    // We don't handle this edge case because it is ambiguous with the
+    // information currently available to the embedded_path macro.
+    #[test]
+    fn embedded_asset_path_from_external_crate_is_ambiguous() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "src".as_ref(),
+            "/path/to/.cargo/registry/src/crate/src/src/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        // Really, should be "my_crate/src/the/asset.png"
+        assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
+    }
 }
