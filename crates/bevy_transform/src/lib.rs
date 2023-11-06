@@ -1,4 +1,3 @@
-
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
