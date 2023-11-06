@@ -28,6 +28,8 @@ struct VertexOutput {
     @location(0) color: vec4<f32>,
 };
 
+const EPSILON: f32 = 4.88e-04;
+
 @vertex
 fn vertex(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec3<f32>, 6>(
@@ -79,7 +81,6 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     if line_gizmo.depth_bias >= 0. {
         depth = clip.z * (1. - line_gizmo.depth_bias);
     } else {
-        let epsilon = 4.88e-04;
         // depth * (clip.w / depth)^-depth_bias. So that when -depth_bias is 1.0, this is equal to clip.w
         // and when equal to 0.0, it is exactly equal to depth.
         // the epsilon is here to prevent the depth from exceeding clip.w when -depth_bias = 1.0
@@ -87,7 +88,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         // of this value means nothing can be in front of this
         // The reason this uses an exponential function is that it makes it much easier for the
         // user to chose a value that is convenient for them
-        depth = clip.z * exp2(-line_gizmo.depth_bias * log2(clip.w / clip.z - epsilon));
+        depth = clip.z * exp2(-line_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
     }
 
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
@@ -101,8 +102,9 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
         // Interpolate a towards b until it's at the near plane.
         let distance_a = a.z - a.w;
         let distance_b = b.z - b.w;
-        let t = distance_a / (distance_a - distance_b);
-        return a + (b - a) * t;
+        // Add an epsilon to the interpolator to ensure the point is not just behind the clip plane.
+        let t = distance_a / (distance_a - distance_b) + EPSILON;
+        return mix(a, b, t);
     }
     return a;
 }
