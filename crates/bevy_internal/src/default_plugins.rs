@@ -1,4 +1,4 @@
-use bevy_app::{PluginGroup, PluginGroupBuilder};
+use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
 
 /// This plugin group will add all the default plugins for a *Bevy* application:
 /// * [`LogPlugin`](crate::log::LogPlugin)
@@ -133,7 +133,23 @@ impl PluginGroup for DefaultPlugins {
             group = group.add(bevy_gizmos::GizmoPlugin);
         }
 
+        group = group.add(IgnoreAmbiguitiesPlugin);
+
         group
+    }
+}
+
+struct IgnoreAmbiguitiesPlugin;
+
+impl Plugin for IgnoreAmbiguitiesPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        // bevy_ui owns the Transform and cannot be animated
+        #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
+        app.ambiguous_with(
+            bevy_app::PostUpdate,
+            bevy_animation::animation_player,
+            bevy_ui::ui_layout_system,
+        );
     }
 }
 
