@@ -1,7 +1,10 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
 use core::panic;
-use std::ops::{Deref, DerefMut};
+use std::{
+    any::TypeId,
+    ops::{Deref, DerefMut},
+};
 
 use bevy_ecs::{component::Component, system::Resource};
 use bevy_reflect::{Reflect, TypePath};
@@ -26,63 +29,66 @@ impl CustomGizmoConfig for DefaultGizmoConfig {}
 #[derive(Resource, Default)]
 pub struct GizmoConfigStore {
     // INVARIANT: store must map TypeId::of::<T>() to correct type T
-    store: HashMap<&'static str, (GizmoConfig, Box<dyn Reflect>)>,
+    store: HashMap<TypeId, (GizmoConfig, Box<dyn Reflect>)>,
 }
 
 impl GizmoConfigStore {
     /// Returns [`GizmoConfig`] and `&dyn` [`CustomGizmoConfig`] associated with [`TypePath`] of a [`CustomGizmoConfig`]
-    pub fn get_dyn(&self, config_type_path: &str) -> (&GizmoConfig, &dyn Reflect) {
-        let Some((config, ext)) = self.store.get(config_type_path) else {
-            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_config<T>()`?", config_type_path);
-        };
-        (config, ext.deref())
+    pub fn get_dyn(&self, config_type_id: &TypeId) -> Option<(&GizmoConfig, &dyn Reflect)> {
+        let (config, ext) = self.store.get(config_type_id)?;
+        Some((config, ext.deref()))
     }
 
     /// Returns [`GizmoConfig`] and [`CustomGizmoConfig`] associated with a [`CustomGizmoConfig`] `T`
     pub fn get<T: CustomGizmoConfig>(&self) -> (&GizmoConfig, &T) {
-        let (config, ext) = self.get_dyn(T::type_path());
+        let Some((config, ext)) = self.get_dyn(&TypeId::of::<T>()) else {
+            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_config<T>()`?", T::type_path());
+        };
         // hash map invariant guarantees that `&dyn CustomGizmoConfig` is of correct type T
         let ext = ext.as_any().downcast_ref().unwrap();
         (config, ext)
     }
 
     /// Returns mutable [`GizmoConfig`] and `&dyn` [`CustomGizmoConfig`] associated with [`TypePath`] of a [`CustomGizmoConfig`]
-    pub fn get_mut_dyn(&mut self, config_type_path: &str) -> (&mut GizmoConfig, &mut dyn Reflect) {
-        let Some((config, ext)) = self.store.get_mut(config_type_path) else {
-            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_config<T>()`?", config_type_path);
-        };
-        (config, ext.deref_mut())
+    pub fn get_mut_dyn(
+        &mut self,
+        config_type_id: &TypeId,
+    ) -> Option<(&mut GizmoConfig, &mut dyn Reflect)> {
+        let (config, ext) = self.store.get_mut(config_type_id)?;
+        Some((config, ext.deref_mut()))
     }
 
     /// Returns mutable [`GizmoConfig`] and [`CustomGizmoConfig`] associated with a [`CustomGizmoConfig`] `T`
     pub fn get_mut<T: CustomGizmoConfig>(&mut self) -> (&mut GizmoConfig, &mut T) {
-        let (config, ext) = self.get_mut_dyn(T::type_path());
+        let Some((config, ext)) = self.get_mut_dyn(&TypeId::of::<T>()) else {
+            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_config<T>()`?", T::type_path());
+        };
         // hash map invariant guarantees that `&dyn CustomGizmoConfig` is of correct type T
         let ext = ext.as_any_mut().downcast_mut().unwrap();
         (config, ext)
     }
 
     /// Returns an iterator over all [`GizmoConfig`]s.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &GizmoConfig, &dyn Reflect)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&TypeId, &GizmoConfig, &dyn Reflect)> + '_ {
         self.store
             .iter()
-            .map(|(&id, (config, ext))| (id, config, ext.deref()))
+            .map(|(id, (config, ext))| (id, config, ext.deref()))
     }
 
     /// Returns an iterator over all [`GizmoConfig`]s, by mutable reference.
     pub fn iter_mut(
         &mut self,
-    ) -> impl Iterator<Item = (&str, &mut GizmoConfig, &mut dyn Reflect)> + '_ {
+    ) -> impl Iterator<Item = (&TypeId, &mut GizmoConfig, &mut dyn Reflect)> + '_ {
         self.store
             .iter_mut()
-            .map(|(&id, (config, ext))| (id, config, ext.deref_mut()))
+            .map(|(id, (config, ext))| (id, config, ext.deref_mut()))
     }
 
     /// Inserts [`GizmoConfig`] and [`CustomGizmoConfig`] replacing old values
     pub fn insert<T: CustomGizmoConfig>(&mut self, config: GizmoConfig, ext_config: T) {
         // INVARIANT: hash map must only map TypeId::of::<T>() to Box<T>
         self.store
-            .insert(T::type_path(), (config, Box::new(ext_config)));
+            .insert(TypeId::of::<T>(), (config, Box::new(ext_config)));
     }
 
     pub(crate) fn regsiter<T: CustomGizmoConfig>(&mut self) {
