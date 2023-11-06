@@ -149,12 +149,11 @@ impl Plugin for AccessibilityPlugin {
             .add_event::<ActionRequestWrapper>()
             .add_systems(
                 PostUpdate,
-                (window_closed, poll_receivers).in_set(AccessibilitySystem::Update),
-            )
-            .add_systems(
-                PostUpdate,
-                update_accessibility_nodes
-                    .run_if(should_update_accessibility_nodes)
+                (
+                    window_closed,
+                    poll_receivers,
+                    update_accessibility_nodes.run_if(should_update_accessibility_nodes),
+                )
                     .in_set(AccessibilitySystem::Update),
             );
     }
