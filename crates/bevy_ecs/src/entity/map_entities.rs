@@ -5,7 +5,7 @@ use bevy_utils::EntityHashMap;
 ///
 /// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
 /// as references in components copied from another world will be invalid. This trait
-/// allows defining custom mappings for these references via [`HashMap<Entity, Entity>`]
+/// allows defining custom mappings for these references via [`EntityHashMap<Entity, Entity>`]
 ///
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
