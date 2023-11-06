@@ -234,7 +234,9 @@ where
                             .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
+                            .after(prepare_materials::<M>)
+                            // queue_material_meshes only writes to `material_bind_group_id`, which `queue_shadows` doesn't read
+                            .ambiguous_with(render::queue_shadows::<M>),
                     ),
                 );
         }
