@@ -54,7 +54,10 @@ fn derive_dependency_visitor_internal(
             let field_visitors = fields.enumerate().filter(|(_, f)| field_has_dep(f));
             let field_visitors = field_visitors.map(|(i, field)| match &field.ident {
                 Some(ident) => visit_dep(quote!(&self.#ident)),
-                None => visit_dep(quote!(&self.#i)),
+                None => {
+                    let index = syn::Index::from(i);
+                    visit_dep(quote!(&self.#index))
+                },
             });
             Some(quote!( #(#field_visitors)* ))
         }
