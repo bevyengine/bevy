@@ -86,7 +86,7 @@ impl GizmoConfigStore {
     }
 
     pub(crate) fn regsiter<T: CustomGizmoConfig>(&mut self) {
-        self.insert::<T>(GizmoConfig::default(), T::default());
+        self.insert(GizmoConfig::default(), T::default());
     }
 }
 
