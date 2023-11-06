@@ -2,9 +2,9 @@ mod asset;
 mod from_mesh;
 mod gpu_scene;
 mod persistent_buffer;
+mod persistent_buffer_impls;
 mod pipelines;
 mod prepare_materials;
-mod psb_impls;
 mod visibility_buffer_node;
 
 pub(crate) use self::{
