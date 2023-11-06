@@ -70,7 +70,7 @@ where
                 .init_resource::<ExtractedUiMaterials<M>>()
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
                 .init_resource::<RenderUiMaterials<M>>()
-                .init_resource::<UiMaterialMeta>()
+                .init_resource::<UiMaterialMeta<M>>()
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
                 .add_systems(
                     ExtractSchedule,
@@ -98,16 +98,18 @@ where
 }
 
 #[derive(Resource)]
-pub struct UiMaterialMeta {
+pub struct UiMaterialMeta<M: UiMaterial> {
     vertices: BufferVec<UiMaterialVertex>,
     view_bind_group: Option<BindGroup>,
+    marker: PhantomData<M>,
 }
 
-impl Default for UiMaterialMeta {
+impl<M: UiMaterial> Default for UiMaterialMeta<M> {
     fn default() -> Self {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
             view_bind_group: Default::default(),
+            marker: PhantomData,
         }
     }
 }
@@ -261,7 +263,7 @@ pub type DrawUiMaterial<M> = (
 
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
-    type Param = SRes<UiMaterialMeta>;
+    type Param = SRes<UiMaterialMeta<M>>;
     type ViewWorldQuery = Read<ViewUniformOffset>;
     type ItemWorldQuery = ();
 
@@ -307,7 +309,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 
 pub struct DrawUiMaterialNode<M>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
-    type Param = SRes<UiMaterialMeta>;
+    type Param = SRes<UiMaterialMeta<M>>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<UiMaterialBatch<M>>;
 
@@ -429,7 +431,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<UiMaterialMeta>,
+    mut ui_meta: ResMut<UiMaterialMeta<M>>,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     view_uniforms: Res<ViewUniforms>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
