@@ -235,7 +235,7 @@ impl Schedule {
     /// Suppress warnings and errors that would result from systems in these sets having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     #[track_caller]
-    pub fn ignore_ambiguities<M1, M2, S1, S2>(&mut self, a: S1, b: S2) -> &mut Self
+    pub fn ignore_ambiguity<M1, M2, S1, S2>(&mut self, a: S1, b: S2) -> &mut Self
     where
         S1: IntoSystemSet<M1>,
         S2: IntoSystemSet<M2>,

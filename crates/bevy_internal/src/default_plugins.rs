@@ -145,7 +145,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
-        app.ignore_ambiguities(
+        app.ignore_ambiguity(
             bevy_app::PostUpdate,
             bevy_animation::animation_player,
             bevy_ui::ui_layout_system,
@@ -154,12 +154,12 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(bevy_render::RenderApp) {
             #[cfg(all(feature = "bevy_gizmos", feature = "bevy_sprite"))]
             {
-                render_app.ignore_ambiguities(
+                render_app.ignore_ambiguity(
                     bevy_render::Render,
                     bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
                     bevy_sprite::queue_sprites,
                 );
-                render_app.ignore_ambiguities(
+                render_app.ignore_ambiguity(
                     bevy_render::Render,
                     bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
                     bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
@@ -167,7 +167,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             }
             #[cfg(all(feature = "bevy_gizmos", feature = "bevy_pbr"))]
             {
-                render_app.ignore_ambiguities(
+                render_app.ignore_ambiguity(
                     bevy_render::Render,
                     bevy_gizmos::GizmoRenderSystem::QueueLineGizmos3d,
                     bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>,
