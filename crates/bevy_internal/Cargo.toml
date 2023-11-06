@@ -118,6 +118,9 @@ file_watcher = ["bevy_asset?/file_watcher"]
 # Enables watching embedded files for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
+# Enable the bevy_ui debug overlay
+bevy_ui_debug = ["bevy_ui?/debug"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.12.0" }

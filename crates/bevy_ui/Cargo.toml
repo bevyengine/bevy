@@ -8,27 +8,31 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+default = []
+debug = ["bevy_gizmos", "bevy_core"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.12.0" }
 bevy_app = { path = "../bevy_app", version = "0.12.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.12.0" }
+bevy_core = { path = "../bevy_core", version = "0.12.0", optional = true }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.12.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
+bevy_gizmos = { path = "../bevy_gizmos", version = "0.12.0", optional = true }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0" }
 bevy_input = { path = "../bevy_input", version = "0.12.0" }
 bevy_log = { path = "../bevy_log", version = "0.12.0" }
 bevy_math = { path = "../bevy_math", version = "0.12.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
-    "bevy",
-] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = ["bevy"] }
 bevy_render = { path = "../bevy_render", version = "0.12.0" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.12.0" }
 bevy_text = { path = "../bevy_text", version = "0.12.0", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
-bevy_window = { path = "../bevy_window", version = "0.12.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
+bevy_window = { path = "../bevy_window", version = "0.12.0" }
 
 # other
 taffy = { version = "0.3.10" }

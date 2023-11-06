@@ -12,6 +12,8 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+#[cfg(feature = "debug")]
+mod debug_overlay;
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
@@ -160,6 +162,9 @@ impl Plugin for UiPlugin {
                     .before(Assets::<Image>::track_assets),
             ),
         );
+        #[cfg(feature = "debug")]
+        app.add_plugins(debug_overlay::DebugUiPlugin);
+
         #[cfg(feature = "bevy_text")]
         app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
