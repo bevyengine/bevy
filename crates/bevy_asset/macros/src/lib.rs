@@ -69,14 +69,17 @@ fn derive_dependency_visitor_internal(
                 let field_visitors = fields.iter().enumerate().filter(|(_, f)| field_has_dep(f));
 
                 let field_visitors = field_visitors.map(|(i, field)| match &field.ident {
-                    Some(ident) => visit_dep(quote!(&#ident)),
+                    Some(ident) => visit_dep(quote!(#ident)),
                     None => {
                         let ident = format_ident!("member{i}");
-                        visit_dep(quote!(&#ident))
+                        visit_dep(quote!(#ident))
                     }
                 });
                 let fields = match fields {
-                    syn::Fields::Named(fields) => quote!(#fields),
+                    syn::Fields::Named(fields) => {
+                        let named = fields.named.iter().map(|f| f.ident.as_ref());
+                        quote!({ #(#named,)* .. })
+                    }
                     syn::Fields::Unnamed(fields) => {
                         let named = (0..fields.unnamed.len()).map(|i| format_ident!("member{i}"));
                         quote!( ( #(#named,)* ) )
@@ -88,7 +91,7 @@ fn derive_dependency_visitor_internal(
                 })
             });
 
-            any_case_required.then(|| quote!(match self { #(#cases)* }))
+            any_case_required.then(|| quote!(match self { #(#cases)*, _ => {} }))
         }
         Data::Union(_) => {
             return Err(syn::Error::new(
