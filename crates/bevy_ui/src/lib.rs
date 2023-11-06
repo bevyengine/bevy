@@ -6,8 +6,23 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod camera_config;
+bevy_utils::define_struct_default_macros!(
+    ui_camera_config: bevy::ui::camera_config::UiCameraConfig
+);
 pub mod measurement;
+bevy_utils::define_struct_default_macros!(
+    fixed_measure: bevy::ui::measurement::FixedMeasure
+);
 pub mod node_bundles;
+bevy_utils::define_struct_default_macros!(
+    node_bundle: bevy::ui::node_bundles::NodeBundle,
+    image_bundle: bevy::ui::node_bundles::ImageBundle,
+    atlas_image_bundle: bevy::ui::node_bundles::AtlasImageBundle,
+    text_bundle: bevy::ui::node_bundles::TextBundle,
+    button_bundle: bevy::ui::ButtonBundle,
+    material_node_bundle: bevy::ui::MaterialNodeBundle
+);
+
 pub mod ui_material;
 pub mod update;
 pub mod widget;
@@ -27,11 +42,22 @@ mod ui_node;
 
 pub use focus::*;
 pub use geometry::*;
+bevy_utils::define_struct_default_macros!(
+    ui_rect: bevy::ui::UiRect
+);
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
+bevy_utils::define_struct_default_macros!(
+    node: bevy::ui::Node,
+    style: bevy::ui::Style,
+    overflow: bevy::ui::Overflow,
+    ui_texture_atlas_image: bevy::ui::UiTextureAtlasImage,
+    outline: bevy::ui::Outline,
+    ui_image: bevy::ui::UiImage
+);
 use widget::UiImageSize;
 
 #[doc(hidden)]

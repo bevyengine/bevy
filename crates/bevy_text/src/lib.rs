@@ -18,6 +18,11 @@ pub use font_loader::*;
 pub use glyph_brush::*;
 pub use pipeline::*;
 pub use text::*;
+bevy_utils::define_struct_default_macros!(
+    text: bevy::text::Text,
+    text_section: bevy::text::TextSection,
+    text_style: bevy::text::TextStyle
+);
 pub use text2d::*;
 
 pub mod prelude {

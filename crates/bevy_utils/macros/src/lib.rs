@@ -4,7 +4,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     token::Comma,
-    Ident, LitInt, Result,
+    Ident, LitInt, Path, Result,
 };
 struct AllTuples {
     macro_ident: Ident,
@@ -170,4 +170,44 @@ pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
             #invocations
         )*
     })
+}
+
+struct DDMParsed(Ident, Path);
+
+impl Parse for DDMParsed {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let name = input.parse::<Ident>()?;
+        input.parse::<Comma>()?;
+        let path = input.parse::<Path>()?;
+        Ok(Self(name, path))
+    }
+}
+
+/// Helper macro to create a macro that simplifies struct initializations.
+/// Should become a normal macro once `macro_metavar_expr` is stabilized.
+#[proc_macro]
+pub fn define_struct_default_macro(input: TokenStream) -> TokenStream {
+    let ddm = parse_macro_input!(input as DDMParsed);
+    let name = ddm.0;
+    let path = ddm.1;
+
+    TokenStream::from(quote!(
+        #[macro_export]
+        macro_rules! #name {
+            {$($n:ident: $v:expr,)*} => {
+                #path {
+                    $(
+                        $n: $v,
+                    )*
+                    ..Default::default()
+                }
+            };
+            {$($t:tt)*} => {
+                #path {
+                    $($t)*,
+                    ..Default::default()
+                }
+            };
+        }
+    ))
 }
