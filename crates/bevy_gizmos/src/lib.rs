@@ -16,6 +16,17 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+/// Label for the the render systems handling the
+#[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum GizmoRenderSystem {
+    /// Reads all [`LineGizmo`]s and draws them into the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
+    #[cfg(feature = "bevy_sprite")]
+    QueueLineGizmos2d,
+    /// Reads all [`LineGizmo`]s and draws them into the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
+    #[cfg(feature = "bevy_pbr")]
+    QueueLineGizmos3d,
+}
+
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
@@ -38,7 +49,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{ROQueryItem, Without},
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::{IntoSystemConfigs, SystemSet},
     system::{
         lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
