@@ -38,7 +38,7 @@ pub(crate) struct GizmoStorage<T: CustomGizmoConfig> {
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
 pub struct Gizmos<'w, 's, T: CustomGizmoConfig = DefaultGizmoConfig> {
     buffer: Deferred<'s, GizmoBuffer<T>>,
-    //_store: Res<'w, GizmoConfigStore>,
+    enabled: bool,
     /// The currently used [`GizmoConfig`]
     pub config: &'w GizmoConfig,
     /// The currently used [`CustomGizmoConfig`]
@@ -46,22 +46,20 @@ pub struct Gizmos<'w, 's, T: CustomGizmoConfig = DefaultGizmoConfig> {
 }
 
 const _: () = {
+    type GizmoState<T> = (
+        Deferred<'static, GizmoBuffer<T>>,
+        Res<'static, GizmoConfigStore>,
+    );
     #[doc(hidden)]
     pub struct FetchState<T: CustomGizmoConfig> {
-        state: <(
-            Deferred<'static, GizmoBuffer<T>>,
-            Res<'static, GizmoConfigStore>,
-        ) as SystemParam>::State,
+        state: <GizmoState<T> as SystemParam>::State,
     }
     unsafe impl<T: CustomGizmoConfig> SystemParam for Gizmos<'_, '_, T> {
         type State = FetchState<T>;
         type Item<'w, 's> = Gizmos<'w, 's, T>;
         fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
             FetchState {
-                state: <(
-                    Deferred<'static, GizmoBuffer<T>>,
-                    Res<'static, GizmoConfigStore>,
-                ) as SystemParam>::init_state(world, system_meta),
+                state: GizmoState::<T>::init_state(world, system_meta),
             }
         }
         fn new_archetype(
@@ -69,16 +67,10 @@ const _: () = {
             archetype: &bevy_ecs::archetype::Archetype,
             system_meta: &mut SystemMeta,
         ) {
-            <(
-                Deferred<'static, GizmoBuffer<T>>,
-                Res<'static, GizmoConfigStore>,
-            ) as SystemParam>::new_archetype(&mut state.state, archetype, system_meta);
+            GizmoState::<T>::new_archetype(&mut state.state, archetype, system_meta);
         }
         fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-            <(
-                Deferred<'static, GizmoBuffer<T>>,
-                Res<'static, GizmoConfigStore>,
-            ) as SystemParam>::apply(&mut state.state, system_meta, world);
+            GizmoState::<T>::apply(&mut state.state, system_meta, world);
         }
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
@@ -86,19 +78,15 @@ const _: () = {
             world: UnsafeWorldCell<'w>,
             change_tick: Tick,
         ) -> Self::Item<'w, 's> {
-            let (f0, f1) = <(
-                Deferred<'static, GizmoBuffer<T>>,
-                Res<'static, GizmoConfigStore>,
-            ) as SystemParam>::get_param(
-                &mut state.state, system_meta, world, change_tick
-            );
+            let (f0, f1) =
+                GizmoState::<T>::get_param(&mut state.state, system_meta, world, change_tick);
             // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
             // Implementing SystemParam manually allows us to do it to here
             // Having config available allows for early returns when gizmos are disabled
             let (config, config_ext) = f1.into_inner().get::<T>();
             Gizmos {
                 buffer: f0,
-                //_store: f1,
+                enabled: config.enabled,
                 config,
                 config_ext,
             }
@@ -148,7 +136,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn line(&mut self, start: Vec3, end: Vec3, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.extend_list_positions([start, end]);
@@ -171,7 +159,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn line_gradient(&mut self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.extend_list_positions([start, end]);
@@ -194,7 +182,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn ray(&mut self, start: Vec3, vector: Vec3, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.line(start, start + vector, color);
@@ -222,7 +210,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
         start_color: Color,
         end_color: Color,
     ) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.line_gradient(start, start + vector, start_color, end_color);
@@ -244,7 +232,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.extend_strip_positions(positions);
@@ -275,7 +263,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, Color)>) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         let points = points.into_iter();
@@ -391,7 +379,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
@@ -414,7 +402,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn cuboid(&mut self, transform: impl TransformPoint, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         let rect = rect_inner(Vec2::ONE);
@@ -452,7 +440,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.line(start.extend(0.), end.extend(0.), color);
@@ -480,7 +468,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
         start_color: Color,
         end_color: Color,
     ) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.line_gradient(start.extend(0.), end.extend(0.), start_color, end_color);
@@ -502,7 +490,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn linestrip_2d(&mut self, positions: impl IntoIterator<Item = Vec2>, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.linestrip(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
@@ -528,7 +516,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn linestrip_gradient_2d(&mut self, positions: impl IntoIterator<Item = (Vec2, Color)>) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.linestrip_gradient(
@@ -554,7 +542,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.line_2d(start, start + vector, color);
@@ -582,7 +570,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
         start_color: Color,
         end_color: Color,
     ) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         self.line_gradient_2d(start, start + vector, start_color, end_color);
@@ -688,7 +676,7 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
-        if !self.config.enabled {
+        if !self.enabled {
             return;
         }
         let rotation = Mat2::from_angle(rotation);
@@ -748,7 +736,7 @@ impl<T: CustomGizmoConfig> CircleBuilder<'_, '_, '_, T> {
 
 impl<T: CustomGizmoConfig> Drop for CircleBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
-        if !self.gizmos.config.enabled {
+        if !self.gizmos.enabled {
             return;
         }
         let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
@@ -778,7 +766,7 @@ impl<T: CustomGizmoConfig> SphereBuilder<'_, '_, '_, T> {
 
 impl<T: CustomGizmoConfig> Drop for SphereBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
-        if !self.gizmos.config.enabled {
+        if !self.gizmos.enabled {
             return;
         }
         for axis in Vec3::AXES {
@@ -808,7 +796,7 @@ impl<T: CustomGizmoConfig> Circle2dBuilder<'_, '_, '_, T> {
 
 impl<T: CustomGizmoConfig> Drop for Circle2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
-        if !self.gizmos.config.enabled {
+        if !self.gizmos.enabled {
             return;
         }
         let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
@@ -837,7 +825,7 @@ impl<T: CustomGizmoConfig> Arc2dBuilder<'_, '_, '_, T> {
 
 impl<T: CustomGizmoConfig> Drop for Arc2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
-        if !self.gizmos.config.enabled {
+        if !self.gizmos.enabled {
             return;
         }
         let segments = match self.segments {
