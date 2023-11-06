@@ -983,6 +983,38 @@ impl App {
         self.world.allow_ambiguous_resource::<T>();
         self
     }
+
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
+    ///
+    /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
+    /// However, sometimes two independant plugins `A` and `B` are reported as ambiguous, which you
+    /// can only supress as the consumer of both.
+    #[track_caller]
+    pub fn ambiguous_with<M1, M2, S1, S2>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        a: S1,
+        b: S2,
+    ) -> &mut Self
+    where
+        S1: IntoSystemSet<M1> + IntoSystem<(), (), M1>,
+        S2: IntoSystemSet<M2> + IntoSystem<(), (), M2>,
+    {
+        let schedule = schedule.intern();
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(schedule) {
+            let schedule: &mut Schedule = schedule;
+            schedule.ambiguous_with(a, b);
+        } else {
+            let mut new_schedule = Schedule::new(schedule);
+            (&mut new_schedule).ambiguous_with(a, b);
+            schedules.insert(new_schedule);
+        }
+
+        self
+    }
 }
 
 fn run_once(mut app: App) {

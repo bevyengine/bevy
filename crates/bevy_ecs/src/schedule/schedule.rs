@@ -21,7 +21,7 @@ use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
-    system::{BoxedSystem, Resource, System},
+    system::{BoxedSystem, IntoSystem, Resource, System},
     world::World,
 };
 
@@ -229,6 +229,37 @@ impl Schedule {
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.process_configs(systems.into_configs(), false);
+        self
+    }
+
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
+    #[track_caller]
+    pub fn ambiguous_with<M1, M2, S1, S2>(&mut self, a: S1, b: S2) -> &mut Self
+    where
+        S1: IntoSystemSet<M1> + IntoSystem<(), (), M1>,
+        S2: IntoSystemSet<M2> + IntoSystem<(), (), M2>,
+    {
+        let a = a.into_system_set();
+        let b = b.into_system_set();
+
+        let Some(&a_id) = self.graph.system_set_ids.get(&a.intern()) else {
+            panic!(
+                "Could not mark system as ambiguous, `{:?}` was not found in the schedule.
+                Did you try to call `ambiguous_with` before adding the system to the world?",
+                a
+            );
+        };
+        let Some(&b_id) = self.graph.system_set_ids.get(&b.intern()) else {
+            panic!(
+                "Could not mark system as ambiguous, `{:?}` was not found in the schedule.
+                Did you try to call `ambiguous_with` before adding the system to the world?",
+                b
+            );
+        };
+
+        self.graph.ambiguous_with.add_edge(a_id, b_id, ());
+
         self
     }
 
