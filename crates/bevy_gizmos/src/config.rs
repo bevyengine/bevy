@@ -1,10 +1,7 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
 use core::panic;
-use std::{
-    any::Any,
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 use bevy_ecs::{component::Component, system::Resource};
 use bevy_reflect::{Reflect, TypePath};
@@ -16,7 +13,7 @@ use bevy_utils::HashMap;
 /// Here you can store additional configuration for you gizmos not covered by [`GizmoConfig`]
 ///
 /// Make sure to derive [`Default`] + [`Reflect`], and register in the app using `app.init_gizmo_config::<T>()`
-pub trait CustomGizmoConfig: 'static + Send + Sync + Any + Reflect + TypePath + Default {}
+pub trait CustomGizmoConfig: Reflect + TypePath + Default {}
 
 /// The default gizmo config.
 #[derive(Default, Reflect)]

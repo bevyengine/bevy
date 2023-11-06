@@ -22,25 +22,13 @@ type ColorItem = [f32; 4];
 
 const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub(crate) struct GizmoStorage<T: CustomGizmoConfig> {
     pub list_positions: Vec<PositionItem>,
     pub list_colors: Vec<ColorItem>,
     pub strip_positions: Vec<PositionItem>,
     pub strip_colors: Vec<ColorItem>,
     marker: PhantomData<T>,
-}
-
-impl<T: CustomGizmoConfig> Default for GizmoStorage<T> {
-    fn default() -> Self {
-        Self {
-            list_positions: Default::default(),
-            list_colors: Default::default(),
-            strip_positions: Default::default(),
-            strip_colors: Default::default(),
-            marker: Default::default(),
-        }
-    }
 }
 
 /// A [`SystemParam`] for drawing gizmos.
@@ -124,24 +112,13 @@ const _: () = {
     }
 };
 
+#[derive(Default)]
 struct GizmoBuffer<T: CustomGizmoConfig> {
     list_positions: Vec<PositionItem>,
     list_colors: Vec<ColorItem>,
     strip_positions: Vec<PositionItem>,
     strip_colors: Vec<ColorItem>,
     marker: PhantomData<T>,
-}
-
-impl<T: CustomGizmoConfig> Default for GizmoBuffer<T> {
-    fn default() -> Self {
-        Self {
-            list_positions: Default::default(),
-            list_colors: Default::default(),
-            strip_positions: Default::default(),
-            strip_colors: Default::default(),
-            marker: Default::default(),
-        }
-    }
 }
 
 impl<T: CustomGizmoConfig> SystemBuffer for GizmoBuffer<T> {
