@@ -353,7 +353,7 @@ impl Default for Composer {
             .unwrap(),
             undecorate_regex: Regex::new(
                 format!(
-                    r"([\w\d_]+){}([A-Z0-9]*){}",
+                    r"(\x1B\[\d+\w)?([\w\d_]+){}([A-Z0-9]*){}",
                     regex_syntax::escape(DECORATION_PRE),
                     regex_syntax::escape(DECORATION_POST)
                 )
@@ -422,9 +422,10 @@ impl Composer {
             .undecorate_regex
             .replace_all(string, |caps: &regex::Captures| {
                 format!(
-                    "{}::{}",
-                    Self::decode(caps.get(2).unwrap().as_str()),
-                    caps.get(1).unwrap().as_str()
+                    "{}{}::{}",
+                    caps.get(1).map(|cc| cc.as_str()).unwrap_or(""),
+                    Self::decode(caps.get(3).unwrap().as_str()),
+                    caps.get(2).unwrap().as_str()
                 )
             });
 
