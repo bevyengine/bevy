@@ -53,8 +53,8 @@ pub fn gilrs_event_system(
             }
             EventType::Disconnected => events
                 .send(GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected).into()),
-            EventType::ButtonChanged(gilrs_button, raw_value, _) => {
-                if let Some(button_type) = convert_button(gilrs_button) {
+            EventType::ButtonChanged(gilrs_button, raw_value, code) => {
+                if let Some(button_type) = convert_button(gilrs_button, code) {
                     let button = GamepadButton::new(gamepad, button_type);
                     let old_value = gamepad_buttons.get(button);
                     let button_settings = gamepad_settings.get_button_axis_settings(button);
@@ -71,8 +71,8 @@ pub fn gilrs_event_system(
                     }
                 }
             }
-            EventType::AxisChanged(gilrs_axis, raw_value, _) => {
-                if let Some(axis_type) = convert_axis(gilrs_axis) {
+            EventType::AxisChanged(gilrs_axis, raw_value, raw_code) => {
+                if let Some(axis_type) = convert_axis(gilrs_axis, raw_code) {
                     let axis = GamepadAxis::new(gamepad, axis_type);
                     let old_value = gamepad_axis.get(axis);
                     let axis_settings = gamepad_settings.get_axis_settings(axis);
