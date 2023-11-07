@@ -396,7 +396,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 style.border.right,
                 parent_width,
                 ui_logical_viewport_size,
-            ) / uinode.size().y;
+            ) / uinode.size().x;
             let top =
                 resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size)
                     / uinode.size().y;
