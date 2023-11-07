@@ -488,8 +488,8 @@ impl MeshletGpuScene {
             })
     }
 
-    pub fn materials_ids_used(&self) -> &HashSet<u32> {
-        &self.material_ids_used
+    pub fn material_used(&self, material_id: &u32) -> bool {
+        self.material_ids_used.contains(material_id)
     }
 
     pub fn culling_bind_group_layout(&self) -> BindGroupLayout {

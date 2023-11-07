@@ -1,6 +1,7 @@
 mod asset;
 mod from_mesh;
 mod gpu_scene;
+mod material_draw_nodes;
 mod persistent_buffer;
 mod persistent_buffer_impls;
 mod pipelines;
@@ -15,24 +16,28 @@ pub(crate) use self::{
 pub use self::{
     asset::{Meshlet, MeshletBoundingSphere, MeshletMesh},
     from_mesh::MeshToMeshletMeshConversionError,
-    visibility_buffer_node::{draw_3d_graph, MeshletVisibilityBufferPassNode},
 };
 
 use self::{
-    draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS,
     gpu_scene::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
+    },
+    material_draw_nodes::{
+        draw_3d_graph::node::MESHLET_MAIN_OPAQUE_PASS_3D, MeshletMainOpaquePass3dNode,
     },
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
         MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
     },
+    visibility_buffer_node::{
+        draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS, MeshletVisibilityBufferPassNode,
+    },
 };
 use crate::Material;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
-use bevy_core_pipeline::core_3d::{graph::node::PREPASS, CORE_3D};
+use bevy_core_pipeline::core_3d::{graph::node::*, CORE_3D};
 use bevy_ecs::{bundle::Bundle, schedule::IntoSystemConfigs};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
@@ -93,7 +98,24 @@ impl Plugin for MeshletPlugin {
             CORE_3D,
             MESHLET_VISIBILITY_BUFFER_PASS,
         )
-        .add_render_graph_edges(CORE_3D, &[MESHLET_VISIBILITY_BUFFER_PASS, PREPASS])
+        .add_render_graph_node::<ViewNodeRunner<MeshletMainOpaquePass3dNode>>(
+            CORE_3D,
+            MESHLET_MAIN_OPAQUE_PASS_3D,
+        )
+        .add_render_graph_edges(
+            CORE_3D,
+            &[
+                MESHLET_VISIBILITY_BUFFER_PASS,
+                PREPASS,
+                DEFERRED_PREPASS,
+                COPY_DEFERRED_LIGHTING_ID,
+                END_PREPASSES,
+                START_MAIN_PASS,
+                MESHLET_MAIN_OPAQUE_PASS_3D,
+                MAIN_OPAQUE_PASS,
+                END_MAIN_PASS,
+            ],
+        )
         .init_resource::<MeshletGpuScene>()
         .init_resource::<MeshletPipelines>()
         .add_systems(ExtractSchedule, extract_meshlet_meshes)
