@@ -96,9 +96,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 if let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
+                    let x = *material_id * 3;
                     render_pass.set_bind_group(todo!(), material_bind_group, &[]);
                     render_pass.set_render_pipeline(material_pipeline);
-                    render_pass.draw(*material_id..(*material_id + 3), 0..1);
+                    render_pass.draw(x..(x + 3), 0..1);
                 }
             }
         }

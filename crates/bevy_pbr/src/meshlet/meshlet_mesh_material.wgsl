@@ -63,3 +63,17 @@
 
 //     return out;
 // }
+
+@vertex
+fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f32> {
+    let vertex_index = vertex_input % 3u;
+    let material_id = vertex_input / 3u;
+    let material_depth = f32(material_id) / 65535.0;
+    let uv = vec2<f32>(vertex_index >> 1, vertex_index & 1u) * 2.0;
+    return vec4(uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0), material_depth, 1.0);
+}
+
+@fragment
+fn fragment() {
+    // TODO
+}
