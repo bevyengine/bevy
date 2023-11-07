@@ -731,9 +731,12 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 {
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
-    for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let material = render_materials.get(&extracted_uinode.material).unwrap();
-        for (view, mut transparent_phase) in &mut views {
+    for (view, mut transparent_phase) in &mut views {
+        transparent_phase
+            .items
+            .reserve(extracted_uinodes.uinodes.len());
+        for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
+            let material = render_materials.get(&extracted_uinode.material).unwrap();
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &ui_material_pipeline,
@@ -742,9 +745,6 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                     bind_group_data: material.key.clone(),
                 },
             );
-            transparent_phase
-                .items
-                .reserve(extracted_uinodes.uinodes.len());
             transparent_phase.add(TransparentUi {
                 draw_function,
                 pipeline,
