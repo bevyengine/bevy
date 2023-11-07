@@ -1,6 +1,6 @@
 use crate::{
+    gpu_resource::{Buffer, Sampler, TextureView},
     render_graph::{NodeState, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
-    render_resource::{Buffer, Sampler, TextureView},
 };
 use bevy_ecs::entity::Entity;
 use std::borrow::Cow;

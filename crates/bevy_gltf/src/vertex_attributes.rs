@@ -1,7 +1,7 @@
 use bevy_render::{
+    gpu_resource::VertexFormat,
     mesh::{MeshVertexAttribute, VertexAttributeValues as Values},
     prelude::Mesh,
-    render_resource::VertexFormat,
 };
 use bevy_utils::HashMap;
 use gltf::{

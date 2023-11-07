@@ -18,10 +18,10 @@ use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
+    gpu_resource::*,
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::*,
-    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    renderer::{GpuAdapter, GpuDevice, GpuQueue, RenderContext},
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -79,7 +79,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 
         if !render_app
             .world
-            .resource::<RenderAdapter>()
+            .resource::<GpuAdapter>()
             .get_texture_format_features(TextureFormat::R16Float)
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
@@ -90,7 +90,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 
         if render_app
             .world
-            .resource::<RenderDevice>()
+            .resource::<GpuDevice>()
             .limits()
             .max_storage_textures_per_shader_stage
             < 5
@@ -311,13 +311,13 @@ struct SsaoPipelines {
 
 impl FromWorld for SsaoPipelines {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
+        let gpu_device = world.resource::<GpuDevice>();
+        let gpu_queue = world.resource::<GpuQueue>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let hilbert_index_lut = render_device
+        let hilbert_index_lut = gpu_device
             .create_texture_with_data(
-                render_queue,
+                gpu_queue,
                 &(TextureDescriptor {
                     label: Some("ssao_hilbert_index_lut"),
                     size: Extent3d {
@@ -336,7 +336,7 @@ impl FromWorld for SsaoPipelines {
             )
             .create_view(&TextureViewDescriptor::default());
 
-        let point_clamp_sampler = render_device.create_sampler(&SamplerDescriptor {
+        let point_clamp_sampler = gpu_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Nearest,
             mag_filter: FilterMode::Nearest,
             mipmap_filter: FilterMode::Nearest,
@@ -346,7 +346,7 @@ impl FromWorld for SsaoPipelines {
         });
 
         let common_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("ssao_common_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
@@ -379,7 +379,7 @@ impl FromWorld for SsaoPipelines {
             count: None,
         };
         let preprocess_depth_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("ssao_preprocess_depth_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
@@ -413,7 +413,7 @@ impl FromWorld for SsaoPipelines {
             });
 
         let gtao_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("ssao_gtao_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
@@ -480,7 +480,7 @@ impl FromWorld for SsaoPipelines {
             });
 
         let spatial_denoise_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("ssao_spatial_denoise_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
@@ -631,7 +631,7 @@ pub struct ScreenSpaceAmbientOcclusionTextures {
 fn prepare_ssao_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views: Query<(Entity, &ExtractedCamera), With<ScreenSpaceAmbientOcclusionSettings>>,
 ) {
     for (entity, camera) in &views {
@@ -645,7 +645,7 @@ fn prepare_ssao_textures(
         };
 
         let preprocessed_depth_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 label: Some("ssao_preprocessed_depth_texture"),
                 size,
@@ -659,7 +659,7 @@ fn prepare_ssao_textures(
         );
 
         let ssao_noisy_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 label: Some("ssao_noisy_texture"),
                 size,
@@ -673,7 +673,7 @@ fn prepare_ssao_textures(
         );
 
         let ssao_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 label: Some("ssao_texture"),
                 size,
@@ -687,7 +687,7 @@ fn prepare_ssao_textures(
         );
 
         let depth_differences_texture = texture_cache.get(
-            &render_device,
+            &gpu_device,
             TextureDescriptor {
                 label: Some("ssao_depth_differences_texture"),
                 size,
@@ -749,7 +749,7 @@ struct SsaoBindGroups {
 
 fn prepare_ssao_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     pipelines: Res<SsaoPipelines>,
     view_uniforms: Res<ViewUniforms>,
     global_uniforms: Res<GlobalsBuffer>,
@@ -767,7 +767,7 @@ fn prepare_ssao_bind_groups(
     };
 
     for (entity, ssao_textures, prepass_textures) in &views {
-        let common_bind_group = render_device.create_bind_group(
+        let common_bind_group = gpu_device.create_bind_group(
             "ssao_common_bind_group",
             &pipelines.common_bind_group_layout,
             &BindGroupEntries::sequential((&pipelines.point_clamp_sampler, view_uniforms.clone())),
@@ -787,7 +787,7 @@ fn prepare_ssao_bind_groups(
                 })
         };
 
-        let preprocess_depth_bind_group = render_device.create_bind_group(
+        let preprocess_depth_bind_group = gpu_device.create_bind_group(
             "ssao_preprocess_depth_bind_group",
             &pipelines.preprocess_depth_bind_group_layout,
             &BindGroupEntries::sequential((
@@ -800,7 +800,7 @@ fn prepare_ssao_bind_groups(
             )),
         );
 
-        let gtao_bind_group = render_device.create_bind_group(
+        let gtao_bind_group = gpu_device.create_bind_group(
             "ssao_gtao_bind_group",
             &pipelines.gtao_bind_group_layout,
             &BindGroupEntries::sequential((
@@ -813,7 +813,7 @@ fn prepare_ssao_bind_groups(
             )),
         );
 
-        let spatial_denoise_bind_group = render_device.create_bind_group(
+        let spatial_denoise_bind_group = gpu_device.create_bind_group(
             "ssao_spatial_denoise_bind_group",
             &pipelines.spatial_denoise_bind_group_layout,
             &BindGroupEntries::sequential((

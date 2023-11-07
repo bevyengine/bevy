@@ -1,6 +1,6 @@
 use crate::{
-    render_resource::{GpuArrayBuffer, GpuArrayBufferable},
-    renderer::{RenderDevice, RenderQueue},
+    gpu_resource::{GpuArrayBuffer, GpuArrayBufferable},
+    renderer::{GpuDevice, GpuQueue},
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -28,7 +28,7 @@ impl<C: Component + GpuArrayBufferable> Plugin for GpuComponentArrayBufferPlugin
     fn finish(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.insert_resource(GpuArrayBuffer::<C>::new(
-                render_app.world.resource::<RenderDevice>(),
+                render_app.world.resource::<GpuDevice>(),
             ));
         }
     }
@@ -42,8 +42,8 @@ impl<C: Component + GpuArrayBufferable> Default for GpuComponentArrayBufferPlugi
 
 fn prepare_gpu_component_array_buffers<C: Component + GpuArrayBufferable>(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut gpu_array_buffer: ResMut<GpuArrayBuffer<C>>,
     components: Query<(Entity, &C)>,
 ) {
@@ -55,5 +55,5 @@ fn prepare_gpu_component_array_buffers<C: Component + GpuArrayBufferable>(
         .collect::<Vec<_>>();
     commands.insert_or_spawn_batch(entities);
 
-    gpu_array_buffer.write_buffer(&render_device, &render_queue);
+    gpu_array_buffer.write_buffer(&gpu_device, &gpu_queue);
 }

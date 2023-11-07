@@ -11,7 +11,7 @@ fn bevy_encase_path() -> syn::Path {
         .get_subcrate("render")
         .map(|bevy_render_path| {
             let mut segments = bevy_render_path.segments;
-            segments.push(BevyManifest::parse_str("render_resource"));
+            segments.push(BevyManifest::parse_str("gpu_resource"));
             syn::Path {
                 leading_colon: None,
                 segments,

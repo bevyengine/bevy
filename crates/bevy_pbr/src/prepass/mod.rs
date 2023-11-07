@@ -17,12 +17,12 @@ use bevy_math::{Affine3A, Mat4};
 use bevy_render::{
     batching::batch_and_prepare_render_phase,
     globals::{GlobalsBuffer, GlobalsUniform},
+    gpu_resource::*,
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::*,
-    render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -226,11 +226,11 @@ pub struct PrepassPipeline<M: Material> {
 
 impl<M: Material> FromWorld for PrepassPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
         let asset_server = world.resource::<AssetServer>();
 
         let view_layout_motion_vectors =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 entries: &[
                     // View
                     BindGroupLayoutEntry {
@@ -270,7 +270,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             });
 
         let view_layout_no_motion_vectors =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 entries: &[
                     // View
                     BindGroupLayoutEntry {
@@ -324,7 +324,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
-            material_layout: M::bind_group_layout(render_device),
+            material_layout: M::bind_group_layout(gpu_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
             _marker: PhantomData,
         }
@@ -637,8 +637,8 @@ pub struct PreviousViewProjectionUniformOffset {
 
 pub fn prepare_previous_view_projection_uniforms(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut view_uniforms: ResMut<PreviousViewProjectionUniforms>,
     views: Query<
         (Entity, &ExtractedView, Option<&PreviousViewProjection>),
@@ -647,10 +647,9 @@ pub fn prepare_previous_view_projection_uniforms(
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
-    let Some(mut writer) =
-        view_uniforms
-            .uniforms
-            .get_writer(view_count, &render_device, &render_queue)
+    let Some(mut writer) = view_uniforms
+        .uniforms
+        .get_writer(view_count, &gpu_device, &gpu_queue)
     else {
         return;
     };
@@ -676,7 +675,7 @@ pub struct PrepassViewBindGroup {
 }
 
 pub fn prepare_prepass_view_bind_group<M: Material>(
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
@@ -687,14 +686,14 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
+        prepass_view_bind_group.no_motion_vectors = Some(gpu_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
             &prepass_pipeline.view_layout_no_motion_vectors,
             &BindGroupEntries::sequential((view_binding.clone(), globals_binding.clone())),
         ));
 
         if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
-            prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
+            prepass_view_bind_group.motion_vectors = Some(gpu_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
                 &prepass_pipeline.view_layout_motion_vectors,
                 &BindGroupEntries::sequential((

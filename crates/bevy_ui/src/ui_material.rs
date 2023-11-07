@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use bevy_asset::Asset;
-use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
+use bevy_render::gpu_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPipeline) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -24,7 +24,7 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::{gpu_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
 /// #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]

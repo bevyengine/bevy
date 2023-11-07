@@ -1,5 +1,5 @@
+use crate::gpu_resource::PrimitiveTopology;
 use crate::mesh::{Indices, Mesh};
-use wgpu::PrimitiveTopology;
 
 /// A regular polygon in the `XY` plane
 #[derive(Debug, Copy, Clone)]

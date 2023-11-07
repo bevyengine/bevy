@@ -48,16 +48,16 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{
+    gpu_resource::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
         BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
         VertexFormat, VertexStepMode,
     },
-    renderer::RenderDevice,
+    primitives::Aabb,
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    renderer::GpuDevice,
     view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -115,8 +115,8 @@ impl Plugin for GizmoPlugin {
             return;
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let gpu_device = render_app.world.resource::<GpuDevice>();
+        let layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX,
@@ -371,7 +371,7 @@ impl RenderAsset for LineGizmo {
 
     type PreparedAsset = GpuLineGizmo;
 
-    type Param = SRes<RenderDevice>;
+    type Param = SRes<GpuDevice>;
 
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()
@@ -379,17 +379,17 @@ impl RenderAsset for LineGizmo {
 
     fn prepare_asset(
         line_gizmo: Self::ExtractedAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
+        gpu_device: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let position_buffer_data = cast_slice(&line_gizmo.positions);
-        let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+        let position_buffer = gpu_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Position Buffer"),
             contents: position_buffer_data,
         });
 
         let color_buffer_data = cast_slice(&line_gizmo.colors);
-        let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+        let color_buffer = gpu_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Color Buffer"),
             contents: color_buffer_data,
@@ -417,12 +417,12 @@ struct LineGizmoUniformBindgroup {
 fn prepare_line_gizmo_bind_group(
     mut commands: Commands,
     line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
 ) {
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
-            bindgroup: render_device.create_bind_group(
+            bindgroup: gpu_device.create_bind_group(
                 "LineGizmoUniform bindgroup",
                 &line_gizmo_uniform_layout.layout,
                 &BindGroupEntries::single(binding),

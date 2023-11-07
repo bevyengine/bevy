@@ -7,11 +7,11 @@ use crate::{
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::RenderPhase,
-    render_resource::{
+    gpu_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     },
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
+    render_phase::RenderPhase,
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };

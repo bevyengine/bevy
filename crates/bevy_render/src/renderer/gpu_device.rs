@@ -1,52 +1,46 @@
-use crate::render_resource::{
-    BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
-    RenderPipeline, Sampler, Texture,
-};
+use crate::gpu_resource::*;
 use bevy_ecs::system::Resource;
-use wgpu::{
-    util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BufferAsyncError, BufferBindingType,
-};
 
-use super::RenderQueue;
+use super::GpuQueue;
 
-use crate::render_resource::resource_macros::*;
+use crate::gpu_resource::resource_macros::*;
 
-render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
+render_resource_wrapper!(ErasedGpuDevice, wgpu::Device);
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
-pub struct RenderDevice {
-    device: ErasedRenderDevice,
+pub struct GpuDevice {
+    device: ErasedGpuDevice,
 }
 
-impl From<wgpu::Device> for RenderDevice {
+impl From<wgpu::Device> for GpuDevice {
     fn from(device: wgpu::Device) -> Self {
         Self {
-            device: ErasedRenderDevice::new(device),
+            device: ErasedGpuDevice::new(device),
         }
     }
 }
 
-impl RenderDevice {
-    /// List all [`Features`](wgpu::Features) that may be used with this device.
+impl GpuDevice {
+    /// List all [`GpuFeatures`] that may be used with this device.
     ///
     /// Functions may panic if you use unsupported features.
     #[inline]
-    pub fn features(&self) -> wgpu::Features {
+    pub fn features(&self) -> GpuFeatures {
         self.device.features()
     }
 
-    /// List all [`Limits`](wgpu::Limits) that were requested of this device.
+    /// List all [`GpuLimits`] that were requested of this device.
     ///
     /// If any of these limits are exceeded, functions may panic.
     #[inline]
-    pub fn limits(&self) -> wgpu::Limits {
+    pub fn limits(&self) -> GpuLimits {
         self.device.limits()
     }
 
-    /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    /// Creates a [`ShaderModule`] from either SPIR-V or WGSL source code.
     #[inline]
-    pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+    pub fn create_shader_module(&self, desc: ShaderModuleDescriptor) -> ShaderModule {
         self.device.create_shader_module(desc)
     }
 
@@ -64,29 +58,26 @@ impl RenderDevice {
         self.device.poll(maintain)
     }
 
-    /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
+    /// Creates an empty [`CommandEncoder`].
     #[inline]
-    pub fn create_command_encoder(
-        &self,
-        desc: &wgpu::CommandEncoderDescriptor,
-    ) -> wgpu::CommandEncoder {
+    pub fn create_command_encoder(&self, desc: &CommandEncoderDescriptor) -> CommandEncoder {
         self.device.create_command_encoder(desc)
     }
 
-    /// Creates an empty [`RenderBundleEncoder`](wgpu::RenderBundleEncoder).
+    /// Creates an empty [`RenderBundleEncoder`].
     #[inline]
     pub fn create_render_bundle_encoder(
         &self,
-        desc: &wgpu::RenderBundleEncoderDescriptor,
-    ) -> wgpu::RenderBundleEncoder {
+        desc: &RenderBundleEncoderDescriptor,
+    ) -> RenderBundleEncoder {
         self.device.create_render_bundle_encoder(desc)
     }
 
-    /// Creates a new [`BindGroup`](wgpu::BindGroup).
+    /// Creates a new [`BindGroup`].
     #[inline]
     pub fn create_bind_group<'a>(
         &self,
-        label: impl Into<wgpu::Label<'a>>,
+        label: impl Into<GpuLabel<'a>>,
         layout: &'a BindGroupLayout,
         entries: &'a [BindGroupEntry<'a>],
     ) -> BindGroup {
@@ -98,21 +89,15 @@ impl RenderDevice {
         BindGroup::from(wgpu_bind_group)
     }
 
-    /// Creates a [`BindGroupLayout`](wgpu::BindGroupLayout).
+    /// Creates a [`BindGroupLayout`].
     #[inline]
-    pub fn create_bind_group_layout(
-        &self,
-        desc: &wgpu::BindGroupLayoutDescriptor,
-    ) -> BindGroupLayout {
+    pub fn create_bind_group_layout(&self, desc: &BindGroupLayoutDescriptor) -> BindGroupLayout {
         BindGroupLayout::from(self.device.create_bind_group_layout(desc))
     }
 
-    /// Creates a [`PipelineLayout`](wgpu::PipelineLayout).
+    /// Creates a [`PipelineLayout`].
     #[inline]
-    pub fn create_pipeline_layout(
-        &self,
-        desc: &wgpu::PipelineLayoutDescriptor,
-    ) -> wgpu::PipelineLayout {
+    pub fn create_pipeline_layout(&self, desc: &PipelineLayoutDescriptor) -> PipelineLayout {
         self.device.create_pipeline_layout(desc)
     }
 
@@ -125,22 +110,19 @@ impl RenderDevice {
 
     /// Creates a [`ComputePipeline`].
     #[inline]
-    pub fn create_compute_pipeline(
-        &self,
-        desc: &wgpu::ComputePipelineDescriptor,
-    ) -> ComputePipeline {
+    pub fn create_compute_pipeline(&self, desc: &RawComputePipelineDescriptor) -> ComputePipeline {
         let wgpu_compute_pipeline = self.device.create_compute_pipeline(desc);
         ComputePipeline::from(wgpu_compute_pipeline)
     }
 
     /// Creates a [`Buffer`].
-    pub fn create_buffer(&self, desc: &wgpu::BufferDescriptor) -> Buffer {
+    pub fn create_buffer(&self, desc: &BufferDescriptor) -> Buffer {
         let wgpu_buffer = self.device.create_buffer(desc);
         Buffer::from(wgpu_buffer)
     }
 
     /// Creates a [`Buffer`] and initializes it with the specified data.
-    pub fn create_buffer_with_data(&self, desc: &wgpu::util::BufferInitDescriptor) -> Buffer {
+    pub fn create_buffer_with_data(&self, desc: &BufferInitDescriptor) -> Buffer {
         let wgpu_buffer = self.device.create_buffer_init(desc);
         Buffer::from(wgpu_buffer)
     }
@@ -151,20 +133,20 @@ impl RenderDevice {
     /// `data` is the raw data.
     pub fn create_texture_with_data(
         &self,
-        render_queue: &RenderQueue,
-        desc: &wgpu::TextureDescriptor,
+        gpu_queue: &GpuQueue,
+        desc: &TextureDescriptor,
         data: &[u8],
     ) -> Texture {
         let wgpu_texture = self
             .device
-            .create_texture_with_data(render_queue.as_ref(), desc, data);
+            .create_texture_with_data(gpu_queue.as_ref(), desc, data);
         Texture::from(wgpu_texture)
     }
 
     /// Creates a new [`Texture`].
     ///
     /// `desc` specifies the general format of the texture.
-    pub fn create_texture(&self, desc: &wgpu::TextureDescriptor) -> Texture {
+    pub fn create_texture(&self, desc: &TextureDescriptor) -> Texture {
         let wgpu_texture = self.device.create_texture(desc);
         Texture::from(wgpu_texture)
     }
@@ -172,7 +154,7 @@ impl RenderDevice {
     /// Creates a new [`Sampler`].
     ///
     /// `desc` specifies the behavior of the sampler.
-    pub fn create_sampler(&self, desc: &wgpu::SamplerDescriptor) -> Sampler {
+    pub fn create_sampler(&self, desc: &SamplerDescriptor) -> Sampler {
         let wgpu_sampler = self.device.create_sampler(desc);
         Sampler::from(wgpu_sampler)
     }
@@ -195,7 +177,7 @@ impl RenderDevice {
     pub fn map_buffer(
         &self,
         buffer: &wgpu::BufferSlice,
-        map_mode: wgpu::MapMode,
+        map_mode: MapMode,
         callback: impl FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
     ) {
         buffer.map_async(map_mode, callback);

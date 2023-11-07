@@ -14,13 +14,13 @@ use bevy_ecs::{
 };
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
-    render_asset::RenderAssets,
-    render_resource::{
+    gpu_resource::{
         BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
         BufferBindingType, DynamicBindGroupEntries, SamplerBindingType, ShaderStages, ShaderType,
         TextureFormat, TextureSampleType, TextureViewDimension,
     },
-    renderer::RenderDevice,
+    render_asset::RenderAssets,
+    renderer::GpuDevice,
     texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
@@ -333,7 +333,7 @@ fn layout_entries(
 /// Generates all possible view layouts for the mesh pipeline, based on all combinations of
 /// [`MeshPipelineViewLayoutKey`] flags.
 pub fn generate_view_layouts(
-    render_device: &RenderDevice,
+    gpu_device: &GpuDevice,
     clustered_forward_buffer_binding_type: BufferBindingType,
 ) -> [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT] {
     array::from_fn(|i| {
@@ -347,7 +347,7 @@ pub fn generate_view_layouts(
             .count();
 
         MeshPipelineViewLayout {
-            bind_group_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            bind_group_layout: gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some(key.label().as_str()),
                 entries: &entries,
             }),
@@ -365,7 +365,7 @@ pub struct MeshViewBindGroup {
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
     light_meta: Res<LightMeta>,
@@ -482,7 +482,7 @@ pub fn prepare_mesh_view_bind_groups(
                 entries.extend_with_indices(((21, transmission_view), (22, transmission_sampler)));
 
             commands.entity(entity).insert(MeshViewBindGroup {
-                value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
+                value: gpu_device.create_bind_group("mesh_view_bind_group", layout, &entries),
             });
         }
     }

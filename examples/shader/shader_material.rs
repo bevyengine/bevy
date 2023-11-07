@@ -3,7 +3,7 @@
 use bevy::{
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::gpu_resource::{AsBindGroup, ShaderRef},
 };
 
 fn main() {

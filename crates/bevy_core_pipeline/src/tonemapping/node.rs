@@ -4,12 +4,12 @@ use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPi
 
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{
+    gpu_resource::{
         BindGroup, BindGroupEntries, BufferId, LoadOp, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor, TextureViewId,
     },
+    render_asset::RenderAssets,
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
     texture::Image,
     view::{ViewTarget, ViewUniformOffset, ViewUniforms},
@@ -82,14 +82,14 @@ impl ViewNode for TonemappingNode {
             }
             cached_bind_group => {
                 let sampler = render_context
-                    .render_device()
+                    .gpu_device()
                     .create_sampler(&SamplerDescriptor::default());
 
                 let tonemapping_luts = world.resource::<TonemappingLuts>();
 
                 let lut_bindings = get_lut_bindings(gpu_images, tonemapping_luts, tonemapping);
 
-                let bind_group = render_context.render_device().create_bind_group(
+                let bind_group = render_context.gpu_device().create_bind_group(
                     None,
                     &tonemapping_pipeline.texture_bind_group,
                     &BindGroupEntries::sequential((

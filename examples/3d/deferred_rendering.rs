@@ -11,7 +11,7 @@ use bevy::{
     pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, OpaqueRendererMethod},
     prelude::*,
-    render::render_resource::TextureFormat,
+    render::gpu_resource::TextureFormat,
 };
 
 fn main() {

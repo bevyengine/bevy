@@ -10,11 +10,11 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    gpu_resource::*,
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_graph::ViewNodeRunner,
-    render_resource::*,
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
@@ -130,7 +130,7 @@ pub struct FxaaPipeline {
 impl FromWorld for FxaaPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let texture_bind_group = render_world
-            .resource::<RenderDevice>()
+            .resource::<GpuDevice>()
             .create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("fxaa_texture_bind_group_layout"),
                 entries: &[

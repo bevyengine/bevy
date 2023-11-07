@@ -43,17 +43,17 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
+    gpu_resource::{
+        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+    },
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         RenderPhase,
     },
-    render_resource::{
-        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
-    },
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::{BevyDefault, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -499,7 +499,7 @@ pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views_3d: Query<
         (Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d),
         (
@@ -555,7 +555,7 @@ pub fn prepare_core_3d_depth_textures(
                     view_formats: &[],
                 };
 
-                texture_cache.get(&render_device, descriptor)
+                texture_cache.get(&gpu_device, descriptor)
             })
             .clone();
 
@@ -576,7 +576,7 @@ pub struct ViewTransmissionTexture {
 pub fn prepare_core_3d_transmission_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views_3d: Query<
         (
             Entity,
@@ -637,11 +637,11 @@ pub fn prepare_core_3d_transmission_textures(
                     view_formats: &[],
                 };
 
-                texture_cache.get(&render_device, descriptor)
+                texture_cache.get(&gpu_device, descriptor)
             })
             .clone();
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
+        let sampler = gpu_device.create_sampler(&SamplerDescriptor {
             label: Some("view_transmission_sampler"),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
@@ -677,7 +677,7 @@ pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views_3d: Query<
         (
             Entity,
@@ -729,7 +729,7 @@ pub fn prepare_prepass_textures(
                             | TextureUsages::TEXTURE_BINDING,
                         view_formats: &[],
                     };
-                    texture_cache.get(&render_device, descriptor)
+                    texture_cache.get(&gpu_device, descriptor)
                 })
                 .clone()
         });
@@ -739,7 +739,7 @@ pub fn prepare_prepass_textures(
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
-                        &render_device,
+                        &gpu_device,
                         TextureDescriptor {
                             label: Some("prepass_normal_texture"),
                             size,
@@ -761,7 +761,7 @@ pub fn prepare_prepass_textures(
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
-                        &render_device,
+                        &gpu_device,
                         TextureDescriptor {
                             label: Some("prepass_motion_vectors_textures"),
                             size,
@@ -783,7 +783,7 @@ pub fn prepare_prepass_textures(
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
-                        &render_device,
+                        &gpu_device,
                         TextureDescriptor {
                             label: Some("prepass_deferred_texture"),
                             size,
@@ -805,7 +805,7 @@ pub fn prepare_prepass_textures(
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
-                        &render_device,
+                        &gpu_device,
                         TextureDescriptor {
                             label: Some("deferred_lighting_pass_id_texture"),
                             size,

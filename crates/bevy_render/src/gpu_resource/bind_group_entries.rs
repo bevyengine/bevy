@@ -7,7 +7,7 @@ use super::{Sampler, TextureView};
 ///
 /// Allows constructing the descriptor's entries as:
 /// ```ignore
-/// render_device.create_bind_group(
+/// gpu_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
 ///     &BindGroupEntries::with_indices((
@@ -20,7 +20,7 @@ use super::{Sampler, TextureView};
 /// instead of
 ///
 /// ```ignore
-/// render_device.create_bind_group(
+/// gpu_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
 ///     &[
@@ -39,7 +39,7 @@ use super::{Sampler, TextureView};
 /// or
 ///
 /// ```ignore
-/// render_device.create_bind_group(
+/// gpu_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
 ///     &BindGroupEntries::sequential((
@@ -52,7 +52,7 @@ use super::{Sampler, TextureView};
 /// instead of
 ///
 /// ```ignore
-/// render_device.create_bind_group(
+/// gpu_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
 ///     &[
@@ -71,7 +71,7 @@ use super::{Sampler, TextureView};
 /// or
 ///
 /// ```ignore
-/// render_device.create_bind_group(
+/// gpu_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
 ///     &BindGroupEntries::single(my_uniform),
@@ -81,7 +81,7 @@ use super::{Sampler, TextureView};
 /// instead of
 ///
 /// ```ignore
-/// render_device.create_bind_group(
+/// gpu_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
 ///     &[

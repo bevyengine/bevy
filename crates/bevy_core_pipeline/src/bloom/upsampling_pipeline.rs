@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget};
+use bevy_render::{gpu_resource::*, renderer::GpuDevice, view::ViewTarget};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -29,43 +29,42 @@ pub struct BloomUpsamplingPipelineKeys {
 
 impl FromWorld for BloomUpsamplingPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
-        let bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("bloom_upsampling_bind_group_layout"),
-                entries: &[
-                    // Input texture
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
+        let bind_group_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("bloom_upsampling_bind_group_layout"),
+            entries: &[
+                // Input texture
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
                     },
-                    // Sampler
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
+                    visibility: ShaderStages::FRAGMENT,
+                    count: None,
+                },
+                // Sampler
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    visibility: ShaderStages::FRAGMENT,
+                    count: None,
+                },
+                // BloomUniforms
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(BloomUniforms::min_size()),
                     },
-                    // BloomUniforms
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(BloomUniforms::min_size()),
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                ],
-            });
+                    visibility: ShaderStages::FRAGMENT,
+                    count: None,
+                },
+            ],
+        });
 
         BloomUpsamplingPipeline { bind_group_layout }
     }

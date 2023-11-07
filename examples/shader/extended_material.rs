@@ -4,7 +4,7 @@ use bevy::reflect::TypePath;
 use bevy::{
     pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
-    render::render_resource::*,
+    render::gpu_resource::*,
 };
 
 fn main() {

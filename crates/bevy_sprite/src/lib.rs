@@ -33,10 +33,10 @@ use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    gpu_resource::{Shader, SpecializedRenderPipelines},
     mesh::Mesh,
     primitives::Aabb,
     render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedRenderPipelines},
     texture::Image,
     view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,

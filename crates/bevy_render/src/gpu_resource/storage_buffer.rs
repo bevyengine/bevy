@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use super::Buffer;
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::renderer::{GpuDevice, GpuQueue};
 use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
@@ -15,17 +15,17 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 ///
 /// Storage buffers can store runtime-sized arrays, but only if they are the last field in a structure.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::StorageBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](crate::gpu_resource::StorageBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Storage buffers must conform to [std430 alignment/padding requirements], which
 /// is automatically enforced by this structure.
 ///
 /// Other options for storing GPU-accessible data are:
 /// * [`DynamicStorageBuffer`]
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
-/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
-/// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::gpu_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::gpu_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::gpu_resource::GpuArrayBuffer)
+/// * [`BufferVec`](crate::gpu_resource::BufferVec)
+/// * [`Texture`](crate::gpu_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct StorageBuffer<T: ShaderType> {
@@ -112,26 +112,26 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         self.changed = true;
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
-    /// and the provided [`RenderQueue`].
+    /// Queues writing of data from system RAM to VRAM using the [`GpuDevice`]
+    /// and the provided [`GpuQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         self.scratch.write(&self.value).unwrap();
 
         let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = self.scratch.as_ref().len() as u64;
 
         if capacity < size || self.changed {
-            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+            self.buffer = Some(gpu_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
-            queue.write_buffer(buffer, 0, self.scratch.as_ref());
+            gpu_queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }
 }
@@ -141,21 +141,21 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 /// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
 /// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
 /// storage buffers support multiple separate bindings at dynamic byte offsets and so have a
-/// [`push`](crate::render_resource::DynamicStorageBuffer::push) method.
+/// [`push`](crate::gpu_resource::DynamicStorageBuffer::push) method.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer)
+/// The contained data is stored in system RAM. [`write_buffer`](crate::gpu_resource::DynamicStorageBuffer::write_buffer)
 /// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
 /// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to
-/// these requirements. Each item [`push`](crate::render_resource::DynamicStorageBuffer::push)ed into this structure
+/// these requirements. Each item [`push`](crate::gpu_resource::DynamicStorageBuffer::push)ed into this structure
 /// will additionally be aligned to meet dynamic offset alignment requirements.
 ///
 /// Other options for storing GPU-accessible data are:
 /// * [`StorageBuffer`]
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
-/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
-/// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::gpu_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::gpu_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::gpu_resource::GpuArrayBuffer)
+/// * [`BufferVec`](crate::gpu_resource::BufferVec)
+/// * [`Texture`](crate::gpu_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct DynamicStorageBuffer<T: ShaderType> {
@@ -230,19 +230,19 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = self.scratch.as_ref().len() as u64;
 
         if capacity < size || self.changed {
-            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+            self.buffer = Some(gpu_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
-            queue.write_buffer(buffer, 0, self.scratch.as_ref());
+            gpu_queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }
 

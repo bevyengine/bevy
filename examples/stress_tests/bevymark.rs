@@ -8,7 +8,7 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::gpu_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     utils::Duration,
     window::{PresentMode, WindowResolution},

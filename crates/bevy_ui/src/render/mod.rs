@@ -6,7 +6,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
-use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
+use bevy_render::{gpu_resource::BindGroupEntries, ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -25,11 +25,11 @@ use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
     color::Color,
+    gpu_resource::*,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
-    render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::Image,
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
@@ -760,8 +760,8 @@ pub struct UiImageBindGroups {
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_uinodes(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut ui_meta: ResMut<UiMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     view_uniforms: Res<ViewUniforms>,
@@ -788,7 +788,7 @@ pub fn prepare_uinodes(
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
-        ui_meta.view_bind_group = Some(render_device.create_bind_group(
+        ui_meta.view_bind_group = Some(gpu_device.create_bind_group(
             "ui_view_bind_group",
             &ui_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
@@ -826,7 +826,7 @@ pub fn prepare_uinodes(
                                 .values
                                 .entry(batch_image_handle)
                                 .or_insert_with(|| {
-                                    render_device.create_bind_group(
+                                    gpu_device.create_bind_group(
                                         "ui_material_bind_group",
                                         &ui_pipeline.image_layout,
                                         &BindGroupEntries::sequential((
@@ -851,7 +851,7 @@ pub fn prepare_uinodes(
                                 .values
                                 .entry(batch_image_handle)
                                 .or_insert_with(|| {
-                                    render_device.create_bind_group(
+                                    gpu_device.create_bind_group(
                                         "ui_material_bind_group",
                                         &ui_pipeline.image_layout,
                                         &BindGroupEntries::sequential((
@@ -985,7 +985,7 @@ pub fn prepare_uinodes(
                 }
             }
         }
-        ui_meta.vertices.write_buffer(&render_device, &render_queue);
+        ui_meta.vertices.write_buffer(&gpu_device, &gpu_queue);
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }

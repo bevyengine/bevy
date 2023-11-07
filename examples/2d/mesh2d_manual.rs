@@ -8,15 +8,15 @@ use bevy::{
     core_pipeline::core_2d::Transparent2d,
     prelude::*,
     render::{
-        mesh::{Indices, MeshVertexAttribute},
-        render_asset::RenderAssets,
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-        render_resource::{
+        gpu_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
             RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
+        mesh::{Indices, MeshVertexAttribute},
+        render_asset::RenderAssets,
+        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
         Extract, Render, RenderApp, RenderSet,

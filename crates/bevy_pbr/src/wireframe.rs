@@ -6,9 +6,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
 use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
+    gpu_resource::*,
     mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::*,
-    render_resource::*,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);

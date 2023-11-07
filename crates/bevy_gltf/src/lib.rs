@@ -20,7 +20,7 @@ use bevy_pbr::StandardMaterial;
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     mesh::{Mesh, MeshVertexAttribute},
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::CompressedImageFormats,
 };
 use bevy_scene::Scene;
@@ -59,8 +59,8 @@ impl Plugin for GltfPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+        let supported_compressed_formats = match app.world.get_resource::<GpuDevice>() {
+            Some(gpu_device) => CompressedImageFormats::from_features(gpu_device.features()),
 
             None => CompressedImageFormats::NONE,
         };

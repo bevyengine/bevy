@@ -9,11 +9,12 @@ use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
+    gpu_resource::CommandEncoder,
     render_graph::{
         Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
         SlotType, SlotValue,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{GpuDevice, RenderContext},
 };
 
 pub(crate) struct RenderGraphRunner;
@@ -54,12 +55,12 @@ pub enum RenderGraphRunnerError {
 impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
-        render_device: RenderDevice,
+        gpu_device: GpuDevice,
         queue: &wgpu::Queue,
         world: &World,
-        finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
+        finalizer: impl FnOnce(&mut CommandEncoder),
     ) -> Result<(), RenderGraphRunnerError> {
-        let mut render_context = RenderContext::new(render_device);
+        let mut render_context = RenderContext::new(gpu_device);
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 

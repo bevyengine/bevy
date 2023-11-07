@@ -2,7 +2,7 @@ use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 use bevy_render::{
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
+    gpu_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
 

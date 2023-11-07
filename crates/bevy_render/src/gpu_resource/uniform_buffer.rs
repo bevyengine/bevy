@@ -1,8 +1,8 @@
 use std::{marker::PhantomData, num::NonZeroU64};
 
 use crate::{
-    render_resource::Buffer,
-    renderer::{RenderDevice, RenderQueue},
+    gpu_resource::Buffer,
+    renderer::{GpuDevice, GpuQueue},
 };
 use encase::{
     internal::{AlignmentValue, BufferMut, WriteInto},
@@ -21,18 +21,18 @@ use super::IntoBinding;
 /// parameters that are constant during shader execution, and are best used for data that is relatively small in size as they are
 /// only guaranteed to support up to 16kB per binding.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](crate::gpu_resource::UniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
 /// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
-/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`StorageBuffer`](crate::gpu_resource::StorageBuffer)
+/// * [`DynamicStorageBuffer`](crate::gpu_resource::DynamicStorageBuffer)
 /// * [`DynamicUniformBuffer`]
-/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
-/// * [`Texture`](crate::render_resource::Texture)
+/// * [`GpuArrayBuffer`](crate::gpu_resource::GpuArrayBuffer)
+/// * [`BufferVec`](crate::gpu_resource::BufferVec)
+/// * [`Texture`](crate::gpu_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct UniformBuffer<T: ShaderType> {
@@ -120,23 +120,23 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.changed = true;
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
-    /// and the provided [`RenderQueue`], if a GPU-side backing buffer already exists.
+    /// Queues writing of data from system RAM to VRAM using the [`GpuDevice`]
+    /// and the provided [`GpuQueue`], if a GPU-side backing buffer already exists.
     ///
     /// If a GPU-side buffer does not already exist for this data, such a buffer is initialized with currently
     /// available data.
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         self.scratch.write(&self.value).unwrap();
 
         if self.changed || self.buffer.is_none() {
-            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+            self.buffer = Some(gpu_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
-            queue.write_buffer(buffer, 0, self.scratch.as_ref());
+            gpu_queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }
 }
@@ -157,19 +157,19 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
 /// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution, and are best
 /// suited to data that is relatively small in size as they are only guaranteed to support up to 16kB per binding.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicUniformBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](crate::gpu_resource::DynamicUniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
 /// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
-/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`StorageBuffer`](crate::gpu_resource::StorageBuffer)
+/// * [`DynamicStorageBuffer`](crate::gpu_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`]
 /// * [`DynamicUniformBuffer`]
-/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
-/// * [`Texture`](crate::render_resource::Texture)
+/// * [`GpuArrayBuffer`](crate::gpu_resource::GpuArrayBuffer)
+/// * [`BufferVec`](crate::gpu_resource::BufferVec)
+/// * [`Texture`](crate::gpu_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct DynamicUniformBuffer<T: ShaderType> {
@@ -261,7 +261,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     ///
     /// `max_count` *must* be greater than or equal to the number of elements that are to be written to the buffer, or
     /// the writer will panic while writing.  Dropping the writer will schedule the buffer write into the provided
-    /// [`RenderQueue`].
+    /// [`GpuQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity to hold `max_count` elements, a new GPU-side buffer is created.
@@ -274,8 +274,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     pub fn get_writer<'a>(
         &'a mut self,
         max_count: usize,
-        device: &RenderDevice,
-        queue: &'a RenderQueue,
+        gpu_device: &GpuDevice,
+        gpu_queue: &'a GpuQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
         let alignment = if cfg!(ios_simulator) {
             // On iOS simulator on silicon macs, metal validation check that the host OS alignment
@@ -284,7 +284,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
             // See https://github.com/bevyengine/bevy/pull/10178 - remove if it's not needed anymore.
             AlignmentValue::new(256)
         } else {
-            AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64)
+            AlignmentValue::new(gpu_device.limits().min_uniform_buffer_offset_alignment as u64)
         };
 
         let mut capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
@@ -294,7 +294,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
             .unwrap();
 
         if capacity < size || self.changed {
-            let buffer = device.create_buffer(&BufferDescriptor {
+            let buffer = gpu_device.create_buffer(&BufferDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 size,
@@ -306,7 +306,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         }
 
         if let Some(buffer) = self.buffer.as_deref() {
-            let buffer_view = queue
+            let buffer_view = gpu_queue
                 .write_buffer_with(buffer, 0, NonZeroU64::new(buffer.size())?)
                 .unwrap();
             Some(DynamicUniformBufferWriter {
@@ -324,25 +324,25 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         }
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
-    /// and the provided [`RenderQueue`].
+    /// Queues writing of data from system RAM to VRAM using the [`GpuDevice`]
+    /// and the provided [`GpuQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
     #[inline]
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = self.scratch.as_ref().len() as u64;
 
         if capacity < size || self.changed {
-            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+            self.buffer = Some(gpu_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
-            queue.write_buffer(buffer, 0, self.scratch.as_ref());
+            gpu_queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }
 

@@ -17,7 +17,7 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        gpu_resource::{Extent3d, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };

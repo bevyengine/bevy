@@ -8,8 +8,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_asset::RenderAssets,
-    render_resource::{
+    gpu_resource::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, BufferBindingType, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
@@ -18,7 +17,8 @@ use bevy_render::{
         SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
         TextureSampleType, TextureViewDimension, VertexState,
     },
-    renderer::RenderDevice,
+    render_asset::RenderAssets,
+    renderer::GpuDevice,
     texture::{BevyDefault, Image},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
@@ -58,9 +58,9 @@ impl Plugin for SkyboxPlugin {
             Err(_) => return,
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>().clone();
+        let gpu_device = render_app.world.resource::<GpuDevice>().clone();
 
-        render_app.insert_resource(SkyboxPipeline::new(&render_device));
+        render_app.insert_resource(SkyboxPipeline::new(&gpu_device));
     }
 }
 
@@ -79,7 +79,7 @@ struct SkyboxPipeline {
 }
 
 impl SkyboxPipeline {
-    fn new(render_device: &RenderDevice) -> Self {
+    fn new(gpu_device: &GpuDevice) -> Self {
         let bind_group_layout_descriptor = BindGroupLayoutDescriptor {
             label: Some("skybox_bind_group_layout"),
             entries: &[
@@ -113,8 +113,7 @@ impl SkyboxPipeline {
         };
 
         Self {
-            bind_group_layout: render_device
-                .create_bind_group_layout(&bind_group_layout_descriptor),
+            bind_group_layout: gpu_device.create_bind_group_layout(&bind_group_layout_descriptor),
         }
     }
 }
@@ -217,14 +216,14 @@ fn prepare_skybox_bind_groups(
     pipeline: Res<SkyboxPipeline>,
     view_uniforms: Res<ViewUniforms>,
     images: Res<RenderAssets<Image>>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views: Query<(Entity, &Skybox)>,
 ) {
     for (entity, skybox) in &views {
         if let (Some(skybox), Some(view_uniforms)) =
             (images.get(&skybox.0), view_uniforms.uniforms.binding())
         {
-            let bind_group = render_device.create_bind_group(
+            let bind_group = gpu_device.create_bind_group(
                 "skybox_bind_group",
                 &pipeline.bind_group_layout,
                 &BindGroupEntries::sequential((

@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::gpu_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
 fn main() {

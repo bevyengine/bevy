@@ -16,11 +16,11 @@ use bevy_render::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
+    gpu_resource::*,
     mesh::*,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::*,
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -155,9 +155,9 @@ impl Plugin for MeshRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<MeshUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
-            ) {
+            if let Some(per_object_buffer_batch_size) =
+                GpuArrayBuffer::<MeshUniform>::batch_size(render_app.world.resource::<GpuDevice>())
+            {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                     per_object_buffer_batch_size,
@@ -166,7 +166,7 @@ impl Plugin for MeshRenderPlugin {
 
             render_app
                 .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
+                    render_app.world.resource::<GpuDevice>(),
                 ))
                 .init_resource::<MeshPipeline>();
         }
@@ -353,30 +353,30 @@ pub struct MeshPipeline {
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<RenderDevice>,
+            Res<GpuDevice>,
             Res<DefaultImageSampler>,
-            Res<RenderQueue>,
+            Res<GpuQueue>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
-        let clustered_forward_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+        let (gpu_device, default_sampler, gpu_queue) = system_state.get_mut(world);
+        let clustered_forward_buffer_binding_type =
+            gpu_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
         let view_layouts =
-            generate_view_layouts(&render_device, clustered_forward_buffer_binding_type);
+            generate_view_layouts(&gpu_device, clustered_forward_buffer_binding_type);
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::default();
-            let texture = render_device.create_texture(&image.texture_descriptor);
+            let texture = gpu_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(&descriptor.as_wgpu())
+                    gpu_device.create_sampler(&descriptor.as_wgpu())
                 }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
+            gpu_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
                     mip_level: 0,
@@ -407,8 +407,8 @@ impl FromWorld for MeshPipeline {
             view_layouts,
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
-            mesh_layouts: MeshLayouts::new(&render_device),
-            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            mesh_layouts: MeshLayouts::new(&gpu_device),
+            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&gpu_device),
             #[cfg(debug_assertions)]
             did_warn_about_too_many_textures: Arc::new(AtomicBool::new(false)),
         }
@@ -952,7 +952,7 @@ pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
@@ -962,20 +962,20 @@ pub fn prepare_mesh_bind_group(
     let Some(model) = mesh_uniforms.binding() else {
         return;
     };
-    groups.model_only = Some(layouts.model_only(&render_device, &model));
+    groups.model_only = Some(layouts.model_only(&gpu_device, &model));
 
     let skin = skins_uniform.buffer.buffer();
     if let Some(skin) = skin {
-        groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
+        groups.skinned = Some(layouts.skinned(&gpu_device, &model, skin));
     }
 
     if let Some(weights) = weights_uniform.buffer.buffer() {
         for (id, gpu_mesh) in meshes.iter() {
             if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
                 let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
-                    layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
+                    layouts.morphed_skinned(&gpu_device, &model, skin, weights, targets)
                 } else {
-                    layouts.morphed(&render_device, &model, weights, targets)
+                    layouts.morphed(&gpu_device, &model, weights, targets)
                 };
                 groups.morph_targets.insert(id, group);
             }

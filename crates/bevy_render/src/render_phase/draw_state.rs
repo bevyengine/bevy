@@ -1,11 +1,11 @@
 use crate::{
     camera::Viewport,
-    prelude::Color,
-    render_resource::{
+    gpu_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
-    renderer::RenderDevice,
+    prelude::Color,
+    renderer::GpuDevice,
 };
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
@@ -107,8 +107,8 @@ pub struct TrackedRenderPass<'a> {
 
 impl<'a> TrackedRenderPass<'a> {
     /// Tracks the supplied render pass.
-    pub fn new(device: &RenderDevice, pass: RenderPass<'a>) -> Self {
-        let limits = device.limits();
+    pub fn new(gpu_device: &GpuDevice, pass: RenderPass<'a>) -> Self {
+        let limits = gpu_device.limits();
         let max_bind_groups = limits.max_bind_groups as usize;
         let max_vertex_buffers = limits.max_vertex_buffers as usize;
         Self {
@@ -177,7 +177,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// [`RenderPass`] will use `buffer` as one of the source vertex buffers.
     ///
     /// The `slot_index` refers to the index of the matching descriptor in
-    /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
+    /// [`VertexState::buffers`](crate::gpu_resource::VertexState::buffers).
     ///
     /// [`draw`]: TrackedRenderPass::draw
     /// [`draw_indexed`]: TrackedRenderPass::draw_indexed

@@ -7,10 +7,10 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
+        gpu_resource::*,
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
-        render_resource::*,
-        renderer::{RenderContext, RenderDevice},
+        renderer::{GpuDevice, RenderContext},
         Render, RenderApp, RenderSet,
     },
     window::WindowPlugin,
@@ -104,10 +104,10 @@ fn prepare_bind_group(
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<Image>>,
     game_of_life_image: Res<GameOfLifeImage>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
 ) {
     let view = gpu_images.get(&game_of_life_image.0).unwrap();
-    let bind_group = render_device.create_bind_group(
+    let bind_group = gpu_device.create_bind_group(
         None,
         &pipeline.texture_bind_group_layout,
         &BindGroupEntries::single(&view.texture_view),
@@ -126,7 +126,7 @@ impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
         let texture_bind_group_layout =
             world
-                .resource::<RenderDevice>()
+                .resource::<GpuDevice>()
                 .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     label: None,
                     entries: &[BindGroupLayoutEntry {

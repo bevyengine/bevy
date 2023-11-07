@@ -3,7 +3,7 @@ use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
 use crate::{
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
 
@@ -119,8 +119,8 @@ impl AssetLoader for ImageLoader {
 
 impl FromWorld for ImageLoader {
     fn from_world(world: &mut World) -> Self {
-        let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+        let supported_compressed_formats = match world.get_resource::<GpuDevice>() {
+            Some(gpu_device) => CompressedImageFormats::from_features(gpu_device.features()),
 
             None => CompressedImageFormats::NONE,
         };

@@ -1,16 +1,16 @@
+mod gpu_device;
 mod graph_runner;
-mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
+pub use gpu_device::*;
 pub use graph_runner::*;
-pub use render_device::*;
 
 use crate::{
+    gpu_resource::RenderPassDescriptor,
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
-    render_resource::RenderPassDescriptor,
-    settings::{WgpuSettings, WgpuSettingsPriority},
+    settings::{GpuSettings, GpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
@@ -27,13 +27,13 @@ pub fn render_system(world: &mut World) {
         graph.update(world);
     });
     let graph = world.resource::<RenderGraph>();
-    let render_device = world.resource::<RenderDevice>();
-    let render_queue = world.resource::<RenderQueue>();
+    let gpu_device = world.resource::<GpuDevice>();
+    let gpu_queue = world.resource::<GpuQueue>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
-        render_device.clone(), // TODO: is this clone really necessary?
-        &render_queue.0,
+        gpu_device.clone(), // TODO: is this clone really necessary?
+        &gpu_queue.0,
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
@@ -102,21 +102,21 @@ pub fn render_system(world: &mut World) {
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderQueue(pub Arc<Queue>);
+pub struct GpuQueue(pub Arc<Queue>);
 
-/// The handle to the physical device being used for rendering.
+/// The handle to the physical device (the GPU) being used for rendering.
 /// See [`wgpu::Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct RenderAdapter(pub Arc<Adapter>);
+pub struct GpuAdapter(pub Arc<Adapter>);
 
-/// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
+/// The GPU instance is used to initialize the [`GpuQueue`] and [`GpuDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderInstance(pub Arc<Instance>);
+pub struct GpuInstance(pub Arc<Instance>);
 
 /// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderAdapterInfo(pub AdapterInfo);
+pub struct GpuAdapterInfo(pub AdapterInfo);
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -128,9 +128,9 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 /// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
-    options: &WgpuSettings,
+    settings: &GpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
+) -> (GpuDevice, GpuQueue, GpuAdapterInfo, GpuAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -151,8 +151,8 @@ pub async fn initialize_renderer(
 
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
-    let mut limits = options.limits.clone();
-    if matches!(options.priority, WgpuSettingsPriority::Functionality) {
+    let mut limits = settings.limits.clone();
+    if matches!(settings.priority, GpuSettingsPriority::Functionality) {
         features = adapter.features();
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
@@ -165,14 +165,14 @@ pub async fn initialize_renderer(
     }
 
     // Enforce the disabled features
-    if let Some(disabled_features) = options.disabled_features {
+    if let Some(disabled_features) = settings.disabled_features {
         features -= disabled_features;
     }
     // NOTE: |= is used here to ensure that any explicitly-enabled features are respected.
-    features |= options.features;
+    features |= settings.features;
 
     // Enforce the limit constraints
-    if let Some(constrained_limits) = options.constrained_limits.as_ref() {
+    if let Some(constrained_limits) = settings.constrained_limits.as_ref() {
         // NOTE: Respect the configured limits as an 'upper bound'. This means for 'max' limits, we
         // take the minimum of the calculated limits according to the adapter/backend and the
         // specified max_limits. For 'min' limits, take the maximum instead. This is intended to
@@ -272,7 +272,7 @@ pub async fn initialize_renderer(
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                label: settings.device_label.as_ref().map(|a| a.as_ref()),
                 features,
                 limits,
             },
@@ -280,45 +280,44 @@ pub async fn initialize_renderer(
         )
         .await
         .unwrap();
-    let queue = Arc::new(queue);
-    let adapter = Arc::new(adapter);
+
     (
-        RenderDevice::from(device),
-        RenderQueue(queue),
-        RenderAdapterInfo(adapter_info),
-        RenderAdapter(adapter),
+        GpuDevice::from(device),
+        GpuQueue(Arc::new(queue)),
+        GpuAdapterInfo(adapter_info),
+        GpuAdapter(Arc::new(adapter)),
     )
 }
 
 /// The context with all information required to interact with the GPU.
 ///
-/// The [`RenderDevice`] is used to create render resources and the
+/// The [`GpuDevice`] is used to create render resources and the
 /// the [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext {
-    render_device: RenderDevice,
+    gpu_device: GpuDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffers: Vec<CommandBuffer>,
 }
 
 impl RenderContext {
-    /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice) -> Self {
+    /// Creates a new [`RenderContext`] from a [`GpuDevice`].
+    pub fn new(gpu_device: GpuDevice) -> Self {
         Self {
-            render_device,
+            gpu_device,
             command_encoder: None,
             command_buffers: Vec::new(),
         }
     }
 
-    /// Gets the underlying [`RenderDevice`].
-    pub fn render_device(&self) -> &RenderDevice {
-        &self.render_device
+    /// Gets the underlying [`GpuDevice`].
+    pub fn gpu_device(&self) -> &GpuDevice {
+        &self.gpu_device
     }
 
     /// Gets the current [`CommandEncoder`].
     pub fn command_encoder(&mut self) -> &mut CommandEncoder {
         self.command_encoder.get_or_insert_with(|| {
-            self.render_device
+            self.gpu_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         })
     }
@@ -331,11 +330,11 @@ impl RenderContext {
     ) -> TrackedRenderPass<'a> {
         // Cannot use command_encoder() as we need to split the borrow on self
         let command_encoder = self.command_encoder.get_or_insert_with(|| {
-            self.render_device
+            self.gpu_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
         let render_pass = command_encoder.begin_render_pass(&descriptor);
-        TrackedRenderPass::new(&self.render_device, render_pass)
+        TrackedRenderPass::new(&self.gpu_device, render_pass)
     }
 
     /// Append a [`CommandBuffer`] to the queue.

@@ -16,13 +16,13 @@ use bevy_ecs::{
 use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     color::Color,
+    gpu_resource::{BindGroupEntries, *},
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::{BindGroupEntries, *},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
@@ -47,13 +47,13 @@ pub struct SpritePipeline {
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<RenderDevice>,
+            Res<GpuDevice>,
             Res<DefaultImageSampler>,
-            Res<RenderQueue>,
+            Res<GpuQueue>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (gpu_device, default_sampler, gpu_queue) = system_state.get_mut(world);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
@@ -67,7 +67,7 @@ impl FromWorld for SpritePipeline {
             label: Some("sprite_view_layout"),
         });
 
-        let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let material_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -90,16 +90,16 @@ impl FromWorld for SpritePipeline {
         });
         let dummy_white_gpu_image = {
             let image = Image::default();
-            let texture = render_device.create_texture(&image.texture_descriptor);
+            let texture = gpu_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(&descriptor.as_wgpu())
+                    gpu_device.create_sampler(&descriptor.as_wgpu())
                 }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
+            gpu_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
                     mip_level: 0,
@@ -593,8 +593,8 @@ pub fn queue_sprites(
 pub fn prepare_sprites(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
@@ -622,7 +622,7 @@ pub fn prepare_sprites(
         // Clear the sprite instances
         sprite_meta.sprite_instance_buffer.clear();
 
-        sprite_meta.view_bind_group = Some(render_device.create_bind_group(
+        sprite_meta.view_bind_group = Some(gpu_device.create_bind_group(
             "sprite_view_bind_group",
             &sprite_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
@@ -663,7 +663,7 @@ pub fn prepare_sprites(
                         .values
                         .entry(batch_image_handle)
                         .or_insert_with(|| {
-                            render_device.create_bind_group(
+                            gpu_device.create_bind_group(
                                 "sprite_material_bind_group",
                                 &sprite_pipeline.material_layout,
                                 &BindGroupEntries::sequential((
@@ -744,7 +744,7 @@ pub fn prepare_sprites(
         }
         sprite_meta
             .sprite_instance_buffer
-            .write_buffer(&render_device, &render_queue);
+            .write_buffer(&gpu_device, &gpu_queue);
 
         if sprite_meta.sprite_index_buffer.len() != 6 {
             sprite_meta.sprite_index_buffer.clear();
@@ -767,7 +767,7 @@ pub fn prepare_sprites(
 
             sprite_meta
                 .sprite_index_buffer
-                .write_buffer(&render_device, &render_queue);
+                .write_buffer(&gpu_device, &gpu_queue);
         }
 
         *previous_len = batches.len();

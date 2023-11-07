@@ -1,8 +1,8 @@
 use crate::{
-    render_resource::{
+    gpu_resource::{
         BindGroupEntries, PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView,
     },
-    renderer::{RenderAdapter, RenderDevice, RenderInstance},
+    renderer::{GpuAdapter, GpuDevice, GpuInstance},
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -224,7 +224,7 @@ impl WindowSurfaces {
 /// - Error / performance bug in your custom shaders
 /// - wgpu was unable to detect a proper GPU hardware-accelerated device given the chosen
 ///   [`Backends`](crate::settings::Backends), [`WgpuLimits`](crate::settings::WgpuLimits),
-///   and/or [`WgpuFeatures`](crate::settings::WgpuFeatures). For example, on Windows currently
+///   and/or [`Features`](crate::settings::Features). For example, on Windows currently
 ///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
 ///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
 ///   will be chosen and performance will be very poor. This is visible in a log message that is
@@ -239,9 +239,9 @@ pub fn prepare_windows(
     _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
-    render_device: Res<RenderDevice>,
-    render_instance: Res<RenderInstance>,
-    render_adapter: Res<RenderAdapter>,
+    gpu_device: Res<GpuDevice>,
+    gpu_instance: Res<GpuInstance>,
+    gpu_adapter: Res<GpuAdapter>,
     screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
@@ -255,10 +255,10 @@ pub fn prepare_windows(
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
                 // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
+                let surface = gpu_instance
                     .create_surface(&window.handle.get_handle())
                     .expect("Failed to create wgpu surface");
-                let caps = surface.get_capabilities(&render_adapter);
+                let caps = surface.get_capabilities(&gpu_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
@@ -308,7 +308,7 @@ pub fn prepare_windows(
         // This should be removed once https://github.com/bevyengine/bevy/issues/7194 lands and we're doing proper
         // feature detection for MSAA.
         // When removed, we can also remove the `.after(prepare_windows)` of `prepare_core_3d_depth_textures` and `prepare_prepass_textures`
-        let sample_flags = render_adapter
+        let sample_flags = gpu_adapter
             .get_texture_format_features(surface_configuration.format)
             .flags;
 
@@ -342,7 +342,7 @@ pub fn prepare_windows(
         // and https://github.com/gfx-rs/wgpu/issues/1218
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
-            render_instance
+            gpu_instance
                 .enumerate_adapters(wgpu::Backends::VULKAN)
                 .any(|adapter| {
                     let name = adapter.get_info().name;
@@ -356,7 +356,7 @@ pub fn prepare_windows(
 
         let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
-            render_device.configure_surface(surface, &surface_configuration);
+            gpu_device.configure_surface(surface, &surface_configuration);
             let frame = surface
                 .get_current_texture()
                 .expect("Error configuring surface");
@@ -367,7 +367,7 @@ pub fn prepare_windows(
                     window.set_swapchain_texture(frame);
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(surface, &surface_configuration);
+                    gpu_device.configure_surface(surface, &surface_configuration);
                     let frame = surface
                         .get_current_texture()
                         .expect("Error reconfiguring surface");
@@ -388,7 +388,7 @@ pub fn prepare_windows(
         window.swap_chain_texture_format = Some(surface_data.format);
 
         if window.screenshot_func.is_some() {
-            let texture = render_device.create_texture(&wgpu::TextureDescriptor {
+            let texture = gpu_device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("screenshot-capture-rendertarget"),
                 size: wgpu::Extent3d {
                     width: surface_configuration.width,
@@ -405,7 +405,7 @@ pub fn prepare_windows(
                 view_formats: &[],
             });
             let texture_view = texture.create_view(&Default::default());
-            let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
+            let buffer = gpu_device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("screenshot-transfer-buffer"),
                 size: screenshot::get_aligned_size(
                     window.physical_width,
@@ -415,7 +415,7 @@ pub fn prepare_windows(
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            let bind_group = render_device.create_bind_group(
+            let bind_group = gpu_device.create_bind_group(
                 "screenshot-to-screen-bind-group",
                 &screenshot_pipeline.bind_group_layout,
                 &BindGroupEntries::single(&texture_view),

@@ -4,9 +4,9 @@ use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_render::{
     batching::NoAutomaticBatching,
+    gpu_resource::{BufferUsages, BufferVec},
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    render_resource::{BufferUsages, BufferVec},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     view::ViewVisibility,
     Extract,
 };
@@ -48,8 +48,8 @@ impl Default for SkinUniform {
 }
 
 pub fn prepare_skins(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut uniform: ResMut<SkinUniform>,
 ) {
     if uniform.buffer.is_empty() {
@@ -57,8 +57,8 @@ pub fn prepare_skins(
     }
 
     let len = uniform.buffer.len();
-    uniform.buffer.reserve(len, &render_device);
-    uniform.buffer.write_buffer(&render_device, &render_queue);
+    uniform.buffer.reserve(len, &gpu_device);
+    uniform.buffer.write_buffer(&gpu_device, &gpu_queue);
 }
 
 // Notes on implementation:

@@ -4,13 +4,13 @@ use bevy_render::render_graph::ViewNode;
 
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Color,
-    render_graph::{NodeRunError, RenderGraphContext},
-    render_phase::RenderPhase,
-    render_resource::{
+    gpu_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
     },
+    prelude::Color,
+    render_graph::{NodeRunError, RenderGraphContext},
+    render_phase::RenderPhase,
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
@@ -106,7 +106,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
         if let Some(deferred_texture) = &view_prepass_textures.deferred {
             render_context.command_encoder().clear_texture(
                 &deferred_texture.texture,
-                &bevy_render::render_resource::ImageSubresourceRange::default(),
+                &bevy_render::gpu_resource::ImageSubresourceRange::default(),
             );
         }
 

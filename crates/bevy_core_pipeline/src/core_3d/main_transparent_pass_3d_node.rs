@@ -2,9 +2,9 @@ use crate::core_3d::Transparent3d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
+    gpu_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };

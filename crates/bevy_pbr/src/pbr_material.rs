@@ -2,7 +2,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_math::Vec4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
+    color::Color, gpu_resource::*, mesh::MeshVertexBufferLayout, render_asset::RenderAssets,
     texture::Image,
 };
 

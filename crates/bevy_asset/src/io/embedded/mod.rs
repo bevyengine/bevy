@@ -135,12 +135,12 @@ macro_rules! embedded_path {
 ///     * `src`
 ///         * `render`
 ///             * `rock.wgsl`
-///             * `mod.rs`
+///             * `gpu_resource`
 ///         * `lib.rs`
 ///     * `Cargo.toml`
 ///
 /// `rock.wgsl` is a WGSL shader asset that the `bevy_rock` plugin author wants to bundle with their crate. They invoke the following
-/// in `bevy_rock/src/render/mod.rs`:
+/// in `bevy_rock/src/render/gpu_resource`:
 ///
 /// `embedded_asset!(app, "rock.wgsl")`
 ///

@@ -32,8 +32,8 @@ use std::{cmp::Reverse, ops::Range};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
+    gpu_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
-    render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
 };
 use bevy_utils::{nonmax::NonMaxU32, FloatOrd};

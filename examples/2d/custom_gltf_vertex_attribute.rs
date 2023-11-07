@@ -5,8 +5,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
+        gpu_resource::*,
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
-        render_resource::*,
     },
     sprite::{Material2d, Material2dKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle},
 };

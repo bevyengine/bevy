@@ -7,10 +7,10 @@ use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy_render::render_asset::RenderAssets;
-use bevy_render::renderer::RenderDevice;
+use bevy_render::renderer::GpuDevice;
 use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
-use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+use bevy_render::{gpu_resource::*, Render, RenderApp, RenderSet};
 
 mod node;
 
@@ -279,7 +279,7 @@ impl FromWorld for TonemappingPipeline {
         entries.extend(get_lut_bind_group_layout_entries([3, 4]));
 
         let tonemap_texture_bind_group = render_world
-            .resource::<RenderDevice>()
+            .resource::<GpuDevice>()
             .create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("tonemapping_hdr_texture_bind_group_layout"),
                 entries: &entries,

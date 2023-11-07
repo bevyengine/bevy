@@ -15,10 +15,10 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
+    gpu_resource::*,
     render_asset::RenderAssets,
     render_phase::*,
-    render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{BevyDefault, FallbackImage, Image},
     view::*,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -218,10 +218,10 @@ where
 impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
-        let ui_layout = M::bind_group_layout(render_device);
+        let gpu_device = world.resource::<GpuDevice>();
+        let ui_layout = M::bind_group_layout(gpu_device);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
@@ -427,8 +427,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut ui_meta: ResMut<UiMaterialMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     view_uniforms: Res<ViewUniforms>,
@@ -440,7 +440,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         let mut batches: Vec<(Entity, UiMaterialBatch<M>)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
-        ui_meta.view_bind_group = Some(render_device.create_bind_group(
+        ui_meta.view_bind_group = Some(gpu_device.create_bind_group(
             "ui_material_view_bind_group",
             &ui_material_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
@@ -563,7 +563,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                 }
             }
         }
-        ui_meta.vertices.write_buffer(&render_device, &render_queue);
+        ui_meta.vertices.write_buffer(&gpu_device, &gpu_queue);
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }
@@ -651,20 +651,14 @@ pub fn prepare_ui_materials<M: UiMaterial>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedUiMaterials<M>>,
     mut render_materials: ResMut<RenderUiMaterials<M>>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<UiMaterialPipeline<M>>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets {
-        match prepare_ui_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_ui_material(&material, &gpu_device, &images, &fallback_image, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
             }
@@ -679,13 +673,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
     }
 
     for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_ui_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_ui_material(&material, &gpu_device, &images, &fallback_image, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -698,13 +686,13 @@ pub fn prepare_ui_materials<M: UiMaterial>(
 
 fn prepare_ui_material<M: UiMaterial>(
     material: &M,
-    render_device: &RenderDevice,
+    gpu_device: &GpuDevice,
     images: &RenderAssets<Image>,
     fallback_image: &Res<FallbackImage>,
     pipeline: &UiMaterialPipeline<M>,
 ) -> Result<PreparedUiMaterial<M>, AsBindGroupError> {
     let prepared =
-        material.as_bind_group(&pipeline.ui_layout, render_device, images, fallback_image)?;
+        material.as_bind_group(&pipeline.ui_layout, gpu_device, images, fallback_image)?;
     Ok(PreparedUiMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,

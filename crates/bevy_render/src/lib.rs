@@ -14,13 +14,13 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
+pub mod gpu_resource;
 pub mod mesh;
 pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
-pub mod render_resource;
 pub mod renderer;
 pub mod settings;
 mod spatial_bundle;
@@ -31,8 +31,8 @@ pub mod prelude {
     pub use crate::{
         camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
+        gpu_resource::Shader,
         mesh::{morph::MorphWeights, shape, Mesh},
-        render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
@@ -45,14 +45,14 @@ pub use extract_param::Extract;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
-use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
+use renderer::{GpuAdapter, GpuAdapterInfo, GpuDevice, GpuQueue};
 
 use crate::{
     camera::CameraPlugin,
+    gpu_resource::{PipelineCache, Shader, ShaderLoader},
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
     render_asset::prepare_assets,
-    render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    renderer::{render_system, GpuInstance},
     settings::RenderCreation,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -98,7 +98,7 @@ pub enum RenderSet {
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
-    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
+    /// Create [`BindGroups`](crate::gpu_resource::BindGroup) that depend on those data.
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
@@ -214,17 +214,7 @@ pub mod main_graph {
 
 #[derive(Resource)]
 struct FutureRendererResources(
-    Arc<
-        Mutex<
-            Option<(
-                RenderDevice,
-                RenderQueue,
-                RenderAdapterInfo,
-                RenderAdapter,
-                RenderInstance,
-            )>,
-        >,
-    >,
+    Arc<Mutex<Option<(GpuDevice, GpuQueue, GpuAdapterInfo, GpuAdapter, GpuInstance)>>>,
 );
 
 /// A Label for the rendering sub-app.
@@ -242,13 +232,19 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>();
 
         match &self.render_creation {
-            RenderCreation::Manual(device, queue, adapter_info, adapter, instance) => {
+            RenderCreation::Manual(
+                gpu_device,
+                gpu_queue,
+                gpu_adapter_info,
+                gpu_adapter,
+                gpu_instance,
+            ) => {
                 let future_renderer_resources_wrapper = Arc::new(Mutex::new(Some((
-                    device.clone(),
-                    queue.clone(),
-                    adapter_info.clone(),
-                    adapter.clone(),
-                    instance.clone(),
+                    gpu_device.clone(),
+                    gpu_queue.clone(),
+                    gpu_adapter_info.clone(),
+                    gpu_adapter.clone(),
+                    gpu_instance.clone(),
                 ))));
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
@@ -287,23 +283,26 @@ impl Plugin for RenderPlugin {
                             ..Default::default()
                         };
 
-                        let (device, queue, adapter_info, render_adapter) =
+                        let (gpu_device, gpu_queue, adapter_info, gpu_adapter) =
                             renderer::initialize_renderer(
                                 &instance,
                                 &settings,
                                 &request_adapter_options,
                             )
                             .await;
-                        debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-                        debug!("Configured wgpu adapter Features: {:#?}", device.features());
+                        debug!("Configured GPU adapter Limits: {:#?}", gpu_device.limits());
+                        debug!(
+                            "Configured GPU adapter Features: {:#?}",
+                            gpu_device.features()
+                        );
                         let mut future_renderer_resources_inner =
                             future_renderer_resources_wrapper.lock().unwrap();
                         *future_renderer_resources_inner = Some((
-                            device,
-                            queue,
+                            gpu_device,
+                            gpu_queue,
                             adapter_info,
-                            render_adapter,
-                            RenderInstance(Arc::new(instance)),
+                            gpu_adapter,
+                            GpuInstance(Arc::new(instance)),
                         ));
                     };
                     // In wasm, spawn a task and detach it for execution
@@ -359,22 +358,22 @@ impl Plugin for RenderPlugin {
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
         {
-            let (device, queue, adapter_info, render_adapter, instance) =
+            let (gpu_device, gpu_queue, adapter_info, gpu_adapter, gpu_instance) =
                 future_renderer_resources.0.lock().unwrap().take().unwrap();
 
-            app.insert_resource(device.clone())
-                .insert_resource(queue.clone())
+            app.insert_resource(gpu_device.clone())
+                .insert_resource(gpu_queue.clone())
                 .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone());
+                .insert_resource(gpu_adapter.clone());
 
             let render_app = app.sub_app_mut(RenderApp);
 
             render_app
-                .insert_resource(instance)
-                .insert_resource(PipelineCache::new(device.clone()))
-                .insert_resource(device)
-                .insert_resource(queue)
-                .insert_resource(render_adapter)
+                .insert_resource(gpu_instance)
+                .insert_resource(PipelineCache::new(gpu_device.clone()))
+                .insert_resource(gpu_device)
+                .insert_resource(gpu_queue)
+                .insert_resource(gpu_adapter)
                 .insert_resource(adapter_info);
         }
     }

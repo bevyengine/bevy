@@ -6,7 +6,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Vec4;
-use bevy_render::{render_resource::*, renderer::RenderDevice};
+use bevy_render::{gpu_resource::*, renderer::GpuDevice};
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
@@ -39,7 +39,7 @@ pub struct BloomUniforms {
 
 impl FromWorld for BloomDownsamplingPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
         // Input texture binding
         let texture = BindGroupLayoutEntry {
@@ -74,14 +74,13 @@ impl FromWorld for BloomDownsamplingPipeline {
         };
 
         // Bind group layout
-        let bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("bloom_downsampling_bind_group_layout_with_settings"),
-                entries: &[texture, sampler, settings],
-            });
+        let bind_group_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("bloom_downsampling_bind_group_layout_with_settings"),
+            entries: &[texture, sampler, settings],
+        });
 
         // Sampler
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
+        let sampler = gpu_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             address_mode_u: AddressMode::ClampToEdge,

@@ -1,6 +1,6 @@
 use crate::{
-    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
-    renderer::{RenderDevice, RenderQueue},
+    gpu_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
+    renderer::{GpuDevice, GpuQueue},
     view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -125,8 +125,8 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
 fn prepare_uniform_components<C: Component>(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
@@ -134,10 +134,9 @@ fn prepare_uniform_components<C: Component>(
 {
     let components_iter = components.iter();
     let count = components_iter.len();
-    let Some(mut writer) =
-        component_uniforms
-            .uniforms
-            .get_writer(count, &render_device, &render_queue)
+    let Some(mut writer) = component_uniforms
+        .uniforms
+        .get_writer(count, &gpu_device, &gpu_queue)
     else {
         return;
     };

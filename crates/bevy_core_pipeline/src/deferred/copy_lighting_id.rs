@@ -8,8 +8,8 @@ use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_resource::*,
-    renderer::RenderDevice,
+    gpu_resource::*,
+    renderer::GpuDevice,
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     Render, RenderApp, RenderSet,
@@ -17,8 +17,8 @@ use bevy_render::{
 
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
+    gpu_resource::{Operations, PipelineCache, RenderPassDescriptor},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
 };
 
@@ -91,7 +91,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
             return Ok(());
         };
 
-        let bind_group = render_context.render_device().create_bind_group(
+        let bind_group = render_context.gpu_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
             &copy_deferred_lighting_id_pipeline.layout,
             &BindGroupEntries::single(&deferred_lighting_pass_id_texture.default_view),
@@ -126,9 +126,9 @@ struct CopyDeferredLightingIdPipeline {
 
 impl FromWorld for CopyDeferredLightingIdPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("copy_deferred_lighting_id_bind_group_layout"),
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
@@ -182,7 +182,7 @@ pub struct DeferredLightingIdDepthTexture {
 fn prepare_deferred_lighting_id_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
 ) {
     for (entity, camera) in &views {
@@ -205,7 +205,7 @@ fn prepare_deferred_lighting_id_textures(
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
                 view_formats: &[],
             };
-            let texture = texture_cache.get(&render_device, texture_descriptor);
+            let texture = texture_cache.get(&gpu_device, texture_descriptor);
             commands
                 .entity(entity)
                 .insert(DeferredLightingIdDepthTexture { texture });

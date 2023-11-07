@@ -5,11 +5,11 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex},
-    render_graph::{Node, NodeRunError, RenderGraphContext},
-    render_resource::{
+    gpu_resource::{
         BindGroup, BindGroupEntries, BufferId, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
     },
+    render_graph::{Node, NodeRunError, RenderGraphContext},
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
@@ -77,7 +77,7 @@ impl Node for CASNode {
                 bind_group
             }
             cached_bind_group => {
-                let bind_group = render_context.render_device().create_bind_group(
+                let bind_group = render_context.gpu_device().create_bind_group(
                     "cas_bind_group",
                     &sharpening_pipeline.texture_bind_group,
                     &BindGroupEntries::sequential((

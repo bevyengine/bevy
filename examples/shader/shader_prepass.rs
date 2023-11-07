@@ -7,7 +7,7 @@ use bevy::{
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::gpu_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
 fn main() {

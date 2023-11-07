@@ -1,5 +1,5 @@
 use bevy_asset::Handle;
-use bevy_render::{prelude::Shader, render_resource::VertexState};
+use bevy_render::{gpu_resource::VertexState, prelude::Shader};
 
 pub const FULLSCREEN_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7837534426033940724);
 
