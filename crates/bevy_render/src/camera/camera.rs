@@ -358,19 +358,18 @@ impl Camera {
             .computed
             .projection_matrix
             .ok_or(BadProjectionMatrixError::ProjectionMatrixUndefined)?;
-        match projection_matrix.is_finite() {
-            false => Err(BadProjectionMatrixError::BadProjectionMatrixValues(
-                projection_matrix,
-            )),
-            true => {
-                if projection_matrix == Mat4::ZERO {
-                    Err(BadProjectionMatrixError::BadProjectionMatrixValues(
-                        projection_matrix,
-                    ))
-                } else {
-                    Ok(projection_matrix)
-                }
+        if projection_matrix.is_finite() {
+            if projection_matrix == Mat4::ZERO {
+                Err(BadProjectionMatrixError::BadProjectionMatrixValues(
+                    projection_matrix,
+                ))
+            } else {
+                Ok(projection_matrix)
             }
+        } else {
+            Err(BadProjectionMatrixError::BadProjectionMatrixValues(
+                projection_matrix,
+            ))
         }
     }
 
@@ -379,9 +378,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
     ) -> Result<Mat4, CameraTransformNotFiniteError> {
         let camera_transform_matrix = camera_transform.compute_matrix();
-        match camera_transform_matrix.is_finite() {
-            true => Ok(camera_transform_matrix),
-            false => Err(CameraTransformNotFiniteError(camera_transform_matrix)),
+        if camera_transform_matrix.is_finite() {
+            Ok(camera_transform_matrix)
+        } else {
+            Err(CameraTransformNotFiniteError(camera_transform_matrix))
         }
     }
 
