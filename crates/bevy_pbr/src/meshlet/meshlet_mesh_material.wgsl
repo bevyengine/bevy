@@ -69,12 +69,12 @@ fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f
     let vertex_index = vertex_input % 3u;
     let material_id = vertex_input / 3u;
     let material_depth = f32(material_id) / 65535.0;
-    let uv = vec2<f32>(vertex_index >> 1, vertex_index & 1u) * 2.0;
+    let uv = vec2<f32>(vec2(vertex_index >> 1u, vertex_index & 1u)) * 2.0;
     return vec4(uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0), material_depth, 1.0);
 }
 
 @fragment
-fn fragment(@builtin(position) position: vec4<f32>) -> vec4<f32> {
+fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // TODO: Load visbuffer data
-    return vec4(position.z * 3.0, 0.0, 0.0, 1.0);
+    return vec4(position.z * 1000.0, 0.0, 0.0, 1.0);
 }
