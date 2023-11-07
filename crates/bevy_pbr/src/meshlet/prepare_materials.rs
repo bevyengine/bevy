@@ -1,5 +1,6 @@
-use super::MeshletGpuScene;
+use super::{MeshletGpuScene, MESHLET_MESH_MATERIAL_SHADER_HANDLE};
 use crate::*;
+use bevy_asset::AssetServer;
 use bevy_core_pipeline::{
     experimental::taa::TemporalAntiAliasSettings,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
@@ -8,8 +9,9 @@ use bevy_core_pipeline::{
 use bevy_render::{
     camera::Projection,
     render_asset::RenderAssets,
-    render_resource::{BindGroup, CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor},
-    view::ExtractedView,
+    render_resource::*,
+    texture::BevyDefault,
+    view::{ExtractedView, ViewTarget},
 };
 use bevy_utils::HashMap;
 use std::hash::Hash;
@@ -20,15 +22,20 @@ pub struct MeshletViewMaterials {
     pub prepass: Vec<(u32, CachedRenderPipelineId, BindGroup)>,
 }
 
-/// TODO: How to differentiate between main/prepass? Also, check not missing any keys/shaderdefs
+// TODO: This whole thing is cursed
+// TODO: How to differentiate between main/prepass? Also, check not missing any keys/shaderdefs
+// TODO: Allow material specialization
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
+    material_pipeline: MaterialPipeline<M>,
+    mesh_pipeline: Res<MeshPipeline>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
+    asset_server: Res<AssetServer>,
     views: Query<(
         Entity,
         &ExtractedView,
@@ -133,14 +140,46 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
             }
 
             let pipeline_descriptor = RenderPipelineDescriptor {
-                label: todo!(),
-                layout: todo!(),
-                push_constant_ranges: todo!(),
-                vertex: todo!(),
-                primitive: todo!(),
-                depth_stencil: todo!(),
-                multisample: todo!(),
-                fragment: todo!(),
+                label: Some("meshlet_material_draw".into()),
+                layout: vec![
+                    mesh_pipeline.get_view_layout(view_key.into()).clone(),
+                    gpu_scene.material_draw_bind_group_layout(),
+                    material_pipeline.material_layout.clone(),
+                ],
+                push_constant_ranges: vec![],
+                vertex: VertexState {
+                    shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                    shader_defs: vec!["MESHLET_MESH_MATERIAL_PASS".into()],
+                    entry_point: "vertex".into(),
+                    buffers: Vec::new(),
+                },
+                primitive: PrimitiveState::default(),
+                depth_stencil: Some(DepthStencilState {
+                    format: TextureFormat::Depth16Unorm,
+                    depth_write_enabled: false,
+                    depth_compare: CompareFunction::Equal,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                }),
+                multisample: MultisampleState::default(),
+                fragment: Some(FragmentState {
+                    shader: match M::meshlet_mesh_fragment_shader() {
+                        ShaderRef::Default => MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                        ShaderRef::Handle(handle) => handle,
+                        ShaderRef::Path(path) => asset_server.load(path),
+                    },
+                    shader_defs: vec!["MESHLET_MESH_MATERIAL_PASS".into()],
+                    entry_point: "fragment".into(),
+                    targets: vec![Some(ColorTargetState {
+                        format: if view.hdr {
+                            ViewTarget::TEXTURE_FORMAT_HDR
+                        } else {
+                            TextureFormat::bevy_default()
+                        },
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    })],
+                }),
             };
 
             let material_id = gpu_scene.get_material_id(material_id.untyped());

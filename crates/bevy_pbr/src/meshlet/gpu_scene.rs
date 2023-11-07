@@ -503,6 +503,10 @@ impl MeshletGpuScene {
     pub fn copy_material_depth_bind_group_layout(&self) -> BindGroupLayout {
         self.copy_material_depth_bind_group_layout.clone()
     }
+
+    pub fn material_draw_bind_group_layout(&self) -> BindGroupLayout {
+        self.material_draw_bind_group_layout.clone()
+    }
 }
 
 #[derive(Component)]

@@ -69,23 +69,10 @@ impl FromWorld for MeshletPipelines {
                     format: CORE_3D_DEPTH_FORMAT,
                     depth_write_enabled: true,
                     depth_compare: CompareFunction::GreaterEqual,
-                    stencil: StencilState {
-                        front: StencilFaceState::IGNORE,
-                        back: StencilFaceState::IGNORE,
-                        read_mask: 0,
-                        write_mask: 0,
-                    },
-                    bias: DepthBiasState {
-                        constant: 0,
-                        slope_scale: 0.0,
-                        clamp: 0.0,
-                    },
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
                 }),
-                multisample: MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
+                multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
                     shader_defs: vec![
@@ -118,23 +105,10 @@ impl FromWorld for MeshletPipelines {
                     format: TextureFormat::Depth16Unorm,
                     depth_write_enabled: true,
                     depth_compare: CompareFunction::Always,
-                    stencil: StencilState {
-                        front: StencilFaceState::IGNORE,
-                        back: StencilFaceState::IGNORE,
-                        read_mask: 0,
-                        write_mask: 0,
-                    },
-                    bias: DepthBiasState {
-                        constant: 0,
-                        slope_scale: 0.0,
-                        clamp: 0.0,
-                    },
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
                 }),
-                multisample: MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
+                multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE,
                     shader_defs: vec![],

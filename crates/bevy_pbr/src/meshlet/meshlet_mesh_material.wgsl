@@ -74,6 +74,7 @@ fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f
 }
 
 @fragment
-fn fragment() {
-    // TODO
+fn fragment(@builtin(position) position: vec4<f32>) -> vec4<f32> {
+    // TODO: Load visbuffer data
+    return vec4(position.z * 3.0, 0.0, 0.0, 1.0);
 }
