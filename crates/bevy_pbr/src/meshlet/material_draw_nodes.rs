@@ -3,6 +3,7 @@ use super::{
     prepare_materials::MeshletViewMaterials,
     MeshletGpuScene,
 };
+use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_core_pipeline::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::Camera3d,
@@ -31,7 +32,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ExtractedCamera,
         &'static Camera3d,
         &'static ViewTarget,
+        &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
+        &'static ViewLightsUniformOffset,
+        &'static ViewFogUniformOffset,
         &'static MeshletViewMaterials,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -45,7 +49,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             camera,
             camera_3d,
             target,
+            mesh_view_bind_group,
             view_offset,
+            view_lights_offset,
+            view_fog_offset,
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
@@ -87,7 +94,16 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             render_pass.set_camera_viewport(viewport);
         }
 
-        // TODO: Set view bind groups
+        render_pass.set_bind_group(
+            0,
+            &mesh_view_bind_group.value,
+            &[
+                view_offset.offset,
+                view_lights_offset.offset,
+                view_fog_offset.offset,
+            ],
+        );
+        render_pass.set_bind_group(1, &meshlet_view_bind_groups.material_draw, &[]);
 
         for (material_id, material_pipeline_id, material_bind_group) in
             &meshlet_view_materials.opaque_pass
@@ -97,7 +113,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
                     let x = *material_id * 3;
-                    render_pass.set_bind_group(todo!(), material_bind_group, &[]);
+                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.set_render_pipeline(material_pipeline);
                     render_pass.draw(x..(x + 3), 0..1);
                 }
