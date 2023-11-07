@@ -30,7 +30,7 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
-    material_pipeline: MaterialPipeline<M>,
+    material_pipeline: Res<MaterialPipeline<M>>,
     mesh_pipeline: Res<MeshPipeline>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
@@ -184,9 +184,9 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
 
             let material_id = gpu_scene.get_material_id(material_id.untyped());
 
-            let pipeline_id = *cache
-                .entry(view_key)
-                .or_insert_with(|| pipeline_cache.queue_render_pipeline(pipeline_descriptor));
+            let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
+                pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
+            });
             opaque_pass_material_map.push((material_id, pipeline_id, material.bind_group.clone()));
 
             let pipeline_id = *cache
