@@ -344,6 +344,9 @@ impl Default for ButtonBundle {
 }
 
 /// A UI node that is rendered using a [`UiMaterial`]
+///
+/// Adding a `BackgroundColor` component to an entity with this bundle will ignore the custom
+/// material and use the background color instead.
 #[derive(Bundle, Clone, Debug)]
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node

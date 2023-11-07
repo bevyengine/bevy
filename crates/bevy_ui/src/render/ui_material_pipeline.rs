@@ -354,15 +354,18 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     materials: Extract<Res<Assets<M>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<(
-            Entity,
-            &Node,
-            &Style,
-            &GlobalTransform,
-            &Handle<M>,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-        )>,
+        Query<
+            (
+                Entity,
+                &Node,
+                &Style,
+                &GlobalTransform,
+                &Handle<M>,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+            ),
+            Without<BackgroundColor>,
+        >,
     >,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
