@@ -275,6 +275,78 @@ macro_rules! impl_to_indexed_binding_type_slice {
 }
 all_tuples_with_size!(impl_to_indexed_binding_type_slice, 1, 32, T, n, s);
 
+pub struct DynamicBindGroupLayoutEntries {
+    default_visibility: ShaderStages,
+    entries: Vec<BindGroupLayoutEntry>,
+}
+
+impl DynamicBindGroupLayoutEntries {
+    pub fn sequential<const N: usize>(
+        default_visibility: ShaderStages,
+        entries: impl IntoBindGroupLayoutEntryBuilderArray<N>,
+    ) -> Self {
+        Self {
+            default_visibility,
+            entries: entries
+                .into_array()
+                .into_iter()
+                .enumerate()
+                .map(|(ix, resource)| resource.build(ix as u32, default_visibility))
+                .collect(),
+        }
+    }
+
+    pub fn extend_sequential<const N: usize>(
+        mut self,
+        entries: impl IntoBindGroupLayoutEntryBuilderArray<N>,
+    ) -> Self {
+        let start = self.entries.last().unwrap().binding + 1;
+        self.entries.extend(
+            entries
+                .into_array()
+                .into_iter()
+                .enumerate()
+                .map(|(ix, resource)| resource.build(start + ix as u32, self.default_visibility)),
+        );
+        self
+    }
+
+    pub fn new_with_indices<const N: usize>(
+        default_visibility: ShaderStages,
+        entries: impl IntoIndexedBindGroupLayoutEntryBuilderArray<N>,
+    ) -> Self {
+        Self {
+            default_visibility,
+            entries: entries
+                .into_array()
+                .into_iter()
+                .map(|(binding, resource)| resource.build(binding, default_visibility))
+                .collect(),
+        }
+    }
+
+    pub fn extend_with_indices<const N: usize>(
+        mut self,
+        entries: impl IntoIndexedBindGroupLayoutEntryBuilderArray<N>,
+    ) -> Self {
+        self.entries.extend(
+            entries
+                .into_array()
+                .into_iter()
+                .map(|(binding, resource)| resource.build(binding, self.default_visibility)),
+        );
+        self
+    }
+}
+
+impl std::ops::Deref for DynamicBindGroupLayoutEntries {
+    type Target = [BindGroupLayoutEntry];
+
+    fn deref(&self) -> &[BindGroupLayoutEntry] {
+        &self.entries
+    }
+}
+
 pub mod binding_types {
     use crate::render_resource::{
         BufferBindingType, SamplerBindingType, TextureSampleType, TextureViewDimension,
