@@ -118,7 +118,8 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
     scene_world.insert_resource(ResourceA { score: 1 });
 
-    // With our sample world ready to go, we can now create our scene:
+    // With our sample world ready to go, we can now create our scene using DynamicScene or DynamicSceneBuilder.
+    // For simplicity, we will create our scene using DynamicScene:
     let scene = DynamicScene::from_world(&scene_world);
 
     // Scenes can be serialized like this:
