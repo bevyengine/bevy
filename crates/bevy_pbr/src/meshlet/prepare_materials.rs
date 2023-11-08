@@ -148,7 +148,10 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
                 push_constant_ranges: vec![],
                 vertex: VertexState {
                     shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_MESH_MATERIAL_PASS".into()],
+                    shader_defs: vec![
+                        "MESHLET_MESH_MATERIAL_PASS".into(),
+                        ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1),
+                    ],
                     entry_point: "vertex".into(),
                     buffers: Vec::new(),
                 },
@@ -167,7 +170,10 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
                         ShaderRef::Handle(handle) => handle,
                         ShaderRef::Path(path) => asset_server.load(path),
                     },
-                    shader_defs: vec!["MESHLET_MESH_MATERIAL_PASS".into()],
+                    shader_defs: vec![
+                        "MESHLET_MESH_MATERIAL_PASS".into(),
+                        ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1),
+                    ],
                     entry_point: "fragment".into(),
                     targets: vec![Some(ColorTargetState {
                         format: if view.hdr {
