@@ -48,7 +48,6 @@ fn setup_ui(mut cmd: Commands) {
                 "Resolution",
                 TextStyle {
                     font_size: 50.0,
-                    color: Color::BLACK,
                     ..default()
                 },
             ),

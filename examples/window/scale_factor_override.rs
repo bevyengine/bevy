@@ -53,7 +53,6 @@ fn setup(mut commands: Commands) {
                             "Example text",
                             TextStyle {
                                 font_size: 30.0,
-                                color: Color::WHITE,
                                 ..default()
                             },
                         )

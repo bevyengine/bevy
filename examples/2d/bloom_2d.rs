@@ -11,7 +11,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update_bloom_settings)
@@ -38,7 +37,7 @@ fn setup(
 
     // Sprite
     commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
+        texture: asset_server.load("branding/bevy_bird_dark.png"),
         sprite: Sprite {
             color: Color::rgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
             custom_size: Some(Vec2::splat(160.0)),

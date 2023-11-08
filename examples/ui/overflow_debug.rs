@@ -110,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 18.0,
-                            color: Color::WHITE,
+                            ..default()
                         },
                     ));
                 });
@@ -185,7 +185,7 @@ fn spawn_text(
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 120.0,
-                color: Color::WHITE,
+                ..default()
             },
         ));
     });

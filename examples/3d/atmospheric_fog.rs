@@ -99,7 +99,6 @@ fn setup_instructions(mut commands: Commands) {
             "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
             TextStyle {
                 font_size: 20.0,
-                color: Color::WHITE,
                 ..default()
             },
         )

@@ -25,11 +25,13 @@ fn fragment(
     pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
 #endif
 
+    let double_sided = (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
+
     pbr_input.frag_coord = mesh.position;
     pbr_input.world_position = mesh.world_position;
     pbr_input.world_normal = fns::prepare_world_normal(
         mesh.world_normal,
-        (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+        double_sided,
         is_front,
     );
 
@@ -38,6 +40,8 @@ fn fragment(
     pbr_input.N = fns::apply_normal_mapping(
         pbr_input.material.flags,
         mesh.world_normal,
+        double_sided,
+        is_front,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
         mesh.world_tangent,
