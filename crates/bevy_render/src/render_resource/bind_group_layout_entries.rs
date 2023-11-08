@@ -189,7 +189,17 @@ impl<const N: usize> BindGroupLayoutEntries<N> {
                 .into_array()
                 .map(|(binding, entry)| entry.build(binding, default_visibility)),
         }
-        }
+    }
+}
+
+impl BindGroupLayoutEntries<1> {
+    pub fn single(
+        visibility: ShaderStages,
+        resource: impl IntoBindGroupLayoutEntryBuilder,
+    ) -> [BindGroupLayoutEntry; 1] {
+        [resource
+            .into_bind_group_layout_entry_builder()
+            .build(0, visibility)]
     }
 }
 
