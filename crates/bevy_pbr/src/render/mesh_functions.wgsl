@@ -19,31 +19,31 @@ fn get_previous_model_matrix(instance_index: u32) -> mat4x4<f32> {
     return affine_to_square(mesh[get_instance_index(instance_index)].previous_model);
 }
 
-fn get_inverse_model_matrix(instance_index: u32) -> mat4x4<f32>{
-        // the model matrix is translation * rotation * scale
-        // the inverse is then scale^-1 * rotation ^-1 * translation^-1        
-        // the 3x3 matrix only contains the information for the rotation and scale
-        let inverse_model_3x3 = transpose(mat2x4_f32_to_mat3x3_unpack(
-            mesh[instance_index].inverse_transpose_model_a,
-            mesh[instance_index].inverse_transpose_model_b,
-        ));
-        // construct scale^-1 * rotation^-1 from the 3x3
-        let inverse_model_4x4_no_trans = mat4x4<f32>(
-            vec4(inverse_model_3x3[0], 0.0),
-            vec4(inverse_model_3x3[1], 0.0),
-            vec4(inverse_model_3x3[2], 0.0),
-            vec4(0.0,0.0,0.0,1.0),
-        );
-        // we can get translation^-1 by negating the translation of the model
-        let model = get_model_matrix(instance_index);
-        let inverse_model_4x4_only_trans = mat4x4<f32>(
-            vec4(1.0,0.0,0.0,0.0),
-            vec4(0.0,1.0,0.0,0.0),
-            vec4(0.0,0.0,1.0,0.0),
-            vec4( -model[3].xyz , 1.0)
-        );
+fn get_inverse_model_matrix(instance_index: u32) -> mat4x4<f32> {
+    // the model matrix is translation * rotation * scale
+    // the inverse is then scale^-1 * rotation ^-1 * translation^-1        
+    // the 3x3 matrix only contains the information for the rotation and scale
+    let inverse_model_3x3 = transpose(mat2x4_f32_to_mat3x3_unpack(
+        mesh[instance_index].inverse_transpose_model_a,
+        mesh[instance_index].inverse_transpose_model_b,
+    ));
+    // construct scale^-1 * rotation^-1 from the 3x3
+    let inverse_model_4x4_no_trans = mat4x4<f32>(
+        vec4(inverse_model_3x3[0], 0.0),
+        vec4(inverse_model_3x3[1], 0.0),
+        vec4(inverse_model_3x3[2], 0.0),
+        vec4(0.0,0.0,0.0,1.0)
+    );
+    // we can get translation^-1 by negating the translation of the model
+    let model = get_model_matrix(instance_index);
+    let inverse_model_4x4_only_trans = mat4x4<f32>(
+        vec4(1.0,0.0,0.0,0.0),
+        vec4(0.0,1.0,0.0,0.0),
+        vec4(0.0,0.0,1.0,0.0),
+        vec4(-model[3].xyz, 1.0)
+    );
 
-        return inverse_model_4x4_no_trans * inverse_model_4x4_only_trans;
+    return inverse_model_4x4_no_trans * inverse_model_4x4_only_trans;
 }
 
 fn mesh_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
