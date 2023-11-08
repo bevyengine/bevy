@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
@@ -216,20 +216,26 @@ pub fn ui_focus_system(
                     }
                 }
 
-                let position = node.global_transform.translation();
-                let ui_position = position.truncate();
-                let extents = node.node.size() / 2.0;
-                let mut min = ui_position - extents;
-                if let Some(clip) = node.calculated_clip {
-                    min = Vec2::max(min, clip.clip.min);
-                }
+                let node_rect = node.node.logical_rect(&node.global_transform);
+
+                // If there is no `calculated_clip`, intersect with an unbounded `Rect`.
+                let clip_rect = node.calculated_clip.map(|clip| clip.clip).unwrap_or(Rect {
+                    min: Vec2::splat(f32::NEG_INFINITY),
+                    max: Vec2::splat(f32::INFINITY),
+                });
+
+                // Intersect with `clip_rect` to find the bounds of the visible region of the node
+                let visible_rect = node_rect.intersect(clip_rect);
 
                 // The mouse position relative to the node
                 // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+                // Coordinates are relative to the entire node, not just the visible region.
+                // The `relative_cursor_position` will be `None` if the cursor is over a clipped part of the node.
                 let relative_cursor_position = cursor_position
-                    .map(|cursor_position| (cursor_position - min) / node.node.size());
+                    .filter(|cursor_position| visible_rect.contains(*cursor_position))
+                    .map(|cursor_position| (cursor_position - node_rect.min) / node_rect.size());
 
-                // If the current cursor position is within the bounds of the node, consider it for
+                // If the current cursor position is within the bounds of the node's visible area, consider it for
                 // clicking
                 let relative_cursor_position_component = RelativeCursorPosition {
                     normalized: relative_cursor_position,
