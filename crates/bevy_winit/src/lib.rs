@@ -467,11 +467,7 @@ pub fn winit_runner(mut app: App) {
                 // the engine.
                 if let Some(adapter) = access_kit_adapters.get(&window_entity) {
                     if let Some(window) = winit_windows.get_window(window_entity) {
-                        // Somewhat surprisingly, this call has meaningful side effects
-                        // See https://github.com/AccessKit/accesskit/issues/300
-                        // AccessKit might later need to filter events based on this, but we currently do not.
-                        // See https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
-                        let _ = adapter.process_event(window, &event);
+                        adapter.process_event(window, &event);
                     }
                 }
 
