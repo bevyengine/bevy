@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig, pbr::CascadeShadowConfigBuilder, prelude::*,
-    render::camera::Viewport, window::WindowResized,
+    render::camera::Viewport, ui::prelude::*, window::WindowResized,
 };
 
 fn main() {
@@ -52,32 +52,78 @@ fn setup(
     });
 
     // Left Camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 200.0, -100.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        LeftCamera,
-    ));
+    let left_camera = commands
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(0.0, 200.0, -100.0).looking_at(Vec3::ZERO, Vec3::Y),
+                ..default()
+            },
+            LeftCamera,
+        ))
+        .id();
 
     // Right Camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
-            camera: Camera {
-                // Renders the right camera after the left camera, which has a default priority of 0
-                order: 1,
+    let right_camera = commands
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
+                camera: Camera {
+                    // Renders the right camera after the left camera, which has a default priority of 0
+                    order: 1,
+                    ..default()
+                },
+                camera_3d: Camera3d {
+                    // don't clear on the second camera because the first camera already cleared the window
+                    clear_color: ClearColorConfig::None,
+                    ..default()
+                },
                 ..default()
             },
-            camera_3d: Camera3d {
-                // don't clear on the second camera because the first camera already cleared the window
-                clear_color: ClearColorConfig::None,
+            RightCamera,
+        ))
+        .id();
+
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    justify_content: JustifyContent::SpaceBetween,
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },
-        RightCamera,
-    ));
+            UiCamera(left_camera),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TextBundle::from_section("Left", TextStyle::default()),
+                // TODO: replace with UiCamera propogation system
+                UiCamera(left_camera),
+            ));
+        });
+
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    justify_content: JustifyContent::SpaceBetween,
+                    ..default()
+                },
+                ..default()
+            },
+            UiCamera(right_camera),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TextBundle::from_section("Right", TextStyle::default()),
+                // TODO: replace with UiCamera propogation system
+                UiCamera(right_camera),
+            ));
+        });
 }
 
 #[derive(Component)]

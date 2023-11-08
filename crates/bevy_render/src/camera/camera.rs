@@ -219,6 +219,11 @@ impl Camera {
         self.computed.target_info.as_ref().map(|t| t.physical_size)
     }
 
+    #[inline]
+    pub fn target_scaling_factor(&self) -> Option<f64> {
+        self.computed.target_info.as_ref().map(|t| t.scale_factor)
+    }
+
     /// The projection matrix computed using this camera's [`CameraProjection`].
     #[inline]
     pub fn projection_matrix(&self) -> Mat4 {

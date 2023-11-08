@@ -1,6 +1,6 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{entity::Entity, prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
@@ -1713,3 +1713,6 @@ mod tests {
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }
+
+#[derive(Component, Clone, Debug, Reflect)]
+pub struct UiCamera(pub Entity);
