@@ -4,6 +4,7 @@ use bevy_reflect::ReflectDeserialize;
 use bevy_reflect::ReflectSerialize;
 use serde::Deserialize;
 use serde::Serialize;
+use std::ops::Neg;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
@@ -150,6 +151,22 @@ impl DivAssign<f32> for Val {
             | Val::Vh(value)
             | Val::VMin(value)
             | Val::VMax(value) => *value /= rhs,
+        }
+    }
+}
+
+impl Neg for Val {
+    type Output = Val;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Val::Px(value) => Val::Px(-value),
+            Val::Percent(value) => Val::Percent(-value),
+            Val::Vw(value) => Val::Vw(-value),
+            Val::Vh(value) => Val::Vh(-value),
+            Val::VMin(value) => Val::VMin(-value),
+            Val::VMax(value) => Val::VMax(-value),
+            _ => self,
         }
     }
 }

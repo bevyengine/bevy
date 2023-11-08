@@ -3,8 +3,6 @@
 use bevy::{pbr::AmbientLight, prelude::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-const DELTA_TIME: f32 = 0.01;
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -13,7 +11,6 @@ fn main() {
             ..default()
         })
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(FixedTime::new_from_secs(DELTA_TIME))
         .add_systems(Startup, generate_bodies)
         .add_systems(FixedUpdate, (interact_bodies, integrate))
         .add_systems(Update, look_at_star)
@@ -41,6 +38,7 @@ struct BodyBundle {
 }
 
 fn generate_bodies(
+    time: Res<Time>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -96,7 +94,7 @@ fn generate_bodies(
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
-                    ) * DELTA_TIME,
+                    ) * time.delta_seconds(),
             ),
         });
     }
@@ -160,8 +158,8 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
     }
 }
 
-fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
-    let dt_sq = DELTA_TIME * DELTA_TIME;
+fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
+    let dt_sq = time.delta_seconds() * time.delta_seconds();
     for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)

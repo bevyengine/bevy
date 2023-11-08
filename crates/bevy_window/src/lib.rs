@@ -7,6 +7,8 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
+use bevy_a11y::Focus;
+
 mod cursor;
 mod event;
 mod raw_handle;
@@ -96,12 +98,18 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
-            .add_event::<WindowThemeChanged>();
+            .add_event::<WindowThemeChanged>()
+            .add_event::<ApplicationLifetime>();
 
         if let Some(primary_window) = &self.primary_window {
-            app.world
+            let initial_focus = app
+                .world
                 .spawn(primary_window.clone())
-                .insert(PrimaryWindow);
+                .insert(PrimaryWindow)
+                .id();
+            if let Some(mut focus) = app.world.get_resource_mut::<Focus>() {
+                **focus = Some(initial_focus);
+            }
         }
 
         match self.exit_condition {
@@ -134,7 +142,8 @@ impl Plugin for WindowPlugin {
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
-            .register_type::<WindowThemeChanged>();
+            .register_type::<WindowThemeChanged>()
+            .register_type::<ApplicationLifetime>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()

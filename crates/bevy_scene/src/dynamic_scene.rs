@@ -5,7 +5,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc};
-use bevy_utils::HashMap;
+use bevy_utils::{EntityHashMap, HashMap};
 use std::any::TypeId;
 
 #[cfg(feature = "serialize")]
@@ -26,7 +26,9 @@ use serde::Serialize;
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
+    /// Resources stored in the dynamic scene.
     pub resources: Vec<Box<dyn Reflect>>,
+    /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
 
@@ -49,12 +51,10 @@ impl DynamicScene {
 
     /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World) -> Self {
-        let mut builder = DynamicSceneBuilder::from_world(world);
-
-        builder.extract_entities(world.iter_entities().map(|entity| entity.id()));
-        builder.extract_resources();
-
-        builder.build()
+        DynamicSceneBuilder::from_world(world)
+            .extract_entities(world.iter_entities().map(|entity| entity.id()))
+            .extract_resources()
+            .build()
     }
 
     /// Write the resources, the dynamic entities, and their corresponding components to the given world.
@@ -65,20 +65,25 @@ impl DynamicScene {
     pub fn write_to_world_with(
         &self,
         world: &mut World,
-        entity_map: &mut HashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity, Entity>,
         type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
         for resource in &self.resources {
-            let registration = type_registry
-                .get_with_name(resource.type_name())
-                .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                    type_name: resource.type_name().to_string(),
-                })?;
+            let type_info = resource.get_represented_type_info().ok_or_else(|| {
+                SceneSpawnError::NoRepresentedType {
+                    type_path: resource.reflect_type_path().to_string(),
+                }
+            })?;
+            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
+                SceneSpawnError::UnregisteredButReflectedType {
+                    type_path: type_info.type_path().to_string(),
+                }
+            })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
-                    type_name: resource.type_name().to_string(),
+                    type_path: type_info.type_path().to_string(),
                 }
             })?;
 
@@ -104,15 +109,20 @@ impl DynamicScene {
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
-                let registration = type_registry
-                    .get_with_name(component.type_name())
-                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        type_name: component.type_name().to_string(),
-                    })?;
+                let type_info = component.get_represented_type_info().ok_or_else(|| {
+                    SceneSpawnError::NoRepresentedType {
+                        type_path: component.reflect_type_path().to_string(),
+                    }
+                })?;
+                let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
+                    SceneSpawnError::UnregisteredButReflectedType {
+                        type_path: type_info.type_path().to_string(),
+                    }
+                })?;
                 let reflect_component =
                     registration.data::<ReflectComponent>().ok_or_else(|| {
                         SceneSpawnError::UnregisteredComponent {
-                            type_name: component.type_name().to_string(),
+                            type_path: type_info.type_path().to_string(),
                         }
                     })?;
 
@@ -153,7 +163,7 @@ impl DynamicScene {
     pub fn write_to_world(
         &self,
         world: &mut World,
-        entity_map: &mut HashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity, Entity>,
     ) -> Result<(), SceneSpawnError> {
         let registry = world.resource::<AppTypeRegistry>().clone();
         self.write_to_world_with(world, entity_map, &registry)
@@ -183,7 +193,7 @@ where
 mod tests {
     use bevy_ecs::{reflect::AppTypeRegistry, system::Command, world::World};
     use bevy_hierarchy::{AddChild, Parent};
-    use bevy_utils::HashMap;
+    use bevy_utils::EntityHashMap;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
@@ -208,11 +218,11 @@ mod tests {
 
         // We then write this relationship to a new scene, and then write that scene back to the
         // world to create another parent and child relationship
-        let mut scene_builder = DynamicSceneBuilder::from_world(&world);
-        scene_builder.extract_entity(original_parent_entity);
-        scene_builder.extract_entity(original_child_entity);
-        let scene = scene_builder.build();
-        let mut entity_map = HashMap::default();
+        let scene = DynamicSceneBuilder::from_world(&world)
+            .extract_entity(original_parent_entity)
+            .extract_entity(original_child_entity)
+            .build();
+        let mut entity_map = EntityHashMap::default();
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
         let &from_scene_parent_entity = entity_map.get(&original_parent_entity).unwrap();

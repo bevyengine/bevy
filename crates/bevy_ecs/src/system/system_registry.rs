@@ -3,6 +3,7 @@ use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::World;
 use crate::{self as bevy_ecs};
 use bevy_ecs_macros::Component;
+use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
@@ -43,7 +44,7 @@ pub struct SystemId(Entity);
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
-    /// It's possible to register the same systems more than once, they'll be stored seperately.
+    /// It's possible to register the same systems more than once, they'll be stored separately.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
@@ -197,15 +198,18 @@ impl Command for RunSystem {
 }
 
 /// An operation with stored systems failed.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RegisteredSystemError {
     /// A system was run by id, but no system with that id was found.
     ///
     /// Did you forget to register it?
+    #[error("System {0:?} was not registered")]
     SystemIdNotRegistered(SystemId),
     /// A system tried to run itself recursively.
+    #[error("System {0:?} tried to run itself recursively")]
     Recursive(SystemId),
     /// A system tried to remove itself.
+    #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId),
 }
 

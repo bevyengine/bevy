@@ -66,9 +66,16 @@ fn derive_dependency_visitor_internal(
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    // prevent unused variable warning in case there are no dependencies
+    let visit = if field_visitors.is_empty() {
+        quote! { _visit }
+    } else {
+        quote! { visit }
+    };
+
     Ok(quote! {
         impl #impl_generics #bevy_asset_path::VisitAssetDependencies for #struct_name #type_generics #where_clause {
-            fn visit_dependencies(&self, visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)) {
+            fn visit_dependencies(&self, #visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)) {
                 #(#field_visitors)*
             }
         }

@@ -10,19 +10,21 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-        DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
-        TextureFormat, TextureSampleType, TextureViewDimension, VertexState,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, BufferBindingType, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
+        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
+        SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
+        TextureSampleType, TextureViewDimension, VertexState,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
+
+use crate::core_3d::CORE_3D_DEPTH_FORMAT;
 
 const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
@@ -122,6 +124,7 @@ impl SkyboxPipeline {
 struct SkyboxPipelineKey {
     hdr: bool,
     samples: u32,
+    depth_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for SkyboxPipeline {
@@ -140,7 +143,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: key.depth_format,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -170,7 +173,8 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     } else {
                         TextureFormat::bevy_default()
                     },
-                    blend: Some(BlendState::REPLACE),
+                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -196,6 +200,7 @@ fn prepare_skybox_pipelines(
             SkyboxPipelineKey {
                 hdr: view.hdr,
                 samples: msaa.samples(),
+                depth_format: CORE_3D_DEPTH_FORMAT,
             },
         );
 
@@ -220,24 +225,15 @@ fn prepare_skybox_bind_groups(
         if let (Some(skybox), Some(view_uniforms)) =
             (images.get(&skybox.0), view_uniforms.uniforms.binding())
         {
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                label: Some("skybox_bind_group"),
-                layout: &pipeline.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&skybox.texture_view),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&skybox.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: view_uniforms,
-                    },
-                ],
-            });
+            let bind_group = render_device.create_bind_group(
+                "skybox_bind_group",
+                &pipeline.bind_group_layout,
+                &BindGroupEntries::sequential((
+                    &skybox.texture_view,
+                    &skybox.sampler,
+                    view_uniforms,
+                )),
+            );
 
             commands.entity(entity).insert(SkyboxBindGroup(bind_group));
         }
