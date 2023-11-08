@@ -216,7 +216,7 @@ pub fn ui_focus_system(
                     }
                 }
 
-                let node_rect = node.node.logical_rect(&node.global_transform);
+                let node_rect = node.node.logical_rect(node.global_transform);
 
                 // If there is no `calculated_clip`, intersect with an unbounded `Rect`.
                 let clip_rect = node.calculated_clip.map(|clip| clip.clip).unwrap_or(Rect {
