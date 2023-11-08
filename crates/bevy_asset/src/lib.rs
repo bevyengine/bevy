@@ -89,7 +89,7 @@ pub enum AssetMode {
     ///
     /// When developing an app, you should enable the `asset_processor` cargo feature, which will run the asset processor at startup. This should generally
     /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
-    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.  
+    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.
     ///
     /// [`AssetMeta`]: crate::meta::AssetMeta
     /// [`AssetSource`]: crate::io::AssetSource
@@ -459,14 +459,12 @@ mod tests {
 
         type Settings = ();
 
-        type Error = CoolTextLoaderError;
-
         fn load<'a>(
             &'a self,
             reader: &'a mut Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext,
-        ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        ) -> BoxedFuture<'a, Result<Self::Asset, bevy_asset::Error>> {
             Box::pin(async move {
                 let mut bytes = Vec::new();
                 reader.read_to_end(&mut bytes).await?;
@@ -474,7 +472,7 @@ mod tests {
                 let mut embedded = String::new();
                 for dep in ron.embedded_dependencies {
                     let loaded = load_context.load_direct(&dep).await.map_err(|_| {
-                        Self::Error::CannotLoadDependency {
+                        CoolTextLoaderError::CannotLoadDependency {
                             dependency: dep.into(),
                         }
                     })?;

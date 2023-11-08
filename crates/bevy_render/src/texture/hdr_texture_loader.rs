@@ -19,13 +19,12 @@ pub enum HdrTextureLoaderError {
 impl AssetLoader for HdrTextureLoader {
     type Asset = Image;
     type Settings = ();
-    type Error = HdrTextureLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, bevy_asset::Error>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(

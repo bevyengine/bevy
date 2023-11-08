@@ -34,13 +34,12 @@ pub enum CustomAssetLoaderError {
 impl AssetLoader for CustomAssetLoader {
     type Asset = CustomAsset;
     type Settings = ();
-    type Error = CustomAssetLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+    ) -> BoxedFuture<'a, Result<Self::Asset, bevy::asset::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;

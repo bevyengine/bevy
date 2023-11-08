@@ -108,17 +108,16 @@ pub struct GltfLoader {
 impl AssetLoader for GltfLoader {
     type Asset = Gltf;
     type Settings = ();
-    type Error = GltfError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, Self::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, bevy_asset::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            load_gltf(self, &bytes, load_context).await
+            Ok(load_gltf(self, &bytes, load_context).await?)
         })
     }
 

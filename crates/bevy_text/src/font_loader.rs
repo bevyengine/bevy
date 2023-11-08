@@ -20,13 +20,12 @@ pub enum FontLoaderError {
 impl AssetLoader for FontLoader {
     type Asset = Font;
     type Settings = ();
-    type Error = FontLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Font, Self::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Font, bevy_asset::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;

@@ -250,13 +250,12 @@ pub enum ShaderLoaderError {
 impl AssetLoader for ShaderLoader {
     type Asset = Shader;
     type Settings = ();
-    type Error = ShaderLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Shader, Self::Error>> {
+    ) -> BoxedFuture<'a, Result<Shader, bevy_asset::Error>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 

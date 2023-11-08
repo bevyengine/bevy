@@ -20,6 +20,8 @@ use std::{
 };
 use thiserror::Error;
 
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
 pub trait AssetLoader: Send + Sync + 'static {
@@ -27,15 +29,13 @@ pub trait AssetLoader: Send + Sync + 'static {
     type Asset: crate::Asset;
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
-    /// The type of [error](`std::error::Error`) which could be encountered by this loader.
-    type Error: std::error::Error + Send + Sync + 'static;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>>;
+    ) -> BoxedFuture<'a, Result<Self::Asset, Error>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -49,10 +49,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
         reader: &'a mut Reader,
         meta: Box<dyn AssetMetaDyn>,
         load_context: LoadContext<'a>,
-    ) -> BoxedFuture<
-        'a,
-        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
-    >;
+    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, Error>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -80,10 +77,7 @@ where
         reader: &'a mut Reader,
         meta: Box<dyn AssetMetaDyn>,
         mut load_context: LoadContext<'a>,
-    ) -> BoxedFuture<
-        'a,
-        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
-    > {
+    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, Error>> {
         Box::pin(async move {
             let settings = meta
                 .loader_settings()
@@ -446,7 +440,7 @@ impl<'a> LoadContext<'a> {
     /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
     /// If the current context is a normal [`AssetServer::load`], an actual asset load will be kicked off immediately, which ensures the load happens
     /// as soon as possible.
-    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.  
+    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.
     /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
     /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
     pub fn load<'b, A: Asset>(&mut self, path: impl Into<AssetPath<'b>>) -> Handle<A> {
@@ -462,7 +456,7 @@ impl<'a> LoadContext<'a> {
 
     /// Loads the [`Asset`] of type `A` at the given `path` with the given [`AssetLoader::Settings`] settings `S`. This is a "deferred"
     /// load. If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
-    /// and the asset load will fail.  
+    /// and the asset load will fail.
     pub fn load_with_settings<'b, A: Asset, S: Settings + Default>(
         &mut self,
         path: impl Into<AssetPath<'b>>,

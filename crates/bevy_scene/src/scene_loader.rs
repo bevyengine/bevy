@@ -41,14 +41,13 @@ pub enum SceneLoaderError {
 impl AssetLoader for SceneLoader {
     type Asset = DynamicScene;
     type Settings = ();
-    type Error = SceneLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+    ) -> BoxedFuture<'a, Result<Self::Asset, bevy_asset::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;

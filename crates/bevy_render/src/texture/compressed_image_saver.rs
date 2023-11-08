@@ -17,14 +17,14 @@ impl AssetSaver for CompressedImageSaver {
 
     type Settings = ();
     type OutputLoader = ImageLoader;
-    type Error = CompressedImageSaverError;
 
     fn save<'a>(
         &'a self,
         writer: &'a mut bevy_asset::io::Writer,
         image: SavedAsset<'a, Self::Asset>,
         _settings: &'a Self::Settings,
-    ) -> bevy_utils::BoxedFuture<'a, std::result::Result<ImageLoaderSettings, Self::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, std::result::Result<ImageLoaderSettings, bevy_asset::Error>>
+    {
         // PERF: this should live inside the future, but CompressorParams and Compressor are not Send / can't be owned by the BoxedFuture (which _is_ Send)
         let mut compressor_params = basis_universal::CompressorParams::new();
         compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);

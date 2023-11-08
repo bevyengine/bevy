@@ -25,14 +25,13 @@ pub enum ExrTextureLoaderError {
 impl AssetLoader for ExrTextureLoader {
     type Asset = Image;
     type Settings = ();
-    type Error = ExrTextureLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Image, Self::Error>> {
+    ) -> BoxedFuture<'a, Result<Image, bevy_asset::Error>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(

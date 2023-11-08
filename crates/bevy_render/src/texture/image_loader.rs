@@ -81,13 +81,12 @@ pub enum ImageLoaderError {
 impl AssetLoader for ImageLoader {
     type Asset = Image;
     type Settings = ImageLoaderSettings;
-    type Error = ImageLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         settings: &'a ImageLoaderSettings,
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, bevy_asset::Error>> {
         Box::pin(async move {
             // use the file extension for the image type
             let ext = load_context.path().extension().unwrap().to_str().unwrap();

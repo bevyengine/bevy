@@ -79,13 +79,12 @@ struct TextSettings {
 impl AssetLoader for TextLoader {
     type Asset = Text;
     type Settings = TextSettings;
-    type Error = std::io::Error;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         settings: &'a TextSettings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Text, Self::Error>> {
+    ) -> BoxedFuture<'a, Result<Text, bevy::asset::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -132,17 +131,14 @@ enum CoolTextLoaderError {
 
 impl AssetLoader for CoolTextLoader {
     type Asset = CoolText;
-
     type Settings = ();
-
-    type Error = CoolTextLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<CoolText, Self::Error>> {
+    ) -> BoxedFuture<'a, Result<CoolText, bevy::asset::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -180,14 +176,13 @@ impl AssetSaver for CoolTextSaver {
     type Asset = CoolText;
     type Settings = CoolTextSaverSettings;
     type OutputLoader = TextLoader;
-    type Error = std::io::Error;
 
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TextSettings, Self::Error>> {
+    ) -> BoxedFuture<'a, Result<TextSettings, bevy::asset::Error>> {
         Box::pin(async move {
             let text = format!("{}{}", asset.text.clone(), settings.appended);
             writer.write_all(text.as_bytes()).await?;

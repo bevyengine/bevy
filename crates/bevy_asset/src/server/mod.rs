@@ -33,7 +33,7 @@ use thiserror::Error;
 /// The general process to load an asset is:
 /// 1. Initialize a new [`Asset`] type with the [`AssetServer`] via [`AssetApp::init_asset`], which will internally call [`AssetServer::register_asset`]
 /// and set up related ECS [`Assets`] storage and systems.
-/// 2. Register one or more [`AssetLoader`]s for that asset with [`AssetApp::init_asset_loader`]  
+/// 2. Register one or more [`AssetLoader`]s for that asset with [`AssetApp::init_asset_loader`]
 /// 3. Add the asset to your asset folder (defaults to `assets`).
 /// 4. Call [`AssetServer::load`] with a path to your asset.
 ///
@@ -957,7 +957,7 @@ enum MaybeAssetLoader {
     },
 }
 
-/// Internal events for asset load results  
+/// Internal events for asset load results
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum InternalAssetEvent {
     Loaded {
@@ -1046,7 +1046,7 @@ pub enum AssetLoadError {
     AssetLoaderError {
         path: AssetPath<'static>,
         loader_name: &'static str,
-        error: Box<dyn std::error::Error + Send + Sync + 'static>,
+        error: crate::Error,
     },
     #[error("The file at '{base_path}' does not contain the labeled asset '{label}'.")]
     MissingLabel {
