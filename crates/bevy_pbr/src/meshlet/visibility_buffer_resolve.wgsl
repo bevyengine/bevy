@@ -1,4 +1,4 @@
-#define_import_path bevy_pbr::meshlet_visibility_buffer_utils
+#define_import_path bevy_pbr::meshlet_visibility_buffer_resolve
 
 #import bevy_pbr::{
     meshlet_bindings::{meshlet_visibility_buffer, meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_meshlet_vertex},
@@ -58,7 +58,7 @@ struct VertexOutput {
     meshlet_id: u32,
 }
 
-fn load_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
+fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let vbuffer = textureLoad(meshlet_visibility_buffer, vec2<i32>(frag_coord.xy), 0).r;
     let thread_id = vbuffer >> 8u;
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
