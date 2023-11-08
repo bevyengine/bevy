@@ -5,6 +5,7 @@ use bevy_render::{
 };
 use bevy_utils::thiserror;
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
+use rayon::prelude::{ParallelBridge, ParallelIterator};
 use std::{borrow::Cow, iter};
 
 impl MeshletMesh {
@@ -38,9 +39,9 @@ impl MeshletMesh {
 
         let mut meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.0);
 
-        // TODO: Parallelize
         let meshlet_bounding_spheres = meshlets
             .iter()
+            .par_bridge() // TODO: Implement par_iter() directly on Meshlets
             .map(|meshlet| {
                 let bounds = compute_meshlet_bounds_decoder(
                     meshlet,

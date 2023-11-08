@@ -28,6 +28,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
 
 # other
 meshopt = { git = "https://github.com/JMS55/meshopt-rs" }
+rayon = "1.0"
 bitflags = "2.3"
 fixedbitset = "0.4"
 # direct dependency required for derive macro
