@@ -409,17 +409,9 @@ pub fn prepare_view_uniforms(
                 .unwrap_or_else(|| projection * inverse_view)
         };
 
+        // Map Frustum type to shader array<vec4<f32>, 6>
         let frustum = frustum
-            .map(|frustum| {
-                [
-                    frustum.half_spaces[0].normal_d(),
-                    frustum.half_spaces[1].normal_d(),
-                    frustum.half_spaces[2].normal_d(),
-                    frustum.half_spaces[3].normal_d(),
-                    frustum.half_spaces[4].normal_d(),
-                    frustum.half_spaces[5].normal_d(),
-                ]
-            })
+            .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
         let view_uniforms = ViewUniformOffset {

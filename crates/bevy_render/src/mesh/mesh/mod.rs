@@ -420,11 +420,13 @@ impl Mesh {
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_data in self.attributes.values().take(vertex_count) {
+        for attribute_data in self.attributes.values() {
             let attribute_size = attribute_data.attribute.format.get_size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
-            for (vertex_index, attribute_bytes) in
-                attributes_bytes.chunks_exact(attribute_size).enumerate()
+            for (vertex_index, attribute_bytes) in attributes_bytes
+                .chunks_exact(attribute_size)
+                .take(vertex_count)
+                .enumerate()
             {
                 let offset = vertex_index * vertex_size + attribute_offset;
                 attributes_interleaved_buffer[offset..offset + attribute_size]

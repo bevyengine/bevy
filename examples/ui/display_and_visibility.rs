@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 24.0,
-        color: Color::WHITE,
+        ..default()
     };
 
     commands.spawn(Camera2dBundle::default());
@@ -151,7 +151,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 let text_style = TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 20.0,
-                    color: Color::WHITE,
+                    ..default()
                 };
 
                 builder.spawn(TextBundle {

@@ -29,7 +29,6 @@
 
 #![allow(
     clippy::all,
-    clippy::doc_markdown,
     clippy::redundant_else,
     clippy::match_same_arms,
     clippy::semicolon_if_nothing_returned,

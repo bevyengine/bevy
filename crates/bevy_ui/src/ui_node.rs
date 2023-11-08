@@ -14,9 +14,12 @@ use thiserror::Error;
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
-    /// The size of the node as width and height in logical pixels.
+    /// The order of the node in the UI layout.
+    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    pub(crate) stack_index: u32,
+    /// The size of the node as width and height in logical pixels
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
@@ -37,6 +40,12 @@ impl Node {
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// The order of the node in the UI layout.
+    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    pub const fn stack_index(&self) -> u32 {
+        self.stack_index
     }
 
     /// The calculated node size as width and height in logical pixels before rounding.
@@ -92,6 +101,7 @@ impl Node {
 
 impl Node {
     pub const DEFAULT: Self = Self {
+        stack_index: 0,
         calculated_size: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
@@ -216,7 +226,8 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
     pub aspect_ratio: Option<f32>,
 
-    /// - For Flexbox containers, sets default cross-axis alignment of the child items.
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, sets default cross axis alignment of the child items.
     /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
     /// This value is overridden if [`AlignSelf`] on the child node is set.
@@ -224,7 +235,8 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
 
-    /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
     /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
     /// This value is overridden if [`JustifySelf`] on the child node is set.
@@ -232,7 +244,8 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
 
-    /// - For Flexbox items, controls cross-axis alignment of the item.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, controls cross axis alignment of the item.
     /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
@@ -240,7 +253,8 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
     pub align_self: AlignSelf,
 
-    /// - For Flexbox items, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
     /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
@@ -248,12 +262,14 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
     pub justify_self: JustifySelf,
 
-    /// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// Used to control how items are distributed.
+    /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
     /// - For CSS Grid containers, controls alignment of grid rows.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
     pub align_content: AlignContent,
 
+    /// Used to control how items are distributed.
     /// - For Flexbox containers, controls alignment of items in the main axis.
     /// - For CSS Grid containers, controls alignment of grid columns.
     ///
@@ -443,27 +459,31 @@ impl Default for Style {
     }
 }
 
-/// How items are aligned according to the cross axis
+/// Used to control how each individual item is aligned by default within the space they're given.
+/// - For Flexbox containers, sets default cross axis alignment of the child items.
+/// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed towards the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed towards the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then they are packed towards the end of the axis.
     FlexStart,
-    /// Items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then they are packed towards the start of the axis.
     FlexEnd,
-    /// Items are aligned at the center.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Items are aligned at the baseline.
+    /// The items are packed such that their baselines align.
     Baseline,
-    /// Items are stretched across the whole cross axis.
+    /// The items are stretched to fill the space they're given.
     Stretch,
 }
 
@@ -477,21 +497,25 @@ impl Default for AlignItems {
     }
 }
 
-/// How items are aligned according to the main axis
+/// Used to control how each individual item is aligned by default within the space they're given.
+/// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
+/// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed towards the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed towards the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Items are aligned at the center.
+    /// The items are packed along the center of the axis
     Center,
-    /// Items are aligned at the baseline.
+    /// The items are packed such that their baselines align.
     Baseline,
-    /// Items are stretched across the whole main axis.
+    /// The items are stretched to fill the space they're given.
     Stretch,
 }
 
@@ -505,8 +529,11 @@ impl Default for JustifyItems {
     }
 }
 
-/// How this item is aligned according to the cross axis.
-/// Overrides [`AlignItems`].
+/// Used to control how the specified item is aligned within the space it's given.
+/// - For Flexbox items, controls cross axis alignment of the item.
+/// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
@@ -522,11 +549,11 @@ pub enum AlignSelf {
     /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the start of the axis.
     FlexEnd,
-    /// This item will be aligned at the center.
+    /// This item will be aligned along the center of the axis.
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole cross axis.
+    /// This item will be stretched to fill the container.
     Stretch,
 }
 
@@ -540,8 +567,11 @@ impl Default for AlignSelf {
     }
 }
 
-/// How this item is aligned according to the main axis.
-/// Overrides [`JustifyItems`].
+/// Used to control how the specified item is aligned within the space it's given.
+/// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
+/// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifySelf {
@@ -551,11 +581,11 @@ pub enum JustifySelf {
     Start,
     /// This item will be aligned with the end of the axis.
     End,
-    /// This item will be aligned at the center.
+    /// This item will be aligned along the center of the axis.
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole main axis.
+    /// This item will be stretched to fill the space it's given.
     Stretch,
 }
 
@@ -569,34 +599,35 @@ impl Default for JustifySelf {
     }
 }
 
-/// Defines how each line is aligned within the flexbox.
+/// Used to control how items are distributed.
+/// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+/// - For CSS Grid containers, controls alignment of grid rows.
 ///
-/// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Each line moves towards the start of the cross axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Each line moves towards the end of the cross axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Each line moves towards the start of the cross axis, unless the flex direction is reversed; then the line moves towards the end of the cross axis.
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the end of the axis.
     FlexStart,
-    /// Each line moves towards the end of the cross axis, unless the flex direction is reversed; then the line moves towards the start of the cross axis.
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the start of the axis.
     FlexEnd,
-    /// Each line moves towards the center of the cross axis.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Each line will stretch to fill the remaining space.
+    /// The items are stretched to fill the container along the axis.
     Stretch,
-    /// Each line fills the space it needs, putting the remaining space, if any,
-    /// between the lines.
+    /// The items are distributed such that the gap between any two items is equal.
     SpaceBetween,
-    /// The gap between the first and last items is exactly the same as the gap between items.
-    /// The gaps are distributed evenly.
+    /// The items are distributed such that the gap between and around any two items is equal.
     SpaceEvenly,
-    /// Each line fills the space it needs, putting the remaining space, if any,
-    /// around the lines.
+    /// The items are distributed such that the gap between and around any two items is equal, with half-size gaps on either end.
     SpaceAround,
 }
 
@@ -610,28 +641,36 @@ impl Default for AlignContent {
     }
 }
 
-/// Defines how items are aligned according to the main axis
+/// Used to control how items are distributed.
+/// - For Flexbox containers, controls alignment of items in the main axis.
+/// - For CSS Grid containers, controls alignment of grid columns.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed toward the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed toward the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Pushed towards the start, unless the flex direction is reversed; then pushed towards the end.
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the end of the axis.
     FlexStart,
-    /// Pushed towards the end, unless the flex direction is reversed; then pushed towards the start.
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the start of the axis.
     FlexEnd,
-    /// Centered along the main axis.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Remaining space is distributed between the items.
+    /// The items are stretched to fill the container along the axis.
+    Stretch,
+    /// The items are distributed such that the gap between any two items is equal.
     SpaceBetween,
-    /// Remaining space is distributed around the items.
-    SpaceAround,
-    /// Like [`JustifyContent::SpaceAround`] but with even spacing between items.
+    /// The items are distributed such that the gap between and around any two items is equal.
     SpaceEvenly,
+    /// The items are distributed such that the gap between and around any two items is equal, with half-size gaps on either end.
+    SpaceAround,
 }
 
 impl JustifyContent {

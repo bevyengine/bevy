@@ -59,10 +59,17 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin,
-    extract_resource::ExtractResourcePlugin, prelude::Color, render_asset::prepare_assets,
-    render_graph::RenderGraph, render_phase::sort_phase_system, render_resource::Shader,
-    texture::Image, view::VisibilitySystems, ExtractSchedule, Render, RenderApp, RenderSet,
+    camera::{CameraUpdateSystem, Projection},
+    extract_component::ExtractComponentPlugin,
+    extract_resource::ExtractResourcePlugin,
+    prelude::Color,
+    render_asset::prepare_assets,
+    render_graph::RenderGraph,
+    render_phase::sort_phase_system,
+    render_resource::Shader,
+    texture::Image,
+    view::VisibilitySystems,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
@@ -74,6 +81,7 @@ pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(56
 pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416725);
 pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
 pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
+pub const PBR_TRANSMISSION_HANDLE: Handle<Shader> = Handle::weak_from_u128(77319684653223658032);
 pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
 pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(3145627513789590502);
 pub const PBR_FRAGMENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2295049283805286543);
@@ -134,6 +142,12 @@ impl Plugin for PbrPlugin {
             app,
             PBR_LIGHTING_HANDLE,
             "render/pbr_lighting.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_TRANSMISSION_HANDLE,
+            "render/pbr_transmission.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -267,7 +281,11 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
                         .after(CameraUpdateSystem),
-                    update_directional_light_cascades
+                    (
+                        clear_directional_light_cascades,
+                        build_directional_light_cascades::<Projection>,
+                    )
+                        .chain()
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystem::TransformPropagate)
                         .after(CameraUpdateSystem),

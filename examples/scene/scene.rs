@@ -151,7 +151,6 @@ fn infotext_system(mut commands: Commands) {
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font_size: 50.0,
-                color: Color::WHITE,
                 ..default()
             },
         )

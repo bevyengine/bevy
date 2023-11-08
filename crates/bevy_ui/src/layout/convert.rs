@@ -218,6 +218,7 @@ impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
             JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart.into(),
             JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd.into(),
             JustifyContent::Center => taffy::style::JustifyContent::Center.into(),
+            JustifyContent::Stretch => taffy::style::JustifyContent::Stretch.into(),
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween.into(),
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround.into(),
             JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly.into(),
