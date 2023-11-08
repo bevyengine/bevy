@@ -45,51 +45,6 @@ struct DrawIndexedIndirect {
     base_instance: u32,
 }
 
-struct PartialDerivatives {
-    barycentrics: vec3<f32>,
-    ddx: vec3<f32>,
-    ddy: vec3<f32>,
-}
-
-// https://github.com/ConfettiFX/The-Forge/blob/2d453f376ef278f66f97cbaf36c0d12e4361e275/Examples_3/Visibility_Buffer/src/Shaders/FSL/visibilityBuffer_shade.frag.fsl#L83-L139
-fn compute_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, screen_size: vec2<f32>) -> PartialDerivatives {
-    var result: PartialDerivatives;
-
-    let inv_w = 1.0 / vec3(vertex_clip_positions[0].w, vertex_clip_positions[1].w, vertex_clip_positions[2].w);
-    let ndc_0 = vertex_clip_positions[0].xy * inv_w[0];
-    let ndc_1 = vertex_clip_positions[1].xy * inv_w[1];
-    let ndc_2 = vertex_clip_positions[2].xy * inv_w[2];
-
-    let inv_det = 1.0 / determinant(mat2x2(ndc_2 - ndc_1, ndc_0 - ndc_1));
-    result.ddx = vec3(ndc_1.y - ndc_2.y, ndc_2.y - ndc_0.y, ndc_0.y - ndc_1.y) * inv_det * inv_w;
-    result.ddy = vec3(ndc_2.x - ndc_1.x, ndc_0.x - ndc_2.x, ndc_1.x - ndc_0.x) * inv_det * inv_w;
-
-    var ddx_sum = dot(result.ddx, vec3(1.0));
-    var ddy_sum = dot(result.ddy, vec3(1.0));
-
-    let delta_v = ndc_uv - ndc_0;
-    let interp_inv_w = inv_w.x + delta_v.x * ddx_sum + delta_v.y * ddy_sum;
-    let interp_w = 1.0 / interp_inv_w;
-
-    result.barycentrics = vec3(
-        interp_w * (delta_v.x * result.ddx.x + delta_v.y * result.ddy.x + inv_w.x),
-        interp_w * (delta_v.x * result.ddx.y + delta_v.y * result.ddy.y),
-        interp_w * (delta_v.x * result.ddx.z + delta_v.y * result.ddy.z),
-    );
-
-    result.ddx *= 2.0 / screen_size.x;
-    result.ddy *= 2.0 / screen_size.y;
-    ddx_sum *= 2.0 / screen_size.x;
-    ddy_sum *= 2.0 / screen_size.y;
-
-    let interp_ddx_w = 1.0 / (interp_inv_w + ddx_sum);
-    let interp_ddy_w = 1.0 / (interp_inv_w + ddy_sum);
-
-    result.ddx = interp_ddx_w * (result.barycentrics * interp_inv_w + result.ddx) - result.barycentrics;
-    result.ddy = interp_ddy_w * (result.barycentrics * interp_inv_w + result.ddy) - result.barycentrics;
-    return result;
-}
-
 @group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlets: array<Meshlet>;
 @group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
 @group(#{MESHLET_BIND_GROUP}) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>;

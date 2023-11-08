@@ -9,11 +9,11 @@ use bevy_ecs::{
 };
 use bevy_render::render_resource::*;
 
-pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3325134235233421);
+pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4325134235233421);
 pub const MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(4325134235233421);
-pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(5325134235233421);
+pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(6325134235233421);
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
