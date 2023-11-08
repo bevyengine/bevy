@@ -2,12 +2,11 @@ use super::{MeshletGpuScene, MESHLET_MESH_MATERIAL_SHADER_HANDLE};
 use crate::*;
 use bevy_asset::AssetServer;
 use bevy_core_pipeline::{
-    experimental::taa::TemporalAntiAliasSettings,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_render::{
-    camera::Projection,
+    camera::{Projection, TemporalJitter},
     render_asset::RenderAssets,
     render_resource::*,
     texture::BevyDefault,
@@ -43,12 +42,12 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
-        Option<&ScreenSpaceAmbientOcclusionSettings>,
+        Has<ScreenSpaceAmbientOcclusionSettings>,
         Has<NormalPrepass>,
         Has<DepthPrepass>,
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
-        Option<&TemporalAntiAliasSettings>,
+        Has<TemporalJitter>,
         Option<&Projection>,
     )>,
     mut commands: Commands,
@@ -67,7 +66,7 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
         depth_prepass,
         motion_vector_prepass,
         deferred_prepass,
-        taa_settings,
+        temporal_jitter,
         projection,
     ) in &views
     {
@@ -123,12 +122,12 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
             }
         }
 
-        if ssao.is_some() {
+        if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
-        if taa_settings.is_some() {
-            view_key |= MeshPipelineKey::TAA;
+        if temporal_jitter {
+            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
         for material_id in render_material_instances.values() {
