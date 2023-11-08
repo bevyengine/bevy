@@ -101,6 +101,6 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // TODO: Compute vertex output
 
     var rng = meshlet_id;
-    let base_color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
-    return vec4(base_color, 1.0);
+    let color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
+    return vec4(color, 1.0);
 }
