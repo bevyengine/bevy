@@ -1,10 +1,10 @@
-// #import bevy_pbr::{
-//     meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_vertex},
-//     mesh_functions,
-//     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
-//     view_transformations::position_world_to_clip,
-// }
-// #import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
+#import bevy_pbr::{
+    meshlet_bindings::{meshlet_visibility_buffer, meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_meshlet_vertex},
+    mesh_functions,
+    mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
+    view_transformations::position_world_to_clip,
+}
+#import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 // #ifdef PREPASS_PIPELINE
 // #import bevy_pbr::prepass_io::VertexOutput
@@ -19,7 +19,7 @@
 //     let meshlet = meshlets[meshlet_id];
 //     let index = extractBits(packed_meshlet_index, 0u, 8u);
 //     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
-//     let vertex = unpack_vertex(meshlet_vertex_data[vertex_id]);
+//     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);
 //     let instance_id = meshlet_thread_instance_ids[thread_id];
 //     let instance_uniform = meshlet_instance_uniforms[instance_id];
 
@@ -64,6 +64,12 @@
 //     return out;
 // }
 
+fn rand_f(state: ptr<function, u32>) -> f32 {
+    *state = *state * 747796405u + 2891336453u;
+    let word = ((*state >> ((*state >> 28u) + 4u)) ^ *state) * 277803737u;
+    return f32((word >> 22u) ^ word) * bitcast<f32>(0x2f800004u);
+}
+
 @vertex
 fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f32> {
     let vertex_index = vertex_input % 3u;
@@ -75,6 +81,26 @@ fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f
 
 @fragment
 fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    // TODO: Load visbuffer data
-    return vec4(position.z * 1000.0, 0.0, 0.0, 1.0);
+    let vbuffer = textureLoad(meshlet_visibility_buffer, vec2<i32>(position.xy), 0).r;
+    let thread_id = vbuffer >> 8u;
+    let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
+    let meshlet = meshlets[meshlet_id];
+    let triangle_id = extractBits(vbuffer, 0u, 8u);
+
+    let indices = meshlet.start_vertex_id + vec3(triangle_id * 3u) + vec3(0u, 1u, 2u);
+    let vertex_ids = vec3(meshlet_vertex_ids[indices.x], meshlet_vertex_ids[indices.y], meshlet_vertex_ids[indices.z]);
+    let vertex_1 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.x]);
+    let vertex_2 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.y]);
+    let vertex_3 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.z]);
+
+    // TODO: Barycentric interpolation
+
+    let instance_id = meshlet_thread_instance_ids[thread_id];
+    let instance_uniform = meshlet_instance_uniforms[instance_id];
+
+    // TODO: Compute vertex output
+
+    var rng = meshlet_id;
+    let base_color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
+    return vec4(base_color, 1.0);
 }
