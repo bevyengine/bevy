@@ -54,17 +54,18 @@ struct PartialDerivatives {
 // https://github.com/JuanDiegoMontoya/Frogfood/blob/main/data/shaders/visbuffer/VisbufferResolve.frag.glsl#L43-L79
 fn compute_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
+
     let inv_w = 1.0 / vec3(vertex_clip_positions[0].w, vertex_clip_positions[1].w, vertex_clip_positions[2].w);
     let ndc_0 = vertex_clip_positions[0].xy * inv_w[0];
     let ndc_1 = vertex_clip_positions[1].xy * inv_w[1];
     let ndc_2 = vertex_clip_positions[2].xy * inv_w[2];
 
     let inv_det = 1.0 / determinant(mat2x2(ndc_2 - ndc_1, ndc_0 - ndc_1));
-    result.ddx = vec3(ndx_1.y - ndx_2.y, ndc_2.y - ndc_0.y, ndc_0.y - ndc_1.y) * inv_det * inv_w;
+    result.ddx = vec3(ndc_1.y - ndc_2.y, ndc_2.y - ndc_0.y, ndc_0.y - ndc_1.y) * inv_det * inv_w;
     result.ddy = vec3(ndc_2.x - ndc_1.x, ndc_0.x - ndc_2.x, ndc_1.x - ndc_0.x) * inv_det * inv_w;
 
-    let ddx_sum = dot(result.ddx, vec3(1.0));
-    let ddy_sum = dot(result.ddy, vec3(1.0));
+    var ddx_sum = dot(result.ddx, vec3(1.0));
+    var ddy_sum = dot(result.ddy, vec3(1.0));
 
     let delta_v = ndc_uv - ndc_0;
     let interp_inv_w = inv_w.x + delta_v.x * ddx_sum + delta_v.y * ddy_sum;
