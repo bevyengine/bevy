@@ -225,16 +225,10 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
 
         let view_layout = render_device.create_bind_group_layout(
             "ui_view_layout",
-            &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(ViewUniform::min_size()),
-                },
-                count: None,
-            }],
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                uniform_buffer(true, Some(ViewUniform::min_size())),
+            ),
         );
         UiMaterialPipeline {
             ui_layout,

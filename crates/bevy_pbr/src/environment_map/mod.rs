@@ -6,7 +6,10 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
-    render_resource::*,
+    render_resource::{
+        binding_types::{sampler, texture_cube},
+        *,
+    },
     texture::{FallbackImageCubemap, Image},
 };
 
@@ -81,31 +84,10 @@ pub fn get_bindings<'a>(
 
 pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntry; 3] {
     [
-        BindGroupLayoutEntry {
-            binding: bindings[0],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                sample_type: TextureSampleType::Float { filterable: true },
-                view_dimension: TextureViewDimension::Cube,
-                multisampled: false,
-            },
-            count: None,
-        },
-        BindGroupLayoutEntry {
-            binding: bindings[1],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                sample_type: TextureSampleType::Float { filterable: true },
-                view_dimension: TextureViewDimension::Cube,
-                multisampled: false,
-            },
-            count: None,
-        },
-        BindGroupLayoutEntry {
-            binding: bindings[2],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Sampler(SamplerBindingType::Filtering),
-            count: None,
-        },
+        texture_cube(TextureSampleType::Float { filterable: true })
+            .build(bindings[0], ShaderStages::FRAGMENT),
+        texture_cube(TextureSampleType::Float { filterable: true })
+            .build(bindings[1], ShaderStages::FRAGMENT),
+        sampler(SamplerBindingType::Filtering).build(bindings[2], ShaderStages::FRAGMENT),
     ]
 }

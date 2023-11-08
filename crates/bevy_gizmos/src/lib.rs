@@ -54,9 +54,9 @@ use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntry, BindingType, Buffer,
-        BufferBindingType, BufferInitDescriptor, BufferUsages, Shader, ShaderStages, ShaderType,
-        VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
+        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
+        ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
     view::RenderLayers,
@@ -121,16 +121,10 @@ impl Plugin for GizmoPlugin {
         let render_device = render_app.world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(
             "LineGizmoUniform layout",
-            &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(LineGizmoUniform::min_size()),
-                },
-                count: None,
-            }],
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX,
+                uniform_buffer(true, Some(LineGizmoUniform::min_size())),
+            ),
         );
 
         render_app.insert_resource(LineGizmoUniformBindgroupLayout { layout });

@@ -16,6 +16,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType, BufferBindingType,
         DynamicBindGroupEntries, SamplerBindingType, ShaderStages, ShaderType, TextureFormat,
         TextureSampleType, TextureViewDimension,
@@ -151,27 +152,9 @@ fn layout_entries(
 ) -> Vec<BindGroupLayoutEntry> {
     let mut entries = vec![
         // View
-        BindGroupLayoutEntry {
-            binding: 0,
-            visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(ViewUniform::min_size()),
-            },
-            count: None,
-        },
+        uniform_buffer(true, Some(ViewUniform::min_size())).build(0, ShaderStages::VERTEX_FRAGMENT),
         // Lights
-        BindGroupLayoutEntry {
-            binding: 1,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(GpuLights::min_size()),
-            },
-            count: None,
-        },
+        uniform_buffer(true, Some(GpuLights::min_size())).build(1, ShaderStages::FRAGMENT),
         // Point Shadow Texture Cube Array
         BindGroupLayoutEntry {
             binding: 2,
@@ -187,12 +170,7 @@ fn layout_entries(
             count: None,
         },
         // Point Shadow Texture Array Sampler
-        BindGroupLayoutEntry {
-            binding: 3,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Sampler(SamplerBindingType::Comparison),
-            count: None,
-        },
+        sampler(SamplerBindingType::Comparison).build(3, ShaderStages::FRAGMENT),
         // Directional Shadow Texture Array
         BindGroupLayoutEntry {
             binding: 4,
@@ -208,12 +186,7 @@ fn layout_entries(
             count: None,
         },
         // Directional Shadow Texture Array Sampler
-        BindGroupLayoutEntry {
-            binding: 5,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Sampler(SamplerBindingType::Comparison),
-            count: None,
-        },
+        sampler(SamplerBindingType::Comparison).build(5, ShaderStages::FRAGMENT),
         // PointLights
         BindGroupLayoutEntry {
             binding: 6,
@@ -254,38 +227,13 @@ fn layout_entries(
             count: None,
         },
         // Globals
-        BindGroupLayoutEntry {
-            binding: 9,
-            visibility: ShaderStages::VERTEX_FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: Some(GlobalsUniform::min_size()),
-            },
-            count: None,
-        },
+        uniform_buffer(false, Some(GlobalsUniform::min_size()))
+            .build(9, ShaderStages::VERTEX_FRAGMENT),
         // Fog
-        BindGroupLayoutEntry {
-            binding: 10,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(GpuFog::min_size()),
-            },
-            count: None,
-        },
+        uniform_buffer(true, Some(GpuFog::min_size())).build(10, ShaderStages::FRAGMENT),
         // Screen space ambient occlusion texture
-        BindGroupLayoutEntry {
-            binding: 11,
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                multisampled: false,
-                sample_type: TextureSampleType::Float { filterable: false },
-                view_dimension: TextureViewDimension::D2,
-            },
-            count: None,
-        },
+        texture_2d(TextureSampleType::Float { filterable: false })
+            .build(11, ShaderStages::FRAGMENT),
     ];
 
     // EnvironmentMapLight

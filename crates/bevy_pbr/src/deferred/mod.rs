@@ -18,7 +18,9 @@ use bevy_render::{
     },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
+    render_resource::{
+        binding_types::uniform_buffer, Operations, PipelineCache, RenderPassDescriptor,
+    },
     renderer::{RenderContext, RenderDevice},
     texture::Image,
     view::{ViewTarget, ViewUniformOffset},
@@ -378,16 +380,10 @@ impl FromWorld for DeferredLightingLayout {
         let render_device = world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(
             "deferred_lighting_layout",
-            &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: render_resource::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(PbrDeferredLightingDepthId::min_size()),
-                },
-                count: None,
-            }],
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                uniform_buffer(false, Some(PbrDeferredLightingDepthId::min_size())),
+            ),
         );
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),

@@ -10,12 +10,13 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntry, BindingType,
-        BufferBindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction,
-        DepthBiasState, DepthStencilState, FragmentState, MultisampleState, PipelineCache,
-        PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState,
-        StencilState, TextureFormat, TextureSampleType, TextureViewDimension, VertexState,
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
+        DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
+        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
+        TextureFormat, TextureSampleType, VertexState,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
@@ -82,34 +83,15 @@ impl SkyboxPipeline {
         Self {
             bind_group_layout: render_device.create_bind_group_layout(
                 "skybox_bind_group_layout",
-                &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::Cube,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStages::VERTEX_FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(ViewUniform::min_size()),
-                        },
-                        count: None,
-                    },
-                ],
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT,
+                    (
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
+                        uniform_buffer(true, Some(ViewUniform::min_size()))
+                            .visibility(ShaderStages::VERTEX_FRAGMENT),
+                    ),
+                ),
             ),
         }
     }

@@ -15,9 +15,9 @@ use wgpu::{
 use crate::{
     prelude::{Image, Shader},
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines, Texture,
-        VertexState,
+        binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
+        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
     },
     renderer::RenderDevice,
     texture::TextureFormatPixelInfo,
@@ -203,16 +203,10 @@ impl FromWorld for ScreenshotToScreenPipeline {
 
         let bind_group_layout = device.create_bind_group_layout(
             "screenshot-to-screen-bgl",
-            &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
+            &BindGroupLayoutEntries::single(
+                wgpu::ShaderStages::FRAGMENT,
+                texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+            ),
         );
 
         Self { bind_group_layout }

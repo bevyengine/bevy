@@ -126,6 +126,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 /// );
 /// ```
 
+#[derive(Clone, Copy)]
 pub struct BindGroupLayoutEntryBuilder {
     ty: BindingType,
     visibility: Option<ShaderStages>,
