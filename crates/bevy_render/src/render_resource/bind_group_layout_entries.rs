@@ -127,9 +127,9 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 /// ```
 
 pub struct BindGroupLayoutEntryBuilder {
-    pub ty: BindingType,
-    pub visibility: Option<ShaderStages>,
-    pub count: Option<NonZeroU32>,
+    ty: BindingType,
+    visibility: Option<ShaderStages>,
+    count: Option<NonZeroU32>,
 }
 
 impl BindGroupLayoutEntryBuilder {
@@ -476,6 +476,70 @@ pub mod binding_types {
     #[allow(unused)]
     pub fn texture_depth_2d_multisampled() -> BindGroupLayoutEntryBuilder {
         texture_2d_multisampled(TextureSampleType::Depth).into_bind_group_layout_entry_builder()
+    }
+
+    #[allow(unused)]
+    pub fn texture_cube(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::Cube,
+            multisampled: false,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    #[allow(unused)]
+    pub fn texture_cube_mutlisampled(
+        sample_type: TextureSampleType,
+    ) -> BindGroupLayoutEntryBuilder {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::Cube,
+            multisampled: true,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    #[allow(unused)]
+    pub fn texture_cube_array(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::CubeArray,
+            multisampled: false,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    #[allow(unused)]
+    pub fn texture_cube_array_mutlisampled(
+        sample_type: TextureSampleType,
+    ) -> BindGroupLayoutEntryBuilder {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::CubeArray,
+            multisampled: true,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    #[allow(unused)]
+    pub fn texture_3d(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::D3,
+            multisampled: false,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    #[allow(unused)]
+    pub fn texture_3d_mutlisampled(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::D3,
+            multisampled: true,
+        }
+        .into_bind_group_layout_entry_builder()
     }
 
     #[allow(unused)]
