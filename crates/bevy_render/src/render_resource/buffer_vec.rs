@@ -107,7 +107,7 @@ impl<T: Pod> BufferVec<T> {
     /// the `BufferVec` was created, the buffer on the [`RenderDevice`]
     /// is marked as [`BufferUsages::COPY_DST`](crate::render_resource::BufferUsages).
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
-        if capacity > self.capacity || self.label_changed {
+        if capacity > self.capacity || self.label_changed || self.buffer.is_none() {
             self.capacity = capacity;
             let size = self.item_size * capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
@@ -126,9 +126,6 @@ impl<T: Pod> BufferVec<T> {
     /// Before queuing the write, a [`reserve`](crate::render_resource::BufferVec::reserve) operation
     /// is executed.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        if self.values.is_empty() {
-            return;
-        }
         self.reserve(self.values.len(), device);
         if let Some(buffer) = &self.buffer {
             let range = 0..self.item_size * self.values.len();
