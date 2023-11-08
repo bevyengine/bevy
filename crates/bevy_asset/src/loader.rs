@@ -20,7 +20,7 @@ use std::{
 };
 use thiserror::Error;
 
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
+pub type BoxedError = Box<dyn std::error::Error + Send + Sync>;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
@@ -35,7 +35,7 @@ pub trait AssetLoader: Send + Sync + 'static {
         reader: &'a mut Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Error>>;
+    ) -> BoxedFuture<'a, Result<Self::Asset, BoxedError>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -49,7 +49,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
         reader: &'a mut Reader,
         meta: Box<dyn AssetMetaDyn>,
         load_context: LoadContext<'a>,
-    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, Error>>;
+    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BoxedError>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -77,7 +77,7 @@ where
         reader: &'a mut Reader,
         meta: Box<dyn AssetMetaDyn>,
         mut load_context: LoadContext<'a>,
-    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, Error>> {
+    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BoxedError>> {
         Box::pin(async move {
             let settings = meta
                 .loader_settings()

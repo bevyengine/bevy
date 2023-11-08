@@ -86,7 +86,7 @@ impl AssetLoader for ImageLoader {
         reader: &'a mut Reader,
         settings: &'a ImageLoaderSettings,
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, bevy_asset::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, bevy_asset::BoxedError>> {
         Box::pin(async move {
             // use the file extension for the image type
             let ext = load_context.path().extension().unwrap().to_str().unwrap();

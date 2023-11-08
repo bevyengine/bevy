@@ -113,7 +113,7 @@ impl AssetLoader for GltfLoader {
         reader: &'a mut Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, bevy_asset::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, bevy_asset::BoxedError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;

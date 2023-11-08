@@ -84,7 +84,7 @@ impl AssetLoader for TextLoader {
         reader: &'a mut Reader,
         settings: &'a TextSettings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Text, bevy::asset::Error>> {
+    ) -> BoxedFuture<'a, Result<Text, bevy::asset::BoxedError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -138,7 +138,7 @@ impl AssetLoader for CoolTextLoader {
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<CoolText, bevy::asset::Error>> {
+    ) -> BoxedFuture<'a, Result<CoolText, bevy::asset::BoxedError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -182,7 +182,7 @@ impl AssetSaver for CoolTextSaver {
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TextSettings, bevy::asset::Error>> {
+    ) -> BoxedFuture<'a, Result<TextSettings, bevy::asset::BoxedError>> {
         Box::pin(async move {
             let text = format!("{}{}", asset.text.clone(), settings.appended);
             writer.write_all(text.as_bytes()).await?;

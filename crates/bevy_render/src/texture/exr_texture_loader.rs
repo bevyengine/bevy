@@ -31,7 +31,7 @@ impl AssetLoader for ExrTextureLoader {
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Image, bevy_asset::Error>> {
+    ) -> BoxedFuture<'a, Result<Image, bevy_asset::BoxedError>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(

@@ -25,7 +25,7 @@ impl AssetLoader for FontLoader {
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Font, bevy_asset::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Font, bevy_asset::BoxedError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;

@@ -107,7 +107,7 @@ pub enum ProcessError {
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(#[from] crate::Error),
+    AssetSaveError(#[from] crate::BoxedError),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }

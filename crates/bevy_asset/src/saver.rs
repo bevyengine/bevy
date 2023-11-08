@@ -21,7 +21,7 @@ pub trait AssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, crate::Error>>;
+    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, crate::BoxedError>>;
 }
 
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
@@ -33,7 +33,7 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), crate::Error>>;
+    ) -> BoxedFuture<'a, Result<(), crate::BoxedError>>;
 
     /// The type name of the [`AssetSaver`].
     fn type_name(&self) -> &'static str;
@@ -45,7 +45,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), crate::Error>> {
+    ) -> BoxedFuture<'a, Result<(), crate::BoxedError>> {
         Box::pin(async move {
             let settings = settings
                 .downcast_ref::<S::Settings>()

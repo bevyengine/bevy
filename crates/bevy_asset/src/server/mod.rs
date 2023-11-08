@@ -1046,7 +1046,7 @@ pub enum AssetLoadError {
     AssetLoaderError {
         path: AssetPath<'static>,
         loader_name: &'static str,
-        error: crate::Error,
+        error: crate::BoxedError,
     },
     #[error("The file at '{base_path}' does not contain the labeled asset '{label}'.")]
     MissingLabel {

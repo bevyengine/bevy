@@ -464,7 +464,7 @@ mod tests {
             reader: &'a mut Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext,
-        ) -> BoxedFuture<'a, Result<Self::Asset, bevy_asset::Error>> {
+        ) -> BoxedFuture<'a, Result<Self::Asset, crate::BoxedError>> {
             Box::pin(async move {
                 let mut bytes = Vec::new();
                 reader.read_to_end(&mut bytes).await?;

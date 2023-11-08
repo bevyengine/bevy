@@ -198,7 +198,7 @@ impl AssetLoader for () {
         _reader: &'a mut crate::io::Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut crate::LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, bevy_asset::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, crate::BoxedError>> {
         unreachable!();
     }
 

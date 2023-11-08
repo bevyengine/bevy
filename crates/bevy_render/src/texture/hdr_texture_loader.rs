@@ -24,7 +24,7 @@ impl AssetLoader for HdrTextureLoader {
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, bevy_asset::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, bevy_asset::BoxedError>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(
