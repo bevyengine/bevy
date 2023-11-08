@@ -14,5 +14,4 @@ bevy_app = { path = "../bevy_app", version = "0.12.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
 
-# accesskit = "0.12"
-accesskit = { git = "https://github.com/Vrixyz/accesskit.git", branch = "winit-main-after-0.28" }
+accesskit = "0.12"

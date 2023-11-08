@@ -471,7 +471,7 @@ pub fn winit_runner(mut app: App) {
                         // See https://github.com/AccessKit/accesskit/issues/300
                         // AccessKit might later need to filter events based on this, but we currently do not.
                         // See https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
-                        let _ = adapter.on_event(window, &event);
+                        let _ = adapter.process_event(window, &event);
                     }
                 }
 
