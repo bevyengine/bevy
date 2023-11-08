@@ -1,6 +1,6 @@
 #import bevy_pbr::{
     meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_instance_material_ids, view, get_meshlet_index, unpack_meshlet_vertex},
-    mesh_functions,
+    mesh_functions::mesh_position_local_to_world,
 }
 #import bevy_render::maths::affine_to_square
 
@@ -29,7 +29,7 @@ fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
     let material_id = meshlet_instance_material_ids[instance_id];
 
     let model = affine_to_square(instance_uniform.model);
-    let world_position = mesh_functions::mesh_position_local_to_world(model, vec4(vertex.position, 1.0));
+    let world_position = mesh_position_local_to_world(model, vec4(vertex.position, 1.0));
     var clip_position = view.view_proj * vec4(world_position.xyz, 1.0);
 #ifdef DEPTH_CLAMP_ORTHO
     clip_position.z = min(clip_position.z, 1.0);
