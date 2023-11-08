@@ -135,7 +135,7 @@ impl<T: NoUninit> RawBufferVec<T> {
     /// is marked as [`BufferUsages::COPY_DST`](BufferUsages).
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
         let size = self.item_size * capacity;
-        if capacity > self.capacity || (self.changed && size > 0) {
+        if capacity > self.capacity || self.changed || self.buffer.is_none() {
             self.capacity = capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: self.label.as_deref(),
@@ -153,9 +153,6 @@ impl<T: NoUninit> RawBufferVec<T> {
     /// Before queuing the write, a [`reserve`](RawBufferVec::reserve) operation
     /// is executed.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        if self.values.is_empty() {
-            return;
-        }
         self.reserve(self.values.len(), device);
         if let Some(buffer) = &self.buffer {
             let range = 0..self.item_size * self.values.len();
