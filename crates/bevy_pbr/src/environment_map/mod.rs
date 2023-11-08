@@ -82,12 +82,10 @@ pub fn get_bindings<'a>(
     (diffuse_map, specular_map, &fallback_image_cubemap.sampler)
 }
 
-pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntry; 3] {
+pub fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
     [
-        texture_cube(TextureSampleType::Float { filterable: true })
-            .build(bindings[0], ShaderStages::FRAGMENT),
-        texture_cube(TextureSampleType::Float { filterable: true })
-            .build(bindings[1], ShaderStages::FRAGMENT),
-        sampler(SamplerBindingType::Filtering).build(bindings[2], ShaderStages::FRAGMENT),
+        texture_cube(TextureSampleType::Float { filterable: true }),
+        texture_cube(TextureSampleType::Float { filterable: true }),
+        sampler(SamplerBindingType::Filtering),
     ]
 }
