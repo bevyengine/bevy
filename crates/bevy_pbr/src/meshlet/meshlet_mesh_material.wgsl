@@ -80,8 +80,8 @@ fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f
 }
 
 @fragment
-fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    let vbuffer = textureLoad(meshlet_visibility_buffer, vec2<i32>(position.xy), 0).r;
+fn fragment(@builtin(position) clip_position: vec4<f32>) -> @location(0) vec4<f32> {
+    let vbuffer = textureLoad(meshlet_visibility_buffer, vec2<i32>(clip_position.xy), 0).r;
     let thread_id = vbuffer >> 8u;
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
