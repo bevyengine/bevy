@@ -8,7 +8,14 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget};
+use bevy_render::{
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        *,
+    },
+    renderer::RenderDevice,
+    view::ViewTarget,
+};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {

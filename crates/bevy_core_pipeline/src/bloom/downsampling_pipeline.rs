@@ -6,7 +6,13 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Vec4;
-use bevy_render::{render_resource::*, renderer::RenderDevice};
+use bevy_render::{
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        *,
+    },
+    renderer::RenderDevice,
+};
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
