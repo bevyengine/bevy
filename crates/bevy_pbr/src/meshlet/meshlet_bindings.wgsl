@@ -51,7 +51,7 @@ struct PartialDerivatives {
     ddy: vec3<f32>,
 }
 
-// https://github.com/JuanDiegoMontoya/Frogfood/blob/main/data/shaders/visbuffer/VisbufferResolve.frag.glsl#L43-L79
+// https://github.com/ConfettiFX/The-Forge/blob/2d453f376ef278f66f97cbaf36c0d12e4361e275/Examples_3/Visibility_Buffer/src/Shaders/FSL/visibilityBuffer_shade.frag.fsl#L83-L139
 fn compute_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
 
