@@ -39,9 +39,9 @@ fn pause(keyboard_input: Res<Input<KeyCode>>, music_controller: Query<&AudioSink
 
 fn volume(keyboard_input: Res<Input<KeyCode>>, music_controller: Query<&AudioSink, With<MyMusic>>) {
     if let Ok(sink) = music_controller.get_single() {
-        if keyboard_input.just_pressed(KeyCode::NumpadAdd) {
+        if keyboard_input.just_pressed(KeyCode::Equal) {
             sink.set_volume(sink.volume() + 0.1);
-        } else if keyboard_input.just_pressed(KeyCode::NumpadSubtract) {
+        } else if keyboard_input.just_pressed(KeyCode::Minus) {
             sink.set_volume(sink.volume() - 0.1);
         }
     }

@@ -20,7 +20,6 @@ use bevy_ecs::system::{SystemParam, SystemState};
 use bevy_utils::{Duration, Instant};
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 
-use winit::error::EventLoopError;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -38,7 +37,7 @@ use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
-use bevy_utils::tracing::{trace, warn};
+use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
@@ -230,13 +229,6 @@ impl Plugin for WinitPlugin {
         // be inserted as a resource here to pass it onto the runner.
         app.insert_non_send_resource(event_loop);
     }
-}
-
-fn run<F, T>(event_loop: EventLoop<T>, event_handler: F) -> Result<(), EventLoopError>
-where
-    F: 'static + FnMut(Event<T>, &EventLoopWindowTarget<T>),
-{
-    event_loop.run(event_handler)
 }
 
 #[derive(SystemParam)]
@@ -475,15 +467,7 @@ pub fn winit_runner(mut app: App) {
 
                 match event {
                     WindowEvent::Resized(size) => {
-                        window
-                            .resolution
-                            .set_physical_resolution(size.width, size.height);
-
-                        event_writers.window_resized.send(WindowResized {
-                            window: window_entity,
-                            width: window.width(),
-                            height: window.height(),
-                        });
+                        react_to_resize(&mut window, size, &mut event_writers, window_entity);
                     }
                     WindowEvent::CloseRequested => {
                         event_writers
@@ -495,7 +479,8 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::KeyboardInput { ref event, .. } => {
                         let keyboard_event =
                             converters::convert_keyboard_input(event, window_entity);
-                        if let bevy_input::keyboard::Key::Character(c) = &keyboard_event.logical_key
+                        if let bevy_input::keyboard::Key::Character(c) =
+                            converters::convert_logical_key_code(&event.logical_key)
                         {
                             if let Some(first_char) = c.chars().next() {
                                 event_writers.character_input.send(ReceivedCharacter {
@@ -593,7 +578,9 @@ pub fn winit_runner(mut app: App) {
                             let maybe_new_inner_size =
                                 winit::dpi::LogicalSize::new(window.width(), window.height())
                                     .to_physical::<u32>(forced_factor);
-                            if inner_size_writer.request_inner_size(new_inner_size).is_ok() {
+                            if let Err(err) = inner_size_writer.request_inner_size(new_inner_size) {
+                                warn!("Winit Failed to resize the window: {err}");
+                            } else {
                                 new_inner_size = maybe_new_inner_size;
                             }
                         } else if approx::relative_ne!(new_factor, prior_factor) {
@@ -885,5 +872,24 @@ pub fn winit_runner(mut app: App) {
     };
 
     trace!("starting winit event loop");
-    let _ = run(event_loop, event_handler);
+    if let Err(err) = event_loop.run(event_handler) {
+        error!("winit event loop returned an error: {err}");
+    }
+}
+
+fn react_to_resize(
+    window: &mut Mut<'_, Window>,
+    size: winit::dpi::PhysicalSize<u32>,
+    event_writers: &mut WindowAndInputEventWriters<'_>,
+    window_entity: Entity,
+) {
+    window
+        .resolution
+        .set_physical_resolution(size.width, size.height);
+
+    event_writers.window_resized.send(WindowResized {
+        window: window_entity,
+        width: window.width(),
+        height: window.height(),
+    });
 }
