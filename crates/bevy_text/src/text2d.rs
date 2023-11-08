@@ -8,7 +8,6 @@ use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
     entity::Entity,
-    event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
@@ -24,7 +23,7 @@ use bevy_render::{
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window};
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
@@ -165,20 +164,24 @@ pub fn update_text2d_layout(
     text_settings: Res<TextSettings>,
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
+    mut last_scale_factor: Local<f64>,
 ) {
-    // We need to consume the entire iterator, hence `last`
-    let factor_changed = scale_factor_changed.read().last().is_some();
-
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
+
+    let factor_changed = if scale_factor != *last_scale_factor {
+        *last_scale_factor = scale_factor;
+        true
+    } else {
+        false
+    };
 
     let inverse_scale_factor = scale_factor.recip();
 
