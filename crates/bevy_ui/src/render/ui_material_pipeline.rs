@@ -17,7 +17,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
     render_phase::*,
-    render_resource::*,
+    render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
     view::*,

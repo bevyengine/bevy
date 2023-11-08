@@ -9,13 +9,12 @@ use bevy::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
-        render_resource::*,
+        render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
     window::WindowPlugin,
 };
-use bevy_internal::render::render_resource::binding_types::texture_storage_2d;
 use std::borrow::Cow;
 
 const SIZE: (u32, u32) = (1280, 720);

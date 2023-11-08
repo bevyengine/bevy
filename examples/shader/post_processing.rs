@@ -19,7 +19,10 @@ use bevy::{
         render_graph::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
-        render_resource::*,
+        render_resource::{
+            binding_types::{sampler, texture_2d, uniform_buffer},
+            *,
+        },
         renderer::{RenderContext, RenderDevice},
         texture::BevyDefault,
         view::ViewTarget,
