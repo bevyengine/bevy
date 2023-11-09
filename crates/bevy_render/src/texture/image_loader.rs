@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
@@ -116,14 +114,6 @@ impl AssetLoader for ImageLoader {
 
     fn extensions(&self) -> &[&str] {
         IMG_FILE_EXTENSIONS
-    }
-
-    fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
-        None
-    }
-
-    fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
-        None
     }
 }
 

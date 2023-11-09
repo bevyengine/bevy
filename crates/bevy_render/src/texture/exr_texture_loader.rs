@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crate::texture::{Image, TextureFormatPixelInfo};
 use bevy_asset::{
     io::{AsyncReadExt, Reader},
@@ -71,13 +69,5 @@ impl AssetLoader for ExrTextureLoader {
 
     fn extensions(&self) -> &[&str] {
         &["exr"]
-    }
-
-    fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
-        None
-    }
-
-    fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
-        None
     }
 }

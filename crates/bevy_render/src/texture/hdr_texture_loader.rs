@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crate::texture::{Image, TextureFormatPixelInfo};
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use thiserror::Error;
@@ -67,13 +65,5 @@ impl AssetLoader for HdrTextureLoader {
 
     fn extensions(&self) -> &[&str] {
         &["hdr"]
-    }
-
-    fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
-        None
-    }
-
-    fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
-        None
     }
 }
