@@ -193,16 +193,9 @@ impl World {
         system: T,
     ) -> Result<(), UnregisteredSystemError> {
         // create the hashmap if it doesn't exist
-        let mut system_map = {
-            let mut map = self.get_resource_mut::<SystemMap>();
-            if map.is_none() {
-                self.insert_resource::<SystemMap>(SystemMap {
-                    map: bevy_utils::HashMap::default(),
-                });
-                map = self.get_resource_mut::<SystemMap>();
-            };
-            map.unwrap()
-        };
+        let mut system_map = self.get_resource_or_init_with(|| SystemMap {
+            map: bevy_utils::HashMap::default(),
+        });
 
         let system = IntoSystem::<(), (), M>::into_system(system);
         // use the system name as the key
@@ -219,7 +212,7 @@ impl World {
         } = system_map
             .map
             .remove(system_name.deref())
-            .unwrap_or(RegisteredSystem {
+            .unwrap_or_else(|| RegisteredSystem {
                 initialized: false,
                 system: Box::new(system),
             });
