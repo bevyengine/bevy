@@ -128,8 +128,8 @@ impl AssetLoader for GltfLoader {
         &["gltf", "glb"]
     }
 
-    fn label_type_name(&self, label_type: &str) -> Option<&'static str> {
-        match label_type {
+    fn label_type_name(&self, label: &str) -> Option<&'static str> {
+        match label_type(label) {
             "Scene" => Some(std::any::type_name::<Scene>()),
             "Node" => Some(std::any::type_name::<GltfNode>()),
             "Mesh" => Some(std::any::type_name::<GltfMesh>()),
@@ -144,21 +144,35 @@ impl AssetLoader for GltfLoader {
         }
     }
 
-    fn label_type_id(&self, label_type: &str) -> Option<TypeId> {
-        match label_type {
+    fn label_type_id(&self, label: &str) -> Option<TypeId> {
+        match label_type(label) {
             "Scene" => Some(TypeId::of::<Scene>()),
             "Node" => Some(TypeId::of::<GltfNode>()),
             "Mesh" => Some(TypeId::of::<GltfMesh>()),
             "Primitive" => Some(TypeId::of::<Mesh>()),
             //"MorphTarget" => Some(TypeId::of::<MorphTarget>()),
             "Texture" => Some(TypeId::of::<Image>()),
-            "Material" => Some(TypeId::of::<StandardMaterial>()),
-            "DefaultMaterial" => Some(TypeId::of::<StandardMaterial>()),
+            "Material" | "DefaultMaterial" => Some(TypeId::of::<StandardMaterial>()),
             "Animation" => Some(TypeId::of::<AnimationClip>()),
             "Skin" => Some(TypeId::of::<SkinnedMeshInverseBindposes>()),
             _ => None,
         }
     }
+}
+
+fn label_type(label: &str) -> &str {
+    let mut label_type_range = 0..label.len();
+    for (index, char) in label.char_indices() {
+        match char {
+            '/' => label_type_range = index + 1..label.len(),
+            '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
+                label_type_range.end = index;
+            }
+            _ => (),
+        }
+    }
+
+    &label[label_type_range]
 }
 
 /// Loads an entire glTF file.

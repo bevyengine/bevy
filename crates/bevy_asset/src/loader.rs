@@ -40,9 +40,13 @@ pub trait AssetLoader: Send + Sync + 'static {
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
     /// Returns the type name of the sub-asset type with the given `label`.
-    fn label_type_name(&self, label_type: &str) -> Option<&'static str>;
+    fn label_type_name(&self, #[allow(unused_variables)] label: &str) -> Option<&'static str> {
+        None
+    }
     /// Returns the [`TypeId`] of the sub-asset type with the given `label`.
-    fn label_type_id(&self, label_type: &str) -> Option<TypeId>;
+    fn label_type_id(&self, #[allow(unused_variables)] label: &str) -> Option<TypeId> {
+        None
+    }
 }
 
 /// Provides type-erased access to an [`AssetLoader`].
@@ -73,9 +77,9 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     /// Returns the [`TypeId`] of the top-level [`Asset`] loaded by the [`AssetLoader`].
     fn asset_type_id(&self) -> TypeId;
     /// Returns the type name of the sub-asset type with the given `label`.
-    fn label_type_name(&self, label_type: Option<&str>) -> Option<&'static str>;
+    fn label_type_name(&self, label: Option<&str>) -> Option<&'static str>;
     /// Returns the [`TypeId`] of the sub-asset type with the given `label`.
-    fn label_type_id(&self, label_type: Option<&str>) -> Option<TypeId>;
+    fn label_type_id(&self, label: Option<&str>) -> Option<TypeId>;
 }
 
 impl<L> ErasedAssetLoader for L
@@ -135,17 +139,17 @@ where
         TypeId::of::<L::Asset>()
     }
 
-    fn label_type_name(&self, label_type: Option<&str>) -> Option<&'static str> {
-        match label_type {
+    fn label_type_name(&self, label: Option<&str>) -> Option<&'static str> {
+        match label {
             None => Some(self.asset_type_name()),
-            Some(label_type) => <L as AssetLoader>::label_type_name(self, label_type),
+            Some(label) => <L as AssetLoader>::label_type_name(self, label),
         }
     }
 
-    fn label_type_id(&self, label_type: Option<&str>) -> Option<TypeId> {
-        match label_type {
+    fn label_type_id(&self, label: Option<&str>) -> Option<TypeId> {
+        match label {
             None => Some(self.asset_type_id()),
-            Some(label_type) => <L as AssetLoader>::label_type_id(self, label_type),
+            Some(label) => <L as AssetLoader>::label_type_id(self, label),
         }
     }
 }

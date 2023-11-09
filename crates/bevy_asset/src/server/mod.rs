@@ -386,15 +386,13 @@ impl AssetServer {
             }
             None => {
                 let mut infos = self.data.infos.write();
-                let label_type = path.label_type();
-                let (Some(type_id), Some(type_name)) = (
-                    loader.label_type_id(label_type),
-                    loader.label_type_name(label_type),
-                ) else {
+                let label = path.label();
+                let (Some(type_id), Some(type_name)) =
+                    (loader.label_type_id(label), loader.label_type_name(label))
+                else {
                     return Err(AssetLoadError::WrongLabel {
                         base_path: path.without_label().into_owned(),
-                        label: path.label().unwrap_or_default().to_owned(),
-                        label_type: label_type.unwrap_or_default().to_owned(),
+                        label: label.unwrap_or_default().to_owned(),
                     });
                 };
                 infos.get_or_create_path_handle_untyped(
@@ -1064,11 +1062,10 @@ pub enum AssetLoadError {
         base_path: AssetPath<'static>,
         label: String,
     },
-    #[error("The type of the file at '{base_path}' does not support the label type '{label_type}' at the end of the label '{label}'.")]
+    #[error("The type of the file at '{base_path}' does not support the label format '{label}'.")]
     WrongLabel {
         base_path: AssetPath<'static>,
         label: String,
-        label_type: String,
     },
 }
 
