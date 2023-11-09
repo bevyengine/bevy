@@ -87,14 +87,20 @@ pub enum AssetMode {
     ///
     /// By default, this assumes the processor _has already been run_. It will load assets from their final processed [`AssetReader`].
     ///
-    /// When developing an app, you should enable the `asset_processor` cargo feature, which will run the asset processor at startup. This should generally
-    /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
-    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.  
+    /// When developing an app, you should set the option to `Some(true)` or enable the `asset_processor` cargo feature, which will run the asset processor at startup.
+    /// This should generally be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed.
+    /// When both features are enabled, changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will
+    /// be hot-reloaded in the app.
+    ///
+    /// If the option is `Some(false)` then it won't live-process assets.
+    ///
+    /// If the option is `None` then it will be enabled or not based on whether the `asset_processor` cargo feature is enabled (great for conditional
+    /// dev-time/ci-time asset processing).
     ///
     /// [`AssetMeta`]: crate::meta::AssetMeta
     /// [`AssetSource`]: crate::io::AssetSource
     /// [`AssetReader`]: crate::io::AssetReader
-    Processed,
+    Processed(Option<bool>),
 }
 
 impl Default for AssetPlugin {
@@ -145,9 +151,8 @@ impl Plugin for AssetPlugin {
                         watch,
                     ));
                 }
-                AssetMode::Processed => {
-                    #[cfg(feature = "asset_processor")]
-                    {
+                AssetMode::Processed(runtime_processing_enabled) => {
+                    if runtime_processing_enabled.unwrap_or(cfg!(feature = "asset_processor")) {
                         let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
                         let processor = AssetProcessor::new(&mut builders);
                         let mut sources = builders.build_sources(false, watch);
@@ -161,9 +166,7 @@ impl Plugin for AssetPlugin {
                         ))
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
-                    }
-                    #[cfg(not(feature = "asset_processor"))]
-                    {
+                    } else {
                         let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new(
