@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::meshlet_visibility_buffer_resolve
 
 #import bevy_pbr::{
-    meshlet_bindings::{meshlet_visibility_buffer, meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_meshlet_vertex},
+    meshlet_bindings::{meshlet_visibility_buffer, meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, get_meshlet_index, unpack_meshlet_vertex},
     mesh_functions::mesh_position_local_to_world,
     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
     view_transformations::{position_world_to_clip, frag_coord_to_ndc},
@@ -70,7 +70,8 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
     let triangle_id = extractBits(vbuffer, 0u, 8u);
-    let indices = meshlet.start_vertex_id + vec3(triangle_id * 3u) + vec3(0u, 1u, 2u);
+    let index_ids = meshlet.start_index_id + vec3(triangle_id * 3u) + vec3(0u, 1u, 2u);
+    let indices = meshlet.start_vertex_id + vec3(get_meshlet_index(index_ids.x), get_meshlet_index(index_ids.y), get_meshlet_index(index_ids.z));
     let vertex_ids = vec3(meshlet_vertex_ids[indices.x], meshlet_vertex_ids[indices.y], meshlet_vertex_ids[indices.z]);
     let vertex_1 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.x]);
     let vertex_2 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.y]);
