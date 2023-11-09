@@ -16,7 +16,7 @@ use bevy::{
     math::{DVec2, DVec3},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowPlugin},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
@@ -70,8 +70,6 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
