@@ -41,7 +41,7 @@ pub trait AssetLoader: Send + Sync + 'static {
     fn extensions(&self) -> &[&str];
     /// Returns the type name of the sub-asset type with the given `label`.
     fn label_type_name(&self, label_type: &str) -> Option<&'static str>;
-    /// Returns the [`TypeId`] of the sub-asset type with the given `label``.
+    /// Returns the [`TypeId`] of the sub-asset type with the given `label`.
     fn label_type_id(&self, label_type: &str) -> Option<TypeId>;
 }
 
