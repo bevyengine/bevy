@@ -218,14 +218,11 @@ pub fn ui_focus_system(
 
                 let node_rect = node.node.logical_rect(node.global_transform);
 
-                // If there is no `calculated_clip`, intersect with an unbounded `Rect`.
-                let clip_rect = node.calculated_clip.map(|clip| clip.clip).unwrap_or(Rect {
-                    min: Vec2::splat(f32::NEG_INFINITY),
-                    max: Vec2::splat(f32::INFINITY),
-                });
-
-                // Intersect with `clip_rect` to find the bounds of the visible region of the node
-                let visible_rect = node_rect.intersect(clip_rect);
+                // Intersect with the calculated clip rect to find the bounds of the visible region of the node
+                let visible_rect = node
+                    .calculated_clip
+                    .map(|clip| node_rect.intersect(clip.clip))
+                    .unwrap_or(node_rect);
 
                 // The mouse position relative to the node
                 // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
