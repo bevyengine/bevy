@@ -39,6 +39,10 @@ pub trait AssetLoader: Send + Sync + 'static {
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
+    /// Returns the type name of the sub-asset type with the given `label`.
+    fn label_type_name(&self, label_type: &str) -> Option<&'static str>;
+    /// Returns the [`TypeId`] of the sub-asset type with the given `label``.
+    fn label_type_id(&self, label_type: &str) -> Option<TypeId>;
 }
 
 /// Provides type-erased access to an [`AssetLoader`].
@@ -68,6 +72,10 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn asset_type_name(&self) -> &'static str;
     /// Returns the [`TypeId`] of the top-level [`Asset`] loaded by the [`AssetLoader`].
     fn asset_type_id(&self) -> TypeId;
+    /// Returns the type name of the sub-asset type with the given `label`.
+    fn label_type_name(&self, label_type: Option<&str>) -> Option<&'static str>;
+    /// Returns the [`TypeId`] of the sub-asset type with the given `label`.
+    fn label_type_id(&self, label_type: Option<&str>) -> Option<TypeId>;
 }
 
 impl<L> ErasedAssetLoader for L
@@ -119,12 +127,26 @@ where
         TypeId::of::<L>()
     }
 
+    fn asset_type_name(&self) -> &'static str {
+        std::any::type_name::<L::Asset>()
+    }
+
     fn asset_type_id(&self) -> TypeId {
         TypeId::of::<L::Asset>()
     }
 
-    fn asset_type_name(&self) -> &'static str {
-        std::any::type_name::<L::Asset>()
+    fn label_type_name(&self, label_type: Option<&str>) -> Option<&'static str> {
+        match label_type {
+            None => Some(self.asset_type_name()),
+            Some(label_type) => <L as AssetLoader>::label_type_name(self, label_type),
+        }
+    }
+
+    fn label_type_id(&self, label_type: Option<&str>) -> Option<TypeId> {
+        match label_type {
+            None => Some(self.asset_type_id()),
+            Some(label_type) => <L as AssetLoader>::label_type_id(self, label_type),
+        }
     }
 }
 

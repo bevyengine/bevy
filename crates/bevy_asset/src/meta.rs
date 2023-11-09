@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use bevy_log::error;
@@ -204,6 +206,14 @@ impl AssetLoader for () {
     }
 
     fn extensions(&self) -> &[&str] {
+        unreachable!();
+    }
+
+    fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
+        unreachable!();
+    }
+
+    fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
         unreachable!();
     }
 }

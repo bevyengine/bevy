@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 #[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
 use crate::DynamicScene;
@@ -64,5 +66,13 @@ impl AssetLoader for SceneLoader {
 
     fn extensions(&self) -> &[&str] {
         &["scn", "scn.ron"]
+    }
+
+    fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
+        None
+    }
+
+    fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
+        None
     }
 }

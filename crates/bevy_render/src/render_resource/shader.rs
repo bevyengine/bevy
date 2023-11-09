@@ -4,7 +4,7 @@ use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext}
 use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture};
 use futures_lite::AsyncReadExt;
-use std::{borrow::Cow, marker::Copy};
+use std::{any::TypeId, borrow::Cow, marker::Copy};
 use thiserror::Error;
 
 define_atomic_id!(ShaderId);
@@ -298,6 +298,14 @@ impl AssetLoader for ShaderLoader {
 
     fn extensions(&self) -> &[&str] {
         &["spv", "wgsl", "vert", "frag", "comp"]
+    }
+
+    fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
+        None
+    }
+
+    fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
+        None
     }
 }
 

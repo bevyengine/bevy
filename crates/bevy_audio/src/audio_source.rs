@@ -4,7 +4,7 @@ use bevy_asset::{
 };
 use bevy_reflect::TypePath;
 use bevy_utils::BoxedFuture;
-use std::{io::Cursor, sync::Arc};
+use std::{any::TypeId, io::Cursor, sync::Arc};
 
 /// A source of audio data
 #[derive(Asset, Debug, Clone, TypePath)]
@@ -73,6 +73,14 @@ impl AssetLoader for AudioLoader {
             #[cfg(feature = "vorbis")]
             "spx",
         ]
+    }
+
+    fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
+        None
+    }
+
+    fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
+        None
     }
 }
 

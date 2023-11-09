@@ -1,4 +1,5 @@
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfMesh, GltfNode};
+use bevy_animation::AnimationClip;
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -41,6 +42,7 @@ use gltf::{
 };
 use serde::Deserialize;
 use std::{
+    any::TypeId,
     collections::VecDeque,
     path::{Path, PathBuf},
 };
@@ -124,6 +126,38 @@ impl AssetLoader for GltfLoader {
 
     fn extensions(&self) -> &[&str] {
         &["gltf", "glb"]
+    }
+
+    fn label_type_name(&self, label_type: &str) -> Option<&'static str> {
+        match label_type {
+            "Scene" => Some(std::any::type_name::<Scene>()),
+            "Node" => Some(std::any::type_name::<GltfNode>()),
+            "Mesh" => Some(std::any::type_name::<GltfMesh>()),
+            "Primitive" => Some(std::any::type_name::<Mesh>()),
+            //"MorphTarget" => Some(std::any::type_name::<MorphTarget>()),
+            "Texture" => Some(std::any::type_name::<Image>()),
+            "Material" => Some(std::any::type_name::<StandardMaterial>()),
+            "DefaultMaterial" => Some(std::any::type_name::<StandardMaterial>()),
+            "Animation" => Some(std::any::type_name::<AnimationClip>()),
+            "Skin" => Some(std::any::type_name::<SkinnedMeshInverseBindposes>()),
+            _ => None,
+        }
+    }
+
+    fn label_type_id(&self, label_type: &str) -> Option<TypeId> {
+        match label_type {
+            "Scene" => Some(TypeId::of::<Scene>()),
+            "Node" => Some(TypeId::of::<GltfNode>()),
+            "Mesh" => Some(TypeId::of::<GltfMesh>()),
+            "Primitive" => Some(TypeId::of::<Mesh>()),
+            //"MorphTarget" => Some(TypeId::of::<MorphTarget>()),
+            "Texture" => Some(TypeId::of::<Image>()),
+            "Material" => Some(TypeId::of::<StandardMaterial>()),
+            "DefaultMaterial" => Some(TypeId::of::<StandardMaterial>()),
+            "Animation" => Some(TypeId::of::<AnimationClip>()),
+            "Skin" => Some(TypeId::of::<SkinnedMeshInverseBindposes>()),
+            _ => None,
+        }
     }
 }
 

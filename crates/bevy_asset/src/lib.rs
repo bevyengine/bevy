@@ -415,7 +415,7 @@ mod tests {
     use bevy_utils::BoxedFuture;
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
-    use std::path::Path;
+    use std::{any::TypeId, path::Path};
     use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug)]
@@ -500,6 +500,14 @@ mod tests {
 
         fn extensions(&self) -> &[&str] {
             &["cool.ron"]
+        }
+
+        fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
+            Some(std::any::type_name::<SubText>())
+        }
+
+        fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
+            Some(TypeId::of::<SubText>())
         }
     }
 

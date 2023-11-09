@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::Font;
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use thiserror::Error;
@@ -36,5 +38,13 @@ impl AssetLoader for FontLoader {
 
     fn extensions(&self) -> &[&str] {
         &["ttf", "otf"]
+    }
+
+    fn label_type_name(&self, _label_type: &str) -> Option<&'static str> {
+        None
+    }
+
+    fn label_type_id(&self, _label_type: &str) -> Option<TypeId> {
+        None
     }
 }
