@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::texture::{Image, TextureFormatPixelInfo};
 use bevy_asset::{
     io::{AsyncReadExt, Reader},
