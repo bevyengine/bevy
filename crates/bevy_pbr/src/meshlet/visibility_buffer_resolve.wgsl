@@ -16,7 +16,7 @@ struct PartialDerivatives {
 }
 
 // https://github.com/ConfettiFX/The-Forge/blob/2d453f376ef278f66f97cbaf36c0d12e4361e275/Examples_3/Visibility_Buffer/src/Shaders/FSL/visibilityBuffer_shade.frag.fsl#L83-L139
-fn compute_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, screen_size: vec2<f32>) -> PartialDerivatives {
+fn compute_partial_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
 
     let inv_w = 1.0 / vec3(vertex_clip_positions[0].w, vertex_clip_positions[1].w, vertex_clip_positions[2].w);
@@ -55,6 +55,12 @@ fn compute_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_uv: vec2<
 }
 
 struct VertexOutput {
+    frag_coord: vec4<f32>,
+    world_position: vec4<f32>,
+    world_normal: vec3<f32>,
+    uv: vec2<f32>,
+    world_tangent: vec4<f32>,
+    mesh_flags: u32,
     meshlet_id: u32,
 }
 
@@ -64,7 +70,6 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
     let triangle_id = extractBits(vbuffer, 0u, 8u);
-
     let indices = meshlet.start_vertex_id + vec3(triangle_id * 3u) + vec3(0u, 1u, 2u);
     let vertex_ids = vec3(meshlet_vertex_ids[indices.x], meshlet_vertex_ids[indices.y], meshlet_vertex_ids[indices.z]);
     let vertex_1 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.x]);
@@ -81,13 +86,40 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let clip_position_1 = position_world_to_clip(world_position_1.xyz);
     let clip_position_2 = position_world_to_clip(world_position_2.xyz);
     let clip_position_3 = position_world_to_clip(world_position_3.xyz);
-
-    let partial_derivatives = compute_derivatives(
+    let partial_derivatives = compute_partial_derivatives(
         array(clip_position_1, clip_position_2, clip_position_3),
         frag_coord_to_ndc(frag_coord).xy,
         view.viewport.zw,
     );
 
-    // TODO: Compute vertex output
-    return VertexOutput(meshlet_id);
+    let world_position = mat3x4(world_position_1, world_position_2, world_position_3) * partial_derivatives.barycentrics;
+    let vertex_normal = mat3x3(vertex_1.normal, vertex_2.normal, vertex_3.normal) * partial_derivatives.barycentrics;
+    let world_normal = normalize(
+        mat2x4_f32_to_mat3x3_unpack(
+            instance_uniform.inverse_transpose_model_a,
+            instance_uniform.inverse_transpose_model_b,
+        ) * vertex_normal
+    );
+    let uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.barycentrics;
+    let vertex_tangent = mat3x4(vertex_1.tangent, vertex_2.tangent, vertex_3.tangent) * partial_derivatives.barycentrics;
+    let world_tangent = vec4(
+        normalize(
+            mat3x3(
+                model[0].xyz,
+                model[1].xyz,
+                model[2].xyz
+            ) * vertex_tangent.xyz
+        ),
+        vertex_tangent.w * (f32(bool(instance_uniform.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0)
+    );
+
+    return VertexOutput(
+        frag_coord,
+        world_position,
+        world_normal,
+        uv,
+        world_tangent,
+        instance_uniform.flags,
+        meshlet_id,
+    );
 }
