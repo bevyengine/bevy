@@ -1,5 +1,4 @@
 use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiScale, UiStack};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -9,7 +8,7 @@ use bevy_ecs::{
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
-use bevy_math::{Vec2, Rect};
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
@@ -60,17 +59,7 @@ impl Default for Interaction {
 /// A None value means that the cursor position is unknown.
 ///
 /// It can be used alongside interaction to get the position of the press.
-#[derive(
-    Component,
-    Copy,
-    Clone,
-    Default,
-    PartialEq,
-    Debug,
-    Reflect,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub struct RelativeCursorPosition {
     pub normalized_visible_node_rect: Rect,
@@ -227,7 +216,7 @@ pub fn ui_focus_system(
                 // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
                 // Coordinates are relative to the entire node, not just the visible region.
                 let relative_cursor_position = cursor_position
-                        .map(|cursor_position| (cursor_position - node_rect.min) / node_rect.size());
+                    .map(|cursor_position| (cursor_position - node_rect.min) / node_rect.size());
 
                 // If the current cursor position is within the bounds of the node's visible area, consider it for
                 // clicking
