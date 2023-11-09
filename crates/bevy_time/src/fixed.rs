@@ -175,7 +175,7 @@ impl Time<Fixed> {
         self.context().overstep
     }
 
-    /// Discard a part of the overstep amount. 
+    /// Discard a part of the overstep amount.
     ///
     /// If `discard` is higher than overstep, the overstep becomes zero.
     #[inline]
