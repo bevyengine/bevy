@@ -360,7 +360,7 @@ where
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
-        bind_group_layouts.insert(1, self.material_layout.clone());
+        bind_group_layouts.push(self.material_layout.clone());
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
@@ -461,7 +461,7 @@ where
             &mut shader_defs,
             &mut vertex_attributes,
         );
-        bind_group_layouts.insert(2, bind_group);
+        bind_group_layouts.insert(1, bind_group);
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
@@ -959,8 +959,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
 pub type DrawPrepass<M> = (
     SetItemPipeline,
     SetPrepassViewBindGroup<0>,
-    SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
+    SetMeshBindGroup<1>,
+    SetMaterialBindGroup<M, 2>,
     DrawMesh,
 );
 

@@ -4,12 +4,7 @@
 
 #ifdef SKINNED
 
-#ifdef MESH_BINDGROUP_1
-    @group(1) @binding(1) var<uniform> joint_matrices: SkinnedMesh;
-#else 
-    @group(2) @binding(1) var<uniform> joint_matrices: SkinnedMesh;
-#endif
-
+@group(1) @binding(1) var<uniform> joint_matrices: SkinnedMesh;
 
 fn skin_model(
     indexes: vec4<u32>,

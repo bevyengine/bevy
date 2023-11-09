@@ -87,9 +87,9 @@ use std::marker::PhantomData;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(1) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2) var color_sampler: sampler;
+/// @group(2) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -335,7 +335,7 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        descriptor.layout.insert(1, self.material_layout.clone());
+        descriptor.layout.insert(2, self.material_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
         Ok(descriptor)
@@ -368,8 +368,8 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
 type DrawMaterial<M> = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
+    SetMeshBindGroup<1>,
+    SetMaterialBindGroup<M, 2>,
     DrawMesh,
 );
 
