@@ -1,9 +1,14 @@
+use std::ops::Deref;
+
 use crate::entity::Entity;
 use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::World;
 use crate::{self as bevy_ecs};
-use bevy_ecs_macros::Component;
+use bevy_ecs_macros::{Component, Resource};
+use bevy_utils::tracing::error;
 use thiserror::Error;
+
+use super::System;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
@@ -172,6 +177,73 @@ impl World {
         }
         Ok(())
     }
+
+    /// Run a system one-shot by itself.
+    /// It calls like [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
+    /// but behaves like [`World::run_system`].
+    /// System will be registered on first run, then its state is kept for after calls.
+    ///
+    /// # Limitations
+    ///
+    /// Likes [`World::run_system`], with additionally:
+    ///
+    /// - Closure systems are not allowed: systems are identified by their name.
+    pub fn run_system_singleton<M, T: IntoSystem<(), (), M>>(
+        &mut self,
+        system: T,
+    ) -> Result<(), UnregisteredSystemError> {
+        // create the hashmap if it doesn't exist
+        let mut system_map = {
+            let mut map = self.get_resource_mut::<SystemMap>();
+            if map.is_none() {
+                self.insert_resource::<SystemMap>(SystemMap {
+                    map: bevy_utils::HashMap::default(),
+                });
+                map = self.get_resource_mut::<SystemMap>();
+            };
+            map.unwrap()
+        };
+
+        let system = IntoSystem::<(), (), M>::into_system(system);
+        // use the system name as the key
+        let system_name = system.name().clone();
+        // check if the system is a closure
+        if system_name.contains("{{closure}}") {
+            error!("Cannot run along a closure system");
+            return Err(UnregisteredSystemError::Closure);
+        }
+        // take system out
+        let RegisteredSystem {
+            mut initialized,
+            mut system,
+        } = system_map
+            .map
+            .remove(system_name.deref())
+            .unwrap_or(RegisteredSystem {
+                initialized: false,
+                system: Box::new(system),
+            });
+
+        // run the system
+        if !initialized {
+            system.initialize(self);
+            initialized = true;
+        }
+        system.run((), self);
+        system.apply_deferred(self);
+
+        // put system back
+        let mut sys_map = self.get_resource_mut::<SystemMap>().unwrap();
+        sys_map.map.insert(
+            system_name.into(),
+            RegisteredSystem {
+                initialized,
+                system,
+            },
+        );
+
+        Ok(())
+    }
 }
 
 /// The [`Command`] type for [`World::run_system`].
@@ -213,6 +285,41 @@ pub enum RegisteredSystemError {
     SelfRemove(SystemId),
 }
 
+/// The [`Command`] type for [`World::run_system_singleton`].
+///
+/// This command runs systems in an exclusive and single threaded way.
+/// Running slow systems can become a bottleneck.
+#[derive(Debug, Clone)]
+pub struct RunSystemSingleton<T: System<In = (), Out = ()>> {
+    system: T,
+}
+impl<T: System<In = (), Out = ()>> RunSystemSingleton<T> {
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
+    pub fn new(system: T) -> Self {
+        Self { system }
+    }
+}
+impl<T: System<In = (), Out = ()>> Command for RunSystemSingleton<T> {
+    #[inline]
+    fn apply(self, world: &mut World) {
+        let _ = world.run_system_singleton(self.system);
+    }
+}
+
+/// An internal [`Resource`] that stores all systems called by [`World::run_system_singleton`].
+#[derive(Resource)]
+struct SystemMap {
+    map: bevy_utils::HashMap<String, RegisteredSystem>,
+}
+
+/// An operation with [`World::run_system_singleton`] systems failed.
+#[derive(Debug, Error)]
+pub enum UnregisteredSystemError {
+    /// Closure systems do not have a unique name.
+    #[error("RunSystemAlong: System was a closure")]
+    Closure,
+}
+
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::*;
@@ -249,6 +356,17 @@ mod tests {
         world.resource_mut::<ChangeDetector>().set_changed();
         let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(2));
+
+        // Test for `run_system_singleton`
+        let _ = world.run_system_singleton(count_up_iff_changed);
+        assert_eq!(*world.resource::<Counter>(), Counter(3));
+        // Nothing changed
+        let _ = world.run_system_singleton(count_up_iff_changed);
+        assert_eq!(*world.resource::<Counter>(), Counter(3));
+        // Making a change
+        world.resource_mut::<ChangeDetector>().set_changed();
+        let _ = world.run_system_singleton(count_up_iff_changed);
+        assert_eq!(*world.resource::<Counter>(), Counter(4));
     }
 
     #[test]
@@ -271,6 +389,14 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(4));
         let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(8));
+
+        // Test for `run_system_singleton`
+        let _ = world.run_system_singleton(doubling);
+        assert_eq!(*world.resource::<Counter>(), Counter(8));
+        let _ = world.run_system_singleton(doubling);
+        assert_eq!(*world.resource::<Counter>(), Counter(16));
+        let _ = world.run_system_singleton(doubling);
+        assert_eq!(*world.resource::<Counter>(), Counter(32));
     }
 
     #[test]
@@ -301,5 +427,19 @@ mod tests {
         world.spawn(Callback(increment_three));
         let _ = world.run_system(nested_id);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
+    }
+
+    #[test]
+    fn closure_systems() {
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        let count = |mut counter: ResMut<Counter>| {
+            counter.0 += 1;
+        };
+
+        // should fail when call a closure
+        let result = world.run_system_singleton(count);
+        assert!(result.is_err());
     }
 }
