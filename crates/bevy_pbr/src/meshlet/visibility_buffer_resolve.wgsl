@@ -59,6 +59,8 @@ struct VertexOutput {
     world_position: vec4<f32>,
     world_normal: vec3<f32>,
     uv: vec2<f32>,
+    ddx_uv: vec2<f32>,
+    ddy_uv: vec2<f32>,
     world_tangent: vec4<f32>,
     mesh_flags: u32,
     meshlet_id: u32,
@@ -102,6 +104,8 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         ) * vertex_normal
     );
     let uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.barycentrics;
+    let ddx_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddx;
+    let ddy_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddy;
     let vertex_tangent = mat3x4(vertex_1.tangent, vertex_2.tangent, vertex_3.tangent) * partial_derivatives.barycentrics;
     let world_tangent = vec4(
         normalize(
@@ -119,6 +123,8 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         world_position,
         world_normal,
         uv,
+        ddx_uv,
+        ddy_uv,
         world_tangent,
         instance_uniform.flags,
         meshlet_id,
