@@ -9,7 +9,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     text::{BreakLineOn, Text2dBounds},
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowPlugin, WindowResolution},
 };
 
 fn main() {
@@ -18,6 +18,7 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
