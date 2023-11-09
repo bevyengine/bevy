@@ -227,10 +227,8 @@ pub fn ui_focus_system(
                 // The mouse position relative to the node
                 // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
                 // Coordinates are relative to the entire node, not just the visible region.
-                // The `relative_cursor_position` will be `None` if the cursor is over a clipped part of the node.
                 let relative_cursor_position = cursor_position
-                    .filter(|cursor_position| visible_rect.contains(*cursor_position))
-                    .map(|cursor_position| (cursor_position - node_rect.min) / node_rect.size());
+                        .map(|cursor_position| (cursor_position - node_rect.min) / node_rect.size());
 
                 // If the current cursor position is within the bounds of the node's visible area, consider it for
                 // clicking
@@ -238,7 +236,7 @@ pub fn ui_focus_system(
                     normalized: relative_cursor_position,
                 };
 
-                let contains_cursor = relative_cursor_position_component.mouse_over();
+                let contains_cursor = cursor_position.map(|cursor_position| visible_rect.contains(cursor_position)).unwrap_or(false);
 
                 // Save the relative cursor position to the correct component
                 if let Some(mut node_relative_cursor_position_component) =
