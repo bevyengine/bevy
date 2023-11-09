@@ -14,6 +14,7 @@ impl From<Vec3> for Direction3d {
 impl Direction3d {
     /// Create a direction from a [Vec3] that is already normalized
     pub fn from_normalized(value: Vec3) -> Self {
+        debug_assert!(value.is_normalized());
         Self(value)
     }
 }
@@ -25,10 +26,6 @@ impl std::ops::Deref for Direction3d {
     }
 }
 
-/// An infinite half-line pointing in a direction in 3D space
-#[derive(Clone, Copy, Debug)]
-pub struct Ray3d(pub Direction3d);
-
 /// A sphere primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Sphere {
@@ -37,10 +34,11 @@ pub struct Sphere {
 }
 impl Primitive3d for Sphere {}
 
-/// An unbounded plane in 3D space
+/// An unbounded plane in 3D space. It forms a separating surface trough the origin,
+/// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
 pub struct Plane3d {
-    /// The direction in which the plane points
+    /// The normal of the plane, the plane will be placed perpendicular to this direction
     pub normal: Direction3d,
 }
 impl Primitive3d for Plane3d {}
@@ -59,14 +57,17 @@ impl Primitive3d for Line3d {}
 pub struct LineSegment3d {
     /// The direction of the line
     pub direction: Direction3d,
-    /// The point where the line starts
+    /// The point on the line where the line starts, this value can be either positive of negative,
+    /// depending on where relative to the origin the line should start
     pub start: f32,
-    /// The point where the line ends
+    /// The point on the line where the line ends, this value can be either positive of negative,
+    /// depending on where relative to the origin the line should start
     pub end: f32,
 }
 impl Primitive3d for LineSegment3d {}
 
-/// A line alone a path of N vertices in 3D space.
+/// A series of connected line segments in 3D space.
+///
 /// For a version without generics: [`BoxedPolyline3d`]
 #[derive(Clone, Debug)]
 pub struct Polyline3d<const N: usize> {
@@ -75,7 +76,8 @@ pub struct Polyline3d<const N: usize> {
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
-/// A line alone a path of vertices in 3D space.
+/// A series of connected line segments in 3D space.
+///
 /// For a version without alloc: [`Polyline3d`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolyline3d {

@@ -14,6 +14,7 @@ impl From<Vec2> for Direction2d {
 impl Direction2d {
     /// Create a direction from a [Vec2] that is already normalized
     pub fn from_normalized(value: Vec2) -> Self {
+        debug_assert!(value.is_normalized());
         Self(value)
     }
 }
@@ -25,10 +26,6 @@ impl std::ops::Deref for Direction2d {
     }
 }
 
-/// An infinite half-line pointing in a direction in 2D space
-#[derive(Clone, Copy, Debug)]
-pub struct Ray2d(pub Direction2d);
-
 /// A circle primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Circle {
@@ -37,10 +34,11 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
-/// An unbounded plane in 2D space
+/// An unbounded plane in 2D space. It forms a separating surface trough the origin,
+/// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
 pub struct Plane2d {
-    /// The direction in which the plane points
+    /// The normal of the plane, the plane will be placed perpendicular to this direction
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
@@ -59,14 +57,17 @@ impl Primitive2d for Line2d {}
 pub struct LineSegment2d {
     /// The direction of the line
     pub direction: Direction2d,
-    /// The point where the line starts
+    /// The point on the line where the line starts, this value can be either positive of negative,
+    /// depending on where relative to the origin the line should start
     pub start: f32,
-    /// The point where the line ends
+    /// The point on the line where the line ends, this value can be either positive of negative,
+    /// depending on where relative to the origin the line should start
     pub end: f32,
 }
 impl Primitive2d for LineSegment2d {}
 
-/// A line alone a path of N vertices in 2D space.
+/// A series of connected line segments in 2D space.
+///
 /// For a version without generics: [`BoxedPolyline2d`]
 #[derive(Clone, Debug)]
 pub struct Polyline2d<const N: usize> {
@@ -75,7 +76,8 @@ pub struct Polyline2d<const N: usize> {
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
-/// A line alone a path of vertices in 2D space.
+/// A series of connected line segments in 2D space.
+///
 /// For a version without alloc: [`Polyline2d`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolyline2d {
@@ -88,11 +90,12 @@ impl Primitive2d for BoxedPolyline2d {}
 #[derive(Clone, Debug)]
 pub struct Triangle {
     /// The vertices of the triangle
-    pub vertcies: [Vec2; 3],
+    pub vertices: [Vec2; 3],
 }
 impl Primitive2d for Triangle {}
 
 /// A rectangle primitive
+#[doc(alias = "Quad")]
 #[derive(Clone, Copy, Debug)]
 pub struct Rectangle {
     /// The half width of the rectangle
@@ -101,9 +104,6 @@ pub struct Rectangle {
     pub half_height: f32,
 }
 impl Primitive2d for Rectangle {}
-
-/// An alias for [Rectangle]
-pub type Quad = Rectangle;
 
 /// A polygon with N vertices
 /// For a version without generics: [`BoxedPolygon`]
@@ -123,7 +123,7 @@ pub struct BoxedPolygon {
 }
 impl Primitive2d for BoxedPolygon {}
 
-/// A polygon where all vertices lie on a circumscribed circle, equally far apart
+/// A polygon where all vertices lie on a circle, equally far apart
 #[derive(Clone, Copy, Debug)]
 pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
