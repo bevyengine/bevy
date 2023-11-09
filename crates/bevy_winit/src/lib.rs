@@ -27,8 +27,6 @@ use winit::event_loop::EventLoopBuilder;
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
 
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_app::First;
 use bevy_app::{App, AppEvent, Last, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
@@ -139,10 +137,6 @@ impl Plugin for WinitPlugin {
                     // apply all changes before despawning windows for consistent event ordering
                     .chain(),
             );
-
-        // TODO: schedule after TimeSystem
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_systems(First, flush_winit_events::<AppEvent>);
 
         app.add_plugins(AccessibilityPlugin);
 
@@ -366,22 +360,18 @@ impl<T: 'static> EventLoopWindowTarget<T> {
 
 #[cfg(target_arch = "wasm32")]
 mod runner {
+    #[cfg(target_os = "android")]
+    use crate::accessibility::WinitActionHandlers;
     use crate::{
-        accessibility::{AccessKitAdapters, WinitActionHandlers},
-        converters, run, run_return,
-        system::CachedWindow,
+        accessibility::AccessKitAdapters, converters, run, run_return, system::CachedWindow,
         ActiveState, UpdateMode, WindowAndInputEventWriters, WinitAppRunnerState, WinitSettings,
         WinitWindows,
     };
 
+    #[cfg(target_os = "android")]
     use bevy_a11y::AccessibilityRequested;
     use bevy_app::{App, AppEvent, AppExit, PluginsState};
-    use bevy_ecs::{
-        event::ManualEventReader,
-        prelude::*,
-        storage::{ThreadLocalTask, ThreadLocalTaskSendError, ThreadLocalTaskSender},
-        system::SystemState,
-    };
+    use bevy_ecs::{event::ManualEventReader, prelude::*, system::SystemState};
     use bevy_input::{
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         touchpad::{TouchpadMagnify, TouchpadRotate},
@@ -439,10 +429,7 @@ mod runner {
 
             let plugins_state = app.plugins_state();
             if plugins_state != PluginsState::Cleaned {
-                if plugins_state != PluginsState::Ready {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    tick_global_task_pools_on_main_thread();
-                } else {
+                if plugins_state == PluginsState::Ready {
                     app.finish();
                     app.cleanup();
                 }
@@ -487,12 +474,10 @@ mod runner {
                     let (mut event_writers, mut windows) =
                         event_writer_system_state.get_mut(app.sub_apps.main.world_mut());
 
-                    let Some(window_entity) =
-                        app.tls
-                            .resource_scope(|_, winit_windows: Mut<WinitWindows>| {
-                                winit_windows.get_window_entity(window_id)
-                            })
-                    else {
+                    let Some(window_entity) = app.tls.run(|tls| {
+                        let winit_windows = tls.resource::<WinitWindows>();
+                        winit_windows.get_window_entity(window_id)
+                    }) else {
                         warn!(
                             "Skipped event {:?} for unknown winit Window Id {:?}",
                             event, window_id
@@ -508,18 +493,21 @@ mod runner {
                         break 'window_event;
                     };
 
-                    let access_kit_adapters = tls_guard.resource::<AccessKitAdapters>();
+                    app.tls.run(|tls| {
+                        let access_kit_adapters = tls.resource::<AccessKitAdapters>();
+                        let winit_windows = tls.resource::<WinitWindows>();
 
-                    // Allow AccessKit to respond to `WindowEvent`s before they reach the engine.
-                    if let Some(adapter) = access_kit_adapters.get(&window_entity) {
-                        if let Some(window) = winit_windows.get_window(window_entity) {
-                            // Somewhat surprisingly, this call has meaningful side effects
-                            // See https://github.com/AccessKit/accesskit/issues/300
-                            // AccessKit might later need to filter events based on this, but we currently do not.
-                            // See https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
-                            let _ = adapter.on_event(window, &event);
+                        // Allow AccessKit to respond to `WindowEvent`s before they reach the engine.
+                        if let Some(adapter) = access_kit_adapters.get(&window_entity) {
+                            if let Some(window) = winit_windows.get_window(window_entity) {
+                                // Somewhat surprisingly, this call has meaningful side effects
+                                // See https://github.com/AccessKit/accesskit/issues/300
+                                // AccessKit might later need to filter events based on this, but we currently do not.
+                                // See https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
+                                let _ = adapter.on_event(window, &event);
+                            }
                         }
-                    }
+                    });
 
                     runner_state.window_event_received = true;
 
@@ -892,7 +880,7 @@ mod runner {
                                 }
                             }
 
-                            if runner_state.active = ActiveState::Suspended {
+                            if runner_state.active == ActiveState::Suspended {
                                 // Wait for a `Resume` event.
                                 *control_flow = ControlFlow::Wait;
                             }
@@ -932,8 +920,9 @@ mod runner {
         channel, Receiver, RecvError, RecvTimeoutError, SendError, Sender, TryRecvError,
     };
 
+    #[cfg(target_os = "android")]
     use bevy_a11y::AccessibilityRequested;
-    use bevy_app::{App, AppEvent, AppExit, PluginsState, SubApps};
+    use bevy_app::{App, AppEvent, AppExit, First, PluginsState, SubApps};
     #[cfg(target_os = "android")]
     use bevy_ecs::system::SystemParam;
     use bevy_ecs::{event::ManualEventReader, prelude::*, system::SystemState};
@@ -960,8 +949,10 @@ mod runner {
 
     use winit::event_loop::ControlFlow;
 
+    #[cfg(target_os = "android")]
+    use crate::accessibility::WinitActionHandlers;
     use crate::{
-        accessibility::{AccessKitAdapters, WinitActionHandlers},
+        accessibility::AccessKitAdapters,
         converters::{self, convert_event, convert_window_event},
         run, run_return,
         system::CachedWindow,
@@ -1049,12 +1040,7 @@ mod runner {
                     self.state.active = ActiveState::WillSuspend;
                 }
                 converters::Event::Resumed => {
-                    if self.state.active == ActiveState::NotYetStarted {
-                        self.state.just_started = true;
-                    } else {
-                        self.state.just_started = false;
-                    }
-
+                    self.state.just_started = self.state.active == ActiveState::NotYetStarted;
                     self.state.active = ActiveState::Active;
                 }
                 converters::Event::RedrawRequested(_) => {
@@ -1528,8 +1514,8 @@ mod runner {
                         }
 
                         if rx.state.active.should_run() {
-                            if rx.active == ActiveState::WillSuspend {
-                                rx.active = ActiveState::Suspended;
+                            if rx.state.active == ActiveState::WillSuspend {
+                                rx.state.active = ActiveState::Suspended;
                                 #[cfg(target_os = "android")]
                                 {
                                     // Android sending this event invalidates the existing
@@ -1613,7 +1599,7 @@ mod runner {
                                     }
                                 }
 
-                                if rx.state.active = ActiveState::Suspended {
+                                if rx.state.active == ActiveState::Suspended {
                                     // Wait for a `Resume` event.
                                     control_flow = ControlFlow::Wait;
                                 }
@@ -1654,7 +1640,17 @@ mod runner {
         let mut winit_recv = Some(winit_recv);
         let mut locals = None;
 
-        let mut finished_and_setup_done = app.plugins_state() == PluginsState::Cleaned;
+        enum Status {
+            Initializing,
+            Ready,
+            Running,
+        }
+
+        let mut status = if app.plugins_state() == PluginsState::Cleaned {
+            Status::Ready
+        } else {
+            Status::Initializing
+        };
 
         let event_cb = move |event: winit::event::Event<AppEvent>,
                              event_loop: &winit::event_loop::EventLoopWindowTarget<AppEvent>,
@@ -1662,66 +1658,72 @@ mod runner {
             #[cfg(feature = "trace")]
             let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
-            let mut should_start = false;
-            if !finished_and_setup_done {
-                if app.plugins_state() != PluginsState::Ready {
-                    tick_global_task_pools_on_main_thread();
-                } else {
-                    app.finish();
-                    app.cleanup();
-                    finished_and_setup_done = true;
-                    should_start = true;
-                }
-
-                if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-                    if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                        *control_flow = ControlFlow::Exit;
-                        return;
+            match status {
+                Status::Initializing => {
+                    if app.plugins_state() == PluginsState::Adding {
+                        tick_global_task_pools_on_main_thread();
+                    } else {
+                        app.finish();
+                        app.cleanup();
+                        status = Status::Ready;
                     }
+
+                    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
+                        if app_exit_event_reader.read(app_exit_events).last().is_some() {
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
+                    }
+
+                    *control_flow = ControlFlow::Poll;
                 }
+                Status::Ready => {
+                    // TODO: schedule this after the system that updates time
+                    #[cfg(not(target_arch = "wasm32"))]
+                    app.add_systems(First, flush_winit_events::<AppEvent>);
 
-                *control_flow = ControlFlow::Poll;
-            } else {
-                // Since the app runs in its own thread, this thread should sleep when
-                // it has no events to process.
-                *control_flow = ControlFlow::Wait;
-            }
+                    // split app
+                    let (mut sub_apps, tls, send, recv, _) = mem::take(&mut app).into_parts();
+                    locals = Some(tls);
 
-            if should_start {
-                // split app
-                let (mut sub_apps, tls, send, recv, _) = mem::take(&mut app).into_parts();
-                locals = Some(tls);
+                    // insert winit -> app channel
+                    let winit_recv = winit_recv.take().unwrap();
+                    sub_apps.main.world_mut().insert_resource(winit_recv);
 
-                // insert winit -> app channel
-                let winit_recv = winit_recv.take().unwrap();
-                sub_apps.main.world_mut().insert_resource(winit_recv);
+                    // send sub-apps to separate thread
+                    spawn_app_thread(sub_apps, send, recv, event_loop_proxy.clone());
 
-                // send sub-apps to separate thread
-                spawn_app_thread(sub_apps, send, recv, event_loop_proxy.clone());
+                    status = Status::Running;
+
+                    // Since the app runs in its own thread, this thread should sleep when
+                    // it has no events to process.
+                    *control_flow = ControlFlow::Wait;
+                }
+                Status::Running => (),
             }
 
             match event {
                 winit::event::Event::WindowEvent { window_id, event } => {
                     if let Some(tls) = locals.as_mut() {
-                        let tls_guard = tls.lock();
+                        tls.run(|tls| {
+                            let winit_windows = tls.resource::<WinitWindows>();
+                            let access_kit_adapters = tls.resource::<AccessKitAdapters>();
 
-                        let winit_windows = tls_guard.resource::<WinitWindows>();
-                        let access_kit_adapters = tls_guard.resource::<AccessKitAdapters>();
-
-                        // Let AccessKit process the event before it reaches the engine.
-                        if let Some(entity) = winit_windows.get_window_entity(window_id) {
-                            if let Some(window) = winit_windows.get_window(entity) {
-                                if let Some(adapter) = access_kit_adapters.get(&entity) {
-                                    // Unlike `on_event` suggests, this call has meaningful side
-                                    // effects. AccessKit may eventually filter events here, but
-                                    // they currently don't.
-                                    // See:
-                                    // - https://github.com/AccessKit/accesskit/issues/300
-                                    // - https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
-                                    let _ = adapter.on_event(window, &event);
+                            // Let AccessKit process the event before it reaches the engine.
+                            if let Some(entity) = winit_windows.get_window_entity(window_id) {
+                                if let Some(window) = winit_windows.get_window(entity) {
+                                    if let Some(adapter) = access_kit_adapters.get(&entity) {
+                                        // Unlike `on_event` suggests, this call has meaningful side
+                                        // effects. AccessKit may eventually filter events here, but
+                                        // they currently don't.
+                                        // See:
+                                        // - https://github.com/AccessKit/accesskit/issues/300
+                                        // - https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
+                                        let _ = adapter.on_event(window, &event);
+                                    }
                                 }
-                            }
-                        };
+                            };
+                        });
                     }
 
                     match event {
@@ -1730,24 +1732,27 @@ mod runner {
                             new_inner_size,
                         } => {
                             if let Some(tls) = locals.as_mut() {
-                                // This event requires special handling because writes to `new_inner_size`
-                                // must happen here. It can't be written asynchronously.
-                                let tls_guard = tls.lock();
-                                let winit_windows = tls_guard.resource::<WinitWindows>();
-                                if let Some(window) = winit_windows.cached_windows.get(&window_id) {
-                                    if let Some(sf_override) =
-                                        window.resolution.scale_factor_override()
+                                tls.run(|tls| {
+                                    // This event requires special handling because writes to `new_inner_size`
+                                    // must happen here. It can't be written asynchronously.
+                                    let winit_windows = tls.resource::<WinitWindows>();
+                                    if let Some(window) =
+                                        winit_windows.cached_windows.get(&window_id)
                                     {
-                                        // This window is overriding the OS-suggested DPI, so its physical
-                                        // size should be set based on the overriding value. Its logical
-                                        // size already incorporates any resize constraints.
-                                        *new_inner_size = winit::dpi::LogicalSize::new(
-                                            window.width(),
-                                            window.height(),
-                                        )
-                                        .to_physical::<u32>(sf_override);
+                                        if let Some(sf_override) =
+                                            window.resolution.scale_factor_override()
+                                        {
+                                            // This window is overriding the OS-suggested DPI, so its physical
+                                            // size should be set based on the overriding value. Its logical
+                                            // size already incorporates any resize constraints.
+                                            *new_inner_size = winit::dpi::LogicalSize::new(
+                                                window.width(),
+                                                window.height(),
+                                            )
+                                            .to_physical::<u32>(sf_override);
+                                        }
                                     }
-                                }
+                                });
                             }
 
                             let _ = winit_send.send(converters::Event::WindowEvent {
@@ -1759,12 +1764,15 @@ mod runner {
                             });
                         }
                         _ => {
-                            let _ = winit_send.send(convert_window_event(event));
+                            let _ = winit_send.send(converters::Event::WindowEvent {
+                                window_id,
+                                event: convert_window_event(event),
+                            });
                         }
                     }
                 }
                 winit::event::Event::UserEvent(event) => {
-                    assert!(finished_and_setup_done);
+                    assert!(matches!(status, Status::Running));
                     match event {
                         AppEvent::Task(task) => {
                             let tls = locals.as_mut().unwrap();

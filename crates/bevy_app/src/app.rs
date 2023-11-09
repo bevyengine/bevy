@@ -235,8 +235,6 @@ impl App {
 
         // reassemble
         *self = App::from_parts(sub_apps, tls, send, recv, runner);
-
-        self.remove_tls_channel();
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
@@ -927,9 +925,10 @@ impl App {
 type RunnerFn = Box<dyn FnOnce(App)>;
 
 fn run_once(mut app: App) {
+    let initial_plugins_state = app.plugins_state();
+
     // wait for plugins to finish setting up
-    let plugins_state = app.plugins_state();
-    if plugins_state != PluginsState::Cleaned {
+    if app.plugins_state() != PluginsState::Cleaned {
         while app.plugins_state() == PluginsState::Adding {
             #[cfg(not(target_arch = "wasm32"))]
             bevy_tasks::tick_global_task_pools_on_main_thread();
@@ -939,7 +938,7 @@ fn run_once(mut app: App) {
     }
 
     // If plugins where cleaned before the runner start, an update already ran
-    if plugins_state == PluginsState::Cleaned {
+    if initial_plugins_state == PluginsState::Cleaned {
         return;
     }
 

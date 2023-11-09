@@ -424,6 +424,15 @@ impl ThreadLocalStorage {
         TLS.with_borrow_mut(|tls| tls.resource_scope(f))
     }
 
+    /// Runs `f` in a scope that has access to the thread-local resources.
+    pub fn run<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&mut ThreadLocals) -> T,
+        T: 'static,
+    {
+        TLS.with_borrow_mut(|tls| f(tls))
+    }
+
     /// Inserts a channel into `world` that systems in `world` (via [`ThreadLocal`]) can use to
     /// access the underlying [`ThreadLocals`].
     pub fn insert_channel<S>(&self, world: &mut World, sender: S)

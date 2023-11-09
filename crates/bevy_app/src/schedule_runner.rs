@@ -67,8 +67,7 @@ impl Plugin for ScheduleRunnerPlugin {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
             // wait for plugins to finish setting up
-            let plugins_state = app.plugins_state();
-            if plugins_state != PluginsState::Cleaned {
+            if app.plugins_state() != PluginsState::Cleaned {
                 while app.plugins_state() == PluginsState::Adding {
                     #[cfg(not(target_arch = "wasm32"))]
                     bevy_tasks::tick_global_task_pools_on_main_thread();
@@ -81,7 +80,7 @@ impl Plugin for ScheduleRunnerPlugin {
             match run_mode {
                 RunMode::Once => {
                     // if plugins where cleaned before the runner start, an update already ran
-                    if plugins_state != PluginsState::Cleaned {
+                    if app.plugins_state() != PluginsState::Cleaned {
                         app.update();
                     }
                 }

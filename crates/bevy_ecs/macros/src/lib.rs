@@ -198,10 +198,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                         #param::init_state(world, &mut #meta);
                         let #param = #param::init_state(world, &mut system_meta.clone());
                     )*
-                    // Make the ParamSet non-send if any of its parameters are non-send.
-                    if false #(|| !#meta.is_send())* {
-                        system_meta.set_non_send();
-                    }
                     #(
                         system_meta
                             .component_access_set
