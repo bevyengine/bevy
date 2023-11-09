@@ -46,7 +46,7 @@ pub struct Plane2d {
 impl Primitive2d for Plane2d {}
 
 /// An infinite line along a direction in 2D space.
-/// For a finite line: [LineSegment2d]
+/// For a finite line: [`LineSegment2d`]
 #[derive(Clone, Copy, Debug)]
 pub struct Line2d {
     /// The direction of the line
@@ -67,7 +67,7 @@ pub struct LineSegment2d {
 impl Primitive2d for LineSegment2d {}
 
 /// A line alone a path of N vertices in 2D space.
-/// For a version without generics: [BoxedPolyline2d]
+/// For a version without generics: [`BoxedPolyline2d`]
 #[derive(Clone, Debug)]
 pub struct Polyline2d<const N: usize> {
     /// The vertices of the polyline
@@ -76,7 +76,7 @@ pub struct Polyline2d<const N: usize> {
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
 /// A line alone a path of vertices in 2D space.
-/// For a version without alloc: [Polyline2d]
+/// For a version without alloc: [`Polyline2d`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolyline2d {
     /// The vertices of the polyline
@@ -106,7 +106,7 @@ impl Primitive2d for Rectangle {}
 pub type Quad = Rectangle;
 
 /// A polygon with N vertices
-/// For a version without generics: [BoxedPolygon]
+/// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug)]
 pub struct Polygon<const N: usize> {
     /// The vertices of the polygon
@@ -115,7 +115,7 @@ pub struct Polygon<const N: usize> {
 impl<const N: usize> Primitive2d for Polygon<N> {}
 
 /// A polygon with a variable number of vertices
-/// For a version without alloc: [Polygon]
+/// For a version without alloc: [`Polygon`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolygon {
     /// The vertices of the polygon

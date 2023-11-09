@@ -46,7 +46,7 @@ pub struct Plane3d {
 impl Primitive3d for Plane3d {}
 
 /// An infinite line along a direction in 3D space.
-/// For a finite line: [LineSegment3d]
+/// For a finite line: [`LineSegment3d`]
 #[derive(Clone, Copy, Debug)]
 pub struct Line3d {
     /// The direction of the line
@@ -67,7 +67,7 @@ pub struct LineSegment3d {
 impl Primitive3d for LineSegment3d {}
 
 /// A line alone a path of N vertices in 3D space.
-/// For a version without generics: [BoxedPolyline3d]
+/// For a version without generics: [`BoxedPolyline3d`]
 #[derive(Clone, Debug)]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
@@ -76,7 +76,7 @@ pub struct Polyline3d<const N: usize> {
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
 /// A line alone a path of vertices in 3D space.
-/// For a version without alloc: [Polyline3d]
+/// For a version without alloc: [`Polyline3d`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolyline3d {
     /// The vertices of the polyline
