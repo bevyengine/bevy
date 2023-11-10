@@ -188,7 +188,7 @@ fn setup(
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 18.0,
-        color: Color::BLACK,
+        ..default()
     };
 
     let label_text_style = TextStyle {

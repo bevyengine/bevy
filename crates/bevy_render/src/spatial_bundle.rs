@@ -15,7 +15,7 @@ use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 /// to be rendered correctly.
 ///
 /// [`Component`]: bevy_ecs::component::Component
-#[derive(Bundle, Debug, Default)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct SpatialBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,

@@ -372,6 +372,7 @@ pub fn winit_runner(mut app: App) {
         WindowAndInputEventWriters,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
+        NonSend<AccessKitAdapters>,
     )> = SystemState::new(&mut app.world);
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -476,7 +477,7 @@ pub fn winit_runner(mut app: App) {
             event::Event::WindowEvent {
                 event, window_id, ..
             } => {
-                let (mut event_writers, winit_windows, mut windows) =
+                let (mut event_writers, winit_windows, mut windows, access_kit_adapters) =
                     event_writer_system_state.get_mut(&mut app.world);
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
@@ -494,6 +495,18 @@ pub fn winit_runner(mut app: App) {
                     );
                     return;
                 };
+
+                // Allow AccessKit to respond to `WindowEvent`s before they reach
+                // the engine.
+                if let Some(adapter) = access_kit_adapters.get(&window_entity) {
+                    if let Some(window) = winit_windows.get_window(window_entity) {
+                        // Somewhat surprisingly, this call has meaningful side effects
+                        // See https://github.com/AccessKit/accesskit/issues/300
+                        // AccessKit might later need to filter events based on this, but we currently do not.
+                        // See https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
+                        let _ = adapter.on_event(window, &event);
+                    }
+                }
 
                 runner_state.window_event_received = true;
 
@@ -713,20 +726,20 @@ pub fn winit_runner(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
                 });
             }
             event::Event::Suspended => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.lifetime.send(ApplicationLifetime::Suspended);
                 // Mark the state as `WillSuspend`. This will let the schedule run one last time
                 // before actually suspending to let the application react
                 runner_state.active = ActiveState::WillSuspend;
             }
             event::Event::Resumed => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 match runner_state.active {
                     ActiveState::NotYetStarted => {
                         event_writers.lifetime.send(ApplicationLifetime::Started);
