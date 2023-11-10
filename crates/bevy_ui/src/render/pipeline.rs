@@ -3,8 +3,7 @@ use bevy_render::{
     pipeline_keys::PipelineKey,
     render_resource::*,
     renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ViewTarget, ViewUniform},
+    view::{TextureFormatKey, ViewUniform},
 };
 
 #[derive(Resource)]
@@ -60,13 +59,8 @@ impl FromWorld for UiPipeline {
     }
 }
 
-#[derive(PipelineKey, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiPipelineKey {
-    pub hdr: bool,
-}
-
 impl SpecializedRenderPipeline for UiPipeline {
-    type Key = UiPipelineKey;
+    type Key = TextureFormatKey;
 
     fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
@@ -96,11 +90,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

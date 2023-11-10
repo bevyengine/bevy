@@ -256,7 +256,7 @@ where
 pub struct MaterialPipelineKey<M: Material> {
     pub view_key: PbrViewKey,
     pub mesh_key: MeshKey,
-    pub material_key: NewMaterialKey<M>,
+    pub material_key: MaterialKey<M>,
 }
 
 /// Render pipeline data for a given [`Material`].
@@ -600,7 +600,7 @@ pub struct MaterialProperties {
 pub struct PreparedMaterial<T: Material> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
-    pub packed_key: PackedPipelineKey<NewMaterialKey<T>>,
+    pub packed_key: PackedPipelineKey<MaterialKey<T>>,
     pub properties: MaterialProperties,
 }
 
@@ -766,7 +766,7 @@ fn prepare_material<M: Material>(
         OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
         OpaqueRendererMethod::Auto => default_opaque_render_method,
     };
-    let key = NewMaterialKey {
+    let key = MaterialKey {
         alpha: material.alpha_mode().into(),
         opaque_method: match method {
             OpaqueRendererMethod::Forward => OpaqueMethodKey::Forward,
@@ -850,7 +850,7 @@ pub enum OpaqueMethodKey {
 }
 
 #[derive(PipelineKey, Clone, Copy)]
-pub struct NewMaterialKey<M: Material> {
+pub struct MaterialKey<M: Material> {
     pub alpha: AlphaKey,
     pub opaque_method: OpaqueMethodKey,
     pub may_discard: MayDiscard,

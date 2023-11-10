@@ -1,6 +1,6 @@
 use crate::{
     line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, StripKey, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -70,9 +70,6 @@ impl FromWorld for LineGizmoPipeline {
         }
     }
 }
-
-#[derive(PipelineKey)]
-struct StripKey(bool);
 
 #[derive(PipelineKey)]
 #[custom_shader_defs]

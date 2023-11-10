@@ -406,6 +406,7 @@ pub struct PbrViewKey {
     pub projection: ViewProjectionKey,
     pub transmission_quality: ScreenSpaceTransmissionQualityKey,
 }
+// TODO move optional things from PbrViewKey over here
 #[derive(PipelineKey)]
 #[dynamic_key]
 pub struct PbrViewKeyDynamic(KeyPrimitive);

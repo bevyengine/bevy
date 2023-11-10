@@ -13,8 +13,8 @@ use bevy_render::{
 };
 
 use crate::{
-    AlphaKey, Material, MaterialPipeline, MaterialPipelineKey, MayDiscard, MeshPipeline,
-    NewMaterialKey, OpaqueMethodKey, PbrViewKey,
+    AlphaKey, Material, MaterialKey, MaterialPipeline, MaterialPipelineKey, MayDiscard,
+    MeshPipeline, OpaqueMethodKey, PbrViewKey,
 };
 
 pub struct MaterialExtensionPipeline {
@@ -245,7 +245,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         let base_key = MaterialPipelineKey::<B> {
             view_key: key.view_key,
             mesh_key: key.mesh_key,
-            material_key: NewMaterialKey {
+            material_key: MaterialKey {
                 alpha: key.material_key.alpha,
                 opaque_method: key.material_key.opaque_method,
                 may_discard: key.material_key.may_discard,

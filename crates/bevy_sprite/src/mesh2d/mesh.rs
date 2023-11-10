@@ -1,7 +1,10 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::{
+    core_2d::Transparent2d,
+    tonemapping::{DebandDitherKey, Tonemapping},
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
@@ -16,17 +19,16 @@ use bevy_render::{
         NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
-    pipeline_keys::PipelineKey,
+    mesh::{GpuBufferInfo, Mesh, MeshKey, MeshVertexBufferLayout},
+    pipeline_keys::{AddPipelineKey, PipelineKey},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    texture::{DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo},
     view::{
-        ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
+        ExtractedView, MsaaKey, TextureFormatKey, ViewUniform, ViewUniformOffset, ViewUniforms,
+        ViewVisibility,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -108,7 +110,8 @@ impl Plugin for Mesh2dRenderPlugin {
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
-                );
+                )
+                .register_composite_key::<Mesh2dViewKey, With<ExtractedView>>();
         }
     }
 
@@ -383,80 +386,18 @@ impl GetBatchData for Mesh2dPipeline {
     }
 }
 
-#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct Mesh2dPipelineKey(pub u32);
-
-bitflags::bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    #[repr(transparent)]
-    // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
-    // FIXME: make normals optional?
-    pub struct OldMesh2dPipelineKey: u32 {
-        const NONE                              = 0;
-        const HDR                               = (1 << 0);
-        const TONEMAP_IN_SHADER                 = (1 << 1);
-        const DEBAND_DITHER                     = (1 << 2);
-        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
-    }
+#[derive(PipelineKey)]
+pub struct Mesh2dPipelineKey {
+    pub view_key: Mesh2dViewKey,
+    pub mesh_key: MeshKey,
 }
 
-impl OldMesh2dPipelineKey {
-    const MSAA_MASK_BITS: u32 = 0b111;
-    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
-    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
-    const TONEMAP_METHOD_SHIFT_BITS: u32 =
-        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
-
-    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits =
-            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits_retain(msaa_bits)
-    }
-
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            OldMesh2dPipelineKey::HDR
-        } else {
-            OldMesh2dPipelineKey::NONE
-        }
-    }
-
-    pub fn msaa_samples(&self) -> u32 {
-        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
-    }
-
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
-        let primitive_topology_bits = ((primitive_topology as u32)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
-            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
-    }
-
-    pub fn primitive_topology(&self) -> PrimitiveTopology {
-        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
-        match primitive_topology_bits {
-            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
-            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
-            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
-            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
-            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
-            _ => PrimitiveTopology::default(),
-        }
-    }
+#[derive(PipelineKey, Clone, Copy)]
+pub struct Mesh2dViewKey {
+    pub texture_format: TextureFormatKey,
+    pub tonemapping: Tonemapping,
+    pub msaa: MsaaKey,
+    pub deband: DebandDitherKey,
 }
 
 impl SpecializedMeshPipeline for Mesh2dPipeline {
@@ -464,12 +405,10 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
     fn specialize(
         &self,
-        key_in: PipelineKey<Self::Key>,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let key = OldMesh2dPipelineKey::from_bits(key_in.0).unwrap();
-
-        let mut shader_defs = Vec::new();
+        let mut shader_defs = key.shader_defs();
         let mut vertex_attributes = Vec::new();
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
@@ -497,50 +436,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
-        if key.contains(OldMesh2dPipelineKey::TONEMAP_IN_SHADER) {
-            shader_defs.push("TONEMAP_IN_SHADER".into());
-
-            let method = key.intersection(OldMesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
-
-            match method {
-                OldMesh2dPipelineKey::TONEMAP_METHOD_NONE => {
-                    shader_defs.push("TONEMAP_METHOD_NONE".into());
-                }
-                OldMesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
-                    shader_defs.push("TONEMAP_METHOD_REINHARD".into());
-                }
-                OldMesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE => {
-                    shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-                }
-                OldMesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED => {
-                    shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
-                }
-                OldMesh2dPipelineKey::TONEMAP_METHOD_AGX => {
-                    shader_defs.push("TONEMAP_METHOD_AGX".into());
-                }
-                OldMesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM => {
-                    shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-                }
-                OldMesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC => {
-                    shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-                }
-                OldMesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
-                    shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
-                }
-                _ => {}
-            }
-            // Debanding is tied to tonemapping in the shader, cannot run without it.
-            if key.contains(OldMesh2dPipelineKey::DEBAND_DITHER) {
-                shader_defs.push("DEBAND_DITHER".into());
-            }
-        }
-
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(OldMesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
         let mut push_constant_ranges = Vec::with_capacity(1);
         if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
             push_constant_ranges.push(PushConstantRange {
@@ -561,7 +458,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_key.texture_format.format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -574,12 +471,12 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: key.primitive_topology(),
+                topology: key.mesh_key.primitive_topology,
                 strip_index_format: None,
             },
             depth_stencil: None,
             multisample: MultisampleState {
-                count: key.msaa_samples(),
+                count: key.view_key.msaa.samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
