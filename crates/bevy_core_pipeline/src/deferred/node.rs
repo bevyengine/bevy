@@ -18,7 +18,7 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 
 use crate::core_3d::{Camera3d, Camera3dDepthLoadOp};
-use crate::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures};
+use crate::prepass::{MotionVectorPrepass, NormalPrepass, ViewPrepassTextures};
 
 use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 

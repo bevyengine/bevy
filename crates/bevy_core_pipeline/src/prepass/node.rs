@@ -16,6 +16,8 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
+use crate::core_3d::{Camera3d, Camera3dDepthLoadOp};
+
 use super::{AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, ViewPrepassTextures};
 
 /// Render node used by the prepass.
@@ -27,6 +29,7 @@ pub struct PrepassNode;
 impl ViewNode for PrepassNode {
     type ViewQuery = (
         &'static ExtractedCamera,
+        &'static Camera3d,
         &'static RenderPhase<Opaque3dPrepass>,
         &'static RenderPhase<AlphaMask3dPrepass>,
         &'static ViewDepthTexture,
@@ -40,6 +43,7 @@ impl ViewNode for PrepassNode {
         render_context: &mut RenderContext,
         (
             camera,
+            camera_3d,
             opaque_prepass_phase,
             alpha_mask_prepass_phase,
             view_depth_texture,
@@ -49,8 +53,6 @@ impl ViewNode for PrepassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-
-        let _ = view_depth_texture.is_first_write();
 
         let mut color_attachments = vec![
             view_prepass_textures
@@ -96,7 +98,13 @@ impl ViewNode for PrepassNode {
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &view_depth_texture.view,
                     depth_ops: Some(Operations {
-                        load: LoadOp::Clear(0.0),
+                        load: if view_depth_texture.is_first_write() {
+                            // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
+                            camera_3d.depth_load_op.clone()
+                        } else {
+                            Camera3dDepthLoadOp::Load
+                        }
+                        .into(),
                         store: true,
                     }),
                     stencil_ops: None,
