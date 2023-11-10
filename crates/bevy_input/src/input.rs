@@ -1,3 +1,5 @@
+//! The generic input type.
+
 use bevy_ecs::system::Resource;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
@@ -22,7 +24,7 @@ use bevy_ecs::schedule::State;
 ///
 /// In case multiple systems are checking for [`Input::just_pressed`] or [`Input::just_released`]
 /// but only one should react, for example in the case of triggering
-/// [`State`](bevy_ecs::schedule::State) change, you should consider clearing the input state, either by:
+/// [`State`] change, you should consider clearing the input state, either by:
 ///
 /// * Using [`Input::clear_just_pressed`] or [`Input::clear_just_released`] instead.
 /// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.
@@ -34,6 +36,13 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
+///
+/// Note: Calling `clear` from a [`ResMut`] will trigger change detection.
+/// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
+/// to avoid causing the resource to always be marked as changed.
+///
+///[`ResMut`]: bevy_ecs::system::ResMut
+///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource, Reflect)]
 #[reflect(Default)]
 pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
@@ -167,10 +176,12 @@ where
 
 #[cfg(test)]
 mod test {
+    use bevy_reflect::TypePath;
+
     use crate::Input;
 
     /// Used for testing the functionality of [`Input`].
-    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+    #[derive(TypePath, Copy, Clone, Eq, PartialEq, Hash)]
     enum DummyInput {
         Input1,
         Input2,

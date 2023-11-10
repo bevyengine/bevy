@@ -1,17 +1,15 @@
 use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-#[cfg(debug_assertions)]
-use bevy_ecs::system::Local;
-use bevy_ecs::system::{Commands, Res, ResMut, Resource};
+use bevy_ecs::prelude::*;
 pub use bevy_render_macros::ExtractResource;
 
-use crate::{Extract, RenderApp, RenderStage};
+use crate::{Extract, ExtractSchedule, RenderApp};
 
 /// Describes how a resource gets extracted for rendering.
 ///
 /// Therefore the resource is transferred from the "main world" into the "render world"
-/// in the [`RenderStage::Extract`](crate::RenderStage::Extract) step.
+/// in the [`ExtractSchedule`] step.
 pub trait ExtractResource: Resource {
     type Source: Resource;
 
@@ -21,7 +19,7 @@ pub trait ExtractResource: Resource {
 
 /// This plugin extracts the resources into the "render world".
 ///
-/// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
+/// Therefore it sets up the[`ExtractSchedule`] step
 /// for the specified [`Resource`].
 pub struct ExtractResourcePlugin<R: ExtractResource>(PhantomData<R>);
 
@@ -34,7 +32,7 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
+            render_app.add_systems(ExtractSchedule, extract_resource::<R>);
         }
     }
 }
@@ -42,24 +40,26 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
 /// This system extracts the resource of the corresponding [`Resource`] type
 pub fn extract_resource<R: ExtractResource>(
     mut commands: Commands,
-    main_resource: Extract<Res<R::Source>>,
+    main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,
     #[cfg(debug_assertions)] mut has_warned_on_remove: Local<bool>,
 ) {
-    if let Some(mut target_resource) = target_resource {
-        if main_resource.is_changed() {
-            *target_resource = R::extract_resource(&main_resource);
-        }
-    } else {
-        #[cfg(debug_assertions)]
-        if !main_resource.is_added() && !*has_warned_on_remove {
-            *has_warned_on_remove = true;
-            bevy_log::warn!(
-                "Removing resource {} from render world not expected, adding using `Commands`.
+    if let Some(main_resource) = main_resource.as_ref() {
+        if let Some(mut target_resource) = target_resource {
+            if main_resource.is_changed() {
+                *target_resource = R::extract_resource(main_resource);
+            }
+        } else {
+            #[cfg(debug_assertions)]
+            if !main_resource.is_added() && !*has_warned_on_remove {
+                *has_warned_on_remove = true;
+                bevy_log::warn!(
+                    "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
-                std::any::type_name::<R>()
-            );
+                    std::any::type_name::<R>()
+                );
+            }
+            commands.insert_resource(R::extract_resource(main_resource));
         }
-        commands.insert_resource(R::extract_resource(&main_resource));
     }
 }

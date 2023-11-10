@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 #![allow(clippy::single_component_path_imports)]
 
 //! Forces dynamic linking of Bevy.
@@ -15,21 +16,21 @@
 //!
 //! ## The recommended way
 //!
-//! The easiest way to enable dynamic linking is to use the `--features bevy/dynamic` flag when
+//! The easiest way to enable dynamic linking is to use the `--features bevy/dynamic_linking` flag when
 //! using the `cargo run` command:
 //!
-//! `cargo run --features bevy/dynamic`
+//! `cargo run --features bevy/dynamic_linking`
 //!
 //! ## The unrecommended way
 //!
-//! It is also possible to enable the `dynamic` feature inside of the `Cargo.toml` file. This is
+//! It is also possible to enable the `dynamic_linking` feature inside of the `Cargo.toml` file. This is
 //! unrecommended because it requires you to remove this feature every time you want to create a
 //! release build to avoid having to ship additional files with your game.
 //!
-//! To enable dynamic linking inside of the `Cargo.toml` file add the `dynamic` feature to the
+//! To enable dynamic linking inside of the `Cargo.toml` file add the `dynamic_linking` feature to the
 //! bevy dependency:
 //!
-//! `features = ["dynamic"]`
+//! `features = ["dynamic_linking"]`
 //!
 //! ## The manual way
 //!

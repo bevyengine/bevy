@@ -25,7 +25,15 @@ mod tests {
         let info = MyEnum::type_info();
         if let TypeInfo::Enum(info) = info {
             assert!(info.is::<MyEnum>(), "expected type to be `MyEnum`");
-            assert_eq!(std::any::type_name::<MyEnum>(), info.type_name());
+            assert_eq!(MyEnum::type_path(), info.type_path());
+            assert_eq!(MyEnum::type_path(), info.type_path_table().path());
+            assert_eq!(MyEnum::type_ident(), info.type_path_table().ident());
+            assert_eq!(MyEnum::module_path(), info.type_path_table().module_path());
+            assert_eq!(MyEnum::crate_name(), info.type_path_table().crate_name());
+            assert_eq!(
+                MyEnum::short_type_path(),
+                info.type_path_table().short_path()
+            );
 
             // === MyEnum::A === //
             assert_eq!("A", info.variant_at(0).unwrap().name());
@@ -275,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "`((usize, i32))` is not an enum")]
+    #[should_panic(expected = "`bevy_reflect::DynamicTuple` is not an enum")]
     fn applying_non_enum_should_panic() {
         let mut value = MyEnum::B(0, 0);
         let mut dyn_tuple = DynamicTuple::default();
@@ -342,14 +350,14 @@ mod tests {
         // === Tuple === //
         let mut data = DynamicTuple::default();
         data.insert(1.23_f32);
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum<f32>>(), "B", data);
+        let dyn_enum = DynamicEnum::new("B", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::B(1.23), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", 1.23_f32);
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum<f32>>(), "C", data);
+        let dyn_enum = DynamicEnum::new("C", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::C { value: 1.23 }, value);
     }
@@ -363,7 +371,7 @@ mod tests {
             C { value: TestStruct },
         }
 
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct TestStruct(usize);
 
         let mut value = TestEnum::A;
@@ -371,14 +379,14 @@ mod tests {
         // === Tuple === //
         let mut data = DynamicTuple::default();
         data.insert(TestStruct(123));
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "B", data);
+        let dyn_enum = DynamicEnum::new("B", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::B(TestStruct(123)), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", TestStruct(123));
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "C", data);
+        let dyn_enum = DynamicEnum::new("C", data);
         value.apply(&dyn_enum);
         assert_eq!(
             TestEnum::C {
@@ -397,7 +405,7 @@ mod tests {
             C { value: OtherEnum },
         }
 
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         enum OtherEnum {
             A,
             B(usize),
@@ -409,14 +417,14 @@ mod tests {
         // === Tuple === //
         let mut data = DynamicTuple::default();
         data.insert(OtherEnum::B(123));
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "B", data);
+        let dyn_enum = DynamicEnum::new("B", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::B(OtherEnum::B(123)), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", OtherEnum::C { value: 1.23 });
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "C", data);
+        let dyn_enum = DynamicEnum::new("C", data);
         value.apply(&dyn_enum);
         assert_eq!(
             TestEnum::C {

@@ -1,8 +1,19 @@
+use crate::{
+    component::Tick,
+    storage::SparseSetIndex,
+    system::{ReadOnlySystemParam, SystemParam},
+    world::{FromWorld, World},
+};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+use super::unsafe_world_cell::UnsafeWorldCell;
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
-/// A unique identifier for a [`super::World`].
+/// A unique identifier for a [`World`].
+///
+/// The trait [`FromWorld`] is implemented for this type, which returns the
+/// ID of the world passed to [`FromWorld::from_world`].
 // Note that this *is* used by external crates as well as for internal safety checks
 pub struct WorldId(usize);
 
@@ -23,6 +34,46 @@ impl WorldId {
             })
             .map(WorldId)
             .ok()
+    }
+}
+
+impl FromWorld for WorldId {
+    #[inline]
+    fn from_world(world: &mut World) -> Self {
+        world.id()
+    }
+}
+
+// SAFETY: No world data is accessed.
+unsafe impl ReadOnlySystemParam for WorldId {}
+
+// SAFETY: No world data is accessed.
+unsafe impl SystemParam for WorldId {
+    type State = ();
+
+    type Item<'world, 'state> = WorldId;
+
+    fn init_state(_: &mut super::World, _: &mut crate::system::SystemMeta) -> Self::State {}
+
+    unsafe fn get_param<'world, 'state>(
+        _: &'state mut Self::State,
+        _: &crate::system::SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _: Tick,
+    ) -> Self::Item<'world, 'state> {
+        world.id()
+    }
+}
+
+impl SparseSetIndex for WorldId {
+    #[inline]
+    fn sparse_set_index(&self) -> usize {
+        self.0
+    }
+
+    #[inline]
+    fn get_sparse_set_index(value: usize) -> Self {
+        Self(value)
     }
 }
 

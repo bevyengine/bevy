@@ -3,20 +3,27 @@ use crate::render_resource::{
     RenderPipeline, Sampler, Texture,
 };
 use bevy_ecs::system::Resource;
-use std::sync::Arc;
-use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
+use wgpu::{
+    util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BufferAsyncError, BufferBindingType,
+};
 
 use super::RenderQueue;
+
+use crate::render_resource::resource_macros::*;
+
+render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: Arc<wgpu::Device>,
+    device: ErasedRenderDevice,
 }
 
-impl From<Arc<wgpu::Device>> for RenderDevice {
-    fn from(device: Arc<wgpu::Device>) -> Self {
-        Self { device }
+impl From<wgpu::Device> for RenderDevice {
+    fn from(device: wgpu::Device) -> Self {
+        Self {
+            device: ErasedRenderDevice::new(device),
+        }
     }
 }
 
@@ -45,10 +52,16 @@ impl RenderDevice {
 
     /// Check for resource cleanups and mapping callbacks.
     ///
+    /// Return `true` if the queue is empty, or `false` if there are more queue
+    /// submissions still in flight. (Note that, unless access to the [`wgpu::Queue`] is
+    /// coordinated somehow, this information could be out of date by the time
+    /// the caller receives it. `Queue`s can be shared between threads, so
+    /// other threads could submit new work at any time.)
+    ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) {
-        self.device.poll(maintain);
+    pub fn poll(&self, maintain: wgpu::Maintain) -> bool {
+        self.device.poll(maintain)
     }
 
     /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
@@ -71,8 +84,17 @@ impl RenderDevice {
 
     /// Creates a new [`BindGroup`](wgpu::BindGroup).
     #[inline]
-    pub fn create_bind_group(&self, desc: &wgpu::BindGroupDescriptor) -> BindGroup {
-        let wgpu_bind_group = self.device.create_bind_group(desc);
+    pub fn create_bind_group<'a>(
+        &self,
+        label: impl Into<wgpu::Label<'a>>,
+        layout: &'a BindGroupLayout,
+        entries: &'a [BindGroupEntry<'a>],
+    ) -> BindGroup {
+        let wgpu_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+            label: label.into(),
+            layout,
+            entries,
+        });
         BindGroup::from(wgpu_bind_group)
     }
 

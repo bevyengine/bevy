@@ -1,7 +1,6 @@
 use crate::WinitWindows;
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
-use bevy_window::WindowId;
 use crossbeam_channel::{Receiver, Sender};
 use wasm_bindgen::JsCast;
 use winit::dpi::LogicalSize;
@@ -11,13 +10,13 @@ pub(crate) struct CanvasParentResizePlugin;
 impl Plugin for CanvasParentResizePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CanvasParentResizeEventChannel>()
-            .add_system(canvas_parent_resize_event_handler);
+            .add_systems(Update, canvas_parent_resize_event_handler);
     }
 }
 
 struct ResizeEvent {
     size: LogicalSize<f32>,
-    window_id: WindowId,
+    window: Entity,
 }
 
 #[derive(Resource)]
@@ -31,7 +30,7 @@ fn canvas_parent_resize_event_handler(
     resize_events: Res<CanvasParentResizeEventChannel>,
 ) {
     for event in resize_events.receiver.try_iter() {
-        if let Some(window) = winit_windows.get_window(event.window_id) {
+        if let Some(window) = winit_windows.get_window(event.window) {
             window.set_inner_size(event.size);
         }
     }
@@ -59,12 +58,12 @@ impl Default for CanvasParentResizeEventChannel {
 }
 
 impl CanvasParentResizeEventChannel {
-    pub(crate) fn listen_to_selector(&self, window_id: WindowId, selector: &str) {
+    pub(crate) fn listen_to_selector(&self, window: Entity, selector: &str) {
         let sender = self.sender.clone();
         let owned_selector = selector.to_string();
         let resize = move || {
             if let Some(size) = get_size(&owned_selector) {
-                sender.send(ResizeEvent { size, window_id }).unwrap();
+                sender.send(ResizeEvent { size, window }).unwrap();
             }
         };
 

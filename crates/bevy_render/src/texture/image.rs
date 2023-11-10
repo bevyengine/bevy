@@ -11,24 +11,20 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
 };
-use bevy_asset::HandleUntyped;
+use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
-use bevy_math::Vec2;
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_math::{UVec2, Vec2};
+use bevy_reflect::Reflect;
+use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
-use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
-};
+use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
-pub const DEFAULT_IMAGE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Image::TYPE_UUID, 13148262314052771789);
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
     Avif,
     Basis,
@@ -36,6 +32,7 @@ pub enum ImageFormat {
     Dds,
     Farbfeld,
     Gif,
+    OpenExr,
     Hdr,
     Ico,
     Jpeg,
@@ -55,6 +52,7 @@ impl ImageFormat {
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
+            "image/x-exr" => ImageFormat::OpenExr,
             "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
             _ => return None,
         })
@@ -68,6 +66,7 @@ impl ImageFormat {
             "dds" => ImageFormat::Dds,
             "ff" | "farbfeld" => ImageFormat::Farbfeld,
             "gif" => ImageFormat::Gif,
+            "exr" => ImageFormat::OpenExr,
             "hdr" => ImageFormat::Hdr,
             "ico" => ImageFormat::Ico,
             "jpg" | "jpeg" => ImageFormat::Jpeg,
@@ -88,6 +87,7 @@ impl ImageFormat {
             ImageFormat::Dds => image::ImageFormat::Dds,
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
             ImageFormat::Gif => image::ImageFormat::Gif,
+            ImageFormat::OpenExr => image::ImageFormat::OpenExr,
             ImageFormat::Hdr => image::ImageFormat::Hdr,
             ImageFormat::Ico => image::ImageFormat::Ico,
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
@@ -101,63 +101,40 @@ impl ImageFormat {
     }
 }
 
-#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
-#[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
+#[derive(Asset, Reflect, Debug, Clone)]
 #[reflect_value]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
     /// The [`ImageSampler`] to use during rendering.
-    pub sampler_descriptor: ImageSampler,
+    pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
 /// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
     #[default]
     Default,
     /// Custom sampler for this image which will override global default.
-    Descriptor(wgpu::SamplerDescriptor<'static>),
+    Descriptor(ImageSamplerDescriptor),
 }
 
 impl ImageSampler {
-    /// Returns an image sampler with `Linear` min and mag filters
+    /// Returns an image sampler with [`ImageFilterMode::Linear`] min and mag filters
     #[inline]
     pub fn linear() -> ImageSampler {
-        ImageSampler::Descriptor(Self::linear_descriptor())
+        ImageSampler::Descriptor(ImageSamplerDescriptor::linear())
     }
 
-    /// Returns an image sampler with `nearest` min and mag filters
+    /// Returns an image sampler with [`ImageFilterMode::Nearest`] min and mag filters
     #[inline]
     pub fn nearest() -> ImageSampler {
-        ImageSampler::Descriptor(Self::nearest_descriptor())
-    }
-
-    /// Returns a sampler descriptor with `Linear` min and mag filters
-    #[inline]
-    pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
-        wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        }
-    }
-
-    /// Returns a sampler descriptor with `Nearest` min and mag filters
-    #[inline]
-    pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
-        wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        }
+        ImageSampler::Descriptor(ImageSamplerDescriptor::nearest())
     }
 }
 
@@ -169,7 +146,303 @@ impl ImageSampler {
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
+/// How edges should be handled in texture addressing.
+///
+/// This type mirrors [`wgpu::AddressMode`].
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub enum ImageAddressMode {
+    /// Clamp the value to the edge of the texture.
+    ///
+    /// -0.25 -> 0.0
+    /// 1.25  -> 1.0
+    #[default]
+    ClampToEdge,
+    /// Repeat the texture in a tiling fashion.
+    ///
+    /// -0.25 -> 0.75
+    /// 1.25 -> 0.25
+    Repeat,
+    /// Repeat the texture, mirroring it every repeat.
+    ///
+    /// -0.25 -> 0.25
+    /// 1.25 -> 0.75
+    MirrorRepeat,
+    /// Clamp the value to the border of the texture
+    /// Requires the wgpu feature [`wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER`].
+    ///
+    /// -0.25 -> border
+    /// 1.25 -> border
+    ClampToBorder,
+}
+
+/// Texel mixing mode when sampling between texels.
+///
+/// This type mirrors [`wgpu::FilterMode`].
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub enum ImageFilterMode {
+    /// Nearest neighbor sampling.
+    ///
+    /// This creates a pixelated effect when used as a mag filter.
+    #[default]
+    Nearest,
+    /// Linear Interpolation.
+    ///
+    /// This makes textures smooth but blurry when used as a mag filter.
+    Linear,
+}
+
+/// Comparison function used for depth and stencil operations.
+///
+/// This type mirrors [`wgpu::CompareFunction`].
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum ImageCompareFunction {
+    /// Function never passes
+    Never,
+    /// Function passes if new value less than existing value
+    Less,
+    /// Function passes if new value is equal to existing value. When using
+    /// this compare function, make sure to mark your Vertex Shader's `@builtin(position)`
+    /// output as `@invariant` to prevent artifacting.
+    Equal,
+    /// Function passes if new value is less than or equal to existing value
+    LessEqual,
+    /// Function passes if new value is greater than existing value
+    Greater,
+    /// Function passes if new value is not equal to existing value. When using
+    /// this compare function, make sure to mark your Vertex Shader's `@builtin(position)`
+    /// output as `@invariant` to prevent artifacting.
+    NotEqual,
+    /// Function passes if new value is greater than or equal to existing value
+    GreaterEqual,
+    /// Function always passes
+    Always,
+}
+
+/// Color variation to use when the sampler addressing mode is [`ImageAddressMode::ClampToBorder`].
+///
+/// This type mirrors [`wgpu::SamplerBorderColor`].
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum ImageSamplerBorderColor {
+    /// RGBA color `[0, 0, 0, 0]`.
+    TransparentBlack,
+    /// RGBA color `[0, 0, 0, 1]`.
+    OpaqueBlack,
+    /// RGBA color `[1, 1, 1, 1]`.
+    OpaqueWhite,
+    /// On the Metal wgpu backend, this is equivalent to [`Self::TransparentBlack`] for
+    /// textures that have an alpha component, and equivalent to [`Self::OpaqueBlack`]
+    /// for textures that do not have an alpha component. On other backends,
+    /// this is equivalent to [`Self::TransparentBlack`]. Requires
+    /// [`wgpu::Features::ADDRESS_MODE_CLAMP_TO_ZERO`]. Not supported on the web.
+    Zero,
+}
+
+/// Indicates to an [`ImageLoader`](super::ImageLoader) how an [`Image`] should be sampled.
+/// As this type is part of the [`ImageLoaderSettings`](super::ImageLoaderSettings),
+/// it will be serialized to an image asset `.meta` file which might require a migration in case of
+/// a breaking change.
+///
+/// This types mirrors [`wgpu::SamplerDescriptor`], but that might change in future versions.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ImageSamplerDescriptor {
+    pub label: Option<String>,
+    /// How to deal with out of bounds accesses in the u (i.e. x) direction.
+    pub address_mode_u: ImageAddressMode,
+    /// How to deal with out of bounds accesses in the v (i.e. y) direction.
+    pub address_mode_v: ImageAddressMode,
+    /// How to deal with out of bounds accesses in the w (i.e. z) direction.
+    pub address_mode_w: ImageAddressMode,
+    /// How to filter the texture when it needs to be magnified (made larger).
+    pub mag_filter: ImageFilterMode,
+    /// How to filter the texture when it needs to be minified (made smaller).
+    pub min_filter: ImageFilterMode,
+    /// How to filter between mip map levels
+    pub mipmap_filter: ImageFilterMode,
+    /// Minimum level of detail (i.e. mip level) to use.
+    pub lod_min_clamp: f32,
+    /// Maximum level of detail (i.e. mip level) to use.
+    pub lod_max_clamp: f32,
+    /// If this is enabled, this is a comparison sampler using the given comparison function.
+    pub compare: Option<ImageCompareFunction>,
+    /// Must be at least 1. If this is not 1, all filter modes must be linear.
+    pub anisotropy_clamp: u16,
+    /// Border color to use when `address_mode`` is [`ImageAddressMode::ClampToBorder`].
+    pub border_color: Option<ImageSamplerBorderColor>,
+}
+
+impl Default for ImageSamplerDescriptor {
+    fn default() -> Self {
+        Self {
+            address_mode_u: Default::default(),
+            address_mode_v: Default::default(),
+            address_mode_w: Default::default(),
+            mag_filter: Default::default(),
+            min_filter: Default::default(),
+            mipmap_filter: Default::default(),
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 32.0,
+            compare: None,
+            anisotropy_clamp: 1,
+            border_color: None,
+            label: None,
+        }
+    }
+}
+
+impl ImageSamplerDescriptor {
+    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    #[inline]
+    pub fn linear() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Linear,
+            min_filter: ImageFilterMode::Linear,
+            mipmap_filter: ImageFilterMode::Linear,
+            ..Default::default()
+        }
+    }
+
+    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    #[inline]
+    pub fn nearest() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Nearest,
+            min_filter: ImageFilterMode::Nearest,
+            mipmap_filter: ImageFilterMode::Nearest,
+            ..Default::default()
+        }
+    }
+
+    pub fn as_wgpu(&self) -> wgpu::SamplerDescriptor {
+        wgpu::SamplerDescriptor {
+            label: self.label.as_deref(),
+            address_mode_u: self.address_mode_u.into(),
+            address_mode_v: self.address_mode_v.into(),
+            address_mode_w: self.address_mode_w.into(),
+            mag_filter: self.mag_filter.into(),
+            min_filter: self.min_filter.into(),
+            mipmap_filter: self.mipmap_filter.into(),
+            lod_min_clamp: self.lod_min_clamp,
+            lod_max_clamp: self.lod_max_clamp,
+            compare: self.compare.map(Into::into),
+            anisotropy_clamp: self.anisotropy_clamp,
+            border_color: self.border_color.map(Into::into),
+        }
+    }
+}
+
+impl From<ImageAddressMode> for wgpu::AddressMode {
+    fn from(value: ImageAddressMode) -> Self {
+        match value {
+            ImageAddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+            ImageAddressMode::Repeat => wgpu::AddressMode::Repeat,
+            ImageAddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
+            ImageAddressMode::ClampToBorder => wgpu::AddressMode::ClampToBorder,
+        }
+    }
+}
+
+impl From<ImageFilterMode> for wgpu::FilterMode {
+    fn from(value: ImageFilterMode) -> Self {
+        match value {
+            ImageFilterMode::Nearest => wgpu::FilterMode::Nearest,
+            ImageFilterMode::Linear => wgpu::FilterMode::Linear,
+        }
+    }
+}
+
+impl From<ImageCompareFunction> for wgpu::CompareFunction {
+    fn from(value: ImageCompareFunction) -> Self {
+        match value {
+            ImageCompareFunction::Never => wgpu::CompareFunction::Never,
+            ImageCompareFunction::Less => wgpu::CompareFunction::Less,
+            ImageCompareFunction::Equal => wgpu::CompareFunction::Equal,
+            ImageCompareFunction::LessEqual => wgpu::CompareFunction::LessEqual,
+            ImageCompareFunction::Greater => wgpu::CompareFunction::Greater,
+            ImageCompareFunction::NotEqual => wgpu::CompareFunction::NotEqual,
+            ImageCompareFunction::GreaterEqual => wgpu::CompareFunction::GreaterEqual,
+            ImageCompareFunction::Always => wgpu::CompareFunction::Always,
+        }
+    }
+}
+
+impl From<ImageSamplerBorderColor> for wgpu::SamplerBorderColor {
+    fn from(value: ImageSamplerBorderColor) -> Self {
+        match value {
+            ImageSamplerBorderColor::TransparentBlack => wgpu::SamplerBorderColor::TransparentBlack,
+            ImageSamplerBorderColor::OpaqueBlack => wgpu::SamplerBorderColor::OpaqueBlack,
+            ImageSamplerBorderColor::OpaqueWhite => wgpu::SamplerBorderColor::OpaqueWhite,
+            ImageSamplerBorderColor::Zero => wgpu::SamplerBorderColor::Zero,
+        }
+    }
+}
+
+impl From<wgpu::AddressMode> for ImageAddressMode {
+    fn from(value: wgpu::AddressMode) -> Self {
+        match value {
+            wgpu::AddressMode::ClampToEdge => ImageAddressMode::ClampToEdge,
+            wgpu::AddressMode::Repeat => ImageAddressMode::Repeat,
+            wgpu::AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
+            wgpu::AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
+        }
+    }
+}
+
+impl From<wgpu::FilterMode> for ImageFilterMode {
+    fn from(value: wgpu::FilterMode) -> Self {
+        match value {
+            wgpu::FilterMode::Nearest => ImageFilterMode::Nearest,
+            wgpu::FilterMode::Linear => ImageFilterMode::Linear,
+        }
+    }
+}
+
+impl From<wgpu::CompareFunction> for ImageCompareFunction {
+    fn from(value: wgpu::CompareFunction) -> Self {
+        match value {
+            wgpu::CompareFunction::Never => ImageCompareFunction::Never,
+            wgpu::CompareFunction::Less => ImageCompareFunction::Less,
+            wgpu::CompareFunction::Equal => ImageCompareFunction::Equal,
+            wgpu::CompareFunction::LessEqual => ImageCompareFunction::LessEqual,
+            wgpu::CompareFunction::Greater => ImageCompareFunction::Greater,
+            wgpu::CompareFunction::NotEqual => ImageCompareFunction::NotEqual,
+            wgpu::CompareFunction::GreaterEqual => ImageCompareFunction::GreaterEqual,
+            wgpu::CompareFunction::Always => ImageCompareFunction::Always,
+        }
+    }
+}
+
+impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
+    fn from(value: wgpu::SamplerBorderColor) -> Self {
+        match value {
+            wgpu::SamplerBorderColor::TransparentBlack => ImageSamplerBorderColor::TransparentBlack,
+            wgpu::SamplerBorderColor::OpaqueBlack => ImageSamplerBorderColor::OpaqueBlack,
+            wgpu::SamplerBorderColor::OpaqueWhite => ImageSamplerBorderColor::OpaqueWhite,
+            wgpu::SamplerBorderColor::Zero => ImageSamplerBorderColor::Zero,
+        }
+    }
+}
+
+impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
+    fn from(value: wgpu::SamplerDescriptor) -> Self {
+        ImageSamplerDescriptor {
+            label: value.label.map(|l| l.to_string()),
+            address_mode_u: value.address_mode_u.into(),
+            address_mode_v: value.address_mode_v.into(),
+            address_mode_w: value.address_mode_w.into(),
+            mag_filter: value.mag_filter.into(),
+            min_filter: value.min_filter.into(),
+            mipmap_filter: value.mipmap_filter.into(),
+            lod_min_clamp: value.lod_min_clamp,
+            lod_max_clamp: value.lod_max_clamp,
+            compare: value.compare.map(Into::into),
+            anisotropy_clamp: value.anisotropy_clamp,
+            border_color: value.border_color.map(Into::into),
+        }
+    }
+}
+
 impl Default for Image {
+    /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size()];
@@ -187,8 +460,9 @@ impl Default for Image {
                 mip_level_count: 1,
                 sample_count: 1,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
             },
-            sampler_descriptor: ImageSampler::Default,
+            sampler: ImageSampler::Default,
             texture_view_descriptor: None,
         }
     }
@@ -226,7 +500,6 @@ impl Image {
     ///
     /// # Panics
     /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
-    /// do not match.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
@@ -254,17 +527,34 @@ impl Image {
         value
     }
 
+    /// Returns the width of a 2D image.
+    #[inline]
+    pub fn width(&self) -> u32 {
+        self.texture_descriptor.size.width
+    }
+
+    /// Returns the height of a 2D image.
+    #[inline]
+    pub fn height(&self) -> u32 {
+        self.texture_descriptor.size.height
+    }
+
     /// Returns the aspect ratio (height/width) of a 2D image.
-    pub fn aspect_2d(&self) -> f32 {
-        self.texture_descriptor.size.height as f32 / self.texture_descriptor.size.width as f32
+    #[inline]
+    pub fn aspect_ratio(&self) -> f32 {
+        self.height() as f32 / self.width() as f32
+    }
+
+    /// Returns the size of a 2D image as f32.
+    #[inline]
+    pub fn size_f32(&self) -> Vec2 {
+        Vec2::new(self.width() as f32, self.height() as f32)
     }
 
     /// Returns the size of a 2D image.
-    pub fn size(&self) -> Vec2 {
-        Vec2::new(
-            self.texture_descriptor.size.width as f32,
-            self.texture_descriptor.size.height as f32,
-        )
+    #[inline]
+    pub fn size(&self) -> UVec2 {
+        UVec2::new(self.width(), self.height())
     }
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
@@ -304,11 +594,11 @@ impl Image {
         // Must be a stacked image, and the height must be divisible by layers.
         assert!(self.texture_descriptor.dimension == TextureDimension::D2);
         assert!(self.texture_descriptor.size.depth_or_array_layers == 1);
-        assert_eq!(self.texture_descriptor.size.height % layers, 0);
+        assert_eq!(self.height() % layers, 0);
 
         self.reinterpret_size(Extent3d {
-            width: self.texture_descriptor.size.width,
-            height: self.texture_descriptor.size.height / layers,
+            width: self.width(),
+            height: self.height() / layers,
             depth_or_array_layers: layers,
         });
     }
@@ -348,6 +638,7 @@ impl Image {
         image_type: ImageType,
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
+        image_sampler: ImageSampler,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -357,16 +648,16 @@ impl Image {
         // needs to be added, so the image data needs to be converted in those
         // cases.
 
-        match format {
+        let mut image = match format {
             #[cfg(feature = "basis-universal")]
             ImageFormat::Basis => {
-                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb),
+            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
-                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             _ => {
                 let image_crate_format = format
@@ -376,22 +667,24 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Ok(Self::from_dynamic(dyn_img, is_srgb))
+                Self::from_dynamic(dyn_img, is_srgb)
             }
-        }
+        };
+        image.sampler = image_sampler;
+        Ok(image)
     }
 
     /// Whether the texture format is compressed or uncompressed
     pub fn is_compressed(&self) -> bool {
-        let format_description = self.texture_descriptor.format.describe();
+        let format_description = self.texture_descriptor.format;
         format_description
-            .required_features
-            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR)
+            .required_features()
+            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
-                .required_features
+                .required_features()
                 .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
             || format_description
-                .required_features
+                .required_features()
                 .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
     }
 }
@@ -408,9 +701,13 @@ pub enum DataFormat {
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
     Etc1s,
+    Uastc(DataFormat),
+    // Has to be transcoded to R8Unorm for use with `wgpu`
+    R8UnormSrgb,
+    // Has to be transcoded to R8G8Unorm for use with `wgpu`
+    Rg8UnormSrgb,
     // Has to be transcoded to Rgba8 for use with `wgpu`
     Rgb8,
-    Uastc(DataFormat),
 }
 
 /// An error that occurs when loading a texture
@@ -434,14 +731,20 @@ pub enum TextureError {
     TranscodeError(String),
     #[error("format requires transcoding: {0:?}")]
     FormatRequiresTranscodingError(TranscodeFormat),
+    /// Only cubemaps with six faces are supported.
+    #[error("only cubemaps with six faces are supported")]
+    IncompleteCubemap,
 }
 
 /// The type of a raw image buffer.
+#[derive(Debug)]
 pub enum ImageType<'a> {
     /// The mime type of an image, for example `"image/png"`.
     MimeType(&'a str),
     /// The extension of an image file, for example `"png"`.
     Extension(&'a str),
+    /// The direct format of the image
+    Format(ImageFormat),
 }
 
 impl<'a> ImageType<'a> {
@@ -451,6 +754,7 @@ impl<'a> ImageType<'a> {
                 .ok_or_else(|| TextureError::InvalidImageMimeType(mime_type.to_string())),
             ImageType::Extension(extension) => ImageFormat::from_extension(extension)
                 .ok_or_else(|| TextureError::InvalidImageExtension(extension.to_string())),
+            ImageType::Format(format) => Ok(*format),
         }
     }
 }
@@ -467,132 +771,18 @@ impl Volume for Extent3d {
     }
 }
 
-/// Information about the pixel size in bytes and the number of different components.
-pub struct PixelInfo {
-    /// The size of a component of a pixel in bytes.
-    pub type_size: usize,
-    /// The amount of different components (color channels).
-    pub num_components: usize,
-}
-
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
 pub trait TextureFormatPixelInfo {
-    /// Returns the pixel information of the format.
-    fn pixel_info(&self) -> PixelInfo;
-    /// Returns the size of a pixel of the format.
-    fn pixel_size(&self) -> usize {
-        let info = self.pixel_info();
-        info.type_size * info.num_components
-    }
+    /// Returns the size of a pixel in bytes of the format.
+    fn pixel_size(&self) -> usize;
 }
 
 impl TextureFormatPixelInfo for TextureFormat {
-    #[allow(clippy::match_same_arms)]
-    fn pixel_info(&self) -> PixelInfo {
-        let type_size = match self {
-            // 8bit
-            TextureFormat::R8Unorm
-            | TextureFormat::R8Snorm
-            | TextureFormat::R8Uint
-            | TextureFormat::R8Sint
-            | TextureFormat::Rg8Unorm
-            | TextureFormat::Rg8Snorm
-            | TextureFormat::Rg8Uint
-            | TextureFormat::Rg8Sint
-            | TextureFormat::Rgba8Unorm
-            | TextureFormat::Rgba8UnormSrgb
-            | TextureFormat::Rgba8Snorm
-            | TextureFormat::Rgba8Uint
-            | TextureFormat::Rgba8Sint
-            | TextureFormat::Bgra8Unorm
-            | TextureFormat::Bgra8UnormSrgb => 1,
-
-            // 16bit
-            TextureFormat::R16Uint
-            | TextureFormat::R16Sint
-            | TextureFormat::R16Float
-            | TextureFormat::R16Unorm
-            | TextureFormat::Rg16Uint
-            | TextureFormat::Rg16Sint
-            | TextureFormat::Rg16Unorm
-            | TextureFormat::Rg16Float
-            | TextureFormat::Rgba16Uint
-            | TextureFormat::Rgba16Sint
-            | TextureFormat::Rgba16Float => 2,
-
-            // 32bit
-            TextureFormat::R32Uint
-            | TextureFormat::R32Sint
-            | TextureFormat::R32Float
-            | TextureFormat::Rg32Uint
-            | TextureFormat::Rg32Sint
-            | TextureFormat::Rg32Float
-            | TextureFormat::Rgba32Uint
-            | TextureFormat::Rgba32Sint
-            | TextureFormat::Rgba32Float
-            | TextureFormat::Depth32Float => 4,
-
-            // special cases
-            TextureFormat::Rgb10a2Unorm => 4,
-            TextureFormat::Rg11b10Float => 4,
-            TextureFormat::Depth24Plus => 3, // FIXME is this correct?
-            TextureFormat::Depth24PlusStencil8 => 4,
-            // TODO: this is not good! this is a temporary step while porting bevy_render to direct wgpu usage
-            _ => panic!("cannot get pixel info for type"),
-        };
-
-        let components = match self {
-            TextureFormat::R8Unorm
-            | TextureFormat::R8Snorm
-            | TextureFormat::R8Uint
-            | TextureFormat::R8Sint
-            | TextureFormat::R16Uint
-            | TextureFormat::R16Sint
-            | TextureFormat::R16Unorm
-            | TextureFormat::R16Float
-            | TextureFormat::R32Uint
-            | TextureFormat::R32Sint
-            | TextureFormat::R32Float => 1,
-
-            TextureFormat::Rg8Unorm
-            | TextureFormat::Rg8Snorm
-            | TextureFormat::Rg8Uint
-            | TextureFormat::Rg8Sint
-            | TextureFormat::Rg16Uint
-            | TextureFormat::Rg16Sint
-            | TextureFormat::Rg16Unorm
-            | TextureFormat::Rg16Float
-            | TextureFormat::Rg32Uint
-            | TextureFormat::Rg32Sint
-            | TextureFormat::Rg32Float => 2,
-
-            TextureFormat::Rgba8Unorm
-            | TextureFormat::Rgba8UnormSrgb
-            | TextureFormat::Rgba8Snorm
-            | TextureFormat::Rgba8Uint
-            | TextureFormat::Rgba8Sint
-            | TextureFormat::Bgra8Unorm
-            | TextureFormat::Bgra8UnormSrgb
-            | TextureFormat::Rgba16Uint
-            | TextureFormat::Rgba16Sint
-            | TextureFormat::Rgba16Float
-            | TextureFormat::Rgba32Uint
-            | TextureFormat::Rgba32Sint
-            | TextureFormat::Rgba32Float => 4,
-
-            // special cases
-            TextureFormat::Rgb10a2Unorm
-            | TextureFormat::Rg11b10Float
-            | TextureFormat::Depth32Float
-            | TextureFormat::Depth24Plus
-            | TextureFormat::Depth24PlusStencil8 => 1,
-            // TODO: this is not good! this is a temporary step while porting bevy_render to direct wgpu usage
-            _ => panic!("cannot get pixel info for type"),
-        };
-
-        PixelInfo {
-            type_size,
-            num_components: components,
+    fn pixel_size(&self) -> usize {
+        let info = self;
+        match info.block_dimensions() {
+            (1, 1) => info.block_size(None).unwrap() as usize,
+            _ => panic!("Using pixel_size for compressed textures is invalid"),
         }
     }
 }
@@ -606,6 +796,7 @@ pub struct GpuImage {
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
     pub size: Vec2,
+    pub mip_level_count: u32,
 }
 
 impl RenderAsset for Image {
@@ -627,41 +818,11 @@ impl RenderAsset for Image {
         image: Self::ExtractedAsset,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let texture = if image.texture_descriptor.mip_level_count > 1 || image.is_compressed() {
-            render_device.create_texture_with_data(
-                render_queue,
-                &image.texture_descriptor,
-                &image.data,
-            )
-        } else {
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                &image.data,
-                ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
-                    rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
-                    } else {
-                        None
-                    },
-                },
-                image.texture_descriptor.size,
-            );
-            texture
-        };
+        let texture = render_device.create_texture_with_data(
+            render_queue,
+            &image.texture_descriptor,
+            &image.data,
+        );
 
         let texture_view = texture.create_view(
             image
@@ -674,9 +835,11 @@ impl RenderAsset for Image {
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         );
-        let sampler = match image.sampler_descriptor {
+        let sampler = match image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
-            ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            ImageSampler::Descriptor(descriptor) => {
+                render_device.create_sampler(&descriptor.as_wgpu())
+            }
         };
 
         Ok(GpuImage {
@@ -685,12 +848,13 @@ impl RenderAsset for Image {
             texture_format: image.texture_descriptor.format,
             sampler,
             size,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         })
     }
 }
 
 bitflags::bitflags! {
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
@@ -703,7 +867,7 @@ bitflags::bitflags! {
 impl CompressedImageFormats {
     pub fn from_features(features: wgpu::Features) -> Self {
         let mut supported_compressed_formats = Self::default();
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR) {
+        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
         }
         if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
@@ -728,7 +892,7 @@ impl CompressedImageFormats {
             | TextureFormat::Bc5RgUnorm
             | TextureFormat::Bc5RgSnorm
             | TextureFormat::Bc6hRgbUfloat
-            | TextureFormat::Bc6hRgbSfloat
+            | TextureFormat::Bc6hRgbFloat
             | TextureFormat::Bc7RgbaUnorm
             | TextureFormat::Bc7RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
             TextureFormat::Etc2Rgb8Unorm
@@ -767,12 +931,12 @@ mod test {
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),
-            image.size()
+            image.size_f32()
         );
     }
     #[test]
     fn image_default_size() {
         let image = Image::default();
-        assert_eq!(Vec2::ONE, image.size());
+        assert_eq!(Vec2::ONE, image.size_f32());
     }
 }

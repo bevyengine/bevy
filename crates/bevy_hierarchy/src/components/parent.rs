@@ -1,6 +1,6 @@
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    entity::{Entity, EntityMapper, MapEntities},
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
 };
@@ -23,6 +23,16 @@ impl Parent {
     pub fn get(&self) -> Entity {
         self.0
     }
+
+    /// Gets the parent [`Entity`] as a slice of length 1.
+    ///
+    /// Useful for making APIs that require a type or homogeneous storage
+    /// for both [`Children`] & [`Parent`] that is agnostic to edge direction.
+    ///
+    /// [`Children`]: super::children::Children
+    pub fn as_slice(&self) -> &[Entity] {
+        std::slice::from_ref(&self.0)
+    }
 }
 
 // TODO: We need to impl either FromWorld or Default so Parent can be registered as Reflect.
@@ -31,18 +41,13 @@ impl Parent {
 // better ways to handle cases like this.
 impl FromWorld for Parent {
     fn from_world(_world: &mut World) -> Self {
-        Parent(Entity::from_raw(u32::MAX))
+        Parent(Entity::PLACEHOLDER)
     }
 }
 
 impl MapEntities for Parent {
-    fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
-        // Parent of an entity in the new world can be in outside world, in which case it
-        // should not be mapped.
-        if let Ok(mapped_entity) = entity_map.get(self.0) {
-            self.0 = mapped_entity;
-        }
-        Ok(())
+    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+        self.0 = entity_mapper.get_or_reserve(self.0);
     }
 }
 

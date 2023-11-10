@@ -3,7 +3,7 @@
 
 use bevy::{
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
+    tasks::{block_on, AsyncComputeTaskPool, Task},
 };
 use futures_lite::future;
 use rand::Rng;
@@ -12,10 +12,8 @@ use std::time::{Duration, Instant};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_env)
-        .add_startup_system(add_assets)
-        .add_startup_system(spawn_tasks)
-        .add_system(handle_tasks)
+        .add_systems(Startup, (setup_env, add_assets, spawn_tasks))
+        .add_systems(Update, handle_tasks)
         .run();
 }
 
@@ -49,14 +47,16 @@ struct ComputeTransform(Task<Transform>);
 
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
-/// system, `handle_tasks`, will poll the spawned tasks on subsequent
+/// system, [`handle_tasks`], will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
 fn spawn_tasks(mut commands: Commands) {
     let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {
-                // Spawn new task on the AsyncComputeTaskPool
+                // Spawn new task on the AsyncComputeTaskPool; the task will be
+                // executed in the background, and the Task future returned by
+                // spawn() can be used to poll for the result
                 let task = thread_pool.spawn(async move {
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
@@ -88,7 +88,7 @@ fn handle_tasks(
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
     for (entity, mut task) in &mut transform_tasks {
-        if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
+        if let Some(transform) = block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert(PbrBundle {
                 mesh: box_mesh_handle.clone(),

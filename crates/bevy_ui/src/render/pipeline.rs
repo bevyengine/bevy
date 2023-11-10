@@ -77,19 +77,21 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x2,
                 // color
                 VertexFormat::Float32x4,
+                // mode
+                VertexFormat::Uint32,
             ],
         );
         let shader_defs = Vec::new();
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
+                shader: super::UI_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
+                shader: super::UI_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -102,7 +104,8 @@ impl SpecializedRenderPipeline for UiPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
+            layout: vec![self.view_layout.clone(), self.image_layout.clone()],
+            push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

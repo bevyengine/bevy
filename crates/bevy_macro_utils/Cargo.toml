@@ -1,6 +1,6 @@
 [package]
 name = "bevy_macro_utils"
-version = "0.9.0"
+version = "0.12.0"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -9,6 +9,8 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-toml = "0.5.8"
-syn = "1.0"
+toml_edit = "0.20"
+syn = "2.0"
 quote = "1.0"
+rustc-hash = "1.0"
+proc-macro2 = "1.0"

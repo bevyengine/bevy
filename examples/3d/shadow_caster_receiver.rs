@@ -1,9 +1,13 @@
 //! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
 
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{NotShadowCaster, NotShadowReceiver},
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -16,9 +20,8 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(toggle_light)
-        .add_system(toggle_shadows)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (toggle_light, toggle_shadows))
         .run();
 }
 
@@ -37,10 +40,13 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(Mesh::from(shape::Icosphere {
-        radius: sphere_radius,
-        ..default()
-    }));
+    let sphere_handle = meshes.add(
+        Mesh::try_from(shape::Icosphere {
+            radius: sphere_radius,
+            ..default()
+        })
+        .unwrap(),
+    );
 
     // sphere - initially a caster
     commands.spawn(PbrBundle {
@@ -64,7 +70,7 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+            mesh: meshes.add(shape::Plane::from_size(20.0).into()),
             material: materials.add(Color::GREEN.into()),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
@@ -75,7 +81,7 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+        mesh: meshes.add(shape::Plane::from_size(20.0).into()),
         material: white_handle,
         ..default()
     });
@@ -97,15 +103,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
-            shadow_projection: OrthographicProjection {
-                left: -10.0,
-                right: 10.0,
-                bottom: -10.0,
-                top: 10.0,
-                near: -50.0,
-                far: 50.0,
-                ..default()
-            },
             shadows_enabled: true,
             ..default()
         },
@@ -115,6 +112,12 @@ fn setup(
             PI / 2.,
             -PI / 4.,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 7.0,
+            maximum_distance: 25.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 

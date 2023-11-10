@@ -2,21 +2,46 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
+use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
+use crate::{
+    self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypePathTable,
+};
 
-/// An ordered mapping between [`Reflect`] values.
+/// A trait used to power [map-like] operations via [reflection].
 ///
-/// Because the values are reflected, the underlying types of keys and values
-/// may differ between entries.
+/// Maps contain zero or more entries of a key and its associated value,
+/// and correspond to types like [`HashMap`].
+/// The order of these entries is not guaranteed by this trait.
 ///
-///`ReflectValue` `Keys` are assumed to return a non-`None` hash. The ordering
-/// of `Map` entries is not guaranteed to be stable across runs or between
-/// instances.
+/// # Hashing
 ///
-/// This trait corresponds to types like [`std::collections::HashMap`].
+/// All keys are expected to return a valid hash value from [`Reflect::reflect_hash`].
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
+/// to the entire struct or enum.
+/// This is true even for manual implementors who do not use the hashed value,
+/// as it is still relied on by [`DynamicMap`].
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, Map};
+/// use bevy_utils::HashMap;
+///
+///
+/// let foo: &mut dyn Map = &mut HashMap::<u32, bool>::new();
+/// foo.insert_boxed(Box::new(123_u32), Box::new(true));
+/// assert_eq!(foo.len(), 1);
+///
+/// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
+/// assert_eq!(field.downcast_ref::<bool>(), Some(&true));
+/// ```
+///
+/// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
+/// [reflection]: crate
+/// [`HashMap`]: bevy_utils::HashMap
 pub trait Map: Reflect {
     /// Returns a reference to the value associated with the given key.
     ///
@@ -30,6 +55,9 @@ pub trait Map: Reflect {
 
     /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)>;
+
+    /// Returns the key-value pair at `index` by reference where the value is a mutable reference, or `None` if out of bounds.
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)>;
 
     /// Returns the number of elements in the map.
     fn len(&self) -> usize;
@@ -57,16 +85,22 @@ pub trait Map: Reflect {
         key: Box<dyn Reflect>,
         value: Box<dyn Reflect>,
     ) -> Option<Box<dyn Reflect>>;
+
+    /// Removes an entry from the map.
+    ///
+    /// If the map did not have this key present, `None` is returned.
+    /// If the map did have this key present, the removed value is returned.
+    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>>;
 }
 
 /// A container for compile-time map info.
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
-    key_type_name: &'static str,
+    key_type_path: TypePathTable,
     key_type_id: TypeId,
-    value_type_name: &'static str,
+    value_type_path: TypePathTable,
     value_type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -74,13 +108,17 @@ pub struct MapInfo {
 
 impl MapInfo {
     /// Create a new [`MapInfo`].
-    pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
+    pub fn new<
+        TMap: Map + TypePath,
+        TKey: Hash + Reflect + TypePath,
+        TValue: Reflect + TypePath,
+    >() -> Self {
         Self {
-            type_name: std::any::type_name::<TMap>(),
+            type_path: TypePathTable::of::<TMap>(),
             type_id: TypeId::of::<TMap>(),
-            key_type_name: std::any::type_name::<TKey>(),
+            key_type_path: TypePathTable::of::<TKey>(),
             key_type_id: TypeId::of::<TKey>(),
-            value_type_name: std::any::type_name::<TValue>(),
+            value_type_path: TypePathTable::of::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -93,11 +131,21 @@ impl MapInfo {
         Self { docs, ..self }
     }
 
-    /// The [type name] of the map.
+    /// A representation of the type path of the map.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the map.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the map.
@@ -110,11 +158,11 @@ impl MapInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The [type name] of the key.
+    /// A representation of the type path of the key type.
     ///
-    /// [type name]: std::any::type_name
-    pub fn key_type_name(&self) -> &'static str {
-        self.key_type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn key_type_path_table(&self) -> &TypePathTable {
+        &self.key_type_path
     }
 
     /// The [`TypeId`] of the key.
@@ -127,11 +175,11 @@ impl MapInfo {
         TypeId::of::<T>() == self.key_type_id
     }
 
-    /// The [type name] of the value.
+    /// A representation of the type path of the value type.
     ///
-    /// [type name]: std::any::type_name
-    pub fn value_type_name(&self) -> &'static str {
-        self.value_type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn value_type_path_table(&self) -> &TypePathTable {
+        &self.value_type_path
     }
 
     /// The [`TypeId`] of the value.
@@ -156,26 +204,29 @@ const HASH_ERROR: &str = "the given key does not support hashing";
 /// An ordered mapping between reflected values.
 #[derive(Default)]
 pub struct DynamicMap {
-    name: String,
+    represented_type: Option<&'static TypeInfo>,
     values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
     indices: HashMap<u64, usize>,
 }
 
 impl DynamicMap {
-    /// Returns the type name of the map.
+    /// Sets the [type] to be represented by this `DynamicMap`.
     ///
-    /// The value returned by this method is the same value returned by
-    /// [`Reflect::type_name`].
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Map`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Map(_)),
+                "expected TypeInfo::Map but received: {:?}",
+                represented_type
+            );
+        }
 
-    /// Sets the type name of the map.
-    ///
-    /// The value set by this method is the same value returned by
-    /// [`Reflect::type_name`].
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.represented_type = represented_type;
     }
 
     /// Inserts a typed key-value pair into the map.
@@ -204,7 +255,7 @@ impl Map for DynamicMap {
 
     fn clone_dynamic(&self) -> DynamicMap {
         DynamicMap {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
@@ -215,16 +266,19 @@ impl Map for DynamicMap {
     }
 
     fn iter(&self) -> MapIter {
-        MapIter {
-            map: self,
-            index: 0,
-        }
+        MapIter::new(self)
     }
 
     fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
         self.values
             .get(index)
             .map(|(key, value)| (&**key, &**value))
+    }
+
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
+        self.values
+            .get_mut(index)
+            .map(|(key, value)| (&**key, &mut **value))
     }
 
     fn insert_boxed(
@@ -246,19 +300,23 @@ impl Map for DynamicMap {
         }
     }
 
+    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+        let index = self
+            .indices
+            .remove(&key.reflect_hash().expect(HASH_ERROR))?;
+        let (_key, value) = self.values.remove(index);
+        Some(value)
+    }
+
     fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
         self.values
     }
 }
 
 impl Reflect for DynamicMap {
-    fn type_name(&self) -> &str {
-        &self.name
-    }
-
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -322,7 +380,14 @@ impl Reflect for DynamicMap {
         map_debug(self, f)?;
         write!(f, ")")
     }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
+    }
 }
+
+impl_type_path!((in bevy_reflect) DynamicMap);
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -330,17 +395,18 @@ impl Debug for DynamicMap {
     }
 }
 
-impl Typed for DynamicMap {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
-    }
-}
-
 /// An iterator over the key-value pairs of a [`Map`].
 pub struct MapIter<'a> {
-    pub(crate) map: &'a dyn Map,
-    pub(crate) index: usize,
+    map: &'a dyn Map,
+    index: usize,
+}
+
+impl<'a> MapIter<'a> {
+    /// Creates a new [`MapIter`].
+    #[inline]
+    pub const fn new(map: &'a dyn Map) -> MapIter {
+        MapIter { map, index: 0 }
+    }
 }
 
 impl<'a> Iterator for MapIter<'a> {
@@ -453,10 +519,12 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
 #[cfg(test)]
 mod tests {
     use super::DynamicMap;
+    use super::Map;
+    use crate::reflect::Reflect;
 
     #[test]
     fn test_into_iter() {
-        let expected = vec!["foo", "bar", "baz"];
+        let expected = ["foo", "bar", "baz"];
 
         let mut map = DynamicMap::default();
         map.insert(0usize, expected[0].to_string());
@@ -472,5 +540,59 @@ mod tests {
             assert_eq!(index, key);
             assert_eq!(expected[index], value);
         }
+    }
+
+    #[test]
+    fn test_map_get_at() {
+        let values = ["first", "second", "third"];
+        let mut map = DynamicMap::default();
+        map.insert(0usize, values[0].to_string());
+        map.insert(1usize, values[1].to_string());
+        map.insert(1usize, values[2].to_string());
+
+        let (key_r, value_r) = map.get_at(1).expect("Item wasn't found");
+        let value = value_r
+            .downcast_ref::<String>()
+            .expect("Couldn't downcast to String");
+        let key = key_r
+            .downcast_ref::<usize>()
+            .expect("Couldn't downcast to usize");
+        assert_eq!(key, &1usize);
+        assert_eq!(value, &values[2].to_owned());
+
+        assert!(map.get_at(2).is_none());
+        map.remove(&1usize as &dyn Reflect);
+        assert!(map.get_at(1).is_none());
+    }
+
+    #[test]
+    fn test_map_get_at_mut() {
+        let values = ["first", "second", "third"];
+        let mut map = DynamicMap::default();
+        map.insert(0usize, values[0].to_string());
+        map.insert(1usize, values[1].to_string());
+        map.insert(1usize, values[2].to_string());
+
+        let (key_r, value_r) = map.get_at_mut(1).expect("Item wasn't found");
+        let value = value_r
+            .downcast_mut::<String>()
+            .expect("Couldn't downcast to String");
+        let key = key_r
+            .downcast_ref::<usize>()
+            .expect("Couldn't downcast to usize");
+        assert_eq!(key, &1usize);
+        assert_eq!(value, &mut values[2].to_owned());
+
+        *value = values[0].to_owned();
+
+        assert_eq!(
+            map.get(&1usize as &dyn Reflect)
+                .expect("Item wasn't found")
+                .downcast_ref::<String>()
+                .expect("Couldn't downcast to String"),
+            &values[0].to_owned()
+        );
+
+        assert!(map.get_at(2).is_none());
     }
 }

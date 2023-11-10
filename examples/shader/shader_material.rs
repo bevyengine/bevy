@@ -2,15 +2,14 @@
 
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_startup_system(setup)
+        .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -53,8 +52,7 @@ impl Material for CustomMaterial {
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,

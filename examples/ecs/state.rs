@@ -1,27 +1,40 @@
-//! This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
-//! an `InGame` state.
+//! This example illustrates how to use [`States`] for high-level app control flow.
+//! States are a powerful but intuitive tool for controlling which logic runs when.
+//! You can have multiple independent states, and the [`OnEnter`] and [`OnExit`] schedules
+//! can be used to great effect to ensure that you handle setup and teardown appropriately.
+//!
+//! In this case, we're transitioning from a `Menu` state to an `InGame` state.
+
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
 
 use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state(AppState::Menu)
-        .add_startup_system(setup)
-        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
-        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
-        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
-        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game))
-        .add_system_set(
-            SystemSet::on_update(AppState::InGame)
-                .with_system(movement)
-                .with_system(change_color),
+        .add_state::<AppState>()
+        .add_systems(Startup, setup)
+        // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
+        // All systems from the exit schedule of the state we're leaving are run first,
+        // and then all systems from the enter schedule of the state we're entering are run second.
+        .add_systems(OnEnter(AppState::Menu), setup_menu)
+        // By contrast, update systems are stored in the `Update` schedule. They simply
+        // check the value of the `State<T>` resource to see if they should run each frame.
+        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(OnExit(AppState::Menu), cleanup_menu)
+        .add_systems(OnEnter(AppState::InGame), setup_game)
+        .add_systems(
+            Update,
+            (movement, change_color).run_if(in_state(AppState::InGame)),
         )
         .run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
+    #[default]
     Menu,
     InGame,
 }
@@ -39,38 +52,51 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_menu(mut commands: Commands) {
     let button_entity = commands
-        .spawn(ButtonBundle {
+        .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
-                margin: UiRect::all(Val::Auto),
-                // horizontally center child text
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
-                // vertically center child text
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: NORMAL_BUTTON.into(),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Play",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
-                    color: Color::rgb(0.9, 0.9, 0.9),
-                },
-            ));
+            parent
+                .spawn(ButtonBundle {
+                    style: Style {
+                        width: Val::Px(150.),
+                        height: Val::Px(65.),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: NORMAL_BUTTON.into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Play",
+                        TextStyle {
+                            font_size: 40.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
+                        },
+                    ));
+                });
         })
         .id();
     commands.insert_resource(MenuData { button_entity });
 }
 
 fn menu(
-    mut state: ResMut<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
@@ -78,9 +104,9 @@ fn menu(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
-                state.set(AppState::InGame).unwrap();
+                next_state.set(AppState::InGame);
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();

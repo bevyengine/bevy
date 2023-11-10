@@ -7,7 +7,8 @@ use bevy_ecs::{
     prelude::{Changed, Component, Without},
     system::{Commands, Query},
 };
-use bevy_render::prelude::{ComputedVisibility, Visibility};
+#[cfg(feature = "bevy_render")]
+use bevy_render::prelude::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::components::{GlobalTransform, Transform};
 
 use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
@@ -23,12 +24,22 @@ pub struct SceneInstance(InstanceId);
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
 #[derive(Default, Bundle)]
 pub struct SceneBundle {
-    /// Handle to the scene to spawn
+    /// Handle to the scene to spawn.
     pub scene: Handle<Scene>,
+    /// Transform of the scene root entity.
     pub transform: Transform,
+    /// Global transform of the scene root entity.
     pub global_transform: GlobalTransform,
+
+    /// User-driven visibility of the scene root entity.
+    #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
+    /// Inherited visibility of the scene root entity.
+    #[cfg(feature = "bevy_render")]
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed visibility of the scene root entity for rendering.
+    #[cfg(feature = "bevy_render")]
+    pub view_visibility: ViewVisibility,
 }
 
 /// A component bundle for a [`DynamicScene`] root.
@@ -37,12 +48,22 @@ pub struct SceneBundle {
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
 #[derive(Default, Bundle)]
 pub struct DynamicSceneBundle {
-    /// Handle to the scene to spawn
+    /// Handle to the scene to spawn.
     pub scene: Handle<DynamicScene>,
+    /// Transform of the scene root entity.
     pub transform: Transform,
+    /// Global transform of the scene root entity.
     pub global_transform: GlobalTransform,
+
+    /// User-driven visibility of the scene root entity.
+    #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
+    /// Inherited visibility of the scene root entity.
+    #[cfg(feature = "bevy_render")]
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed visibility of the scene root entity for rendering.
+    #[cfg(feature = "bevy_render")]
+    pub view_visibility: ViewVisibility,
 }
 
 /// System that will spawn scenes from [`SceneBundle`].

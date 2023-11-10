@@ -1,15 +1,14 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
-    any::{self, Any, TypeId},
+    any::{Any, TypeId},
     fmt::Debug,
 };
 
 use crate::utility::NonGenericTypeInfoCell;
-pub use bevy_utils::AHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
 ///
@@ -62,26 +61,52 @@ pub enum ReflectOwned {
     Value(Box<dyn Reflect>),
 }
 
-/// A reflected Rust type.
+/// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
-/// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
+/// It's recommended to use the [derive macro] rather than manually implementing this trait.
+/// Doing so will automatically implement many other useful traits for reflection,
+/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
-/// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
-/// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
-pub trait Reflect: Any + Send + Sync {
-    /// Returns the [type name][std::any::type_name] of the underlying type.
-    fn type_name(&self) -> &str;
+/// See the [crate-level documentation] to see how this trait and its subtraits can be used.
+///
+/// [`bevy_reflect`]: crate
+/// [derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
+pub trait Reflect: DynamicTypePath + Any + Send + Sync {
+    /// Returns the type path of the underlying type.
+    ///
+    /// This type path will either be found through [`get_represented_type_info`]
+    /// or taken from a [`TypePath`] implementation if the former isn't available.
+    ///
+    /// This method is deprecated; please consider migrating to one of the above methods.
+    ///
+    /// [`get_represented_type_info`]: Reflect::get_represented_type_info
+    #[deprecated(
+        since = "0.12.0",
+        note = "view the method documentation to find alternatives to this method."
+    )]
+    fn type_name(&self) -> &str {
+        self.get_represented_type_info()
+            .map(|info| info.type_path())
+            .unwrap_or_else(|| self.reflect_type_path())
+    }
 
-    /// Returns the [`TypeInfo`] of the underlying type.
+    /// Returns the [`TypeInfo`] of the type _represented_ by this value.
+    ///
+    /// For most types, this will simply return their own `TypeInfo`.
+    /// However, for dynamic types, such as [`DynamicStruct`] or [`DynamicList`],
+    /// this will return the type they represent
+    /// (or `None` if they don't represent any particular type).
     ///
     /// This method is great if you have an instance of a type or a `dyn Reflect`,
     /// and want to access its [`TypeInfo`]. However, if this method is to be called
     /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
     /// performant for such use cases.
     ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-    fn get_type_info(&self) -> &'static TypeInfo;
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
@@ -190,10 +215,10 @@ pub trait Reflect: Any + Send + Sync {
     /// Debug formatter for the value.
     ///
     /// Any value that is not an implementor of other `Reflect` subtraits
-    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_name)"`,
-    /// where `type_name` is the [type name] of the underlying type.
+    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
+    /// where `type_path` is the [type path] of the underlying type.
     ///
-    /// [type name]: Self::type_name
+    /// [type path]: TypePath::type_path
     fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.reflect_ref() {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
@@ -203,7 +228,7 @@ pub trait Reflect: Any + Send + Sync {
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            _ => write!(f, "Reflect({})", self.type_name()),
+            _ => write!(f, "Reflect({})", self.reflect_type_path()),
         }
     }
 
@@ -213,21 +238,22 @@ pub trait Reflect: Any + Send + Sync {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
-}
 
-/// A trait for types which can be constructed from a reflected type.
-///
-/// This trait can be derived on types which implement [`Reflect`]. Some complex
-/// types (such as `Vec<T>`) may only be reflected if their element types
-/// implement this trait.
-///
-/// For structs and tuple structs, fields marked with the `#[reflect(ignore)]`
-/// attribute will be constructed using the `Default` implementation of the
-/// field type, rather than the corresponding field value (if any) of the
-/// reflected value.
-pub trait FromReflect: Reflect + Sized {
-    /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+    /// Indicates whether or not this type is a _dynamic_ type.
+    ///
+    /// Dynamic types include the ones built-in to this [crate],
+    /// such as [`DynamicStruct`], [`DynamicList`], and [`DynamicTuple`].
+    /// However, they may be custom types used as proxies for other types
+    /// or to facilitate scripting capabilities.
+    ///
+    /// By default, this method will return `false`.
+    ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicTuple`]: crate::DynamicTuple
+    fn is_dynamic(&self) -> bool {
+        false
+    }
 }
 
 impl Debug for dyn Reflect {
@@ -240,6 +266,19 @@ impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
+// The following implementation never actually shadows the concrete TypePath implementation.
+
+// See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
+impl TypePath for dyn Reflect {
+    fn type_path() -> &'static str {
+        "dyn bevy_reflect::Reflect"
+    }
+
+    fn short_type_path() -> &'static str {
+        "dyn Reflect"
     }
 }
 
@@ -268,8 +307,10 @@ impl dyn Reflect {
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect>(&self) -> bool {
-        self.type_name() == any::type_name::<T>()
+    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+        self.get_represented_type_info()
+            .map(|t| t.type_path() == T::type_path())
+            .unwrap_or(false)
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`
@@ -280,6 +321,8 @@ impl dyn Reflect {
     /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
     /// to determine what type they represent. Represented types cannot be downcasted
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    ///
+    /// [`FromReflect`]: crate::FromReflect
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
         self.type_id() == TypeId::of::<T>()

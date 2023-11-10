@@ -1,4 +1,4 @@
-use bevy_app::App;
+use bevy_app::{App, Update};
 use bevy_ecs::prelude::*;
 use criterion::Criterion;
 
@@ -46,13 +46,11 @@ pub fn schedule(c: &mut Criterion) {
 
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
-        let mut stage = SystemStage::parallel();
-        stage.add_system(ab);
-        stage.add_system(cd);
-        stage.add_system(ce);
-        stage.run(&mut world);
+        let mut schedule = Schedule::default();
+        schedule.add_systems((ab, cd, ce));
+        schedule.run(&mut world);
 
-        b.iter(move || stage.run(&mut world));
+        b.iter(move || schedule.run(&mut world));
     });
     group.finish();
 }
@@ -63,29 +61,20 @@ pub fn build_schedule(criterion: &mut Criterion) {
 
     // Use multiple different kinds of label to ensure that dynamic dispatch
     // doesn't somehow get optimized away.
-    #[derive(Debug, Clone, Copy)]
-    struct NumLabel(usize);
-    #[derive(Debug, Clone, Copy, SystemLabel)]
-    struct DummyLabel;
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct NumSet(usize);
 
-    impl SystemLabel for NumLabel {
-        fn as_str(&self) -> &'static str {
-            let s = self.0.to_string();
-            Box::leak(s.into_boxed_str())
-        }
-    }
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct DummySet;
 
     let mut group = criterion.benchmark_group("build_schedule");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(15));
 
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
-    // Add system to the stage with full constraints. Hopefully this should be maximimally
+    // Add system to the schedule with full constraints. Hopefully this should be maximally
     // difficult for bevy to figure out.
-    // Also, we are performing the `as_label` operation outside of the loop since that
-    // requires an allocation and a leak. This is not something that would be necessary in a
-    // real scenario, just a contrivance for the benchmark.
-    let labels: Vec<_> = (0..1000).map(|i| NumLabel(i).as_label()).collect();
+    let labels: Vec<_> = (0..1000).map(|i| NumSet(i)).collect();
 
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {
@@ -94,7 +83,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut app = App::new();
                 for _ in 0..graph_size {
-                    app.add_system(empty_system);
+                    app.add_systems(Update, empty_system);
                 }
                 app.update();
             });
@@ -104,19 +93,19 @@ pub fn build_schedule(criterion: &mut Criterion) {
         group.bench_function(format!("{graph_size}_schedule"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
-                app.add_system(empty_system.label(DummyLabel));
+                app.add_systems(Update, empty_system.in_set(DummySet));
 
                 // Build a fully-connected dependency graph describing the One True Ordering.
                 // Not particularly realistic but this can be refined later.
                 for i in 0..graph_size {
-                    let mut sys = empty_system.label(labels[i]).before(DummyLabel);
-                    for a in 0..i {
-                        sys = sys.after(labels[a]);
+                    let mut sys = empty_system.in_set(labels[i]).before(DummySet);
+                    for label in labels.iter().take(i) {
+                        sys = sys.after(*label);
                     }
-                    for b in i + 1..graph_size {
-                        sys = sys.before(labels[b]);
+                    for label in &labels[i + 1..graph_size] {
+                        sys = sys.before(*label);
                     }
-                    app.add_system(sys);
+                    app.add_systems(Update, sys);
                 }
                 // Run the app for a single frame.
                 // This is necessary since dependency resolution does not occur until the game runs.

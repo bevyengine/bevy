@@ -5,6 +5,10 @@ use crate::{
 };
 use std::iter::FusedIterator;
 
+/// An iterator that spawns a series of entities and returns the [ID](Entity) of
+/// each spawned entity.
+///
+/// If this iterator is not fully exhausted, any remaining entities will be spawned when this type is dropped.
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
@@ -25,6 +29,8 @@ where
         // necessary
         world.flush();
 
+        let change_tick = world.change_tick();
+
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
 
@@ -35,9 +41,9 @@ where
         let mut spawner = bundle_info.get_bundle_spawner(
             &mut world.entities,
             &mut world.archetypes,
-            &mut world.components,
+            &world.components,
             &mut world.storages,
-            *world.change_tick.get_mut(),
+            change_tick,
         );
         spawner.reserve_storage(length);
 

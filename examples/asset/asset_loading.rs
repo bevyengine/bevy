@@ -1,11 +1,11 @@
 //! This example illustrates various ways to load assets.
 
-use bevy::prelude::*;
+use bevy::{asset::LoadedFolder, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -37,11 +37,19 @@ fn setup(
     }
 
     // You can load all assets in a folder like this. They will be loaded in parallel without
-    // blocking
-    let _scenes: Vec<HandleUntyped> = asset_server.load_folder("models/monkey").unwrap();
+    // blocking. The LoadedFolder asset holds handles to each asset in the folder. These are all
+    // dependencies of the LoadedFolder asset, meaning you can wait for the LoadedFolder asset to
+    // fire AssetEvent::LoadedWithDependencies if you want to wait for all assets in the folder
+    // to load.
+    // If you want to keep the assets in the folder alive, make sure you store the returned handle
+    // somewhere.
+    let _loaded_folder: Handle<LoadedFolder> = asset_server.load_folder("models/torus");
 
-    // Then any asset in the folder can be accessed like this:
-    let monkey_handle = asset_server.get_handle("models/monkey/Monkey.gltf#Mesh0/Primitive0");
+    // If you want a handle to a specific asset in a loaded folder, the easiest way to get one is to call load.
+    // It will _not_ be loaded a second time.
+    // The LoadedFolder asset will ultimately also hold handles to the assets, but waiting for it to load
+    // and finding the right handle is more work!
+    let torus_handle = asset_server.load("models/torus/torus.gltf#Mesh0/Primitive0");
 
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
@@ -49,9 +57,9 @@ fn setup(
         ..default()
     });
 
-    // monkey
+    // torus
     commands.spawn(PbrBundle {
-        mesh: monkey_handle,
+        mesh: torus_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(-3.0, 0.0, 0.0),
         ..default()

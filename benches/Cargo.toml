@@ -7,15 +7,16 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
-glam = "0.22"
+glam = "0.24.1"
 rand = "0.8"
 rand_chacha = "0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
 bevy_app = { path = "../crates/bevy_app" }
-bevy_ecs = { path = "../crates/bevy_ecs" }
+bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi-threaded"] }
 bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
+bevy_math = { path = "../crates/bevy_math" }
 
 [profile.release]
 opt-level = 3
@@ -47,6 +48,16 @@ path = "benches/bevy_reflect/struct.rs"
 harness = false
 
 [[bench]]
+name = "parse_reflect_path"
+path = "benches/bevy_reflect/path.rs"
+harness = false
+
+[[bench]]
 name = "iter"
 path = "benches/bevy_tasks/iter.rs"
+harness = false
+
+[[bench]]
+name = "bezier"
+path = "benches/bevy_math/bezier.rs"
 harness = false
