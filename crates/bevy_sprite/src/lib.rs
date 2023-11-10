@@ -9,6 +9,7 @@ mod texture_atlas;
 mod texture_atlas_builder;
 
 pub mod collide_aabb;
+pub mod wireframe;
 
 pub mod prelude {
     #[doc(hidden)]
