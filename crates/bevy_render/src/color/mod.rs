@@ -720,6 +720,25 @@ impl Color {
         self.into_color()
     }
 
+    /// Determine if the color is fully transparent, i.e. if the alpha is 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_render::color::Color;
+    /// // Fully transparent colors
+    /// assert!(Color::NONE.is_fully_transparent());
+    /// assert!(Color::rgba(1.0, 0.5, 0.5, 0.0).is_fully_transparent());
+    ///
+    /// // (Partially) opaque colors
+    /// assert!(!Color::BLACK.is_fully_transparent());
+    /// assert!(!Color::rgba(1.0, 0.5, 0.5, 0.2).is_fully_transparent());
+    /// ```
+    #[inline(always)]
+    pub fn is_fully_transparent(&self) -> bool {
+        self.a() == 0.0
+    }
+
     /// Convert a provided arbitrary color into a `Color`.
     ///
     /// # Examples
@@ -1403,7 +1422,7 @@ mod tests {
         let starting_vec4 = Vec4::new(0.4, 0.5, 0.6, 1.0);
         let starting_color = Color::from(starting_vec4);
 
-        assert_eq!(starting_vec4, Vec4::from(starting_color),);
+        assert_eq!(starting_vec4, Vec4::from(starting_color));
 
         let transformation = Vec4::new(0.5, 0.5, 0.5, 1.0);
 
@@ -1426,7 +1445,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]
@@ -1442,7 +1461,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]
@@ -1458,7 +1477,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]
@@ -1474,7 +1493,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]
@@ -1490,7 +1509,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]

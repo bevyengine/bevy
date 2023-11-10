@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.12.0-dev"
+version = "0.12.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -47,8 +47,6 @@ default = [
   "multi-threaded",
   "png",
   "hdr",
-  "ktx2",
-  "zstd",
   "vorbis",
   "x11",
   "bevy_gizmos",
@@ -71,7 +69,11 @@ bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 
 # Provides cameras and other basic render pipeline features
-bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline", "bevy_asset", "bevy_render"]
+bevy_core_pipeline = [
+  "bevy_internal/bevy_core_pipeline",
+  "bevy_asset",
+  "bevy_render",
+]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -83,7 +85,12 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
-bevy_pbr = ["bevy_internal/bevy_pbr", "bevy_asset", "bevy_render", "bevy_core_pipeline"]
+bevy_pbr = [
+  "bevy_internal/bevy_pbr",
+  "bevy_asset",
+  "bevy_render",
+  "bevy_core_pipeline",
+]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
@@ -98,7 +105,12 @@ bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
-bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
+bevy_ui = [
+  "bevy_internal/bevy_ui",
+  "bevy_core_pipeline",
+  "bevy_text",
+  "bevy_sprite",
+]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -113,7 +125,11 @@ trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
-trace_tracy_memory = ["trace", "bevy_internal/trace_tracy", "bevy_internal/trace_tracy_memory"]
+trace_tracy_memory = [
+  "trace",
+  "bevy_internal/trace_tracy",
+  "bevy_internal/trace_tracy_memory",
+]
 
 # Tracing support
 trace = ["bevy_internal/trace"]
@@ -199,6 +215,9 @@ serialize = ["bevy_internal/serialize"]
 # Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
 multi-threaded = ["bevy_internal/multi-threaded"]
 
+# Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.
+async-io = ["bevy_internal/async-io"]
+
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
 
@@ -220,14 +239,17 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 # Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
 detailed_trace = ["bevy_internal/detailed_trace"]
 
-# Include tonemapping Look Up Tables KTX2 files
-tonemapping_luts = ["bevy_internal/tonemapping_luts"]
+# Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
+tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
+
+# Enable assertions in debug builds to check the validity of parameters passed to glam
+debug_glam_assert = ["bevy_internal/debug_glam_assert"]
 
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
@@ -238,18 +260,26 @@ shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
-# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
+# Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
+pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
+
+# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
+# Enables the built-in asset processor for processed assets.
+asset_processor = ["bevy_internal/asset_processor"]
+
 # Enables watching the filesystem for Bevy Asset hot-reloading
-filesystem_watcher = ["bevy_internal/filesystem_watcher"]
+file_watcher = ["bevy_internal/file_watcher"]
+
+# Enables watching in memory asset providers for Bevy Asset hot-reloading
+embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.12.0", default-features = false }
 
 [dev-dependencies]
-anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.8.0"
 serde = { version = "1", features = ["derive"] }
@@ -287,6 +317,16 @@ doc-scrape-examples = true
 [package.metadata.example.move_sprite]
 name = "Move Sprite"
 description = "Changes the transform of a sprite"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "2d_viewport_to_world"
+path = "examples/2d/2d_viewport_to_world.rs"
+
+[package.metadata.example.2d_viewport_to_world]
+name = "2D Viewport To World"
+description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method"
 category = "2D Rendering"
 wasm = true
 
@@ -468,6 +508,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "3d_viewport_to_world"
+path = "examples/3d/3d_viewport_to_world.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.3d_viewport_to_world]
+name = "3D Viewport To World"
+description = "Demonstrates how to use the `Camera::viewport_to_world` method"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "generate_custom_mesh"
 path = "examples/3d/generate_custom_mesh.rs"
 doc-scrape-examples = true
@@ -585,6 +636,16 @@ doc-scrape-examples = true
 [package.metadata.example.bloom_3d]
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "deferred_rendering"
+path = "examples/3d/deferred_rendering.rs"
+
+[package.metadata.example.deferred_rendering]
+name = "Deferred Rendering"
+description = "Renders meshes with both forward and deferred pipelines"
 category = "3D Rendering"
 wasm = true
 
@@ -739,6 +800,16 @@ doc-scrape-examples = true
 [package.metadata.example.transparency_3d]
 name = "Transparency in 3D"
 description = "Demonstrates transparency in 3d"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "transmission"
+path = "examples/3d/transmission.rs"
+
+[package.metadata.example.transmission]
+name = "Transmission"
+description = "Showcases light transmission in the PBR material"
 category = "3D Rendering"
 wasm = true
 
@@ -1032,6 +1103,7 @@ wasm = true
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 doc-scrape-examples = true
+required-features = ["file_watcher"]
 
 [package.metadata.example.hot_asset_reloading]
 name = "Hot Reloading of Assets"
@@ -1041,9 +1113,9 @@ wasm = true
 
 [[example]]
 name = "asset_processing"
-path = "examples/asset/processing/processing.rs"
+path = "examples/asset/processing/asset_processing.rs"
 doc-scrape-examples = true
-required-features = ["filesystem_watcher"]
+required-features = ["file_watcher", "asset_processor"]
 
 [package.metadata.example.asset_processing]
 name = "Asset Processing"
@@ -1264,6 +1336,16 @@ category = "ECS (Entity Component System)"
 wasm = true
 
 [[example]]
+name = "one_shot_systems"
+path = "examples/ecs/one_shot_systems.rs"
+
+[package.metadata.example.one_shot_systems]
+name = "One Shot Systems"
+description = "Shows how to flexibly run systems without scheduling them"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
 doc-scrape-examples = true
@@ -1351,16 +1433,38 @@ description = "Illustrates creating custom system parameters with `SystemParam`"
 category = "ECS (Entity Component System)"
 wasm = false
 
+# Time
+[[example]]
+name = "time"
+path = "examples/time/time.rs"
+
+[package.metadata.example.time]
+name = "Time handling"
+description = "Explains how Time is handled in ECS"
+category = "Time"
+wasm = false
+
+[[example]]
+name = "virtual_time"
+path = "examples/time/virtual_time.rs"
+
+[package.metadata.example.virtual_time]
+name = "Virtual time"
+description = "Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game."
+category = "Time"
+wasm = false
+
 [[example]]
 name = "timers"
-path = "examples/ecs/timers.rs"
+path = "examples/time/timers.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.timers]
 name = "Timers"
 description = "Illustrates ticking `Timer` resources inside systems and handling their state"
-category = "ECS (Entity Component System)"
+category = "Time"
 wasm = false
+
 
 # Games
 [[example]]
@@ -1660,6 +1764,16 @@ doc-scrape-examples = true
 [package.metadata.example.shader_material]
 name = "Material"
 description = "A shader and a material that uses it"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "extended_material"
+path = "examples/shader/extended_material.rs"
+
+[package.metadata.example.extended_material]
+name = "Extended Material"
+description = "A custom shader that builds on the standard material"
 category = "Shaders"
 wasm = true
 
@@ -2307,6 +2421,17 @@ hidden = true
 name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
+wasm = true
+
+[[example]]
+name = "ui_material"
+path = "examples/ui/ui_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_material]
+name = "UI Material"
+description = "Demonstrates creating and using custom Ui materials"
+category = "UI (User Interface)"
 wasm = true
 
 [profile.wasm-release]

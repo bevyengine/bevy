@@ -6,21 +6,16 @@
 // * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
 // * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
-
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
     aspect: f32,
 };
 
-@group(0) @binding(0)
-var input_texture: texture_2d<f32>;
-@group(0) @binding(1)
-var s: sampler;
+@group(0) @binding(0) var input_texture: texture_2d<f32>;
+@group(0) @binding(1) var s: sampler;
 
-@group(0) @binding(2)
-var<uniform> uniforms: BloomUniforms;
+@group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
 
 #ifdef FIRST_DOWNSAMPLE
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4

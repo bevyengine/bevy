@@ -867,7 +867,7 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Events<MyEvent>>();
-    /// # app.add_systems(Events::<MyEvent>::update_system.before(my_system));
+    /// # app.add_systems(bevy_ecs::event::event_update_system::<MyEvent>.before(my_system));
     ///
     /// app.add_systems(
     ///     my_system.run_if(on_event::<MyEvent>()),
@@ -943,7 +943,7 @@ pub mod common_conditions {
         // Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut removals: RemovedComponents<T>| removals.iter().count() != 0
+        move |mut removals: RemovedComponents<T>| removals.read().count() != 0
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
@@ -1096,7 +1096,7 @@ mod tests {
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 2);
 
-        // Run every other cycle oppsite to the last one
+        // Run every other cycle opposite to the last one
         schedule.add_systems(increment_counter.run_if(not(every_other_time)));
 
         schedule.run(&mut world);
@@ -1190,7 +1190,7 @@ mod tests {
                 .distributive_run_if(resource_changed_or_removed::<State<TestState>>())
                 .distributive_run_if(resource_removed::<State<TestState>>())
                 .distributive_run_if(state_exists::<TestState>())
-                .distributive_run_if(in_state(TestState::A))
+                .distributive_run_if(in_state(TestState::A).or_else(in_state(TestState::B)))
                 .distributive_run_if(state_changed::<TestState>())
                 .distributive_run_if(on_event::<TestEvent>())
                 .distributive_run_if(any_with_component::<TestComponent>())

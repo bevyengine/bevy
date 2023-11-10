@@ -1,5 +1,4 @@
-use anyhow::Result;
-use bevy_asset::{anyhow, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
@@ -8,7 +7,7 @@ use crate::{
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
 
-use super::CompressedImageFormats;
+use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
 
 /// Loader for images that can be read by the `image` crate.
@@ -46,17 +45,18 @@ pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
     "ppm",
 ];
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
     #[default]
     FromExtension,
     Format(ImageFormat),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
+    pub sampler: ImageSampler,
 }
 
 impl Default for ImageLoaderSettings {
@@ -64,19 +64,30 @@ impl Default for ImageLoaderSettings {
         Self {
             format: ImageFormatSetting::default(),
             is_srgb: true,
+            sampler: ImageSampler::Default,
         }
     }
+}
+
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum ImageLoaderError {
+    #[error("Could load shader: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Could not load texture file: {0}")]
+    FileTexture(#[from] FileTextureError),
 }
 
 impl AssetLoader for ImageLoader {
     type Asset = Image;
     type Settings = ImageLoaderSettings;
+    type Error = ImageLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         settings: &'a ImageLoaderSettings,
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, anyhow::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
             // use the file extension for the image type
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
@@ -92,6 +103,7 @@ impl AssetLoader for ImageLoader {
                 image_type,
                 self.supported_compressed_formats,
                 settings.is_srgb,
+                settings.sampler.clone(),
             )
             .map_err(|err| FileTextureError {
                 error: err,

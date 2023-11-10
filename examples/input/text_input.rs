@@ -4,6 +4,10 @@
 //! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
 //! You should change the provided font with another one to test other languages input.
 
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 fn main() {
@@ -35,7 +39,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 20.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -43,7 +47,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 30.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -51,7 +55,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 20.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -59,7 +63,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 30.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -67,7 +71,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 18.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -75,7 +79,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font,
                     font_size: 25.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
         ])
@@ -93,7 +97,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 100.0,
-                color: Color::WHITE,
+                ..default()
             },
         ),
         ..default()
