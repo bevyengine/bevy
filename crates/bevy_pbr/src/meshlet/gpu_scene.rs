@@ -452,12 +452,12 @@ impl MeshletGpuScene {
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
 
             (
-                (meshlets_slice.start as u32 / 16)..(meshlets_slice.end as u32 / 16),
+                (meshlets_slice.start as u32 / 12)..(meshlets_slice.end as u32 / 12),
                 // TODO: Pre-compute this value during conversion and store in MeshletMesh
                 meshlet_mesh
                     .meshlets
                     .iter()
-                    .map(|meshlet| meshlet.triangle_count as u64 * 3)
+                    .map(|meshlet| meshlet.vertex_count as u64)
                     .sum(),
             )
         };

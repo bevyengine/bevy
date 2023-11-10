@@ -9,6 +9,7 @@ struct PackedMeshletVertex {
     tangent: vec4<f32>,
 }
 
+// TODO: Octahedral encode normal, remove tangent and derive from UV derivatives
 struct MeshletVertex {
     position: vec3<f32>,
     normal: vec3<f32>,
@@ -29,7 +30,6 @@ struct Meshlet {
     start_vertex_id: u32,
     start_index_id: u32,
     vertex_count: u32,
-    triangle_count: u32,
 }
 
 struct MeshletBoundingSphere {

@@ -33,7 +33,7 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
     type ExtraData = (u64, u64);
 
     fn size_in_bytes(&self) -> u64 {
-        self.len() as u64 * 16
+        self.len() as u64 * 12
     }
 
     fn as_bytes_le(&self, (vertex_offset, index_offset): Self::ExtraData) -> Cow<'_, [u8]> {
@@ -42,10 +42,10 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
 
         self.iter()
             .flat_map(|meshlet| {
-                bytemuck::cast::<_, [u8; 16]>(Meshlet {
+                bytemuck::cast::<_, [u8; 12]>(Meshlet {
                     start_vertex_id: meshlet.start_vertex_id + vertex_offset,
                     start_index_id: meshlet.start_index_id + index_offset,
-                    ..*meshlet
+                    vertex_count: meshlet.vertex_count,
                 })
             })
             .collect()

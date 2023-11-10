@@ -20,7 +20,6 @@ pub struct Meshlet {
     pub start_vertex_id: u32,
     pub start_index_id: u32,
     pub vertex_count: u32,
-    pub triangle_count: u32,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
