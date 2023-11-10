@@ -7,6 +7,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
+    camera::ExtractedCamera,
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
@@ -20,6 +21,7 @@ pub struct UiPassNode {
         (
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
+            &'static ExtractedCamera,
             Option<&'static UiCameraConfig>,
         ),
         With<ExtractedView>,
@@ -50,7 +52,7 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.view_entity();
 
-        let Ok((transparent_phase, target, camera_ui)) =
+        let Ok((transparent_phase, target, camera, camera_ui)) =
             self.ui_view_query.get_manual(world, input_view_entity)
         else {
             return Ok(());
@@ -80,7 +82,9 @@ impl Node for UiPassNode {
             }))],
             depth_stencil_attachment: None,
         });
-
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_camera_viewport(viewport);
+        }
         transparent_phase.render(&mut render_pass, world, view_entity);
 
         Ok(())

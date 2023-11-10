@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::{UVec2, Vec2};
-use bevy_render::camera::Camera;
+use bevy_render::camera::{Camera, RenderTarget};
 use bevy_transform::components::Transform;
 use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
@@ -314,10 +314,22 @@ pub fn ui_layout_system(
     ui_surface.remove_entities(removed_nodes.read());
 
     // update window children (for now assuming all Nodes live in the primary window)
-    // TODO: default camera to a primary one somehow
+
+    let primary_camera = {
+        let default_render_target = RenderTarget::default().normalize(Some(primary_window_entity));
+        cameras.iter().find_map(|(entity, camera)| {
+            if camera.is_active
+                && camera.target.normalize(Some(primary_window_entity)) == default_render_target
+            {
+                Some(UiCamera(entity))
+            } else {
+                None
+            }
+        })
+    };
     let root_nodes_defaulted = root_node_query
         .iter()
-        .filter_map(|(entity, camera)| camera.map(|c| (entity, c)));
+        .filter_map(|(entity, camera)| camera.or(primary_camera.as_ref()).map(|c| (entity, c)));
 
     let mut root_nodes_grouped_by_camera: HashMap<Entity, Vec<Entity>> = HashMap::new();
 

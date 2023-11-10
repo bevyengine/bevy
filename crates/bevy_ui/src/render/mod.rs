@@ -12,11 +12,11 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
-use crate::Outline;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     Style, UiImage, UiScale, UiTextureAtlasImage, Val,
 };
+use crate::{Outline, UiCamera};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -163,6 +163,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub camera_entity: Entity,
 }
 
 #[derive(Resource, Default)]
@@ -185,6 +186,7 @@ pub fn extract_atlas_uinodes(
                 Option<&CalculatedClip>,
                 &Handle<TextureAtlas>,
                 &UiTextureAtlasImage,
+                &UiCamera,
             ),
             Without<UiImage>,
         >,
@@ -199,6 +201,7 @@ pub fn extract_atlas_uinodes(
         clip,
         texture_atlas_handle,
         atlas_image,
+        camera,
     ) in uinode_query.iter()
     {
         // Skip invisible and completely transparent nodes
@@ -250,6 +253,7 @@ pub fn extract_atlas_uinodes(
                 atlas_size: Some(atlas_size),
                 flip_x: atlas_image.flip_x,
                 flip_y: atlas_image.flip_y,
+                camera_entity: camera.0,
             },
         );
     }
@@ -282,6 +286,7 @@ pub fn extract_uinode_borders(
                 Option<&Parent>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
+                &UiCamera,
             ),
             Without<ContentSize>,
         >,
@@ -298,7 +303,7 @@ pub fn extract_uinode_borders(
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0 as f32;
 
-    for (node, global_transform, style, border_color, parent, view_visibility, clip) in
+    for (node, global_transform, style, border_color, parent, view_visibility, clip, camera) in
         uinode_query.iter()
     {
         // Skip invisible borders
@@ -374,6 +379,7 @@ pub fn extract_uinode_borders(
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
+                        camera_entity: camera.0,
                     },
                 );
             }
@@ -391,12 +397,15 @@ pub fn extract_uinode_outlines(
             &Outline,
             &ViewVisibility,
             Option<&Parent>,
+            &UiCamera,
         )>,
     >,
     clip_query: Query<&CalculatedClip>,
 ) {
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, view_visibility, maybe_parent) in uinode_query.iter() {
+    for (node, global_transform, outline, view_visibility, maybe_parent, camera) in
+        uinode_query.iter()
+    {
         // Skip invisible outlines
         if !view_visibility.get()
             || outline.color.is_fully_transparent()
@@ -463,6 +472,7 @@ pub fn extract_uinode_outlines(
                         clip,
                         flip_x: false,
                         flip_y: false,
+                        camera_entity: camera.0,
                     },
                 );
             }
@@ -483,12 +493,13 @@ pub fn extract_uinodes(
                 Option<&UiImage>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
+                &UiCamera,
             ),
             Without<UiTextureAtlasImage>,
         >,
     >,
 ) {
-    for (entity, uinode, transform, color, maybe_image, view_visibility, clip) in
+    for (entity, uinode, transform, color, maybe_image, view_visibility, clip, camera) in
         uinode_query.iter()
     {
         // Skip invisible and completely transparent nodes
@@ -521,6 +532,7 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 flip_x,
                 flip_y,
+                camera_entity: camera.0,
             },
         );
     }
@@ -614,6 +626,7 @@ pub fn extract_text_uinodes(
             &TextLayoutInfo,
             &ViewVisibility,
             Option<&CalculatedClip>,
+            &UiCamera,
         )>,
     >,
 ) {
@@ -626,7 +639,7 @@ pub fn extract_text_uinodes(
 
     let inverse_scale_factor = (scale_factor as f32).recip();
 
-    for (uinode, global_transform, text, text_layout_info, view_visibility, clip) in
+    for (uinode, global_transform, text, text_layout_info, view_visibility, clip, camera) in
         uinode_query.iter()
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -667,6 +680,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
+                    camera_entity: camera.0,
                 },
             );
         }
@@ -710,6 +724,7 @@ pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
+    pub camera: Entity,
 }
 
 const TEXTURED_QUAD: u32 = 0;
@@ -818,6 +833,7 @@ pub fn prepare_uinodes(
                             let new_batch = UiBatch {
                                 range: index..index,
                                 image: extracted_uinode.image,
+                                camera: extracted_uinode.camera_entity,
                             };
 
                             batches.push((item.entity, new_batch));
