@@ -513,7 +513,7 @@ fn prepare_taa_pipelines(
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
 ) {
     for (entity, view, taa_settings) in &views {
-        let mut pipeline_key = TaaPipelineKey {
+        let pipeline_key = TaaPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
         };
@@ -522,16 +522,6 @@ fn prepare_taa_pipelines(
             &pipeline,
             pipeline_cache.pack_key(&pipeline_key),
         );
-
-        // Prepare non-reset pipeline anyways - it will be necessary next frame
-        if pipeline_key.reset {
-            pipeline_key.reset = false;
-            pipelines.specialize(
-                &pipeline_cache,
-                &pipeline,
-                pipeline_cache.pack_key(&pipeline_key),
-            );
-        }
 
         commands
             .entity(entity)

@@ -106,7 +106,8 @@ impl Plugin for TonemappingPlugin {
                     prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
                 )
                 .register_system_key::<DebandDitherKey, With<ExtractedView>>()
-                .register_system_key::<Tonemapping, With<ExtractedView>>();
+                .register_system_key::<Tonemapping, With<ExtractedView>>()
+                .register_composite_key::<TonemappingPipelineKey, With<ExtractedView>>();
         }
     }
 
@@ -292,18 +293,14 @@ pub fn prepare_view_tonemapping_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
-    view_targets: Query<(Entity, Option<&Tonemapping>, Has<DebandDither>), With<ViewTarget>>,
+    view_targets: Query<(Entity, &PipelineKeys), With<ViewTarget>>,
 ) {
-    for (entity, tonemapping, dither) in view_targets.iter() {
-        let key = TonemappingPipelineKey {
-            deband_dither: DebandDitherKey::from_params(&(), dither).unwrap(),
-            tonemapping: Tonemapping::from_params(&(), tonemapping).unwrap(),
+    for (entity, keys) in view_targets.iter() {
+        let Some(key) = keys.get_packed_key::<TonemappingPipelineKey>() else {
+            continue;
         };
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &upscaling_pipeline,
-            pipeline_cache.pack_key(&key),
-        );
+
+        let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
         commands
             .entity(entity)
