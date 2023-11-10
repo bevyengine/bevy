@@ -27,7 +27,7 @@ use bevy_render::{
 
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, MeshPipeline, OldMeshPipelineKeyBitflags,
+    GpuPointLights, LightMeta, MeshPipeline, 
     ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
 };
 
@@ -82,30 +82,6 @@ impl MeshPipelineViewLayoutKey {
                 .then_some("_deferred")
                 .unwrap_or_default(),
         )
-    }
-}
-
-impl From<OldMeshPipelineKeyBitflags> for MeshPipelineViewLayoutKey {
-    fn from(value: OldMeshPipelineKeyBitflags) -> Self {
-        let mut result = MeshPipelineViewLayoutKey::empty();
-
-        if value.msaa_samples() > 1 {
-            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
-        }
-        if value.contains(OldMeshPipelineKeyBitflags::DEPTH_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
-        }
-        if value.contains(OldMeshPipelineKeyBitflags::NORMAL_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
-        }
-        if value.contains(OldMeshPipelineKeyBitflags::MOTION_VECTOR_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
-        }
-        if value.contains(OldMeshPipelineKeyBitflags::DEFERRED_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
-        }
-
-        result
     }
 }
 

@@ -520,9 +520,6 @@ impl GetBatchData for MeshPipeline {
     }
 }
 
-#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy, Debug)]
-pub struct OldMeshPipelineKey(pub u32);
-
 #[derive(PipelineKey)]
 pub struct NewMeshPipelineKey {
     pub view_key: PbrViewKey,
@@ -530,161 +527,8 @@ pub struct NewMeshPipelineKey {
     pub alpha_mode: AlphaKey,
 }
 
-bitflags::bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    #[repr(transparent)]
-    // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
-    pub struct OldMeshPipelineKeyBitflags: u32 {
-/* na   */        const NONE                              = 0;
-/* view */        const HDR                               = (1 << 0);
-/* view */        const TONEMAP_IN_SHADER                 = (1 << 1);
-/* view */        const DEBAND_DITHER                     = (1 << 2);
-/* view */        const DEPTH_PREPASS                     = (1 << 3);
-/* view */        const NORMAL_PREPASS                    = (1 << 4);
-/* view */        const DEFERRED_PREPASS                  = (1 << 5);
-/* view */        const MOTION_VECTOR_PREPASS             = (1 << 6);
-/* mat  */        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
-/*      */                                                            // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-/* view */        const ENVIRONMENT_MAP                   = (1 << 8);
-/* view */        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
-/* view */        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
-/* view */        const TEMPORAL_JITTER                   = (1 << 11);
-/* mesh */        const MORPH_TARGETS                     = (1 << 12);
-/* alpha*/        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
-/* alpha*/        const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
-/* alpha*/        const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
-/* alpha*/        const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
-/* alpha*/        const BLEND_ALPHA                       = (3 << Self::BLEND_SHIFT_BITS);
-/* view */        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-/* mesh */        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_TONY_MC_MAPFACE     = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const TONEMAP_METHOD_BLENDER_FILMIC      = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
-/* view */        const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-/* view */        const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-/* view */        const SHADOW_FILTER_METHOD_CASTANO_13    = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-/* view */        const SHADOW_FILTER_METHOD_JIMENEZ_14    = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-/* view */        const VIEW_PROJECTION_RESERVED_BITS     = Self::VIEW_PROJECTION_MASK_BITS << Self::VIEW_PROJECTION_SHIFT_BITS;
-/* view */        const VIEW_PROJECTION_NONSTANDARD       = 0 << Self::VIEW_PROJECTION_SHIFT_BITS;
-/* view */        const VIEW_PROJECTION_PERSPECTIVE       = 1 << Self::VIEW_PROJECTION_SHIFT_BITS;
-/* view */        const VIEW_PROJECTION_ORTHOGRAPHIC      = 2 << Self::VIEW_PROJECTION_SHIFT_BITS;
-/* view */        const VIEW_PROJECTION_RESERVED          = 3 << Self::VIEW_PROJECTION_SHIFT_BITS;
-        const SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
-        const SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW = 0 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
-        const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
-        const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
-        const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
-    }
-}
-
-impl OldMeshPipelineKeyBitflags {
-    const MSAA_MASK_BITS: u32 = 0b111;
-    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
-
-    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
-        Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
-
-    const BLEND_MASK_BITS: u32 = 0b11;
-    const BLEND_SHIFT_BITS: u32 =
-        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
-
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
-    const TONEMAP_METHOD_SHIFT_BITS: u32 =
-        Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
-
-    const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
-    const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
-        Self::TONEMAP_METHOD_SHIFT_BITS - Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones();
-
-    const VIEW_PROJECTION_MASK_BITS: u32 = 0b11;
-    const VIEW_PROJECTION_SHIFT_BITS: u32 =
-        Self::SHADOW_FILTER_METHOD_SHIFT_BITS - Self::VIEW_PROJECTION_MASK_BITS.count_ones();
-
-    const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u32 = 0b11;
-    const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u32 = Self::VIEW_PROJECTION_SHIFT_BITS
-        - Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS.count_ones();
-
-    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits =
-            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits_retain(msaa_bits)
-    }
-
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            OldMeshPipelineKeyBitflags::HDR
-        } else {
-            OldMeshPipelineKeyBitflags::NONE
-        }
-    }
-
-    pub fn msaa_samples(&self) -> u32 {
-        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
-    }
-
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
-        let primitive_topology_bits = ((primitive_topology as u32)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
-            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
-    }
-
-    pub fn primitive_topology(&self) -> PrimitiveTopology {
-        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
-        match primitive_topology_bits {
-            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
-            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
-            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
-            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
-            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
-            _ => PrimitiveTopology::default(),
-        }
-    }
-}
-
 fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
-}
-
-pub fn setup_morph_and_skinning_defs_old_key(
-    mesh_layouts: &MeshLayouts,
-    layout: &Hashed<InnerMeshVertexBufferLayout>,
-    offset: u32,
-    key: &OldMeshPipelineKeyBitflags,
-    shader_defs: &mut Vec<ShaderDefVal>,
-    vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
-) -> BindGroupLayout {
-    let mut add_skin_data = || {
-        shader_defs.push("SKINNED".into());
-        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
-        vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
-    };
-    let is_morphed = key.intersects(OldMeshPipelineKeyBitflags::MORPH_TARGETS);
-    match (is_skinned(layout), is_morphed) {
-        (true, false) => {
-            add_skin_data();
-            mesh_layouts.skinned.clone()
-        }
-        (true, true) => {
-            add_skin_data();
-            shader_defs.push("MORPH_TARGETS".into());
-            mesh_layouts.morphed_skinned.clone()
-        }
-        (false, true) => {
-            shader_defs.push("MORPH_TARGETS".into());
-            mesh_layouts.morphed.clone()
-        }
-        (false, false) => mesh_layouts.model_only.clone(),
-    }
 }
 
 pub fn setup_morph_and_skinning_defs(
@@ -1115,19 +959,5 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             }
         }
         RenderCommandResult::Success
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::OldMeshPipelineKeyBitflags;
-    #[test]
-    fn mesh_key_msaa_samples() {
-        for i in [1, 2, 4, 8, 16, 32, 64, 128] {
-            assert_eq!(
-                OldMeshPipelineKeyBitflags::from_msaa_samples(i).msaa_samples(),
-                i
-            );
-        }
     }
 }
