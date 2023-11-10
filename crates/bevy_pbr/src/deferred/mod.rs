@@ -1,6 +1,4 @@
-use crate::{
-    MeshPipeline, MeshViewBindGroup, PbrViewKey,
-};
+use crate::{MeshPipeline, MeshViewBindGroup, PbrViewKey};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
@@ -25,10 +23,7 @@ use bevy_render::{
     Render, RenderSet,
 };
 
-use bevy_render::{
-    render_graph::RenderGraphApp, render_resource::*,
-    RenderApp,
-};
+use bevy_render::{render_graph::RenderGraphApp, render_resource::*, RenderApp};
 
 use crate::{ViewFogUniformOffset, ViewLightsUniformOffset};
 
@@ -259,9 +254,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                self.mesh_pipeline
-                    .get_view_layout(&key)
-                    .clone(),
+                self.mesh_pipeline.get_view_layout(&key).clone(),
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {
@@ -342,24 +335,15 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
-    views: Query<
-        (
-            Entity,
-            &PipelineKeys,
-        ),
-        With<DeferredPrepass>,
-    >,
+    views: Query<(Entity, &PipelineKeys), With<DeferredPrepass>>,
 ) {
-    for (
-        entity,
-        keys,
-    ) in &views
-    {
+    for (entity, keys) in &views {
         let Some(view_key) = keys.get_packed_key::<PbrViewKey>() else {
             continue;
         };
 
-        let pipeline_id = pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, view_key);
+        let pipeline_id =
+            pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, view_key);
 
         commands
             .entity(entity)

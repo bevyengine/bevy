@@ -27,8 +27,8 @@ use bevy_render::{
 
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, MeshPipeline, 
-    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    GpuPointLights, LightMeta, MeshPipeline, ScreenSpaceAmbientOcclusionTextures, ShadowSamplers,
+    ViewClusterBindings, ViewShadowBindings,
 };
 
 #[derive(Clone)]

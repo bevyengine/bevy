@@ -7,7 +7,7 @@ use bevy::{
         system::{lifetimeless::*, SystemParamItem},
     },
     pbr::{
-        AlphaKey, MeshPipeline, NewMeshPipelineKey, RenderMeshInstances, SetMeshBindGroup,
+        AlphaKey, MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshBindGroup,
         SetMeshViewBindGroup,
     },
     prelude::*,
@@ -141,7 +141,7 @@ fn queue_custom(
             };
             let mesh_key = mesh.packed_key;
             let alpha_key = pipeline_cache.pack_key(&AlphaKey::Opaque);
-            let key = NewMeshPipelineKey::repack((view_key, mesh_key, alpha_key));
+            let key = MeshPipelineKey::repack((view_key, mesh_key, alpha_key));
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
@@ -203,7 +203,7 @@ impl FromWorld for CustomPipeline {
 }
 
 impl SpecializedMeshPipeline for CustomPipeline {
-    type Key = NewMeshPipelineKey;
+    type Key = MeshPipelineKey;
 
     fn specialize(
         &self,

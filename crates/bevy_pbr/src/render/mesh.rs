@@ -521,7 +521,7 @@ impl GetBatchData for MeshPipeline {
 }
 
 #[derive(PipelineKey)]
-pub struct NewMeshPipelineKey {
+pub struct MeshPipelineKey {
     pub view_key: PbrViewKey,
     pub mesh_key: MeshKey,
     pub alpha_mode: AlphaKey,
@@ -560,7 +560,7 @@ pub fn setup_morph_and_skinning_defs(
 }
 
 impl SpecializedMeshPipeline for MeshPipeline {
-    type Key = NewMeshPipelineKey;
+    type Key = MeshPipelineKey;
 
     fn specialize(
         &self,

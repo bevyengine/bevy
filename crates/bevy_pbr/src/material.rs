@@ -292,7 +292,7 @@ where
         key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mesh_pipeline_key = key.construct(NewMeshPipelineKey {
+        let mesh_pipeline_key = key.construct(MeshPipelineKey {
             view_key: key.view_key,
             mesh_key: key.mesh_key,
             alpha_mode: key.material_key.alpha,
@@ -420,7 +420,7 @@ pub fn queue_material_meshes<M: Material>(
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
-        let Some(view_key_new) = keys.get_packed_key::<PbrViewKey>() else {
+        let Some(view_key) = keys.get_packed_key::<PbrViewKey>() else {
             continue;
         };
 
@@ -446,14 +446,9 @@ pub fn queue_material_meshes<M: Material>(
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
 
-            let mesh_key_new = render_meshes
-                .get(mesh_instance.mesh_asset_id)
-                .unwrap()
-                .packed_key;
-            let material_key_new = render_materials.get(material_asset_id).unwrap().packed_key;
-
-            let composite_key =
-                MaterialPipelineKey::repack((view_key_new, mesh_key_new, material_key_new));
+            let mesh_key = mesh.packed_key;
+            let material_key = material.packed_key;
+            let composite_key = MaterialPipelineKey::repack((view_key, mesh_key, material_key));
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
