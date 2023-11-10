@@ -35,7 +35,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font: font.clone(),
                 font_size: 50.0,
-                color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
