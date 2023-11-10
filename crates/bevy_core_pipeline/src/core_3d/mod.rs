@@ -832,7 +832,9 @@ pub fn prepare_prepass_textures(
             deferred: cached_deferred_texture,
             deferred_lighting_pass_id: deferred_lighting_pass_id_texture,
             size,
-            first_write: Arc::new(AtomicBool::new(true)),
+            first_normal_write: Arc::new(AtomicBool::new(true)),
+            first_motion_vectors_write: Arc::new(AtomicBool::new(true)),
+            first_deferred_write: Arc::new(AtomicBool::new(true)),
         });
     }
 }

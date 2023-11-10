@@ -18,7 +18,7 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 
 use crate::core_3d::{Camera3d, Camera3dDepthLoadOp};
-use crate::prepass::{MotionVectorPrepass, NormalPrepass, ViewPrepassTextures};
+use crate::prepass::ViewPrepassTextures;
 
 use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 
@@ -36,8 +36,6 @@ impl ViewNode for DeferredGBufferPrepassNode {
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
         &'static Camera3d,
-        Option<&'static NormalPrepass>,
-        Option<&'static MotionVectorPrepass>,
     );
 
     fn run(
@@ -51,8 +49,6 @@ impl ViewNode for DeferredGBufferPrepassNode {
             view_depth_texture,
             view_prepass_textures,
             camera_3d,
-            normal_prepass,
-            motion_vector_prepass,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -67,12 +63,10 @@ impl ViewNode for DeferredGBufferPrepassNode {
                     view: &view_normals_texture.default_view,
                     resolve_target: None,
                     ops: Operations {
-                        load: if normal_prepass.is_some() {
-                            // Load if the normal_prepass has already run.
-                            // The prepass will have already cleared this for the current frame.
-                            LoadOp::Load
-                        } else {
+                        load: if view_prepass_textures.is_first_normal_write() {
                             LoadOp::Clear(Color::BLACK.into())
+                        } else {
+                            LoadOp::Load
                         },
                         store: true,
                     },
@@ -83,12 +77,13 @@ impl ViewNode for DeferredGBufferPrepassNode {
                 view: &view_motion_vectors_texture.default_view,
                 resolve_target: None,
                 ops: Operations {
-                    load: if motion_vector_prepass.is_some() {
-                        // Load if the motion_vector_prepass has already run.
-                        // The prepass will have already cleared this for the current frame.
-                        LoadOp::Load
-                    } else {
+                    load: if view_prepass_textures.is_first_motion_vectors_write() {
+                        // Red and Green channels are X and Y components of the motion vectors
+                        // Blue channel doesn't matter, but set to 0.0 for possible faster clear
+                        // https://gpuopen.com/performance/#clears
                         LoadOp::Clear(Color::BLACK.into())
+                    } else {
+                        LoadOp::Load
                     },
                     store: true,
                 },
@@ -119,7 +114,11 @@ impl ViewNode for DeferredGBufferPrepassNode {
                         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         load: LoadOp::Load,
                         #[cfg(not(all(feature = "webgl", target_arch = "wasm32")))]
-                        load: LoadOp::Clear(Default::default()),
+                        load: if view_prepass_textures.is_first_deferred_write() {
+                            LoadOp::Clear(Color::BLACK.into())
+                        } else {
+                            LoadOp::Load
+                        },
                         store: true,
                     },
                 }),
@@ -133,7 +132,11 @@ impl ViewNode for DeferredGBufferPrepassNode {
                     view: &deferred_lighting_pass_id.default_view,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(Default::default()),
+                        load: if view_prepass_textures.is_first_deferred_write() {
+                            LoadOp::Clear(Color::BLACK.into())
+                        } else {
+                            LoadOp::Load
+                        },
                         store: true,
                     },
                 }),

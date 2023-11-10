@@ -88,12 +88,23 @@ pub struct ViewPrepassTextures {
     pub deferred_lighting_pass_id: Option<CachedTexture>,
     /// The size of the textures.
     pub size: Extent3d,
-    pub(crate) first_write: Arc<AtomicBool>,
+    pub(crate) first_normal_write: Arc<AtomicBool>,
+    pub(crate) first_motion_vectors_write: Arc<AtomicBool>,
+    pub(crate) first_deferred_write: Arc<AtomicBool>,
 }
 
 impl ViewPrepassTextures {
-    pub fn is_first_write(&self) -> bool {
-        self.first_write.fetch_and(false, Ordering::SeqCst)
+    pub fn is_first_normal_write(&self) -> bool {
+        self.first_normal_write.fetch_and(false, Ordering::SeqCst)
+    }
+
+    pub fn is_first_motion_vectors_write(&self) -> bool {
+        self.first_motion_vectors_write
+            .fetch_and(false, Ordering::SeqCst)
+    }
+
+    pub fn is_first_deferred_write(&self) -> bool {
+        self.first_deferred_write.fetch_and(false, Ordering::SeqCst)
     }
 }
 
