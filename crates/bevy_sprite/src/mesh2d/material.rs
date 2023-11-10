@@ -112,6 +112,12 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
+    #[inline]
+    fn depth_bias(&self) -> f32 {
+        0.0
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`].
     #[allow(unused_variables)]
     #[inline]
@@ -448,7 +454,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 // lowest sort key and getting closer should increase. As we have
                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                 // camera. As such we can just use mesh_z as the distance
-                sort_key: FloatOrd(mesh_z),
+                sort_key: FloatOrd(mesh_z + material2d.depth_bias),
                 // Batching is done in batch_and_prepare_render_phase
                 batch_range: 0..1,
                 dynamic_offset: None,
@@ -465,6 +471,7 @@ pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub key: T::Data,
+    pub depth_bias: f32,
 }
 
 impl<T: Material2d> PreparedMaterial2d<T> {
@@ -617,6 +624,7 @@ fn prepare_material2d<M: Material2d>(
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
         key: prepared.data,
+        depth_bias: material.depth_bias(),
     })
 }
 

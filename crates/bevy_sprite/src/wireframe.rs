@@ -210,6 +210,11 @@ impl Material2d for Wireframe2dMaterial {
         WIREFRAME_SHADER_HANDLE.into()
     }
 
+    fn depth_bias(&self) -> f32 {
+        // Make the wireframe show up in front of the base mesh.
+        1.0
+    }
+
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
