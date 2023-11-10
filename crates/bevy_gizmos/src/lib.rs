@@ -37,7 +37,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{ROQueryItem, Without},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
@@ -138,6 +138,7 @@ impl Plugin for GizmoPlugin {
 
 /// A [`Resource`] that stores configuration for gizmos.
 #[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
