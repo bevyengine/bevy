@@ -527,11 +527,16 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RunSystem::new(id));
     }
 
-    /// Runs the system by itself.
+    /// Runs the system by referring it. This method will register the system newly called with,
+    /// whether you have registered or not. Different calls with same system will share same state.
+    /// 
+    /// Specially note when running closures with capture, the captured value won't update after first call.
+    /// Examples see [`World::run_system_singleton`]. Register them each, use [`World::run_system`] instead.
+    ///
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
     ///
-    /// Calls [`World::run_system_singleton`](crate::system::World::run_system_singleton).
+    /// Calls [`World::run_system_singleton`].
     pub fn run_system_singleton<M>(&mut self, system: impl IntoSystem<(), (), M>) {
         self.queue.push(RunSystemSingleton::new(
             IntoSystem::<(), (), M>::into_system(system),

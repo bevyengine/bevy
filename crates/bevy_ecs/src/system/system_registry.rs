@@ -3,6 +3,7 @@ use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::World;
 use crate::{self as bevy_ecs};
 use bevy_ecs_macros::{Component, Resource};
+use bevy_utils::tracing::info;
 use thiserror::Error;
 
 use super::System;
@@ -189,16 +190,35 @@ impl World {
     /// # Limitations
     ///
     /// See [`World::run_system`].
+    ///
+    /// # Attention
+    ///
+    /// Please note that closure is identified by its **occurrence** no matter what it captures,
+    /// thus this code will call the first cached one rather than actual passed one.
+    ///
+    /// That means, codes like below will not work as expected.
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::World;
+    /// let mut world = World::new();
+    /// // This will creates closures regarded as one same closure
+    /// let make_system = |n| move || println!("{n}");
+    /// let _ = world.run_system_singleton(make_system(0)); // prints 0
+    /// let _ = world.run_system_singleton(make_system(1)); // prints 0 same
+    /// ```
     pub fn run_system_singleton<M, T: IntoSystem<(), (), M>>(
         &mut self,
         system: T,
     ) -> Result<(), UnregisteredSystemError> {
         // create the hashmap if it doesn't exist
-        let mut system_map = self.get_resource_or_insert_with(|| SystemMap {
-            map: bevy_utils::HashMap::default(),
-        });
+        let mut system_map = self.get_resource_or_insert_with(|| SystemMap::default());
 
         let system = IntoSystem::<(), (), M>::into_system(system);
+
+        // check captures of closure
+        if std::mem::size_of::<T>() != 0 {
+            info!(target: "run_system_singleton", "Closure with capture(s) runs, be sure that you're not relying on differently captured versions of one closure.")
+        }
         // use the system type id as the key
         let system_type_id = system.type_id();
         // take system out
@@ -234,8 +254,8 @@ impl World {
         system.apply_deferred(self);
 
         // put system back if resource still exists
-        if let Some(mut sys_map) = self.get_resource_mut::<SystemMap>() {
-            sys_map.map.insert(
+        if let Some(mut system_map) = self.get_resource_mut::<SystemMap>() {
+            system_map.map.insert(
                 system_type_id,
                 UnregisteredSystem {
                     initialized,
@@ -313,12 +333,19 @@ impl<T: System<In = (), Out = ()>> Command for RunSystemSingleton<T> {
 struct SystemMap {
     map: bevy_utils::HashMap<std::any::TypeId, UnregisteredSystem>,
 }
+impl Default for SystemMap {
+    fn default() -> Self {
+        Self {
+            map: bevy_utils::HashMap::default(),
+        }
+    }
+}
 
 /// An operation with [`World::run_system_singleton`] systems failed.
 #[derive(Debug, Error)]
 pub enum UnregisteredSystemError {
     /// A system tried to run itself recursively.
-    #[error("RunSystemAlong: System tried to run itself recursively")]
+    #[error("RunSystemSingleton: System tried to run itself recursively")]
     Recursive,
 }
 
@@ -371,27 +398,21 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(4));
 
         // Test for `run_system_singleton` with closure
-        // This is needed for closure's `TypeId` is related to its occurrence
-        fn run_count_up_changed_indirect(
-            world: &mut World,
-        ) -> Result<(), crate::system::UnregisteredSystemError> {
-            world.run_system_singleton(
-                |mut counter: ResMut<Counter>, change_detector: ResMut<ChangeDetector>| {
-                    if change_detector.is_changed() {
-                        counter.0 += 1;
-                    }
-                },
-            )
-        }
+        let run_count_up_changed_closure =
+            |mut counter: ResMut<Counter>, change_detector: ResMut<ChangeDetector>| {
+                if change_detector.is_changed() {
+                    counter.0 += 1;
+                }
+            };
 
-        let _ = run_count_up_changed_indirect(&mut world);
+        let _ = world.run_system_singleton(run_count_up_changed_closure);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
         // Nothing changed
-        let _ = run_count_up_changed_indirect(&mut world);
+        let _ = world.run_system_singleton(run_count_up_changed_closure);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
         // Making a change
         world.resource_mut::<ChangeDetector>().set_changed();
-        let _ = run_count_up_changed_indirect(&mut world);
+        let _ = world.run_system_singleton(run_count_up_changed_closure);
         assert_eq!(*world.resource::<Counter>(), Counter(6));
     }
 
@@ -426,22 +447,16 @@ mod tests {
 
         // Test for `run_system_singleton` with closure
         // This is needed for closure's `TypeId` is related to its occurrence
-        fn run_doubling_indirect(
-            world: &mut World,
-        ) -> Result<(), crate::system::UnregisteredSystemError> {
-            world.run_system_singleton(
-                |last_counter: Local<Counter>, mut counter: ResMut<Counter>| {
-                    counter.0 += last_counter.0 .0;
-                    last_counter.0 .0 = counter.0;
-                },
-            )
-        }
+        let doubling_closure = |last_counter: Local<Counter>, mut counter: ResMut<Counter>| {
+            counter.0 += last_counter.0 .0;
+            last_counter.0 .0 = counter.0;
+        };
 
-        let _ = run_doubling_indirect(&mut world);
+        let _ = world.run_system_singleton(doubling_closure);
         assert_eq!(*world.resource::<Counter>(), Counter(32));
-        let _ = run_doubling_indirect(&mut world);
+        let _ = world.run_system_singleton(doubling_closure);
         assert_eq!(*world.resource::<Counter>(), Counter(64));
-        let _ = run_doubling_indirect(&mut world);
+        let _ = world.run_system_singleton(doubling_closure);
         assert_eq!(*world.resource::<Counter>(), Counter(128));
     }
 
