@@ -17,17 +17,9 @@ use bevy_render::{
     extract_component::ExtractComponent,
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType,
-        BufferInitDescriptor, BufferUsages, CachedComputePipelineId, ComputePassDescriptor,
-        ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, SamplerBindingType,
-        SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
-        TextureViewDescriptor, TextureViewDimension,
-    },
+    render_resource::*,
     renderer::{RenderContext, RenderDevice},
-    texture::{GpuImage, Image, ImageSampler, Volume},
+    texture::{GpuImage, Image, ImageFilterMode, ImageSampler, ImageSamplerDescriptor, Volume},
 };
 use bevy_utils::default;
 use std::num::NonZeroU64;
@@ -266,11 +258,11 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
                 view_formats: &[],
             },
-            sampler_descriptor: ImageSampler::Descriptor(SamplerDescriptor {
-                label: Some("generate_environment_map_light_downsample_sampler"),
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
+            sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                label: Some("generate_environment_map_light_downsample_sampler".to_owned()),
+                mag_filter: ImageFilterMode::Linear,
+                min_filter: ImageFilterMode::Linear,
+                mipmap_filter: ImageFilterMode::Nearest,
                 ..default()
             }),
             texture_view_descriptor: Some(TextureViewDescriptor {
@@ -302,11 +294,11 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
                 view_formats: &[],
             },
-            sampler_descriptor: ImageSampler::Descriptor(SamplerDescriptor {
-                label: Some("generate_environment_map_light_filter_sampler"),
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Linear,
+            sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                label: Some("generate_environment_map_light_filter_sampler".to_owned()),
+                mag_filter: ImageFilterMode::Linear,
+                min_filter: ImageFilterMode::Linear,
+                mipmap_filter: ImageFilterMode::Linear,
                 ..default()
             }),
             texture_view_descriptor: Some(TextureViewDescriptor {
@@ -376,7 +368,10 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             images.get(&skybox.0),
             images.get(&environment_map_light.diffuse_map),
             images.get(&environment_map_light.specular_map),
-            gen_env_map.downsampled_cubemap.as_ref().and_then(|t| images.get(t)),
+            gen_env_map
+                .downsampled_cubemap
+                .as_ref()
+                .and_then(|t| images.get(t)),
         ) else {
             continue;
         };
@@ -387,180 +382,87 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             GenerateEnvironmentMapLightTextureFormat::Rgba16Float => &resources.rgba16float,
         };
 
-        let downsample1 = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_downsample1_bind_group"),
-            layout: &resources.downsample_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&skybox.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&d2array_view(0, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&diffuse_map.sampler),
-                },
-            ],
-        });
-        let downsample2 = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_downsample2_bind_group"),
-            layout: &resources.downsample_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&cube_view(0, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&d2array_view(1, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&diffuse_map.sampler),
-                },
-            ],
-        });
-        let downsample3 = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_downsample3_bind_group"),
-            layout: &resources.downsample_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&cube_view(1, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&d2array_view(2, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&diffuse_map.sampler),
-                },
-            ],
-        });
-        let downsample4 = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_downsample4_bind_group"),
-            layout: &resources.downsample_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&cube_view(2, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&d2array_view(3, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&diffuse_map.sampler),
-                },
-            ],
-        });
-        let downsample5 = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_downsample5_bind_group"),
-            layout: &resources.downsample_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&cube_view(3, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&d2array_view(4, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&diffuse_map.sampler),
-                },
-            ],
-        });
-        let downsample6 = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_downsample6_bind_group"),
-            layout: &resources.downsample_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&cube_view(4, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&d2array_view(5, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&diffuse_map.sampler),
-                },
-            ],
-        });
+        let downsample1 = render_device.create_bind_group(
+            "generate_environment_map_light_downsample1_bind_group",
+            &resources.downsample_layout,
+            &BindGroupEntries::sequential((
+                &skybox.texture_view,
+                &d2array_view(0, downsampled_cubemap),
+                &diffuse_map.sampler,
+            )),
+        );
+        let downsample2 = render_device.create_bind_group(
+            "generate_environment_map_light_downsample2_bind_group",
+            &resources.downsample_layout,
+            &BindGroupEntries::sequential((
+                &cube_view(0, downsampled_cubemap),
+                &d2array_view(1, downsampled_cubemap),
+                &diffuse_map.sampler,
+            )),
+        );
+        let downsample3 = render_device.create_bind_group(
+            "generate_environment_map_light_downsample3_bind_group",
+            &resources.downsample_layout,
+            &BindGroupEntries::sequential((
+                &cube_view(1, downsampled_cubemap),
+                &d2array_view(2, downsampled_cubemap),
+                &diffuse_map.sampler,
+            )),
+        );
+        let downsample4 = render_device.create_bind_group(
+            "generate_environment_map_light_downsample4_bind_group",
+            &resources.downsample_layout,
+            &BindGroupEntries::sequential((
+                &cube_view(2, downsampled_cubemap),
+                &d2array_view(3, downsampled_cubemap),
+                &diffuse_map.sampler,
+            )),
+        );
+        let downsample5 = render_device.create_bind_group(
+            "generate_environment_map_light_downsample5_bind_group",
+            &resources.downsample_layout,
+            &BindGroupEntries::sequential((
+                &cube_view(3, downsampled_cubemap),
+                &d2array_view(4, downsampled_cubemap),
+                &diffuse_map.sampler,
+            )),
+        );
+        let downsample6 = render_device.create_bind_group(
+            "generate_environment_map_light_downsample6_bind_group",
+            &resources.downsample_layout,
+            &BindGroupEntries::sequential((
+                &cube_view(4, downsampled_cubemap),
+                &d2array_view(5, downsampled_cubemap),
+                &diffuse_map.sampler,
+            )),
+        );
 
-        let filter = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_filter_bind_group"),
-            layout: &resources.filter_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&cube_view(0, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&d2array_view(0, specular_map)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(&d2array_view(1, specular_map)),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::TextureView(&d2array_view(2, specular_map)),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: BindingResource::TextureView(&d2array_view(3, specular_map)),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: BindingResource::TextureView(&d2array_view(4, specular_map)),
-                },
-                BindGroupEntry {
-                    binding: 6,
-                    resource: BindingResource::TextureView(&d2array_view(5, specular_map)),
-                },
-                BindGroupEntry {
-                    binding: 7,
-                    resource: BindingResource::TextureView(&d2array_view(6, specular_map)),
-                },
-                BindGroupEntry {
-                    binding: 8,
-                    resource: BindingResource::Sampler(&specular_map.sampler),
-                },
-                BindGroupEntry {
-                    binding: 9,
-                    resource: filter_coefficents.as_entire_binding(),
-                },
-            ],
-        });
+        let filter = render_device.create_bind_group(
+            "generate_environment_map_light_filter_bind_group",
+            &resources.filter_layout,
+            &BindGroupEntries::sequential((
+                &cube_view(0, downsampled_cubemap),
+                &d2array_view(0, specular_map),
+                &d2array_view(1, specular_map),
+                &d2array_view(2, specular_map),
+                &d2array_view(3, specular_map),
+                &d2array_view(4, specular_map),
+                &d2array_view(5, specular_map),
+                &d2array_view(6, specular_map),
+                &specular_map.sampler,
+                filter_coefficents.as_entire_binding(),
+            )),
+        );
 
-        let diffuse_convolution = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_diffuse_convolution_bind_group"),
-            layout: &resources.diffuse_convolution_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&skybox.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&d2array_view(0, diffuse_map)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&diffuse_map.sampler),
-                },
-            ],
-        });
+        let diffuse_convolution = render_device.create_bind_group(
+            "generate_environment_map_light_diffuse_convolution_bind_group",
+            &resources.diffuse_convolution_layout,
+            &BindGroupEntries::sequential((
+                &skybox.texture_view,
+                &d2array_view(0, diffuse_map),
+                &diffuse_map.sampler,
+            )),
+        );
 
         commands
             .entity(entity)
