@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    pipeline_keys::{PipelineKey, SystemKey},
+    pipeline_keys::{AddPipelineKey, PipelineKey, PipelineKeys},
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -16,12 +16,12 @@ use bevy_render::{
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
         FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
         SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
-        TextureSampleType, TextureViewDimension, VertexState,
+        SpecializedRenderPipelines, StencilFaceState, StencilState, TextureSampleType,
+        TextureViewDimension, VertexState,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, Image},
-    view::{ExtractedView, Msaa, MsaaKey, ViewTarget, ViewUniform, ViewUniforms},
+    texture::Image,
+    view::{MsaaKey, TextureFormatKey, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 
@@ -50,7 +50,8 @@ impl Plugin for SkyboxPlugin {
                     prepare_skybox_pipelines.in_set(RenderSet::Prepare),
                     prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
-            );
+            )
+            .register_composite_key::<SkyboxPipelineKey, With<Skybox>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -122,9 +123,8 @@ impl SkyboxPipeline {
 
 #[derive(PipelineKey, Clone, Copy, Debug)]
 struct SkyboxPipelineKey {
-    hdr: bool,
+    format: TextureFormatKey,
     msaa: MsaaKey,
-    depth_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for SkyboxPipeline {
@@ -143,7 +143,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: key.depth_format,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -168,11 +168,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.format.format(),
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
@@ -190,19 +186,14 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    msaa: Res<Msaa>,
-    views: Query<(Entity, &ExtractedView), With<Skybox>>,
+    views: Query<(Entity, &PipelineKeys), With<Skybox>>,
 ) {
-    for (entity, view) in &views {
-        let pipeline_id = pipelines.specialize(
-            &pipeline_cache,
-            &pipeline,
-            pipeline_cache.pack_key(&SkyboxPipelineKey {
-                hdr: view.hdr,
-                msaa: MsaaKey::from_params(&msaa, ()).unwrap(),
-                depth_format: CORE_3D_DEPTH_FORMAT,
-            }),
-        );
+    for (entity, keys) in &views {
+        let Some(key) = keys.get_packed_key::<SkyboxPipelineKey>() else {
+            continue;
+        };
+
+        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, key);
 
         commands
             .entity(entity)
