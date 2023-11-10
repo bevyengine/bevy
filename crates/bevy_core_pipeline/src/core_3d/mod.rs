@@ -32,7 +32,11 @@ pub const CORE_3D: &str = graph::NAME;
 // PERF: vulkan docs recommend using 24 bit depth for better performance
 pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-use std::{cmp::Reverse, ops::Range};
+use std::{
+    cmp::Reverse,
+    ops::Range,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -559,10 +563,9 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands.entity(entity).insert(ViewDepthTexture::new(
-            cached_texture.texture,
-            cached_texture.default_view,
-        ));
+        commands
+            .entity(entity)
+            .insert(ViewDepthTexture::new(cached_texture));
     }
 }
 
@@ -829,6 +832,7 @@ pub fn prepare_prepass_textures(
             deferred: cached_deferred_texture,
             deferred_lighting_pass_id: deferred_lighting_pass_id_texture,
             size,
+            first_write: Arc::new(AtomicBool::new(true)),
         });
     }
 }

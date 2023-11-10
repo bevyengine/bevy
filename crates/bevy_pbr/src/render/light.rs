@@ -20,7 +20,15 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use std::{hash::Hash, num::NonZeroU64, ops::Range};
+use std::{
+    hash::Hash,
+    num::NonZeroU64,
+    ops::Range,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use crate::*;
 
@@ -514,6 +522,13 @@ fn face_index_to_name(face_index: usize) -> &'static str {
 pub struct ShadowView {
     pub depth_texture_view: TextureView,
     pub pass_name: String,
+    first_write: Arc<AtomicBool>,
+}
+
+impl ShadowView {
+    pub fn is_first_write(&self) -> bool {
+        self.first_write.fetch_and(false, Ordering::SeqCst)
+    }
 }
 
 #[derive(Component)]
@@ -1004,6 +1019,7 @@ pub fn prepare_lights(
                                 light_index,
                                 face_index_to_name(face_index)
                             ),
+                            first_write: Arc::new(AtomicBool::new(true)),
                         },
                         ExtractedView {
                             viewport: UVec4::new(
@@ -1062,6 +1078,7 @@ pub fn prepare_lights(
                     ShadowView {
                         depth_texture_view,
                         pass_name: format!("shadow pass spot light {light_index}"),
+                        first_write: Arc::new(AtomicBool::new(true)),
                     },
                     ExtractedView {
                         viewport: UVec4::new(
@@ -1128,6 +1145,7 @@ pub fn prepare_lights(
                             depth_texture_view,
                             pass_name: format!(
                                 "shadow pass directional light {light_index} cascade {cascade_index}"),
+                            first_write: Arc::new(AtomicBool::new(true)),
                         },
                         ExtractedView {
                             viewport: UVec4::new(
@@ -1760,7 +1778,11 @@ impl Node for ShadowPassNode {
                         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                             view: &view_light.depth_texture_view,
                             depth_ops: Some(Operations {
-                                load: LoadOp::Clear(0.0),
+                                load: if view_light.is_first_write() {
+                                    LoadOp::Clear(0.0)
+                                } else {
+                                    LoadOp::Load
+                                },
                                 store: true,
                             }),
                             stencil_ops: None,

@@ -1,7 +1,6 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Opaque3d},
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};

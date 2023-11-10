@@ -27,7 +27,14 @@
 
 pub mod node;
 
-use std::{cmp::Reverse, ops::Range};
+use std::{
+    cmp::Reverse,
+    ops::Range,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
@@ -81,6 +88,13 @@ pub struct ViewPrepassTextures {
     pub deferred_lighting_pass_id: Option<CachedTexture>,
     /// The size of the textures.
     pub size: Extent3d,
+    pub(crate) first_write: Arc<AtomicBool>,
+}
+
+impl ViewPrepassTextures {
+    pub fn is_first_write(&self) -> bool {
+        self.first_write.fetch_and(false, Ordering::SeqCst)
+    }
 }
 
 /// Opaque phase of the 3D prepass.

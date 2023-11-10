@@ -353,10 +353,10 @@ pub struct ViewDepthTexture {
 }
 
 impl ViewDepthTexture {
-    pub fn new(texture: Texture, view: TextureView) -> Self {
+    pub fn new(texture: CachedTexture) -> Self {
         Self {
-            texture,
-            view,
+            texture: texture.texture,
+            view: texture.default_view,
             first_write: Arc::new(AtomicBool::new(true)),
         }
     }
