@@ -316,7 +316,7 @@ pub enum KeyCode {
     NumpadDivide,
     /// The `Equals` / `=` key.
     Equals,
-    /// The `Grave` / `Backtick` / `Grave` / `` ` `` / `~` key.
+    /// The `Grave` / `Backtick` / `Tilde` / `` ` `` / `~` key.
     Grave,
     /// The `Kana` key.
     Kana,
