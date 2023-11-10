@@ -8,6 +8,7 @@ use syn::{
 pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
     let utils_path = manifest.get_path("bevy_utils");
+    let ecs_path = manifest.get_path("bevy_ecs");
 
     let generics = &ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -238,9 +239,9 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                 .collect::<Vec<_>>();
 
             let self_value = if fields.iter().any(|f| f.ident.is_none()) {
-                quote! { Self(#(#field_names),*)}
+                quote! { Self(#(#field_names,)*)}
             } else {
-                quote! { Self { #(#field_names),* }}
+                quote! { Self { #(#field_names,)* }}
             };
 
             let field_types = fields
@@ -329,6 +330,20 @@ pub fn derive_pipeline_key(ast: syn::DeriveInput, render_path: syn::Path) -> Res
                     fn repack(source: Self::PackedParts) -> #render_path::pipeline_keys::PackedPipelineKey<Self> {
                         let #render_path::pipeline_keys::PackedPipelineKey{ packed, size, .. } = <( #(#field_types,)* ) as #render_path::pipeline_keys::KeyRepack>::repack(source);
                         #render_path::pipeline_keys::PackedPipelineKey::new(packed, size)
+                    }
+                }
+
+                impl #impl_generics #render_path::pipeline_keys::CompositeKey for #struct_name #ty_generics #where_clause {
+                    fn from_keys(keys: &#render_path::pipeline_keys::PipelineKeys) -> Option<#render_path::pipeline_keys::PackedPipelineKey<Self>> {
+                        if let Some(#render_path::pipeline_keys::PackedPipelineKey { packed, size, .. }) = <(#(#field_types,)*) as #render_path::pipeline_keys::CompositeKey>::from_keys(keys) {
+                            Some(#render_path::pipeline_keys::PackedPipelineKey::new(packed, size))
+                        } else {
+                            None
+                        }
+                    }
+
+                    fn set_config() -> #ecs_path::schedule::NodeConfigs<#utils_path::intern::Interned<dyn #ecs_path::schedule::SystemSet>> {
+                        <(#(#field_types,)*) as #render_path::pipeline_keys::CompositeKey>::set_config()
                     }
                 }
             }))

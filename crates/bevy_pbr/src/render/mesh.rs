@@ -17,7 +17,6 @@ use bevy_render::{
         NoAutomaticBatching,
     },
     mesh::*,
-    pipeline_keys::PipelineKeyType,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
@@ -454,10 +453,7 @@ impl MeshPipeline {
         &layout.bind_group_layout
     }
 
-    pub fn get_view_layout<T: PipelineKeyType>(
-        &self,
-        layout_key: PipelineKey<T>,
-    ) -> &BindGroupLayout {
+    pub fn get_view_layout(&self, view_key: &PbrViewKey) -> &BindGroupLayout {
         let mut index = MeshPipelineViewLayoutKey::empty();
         /*
                const MULTISAMPLED                = (1 << 0);
@@ -466,23 +462,21 @@ impl MeshPipeline {
                const MOTION_VECTOR_PREPASS       = (1 << 3);
                const DEFERRED_PREPASS            = (1 << 4);
         */
-        if layout_key.extract::<MsaaKey>().samples() > 1 {
+        if view_key.msaa.samples() > 1 {
             index |= MeshPipelineViewLayoutKey::MULTISAMPLED;
         }
 
-        if let Some(prepass_key) = layout_key.try_extract::<PrepassKey>() {
-            if prepass_key.depth {
-                index |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
-            }
-            if prepass_key.normal {
-                index |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
-            }
-            if prepass_key.motion_vector {
-                index |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
-            }
-            if prepass_key.deferred {
-                index |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
-            }
+        if view_key.prepass.depth {
+            index |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
+        }
+        if view_key.prepass.normal {
+            index |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
+        }
+        if view_key.prepass.motion_vector {
+            index |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
+        }
+        if view_key.prepass.deferred {
+            index |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
         }
 
         let layout = &self.view_layouts[index.bits() as usize];
@@ -693,11 +687,11 @@ pub fn setup_morph_and_skinning_defs_old_key(
     }
 }
 
-pub fn setup_morph_and_skinning_defs<T: PipelineKeyType>(
+pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
     offset: u32,
-    key: &PipelineKey<T>,
+    key: &MeshKey,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
@@ -706,7 +700,7 @@ pub fn setup_morph_and_skinning_defs<T: PipelineKeyType>(
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
-    let is_morphed = key.extract::<MeshKey>().morph_targets.0;
+    let is_morphed = key.morph_targets.0;
     match (is_skinned(layout), is_morphed) {
         (true, false) => {
             add_skin_data();
@@ -771,13 +765,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
         }
 
-        let mut bind_group_layout = vec![self.get_view_layout(key.extract::<PbrViewKey>()).clone()];
+        let mut bind_group_layout = vec![self.get_view_layout(&key.view_key).clone()];
 
         bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
             6,
-            &key,
+            &key.mesh_key,
             &mut shader_defs,
             &mut vertex_attributes,
         ));
@@ -825,11 +819,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let view_key = key.extract::<PbrViewKey>();
+        let view_key = &key.view_key;
 
         // TODO is this right?
-        if view_key.extract::<PrepassKey>().normal
-            && view_key.extract::<MsaaKey>().samples() == 1
+        if view_key.prepass.normal
+            && view_key.msaa.samples() == 1
             && key.alpha_mode == AlphaKey::Opaque
         {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
@@ -838,7 +832,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
 
-        let format = view_key.extract::<HdrKey>().format();
+        let format = view_key.texture_format.format();
 
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
@@ -903,7 +897,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 },
             }),
             multisample: MultisampleState {
-                count: view_key.extract::<MsaaKey>().samples(),
+                count: view_key.msaa.samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },

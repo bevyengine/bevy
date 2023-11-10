@@ -1,14 +1,12 @@
 use crate::{render_resource::ShaderDefVal, *};
 use bevy_app::prelude::*;
-use bevy_ecs::{prelude::*, query::*, system::*};
+use bevy_ecs::{prelude::*, query::*, schedule::NodeConfigs, system::*};
 pub use bevy_render_macros::PipelineKey;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{intern::Interned, HashMap, HashSet};
 use std::{
     any::{type_name, TypeId},
     marker::PhantomData,
 };
-
-use self::composite::CompositeKey;
 
 mod composite;
 mod packed_types;
@@ -258,6 +256,15 @@ pub trait SystemKey: PipelineKeyType + FixedSizeKey {
     ) -> Option<Self>
     where
         Self: Sized;
+}
+
+/// Build composite keys from their parts. parts must be system keys, or other composites.
+/// Automatically implemented by the derive macro for structs and tuples
+pub trait CompositeKey: PipelineKeyType {
+    fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>>
+    where
+        Self: Sized;
+    fn set_config() -> NodeConfigs<Interned<dyn bevy_ecs::schedule::SystemSet>>;
 }
 
 /// Marker trait for dynamic keys. This shouldn't be implemented directly, instead use :

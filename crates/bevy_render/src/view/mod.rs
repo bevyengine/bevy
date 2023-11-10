@@ -71,7 +71,7 @@ impl Plugin for ViewPlugin {
                     ),
                 )
                 .register_system_key::<MsaaKey, With<ExtractedView>>()
-                .register_system_key::<HdrKey, With<ExtractedView>>();
+                .register_system_key::<TextureFormatKey, With<ExtractedView>>();
         }
     }
 }
@@ -576,8 +576,8 @@ impl MsaaKey {
 
 #[derive(PipelineKeyInRenderCrate, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[custom_shader_defs]
-pub struct HdrKey(pub bool);
-impl SystemKey for HdrKey {
+pub struct TextureFormatKey(pub bool);
+impl SystemKey for TextureFormatKey {
     type Param = ();
     type Query = Read<ExtractedView>;
 
@@ -586,7 +586,7 @@ impl SystemKey for HdrKey {
     }
 }
 
-impl KeyShaderDefs for HdrKey {
+impl KeyShaderDefs for TextureFormatKey {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
         match self.0 {
             false => vec!["TONEMAP_IN_SHADER".into()],
@@ -595,7 +595,7 @@ impl KeyShaderDefs for HdrKey {
     }
 }
 
-impl HdrKey {
+impl TextureFormatKey {
     pub fn format(&self) -> TextureFormat {
         if self.0 {
             ViewTarget::TEXTURE_FORMAT_HDR

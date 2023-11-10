@@ -74,7 +74,7 @@ use bevy_render::{
     render_phase::sort_phase_system,
     render_resource::Shader,
     texture::Image,
-    view::{ExtractedView, HdrKey, MsaaKey, VisibilitySystems},
+    view::{ExtractedView, MsaaKey, TextureFormatKey, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -377,9 +377,6 @@ impl Plugin for PbrPlugin {
             .register_system_key::<ShadowFilteringMethod, With<ExtractedView>>()
             .register_system_key::<ScreenSpaceTransmissionQualityKey, With<ExtractedView>>()
             .register_composite_key::<PbrViewKey, With<ExtractedView>>();
-        // .register_dynamic_key::<PbrViewKeyDynamic, With<ExtractedView>>()
-        // .register_dynamic_key_part::<PbrViewKeyDynamic, PrepassKey>()
-        // .register_dynamic_key_part::<PbrViewKeyDynamic, HdrKey>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -395,19 +392,20 @@ impl Plugin for PbrPlugin {
     }
 }
 
-pub type PbrViewKey = (
-    HdrKey,
-    Tonemapping,
-    DebandDitherKey,
-    PrepassKey,
-    EnvironmentMapKey,
-    SsaoKey,
-    DepthClampOrthoKey,
-    MsaaKey,
-    ShadowFilteringMethod,
-    ViewProjectionKey,
-    ScreenSpaceTransmissionQualityKey,
-);
+#[derive(PipelineKey, Clone, Copy)]
+pub struct PbrViewKey {
+    pub texture_format: TextureFormatKey,
+    pub tonemapping: Tonemapping,
+    pub deband: DebandDitherKey,
+    pub prepass: PrepassKey,
+    pub environment_map: EnvironmentMapKey,
+    pub ssao: SsaoKey,
+    pub depth_clamp_ortho: DepthClampOrthoKey,
+    pub msaa: MsaaKey,
+    pub shadow_method: ShadowFilteringMethod,
+    pub projection: ViewProjectionKey,
+    pub transmission_quality: ScreenSpaceTransmissionQualityKey,
+}
 #[derive(PipelineKey)]
 #[dynamic_key]
 pub struct PbrViewKeyDynamic(KeyPrimitive);

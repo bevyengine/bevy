@@ -21,7 +21,7 @@ use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
-    view::{ExtractedView, HdrKey, MsaaKey, RenderLayers},
+    view::{ExtractedView, RenderLayers},
     Render, RenderApp, RenderSet,
 };
 
@@ -116,7 +116,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let shader_defs = key.shader_defs();
 
-        let view_key = key.extract::<PbrViewKey>();
+        let view_key = &key.view_key;
         let view_layout = self.mesh_pipeline.get_view_layout(view_key).clone();
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
@@ -132,7 +132,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: view_key.extract::<HdrKey>().format(),
+                    format: view_key.texture_format.format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -147,7 +147,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 bias: DepthBiasState::default(),
             }),
             multisample: MultisampleState {
-                count: view_key.extract::<MsaaKey>().samples(),
+                count: view_key.msaa.samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },

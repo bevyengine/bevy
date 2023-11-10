@@ -343,9 +343,8 @@ where
         key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let view_key = key.extract::<PbrViewKey>();
-        let prepass_key = view_key.extract::<PrepassKey>();
-        let mut bind_group_layouts = vec![if prepass_key.motion_vector {
+        let view_key = &key.view_key;
+        let mut bind_group_layouts = vec![if view_key.prepass.motion_vector {
             self.view_layout_motion_vectors.clone()
         } else {
             self.view_layout_no_motion_vectors.clone()
@@ -373,7 +372,7 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        let depth_clamp_ortho = *view_key.extract::<DepthClampOrthoKey>() == DepthClampOrthoKey::On;
+        let depth_clamp_ortho = view_key.depth_clamp_ortho == DepthClampOrthoKey::On;
         if depth_clamp_ortho {
             // PERF: This line forces the "prepass fragment shader" to always run in
             // common scenarios like "directional light calculation". Doing so resolves
@@ -389,7 +388,7 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
-        if prepass_key.normal || prepass_key.deferred {
+        if view_key.prepass.normal || view_key.prepass.deferred {
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
             if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
@@ -402,7 +401,7 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(6));
         }
 
-        if prepass_key.normal || prepass_key.motion_vector || prepass_key.deferred {
+        if view_key.prepass.normal || view_key.prepass.motion_vector || view_key.prepass.deferred {
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
@@ -410,7 +409,7 @@ where
             &self.mesh_layouts,
             layout,
             4,
-            &key,
+            &key.mesh_key,
             &mut shader_defs,
             &mut vertex_attributes,
         );
@@ -420,26 +419,28 @@ where
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = vec![
-            prepass_key.normal.then_some(ColorTargetState {
+            view_key.prepass.normal.then_some(ColorTargetState {
                 format: NORMAL_PREPASS_FORMAT,
                 // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                 blend: None,
                 write_mask: ColorWrites::ALL,
             }),
-            prepass_key.motion_vector.then_some(ColorTargetState {
+            view_key.prepass.motion_vector.then_some(ColorTargetState {
                 format: MOTION_VECTOR_PREPASS_FORMAT,
                 // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                 blend: None,
                 write_mask: ColorWrites::ALL,
             }),
-            (prepass_key.deferred && key.material_key.opaque_method == OpaqueMethodKey::Deferred)
+            (view_key.prepass.deferred
+                && key.material_key.opaque_method == OpaqueMethodKey::Deferred)
                 .then_some(ColorTargetState {
                     format: DEFERRED_PREPASS_FORMAT,
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
-            (prepass_key.deferred && key.material_key.opaque_method == OpaqueMethodKey::Deferred)
+            (view_key.prepass.deferred
+                && key.material_key.opaque_method == OpaqueMethodKey::Deferred)
                 .then_some(ColorTargetState {
                     format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
                     blend: None,
@@ -463,7 +464,7 @@ where
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
-            let frag_shader_handle = if prepass_key.deferred {
+            let frag_shader_handle = if view_key.prepass.deferred {
                 match self.deferred_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
                     _ => PREPASS_SHADER_HANDLE,
@@ -484,7 +485,7 @@ where
         });
 
         // Use the vertex shader from the material if present
-        let vert_shader_handle = if prepass_key.deferred {
+        let vert_shader_handle = if view_key.prepass.deferred {
             if let Some(handle) = &self.deferred_material_vertex_shader {
                 handle.clone()
             } else {
@@ -539,7 +540,7 @@ where
                 },
             }),
             multisample: MultisampleState {
-                count: view_key.extract::<MsaaKey>().samples(),
+                count: view_key.msaa.samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },

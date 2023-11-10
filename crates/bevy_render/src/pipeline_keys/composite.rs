@@ -7,13 +7,6 @@ use std::any::TypeId;
 #[allow(unused_imports)]
 use bevy_utils::all_tuples;
 
-pub trait CompositeKey: PipelineKeyType {
-    fn from_keys(keys: &PipelineKeys) -> Option<PackedPipelineKey<Self>>
-    where
-        Self: Sized;
-    fn set_config() -> NodeConfigs<Interned<dyn bevy_ecs::schedule::SystemSet>>;
-}
-
 #[allow(unused_macros)]
 macro_rules! impl_composite_key_tuples {
     ($(($K:ident, $sz:ident, $value:ident)),*) => {
