@@ -108,7 +108,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         for (material_id, material_pipeline_id, material_bind_group) in
             &meshlet_view_materials.opaque_pass
         {
-            if gpu_scene.material_used(material_id) {
+            if gpu_scene.material_present_in_scene(material_id) {
                 if let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {

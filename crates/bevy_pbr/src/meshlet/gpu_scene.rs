@@ -108,7 +108,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
             .get(&material_asset_id)
             .expect("TODO: Will this error ever occur?");
 
-        gpu_scene.material_ids_used.insert(material_id);
+        gpu_scene.material_ids_present_in_scene.insert(material_id);
         gpu_scene.instance_material_ids.get_mut().push(material_id);
     }
 }
@@ -315,7 +315,7 @@ pub struct MeshletGpuScene {
     scene_index_count: u64,
     next_material_id: u32,
     material_id_lookup: HashMap<UntypedAssetId, u32>,
-    material_ids_used: HashSet<u32>,
+    material_ids_present_in_scene: HashSet<u32>,
     instances: Vec<Entity>,
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
@@ -347,7 +347,7 @@ impl FromWorld for MeshletGpuScene {
             scene_index_count: 0,
             next_material_id: 0,
             material_id_lookup: HashMap::new(),
-            material_ids_used: HashSet::new(),
+            material_ids_present_in_scene: HashSet::new(),
             instances: Vec::new(),
             instance_uniforms: {
                 let mut buffer = StorageBuffer::default();
@@ -414,7 +414,7 @@ impl MeshletGpuScene {
         self.scene_index_count = 0;
         self.next_material_id = 0;
         self.material_id_lookup.clear();
-        self.material_ids_used.clear();
+        self.material_ids_present_in_scene.clear();
         self.instances.clear();
         self.instance_uniforms.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
@@ -483,8 +483,8 @@ impl MeshletGpuScene {
             })
     }
 
-    pub fn material_used(&self, material_id: &u32) -> bool {
-        self.material_ids_used.contains(material_id)
+    pub fn material_present_in_scene(&self, material_id: &u32) -> bool {
+        self.material_ids_present_in_scene.contains(material_id)
     }
 
     pub fn culling_bind_group_layout(&self) -> BindGroupLayout {
