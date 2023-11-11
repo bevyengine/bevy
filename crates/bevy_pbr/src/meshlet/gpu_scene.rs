@@ -49,8 +49,6 @@ pub fn extract_meshlet_meshes(
     {
         gpu_scene.queue_meshlet_mesh_upload(instance, handle, &assets, instance_index as u32);
 
-        // TODO: Unload MeshletMesh asset
-
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
         let mut flags = if not_shadow_receiver {
@@ -433,6 +431,8 @@ impl MeshletGpuScene {
     ) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
             let meshlet_mesh = assets.get(*asset_id).expect("TODO");
+
+            // TODO: Unload MeshletMesh asset
 
             let vertex_data_slice = self
                 .vertex_data
