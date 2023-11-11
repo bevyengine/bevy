@@ -122,3 +122,33 @@ fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
     return out;
 }
 #endif
+
+
+// Creates a PbrInput from the deferred gbuffer.
+fn prepass_pbr_input(position: vec4<f32>) -> PbrInput {
+    var frag_coord = vec4(position.xy, 0.0, 0.0);
+
+    let deferred_data = bevy_pbr::prepass_utils::prepass_deferred_data(position);
+
+#ifdef WEBGL2
+    frag_coord.z = unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
+#else
+#ifdef DEPTH_PREPASS
+    frag_coord.z = bevy_pbr::prepass_utils::prepass_depth(position, 0u);
+#endif
+#endif
+
+    var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);
+
+
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+    if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(position.xy), 0i).r;
+        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
+        pbr_input.occlusion = min(pbr_input.occlusion, ssao_multibounce);
+    }
+#endif // SCREEN_SPACE_AMBIENT_OCCLUSION
+
+
+    return pbr_input;
+}
