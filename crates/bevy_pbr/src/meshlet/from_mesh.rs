@@ -1,4 +1,4 @@
-use super::{asset::Meshlet, asset::MeshletBoundingSphere, asset::MeshletMesh};
+use super::asset::{Meshlet, MeshletBoundingSphere, MeshletMesh};
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
