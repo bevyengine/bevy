@@ -453,12 +453,7 @@ impl MeshletGpuScene {
 
             (
                 (meshlets_slice.start as u32 / 12)..(meshlets_slice.end as u32 / 12),
-                // TODO: Pre-compute this value during conversion and store in MeshletMesh
-                meshlet_mesh
-                    .meshlets
-                    .iter()
-                    .map(|meshlet| meshlet.vertex_count as u64)
-                    .sum(),
+                meshlet_mesh.total_meshlet_vertices,
             )
         };
 

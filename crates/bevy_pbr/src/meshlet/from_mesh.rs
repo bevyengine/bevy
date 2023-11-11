@@ -5,7 +5,7 @@ use bevy_render::{
 };
 use bevy_utils::thiserror;
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
-use std::{borrow::Cow, iter};
+use std::{borrow::Cow, iter, sync::Arc};
 
 impl MeshletMesh {
     pub fn from_mesh(mesh: &Mesh) -> Result<Self, MeshToMeshletMeshConversionError> {
@@ -36,10 +36,10 @@ impl MeshletMesh {
         )
         .expect("TODO");
 
-        let mut meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.0);
+        let mut meshopt_meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.0);
 
         // TODO: Parallelize
-        let meshlet_bounding_spheres = meshlets
+        let meshlet_bounding_spheres = meshopt_meshlets
             .iter()
             .map(|meshlet| {
                 let bounds = compute_meshlet_bounds_decoder(
@@ -58,22 +58,28 @@ impl MeshletMesh {
 
         // TODO: Meshoptimizer seems to pad the buffers themselves?
         // Buffer copies need to be in multiples of 4 bytes
-        let padding = ((meshlets.triangles.len() + 3) & !0x3) - meshlets.triangles.len();
-        meshlets.triangles.extend(iter::repeat(0).take(padding));
+        let padding =
+            ((meshopt_meshlets.triangles.len() + 3) & !0x3) - meshopt_meshlets.triangles.len();
+        meshopt_meshlets
+            .triangles
+            .extend(iter::repeat(0).take(padding));
+
+        let meshlets: Arc<[Meshlet]> = meshopt_meshlets
+            .meshlets
+            .into_iter()
+            .map(|m| Meshlet {
+                start_vertex_id: m.vertex_offset,
+                start_index_id: m.triangle_offset,
+                vertex_count: m.triangle_count * 3,
+            })
+            .collect();
 
         Ok(Self {
+            total_meshlet_vertices: meshopt_meshlets.vertices.len() as u64,
             vertex_data: vertex_buffer.into(),
-            vertex_ids: meshlets.vertices.into(),
-            indices: meshlets.triangles.into(),
-            meshlets: meshlets
-                .meshlets
-                .into_iter()
-                .map(|m| Meshlet {
-                    start_vertex_id: m.vertex_offset,
-                    start_index_id: m.triangle_offset,
-                    vertex_count: m.triangle_count * 3,
-                })
-                .collect(),
+            vertex_ids: meshopt_meshlets.vertices.into(),
+            indices: meshopt_meshlets.triangles.into(),
+            meshlets,
             meshlet_bounding_spheres,
         })
     }
