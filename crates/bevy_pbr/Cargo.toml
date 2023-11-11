@@ -37,3 +37,4 @@ naga_oil = "0.10"
 smallvec = "1.6"
 thread_local = "1.0"
 serde = { version = "1", features = ["derive", "rc"] }
+rayon = "1"

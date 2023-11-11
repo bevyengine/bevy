@@ -5,6 +5,7 @@ use bevy_render::{
 };
 use bevy_utils::thiserror;
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{borrow::Cow, iter};
 
 impl MeshletMesh {
@@ -38,21 +39,27 @@ impl MeshletMesh {
 
         let mut meshopt_meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.0);
 
-        // TODO: Parallelize
         let meshlet_bounding_spheres = meshopt_meshlets
-            .iter()
+            .meshlets
+            .par_iter()
+            .map(|meshlet| meshopt::Meshlet {
+                vertices: &meshopt_meshlets.vertices[meshlet.vertex_offset as usize
+                    ..meshlet.vertex_offset as usize + meshlet.vertex_count as usize],
+                triangles: &meshopt_meshlets.triangles[meshlet.triangle_offset as usize
+                    ..meshlet.triangle_offset as usize + meshlet.triangle_count as usize * 3],
+            })
             .map(|meshlet| {
-                let bounds = compute_meshlet_bounds_decoder(
+                compute_meshlet_bounds_decoder(
                     meshlet,
                     mesh.attribute(Mesh::ATTRIBUTE_POSITION)
                         .unwrap()
                         .as_float3()
                         .unwrap(),
-                );
-                MeshletBoundingSphere {
-                    center: bounds.center.into(),
-                    radius: bounds.radius,
-                }
+                )
+            })
+            .map(|bounds| MeshletBoundingSphere {
+                center: bounds.center.into(),
+                radius: bounds.radius,
             })
             .collect();
 
