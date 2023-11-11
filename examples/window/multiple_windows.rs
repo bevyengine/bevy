@@ -38,12 +38,33 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 
     // second window camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        camera: Camera {
-            target: RenderTarget::Window(WindowRef::Entity(second_window)),
+    let second_window_camera = commands
+        .spawn(Camera3dBundle {
+            transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            camera: Camera {
+                target: RenderTarget::Window(WindowRef::Entity(second_window)),
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    });
+        })
+        .id();
+
+    // UI defaults to the primary window, no need to explicitly set the UiCamera on the root node
+    commands
+        .spawn(NodeBundle::default())
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "First window",
+                TextStyle::default(),
+            ));
+        });
+
+    commands
+        .spawn((NodeBundle::default(), UiCamera(second_window_camera)))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Second window",
+                TextStyle::default(),
+            ));
+        });
 }

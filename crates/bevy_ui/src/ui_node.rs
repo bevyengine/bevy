@@ -1716,3 +1716,9 @@ mod tests {
 
 #[derive(Component, Clone, Debug, Reflect)]
 pub struct UiCamera(pub Entity);
+
+impl UiCamera {
+    pub fn entity(&self) -> Entity {
+        self.0
+    }
+}

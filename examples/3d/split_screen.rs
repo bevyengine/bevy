@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig, pbr::CascadeShadowConfigBuilder, prelude::*,
-    render::camera::Viewport, ui::prelude::*, window::WindowResized,
+    render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {
@@ -84,37 +84,15 @@ fn setup(
         .id();
 
     commands
-        .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    justify_content: JustifyContent::SpaceBetween,
-                    ..default()
-                },
-                ..default()
-            },
-            UiCamera(left_camera),
-        ))
+        .spawn((NodeBundle::default(), UiCamera(left_camera)))
         .with_children(|parent| {
-            parent.spawn((TextBundle::from_section("Left", TextStyle::default()),));
+            parent.spawn(TextBundle::from_section("Left", TextStyle::default()));
         });
 
     commands
-        .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    justify_content: JustifyContent::SpaceBetween,
-                    ..default()
-                },
-                ..default()
-            },
-            UiCamera(right_camera),
-        ))
+        .spawn((NodeBundle::default(), UiCamera(right_camera)))
         .with_children(|parent| {
-            parent.spawn((TextBundle::from_section("Right", TextStyle::default()),));
+            parent.spawn(TextBundle::from_section("Right", TextStyle::default()));
         });
 }
 

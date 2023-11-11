@@ -17,7 +17,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, RenderTarget};
 use bevy_transform::components::Transform;
 use bevy_utils::{default, HashMap};
-use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::Taffy;
 use thiserror::Error;
@@ -244,7 +244,6 @@ pub enum LayoutError {
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    windows: Query<(Entity, &Window)>,
     cameras: Query<(Entity, &Camera)>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
