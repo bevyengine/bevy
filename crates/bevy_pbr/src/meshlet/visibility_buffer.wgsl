@@ -35,7 +35,7 @@ fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
     clip_position.z = min(clip_position.z, 1.0);
 #endif
 
-    let visibility = (thread_id << 8u) | (index_id / 3u);
+    let visibility = (thread_id << 7u) | (index_id / 3u);
     return VertexOutput(clip_position, visibility, material_id);
 }
 

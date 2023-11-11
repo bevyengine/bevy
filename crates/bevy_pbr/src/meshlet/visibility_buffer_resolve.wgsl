@@ -68,10 +68,10 @@ struct VertexOutput {
 
 fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let vbuffer = textureLoad(meshlet_visibility_buffer, vec2<i32>(frag_coord.xy), 0).r;
-    let thread_id = vbuffer >> 8u;
+    let thread_id = vbuffer >> 7u;
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
-    let triangle_id = extractBits(vbuffer, 0u, 8u);
+    let triangle_id = extractBits(vbuffer, 0u, 7u);
     let index_ids = meshlet.start_index_id + vec3(triangle_id * 3u) + vec3(0u, 1u, 2u);
     let indices = meshlet.start_vertex_id + vec3(get_meshlet_index(index_ids.x), get_meshlet_index(index_ids.y), get_meshlet_index(index_ids.z));
     let vertex_ids = vec3(meshlet_vertex_ids[indices.x], meshlet_vertex_ids[indices.y], meshlet_vertex_ids[indices.z]);
