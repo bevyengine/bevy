@@ -115,10 +115,19 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Eq, Ord, PartialOrd)]
 pub struct Entity {
     generation: u32,
     index: u32,
+}
+
+// By not short-circuiting in comparisons, we get better codegen.
+// See <https://github.com/rust-lang/rust/issues/117800>
+impl PartialEq for Entity {
+    #[inline]
+    fn eq(&self, other: &Entity) -> bool {
+        (self.generation == other.generation) & (self.index == other.index)
+    }
 }
 
 impl Hash for Entity {
