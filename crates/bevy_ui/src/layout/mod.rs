@@ -17,7 +17,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, RenderTarget};
 use bevy_transform::components::Transform;
 use bevy_utils::{default, HashMap};
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window, WindowRef, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::Taffy;
 use thiserror::Error;
@@ -243,14 +243,14 @@ pub enum LayoutError {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
-    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
     cameras: Query<(Entity, &Camera)>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<(Entity, Option<&UiCamera>), (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>), With<Node>>,
+    style_query: Query<(Entity, Ref<Style>, Option<&UiCamera>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
@@ -259,44 +259,84 @@ pub fn ui_layout_system(
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
-    // assume one window for time being...
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let (primary_window_entity, logical_to_physical_factor, physical_size) =
-        if let Ok((entity, primary_window)) = primary_window.get_single() {
-            (
-                entity,
-                primary_window.resolution.scale_factor(),
-                Vec2::new(
-                    primary_window.resolution.physical_width() as f32,
-                    primary_window.resolution.physical_height() as f32,
-                ),
-            )
-        } else {
-            return;
-        };
+    let primary_camera = cameras
+        .iter()
+        .find_map(|(entity, camera)| match camera.target {
+            RenderTarget::Window(bevy_window::WindowRef::Primary) if camera.is_active => {
+                Some(UiCamera(entity))
+            }
+            _ => None,
+        });
+    let root_nodes_defaulted = root_node_query
+        .iter()
+        .filter_map(|(entity, camera)| camera.or(primary_camera.as_ref()).map(|c| (entity, c)));
 
-    let resized = resize_events
-        .read()
-        .any(|resized_window| resized_window.window == primary_window_entity);
+    let mut root_nodes_grouped_by_camera: HashMap<Entity, Vec<Entity>> = HashMap::new();
+    for (entity, camera) in root_nodes_defaulted {
+        root_nodes_grouped_by_camera
+            .entry(camera.0)
+            .or_insert_with(Vec::new)
+            .push(entity);
+    }
 
-    // TODO: Use camera target_scaling_factor instead
-    let scale_factor = logical_to_physical_factor * ui_scale.0;
+    for (camera_id, group) in &root_nodes_grouped_by_camera {
+        let (_, camera) = cameras.get(*camera_id).unwrap();
+        let scale_factor = camera.target_scaling_factor().unwrap_or(1.0) * ui_scale.0;
+        let inverse_target_scale_factor = 1. / scale_factor;
+        let physical_size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
+        let resized = resize_events
+            .read()
+            .any(|resized_window| match camera.target {
+                RenderTarget::Window(WindowRef::Primary) => {
+                    resized_window.window == primary_window.single()
+                }
+                RenderTarget::Window(WindowRef::Entity(window)) => resized_window.window == window,
+                _ => false,
+            });
 
-    let layout_context = LayoutContext::new(scale_factor, physical_size);
+        let layout_context = LayoutContext::new(
+            scale_factor,
+            [physical_size.x as f32, physical_size.y as f32].into(),
+        );
 
-    if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
-        scale_factor_events.clear();
-        // update all nodes
-        for (entity, style) in style_query.iter() {
-            ui_surface.upsert_node(entity, &style, &layout_context);
-        }
-    } else {
-        for (entity, style) in style_query.iter() {
-            if style.is_changed() {
+        if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
+            // update all nodes
+            for (entity, style, ui_camera) in style_query.iter() {
+                if let Some(ui_camera) = ui_camera.or(primary_camera.as_ref()) {
+                    if ui_camera.entity() != *camera_id {
+                        continue;
+                    }
+                }
                 ui_surface.upsert_node(entity, &style, &layout_context);
             }
+        } else {
+            for (entity, style, ui_camera) in style_query.iter() {
+                if let Some(ui_camera) = ui_camera.or(primary_camera.as_ref()) {
+                    if ui_camera.entity() != *camera_id {
+                        continue;
+                    }
+                }
+                if style.is_changed() {
+                    ui_surface.upsert_node(entity, &style, &layout_context);
+                }
+            }
+        }
+
+        ui_surface.set_camera_children(*camera_id, group.into_iter().cloned());
+
+        for entity in group {
+            update_uinode_geometry_recursive(
+                *entity,
+                &ui_surface,
+                &mut node_transform_query,
+                &just_children_query,
+                inverse_target_scale_factor as f32,
+                Vec2::ZERO,
+                Vec2::ZERO,
+            );
         }
     }
+    scale_factor_events.clear();
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
@@ -311,37 +351,6 @@ pub fn ui_layout_system(
 
     // clean up removed nodes
     ui_surface.remove_entities(removed_nodes.read());
-
-    // update window children (for now assuming all Nodes live in the primary window)
-
-    let primary_camera = {
-        let default_render_target = RenderTarget::default().normalize(Some(primary_window_entity));
-        cameras.iter().find_map(|(entity, camera)| {
-            if camera.is_active
-                && camera.target.normalize(Some(primary_window_entity)) == default_render_target
-            {
-                Some(UiCamera(entity))
-            } else {
-                None
-            }
-        })
-    };
-    let root_nodes_defaulted = root_node_query
-        .iter()
-        .filter_map(|(entity, camera)| camera.or(primary_camera.as_ref()).map(|c| (entity, c)));
-
-    let mut root_nodes_grouped_by_camera: HashMap<Entity, Vec<Entity>> = HashMap::new();
-
-    for (entity, camera) in root_nodes_defaulted {
-        root_nodes_grouped_by_camera
-            .entry(camera.0)
-            .or_insert_with(Vec::new)
-            .push(entity);
-    }
-
-    for (camera_id, group) in &root_nodes_grouped_by_camera {
-        ui_surface.set_camera_children(*camera_id, group.into_iter().cloned());
-    }
 
     // update and remove children
     for entity in removed_children.read() {
@@ -359,8 +368,6 @@ pub fn ui_layout_system(
             ui_surface.compute_camera_layout(entity, rect.size());
         }
     }
-
-    let inverse_target_scale_factor = 1. / scale_factor;
 
     fn update_uinode_geometry_recursive(
         entity: Entity,
@@ -408,18 +415,6 @@ pub fn ui_layout_system(
                 }
             }
         }
-    }
-
-    for (entity, _camera) in root_node_query.iter() {
-        update_uinode_geometry_recursive(
-            entity,
-            &ui_surface,
-            &mut node_transform_query,
-            &just_children_query,
-            inverse_target_scale_factor as f32,
-            Vec2::ZERO,
-            Vec2::ZERO,
-        );
     }
 }
 
