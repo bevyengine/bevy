@@ -259,30 +259,24 @@ impl AssetLoader for ShaderLoader {
     ) -> BoxedFuture<'a, Result<Shader, Self::Error>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
-
+            let path = load_context.asset_path().to_string();
+            // On windows, the path will inconsistently use \ or /.
+            // TODO: remove this once AssetPath forces cross-platform "slash" consistency
+            let path = path.replace("\\", "/");
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
             let mut shader = match ext {
                 "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
-                "wgsl" => Shader::from_wgsl(
-                    String::from_utf8(bytes)?,
-                    load_context.path().to_string_lossy(),
-                ),
-                "vert" => Shader::from_glsl(
-                    String::from_utf8(bytes)?,
-                    naga::ShaderStage::Vertex,
-                    load_context.path().to_string_lossy(),
-                ),
-                "frag" => Shader::from_glsl(
-                    String::from_utf8(bytes)?,
-                    naga::ShaderStage::Fragment,
-                    load_context.path().to_string_lossy(),
-                ),
-                "comp" => Shader::from_glsl(
-                    String::from_utf8(bytes)?,
-                    naga::ShaderStage::Compute,
-                    load_context.path().to_string_lossy(),
-                ),
+                "wgsl" => Shader::from_wgsl(String::from_utf8(bytes)?, path),
+                "vert" => {
+                    Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Vertex, path)
+                }
+                "frag" => {
+                    Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Fragment, path)
+                }
+                "comp" => {
+                    Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Compute, path)
+                }
                 _ => panic!("unhandled extension: {ext}"),
             };
 
