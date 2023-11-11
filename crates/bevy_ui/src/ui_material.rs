@@ -1,5 +1,9 @@
 use bevy_asset::Asset;
-use bevy_render::{render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef}, pipeline_keys::PipelineKey, view::TextureFormatKey};
+use bevy_render::{
+    pipeline_keys::PipelineKey,
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+    view::TextureFormatKey,
+};
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPipeline) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -101,7 +105,11 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 
     #[allow(unused_variables)]
     #[inline]
-    fn specialize(descriptor: &mut RenderPipelineDescriptor, key: PipelineKey<UiMaterialKey<Self>>) {}
+    fn specialize(
+        descriptor: &mut RenderPipelineDescriptor,
+        key: PipelineKey<UiMaterialKey<Self>>,
+    ) {
+    }
 }
 
 #[derive(PipelineKey)]

@@ -15,13 +15,14 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
+    pipeline_keys::{KeyRepack, PackedPipelineKey, PipelineKey, PipelineKeys},
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImage, Image},
     view::*,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet, pipeline_keys::{PipelineKey, PipelineKeys, PackedPipelineKey, KeyRepack},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{FloatOrd, HashMap, HashSet};
@@ -735,17 +736,14 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
         let material = render_materials.get(&extracted_uinode.material).unwrap();
         for (mut transparent_phase, keys) in &mut views {
-            let Some(texture_format) = keys.get_packed_key() else { 
+            let Some(texture_format) = keys.get_packed_key() else {
                 continue;
             };
 
             let composite_key = UiMaterialKey::repack((texture_format, material.packed_key));
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_material_pipeline,
-                composite_key,
-            );
+            let pipeline =
+                pipelines.specialize(&pipeline_cache, &ui_material_pipeline, composite_key);
             transparent_phase
                 .items
                 .reserve(extracted_uinodes.uinodes.len());
