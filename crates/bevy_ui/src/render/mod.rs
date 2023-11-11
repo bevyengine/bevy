@@ -735,12 +735,12 @@ pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(Entity, &ExtractedView, &mut RenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
-    for (view, mut transparent_phase) in &mut views {
+    for (view_entity, view, mut transparent_phase) in &mut views {
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
@@ -751,6 +751,9 @@ pub fn queue_uinodes(
             .reserve(extracted_uinodes.uinodes.len());
 
         for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
+            if view_entity != extracted_uinode.camera_entity {
+                continue;
+            }
             transparent_phase.add(TransparentUi {
                 draw_function,
                 pipeline,
@@ -825,6 +828,8 @@ pub fn prepare_uinodes(
                         || (batch_image_handle != AssetId::default()
                             && extracted_uinode.image != AssetId::default()
                             && batch_image_handle != extracted_uinode.image)
+                        || existing_batch.as_ref().map(|(_, b)| b.camera)
+                            != Some(extracted_uinode.camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                             batch_item_index = item_index;
