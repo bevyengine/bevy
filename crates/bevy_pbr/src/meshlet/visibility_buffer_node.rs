@@ -57,6 +57,10 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         }
         .into();
 
+        render_context
+            .command_encoder()
+            .push_debug_group(draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS);
+
         {
             let command_encoder = render_context.command_encoder();
             let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -73,7 +77,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
 
         {
             let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some(draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS),
+                label: Some("meshlet_visibility_buffer_render_pass"),
                 color_attachments: &[
                     Some(RenderPassColorAttachment {
                         view: &meshlet_view_resources.visibility_buffer.default_view,
@@ -145,6 +149,8 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
             copy_pass.set_render_pipeline(copy_material_depth_pipeline);
             copy_pass.draw(0..3, 0..1);
         }
+
+        render_context.command_encoder().pop_debug_group();
 
         Ok(())
     }
