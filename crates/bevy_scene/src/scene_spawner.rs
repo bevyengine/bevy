@@ -8,7 +8,7 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
-use bevy_utils::{tracing::error, HashMap, HashSet};
+use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -25,7 +25,7 @@ pub struct SceneInstanceReady {
 #[derive(Debug)]
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
-    pub entity_map: HashMap<Entity, Entity>,
+    pub entity_map: EntityHashMap<Entity, Entity>,
 }
 
 /// Unique id identifying a scene instance.
@@ -199,7 +199,7 @@ impl SceneSpawner {
         world: &mut World,
         id: impl Into<AssetId<DynamicScene>>,
     ) -> Result<(), SceneSpawnError> {
-        let mut entity_map = HashMap::default();
+        let mut entity_map = EntityHashMap::default();
         let id = id.into();
         Self::spawn_dynamic_internal(world, id, &mut entity_map)?;
         let instance_id = InstanceId::new();
@@ -213,7 +213,7 @@ impl SceneSpawner {
     fn spawn_dynamic_internal(
         world: &mut World,
         id: AssetId<DynamicScene>,
-        entity_map: &mut HashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity, Entity>,
     ) -> Result<(), SceneSpawnError> {
         world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
             let scene = scenes
@@ -297,7 +297,7 @@ impl SceneSpawner {
         let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
         for (id, instance_id) in scenes_to_spawn {
-            let mut entity_map = HashMap::default();
+            let mut entity_map = EntityHashMap::default();
 
             match Self::spawn_dynamic_internal(world, id, &mut entity_map) {
                 Ok(_) => {

@@ -1,4 +1,4 @@
-//! This example illustrates the [`UIScale`] resource from `bevy_ui`.
+//! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
 use bevy::{prelude::*, text::TextSettings, utils::Duration};
 

@@ -1,5 +1,6 @@
 mod pipeline;
 mod render_pass;
+mod ui_material_pipeline;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
@@ -9,6 +10,7 @@ use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
+pub use ui_material_pipeline::*;
 
 use crate::Outline;
 use crate::{
@@ -253,7 +255,7 @@ pub fn extract_atlas_uinodes(
     }
 }
 
-fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
+pub(crate) fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
         Val::Auto => 0.,
         Val::Px(px) => px.max(0.),
@@ -698,14 +700,14 @@ impl Default for UiMeta {
     }
 }
 
-const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
+pub(crate) const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
     Vec3::new(-0.5, -0.5, 0.0),
     Vec3::new(0.5, -0.5, 0.0),
     Vec3::new(0.5, 0.5, 0.0),
     Vec3::new(-0.5, 0.5, 0.0),
 ];
 
-const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
+pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component)]
 pub struct UiBatch {

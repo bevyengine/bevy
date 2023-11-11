@@ -97,7 +97,7 @@ fn setup(
         ..default()
     });
 
-    let mut forward_mat: StandardMaterial = Color::GRAY.into();
+    let mut forward_mat: StandardMaterial = Color::rgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 

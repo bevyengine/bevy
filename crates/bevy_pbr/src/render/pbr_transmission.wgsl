@@ -60,10 +60,12 @@ fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coor
     );
 
 #ifdef DEPTH_PREPASS
+#ifndef WEBGL2
     // Use depth prepass data to reject values that are in front of the current fragment
     if prepass_utils::prepass_depth(vec4<f32>(offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
         background_color.a = 0.0;
     }
+#endif
 #endif
 
 #ifdef TONEMAP_IN_SHADER
@@ -157,10 +159,12 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         );
 
 #ifdef DEPTH_PREPASS
+#ifndef WEBGL2
         // Use depth prepass data to reject values that are in front of the current fragment
         if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
             sample = vec4<f32>(0.0);
         }
+#endif
 #endif
 
         // As blur intensity grows higher, gradually limit *very bright* color RGB values towards a
