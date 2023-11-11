@@ -8,7 +8,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::Has,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut, Resource, SystemState},
     world::{FromWorld, World},
 };
 use bevy_render::{
@@ -16,7 +16,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, ViewUniforms},
-    Extract,
+    MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -26,7 +26,11 @@ use std::{
 };
 
 pub fn extract_meshlet_meshes(
-    query: Extract<
+    // TODO: Replace main_world when Extract<ResMut<Assets<MeshletMesh>>> is possible
+    mut main_world: ResMut<MainWorld>,
+    mut gpu_scene: ResMut<MeshletGpuScene>,
+) {
+    let mut system_state: SystemState<(
         Query<(
             Entity,
             &Handle<MeshletMesh>,
@@ -35,10 +39,10 @@ pub fn extract_meshlet_meshes(
             Has<NotShadowReceiver>,
             Has<NotShadowCaster>,
         )>,
-    >,
-    assets: Extract<Res<Assets<MeshletMesh>>>,
-    mut gpu_scene: ResMut<MeshletGpuScene>,
-) {
+        ResMut<Assets<MeshletMesh>>,
+    )> = SystemState::new(&mut main_world);
+    let (query, mut assets) = system_state.get_mut(&mut main_world);
+
     gpu_scene.reset();
 
     // TODO: Handle not_shadow_caster
@@ -47,7 +51,7 @@ pub fn extract_meshlet_meshes(
         (instance, handle, transform, previous_transform, not_shadow_receiver, _not_shadow_caster),
     ) in query.iter().enumerate()
     {
-        gpu_scene.queue_meshlet_mesh_upload(instance, handle, &assets, instance_index as u32);
+        gpu_scene.queue_meshlet_mesh_upload(instance, handle, &mut assets, instance_index as u32);
 
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
@@ -426,13 +430,13 @@ impl MeshletGpuScene {
         &mut self,
         instance: Entity,
         handle: &Handle<MeshletMesh>,
-        assets: &Assets<MeshletMesh>,
+        assets: &mut Assets<MeshletMesh>,
         instance_index: u32,
     ) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
-            let meshlet_mesh = assets.get(*asset_id).expect("TODO");
-
-            // TODO: Unload MeshletMesh asset
+            let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
+                "MeshletMesh asset already unloaded but not registered with MeshletGpuScene",
+            );
 
             let vertex_data_slice = self
                 .vertex_data
