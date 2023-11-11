@@ -143,7 +143,7 @@ pub fn prepare_meshlet_per_frame_resources(
     // TODO: Should draw_index_buffer be per-view, or a single resource shared between all views?
     let visibility_buffer_draw_index_buffer = render_device.create_buffer(&BufferDescriptor {
         label: Some("meshlet_visibility_buffer_draw_index_buffer"),
-        size: 4 * gpu_scene.scene_vertex_count,
+        size: 4 * gpu_scene.scene_index_count,
         usage: BufferUsages::STORAGE | BufferUsages::INDEX,
         mapped_at_creation: false,
     });
@@ -314,7 +314,7 @@ pub struct MeshletGpuScene {
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, (Range<u32>, u64)>,
 
     scene_meshlet_count: u32,
-    scene_vertex_count: u64,
+    scene_index_count: u64,
     next_material_id: u32,
     material_id_lookup: HashMap<UntypedAssetId, u32>,
     material_ids_used: HashSet<u32>,
@@ -346,7 +346,7 @@ impl FromWorld for MeshletGpuScene {
             meshlet_mesh_slices: HashMap::new(),
 
             scene_meshlet_count: 0,
-            scene_vertex_count: 0,
+            scene_index_count: 0,
             next_material_id: 0,
             material_id_lookup: HashMap::new(),
             material_ids_used: HashSet::new(),
@@ -413,7 +413,7 @@ impl MeshletGpuScene {
     fn reset(&mut self) {
         // TODO: Shrink capacity if saturation is low
         self.scene_meshlet_count = 0;
-        self.scene_vertex_count = 0;
+        self.scene_index_count = 0;
         self.next_material_id = 0;
         self.material_id_lookup.clear();
         self.material_ids_used.clear();
@@ -453,18 +453,18 @@ impl MeshletGpuScene {
 
             (
                 (meshlets_slice.start as u32 / 12)..(meshlets_slice.end as u32 / 12),
-                meshlet_mesh.total_meshlet_vertices,
+                meshlet_mesh.total_meshlet_indices,
             )
         };
 
-        let (meshlets_slice, vertex_count) = self
+        let (meshlets_slice, index_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
             .clone();
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
-        self.scene_vertex_count += vertex_count;
+        self.scene_index_count += index_count;
         self.instances.push(instance);
 
         for meshlet_index in meshlets_slice {

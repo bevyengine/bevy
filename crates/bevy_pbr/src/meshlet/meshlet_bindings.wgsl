@@ -29,7 +29,7 @@ fn unpack_meshlet_vertex(packed: PackedMeshletVertex) -> MeshletVertex {
 struct Meshlet {
     start_vertex_id: u32,
     start_index_id: u32,
-    vertex_count: u32,
+    index_count: u32,
 }
 
 struct MeshletBoundingSphere {

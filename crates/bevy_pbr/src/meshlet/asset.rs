@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
-    pub total_meshlet_vertices: u64,
+    pub total_meshlet_indices: u64,
     pub vertex_data: Arc<[u8]>,
     pub vertex_ids: Arc<[u32]>,
     pub indices: Arc<[u8]>,
@@ -20,7 +20,7 @@ pub struct MeshletMesh {
 pub struct Meshlet {
     pub start_vertex_id: u32,
     pub start_index_id: u32,
-    pub vertex_count: u32,
+    pub index_count: u32,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]

@@ -45,7 +45,7 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
                 bytemuck::cast::<_, [u8; 12]>(Meshlet {
                     start_vertex_id: meshlet.start_vertex_id + vertex_offset,
                     start_index_id: meshlet.start_index_id + index_offset,
-                    vertex_count: meshlet.vertex_count,
+                    index_count: meshlet.index_count,
                 })
             })
             .collect()
