@@ -10,7 +10,7 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
-#[derive(Bundle, Clone, Default)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
     pub transform: Transform,
@@ -26,7 +26,7 @@ pub struct SpriteBundle {
 
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
 /// to as a `TextureAtlas`)
-#[derive(Bundle, Clone, Default)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct SpriteSheetBundle {
     /// The specific sprite from the texture atlas to be drawn, defaulting to the sprite at index 0.
     pub sprite: TextureAtlasSprite,
