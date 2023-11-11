@@ -1,5 +1,5 @@
 use super::{persistent_buffer::PersistentGpuBufferable, Meshlet, MeshletBoundingSphere};
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 impl PersistentGpuBufferable for Arc<[u8]> {
     type ExtraData = ();
@@ -8,8 +8,8 @@ impl PersistentGpuBufferable for Arc<[u8]> {
         self.len() as u64
     }
 
-    fn as_bytes_le(&self, _: Self::ExtraData) -> Cow<'_, [u8]> {
-        Cow::Borrowed(self)
+    fn write_bytes_le(&self, _: Self::ExtraData, buffer: &mut Vec<u8>) {
+        buffer.extend_from_slice(self);
     }
 }
 
@@ -20,12 +20,13 @@ impl PersistentGpuBufferable for Arc<[u32]> {
         self.len() as u64 * 4
     }
 
-    fn as_bytes_le(&self, offset: Self::ExtraData) -> Cow<'_, [u8]> {
+    fn write_bytes_le(&self, offset: Self::ExtraData, buffer: &mut Vec<u8>) {
         let offset = offset as u32 / 48;
 
-        self.iter()
-            .flat_map(|index| (*index + offset).to_le_bytes())
-            .collect()
+        for index in self.iter() {
+            let bytes = (*index + offset).to_le_bytes();
+            buffer.extend_from_slice(&bytes);
+        }
     }
 }
 
@@ -36,19 +37,18 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
         self.len() as u64 * 12
     }
 
-    fn as_bytes_le(&self, (vertex_offset, index_offset): Self::ExtraData) -> Cow<'_, [u8]> {
+    fn write_bytes_le(&self, (vertex_offset, index_offset): Self::ExtraData, buffer: &mut Vec<u8>) {
         let vertex_offset = vertex_offset as u32 / 4;
         let index_offset = index_offset as u32;
 
-        self.iter()
-            .flat_map(|meshlet| {
-                bytemuck::cast::<_, [u8; 12]>(Meshlet {
-                    start_vertex_id: meshlet.start_vertex_id + vertex_offset,
-                    start_index_id: meshlet.start_index_id + index_offset,
-                    index_count: meshlet.index_count,
-                })
-            })
-            .collect()
+        for meshlet in self.iter() {
+            let bytes = bytemuck::cast::<_, [u8; 12]>(Meshlet {
+                start_vertex_id: meshlet.start_vertex_id + vertex_offset,
+                start_index_id: meshlet.start_index_id + index_offset,
+                index_count: meshlet.index_count,
+            });
+            buffer.extend_from_slice(&bytes);
+        }
     }
 }
 
@@ -59,7 +59,7 @@ impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
         self.len() as u64 * 16
     }
 
-    fn as_bytes_le(&self, _: Self::ExtraData) -> Cow<'_, [u8]> {
-        Cow::Borrowed(bytemuck::cast_slice(self))
+    fn write_bytes_le(&self, _: Self::ExtraData, buffer: &mut Vec<u8>) {
+        buffer.extend_from_slice(bytemuck::cast_slice(self));
     }
 }
