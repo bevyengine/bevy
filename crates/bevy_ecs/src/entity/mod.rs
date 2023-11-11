@@ -917,4 +917,27 @@ mod tests {
         assert_eq!(next_entity.index(), entity.index());
         assert!(next_entity.generation > entity.generation + GENERATIONS);
     }
+
+    #[test]
+    fn entity_comparison() {
+        assert!(Entity::new(123, 456) == Entity::new(123, 456));
+        assert!(Entity::new(123, 789) != Entity::new(123, 456));
+        assert!(Entity::new(123, 456) != Entity::new(123, 789));
+        assert!(Entity::new(123, 456) != Entity::new(456, 123));
+
+        // ordering is by generation then by index
+
+        assert!(Entity::new(123, 456) >= Entity::new(123, 456));
+        assert!(Entity::new(123, 456) <= Entity::new(123, 456));
+        assert!(!(Entity::new(123, 456) < Entity::new(123, 456)));
+        assert!(!(Entity::new(123, 456) > Entity::new(123, 456)));
+
+        assert!(Entity::new(9, 1) < Entity::new(1, 9));
+        assert!(Entity::new(1, 9) > Entity::new(9, 1));
+
+        assert!(Entity::new(1, 1) < Entity::new(2, 1));
+        assert!(Entity::new(1, 1) <= Entity::new(2, 1));
+        assert!(Entity::new(2, 2) > Entity::new(1, 2));
+        assert!(Entity::new(2, 2) >= Entity::new(1, 2));
+    }
 }
