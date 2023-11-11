@@ -289,7 +289,7 @@ pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     primary_window_camera: Res<PrimaryWindowCamera>,
-    camera_query: Query<&Camera>,
+    camera_query: Extract<Query<&Camera>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<
@@ -578,7 +578,7 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
-#[derive(Resource, Deref, Default)]
+#[derive(Resource, Deref, Default, Debug)]
 pub struct PrimaryWindowCamera(pub Option<Entity>);
 
 impl From<PrimaryWindowCamera> for Option<Entity> {
@@ -663,7 +663,7 @@ pub fn extract_text_uinodes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     primary_window_camera: Res<PrimaryWindowCamera>,
-    camera_query: Query<&Camera>,
+    camera_query: Extract<Query<&Camera>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<

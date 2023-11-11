@@ -26,6 +26,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
+    WindowScaleFactorChanged,
 };
 use std::{borrow::Cow, ops::Range};
 use wgpu::{BlendState, LoadOp, TextureFormat};
@@ -572,6 +573,7 @@ impl NormalizedRenderTarget {
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
+    mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
     mut image_asset_events: EventReader<AssetEvent<Image>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
@@ -584,6 +586,11 @@ pub fn camera_system<T: CameraProjection + Component>(
     let mut changed_window_ids = HashSet::new();
     changed_window_ids.extend(window_created_events.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
+    changed_window_ids.extend(
+        window_scale_factor_changed_events
+            .read()
+            .map(|event| event.window),
+    );
 
     let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
         .read()
