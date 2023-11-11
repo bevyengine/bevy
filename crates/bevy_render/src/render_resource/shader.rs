@@ -261,7 +261,7 @@ impl AssetLoader for ShaderLoader {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
             let path = load_context.asset_path().to_string();
             // On windows, the path will inconsistently use \ or /.
-            // TODO: remove this once AssetPath forces cross-platform "slash" consistency
+            // TODO: remove this once AssetPath forces cross-platform "slash" consistency. See #10511
             let path = path.replace("\\", "/");
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
