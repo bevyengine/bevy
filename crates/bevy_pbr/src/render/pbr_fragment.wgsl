@@ -17,6 +17,8 @@
 
 #ifdef PREPASS_PIPELINE
 #import bevy_pbr::prepass_io::VertexOutput
+#else ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
 #else
 #import bevy_pbr::forward_io::VertexOutput
 #endif
@@ -92,7 +94,11 @@ fn pbr_input_from_standard_material(
 #endif // VERTEX_TANGENTS
 
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+        pbr_input.material.base_color *= textureSampleGrad(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, in.ddx_uv, in.ddy_uv);
+#else
         pbr_input.material.base_color *= textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
+#endif
     }
 #endif // VERTEX_UVS
 
@@ -111,7 +117,11 @@ fn pbr_input_from_standard_material(
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            emissive = vec4<f32>(emissive.rgb * textureSampleGrad(pbr_bindings::emissive_texture, pbr_bindings::emissive_sampler, uv, in.ddx_uv, in.ddy_uv).rgb, 1.0);
+#else
             emissive = vec4<f32>(emissive.rgb * textureSampleBias(pbr_bindings::emissive_texture, pbr_bindings::emissive_sampler, uv, view.mip_bias).rgb, 1.0);
+#endif
         }
 #endif
         pbr_input.material.emissive = emissive;
@@ -121,7 +131,11 @@ fn pbr_input_from_standard_material(
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            let metallic_roughness = textureSampleGrad(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, uv, in.ddx_uv, in.ddy_uv);
+#else
             let metallic_roughness = textureSampleBias(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, uv, view.mip_bias);
+#endif
             // Sampling from GLTF standard channels for now
             metallic *= metallic_roughness.b;
             perceptual_roughness *= metallic_roughness.g;
@@ -133,7 +147,11 @@ fn pbr_input_from_standard_material(
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
-            specular_transmission *= textureSample(pbr_bindings::specular_transmission_texture, pbr_bindings::specular_transmission_sampler, uv).r;
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            specular_transmission *= textureSampleGrad(pbr_bindings::specular_transmission_texture, pbr_bindings::specular_transmission_sampler, uv, in.ddx_uv, in.ddy_uv).r;
+#else
+            specular_transmission *= textureSampleBias(pbr_bindings::specular_transmission_texture, pbr_bindings::specular_transmission_sampler, uv, view.mip_bias).r;
+#endif
         }
 #endif
         pbr_input.material.specular_transmission = specular_transmission;
@@ -141,19 +159,29 @@ fn pbr_input_from_standard_material(
         var thickness: f32 = pbr_bindings::material.thickness;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
-            thickness *= textureSample(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv).g;
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            thickness *= textureSampleGrad(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv, in.ddx_uv, in.ddy_uv).g;
+#else
+            thickness *= textureSampleBias(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv, view.mip_bias).g;
+#endif
         }
 #endif
+#ifndef MESHLET_MESH_MATERIAL_PASS // TODO
         // scale thickness, accounting for non-uniform scaling (e.g. a “squished” mesh)
         thickness *= length(
             (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
         );
+#endif
         pbr_input.material.thickness = thickness;
 
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
-            diffuse_transmission *= textureSample(pbr_bindings::diffuse_transmission_texture, pbr_bindings::diffuse_transmission_sampler, uv).a;
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            diffuse_transmission *= textureSampleGrad(pbr_bindings::diffuse_transmission_texture, pbr_bindings::diffuse_transmission_sampler, uv, in.ddx_uv, in.ddy_uv).a;
+#else
+            diffuse_transmission *= textureSampleBias(pbr_bindings::diffuse_transmission_texture, pbr_bindings::diffuse_transmission_sampler, uv, view.mip_bias).a;
+#endif
         }
 #endif
         pbr_input.material.diffuse_transmission = diffuse_transmission;
@@ -163,7 +191,11 @@ fn pbr_input_from_standard_material(
         var occlusion: vec3<f32> = vec3(1.0);
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            occlusion = vec3(textureSampleGrad(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, in.ddx_uv, in.ddy_uv).r);
+#else
             occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
+#endif
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
@@ -189,6 +221,10 @@ fn pbr_input_from_standard_material(
             uv,
 #endif
             view.mip_bias,
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            in.ddx_uv,
+            in.ddy_uv,
+#endif
         );
 #endif
     }

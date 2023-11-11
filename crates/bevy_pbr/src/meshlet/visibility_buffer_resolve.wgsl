@@ -55,7 +55,7 @@ fn compute_partial_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_u
 }
 
 struct VertexOutput {
-    frag_coord: vec4<f32>,
+    position: vec4<f32>,
     world_position: vec4<f32>,
     world_normal: vec3<f32>,
     uv: vec2<f32>,

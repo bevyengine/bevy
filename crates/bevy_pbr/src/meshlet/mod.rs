@@ -2,15 +2,15 @@ mod asset;
 mod from_mesh;
 mod gpu_scene;
 mod material_draw_nodes;
+mod material_draw_prepare;
 mod persistent_buffer;
 mod persistent_buffer_impls;
 mod pipelines;
-mod prepare_materials;
 mod visibility_buffer_node;
 
 pub(crate) use self::{
     gpu_scene::{queue_material_meshlet_meshes, MeshletGpuScene},
-    prepare_materials::prepare_material_meshlet_meshes,
+    material_draw_prepare::prepare_material_meshlet_meshes,
 };
 
 pub use self::{

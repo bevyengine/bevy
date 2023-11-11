@@ -788,6 +788,10 @@ impl Material for StandardMaterial {
         PBR_SHADER_HANDLE.into()
     }
 
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.into()
+    }
+
     #[inline]
     fn alpha_mode(&self) -> AlphaMode {
         self.alpha_mode

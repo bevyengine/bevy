@@ -1,6 +1,6 @@
 use super::{
     gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
-    prepare_materials::MeshletViewMaterials,
+    material_draw_prepare::MeshletViewMaterials,
     MeshletGpuScene,
 };
 use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};

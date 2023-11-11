@@ -447,7 +447,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineK
     }
 }
 
-const fn screen_space_specular_transmission_pipeline_key(
+pub const fn screen_space_specular_transmission_pipeline_key(
     screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
 ) -> MeshPipelineKey {
     match screen_space_transmissive_blur_quality {
@@ -488,7 +488,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
-        Option<&ScreenSpaceAmbientOcclusionSettings>,
+        Has<ScreenSpaceAmbientOcclusionSettings>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -496,7 +496,7 @@ pub fn queue_material_meshes<M: Material>(
             Has<DeferredPrepass>,
         ),
         Option<&Camera3d>,
-        Option<&TemporalJitter>,
+        Has<TemporalJitter>,
         Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
@@ -535,20 +535,17 @@ pub fn queue_material_meshes<M: Material>(
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
-
         if depth_prepass {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
-
         if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
-
         if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        if temporal_jitter.is_some() {
+        if temporal_jitter {
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
@@ -586,7 +583,7 @@ pub fn queue_material_meshes<M: Material>(
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }
-        if ssao.is_some() {
+        if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
