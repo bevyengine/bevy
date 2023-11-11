@@ -54,7 +54,7 @@ use bevy_render::{extract_component::ExtractComponentPlugin, texture::Image, Ren
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::update_clipping_system;
+use update::{update_clipping_system, update_ui_camera_system};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -185,6 +185,7 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
+                update_ui_camera_system.in_set(UiSystem::Layout),
                 resolve_outlines_system
                     .in_set(UiSystem::Outlines)
                     .after(UiSystem::Layout),

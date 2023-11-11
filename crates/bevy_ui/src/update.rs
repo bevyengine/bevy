@@ -1,11 +1,11 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, OverflowAxis, Style};
+use crate::{CalculatedClip, OverflowAxis, Style, UiCamera};
 
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
-    query::{With, Without},
+    query::{Changed, With, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -89,6 +89,37 @@ fn update_clipping(
     if let Ok(children) = children_query.get(entity) {
         for &child in children {
             update_clipping(commands, children_query, node_query, child, children_clip);
+        }
+    }
+}
+
+pub fn update_ui_camera_system(
+    mut commands: Commands,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>, Changed<UiCamera>)>,
+    children_query: Query<&Children>,
+    node_query: Query<Option<&UiCamera>, With<Node>>,
+) {
+    for root_node in &root_node_query {
+        update_ui_camera(&mut commands, &children_query, &node_query, root_node, None);
+    }
+}
+
+fn update_ui_camera(
+    commands: &mut Commands,
+    children_query: &Query<&Children>,
+    node_query: &Query<Option<&UiCamera>, With<Node>>,
+    entity: Entity,
+    maybe_inherited_camera: Option<&UiCamera>,
+) {
+    let current_ui_camera = node_query.get(entity).unwrap();
+    let Some(ui_camera) = maybe_inherited_camera.or(current_ui_camera) else {
+        return;
+    };
+
+    if let Ok(children) = children_query.get(entity) {
+        for &child in children {
+            commands.entity(child).insert(ui_camera.clone());
+            update_ui_camera(commands, children_query, node_query, child, Some(ui_camera));
         }
     }
 }

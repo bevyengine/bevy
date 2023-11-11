@@ -97,11 +97,7 @@ fn setup(
             UiCamera(left_camera),
         ))
         .with_children(|parent| {
-            parent.spawn((
-                TextBundle::from_section("Left", TextStyle::default()),
-                // TODO: replace with UiCamera propogation system
-                UiCamera(left_camera),
-            ));
+            parent.spawn((TextBundle::from_section("Left", TextStyle::default()),));
         });
 
     commands
@@ -118,11 +114,7 @@ fn setup(
             UiCamera(right_camera),
         ))
         .with_children(|parent| {
-            parent.spawn((
-                TextBundle::from_section("Right", TextStyle::default()),
-                // TODO: replace with UiCamera propogation system
-                UiCamera(right_camera),
-            ));
+            parent.spawn((TextBundle::from_section("Right", TextStyle::default()),));
         });
 }
 
