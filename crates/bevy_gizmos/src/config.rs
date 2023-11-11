@@ -97,7 +97,7 @@ impl GizmoConfigStore {
 }
 
 /// A struct that stores configuration for gizmos.
-#[derive(Component, Clone)]
+#[derive(Clone)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
@@ -140,6 +140,21 @@ impl Default for GizmoConfig {
             line_perspective: false,
             depth_bias: 0.,
             render_layers: Default::default(),
+        }
+    }
+}
+
+#[derive(Component)]
+pub(crate) struct GizmoMeshConfig {
+    pub line_perspective: bool,
+    pub render_layers: RenderLayers,
+}
+
+impl From<&GizmoConfig> for GizmoMeshConfig {
+    fn from(item: &GizmoConfig) -> Self {
+        GizmoMeshConfig {
+            line_perspective: item.line_perspective,
+            render_layers: item.render_layers,
         }
     }
 }

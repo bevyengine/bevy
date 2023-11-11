@@ -72,7 +72,9 @@ use bevy_transform::{
     TransformSystem,
 };
 use bevy_utils::{tracing::warn, HashMap};
-use config::{AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfigStore};
+use config::{
+    AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfigStore, GizmoMeshConfig,
+};
 use gizmos::{GizmoStorage, Gizmos};
 use std::{any::TypeId, mem};
 
@@ -309,7 +311,7 @@ fn extract_gizmo_data<T: CustomGizmoConfig>(
                 _padding: Default::default(),
             },
             (*handle).clone_weak(),
-            config.clone(),
+            GizmoMeshConfig::from(config),
         ));
     }
 }
