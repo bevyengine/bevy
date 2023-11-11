@@ -317,6 +317,7 @@ pub enum KeyCode {
     /// The `Equals` / `=` key.
     Equals,
     /// The `Grave` / `Backtick` / `Tilde` / `` ` `` / `~` key.
+    #[doc(alias = "Tilde")]
     Grave,
     /// The `Kana` key.
     Kana,
