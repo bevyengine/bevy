@@ -121,19 +121,13 @@ impl FromWorld for MeshletPipelines {
 }
 
 impl MeshletPipelines {
-    pub fn get(
-        world: &World,
-    ) -> Option<(
-        Option<&ComputePipeline>,
-        Option<&RenderPipeline>,
-        Option<&RenderPipeline>,
-    )> {
+    pub fn get(world: &World) -> Option<(&ComputePipeline, &RenderPipeline, &RenderPipeline)> {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
         Some((
-            pipeline_cache.get_compute_pipeline(pipeline.cull),
-            pipeline_cache.get_render_pipeline(pipeline.visibility_buffer),
-            pipeline_cache.get_render_pipeline(pipeline.copy_material_depth),
+            pipeline_cache.get_compute_pipeline(pipeline.cull)?,
+            pipeline_cache.get_render_pipeline(pipeline.visibility_buffer)?,
+            pipeline_cache.get_render_pipeline(pipeline.copy_material_depth)?,
         ))
     }
 }
