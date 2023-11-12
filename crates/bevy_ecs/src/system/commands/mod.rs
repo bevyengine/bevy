@@ -523,8 +523,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// Running slow systems can become a bottleneck.
     ///
     /// Calls [`World::run_system`](crate::system::World::run_system).
+    ///
+    /// There is no way to get the output of a system when run as a command, because the
+    /// execution of the system happens later. To get the output of a system, use
+    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
     pub fn run_system(&mut self, id: SystemId) {
-        self.run_system_with_input(id, ())
+        self.run_system_with_input(id, ());
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
@@ -532,6 +536,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// Running slow systems can become a bottleneck.
     ///
     /// Calls [`World::run_system_with_input`](crate::system::World::run_system_with_input).
+    ///
+    /// There is no way to get the output of a system when run as a command, because the
+    /// execution of the system happens later. To get the output of a system, use
+    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
     pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
         self.queue
             .push(RunSystemWithInput::new_with_input(id, input));

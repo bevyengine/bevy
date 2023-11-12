@@ -309,7 +309,7 @@ impl World {
 ///
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use
-/// [World::run_system] or [World::run_system_with_input] instead of running the system as a command.
+/// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
 #[derive(Debug, Clone)]
 pub struct RunSystemWithInput<I: 'static> {
     system_id: SystemId<I>,
@@ -326,7 +326,7 @@ pub struct RunSystemWithInput<I: 'static> {
 ///
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use
-/// [World::run_system] or [World::run_system_with_input] instead of running the system as a command.
+/// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
 pub type RunSystem = RunSystemWithInput<()>;
 
 impl RunSystem {
