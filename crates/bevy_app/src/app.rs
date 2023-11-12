@@ -1,4 +1,4 @@
-use crate::{First, FixedUpdate, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
+use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -190,7 +190,6 @@ impl Default for App {
         app.init_resource::<AppTypeRegistry>();
 
         app.add_plugins(MainSchedulePlugin);
-        app.add_systems(FixedUpdate, bevy_ecs::event::event_queue_update_system);
 
         app.add_event::<AppExit>();
 
