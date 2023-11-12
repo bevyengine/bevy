@@ -435,7 +435,7 @@ impl MeshletGpuScene {
     ) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
             let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
-                "MeshletMesh asset already unloaded but not registered with MeshletGpuScene",
+                "MeshletMesh asset was already unloaded but is not registered with MeshletGpuScene",
             );
 
             let vertex_data_slice = self
