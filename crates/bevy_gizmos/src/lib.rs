@@ -367,32 +367,25 @@ struct GpuLineGizmo {
 }
 
 impl RenderAsset for LineGizmo {
-    type ExtractedAsset = LineGizmo;
-
     type PreparedAsset = GpuLineGizmo;
-
     type Param = SRes<RenderDevice>;
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
-    }
-
-    fn unload_after_extract(_extracted_asset: &Self::ExtractedAsset) -> bool {
+    fn unload_after_extract(&self) -> bool {
         false
     }
 
     fn prepare_asset(
-        line_gizmo: Self::ExtractedAsset,
+        self,
         render_device: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let position_buffer_data = cast_slice(&line_gizmo.positions);
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+        let position_buffer_data = cast_slice(&self.positions);
         let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Position Buffer"),
             contents: position_buffer_data,
         });
 
-        let color_buffer_data = cast_slice(&line_gizmo.colors);
+        let color_buffer_data = cast_slice(&self.colors);
         let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Color Buffer"),
@@ -402,8 +395,8 @@ impl RenderAsset for LineGizmo {
         Ok(GpuLineGizmo {
             position_buffer,
             color_buffer,
-            vertex_count: line_gizmo.positions.len() as u32,
-            strip: line_gizmo.strip,
+            vertex_count: self.positions.len() as u32,
+            strip: self.strip,
         })
     }
 }

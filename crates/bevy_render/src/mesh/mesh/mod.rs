@@ -1062,54 +1062,48 @@ pub enum GpuBufferInfo {
 }
 
 impl RenderAsset for Mesh {
-    type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
     type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
-    /// Clones the mesh.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
-    }
-
-    fn unload_after_extract(extracted_asset: &Self::ExtractedAsset) -> bool {
-        !extracted_asset.cpu_persistent_access
+    fn unload_after_extract(&self) -> bool {
+        !self.cpu_persistent_access
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
-        mesh: Self::ExtractedAsset,
+        self,
         (render_device, images): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let vertex_buffer_data = mesh.get_vertex_buffer_data();
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+        let vertex_buffer_data = self.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
 
-        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
+        let buffer_info = if let Some(data) = self.get_index_buffer_bytes() {
             GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
                     label: Some("Mesh Index Buffer"),
                 }),
-                count: mesh.indices().unwrap().len() as u32,
-                index_format: mesh.indices().unwrap().into(),
+                count: self.indices().unwrap().len() as u32,
+                index_format: self.indices().unwrap().into(),
             }
         } else {
             GpuBufferInfo::NonIndexed
         };
 
-        let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
+        let mesh_vertex_buffer_layout = self.get_mesh_vertex_buffer_layout();
 
         Ok(GpuMesh {
             vertex_buffer,
-            vertex_count: mesh.count_vertices() as u32,
+            vertex_count: self.count_vertices() as u32,
             buffer_info,
-            primitive_topology: mesh.primitive_topology(),
+            primitive_topology: self.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
-            morph_targets: mesh
+            morph_targets: self
                 .morph_targets
                 .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
         })

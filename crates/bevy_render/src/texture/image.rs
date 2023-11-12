@@ -812,7 +812,6 @@ pub struct GpuImage {
 }
 
 impl RenderAsset for Image {
-    type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
     type Param = (
         SRes<RenderDevice>,
@@ -820,38 +819,32 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    /// Clones the Image.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
-    }
-
-    fn unload_after_extract(extracted_asset: &Self::ExtractedAsset) -> bool {
-        !extracted_asset.cpu_persistent_access
+    fn unload_after_extract(&self) -> bool {
+        !self.cpu_persistent_access
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        image: Self::ExtractedAsset,
+        self,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
-            &image.texture_descriptor,
-            &image.data,
+            &self.texture_descriptor,
+            &self.data,
         );
 
         let texture_view = texture.create_view(
-            image
-                .texture_view_descriptor
+            self.texture_view_descriptor
                 .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
                 .unwrap(),
         );
         let size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
+            self.texture_descriptor.size.width as f32,
+            self.texture_descriptor.size.height as f32,
         );
-        let sampler = match image.sampler {
+        let sampler = match self.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
                 render_device.create_sampler(&descriptor.as_wgpu())
@@ -861,10 +854,10 @@ impl RenderAsset for Image {
         Ok(GpuImage {
             texture,
             texture_view,
-            texture_format: image.texture_descriptor.format,
+            texture_format: self.texture_descriptor.format,
             sampler,
             size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
+            mip_level_count: self.texture_descriptor.mip_level_count,
         })
     }
 }

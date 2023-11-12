@@ -19,37 +19,33 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 ///
 /// In the [`ExtractSchedule`] step the asset is transferred
 /// from the "main world" into the "render world".
-/// Therefore it is converted into a [`RenderAsset::ExtractedAsset`], which may be the same type
-/// as the render asset itself.
 ///
 /// After that in the [`RenderSet::PrepareAssets`] step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
-pub trait RenderAsset: Asset {
-    /// The representation of the asset in the "render world".
-    type ExtractedAsset: Send + Sync + 'static;
+pub trait RenderAsset: Asset + Clone {
     /// The GPU-representation of the asset.
     type PreparedAsset: Send + Sync + 'static;
+
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
+    ///
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
 
-    /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
-    fn extract_asset(&self) -> Self::ExtractedAsset;
-
-    /// Whether or not to unload the asset after extracting.
+    /// Whether or not to unload the asset after extracting to the render world.
     ///
     /// Unloading the asset saves on memory, as you no longer need to keep it in RAM once
     /// it's been uploaded to the GPU's VRAM. However, you can no longer modify the asset
     /// once unloaded (without re-loading it), making this a bad choice for frequently modified
     /// assets.
-    fn unload_after_extract(extracted_asset: &Self::ExtractedAsset) -> bool;
+    fn unload_after_extract(&self) -> bool;
 
-    /// Prepares the `extracted asset` for the GPU by transforming it into
-    /// a [`RenderAsset::PreparedAsset`]. Therefore ECS data may be accessed via the `param`.
+    /// Prepares the asset for the GPU by transforming it into a [`RenderAsset::PreparedAsset`].
+    ///
+    /// ECS data may be accessed via `param`.
     fn prepare_asset(
-        extracted_asset: Self::ExtractedAsset,
+        self,
         param: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>>;
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -114,7 +110,7 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 /// Temporarily stores the extracted and removed assets of the current frame.
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
-    extracted: Vec<(AssetId<A>, A::ExtractedAsset)>,
+    extracted: Vec<(AssetId<A>, A)>,
     removed: Vec<AssetId<A>>,
 }
 
@@ -195,13 +191,13 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
     let mut extracted_assets = Vec::new();
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
-            let extracted_asset = asset.extract_asset();
-
-            if A::unload_after_extract(&extracted_asset) {
-                assets.remove_untracked(id);
+            if asset.unload_after_extract() {
+                if let Some(asset) = assets.remove_untracked(id) {
+                    extracted_assets.push((id, asset));
+                }
+            } else {
+                extracted_assets.push((id, asset.clone()));
             }
-
-            extracted_assets.push((id, extracted_asset));
         }
     }
 
@@ -215,7 +211,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
 /// All assets that should be prepared next frame.
 #[derive(Resource)]
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
-    assets: Vec<(AssetId<A>, A::ExtractedAsset)>,
+    assets: Vec<(AssetId<A>, A)>,
 }
 
 impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
@@ -237,7 +233,7 @@ pub fn prepare_assets<A: RenderAsset>(
     let mut param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
-        match A::prepare_asset(extracted_asset, &mut param) {
+        match extracted_asset.prepare_asset(&mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
             }
@@ -252,7 +248,7 @@ pub fn prepare_assets<A: RenderAsset>(
     }
 
     for (id, extracted_asset) in std::mem::take(&mut extracted_assets.extracted) {
-        match A::prepare_asset(extracted_asset, &mut param) {
+        match extracted_asset.prepare_asset(&mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
             }
