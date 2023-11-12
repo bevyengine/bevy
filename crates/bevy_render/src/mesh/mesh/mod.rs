@@ -129,8 +129,8 @@ pub struct Mesh {
     ///
     /// The asset unloading will only take place once the asset has been added to `Assets<Mesh>`
     /// and a frame has passed. You do not need to set this flag to true in order to build the
-    /// mesh initially. This flag only controls whether or not the asset is accessible to the CPU
-    /// in future frames once added to `Assets<Mesh>`.
+    /// mesh initially. This flag only controls whether or not the asset is accessible via `Assets<Mesh>`
+    /// in future frames, once it's been added to `Assets<Mesh>`.
     pub cpu_persistent_access: bool,
 }
 

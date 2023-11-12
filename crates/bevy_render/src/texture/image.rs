@@ -118,8 +118,8 @@ pub struct Image {
     ///
     /// The asset unloading will only take place once the asset has been added to `Assets<Image>`
     /// and a frame has passed. You do not need to set this flag to true in order to build the
-    /// image initially. This flag only controls whether or not the asset is accessible to the CPU
-    /// in future frames once added to `Assets<Image>`.
+    /// image initially. This flag only controls whether or not the asset is accessible via `Assets<Image>`
+    /// in future frames, once it's been added to `Assets<Image>`.
     pub cpu_persistent_access: bool,
 }
 
