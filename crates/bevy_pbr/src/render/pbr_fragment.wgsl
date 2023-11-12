@@ -15,10 +15,10 @@
 #import bevy_pbr::gtao_utils::gtao_multibounce
 #endif
 
-#ifdef PREPASS_PIPELINE
-#import bevy_pbr::prepass_io::VertexOutput
-#else ifdef MESHLET_MESH_MATERIAL_PASS
+#ifdef MESHLET_MESH_MATERIAL_PASS
 #import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
+#else ifdef PREPASS_PIPELINE
+#import bevy_pbr::prepass_io::VertexOutput
 #else
 #import bevy_pbr::forward_io::VertexOutput
 #endif
