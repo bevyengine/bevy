@@ -135,7 +135,7 @@ impl ViewVisibility {
 /// * To get the inherited visibility of an entity, you should get its [`InheritedVisibility`].
 /// * For visibility hierarchies to work correctly, you must have both all of [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`].
 ///   * You may use the [`VisibilityBundle`] to guarantee this.
-#[derive(Bundle, Debug, Default)]
+#[derive(Bundle, Debug, Clone, Default)]
 pub struct VisibilityBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
