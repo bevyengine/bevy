@@ -135,7 +135,7 @@ impl<S: States> NextState<S> {
 /// The state transition that is currently being applied by [`apply_state_transition::<S>`].
 ///
 /// This resource is only present during the execution of [`apply_state_transition::<S>`]
-/// and can only be use by the [`OnTransition`] schedules.
+/// and can only be used by the [`OnTransition`] schedules.
 #[derive(Resource, Debug)]
 pub struct ActiveTransition<S: States> {
     from: S,
