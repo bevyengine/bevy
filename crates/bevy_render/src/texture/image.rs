@@ -110,7 +110,17 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
-    pub mutable: bool,
+    /// If false, this asset will be unloaded from `Assets<Image>` via `remove_untracked()`
+    /// once it has been uploaded to the GPU.
+    ///
+    /// This saves on RAM usage by not keeping a redundant copy of the image in memory once
+    /// it's in the GPU's VRAM.
+    ///
+    /// The asset unloading will only take place once the asset has been added to `Assets<Image>`
+    /// and a frame has passed. You do not need to set this flag to true in order to build the
+    /// image initially. This flag only controls whether or not the asset is accessible to the CPU
+    /// in future frames once added to `Assets<Image>`.
+    pub cpu_persistent_access: bool,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -465,7 +475,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
-            mutable: false,
+            cpu_persistent_access: false,
         }
     }
 }
@@ -816,7 +826,7 @@ impl RenderAsset for Image {
     }
 
     fn unload_after_extract(extracted_asset: &Self::ExtractedAsset) -> bool {
-        !extracted_asset.mutable
+        !extracted_asset.cpu_persistent_access
     }
 
     /// Converts the extracted image into a [`GpuImage`].

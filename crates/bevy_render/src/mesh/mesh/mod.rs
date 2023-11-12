@@ -50,7 +50,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// # use bevy_render::render_resource::PrimitiveTopology;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList)
+///     Mesh::new(PrimitiveTopology::TriangleList, false)
 ///         // Add 4 vertices, each with its own position attribute (coordinate in
 ///         // 3D space), for each of the corners of the parallelogram.
 ///         .with_inserted_attribute(
@@ -108,8 +108,6 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
 /// which means that Bevy would *only* render the "front" of each triangle, which
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
-///
-// TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
 #[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
     #[reflect(ignore)]
@@ -123,7 +121,17 @@ pub struct Mesh {
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
-    pub mutable: bool,
+    /// If false, this asset will be unloaded from `Assets<Mesh>` via `remove_untracked()`
+    /// once it has been uploaded to the GPU.
+    ///
+    /// This saves on RAM usage by not keeping a redundant copy of the mesh in memory once
+    /// it's in the GPU's VRAM.
+    ///
+    /// The asset unloading will only take place once the asset has been added to `Assets<Mesh>`
+    /// and a frame has passed. You do not need to set this flag to true in order to build the
+    /// mesh initially. This flag only controls whether or not the asset is accessible to the CPU
+    /// in future frames once added to `Assets<Mesh>`.
+    pub cpu_persistent_access: bool,
 }
 
 impl Mesh {
@@ -181,14 +189,14 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
-    pub fn new(primitive_topology: PrimitiveTopology, mutable: bool) -> Self {
+    pub fn new(primitive_topology: PrimitiveTopology, cpu_persistent_access: bool) -> Self {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
             morph_targets: None,
             morph_target_names: None,
-            mutable,
+            cpu_persistent_access,
         }
     }
 
@@ -1064,7 +1072,7 @@ impl RenderAsset for Mesh {
     }
 
     fn unload_after_extract(extracted_asset: &Self::ExtractedAsset) -> bool {
-        !extracted_asset.mutable
+        !extracted_asset.cpu_persistent_access
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
