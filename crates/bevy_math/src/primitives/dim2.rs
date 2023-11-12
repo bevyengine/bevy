@@ -44,10 +44,12 @@ pub struct Plane2d {
 impl Primitive2d for Plane2d {}
 
 /// An infinite line along a direction in 2D space.
+///
 /// For a finite line: [`LineSegment2d`]
 #[derive(Clone, Copy, Debug)]
 pub struct Line2d {
-    /// The direction of the line
+    /// The direction of the line, the line extends infinitely in both the positive
+    /// and negative of this direction
     pub direction: Direction2d,
 }
 impl Primitive2d for Line2d {}
@@ -57,14 +59,26 @@ impl Primitive2d for Line2d {}
 pub struct LineSegment2d {
     /// The direction of the line
     pub direction: Direction2d,
-    /// The point on the line where the line starts, this value can be either positive of negative,
-    /// depending on where relative to the origin the line should start
-    pub start: f32,
-    /// The point on the line where the line ends, this value can be either positive of negative,
-    /// depending on where relative to the origin the line should start
-    pub end: f32,
+    /// Half the length of the line segment, the segment extends by this amount in both
+    /// the in both the positive and negative direction
+    pub half_length: f32,
 }
 impl Primitive2d for LineSegment2d {}
+
+impl LineSegment2d {
+    /// Get a line segment and translation from a start and end position of a line segment
+    pub fn from_start_end(start: Vec2, end: Vec2) -> (Self, Vec2) {
+        let diff = end - start;
+        let length = diff.length();
+        (
+            Self {
+                direction: Direction2d::from_normalized(diff / length),
+                half_length: length / 2.,
+            },
+            (start + end / 2.),
+        )
+    }
+}
 
 /// A series of connected line segments in 2D space.
 ///
@@ -104,6 +118,16 @@ pub struct Rectangle {
     pub half_height: f32,
 }
 impl Primitive2d for Rectangle {}
+
+impl Rectangle {
+    /// Create a Rectangle from the full size of a rectangle
+    pub fn from_size(size: Vec2) -> Self {
+        Self {
+            half_width: size.x / 2.,
+            half_height: size.y / 2.,
+        }
+    }
+}
 
 /// A polygon with N vertices
 /// For a version without generics: [`BoxedPolygon`]

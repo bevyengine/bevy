@@ -44,6 +44,7 @@ pub struct Plane3d {
 impl Primitive3d for Plane3d {}
 
 /// An infinite line along a direction in 3D space.
+///
 /// For a finite line: [`LineSegment3d`]
 #[derive(Clone, Copy, Debug)]
 pub struct Line3d {
@@ -57,14 +58,26 @@ impl Primitive3d for Line3d {}
 pub struct LineSegment3d {
     /// The direction of the line
     pub direction: Direction3d,
-    /// The point on the line where the line starts, this value can be either positive of negative,
-    /// depending on where relative to the origin the line should start
-    pub start: f32,
-    /// The point on the line where the line ends, this value can be either positive of negative,
-    /// depending on where relative to the origin the line should start
-    pub end: f32,
+    /// Half the length of the line segment, the segment extends by this amount in both the
+    /// in both the positive and negative direction
+    pub half_length: f32,
 }
 impl Primitive3d for LineSegment3d {}
+
+impl LineSegment3d {
+    /// Get a line segment and translation from a start and end position of a line segment
+    pub fn from_start_end(start: Vec3, end: Vec3) -> (Self, Vec3) {
+        let diff = end - start;
+        let length = diff.length();
+        (
+            Self {
+                direction: Direction3d::from_normalized(diff / length),
+                half_length: length / 2.,
+            },
+            (start + end / 2.),
+        )
+    }
+}
 
 /// A series of connected line segments in 3D space.
 ///
@@ -94,6 +107,15 @@ pub struct Cuboid {
 }
 impl Primitive3d for Cuboid {}
 
+impl Cuboid {
+    /// Create a cuboid from the full size of the cuboid
+    pub fn from_size(size: Vec3) -> Self {
+        Self {
+            half_extents: size / 2.,
+        }
+    }
+}
+
 /// A cylinder primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Cylinder {
@@ -103,6 +125,16 @@ pub struct Cylinder {
     pub half_height: f32,
 }
 impl Primitive3d for Cylinder {}
+
+impl Cylinder {
+    /// Create a cylinder from a radius and full height
+    pub fn from_radius_height(radius: f32, height: f32) -> Self {
+        Self {
+            radius,
+            half_height: height / 2.,
+        }
+    }
+}
 
 /// A capsule primitive
 #[derive(Clone, Copy, Debug)]
