@@ -78,6 +78,16 @@ impl LineSegment2d {
             (start + end / 2.),
         )
     }
+
+    /// Get the start position of the line
+    pub fn get_start_pos(&self) -> Vec2 {
+        *self.direction * -self.half_length
+    }
+
+    /// Get the end position of the line
+    pub fn get_end_pos(&self) -> Vec2 {
+        *self.direction * self.half_length
+    }
 }
 
 /// A series of connected line segments in 2D space.
