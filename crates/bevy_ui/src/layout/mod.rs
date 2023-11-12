@@ -14,10 +14,10 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::{UVec2, Vec2};
-use bevy_render::camera::{Camera, RenderTarget};
+use bevy_render::camera::{Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_transform::components::Transform;
 use bevy_utils::{default, HashMap};
-use bevy_window::{PrimaryWindow, Window, WindowRef, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::Taffy;
 use thiserror::Error;
@@ -284,15 +284,14 @@ pub fn ui_layout_system(
         let scale_factor = camera.target_scaling_factor().unwrap_or(1.0) * ui_scale.0;
         let inverse_target_scale_factor = 1. / scale_factor;
         let physical_size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
-        let resized = resize_events
-            .read()
-            .any(|resized_window| match camera.target {
-                RenderTarget::Window(WindowRef::Primary) => {
-                    resized_window.window == primary_window.single()
+        let resized = resize_events.read().any(|resized_window| {
+            match camera.target.normalize(primary_window.get_single().ok()) {
+                Some(NormalizedRenderTarget::Window(window_ref)) => {
+                    resized_window.window == window_ref.entity()
                 }
-                RenderTarget::Window(WindowRef::Entity(window)) => resized_window.window == window,
                 _ => false,
-            });
+            }
+        });
 
         let layout_context = LayoutContext::new(
             scale_factor,

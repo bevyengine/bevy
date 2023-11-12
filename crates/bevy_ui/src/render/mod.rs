@@ -9,7 +9,6 @@ use bevy_hierarchy::Parent;
 use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
-use bevy_window::WindowRef;
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -603,11 +602,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
             continue;
         }
 
-        match camera.target {
-            bevy_render::camera::RenderTarget::Window(WindowRef::Primary) if camera.is_active => {
-                primary_window_camera.0 = Some(entity);
-            }
-            _ => {}
+        if camera.is_primary() {
+            primary_window_camera.0 = Some(entity);
         }
 
         if let (

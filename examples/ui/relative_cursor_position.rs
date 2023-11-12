@@ -1,6 +1,7 @@
 //! Showcases the [`RelativeCursorPosition`] component, used to check the position of the cursor relative to a UI node.
 
 use bevy::{prelude::*, ui::RelativeCursorPosition, winit::WinitSettings};
+use bevy_internal::render::camera::Viewport;
 
 fn main() {
     App::new()
@@ -13,7 +14,17 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle {
+        camera: Camera {
+            viewport: Some(Viewport {
+                physical_position: [200, 100].into(),
+                physical_size: [600, 600].into(),
+                ..default()
+            }),
+            ..default()
+        },
+        ..default()
+    });
 
     commands
         .spawn(NodeBundle {

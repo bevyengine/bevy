@@ -1,4 +1,4 @@
-use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiScale, UiStack};
+use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiCamera, UiScale, UiStack};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -126,6 +126,7 @@ pub struct NodeQuery {
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
     view_visibility: Option<&'static ViewVisibility>,
+    ui_camera: Option<&'static UiCamera>,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
@@ -134,7 +135,7 @@ pub struct NodeQuery {
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
-    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
+    camera_query: Query<(Entity, &Camera, Option<&UiCameraConfig>)>,
     windows: Query<&Window>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
@@ -170,28 +171,43 @@ pub fn ui_focus_system(
     let is_ui_disabled =
         |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
 
-    let cursor_position = camera
+    let primary_camera = camera_query.iter().find_map(|(entity, camera, _)| {
+        if camera.is_primary() {
+            Some(entity)
+        } else {
+            None
+        }
+    });
+
+    let camera_cursor_positions: Vec<(Entity, Vec2)> = camera_query
         .iter()
-        .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
-        .filter_map(|(camera, _)| {
+        .filter(|(_, _, camera_ui)| !is_ui_disabled(*camera_ui))
+        .filter_map(|(entity, camera, _)| {
             if let Some(NormalizedRenderTarget::Window(window_ref)) =
                 camera.target.normalize(primary_window)
             {
-                Some(window_ref)
+                Some((entity, camera, window_ref))
             } else {
                 None
             }
         })
-        .find_map(|window_ref| {
+        .filter_map(|(entity, camera, window_ref)| {
+            let viewport_position = camera
+                .logical_viewport_rect()
+                .map(|rect| rect.min)
+                .unwrap_or_default();
+
             windows
                 .get(window_ref.entity())
                 .ok()
                 .and_then(|window| window.cursor_position())
+                .or_else(|| touches_input.first_pressed_position())
+                .map(|cursor_position| (entity, cursor_position - viewport_position))
         })
-        .or_else(|| touches_input.first_pressed_position())
         // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
         // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|cursor_position| cursor_position / ui_scale.0 as f32);
+        .map(|(entity, cursor_position)| (entity, cursor_position / ui_scale.0 as f32))
+        .collect();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -215,6 +231,22 @@ pub fn ui_focus_system(
                         return None;
                     }
                 }
+
+                let Some(ui_camera_entity) =
+                    node.ui_camera.map(UiCamera::entity).or(primary_camera)
+                else {
+                    return None;
+                };
+                let cursor_position =
+                    camera_cursor_positions
+                        .iter()
+                        .find_map(|(camera_entity, position)| {
+                            if *camera_entity == ui_camera_entity {
+                                Some(*position)
+                            } else {
+                                None
+                            }
+                        });
 
                 let position = node.global_transform.translation();
                 let ui_position = position.truncate();
