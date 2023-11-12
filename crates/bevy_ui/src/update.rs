@@ -96,11 +96,22 @@ fn update_clipping(
 pub fn update_ui_camera_system(
     mut commands: Commands,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>, Changed<UiCamera>)>,
+    changed_children_query: Query<(Entity, &UiCamera), Changed<Children>>,
     children_query: Query<&Children>,
     node_query: Query<Option<&UiCamera>, With<Node>>,
 ) {
     for root_node in &root_node_query {
         update_ui_camera(&mut commands, &children_query, &node_query, root_node, None);
+    }
+
+    for (parent, camera) in &changed_children_query {
+        update_ui_camera(
+            &mut commands,
+            &children_query,
+            &node_query,
+            parent,
+            Some(camera),
+        );
     }
 }
 
