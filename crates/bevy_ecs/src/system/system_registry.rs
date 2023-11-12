@@ -189,35 +189,108 @@ impl World {
     ///
     /// # Limitations
     ///
-    /// See [`World::run_system`].
+    /// - Stored systems cannot be chained.
+    /// - Stored systems cannot be recursive.
+    /// - Exclusive systems cannot be used.
+    /// - Closures with different captures cannot be distinguished, they share a same [`TypeId`](std::any::TypeId).
+    ///
+    /// # Examples
+    ///
+    /// In most cases, use this method like using [`World::run_system`] with a unique id for each system.
+    ///
+    /// Persistent state:
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct Counter(u8);
+    ///
+    /// fn increment(mut counter: Local<Counter>) {
+    ///     counter.0 += 1;
+    ///     println!("{}", counter.0);
+    /// }
+    ///
+    /// let mut world = World::default();
+    /// world.run_system_singleton(increment); // -> 1
+    /// world.run_system_singleton(increment); // -> 2
+    ///
+    /// // Each closure has its own state
+    /// for _ in 0..5 { // -> 1, 1, 2, 2, 3, 3, 4, 4, 5, 5
+    ///     world.run_system_singleton(|mut counter: Local<Counter>| {
+    ///         counter.0 += 1;
+    ///         println!("{}", counter.0);
+    ///     });
+    ///     world.run_system_singleton(|mut counter: Local<Counter>| {
+    ///         counter.0 += 1;
+    ///         println!("{}", counter.0);
+    ///     });
+    /// }
+    ///
+    /// // Store it if you want to share state between calls
+    /// let increment_closure = |mut counter: Local<Counter>| {
+    ///     counter.0 += 1;
+    /// };
+    /// ```
+    ///
+    /// Change detection:
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct ChangeDetector;
+    ///
+    /// let mut world = World::default();
+    /// world.init_resource::<ChangeDetector>();
+    ///
+    /// let detector = |change_detector: ResMut<ChangeDetector>| {
+    ///     if change_detector.is_changed() {
+    ///         println!("Something happened!");
+    ///     } else {
+    ///         println!("Nothing happened.");
+    ///     }
+    /// };
+    ///
+    /// // Resources are changed when they are first added
+    /// let _ = world.run_system_singleton(detector); // -> Something happened!
+    /// let _ = world.run_system_singleton(detector); // -> Nothing happened.
+    /// world.resource_mut::<ChangeDetector>().set_changed();
+    /// let _ = world.run_system_singleton(detector); // -> Something happened!
+    /// ```
     ///
     /// # Attention
     ///
     /// Please note that closure is identified by its **occurrence** no matter what it captures,
-    /// thus this code will call the first cached one rather than actual passed one.
-    ///
-    /// That means, codes like below will not work as expected.
+    /// This code will call the first cached one rather than actual passed one.
     ///
     /// ```rust
     /// use bevy_ecs::prelude::World;
     /// let mut world = World::new();
-    /// // This will creates closures regarded as one same closure
+    ///
+    /// // Captures will not make a closure differed
     /// let make_system = |n| move || println!("{n}");
-    /// let _ = world.run_system_singleton(make_system(0)); // prints 0
-    /// let _ = world.run_system_singleton(make_system(1)); // prints 0 same
+    /// let _ = world.run_system_singleton(make_system(0)); // -> 0
+    /// let _ = world.run_system_singleton(make_system(1)); // -> 0
+    ///
+    /// // Register them and `run_system` instead
+    /// let sys0 = world.register_system(make_system(0));
+    /// let sys1 = world.register_system(make_system(1));
+    /// let _ = world.run_system(sys0); // -> 0
+    /// let _ = world.run_system(sys1); // -> 1
     /// ```
     pub fn run_system_singleton<M, T: IntoSystem<(), (), M>>(
         &mut self,
         system: T,
     ) -> Result<(), UnregisteredSystemError> {
         // create the hashmap if it doesn't exist
-        let mut system_map = self.get_resource_or_insert_with(|| SystemMap::default());
+        let mut system_map = self.get_resource_or_insert_with(SystemMap::default);
 
         let system = IntoSystem::<(), (), M>::into_system(system);
 
         // check captures of closure
         if std::mem::size_of::<T>() != 0 {
-            info!(target: "run_system_singleton", "Closure with capture(s) runs, be sure that you're not relying on differently captured versions of one closure.")
+            info!(target: "run_system_singleton", "Closure with capture(s) runs, be sure that you're not relying on differently captured versions of one closure.");
         }
         // use the system type id as the key
         let system_type_id = system.type_id();
@@ -227,21 +300,13 @@ impl World {
             system,
         } = system_map
             .map
-            .remove(&system_type_id)
-            .unwrap_or_else(|| UnregisteredSystem {
+            .entry(system_type_id)
+            .or_insert_with(|| UnregisteredSystem {
                 initialized: false,
                 system: Some(Box::new(system)),
             });
-        // insert the marker
-        system_map.map.insert(
-            system_type_id,
-            UnregisteredSystem {
-                initialized: false,
-                system: None,
-            },
-        );
         // check if runs recursively
-        let Some(mut system) = system else {
+        let Some(mut system) = system.take() else {
             return Err(UnregisteredSystemError::Recursive);
         };
 
@@ -329,16 +394,9 @@ impl<T: System<In = (), Out = ()>> Command for RunSystemSingleton<T> {
 }
 
 /// An internal [`Resource`] that stores all systems called by [`World::run_system_singleton`].
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct SystemMap {
     map: bevy_utils::HashMap<std::any::TypeId, UnregisteredSystem>,
-}
-impl Default for SystemMap {
-    fn default() -> Self {
-        Self {
-            map: bevy_utils::HashMap::default(),
-        }
-    }
 }
 
 /// An operation with [`World::run_system_singleton`] systems failed.

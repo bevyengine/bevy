@@ -529,7 +529,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Runs the system by referring it. This method will register the system newly called with,
     /// whether you have registered or not. Different calls with same system will share same state.
-    /// 
+    ///
     /// Specially note when running closures with capture, the captured value won't update after first call.
     /// Examples see [`World::run_system_singleton`]. Register them each, use [`World::run_system`] instead.
     ///
