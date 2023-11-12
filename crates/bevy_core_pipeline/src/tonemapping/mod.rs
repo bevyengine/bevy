@@ -412,5 +412,6 @@ pub fn lut_placeholder() -> Image {
         },
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
+        mutable: false,
     }
 }

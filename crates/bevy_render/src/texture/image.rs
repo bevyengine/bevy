@@ -110,6 +110,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
+    pub mutable: bool,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -464,6 +465,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
+            mutable: false,
         }
     }
 }
@@ -811,6 +813,10 @@ impl RenderAsset for Image {
     /// Clones the Image.
     fn extract_asset(&self) -> Self::ExtractedAsset {
         self.clone()
+    }
+
+    fn unload_after_extract(extracted_asset: &Self::ExtractedAsset) -> bool {
+        !extracted_asset.mutable
     }
 
     /// Converts the extracted image into a [`GpuImage`].

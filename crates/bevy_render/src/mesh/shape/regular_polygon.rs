@@ -53,7 +53,7 @@ impl From<RegularPolygon> for Mesh {
             indices.extend_from_slice(&[0, i + 1, i]);
         }
 
-        Mesh::new(PrimitiveTopology::TriangleList)
+        Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

@@ -120,7 +120,7 @@ impl From<Box> for Mesh {
             20, 21, 22, 22, 23, 20, // bottom
         ]);
 
-        Mesh::new(PrimitiveTopology::TriangleList)
+        Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
@@ -172,7 +172,7 @@ impl From<Quad> for Mesh {
         let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
         let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
-        Mesh::new(PrimitiveTopology::TriangleList)
+        Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_indices(Some(indices))
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -253,7 +253,7 @@ impl From<Plane> for Mesh {
             }
         }
 
-        Mesh::new(PrimitiveTopology::TriangleList)
+        Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_indices(Some(Indices::U32(indices)))
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

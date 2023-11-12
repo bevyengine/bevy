@@ -103,7 +103,7 @@ impl TryFrom<Icosphere> for Mesh {
 
         let indices = Indices::U32(indices);
 
-        Ok(Mesh::new(PrimitiveTopology::TriangleList)
+        Ok(Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_indices(Some(indices))
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, points)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

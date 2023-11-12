@@ -118,7 +118,7 @@ impl From<Cylinder> for Mesh {
         build_cap(true);
         build_cap(false);
 
-        Mesh::new(PrimitiveTopology::TriangleList)
+        Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_indices(Some(Indices::U32(indices)))
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

@@ -352,7 +352,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology);
+            let mut mesh = Mesh::new(primitive_topology, false);
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {

@@ -123,6 +123,7 @@ pub struct Mesh {
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
+    pub mutable: bool,
 }
 
 impl Mesh {
@@ -180,13 +181,14 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
-    pub fn new(primitive_topology: PrimitiveTopology) -> Self {
+    pub fn new(primitive_topology: PrimitiveTopology, mutable: bool) -> Self {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
             morph_targets: None,
             morph_target_names: None,
+            mutable,
         }
     }
 
@@ -1061,6 +1063,10 @@ impl RenderAsset for Mesh {
         self.clone()
     }
 
+    fn unload_after_extract(extracted_asset: &Self::ExtractedAsset) -> bool {
+        !extracted_asset.mutable
+    }
+
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
@@ -1237,7 +1243,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn panic_invalid_format() {
-        let _mesh = Mesh::new(PrimitiveTopology::TriangleList)
+        let _mesh = Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
 }

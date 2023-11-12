@@ -377,6 +377,10 @@ impl RenderAsset for LineGizmo {
         self.clone()
     }
 
+    fn unload_after_extract(_extracted_asset: &Self::ExtractedAsset) -> bool {
+        false
+    }
+
     fn prepare_asset(
         line_gizmo: Self::ExtractedAsset,
         render_device: &mut SystemParamItem<Self::Param>,

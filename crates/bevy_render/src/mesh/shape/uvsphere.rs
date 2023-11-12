@@ -80,7 +80,7 @@ impl From<UVSphere> for Mesh {
             }
         }
 
-        Mesh::new(PrimitiveTopology::TriangleList)
+        Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_indices(Some(Indices::U32(indices)))
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

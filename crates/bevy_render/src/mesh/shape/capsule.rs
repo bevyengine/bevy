@@ -364,7 +364,7 @@ impl From<Capsule> for Mesh {
         assert_eq!(vs.len(), vert_len);
         assert_eq!(tris.len(), fs_len);
 
-        Mesh::new(PrimitiveTopology::TriangleList)
+        Mesh::new(PrimitiveTopology::TriangleList, false)
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
