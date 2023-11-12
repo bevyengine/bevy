@@ -929,6 +929,9 @@ mod tests {
 
     #[test]
     fn entity_comparison() {
+        // This is intentionally testing `lt` and `ge` as separate functions.
+        #![allow(clippy::nonminimal_bool)]
+
         assert!(Entity::new(123, 456) == Entity::new(123, 456));
         assert!(Entity::new(123, 789) != Entity::new(123, 456));
         assert!(Entity::new(123, 456) != Entity::new(123, 789));
