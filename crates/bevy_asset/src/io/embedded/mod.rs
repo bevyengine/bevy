@@ -131,13 +131,15 @@ macro_rules! embedded_path {
 /// For example, consider the following file structure in the theoretical `bevy_rock` crate, which provides a Bevy [`Plugin`](bevy_app::Plugin)
 /// that renders fancy rocks for scenes.
 ///
-/// * `bevy_rock`
-///     * `src`
-///         * `render`
-///             * `rock.wgsl`
-///             * `mod.rs`
-///         * `lib.rs`
-///     * `Cargo.toml`
+/// ```text
+/// bevy_rock
+/// ├── src
+/// │   ├── render
+/// │   │   ├── rock.wgsl
+/// │   │   └── mod.rs
+/// │   └── lib.rs
+/// └── Cargo.toml
+/// ```
 ///
 /// `rock.wgsl` is a WGSL shader asset that the `bevy_rock` plugin author wants to bundle with their crate. They invoke the following
 /// in `bevy_rock/src/render/mod.rs`:
