@@ -156,7 +156,7 @@ macro_rules! embedded_path {
 /// ```
 ///
 /// Some things to note in the path:
-/// 1. The non-default `embedded:://` [`AssetSource`]
+/// 1. The non-default `embedded://` [`AssetSource`]
 /// 2. `src` is trimmed from the path
 ///
 /// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists in a larger workspace in
