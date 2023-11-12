@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    system::{RunSystem, SystemId},
+    system::{RunSystemWithInput, SystemId},
     world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -524,7 +524,17 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Calls [`World::run_system`](crate::system::World::run_system).
     pub fn run_system(&mut self, id: SystemId) {
-        self.queue.push(RunSystem::new(id));
+        self.run_system_with_input(id, ())
+    }
+
+    /// Runs the system corresponding to the given [`SystemId`].
+    /// Systems are ran in an exclusive and single threaded way.
+    /// Running slow systems can become a bottleneck.
+    ///
+    /// Calls [`World::run_system_with_input`](crate::system::World::run_system_with_input).
+    pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
+        self.queue
+            .push(RunSystemWithInput::new_with_input(id, input));
     }
 
     /// Pushes a generic [`Command`] to the command queue.

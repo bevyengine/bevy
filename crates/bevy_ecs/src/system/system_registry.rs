@@ -299,26 +299,55 @@ impl World {
     }
 }
 
+/// The [`Command`] type for [`World::run_system`] or [`World::run_system_with_input`].
+///
+/// This command runs systems in an exclusive and single threaded way.
+/// Running slow systems can become a bottleneck.
+///
+/// If the system needs an [`In<_>`](crate::system::In) input value to run, it must
+/// be provided as part of the command.
+///
+/// There is no way to get the output of a system when run as a command, because the
+/// execution of the system happens later. To get the output of a system, use
+/// [World::run_system] or [World::run_system_with_input] instead of running the system as a command.
+#[derive(Debug, Clone)]
+pub struct RunSystemWithInput<I: 'static> {
+    system_id: SystemId<I>,
+    input: I,
+}
+
 /// The [`Command`] type for [`World::run_system`].
 ///
 /// This command runs systems in an exclusive and single threaded way.
 /// Running slow systems can become a bottleneck.
-#[derive(Debug, Clone)]
-pub struct RunSystem {
-    system_id: SystemId,
-}
+///
+/// If the system needs an [`In<_>`](crate::system::In) input value to run, use the
+/// [crate::system::RunSystemWithInput] type instead.
+///
+/// There is no way to get the output of a system when run as a command, because the
+/// execution of the system happens later. To get the output of a system, use
+/// [World::run_system] or [World::run_system_with_input] instead of running the system as a command.
+pub type RunSystem = RunSystemWithInput<()>;
 
 impl RunSystem {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     pub fn new(system_id: SystemId) -> Self {
-        Self { system_id }
+        Self::new_with_input(system_id, ())
     }
 }
 
-impl Command for RunSystem {
+impl<I: 'static> RunSystemWithInput<I> {
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
+    /// in order to run the specified system with the provided [`In<_>`](crate::system::In) input value.
+    pub fn new_with_input(system_id: SystemId<I>, input: I) -> Self {
+        Self { system_id, input }
+    }
+}
+
+impl<I: 'static + Send> Command for RunSystemWithInput<I> {
     #[inline]
     fn apply(self, world: &mut World) {
-        let _ = world.run_system(self.system_id);
+        let _ = world.run_system_with_input(self.system_id, self.input);
     }
 }
 
@@ -502,6 +531,34 @@ mod tests {
 
         world.spawn(Callback(increment_two));
         world.spawn(Callback(increment_three));
+        let _ = world.run_system(nested_id);
+        assert_eq!(*world.resource::<Counter>(), Counter(5));
+    }
+
+    #[test]
+    fn nested_systems_with_inputs() {
+        use crate::system::SystemId;
+
+        #[derive(Component)]
+        struct Callback(SystemId<u8>, u8);
+
+        fn nested(query: Query<&Callback>, mut commands: Commands) {
+            for callback in query.iter() {
+                commands.run_system_with_input(callback.0, callback.1);
+            }
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        let increment_by =
+            world.register_system(|In(amt): In<u8>, mut counter: ResMut<Counter>| {
+                counter.0 += amt;
+            });
+        let nested_id = world.register_system(nested);
+
+        world.spawn(Callback(increment_by, 2));
+        world.spawn(Callback(increment_by, 3));
         let _ = world.run_system(nested_id);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
     }
