@@ -18,8 +18,6 @@
 //! | `D`                | Toggle Depth Prepass                                 |
 //! | `T`                | Toggle TAA                                           |
 
-#![allow(clippy::type_complexity)]
-
 use std::f32::consts::PI;
 
 use bevy::{
