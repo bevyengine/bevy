@@ -58,14 +58,16 @@ impl Primitive3d for Line3d {}
 pub struct LineSegment3d {
     /// The direction of the line
     pub direction: Direction3d,
-    /// Half the length of the line segment, the segment extends by this amount in both the
-    /// in both the positive and negative direction
+    /// Half the length of the line segment, the segment extends by this amount in both
+    /// the positive and negative direction
     pub half_length: f32,
 }
 impl Primitive3d for LineSegment3d {}
 
 impl LineSegment3d {
     /// Get a line segment and translation from a start and end position of a line segment
+    ///
+    /// Panics if start == end
     pub fn from_start_end(start: Vec3, end: Vec3) -> (Self, Vec3) {
         let diff = end - start;
         let length = diff.length();
@@ -74,7 +76,7 @@ impl LineSegment3d {
                 direction: Direction3d::from_normalized(diff / length),
                 half_length: length / 2.,
             },
-            (start + end / 2.),
+            (start + end) / 2.,
         )
     }
 

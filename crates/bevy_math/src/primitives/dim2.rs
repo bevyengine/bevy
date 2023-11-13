@@ -60,13 +60,15 @@ pub struct LineSegment2d {
     /// The direction of the line
     pub direction: Direction2d,
     /// Half the length of the line segment, the segment extends by this amount in both
-    /// the in both the positive and negative direction
+    /// the positive and negative direction
     pub half_length: f32,
 }
 impl Primitive2d for LineSegment2d {}
 
 impl LineSegment2d {
     /// Get a line segment and translation from a start and end position of a line segment
+    ///
+    /// Panics if start == end
     pub fn from_start_end(start: Vec2, end: Vec2) -> (Self, Vec2) {
         let diff = end - start;
         let length = diff.length();
@@ -75,7 +77,7 @@ impl LineSegment2d {
                 direction: Direction2d::from_normalized(diff / length),
                 half_length: length / 2.,
             },
-            (start + end / 2.),
+            (start + end) / 2.,
         )
     }
 
