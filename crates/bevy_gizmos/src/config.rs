@@ -8,7 +8,7 @@ use std::{
 
 use bevy_ecs::{component::Component, system::Resource};
 use bevy_reflect::{Reflect, TypePath};
-use bevy_render::{color::Color, view::RenderLayers};
+use bevy_render::view::RenderLayers;
 use bevy_utils::HashMap;
 
 /// A trait used for custom gizmo configs.
@@ -160,22 +160,3 @@ impl From<&GizmoConfig> for GizmoMeshConfig {
         }
     }
 }
-
-/// Configuration for drawing the [Aabb](bevy_render::primitives::Aabb) component on entities.
-#[derive(Clone, Default, Reflect)]
-pub struct AabbGizmoConfig {
-    /// Draws all bounding boxes in the scene when set to `true`.
-    ///
-    /// To draw a specific entity's bounding box, you can add the [ShowAabbGizmo](crate::ShowAabbGizmo) component.
-    ///
-    /// Defaults to `false`.
-    pub draw_all: bool,
-    /// The default color for bounding box gizmos.
-    ///
-    /// A random color is chosen per box if `None`.
-    ///
-    /// Defaults to `None`.
-    pub default_color: Option<Color>,
-}
-
-impl CustomGizmoConfig for AabbGizmoConfig {}

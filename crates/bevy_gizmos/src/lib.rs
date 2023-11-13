@@ -16,9 +16,9 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
-pub mod gizmos;
-
+pub mod aabb;
 pub mod config;
+pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
@@ -29,33 +29,28 @@ mod pipeline_3d;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        config::{
-            AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfig, GizmoConfigStore,
-        },
+        aabb::{AabbGizmoConfig, ShowAabbGizmo},
+        config::{CustomGizmoConfig, DefaultGizmoConfig, GizmoConfig, GizmoConfigStore},
         gizmos::Gizmos,
-        AppGizmoBuilder, ShowAabbGizmo,
+        AppGizmoBuilder,
     };
 }
 
-use bevy_app::{App, Last, Plugin, PostUpdate};
+use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_core::cast_slice;
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
-    query::{ROQueryItem, Without},
-    reflect::ReflectComponent,
+    query::ROQueryItem,
     schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Query, Res, ResMut, Resource, SystemParamItem,
+        Commands, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::TypePath;
 use bevy_render::{
-    color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
@@ -67,16 +62,12 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::{
-    components::{GlobalTransform, Transform},
-    TransformSystem,
-};
 use bevy_utils::{tracing::warn, HashMap};
 use config::{
-    AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfig, GizmoConfigStore,
-    GizmoMeshConfig,
+    CustomGizmoConfig, DefaultGizmoConfig, GizmoConfig, GizmoConfigStore, GizmoMeshConfig,
 };
-use gizmos::{GizmoStorage, Gizmos};
+use gizmos::GizmoStorage;
+use aabb::AabbGizmoPlugin;
 use std::{any::TypeId, mem};
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
@@ -89,24 +80,13 @@ impl Plugin for GizmoPlugin {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.register_type::<GizmoConfig>()
-            .register_type::<AabbGizmoConfig>()
             .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfigStore>()
             .init_gizmo_config::<DefaultGizmoConfig>()
-            .init_gizmo_config::<AabbGizmoConfig>()
-            .add_systems(
-                PostUpdate,
-                (
-                    draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
-                        config.get::<AabbGizmoConfig>().1.draw_all
-                    }),
-                )
-                    .after(TransformSystem::TransformPropagate),
-            );
+            .add_plugins(AabbGizmoPlugin);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -176,65 +156,6 @@ impl AppGizmoBuilder for App {
 
         self
     }
-}
-
-/// Add this [`Component`] to an entity to draw its [`Aabb`] component.
-#[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component, Default)]
-pub struct ShowAabbGizmo {
-    /// The color of the box.
-    ///
-    /// The default color from the [`AabbGizmoConfig`] resource is used if `None`,
-    pub color: Option<Color>,
-}
-
-fn draw_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
-    mut gizmos: Gizmos<AabbGizmoConfig>,
-) {
-    for (entity, &aabb, &transform, gizmo) in &query {
-        let color = gizmo
-            .color
-            .or(gizmos.config_ext.default_color)
-            .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
-    }
-}
-
-fn draw_all_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
-    mut gizmos: Gizmos<AabbGizmoConfig>,
-) {
-    for (entity, &aabb, &transform) in &query {
-        let color = gizmos
-            .config_ext
-            .default_color
-            .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
-    }
-}
-
-fn color_from_entity(entity: Entity) -> Color {
-    let index = entity.index();
-
-    // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
-    //
-    // See https://en.wikipedia.org/wiki/Low-discrepancy_sequence
-    // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
-    // so that the closer the numbers are, the larger the difference of their image.
-    const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
-    const RATIO_360: f32 = 360.0 / u32::MAX as f32;
-    let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
-
-    Color::hsl(hue, 1., 0.5)
-}
-
-fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
-    transform
-        * GlobalTransform::from(
-            Transform::from_translation(aabb.center.into())
-                .with_scale((aabb.half_extents * 2.).into()),
-        )
 }
 
 #[derive(Resource, Default)]
