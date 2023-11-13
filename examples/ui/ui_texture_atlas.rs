@@ -26,7 +26,6 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        color: Color::ANTIQUE_WHITE,
         font_size: 20.,
         ..default()
     };
@@ -40,8 +39,9 @@ fn setup(
     commands
         .spawn(NodeBundle {
             style: Style {
-                flex_direction: FlexDirection::Column,
                 width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 row_gap: Val::Px(text_style.font_size * 2.),

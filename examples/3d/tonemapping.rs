@@ -7,10 +7,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_resource::{
-            AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
-        },
-        texture::ImageSampler,
+        render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
+        texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
     },
     utils::HashMap,
@@ -66,6 +64,14 @@ fn setup(
             transform: camera_transform.0,
             ..default()
         },
+        FogSettings {
+            color: Color::rgba_u8(43, 44, 47, 255),
+            falloff: FogFalloff::Linear {
+                start: 1.0,
+                end: 8.0,
+            },
+            ..default()
+        },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -78,7 +84,6 @@ fn setup(
             "",
             TextStyle {
                 font_size: 18.0,
-                color: Color::WHITE,
                 ..default()
             },
         )
@@ -101,15 +106,8 @@ fn setup_basic_scene(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane {
-                size: 5.0,
-                ..default()
-            })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.3, 0.5, 0.3),
-                perceptual_roughness: 0.5,
-                ..default()
-            }),
+            mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+            material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
             ..default()
         },
         SceneNumber(1),
@@ -336,7 +334,7 @@ fn update_image_viewer(
                 if let Some(base_color_texture) = mat.base_color_texture.clone() {
                     if image_changed_id == base_color_texture.id() {
                         if let Some(image_changed) = images.get(image_changed_id) {
-                            let size = image_changed.size().normalize_or_zero() * 1.4;
+                            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
                             // Resize Mesh
                             let quad = Mesh::from(shape::Quad::new(size));
                             meshes.insert(mesh_h, quad);
@@ -681,7 +679,7 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     );
-    img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
 }
 

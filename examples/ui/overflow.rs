@@ -17,7 +17,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 20.0,
-        color: Color::WHITE,
+        ..default()
     };
 
     let image = asset_server.load("branding/icon.png");
@@ -25,9 +25,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                width: Val::Percent(100.),
                 ..Default::default()
             },
             background_color: Color::ANTIQUE_WHITE.into(),

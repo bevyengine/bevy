@@ -110,7 +110,7 @@ pub(crate) fn despawn_windows(
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
-    for window in closed.iter() {
+    for window in closed.read() {
         info!("Closing window {:?}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added and removed in the same frame.

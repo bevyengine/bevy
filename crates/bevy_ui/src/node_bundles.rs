@@ -5,7 +5,7 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiTextureAtlasImage, ZIndex,
+    UiMaterial, UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -159,6 +159,9 @@ pub struct AtlasImageBundle {
 
 #[cfg(feature = "bevy_text")]
 /// A UI node that is text
+///
+/// The positioning of this node is controlled by the UI layout system. If you need manual control,
+/// use [`Text2dBundle`](bevy_text::Text2dBundle).
 #[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Describes the logical size of the node
@@ -330,6 +333,58 @@ impl Default for ButtonBundle {
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
+}
+
+/// A UI node that is rendered using a [`UiMaterial`]
+///
+/// Adding a `BackgroundColor` component to an entity with this bundle will ignore the custom
+/// material and use the background color instead.
+#[derive(Bundle, Clone, Debug)]
+pub struct MaterialNodeBundle<M: UiMaterial> {
+    /// Describes the logical size of the node
+    pub node: Node,
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
+    pub style: Style,
+    /// The [`UiMaterial`] used to render the node.
+    pub material: Handle<M>,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
+}
+
+impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
+    fn default() -> Self {
+        Self {
+            node: Default::default(),
+            style: Default::default(),
+            material: Default::default(),
+            focus_policy: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),

@@ -4,7 +4,9 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+pub mod deferred;
 mod environment_map;
+mod extended_material;
 mod fog;
 mod light;
 mod material;
@@ -17,6 +19,7 @@ mod ssao;
 pub use alpha::*;
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
+pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
 pub use material::*;
@@ -55,38 +58,60 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::CameraUpdateSystem, extract_resource::ExtractResourcePlugin, prelude::Color,
-    render_asset::prepare_assets, render_graph::RenderGraph, render_phase::sort_phase_system,
-    render_resource::Shader, texture::Image, view::VisibilitySystems, ExtractSchedule, Render,
-    RenderApp, RenderSet,
+    camera::{CameraUpdateSystem, Projection},
+    extract_component::ExtractComponentPlugin,
+    extract_resource::ExtractResourcePlugin,
+    prelude::Color,
+    render_asset::prepare_assets,
+    render_graph::RenderGraph,
+    render_phase::sort_phase_system,
+    render_resource::Shader,
+    texture::Image,
+    view::VisibilitySystems,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
+
+use crate::deferred::DeferredPbrLightingPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
 pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416725);
 pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
 pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
+pub const PBR_TRANSMISSION_HANDLE: Handle<Shader> = Handle::weak_from_u128(77319684653223658032);
 pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
+pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(3145627513789590502);
+pub const PBR_FRAGMENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2295049283805286543);
 pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
 pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
 pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(17035894873630133905);
+pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2098345702398750291);
+pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(73204817249182637);
+pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
+pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(72019026415438599);
+pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
     /// Controls if the prepass is enabled for the StandardMaterial.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     pub prepass_enabled: bool,
+    /// Controls if [`DeferredPbrLightingPlugin`] is added.
+    pub add_default_deferred_lighting_plugin: bool,
 }
 
 impl Default for PbrPlugin {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
+            add_default_deferred_lighting_plugin: true,
         }
     }
 }
@@ -120,8 +145,32 @@ impl Plugin for PbrPlugin {
         );
         load_internal_asset!(
             app,
+            PBR_TRANSMISSION_HANDLE,
+            "render/pbr_transmission.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             SHADOWS_HANDLE,
             "render/shadows.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_DEFERRED_TYPES_HANDLE,
+            "deferred/pbr_deferred_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            PBR_DEFERRED_FUNCTIONS_HANDLE,
+            "deferred/pbr_deferred_functions.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            SHADOW_SAMPLING_HANDLE,
+            "render/shadow_sampling.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -132,11 +181,29 @@ impl Plugin for PbrPlugin {
         );
         load_internal_asset!(
             app,
+            RGB9E5_FUNCTIONS_HANDLE,
+            "render/rgb9e5.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             PBR_AMBIENT_HANDLE,
             "render/pbr_ambient.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            PBR_FRAGMENT_HANDLE,
+            "render/pbr_fragment.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            PBR_PREPASS_FUNCTIONS_SHADER_HANDLE,
+            "render/pbr_prepass_functions.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             PBR_PREPASS_SHADER_HANDLE,
@@ -147,6 +214,12 @@ impl Plugin for PbrPlugin {
             app,
             PARALLAX_MAPPING_SHADER_HANDLE,
             "render/parallax_mapping.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            VIEW_TRANSFORMATIONS_SHADER_HANDLE,
+            "render/view_transformations.wgsl",
             Shader::from_wgsl
         );
 
@@ -168,10 +241,13 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
+            .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
+            .register_type::<DefaultOpaqueRendererMethod>()
+            .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin,
                 MaterialPlugin::<StandardMaterial> {
@@ -182,6 +258,8 @@ impl Plugin for PbrPlugin {
                 EnvironmentMapPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
+                ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
             ))
             .configure_sets(
                 PostUpdate,
@@ -202,7 +280,11 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
                         .after(CameraUpdateSystem),
-                    update_directional_light_cascades
+                    (
+                        clear_directional_light_cascades,
+                        build_directional_light_cascades::<Projection>,
+                    )
+                        .chain()
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystem::TransformPropagate)
                         .after(CameraUpdateSystem),
@@ -235,6 +317,10 @@ impl Plugin for PbrPlugin {
                         .after(VisibilitySystems::CheckVisibility),
                 ),
             );
+
+        if self.add_default_deferred_lighting_plugin {
+            app.add_plugins(DeferredPbrLightingPlugin);
+        }
 
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
             Handle::<StandardMaterial>::default(),

@@ -4,6 +4,7 @@ use bevy_asset::{AssetEvent, AssetId};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::FloatOrd;
@@ -40,7 +41,7 @@ pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct GlyphAtlasInfo {
     pub texture_atlas: Handle<TextureAtlas>,
     pub glyph_index: usize,
@@ -106,7 +107,7 @@ impl FontAtlasSet {
                 .texture_descriptor
                 .size
                 .height
-                .max(glyph_texture.texture_descriptor.size.width);
+                .max(glyph_texture.width());
             // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
             let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
             font_atlases.push(FontAtlas::new(
@@ -153,7 +154,13 @@ impl FontAtlasSet {
             })
     }
 
-    pub fn num_font_atlases(&self) -> usize {
+    /// Returns the number of font atlases in this set
+    pub fn len(&self) -> usize {
         self.font_atlases.len()
+    }
+
+    /// Returns `true` if the font atlas set contains no elements
+    pub fn is_empty(&self) -> bool {
+        self.font_atlases.is_empty()
     }
 }

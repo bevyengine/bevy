@@ -195,7 +195,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             mut conditions,
         } = SyncUnsafeSchedule::new(schedule);
 
-        ComputeTaskPool::init(TaskPool::default).scope_with_executor(
+        ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
             false,
             thread_executor,
             |scope| {

@@ -29,6 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -65,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 30.0,
-                                        color: Color::WHITE,
+                                        ..default()
                                     },
                                 )
                                 .with_style(Style {
@@ -100,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 25.,
-                                color: Color::WHITE,
+                                ..default()
                             },
                         ),
                         Label,
@@ -143,7 +144,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     font: asset_server
                                                         .load("fonts/FiraSans-Bold.ttf"),
                                                     font_size: 20.,
-                                                    color: Color::WHITE,
+                                                    ..default()
                                                 },
                                             ),
                                             Label,

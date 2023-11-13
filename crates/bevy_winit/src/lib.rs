@@ -4,7 +4,7 @@
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of
 //! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
-//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`](winit::event_loop::EventLoop).
+//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
 pub mod accessibility;
@@ -20,7 +20,7 @@ use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, Last, Plugin};
+use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::{SystemParam, SystemState};
@@ -38,11 +38,13 @@ use bevy_utils::{
     Duration, Instant,
 };
 use bevy_window::{
-    exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
-    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
-    WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
+    exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
+    FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
+    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
+#[cfg(target_os = "android")]
+use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
@@ -67,14 +69,54 @@ pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::n
 /// events.
 ///
 /// This plugin will add systems and resources that sync with the `winit` backend and also
-/// replace the exising [`App`] runner with one that constructs an [event loop](EventLoop) to
+/// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
-pub struct WinitPlugin;
+pub struct WinitPlugin {
+    /// Allows the window (and the event loop) to be created on any thread
+    /// instead of only the main thread.
+    ///
+    /// See [`EventLoopBuilder::build`] for more information on this.
+    ///
+    /// # Supported platforms
+    ///
+    /// Only works on Linux (X11/Wayland) and Windows.
+    /// This field is ignored on other platforms.
+    pub run_on_any_thread: bool,
+}
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+
+        // This is needed because the features checked in the inner
+        // block might be enabled on other platforms than linux.
+        #[cfg(target_os = "linux")]
+        {
+            #[cfg(feature = "x11")]
+            {
+                use winit::platform::x11::EventLoopBuilderExtX11;
+
+                // This allows a Bevy app to be started and ran outside of the main thread.
+                // A use case for this is to allow external applications to spawn a thread
+                // which runs a Bevy app without requiring the Bevy app to need to reside on
+                // the main thread, which can be problematic.
+                event_loop_builder.with_any_thread(self.run_on_any_thread);
+            }
+
+            #[cfg(feature = "wayland")]
+            {
+                use winit::platform::wayland::EventLoopBuilderExtWayland;
+                event_loop_builder.with_any_thread(self.run_on_any_thread);
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::EventLoopBuilderExtWindows;
+            event_loop_builder.with_any_thread(self.run_on_any_thread);
+        }
+
         #[cfg(target_os = "android")]
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
@@ -237,6 +279,7 @@ struct WindowAndInputEventWriters<'w> {
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
     window_destroyed: EventWriter<'w, WindowDestroyed>,
+    lifetime: EventWriter<'w, ApplicationLifetime>,
     keyboard_input: EventWriter<'w, KeyboardInput>,
     character_input: EventWriter<'w, ReceivedCharacter>,
     mouse_button_input: EventWriter<'w, MouseButtonInput>,
@@ -256,8 +299,8 @@ struct WindowAndInputEventWriters<'w> {
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
 struct WinitAppRunnerState {
-    /// Is `true` if the app is running and not suspended.
-    is_active: bool,
+    /// Current active state of the app.
+    active: ActiveState,
     /// Is `true` if a new [`WindowEvent`] has been received since the last update.
     window_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
@@ -270,10 +313,28 @@ struct WinitAppRunnerState {
     scheduled_update: Option<Instant>,
 }
 
+#[derive(PartialEq, Eq)]
+enum ActiveState {
+    NotYetStarted,
+    Active,
+    Suspended,
+    WillSuspend,
+}
+
+impl ActiveState {
+    #[inline]
+    fn should_run(&self) -> bool {
+        match self {
+            ActiveState::NotYetStarted | ActiveState::Suspended => false,
+            ActiveState::Active | ActiveState::WillSuspend => true,
+        }
+    }
+}
+
 impl Default for WinitAppRunnerState {
     fn default() -> Self {
         Self {
-            is_active: false,
+            active: ActiveState::NotYetStarted,
             window_event_received: false,
             redraw_requested: false,
             wait_elapsed: false,
@@ -311,6 +372,7 @@ pub fn winit_runner(mut app: App) {
         WindowAndInputEventWriters,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
+        NonSend<AccessKitAdapters>,
     )> = SystemState::new(&mut app.world);
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -336,8 +398,6 @@ pub fn winit_runner(mut app: App) {
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
-    let mut finished_and_setup_done = false;
-
     // setup up the event loop
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
@@ -345,14 +405,13 @@ pub fn winit_runner(mut app: App) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
-        if !finished_and_setup_done {
-            if !app.ready() {
+        if app.plugins_state() != PluginsState::Cleaned {
+            if app.plugins_state() != PluginsState::Ready {
                 #[cfg(not(target_arch = "wasm32"))]
                 tick_global_task_pools_on_main_thread();
             } else {
                 app.finish();
                 app.cleanup();
-                finished_and_setup_done = true;
             }
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
@@ -366,7 +425,7 @@ pub fn winit_runner(mut app: App) {
         match event {
             event::Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
-                    #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
+                    #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
                         #[cfg(not(target_arch = "wasm32"))]
                         let (
@@ -418,7 +477,7 @@ pub fn winit_runner(mut app: App) {
             event::Event::WindowEvent {
                 event, window_id, ..
             } => {
-                let (mut event_writers, winit_windows, mut windows) =
+                let (mut event_writers, winit_windows, mut windows, access_kit_adapters) =
                     event_writer_system_state.get_mut(&mut app.world);
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
@@ -436,6 +495,18 @@ pub fn winit_runner(mut app: App) {
                     );
                     return;
                 };
+
+                // Allow AccessKit to respond to `WindowEvent`s before they reach
+                // the engine.
+                if let Some(adapter) = access_kit_adapters.get(&window_entity) {
+                    if let Some(window) = winit_windows.get_window(window_entity) {
+                        // Somewhat surprisingly, this call has meaningful side effects
+                        // See https://github.com/AccessKit/accesskit/issues/300
+                        // AccessKit might later need to filter events based on this, but we currently do not.
+                        // See https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
+                        let _ = adapter.on_event(window, &event);
+                    }
+                }
 
                 runner_state.window_event_received = true;
 
@@ -655,28 +726,84 @@ pub fn winit_runner(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
                 });
             }
             event::Event::Suspended => {
-                runner_state.is_active = false;
-                #[cfg(target_os = "android")]
-                {
-                    // Android sending this event invalidates all render surfaces.
-                    // TODO
-                    // Upon resume, check if the new render surfaces are compatible with the
-                    // existing render device. If not (which should basically never happen),
-                    // then try to rebuild the renderer.
-                    *control_flow = ControlFlow::Exit;
-                }
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
+                event_writers.lifetime.send(ApplicationLifetime::Suspended);
+                // Mark the state as `WillSuspend`. This will let the schedule run one last time
+                // before actually suspending to let the application react
+                runner_state.active = ActiveState::WillSuspend;
             }
             event::Event::Resumed => {
-                runner_state.is_active = true;
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
+                match runner_state.active {
+                    ActiveState::NotYetStarted => {
+                        event_writers.lifetime.send(ApplicationLifetime::Started);
+                    }
+                    _ => {
+                        event_writers.lifetime.send(ApplicationLifetime::Resumed);
+                    }
+                }
+                runner_state.active = ActiveState::Active;
+                #[cfg(target_os = "android")]
+                {
+                    // Get windows that are cached but without raw handles. Those window were already created, but got their
+                    // handle wrapper removed when the app was suspended.
+                    let mut query = app
+                        .world
+                        .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                    if let Ok((entity, window)) = query.get_single(&app.world) {
+                        use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+                        let window = window.clone();
+
+                        let (
+                            _,
+                            _,
+                            _,
+                            mut winit_windows,
+                            mut adapters,
+                            mut handlers,
+                            accessibility_requested,
+                        ) = create_window_system_state.get_mut(&mut app.world);
+
+                        let winit_window = winit_windows.create_window(
+                            event_loop,
+                            entity,
+                            &window,
+                            &mut adapters,
+                            &mut handlers,
+                            &accessibility_requested,
+                        );
+
+                        let wrapper = RawHandleWrapper {
+                            window_handle: winit_window.raw_window_handle(),
+                            display_handle: winit_window.raw_display_handle(),
+                        };
+
+                        app.world.entity_mut(entity).insert(wrapper);
+                    }
+                    *control_flow = ControlFlow::Poll;
+                }
             }
             event::Event::MainEventsCleared => {
-                if runner_state.is_active {
+                if runner_state.active.should_run() {
+                    if runner_state.active == ActiveState::WillSuspend {
+                        runner_state.active = ActiveState::Suspended;
+                        #[cfg(target_os = "android")]
+                        {
+                            // Remove the `RawHandleWrapper` from the primary window.
+                            // This will trigger the surface destruction.
+                            let mut query =
+                                app.world.query_filtered::<Entity, With<PrimaryWindow>>();
+                            let entity = query.single(&app.world);
+                            app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+                            *control_flow = ControlFlow::Wait;
+                        }
+                    }
                     let (config, windows) = focused_windows_state.get(&app.world);
                     let focused = windows.iter().any(|window| window.focused);
                     let should_update = match config.update_mode(focused) {
@@ -694,7 +821,7 @@ pub fn winit_runner(mut app: App) {
                         }
                     };
 
-                    if finished_and_setup_done && should_update {
+                    if app.plugins_state() == PluginsState::Cleaned && should_update {
                         // reset these on each update
                         runner_state.wait_elapsed = false;
                         runner_state.window_event_received = false;
