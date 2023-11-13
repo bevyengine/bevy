@@ -20,7 +20,7 @@ impl Font {
 
     pub fn get_outlined_glyph_texture(outlined_glyph: OutlinedGlyph) -> Image {
         let bounds = outlined_glyph.px_bounds();
-        // Increase the length of the glyph texture by 2-pixels on each axis to make space 
+        // Increase the length of the glyph texture by 2-pixels on each axis to make space
         // for a pixel wide transparent border along its edges.
         let width = bounds.width() as usize + 2;
         let height = bounds.height() as usize + 2;
