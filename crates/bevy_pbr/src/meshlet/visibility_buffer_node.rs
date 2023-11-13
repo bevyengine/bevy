@@ -41,11 +41,8 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         (camera, camera_3d, depth, view_offset, meshlet_view_bind_groups, meshlet_view_resources): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let Some((
-            Some(culling_pipeline),
-            Some(visibility_buffer_pipeline),
-            Some(copy_material_depth_pipeline),
-        )) = MeshletPipelines::get(world)
+        let Some((culling_pipeline, visibility_buffer_pipeline, copy_material_depth_pipeline)) =
+            MeshletPipelines::get(world)
         else {
             return Ok(());
         };
