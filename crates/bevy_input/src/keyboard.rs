@@ -302,7 +302,7 @@ pub enum KeyCode {
     Backslash,
     /// The `Calculator` key.
     Calculator,
-    /// The `Capital` key.
+    /// The `Caps Lock` key.
     Capital,
     /// The `Colon` / `:` key.
     Colon,
