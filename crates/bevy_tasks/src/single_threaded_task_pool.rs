@@ -12,14 +12,14 @@ pub struct TaskPoolBuilder {}
 /// This is a dummy struct for wasm support to provide the same api as with the multithreaded
 /// task pool. In the case of the multithreaded task pool this struct is used to spawn
 /// tasks on a specific thread. But the wasm task pool just calls
-/// [`wasm_bindgen_futures::spawn_local`] for spawning which just runs tasks on the main thread
+/// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
 /// and so the [`ThreadExecutor`] does nothing.
 #[derive(Default)]
 pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
 impl<'a> ThreadExecutor<'a> {
     /// Creates a new `ThreadExecutor`
     pub fn new() -> Self {
-        Self(PhantomData::default())
+        Self::default()
     }
 }
 
@@ -159,7 +159,7 @@ impl TaskPool {
         FakeTask
     }
 
-    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskSpool::spawn`].
+    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,

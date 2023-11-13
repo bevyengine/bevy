@@ -4,7 +4,7 @@ use std::{fs::File, io::Write};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin::default().watch_for_changes()))
+        .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .register_type::<ResourceA>()
@@ -75,7 +75,8 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
-// load_scene_example.scn. You should immediately see the changes appear in the console.
+// load_scene_example.scn. If you enable the `file_watcher` cargo feature you should immediately see
+// the changes appear in the console whenever you make a change.
 fn log_system(
     query: Query<(Entity, &ComponentA), Changed<ComponentA>>,
     res: Option<Res<ResourceA>>,
@@ -150,7 +151,6 @@ fn infotext_system(mut commands: Commands) {
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font_size: 50.0,
-                color: Color::WHITE,
                 ..default()
             },
         )

@@ -1,7 +1,8 @@
 use std::{
-    collections::HashMap,
+    collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,
     fs::{self, File},
+    hash::{Hash, Hasher},
     io::Write,
     path::{Path, PathBuf},
     process::exit,
@@ -46,6 +47,26 @@ enum Action {
         #[arg(long)]
         /// Take a screenshot
         screenshot: bool,
+
+        #[arg(long)]
+        /// Running in CI (some adaptation to the code)
+        in_ci: bool,
+
+        #[arg(long)]
+        /// Do not run stress test examples
+        ignore_stress_tests: bool,
+
+        #[arg(long)]
+        /// Report execution details in files
+        report_details: bool,
+
+        #[arg(long)]
+        /// File containing the list of examples to run, incompatible with pagination
+        example_list: Option<String>,
+
+        #[arg(long)]
+        /// Only run examples that don't need extra features
+        only_default_features: bool,
     },
     /// Build the markdown files for the website
     BuildWebsiteList {
@@ -111,10 +132,33 @@ fn main() {
             wgpu_backend,
             manual_stop,
             screenshot,
+            in_ci,
+            ignore_stress_tests,
+            report_details,
+            example_list,
+            only_default_features,
         } => {
-            let examples_to_run = parse_examples();
+            if example_list.is_some() && cli.page.is_some() {
+                let mut cmd = Args::command();
+                cmd.error(
+                    ErrorKind::ArgumentConflict,
+                    "example-list can't be used with pagination",
+                )
+                .exit();
+            }
+            let example_filter = example_list
+                .as_ref()
+                .map(|path| {
+                    let file = fs::read_to_string(path).unwrap();
+                    file.lines().map(|l| l.to_string()).collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+
+            let mut examples_to_run = parse_examples();
 
             let mut failed_examples = vec![];
+            let mut successful_examples = vec![];
+            let mut no_screenshot_examples = vec![];
 
             let mut extra_parameters = vec![];
 
@@ -132,7 +176,7 @@ fn main() {
                 (false, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: Some(300), frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(exit_after: Some(250), frame_time: Some(0.05), screenshot_frames: [100])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -140,15 +184,68 @@ fn main() {
                 }
                 (false, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(b"(exit_after: Some(300))").unwrap();
+                    file.write_all(b"(exit_after: Some(250))").unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
             }
 
+            if in_ci {
+                // Removing desktop mode as is slows down too much in CI
+                let sh = Shell::new().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/remove-desktop-app-mode.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Don't use automatic position as it's "random" on Windows and breaks screenshot comparison
+                // using the cursor position
+                let sh = Shell::new().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/fixed-window-position.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Setting lights ClusterConfig to have less clusters by default
+                // This is needed as the default config is too much for the CI runner
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/reduce-light-cluster-config.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Sending extra WindowResize events. They are not sent on CI with xvfb x11 server
+                // This is needed for example split_screen that uses the window size to set the panels
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/extra-window-resized-events.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Sort the examples so that they are not run by category
+                examples_to_run.sort_by_key(|example| {
+                    let mut hasher = DefaultHasher::new();
+                    example.hash(&mut hasher);
+                    hasher.finish()
+                });
+            }
+
             let work_to_do = || {
                 examples_to_run
                     .iter()
+                    .filter(|example| example.category != "Stress Tests" || !ignore_stress_tests)
+                    .filter(|example| {
+                        example_list.is_none() || example_filter.contains(&example.technical_name)
+                    })
+                    .filter(|example| {
+                        !only_default_features || example.required_features.is_empty()
+                    })
                     .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
                     .take(cli.per_page.unwrap_or(usize::MAX))
             };
@@ -158,10 +255,28 @@ fn main() {
             for to_run in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_run.technical_name;
-                let extra_parameters = extra_parameters.clone();
+                let required_features = if to_run.required_features.is_empty() {
+                    vec![]
+                } else {
+                    vec!["--features".to_string(), to_run.required_features.join(",")]
+                };
+                let local_extra_parameters = extra_parameters
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(required_features.iter().cloned())
+                    .collect::<Vec<_>>();
+                let _ = cmd!(
+                    sh,
+                    "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
+                ).run();
+                let local_extra_parameters = extra_parameters
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(required_features.iter().cloned())
+                    .collect::<Vec<_>>();
                 let mut cmd = cmd!(
                     sh,
-                    "cargo run --profile {profile} --example {example} {extra_parameters...}"
+                    "cargo run --profile {profile} --example {example} {local_extra_parameters...}"
                 );
 
                 if let Some(backend) = wgpu_backend.as_ref() {
@@ -173,33 +288,117 @@ fn main() {
                 }
 
                 let before = Instant::now();
+                if report_details {
+                    cmd = cmd.ignore_status();
+                }
+                let result = cmd.output();
 
-                if cmd.run().is_ok() {
+                let duration = before.elapsed();
+
+                if (!report_details && result.is_ok())
+                    || (report_details && result.as_ref().unwrap().status.success())
+                {
                     if screenshot {
                         let _ = fs::create_dir_all(Path::new("screenshots").join(&to_run.category));
-                        let _ = fs::rename(
+                        let renamed_screenshot = fs::rename(
                             "screenshot-100.png",
                             Path::new("screenshots")
                                 .join(&to_run.category)
                                 .join(format!("{}.png", to_run.technical_name)),
                         );
+                        if let Err(err) = renamed_screenshot {
+                            println!("Failed to rename screenshot: {:?}", err);
+                            no_screenshot_examples.push((to_run, duration));
+                        } else {
+                            successful_examples.push((to_run, duration));
+                        }
+                    } else {
+                        successful_examples.push((to_run, duration));
                     }
                 } else {
-                    failed_examples.push(to_run);
+                    failed_examples.push((to_run, duration));
                 }
 
-                let duration = before.elapsed();
-                println!("took {duration:?}");
+                if report_details {
+                    let result = result.unwrap();
+                    let stdout = String::from_utf8_lossy(&result.stdout);
+                    let stderr = String::from_utf8_lossy(&result.stderr);
+                    println!("{}", stdout);
+                    println!("{}", stderr);
+                    let mut file = File::create(format!("{}.log", example)).unwrap();
+                    file.write_all(b"==== stdout ====\n").unwrap();
+                    file.write_all(stdout.as_bytes()).unwrap();
+                    file.write_all(b"\n==== stderr ====\n").unwrap();
+                    file.write_all(stderr.as_bytes()).unwrap();
+                }
 
                 thread::sleep(Duration::from_secs(1));
                 pb.inc();
             }
             pb.finish_print("done");
+
+            if report_details {
+                let _ = fs::write(
+                    "successes",
+                    successful_examples
+                        .iter()
+                        .map(|(example, duration)| {
+                            format!(
+                                "{}/{} - {}",
+                                example.category,
+                                example.technical_name,
+                                duration.as_secs_f32()
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+                let _ = fs::write(
+                    "failures",
+                    failed_examples
+                        .iter()
+                        .map(|(example, duration)| {
+                            format!(
+                                "{}/{} - {}",
+                                example.category,
+                                example.technical_name,
+                                duration.as_secs_f32()
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+                if screenshot {
+                    let _ = fs::write(
+                        "no_screenshots",
+                        no_screenshot_examples
+                            .iter()
+                            .map(|(example, duration)| {
+                                format!(
+                                    "{}/{} - {}",
+                                    example.category,
+                                    example.technical_name,
+                                    duration.as_secs_f32()
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    );
+                }
+            }
+
+            println!(
+                "total: {} / passed: {}, failed: {}, no screenshot: {}",
+                work_to_do().count(),
+                successful_examples.len(),
+                failed_examples.len(),
+                no_screenshot_examples.len()
+            );
             if failed_examples.is_empty() {
                 println!("All examples passed!");
             } else {
                 println!("Failed examples:");
-                for example in failed_examples {
+                for (example, _) in failed_examples {
                     println!(
                         "  {} / {} ({})",
                         example.category, example.name, example.technical_name
@@ -466,12 +665,22 @@ fn parse_examples() -> Vec<Example> {
                 description: metadata["description"].as_str().unwrap().to_string(),
                 category: metadata["category"].as_str().unwrap().to_string(),
                 wasm: metadata["wasm"].as_bool().unwrap(),
+                required_features: val
+                    .get("required-features")
+                    .map(|rf| {
+                        rf.as_array()
+                            .unwrap()
+                            .into_iter()
+                            .map(|v| v.as_str().unwrap().to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             })
         })
         .collect()
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct Example {
     technical_name: String,
     path: String,
@@ -479,4 +688,5 @@ struct Example {
     description: String,
     category: String,
     wasm: bool,
+    required_features: Vec<String>,
 }

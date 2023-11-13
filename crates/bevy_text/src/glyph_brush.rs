@@ -1,6 +1,7 @@
 use ab_glyph::{Font as _, FontArc, Glyph, PxScaleFont, ScaleFont as _};
 use bevy_asset::{AssetId, Assets};
 use bevy_math::{Rect, Vec2};
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::tracing::warn;
@@ -114,9 +115,9 @@ impl GlyphBrush {
 
                 if !text_settings.allow_dynamic_font_size
                     && !font_atlas_warning.warned
-                    && font_atlas_set.num_font_atlases() > text_settings.max_font_atlases.get()
+                    && font_atlas_set.len() > text_settings.soft_max_font_atlases.get()
                 {
-                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.max_font_atlases.get());
+                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.soft_max_font_atlases.get());
                     font_atlas_warning.warned = true;
                 }
 
@@ -158,7 +159,7 @@ impl GlyphBrush {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct PositionedGlyph {
     pub position: Vec2,
     pub size: Vec2,

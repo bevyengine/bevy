@@ -34,7 +34,7 @@ pub fn sync_simple_transforms(
         });
     // Update orphaned entities.
     let mut query = query.p1();
-    let mut iter = query.iter_many_mut(orphaned.iter());
+    let mut iter = query.iter_many_mut(orphaned.read());
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
         if !transform.is_changed() && !global_transform.is_added() {
             *global_transform = GlobalTransform::from(*transform);
@@ -57,7 +57,7 @@ pub fn propagate_transforms(
     mut orphaned_entities: Local<Vec<Entity>>,
 ) {
     orphaned_entities.clear();
-    orphaned_entities.extend(orphaned.iter());
+    orphaned_entities.extend(orphaned.read());
     orphaned_entities.sort_unstable();
     root_query.par_iter_mut().for_each(
         |(entity, children, transform, mut global_transform)| {
@@ -193,7 +193,7 @@ mod test {
 
     #[test]
     fn correct_parent_removed() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::default();
         let offset_global_transform =
             |offset| GlobalTransform::from(Transform::from_xyz(offset, offset, offset));
@@ -248,7 +248,7 @@ mod test {
 
     #[test]
     fn did_propagate() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
@@ -326,7 +326,7 @@ mod test {
 
     #[test]
     fn correct_children() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
@@ -404,7 +404,7 @@ mod test {
     #[test]
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
 
         app.add_systems(Update, (sync_simple_transforms, propagate_transforms));
 
@@ -446,7 +446,7 @@ mod test {
     #[test]
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         // We cannot directly edit Parent and Children, so we use a temp world to break
         // the hierarchy's invariants.
         let mut temp = World::new();
