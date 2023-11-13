@@ -628,8 +628,6 @@ pub fn extract_text_uinodes(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    
-
     for (uinode, global_transform, text, text_layout_info, view_visibility, clip) in
         uinode_query.iter()
     {
@@ -641,7 +639,7 @@ pub fn extract_text_uinodes(
         let (scale, rotation, translation) = global_transform.to_scale_rotation_translation();
 
         // Align the text to the nearest physical pixel:
-        // * Translate by minus the text node's half-size 
+        // * Translate by minus the text node's half-size
         //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
         // * Multiply the logical coordinates by the scale factor to get its position in physical coordinates
         // * Round the physical position to the nearest physical pixel
@@ -650,8 +648,8 @@ pub fn extract_text_uinodes(
         let physical_nearest_pixel = (logical_top_left * scale_factor as f32).round();
         let logical_top_left_nearest_pixel = physical_nearest_pixel * inverse_scale_factor;
         let transform = Mat4::from_scale_rotation_translation(
-            scale, 
-            rotation, 
+            scale,
+            rotation,
             logical_top_left_nearest_pixel.extend(0.),
         );
 

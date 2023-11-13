@@ -20,11 +20,11 @@ impl Font {
 
     pub fn get_outlined_glyph_texture(outlined_glyph: OutlinedGlyph) -> Image {
         let bounds = outlined_glyph.px_bounds();
-        let width = bounds.width() as usize;
-        let height = bounds.height() as usize;
+        let width = bounds.width() as usize + 2;
+        let height = bounds.height() as usize + 2;
         let mut alpha = vec![0.0; width * height];
         outlined_glyph.draw(|x, y, v| {
-            alpha[y as usize * width + x as usize] = v;
+            alpha[(y + 1) as usize * width + x as usize + 1] = v;
         });
 
         // TODO: make this texture grayscale
