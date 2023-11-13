@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_log::error;
 use bevy_render::{
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshKey, MeshVertexBufferLayout},
     pipeline_keys::{KeyRepack, PackedPipelineKey, PipelineKey, PipelineKeys},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
@@ -204,7 +204,8 @@ pub struct Material2dPipeline<M: Material2d> {
 
 #[derive(PipelineKey)]
 pub struct Material2dPipelineKey<M: Material2d> {
-    pub mesh_pipeline_key: Mesh2dPipelineKey,
+    pub view_key: Mesh2dViewKey,
+    pub mesh_key: MeshKey,
     pub bind_group_data: M::Data,
 }
 
@@ -219,9 +220,13 @@ where
         key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mesh_pipeline_key = Mesh2dPipelineKey {
+            view_key: key.view_key,
+            mesh_key: key.mesh_key,
+        };
         let mut descriptor = self
             .mesh2d_pipeline
-            .specialize(key.extract::<Mesh2dPipelineKey>(), layout)?;
+            .specialize(key.construct(mesh_pipeline_key), layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -349,8 +354,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
 
             let mesh_key = mesh.packed_key;
             let material_key = material2d.packed_key;
-            let mesh_pipeline_key = Mesh2dPipelineKey::repack((view_key, mesh_key));
-            let composite_key = Material2dPipelineKey::repack((mesh_pipeline_key, material_key));
+            let composite_key = Material2dPipelineKey::repack((view_key, mesh_key, material_key));
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
