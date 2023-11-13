@@ -125,6 +125,10 @@ pub fn prepare_meshlet_per_frame_resources(
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
+    gpu_scene
+        .previous_thread_id_starts
+        .retain(|_, (_, active)| *active);
+
     if gpu_scene.scene_meshlet_count == 0 {
         return;
     }
@@ -140,6 +144,9 @@ pub fn prepare_meshlet_per_frame_resources(
         .write_buffer(&render_device, &render_queue);
     gpu_scene
         .thread_meshlet_ids
+        .write_buffer(&render_device, &render_queue);
+    gpu_scene
+        .previous_thread_ids
         .write_buffer(&render_device, &render_queue);
 
     // TODO: Should draw_index_buffer be per-view, or a single resource shared between all views?
@@ -234,6 +241,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
     for (view_entity, view_resources) in &views {
         let entries = BindGroupEntries::sequential((
+            gpu_scene.previous_thread_ids.binding().unwrap(),
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
@@ -325,6 +333,8 @@ pub struct MeshletGpuScene {
     instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
+    previous_thread_ids: StorageBuffer<Vec<u32>>,
+    previous_thread_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
 
     culling_bind_group_layout: BindGroupLayout,
     visibility_buffer_bind_group_layout: BindGroupLayout,
@@ -373,6 +383,12 @@ impl FromWorld for MeshletGpuScene {
                 buffer.set_label(Some("meshlet_thread_meshlet_ids"));
                 buffer
             },
+            previous_thread_ids: {
+                let mut buffer = StorageBuffer::default();
+                buffer.set_label(Some("meshlet_previous_thread_ids"));
+                buffer
+            },
+            previous_thread_id_starts: HashMap::new(),
 
             culling_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
@@ -424,6 +440,10 @@ impl MeshletGpuScene {
         self.instance_material_ids.get_mut().clear();
         self.thread_instance_ids.get_mut().clear();
         self.thread_meshlet_ids.get_mut().clear();
+        self.previous_thread_ids.get_mut().clear();
+        self.previous_thread_id_starts
+            .values_mut()
+            .for_each(|(_, active)| *active = false);
     }
 
     fn queue_meshlet_mesh_upload(
@@ -467,14 +487,30 @@ impl MeshletGpuScene {
             .or_insert_with_key(queue_meshlet_mesh)
             .clone();
 
+        let current_thread_id_start = self.scene_meshlet_count;
+
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
         self.scene_index_count += index_count;
         self.instances.push(instance);
 
-        for meshlet_index in meshlets_slice {
+        let previous_thread_id_start = self
+            .previous_thread_id_starts
+            .entry((instance, handle.id()))
+            .or_insert((0, true));
+
+        for (i, meshlet_index) in meshlets_slice.into_iter().enumerate() {
             self.thread_instance_ids.get_mut().push(instance_index);
             self.thread_meshlet_ids.get_mut().push(meshlet_index);
+            self.previous_thread_ids
+                .get_mut()
+                .push(if previous_thread_id_start.1 {
+                    u32::MAX
+                } else {
+                    previous_thread_id_start.0 + i as u32
+                });
         }
+
+        *previous_thread_id_start = (current_thread_id_start, true);
     }
 
     pub fn get_material_id(&mut self, material_id: UntypedAssetId) -> u32 {
@@ -526,10 +562,10 @@ pub struct MeshletViewBindGroups {
     pub material_draw: BindGroup,
 }
 
-fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
+fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
     // TODO: min_binding_size
     [
-        // Meshlets
+        // Previous thread IDs
         BindGroupLayoutEntry {
             binding: 0,
             visibility: ShaderStages::COMPUTE,
@@ -540,7 +576,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
             },
             count: None,
         },
-        // Instance uniforms
+        // Meshlets
         BindGroupLayoutEntry {
             binding: 1,
             visibility: ShaderStages::COMPUTE,
@@ -551,7 +587,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
             },
             count: None,
         },
-        // Thread instance IDs
+        // Instance uniforms
         BindGroupLayoutEntry {
             binding: 2,
             visibility: ShaderStages::COMPUTE,
@@ -562,7 +598,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
             },
             count: None,
         },
-        // Thread meshlet IDs
+        // Thread instance IDs
         BindGroupLayoutEntry {
             binding: 3,
             visibility: ShaderStages::COMPUTE,
@@ -573,7 +609,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
             },
             count: None,
         },
-        // Meshlet bounding spheres
+        // Thread meshlet IDs
         BindGroupLayoutEntry {
             binding: 4,
             visibility: ShaderStages::COMPUTE,
@@ -584,18 +620,18 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
             },
             count: None,
         },
-        // Draw command buffer
+        // Meshlet bounding spheres
         BindGroupLayoutEntry {
             binding: 5,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: false },
+                ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
                 min_binding_size: None,
             },
             count: None,
         },
-        // Draw index buffer
+        // Draw command buffer
         BindGroupLayoutEntry {
             binding: 6,
             visibility: ShaderStages::COMPUTE,
@@ -606,9 +642,20 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 8] {
             },
             count: None,
         },
-        // View
+        // Draw index buffer
         BindGroupLayoutEntry {
             binding: 7,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // View
+        BindGroupLayoutEntry {
+            binding: 8,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
