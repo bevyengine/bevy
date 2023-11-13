@@ -73,7 +73,8 @@ use bevy_transform::{
 };
 use bevy_utils::{tracing::warn, HashMap};
 use config::{
-    AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfigStore, GizmoMeshConfig,
+    AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfig, GizmoConfigStore,
+    GizmoMeshConfig,
 };
 use gizmos::{GizmoStorage, Gizmos};
 use std::{any::TypeId, mem};
@@ -87,7 +88,9 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
+        app.register_type::<GizmoConfig>()
+            .register_type::<AabbGizmoConfig>()
+            .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()

@@ -74,6 +74,7 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
 }
 
+#[derive(Debug)]
 pub enum AssetMode {
     /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
     ///
