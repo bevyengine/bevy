@@ -618,13 +618,17 @@ pub fn extract_text_uinodes(
     >,
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
+
+    use bevy_math::Vec3Swizzles;
+    let scale_factor = (windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0)
-        * ui_scale.0;
+        * ui_scale.0) as f32;
 
-    let inverse_scale_factor = (scale_factor as f32).recip();
+    let inverse_scale_factor = scale_factor.recip();
+
+    
 
     for (uinode, global_transform, text, text_layout_info, view_visibility, clip) in
         uinode_query.iter()
@@ -633,8 +637,23 @@ pub fn extract_text_uinodes(
         if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
             continue;
         }
-        let transform = global_transform.compute_matrix()
-            * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
+
+        let (scale, rotation, translation) = global_transform.to_scale_rotation_translation();
+
+        // Align the text to the nearest physical pixel:
+        // * Translate by minus the text node's half-size 
+        //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
+        // * Multiply the logical coordinates by the scale factor to get its position in physical coordinates
+        // * Round the physical position to the nearest physical pixel
+        // * Multiply by the rounded physical position by the inverse scale factor to return to logical coordinates
+        let logical_top_left = translation.xy() - 0.5 * uinode.size();
+        let physical_nearest_pixel = (logical_top_left * scale_factor as f32).round();
+        let logical_top_left_nearest_pixel = physical_nearest_pixel * inverse_scale_factor;
+        let transform = Mat4::from_scale_rotation_translation(
+            scale, 
+            rotation, 
+            logical_top_left_nearest_pixel.extend(0.),
+        );
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
