@@ -118,7 +118,7 @@ pub struct BoxedPolyline2d {
 }
 impl Primitive2d for BoxedPolyline2d {}
 
-/// A triangle in 2d space
+/// A triangle in 2D space
 #[derive(Clone, Debug)]
 pub struct Triangle2d {
     /// The vertices of the triangle
