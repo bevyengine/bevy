@@ -45,10 +45,12 @@ struct DrawIndexedIndirect {
     base_instance: u32,
 }
 
+#ifdef MESHLET_BIND_GROUP
 @group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlets: array<Meshlet>;
 @group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
 @group(#{MESHLET_BIND_GROUP}) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>;
 @group(#{MESHLET_BIND_GROUP}) @binding(3) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
+#endif
 
 #ifdef MESHLET_CULLING_PASS
 @group(0) @binding(4) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;

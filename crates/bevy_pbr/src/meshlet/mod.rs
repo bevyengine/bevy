@@ -57,43 +57,6 @@ pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            MESHLET_BINDINGS_SHADER_HANDLE,
-            "meshlet_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
-            "visibility_buffer_resolve.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_CULLING_SHADER_HANDLE,
-            "cull_meshlets.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
-            "visibility_buffer.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_MESH_MATERIAL_SHADER_HANDLE,
-            "meshlet_mesh_material.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE,
-            "copy_material_depth.wgsl",
-            Shader::from_wgsl
-        );
-
         app.init_asset::<MeshletMesh>().insert_resource(Msaa::Off);
     }
 
@@ -134,6 +97,49 @@ impl Plugin for MeshletPlugin {
                 prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
                 prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
             ),
+        );
+    }
+}
+
+pub struct MeshletShaderPlugin;
+
+impl Plugin for MeshletShaderPlugin {
+    fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            MESHLET_BINDINGS_SHADER_HANDLE,
+            "meshlet_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
+            "visibility_buffer_resolve.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_CULLING_SHADER_HANDLE,
+            "cull_meshlets.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
+            "visibility_buffer.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+            "meshlet_mesh_material.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE,
+            "copy_material_depth.wgsl",
+            Shader::from_wgsl
         );
     }
 }
