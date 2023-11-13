@@ -1,7 +1,5 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
-use std::f32::consts::PI;
-
 use bevy::{
     prelude::*,
     render::{
@@ -24,7 +22,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .insert_resource(Msaa::Off)
         .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
-        .add_systems(Update, (transform_drawables, fit_canvas))
+        .add_systems(Update, (rotate_drawables, fit_canvas))
         .run();
 }
 
@@ -138,11 +136,11 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn((Camera2dBundle::default(), OuterCamera));
 }
 
-/// Transforms drawables to demonstrate grid snapping
-fn transform_drawables(time: Res<Time>, mut query: Query<&mut Transform, With<Drawable>>) {
+/// Rotates drawables to demonstrate grid snapping
+fn rotate_drawables(time: Res<Time>, mut query: Query<&mut Transform, With<Drawable>>) {
     for mut transform in &mut query {
         let dt = time.delta_seconds();
-        transform.rotate_z(dt * PI / 2.);
+        transform.rotate_z(dt);
     }
 }
 
