@@ -45,7 +45,7 @@ impl Primitive3d for Plane3d {}
 
 /// An infinite line along a direction in 3D space.
 ///
-/// For a finite line: [`LineSegment3d`]
+/// For a finite line: [`Segment3d`]
 #[derive(Clone, Copy, Debug)]
 pub struct Line3d {
     /// The direction of the line
@@ -53,40 +53,46 @@ pub struct Line3d {
 }
 impl Primitive3d for Line3d {}
 
-/// A section of a line along a direction in 3D space.
+/// A segment of a line along a direction in 3D space.
+#[doc(alias = "LineSegment3d")]
 #[derive(Clone, Debug)]
-pub struct LineSegment3d {
+pub struct Segment3d {
     /// The direction of the line
     pub direction: Direction3d,
     /// Half the length of the line segment, the segment extends by this amount in both
     /// the positive and negative direction
     pub half_length: f32,
 }
-impl Primitive3d for LineSegment3d {}
+impl Primitive3d for Segment3d {}
 
-impl LineSegment3d {
-    /// Get a line segment and translation from a start and end position of a line segment
+impl Segment3d {
+    /// Create a line segment from a direction and full length of the line
+    pub fn new(direction: Direction3d, length: f32) -> Self {
+        Self {
+            direction,
+            half_length: length / 2.,
+        }
+    }
+
+    /// Get a line segment and translation from two points at each end of a line segment
     ///
-    /// Panics if start == end
-    pub fn from_start_end(start: Vec3, end: Vec3) -> (Self, Vec3) {
-        let diff = end - start;
+    /// Panics if point1 == point2
+    pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
+        let diff = point2 - point1;
         let length = diff.length();
         (
-            Self {
-                direction: Direction3d::from_normalized(diff / length),
-                half_length: length / 2.,
-            },
-            (start + end) / 2.,
+            Self::new(Direction3d::from_normalized(diff / length), length),
+            (point1 + point2) / 2.,
         )
     }
 
-    /// Get the start position of the line
-    pub fn get_start_pos(&self) -> Vec3 {
+    /// Get the position of the first point on the line segment
+    pub fn point1(&self) -> Vec3 {
         *self.direction * -self.half_length
     }
 
-    /// Get the end position of the line
-    pub fn get_end_pos(&self) -> Vec3 {
+    /// Get the position of the second point on the line segment
+    pub fn point2(&self) -> Vec3 {
         *self.direction * self.half_length
     }
 }
@@ -120,6 +126,11 @@ pub struct Cuboid {
 impl Primitive3d for Cuboid {}
 
 impl Cuboid {
+    /// Create a cuboid from a full x, y and z length
+    pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
+        Self::from_size(Vec3::new(x_length, y_length, z_length))
+    }
+
     /// Create a cuboid from the full size of the cuboid
     pub fn from_size(size: Vec3) -> Self {
         Self {
@@ -140,7 +151,7 @@ impl Primitive3d for Cylinder {}
 
 impl Cylinder {
     /// Create a cylinder from a radius and full height
-    pub fn from_radius_height(radius: f32, height: f32) -> Self {
+    pub fn new(radius: f32, height: f32) -> Self {
         Self {
             radius,
             half_height: height / 2.,
@@ -148,12 +159,14 @@ impl Cylinder {
     }
 }
 
-/// A capsule primitive
+/// A capsule primitive.
+/// A capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
     /// The radius of the capsule
     pub radius: f32,
     /// Half the height of the capsule, excluding the hemispheres
-    pub half_extent: f32,
+    pub half_length: f32,
 }
+impl super::Primitive2d for Capsule {}
 impl Primitive3d for Capsule {}

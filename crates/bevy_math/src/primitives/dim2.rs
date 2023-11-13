@@ -45,7 +45,7 @@ impl Primitive2d for Plane2d {}
 
 /// An infinite line along a direction in 2D space.
 ///
-/// For a finite line: [`LineSegment2d`]
+/// For a finite line: [`Segment2d`]
 #[derive(Clone, Copy, Debug)]
 pub struct Line2d {
     /// The direction of the line, the line extends infinitely in both the positive
@@ -54,40 +54,46 @@ pub struct Line2d {
 }
 impl Primitive2d for Line2d {}
 
-/// A section of a line along a direction in 2D space.
+/// A segment of a line along a direction in 2D space.
+#[doc(alias = "LineSegment2d")]
 #[derive(Clone, Debug)]
-pub struct LineSegment2d {
+pub struct Segment2d {
     /// The direction of the line
     pub direction: Direction2d,
     /// Half the length of the line segment, the segment extends by this amount in both
     /// the positive and negative direction
     pub half_length: f32,
 }
-impl Primitive2d for LineSegment2d {}
+impl Primitive2d for Segment2d {}
 
-impl LineSegment2d {
-    /// Get a line segment and translation from a start and end position of a line segment
+impl Segment2d {
+    /// Create a line segment from a direction and full length of the line
+    pub fn new(direction: Direction2d, length: f32) -> Self {
+        Self {
+            direction,
+            half_length: length / 2.,
+        }
+    }
+
+    /// Get a line segment and translation from two points at each end of a line segment
     ///
-    /// Panics if start == end
-    pub fn from_start_end(start: Vec2, end: Vec2) -> (Self, Vec2) {
-        let diff = end - start;
+    /// Panics if point1 == point2
+    pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
+        let diff = point2 - point1;
         let length = diff.length();
         (
-            Self {
-                direction: Direction2d::from_normalized(diff / length),
-                half_length: length / 2.,
-            },
-            (start + end) / 2.,
+            Self::new(Direction2d::from_normalized(diff / length), length),
+            (point1 + point2) / 2.,
         )
     }
 
-    /// Get the start position of the line
-    pub fn get_start_pos(&self) -> Vec2 {
+    /// Get the position of the first point on the line segment
+    pub fn point1(&self) -> Vec2 {
         *self.direction * -self.half_length
     }
 
-    /// Get the end position of the line
-    pub fn get_end_pos(&self) -> Vec2 {
+    /// Get the position of the second point on the line segment
+    pub fn point2(&self) -> Vec2 {
         *self.direction * self.half_length
     }
 }
@@ -112,13 +118,13 @@ pub struct BoxedPolyline2d {
 }
 impl Primitive2d for BoxedPolyline2d {}
 
-/// A triangle primitive
+/// A triangle in 2d space
 #[derive(Clone, Debug)]
-pub struct Triangle {
+pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
 }
-impl Primitive2d for Triangle {}
+impl Primitive2d for Triangle2d {}
 
 /// A rectangle primitive
 #[doc(alias = "Quad")]
@@ -132,6 +138,11 @@ pub struct Rectangle {
 impl Primitive2d for Rectangle {}
 
 impl Rectangle {
+    /// Create a Rectangle from a full width and height
+    pub fn new(width: f32, height: f32) -> Self {
+        Self::from_size(Vec2::new(width, height))
+    }
+
     /// Create a Rectangle from the full size of a rectangle
     pub fn from_size(size: Vec2) -> Self {
         Self {
