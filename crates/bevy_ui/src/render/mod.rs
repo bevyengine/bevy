@@ -21,6 +21,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
+use bevy_math::Vec3Swizzles;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
@@ -619,12 +620,9 @@ pub fn extract_text_uinodes(
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
 
-    use bevy_math::Vec3Swizzles;
-    let scale_factor = (windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0)
-        * ui_scale.0) as f32;
+    let scale_factor = windows.get_single().map_or(1., |window| {
+        (window.resolution.scale_factor() * ui_scale.0) as f32
+    });
 
     let inverse_scale_factor = scale_factor.recip();
 
@@ -636,7 +634,7 @@ pub fn extract_text_uinodes(
             continue;
         }
 
-        let (scale, rotation, translation) = global_transform.to_scale_rotation_translation();
+        let mut affine = global_transform.affine();
 
         // Align the text to the nearest physical pixel:
         // * Translate by minus the text node's half-size
@@ -644,14 +642,11 @@ pub fn extract_text_uinodes(
         // * Multiply the logical coordinates by the scale factor to get its position in physical coordinates
         // * Round the physical position to the nearest physical pixel
         // * Multiply by the rounded physical position by the inverse scale factor to return to logical coordinates
-        let logical_top_left = translation.xy() - 0.5 * uinode.size();
+        let logical_top_left = affine.translation.xy() - 0.5 * uinode.size();
         let physical_nearest_pixel = (logical_top_left * scale_factor).round();
         let logical_top_left_nearest_pixel = physical_nearest_pixel * inverse_scale_factor;
-        let transform = Mat4::from_scale_rotation_translation(
-            scale,
-            rotation,
-            logical_top_left_nearest_pixel.extend(0.),
-        );
+        affine.translation = logical_top_left_nearest_pixel.extend(0.).into();
+        let transform = Mat4::from(affine);
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
