@@ -1,3 +1,5 @@
+all-features = true
+
 [advisories]
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
@@ -5,8 +7,7 @@ vulnerability = "deny"
 unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
-ignore = [
-]
+ignore = []
 
 [licenses]
 unlicensed = "deny"
@@ -21,10 +22,9 @@ allow = [
     "0BSD",
     "BSD-2-Clause",
     "CC0-1.0",
+    "MPL-2.0",
 ]
-exceptions = [
-    { name = "unicode-ident", allow = ["Unicode-DFS-2016"] },
-]
+exceptions = [{ name = "unicode-ident", allow = ["Unicode-DFS-2016"] }]
 default = "deny"
 
 [bans]
