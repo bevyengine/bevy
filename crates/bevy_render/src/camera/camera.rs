@@ -75,7 +75,7 @@ pub struct RenderTargetInfo {
 pub struct ComputedCameraValues {
     projection_matrix: Mat4,
     target_info: Option<RenderTargetInfo>,
-    // position and size of the `Viewport`
+    // size of the `Viewport`
     old_viewport_size: Option<UVec2>,
 }
 
@@ -559,9 +559,9 @@ impl NormalizedRenderTarget {
 
 /// System in charge of updating a [`Camera`] when its window or projection changes.
 ///
-/// The system detects window creation and resize events to update the camera projection if
-/// needed. It also queries any [`CameraProjection`] component associated with the same entity
-/// as the [`Camera`] one, to automatically update the camera projection matrix.
+/// The system detects window creation, resize, and scale factor change events to update the camera
+/// projection if needed. It also queries any [`CameraProjection`] component associated with the same
+/// entity as the [`Camera`] one, to automatically update the camera projection matrix.
 ///
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
@@ -593,11 +593,11 @@ pub fn camera_system<T: CameraProjection + Component>(
     let mut changed_window_ids = HashSet::new();
     changed_window_ids.extend(window_created_events.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
-    changed_window_ids.extend(
-        window_scale_factor_changed_events
-            .read()
-            .map(|event| event.window),
-    );
+    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
+        .read()
+        .map(|event| event.window)
+        .collect();
+    changed_window_ids.extend(scale_factor_changed_window_ids.clone());
 
     let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
         .read()
@@ -611,7 +611,7 @@ pub fn camera_system<T: CameraProjection + Component>(
         .collect();
 
     for (mut camera, mut camera_projection) in &mut cameras {
-        let viewport_size = camera
+        let mut viewport_size = camera
             .viewport
             .as_ref()
             .map(|viewport| viewport.physical_size);
@@ -622,11 +622,36 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
             {
-                camera.computed.target_info = normalized_target.get_render_target_info(
+                let new_computed_target_info = normalized_target.get_render_target_info(
                     &windows,
                     &images,
                     &manual_texture_views,
                 );
+                // Check for the scale factor changing, and resize the viewport if needed.
+                // This can happen when the window is moved between monitors with different DPIs.
+                // Without this, the viewport will take a smaller portion of the window moved to
+                // a higher DPI monitor.
+                if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
+                    if let (Some(new_scale_factor), Some(old_scale_factor)) = (
+                        new_computed_target_info
+                            .as_ref()
+                            .map(|info| info.scale_factor),
+                        camera
+                            .computed
+                            .target_info
+                            .as_ref()
+                            .map(|info| info.scale_factor),
+                    ) {
+                        let resize_factor = new_scale_factor / old_scale_factor;
+                        if let Some(ref mut viewport) = camera.viewport {
+                            let resize = |vec: UVec2| (vec.as_dvec2() * resize_factor).as_uvec2();
+                            viewport.physical_position = resize(viewport.physical_position);
+                            viewport.physical_size = resize(viewport.physical_size);
+                            viewport_size = Some(viewport.physical_size);
+                        }
+                    }
+                }
+                camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
                     camera.computed.projection_matrix = camera_projection.get_projection_matrix();
