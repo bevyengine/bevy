@@ -185,7 +185,7 @@ Example | Description
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
-[Embedded Asset](../examples/asset/embedded.rs) | Embed an asset in the application binary and load it
+[Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
 ## Async Tasks

@@ -1101,7 +1101,7 @@ wasm = true
 
 [[example]]
 name = "embedded_asset"
-path = "examples/asset/embedded.rs"
+path = "examples/asset/embedded_asset.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.embedded_asset]
