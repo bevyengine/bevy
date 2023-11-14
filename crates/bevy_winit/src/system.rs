@@ -11,7 +11,7 @@ use bevy_utils::{
     tracing::{error, info, warn},
     HashMap,
 };
-use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
+use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowScaleFactorChanged};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use winit::{
@@ -40,7 +40,8 @@ pub(crate) fn create_windows<'a>(
     event_loop: &EventLoopWindowTarget<()>,
     mut commands: Commands,
     created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
-    mut event_writer: EventWriter<WindowCreated>,
+    mut event_writer_window: EventWriter<WindowCreated>,
+    mut event_writer_scale_factor: EventWriter<WindowScaleFactorChanged>,
     mut winit_windows: NonSendMut<WinitWindows>,
     mut adapters: NonSendMut<AccessKitAdapters>,
     mut handlers: ResMut<WinitActionHandlers>,
@@ -96,7 +97,8 @@ pub(crate) fn create_windows<'a>(
             }
         }
 
-        event_writer.send(WindowCreated { window: entity });
+        event_writer_scale_factor.send(WindowScaleFactorChanged { window: entity, scale_factor: winit_window.scale_factor() });
+        event_writer_window.send(WindowCreated { window: entity });
     }
 }
 
