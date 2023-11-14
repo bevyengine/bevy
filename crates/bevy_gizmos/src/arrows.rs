@@ -76,7 +76,6 @@ impl<'s> Gizmos<'s> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn arrow(&mut self, start: Vec3, end: Vec3, color: Color) -> ArrowBuilder<'_, 's> {
-        // self.line_2d(start, end, color);
         let length = (end - start).length();
         ArrowBuilder {
             gizmos: self,
