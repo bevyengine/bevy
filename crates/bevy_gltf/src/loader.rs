@@ -763,6 +763,56 @@ fn load_material(
             texture_handle(load_context, &info.texture())
         });
 
+        #[cfg(feature = "pbr_transmission_textures")]
+        let (specular_transmission, specular_transmission_texture) =
+            material.transmission().map_or((0.0, None), |transmission| {
+                let transmission_texture: Option<Handle<Image>> = transmission
+                    .transmission_texture()
+                    .map(|transmission_texture| {
+                        // TODO: handle transmission_texture.tex_coord() (the *set* index for the right texcoords)
+                        texture_handle(load_context, &transmission_texture.texture())
+                    });
+
+                (transmission.transmission_factor(), transmission_texture)
+            });
+
+        #[cfg(not(feature = "pbr_transmission_textures"))]
+        let specular_transmission = material
+            .transmission()
+            .map_or(0.0, |transmission| transmission.transmission_factor());
+
+        #[cfg(feature = "pbr_transmission_textures")]
+        let (thickness, thickness_texture, attenuation_distance, attenuation_color) = material
+            .volume()
+            .map_or((0.0, None, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                let thickness_texture: Option<Handle<Image>> =
+                    volume.thickness_texture().map(|thickness_texture| {
+                        // TODO: handle thickness_texture.tex_coord() (the *set* index for the right texcoords)
+                        texture_handle(load_context, &thickness_texture.texture())
+                    });
+
+                (
+                    volume.thickness_factor(),
+                    thickness_texture,
+                    volume.attenuation_distance(),
+                    volume.attenuation_color(),
+                )
+            });
+
+        #[cfg(not(feature = "pbr_transmission_textures"))]
+        let (thickness, attenuation_distance, attenuation_color) =
+            material
+                .volume()
+                .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                    (
+                        volume.thickness_factor(),
+                        volume.attenuation_distance(),
+                        volume.attenuation_color(),
+                    )
+                });
+
+        let ior = material.ior().unwrap_or(1.5);
+
         StandardMaterial {
             base_color: Color::rgba_linear(color[0], color[1], color[2], color[3]),
             base_color_texture,
@@ -782,6 +832,19 @@ fn load_material(
             emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2])
                 * material.emissive_strength().unwrap_or(1.0),
             emissive_texture,
+            specular_transmission,
+            #[cfg(feature = "pbr_transmission_textures")]
+            specular_transmission_texture,
+            thickness,
+            #[cfg(feature = "pbr_transmission_textures")]
+            thickness_texture,
+            ior,
+            attenuation_distance,
+            attenuation_color: Color::rgb_linear(
+                attenuation_color[0],
+                attenuation_color[1],
+                attenuation_color[2],
+            ),
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
             ..Default::default()

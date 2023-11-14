@@ -67,7 +67,6 @@ fn setup(
             "Press <spacebar> to save a screenshot to disk",
             TextStyle {
                 font_size: 25.0,
-                color: Color::WHITE,
                 ..default()
             },
         )

@@ -107,7 +107,7 @@ fn setup(
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 26.0,
-                color: Color::BLACK,
+                ..default()
             },
         )
         .with_style(Style {
