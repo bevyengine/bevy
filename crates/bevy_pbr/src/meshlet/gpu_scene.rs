@@ -158,6 +158,7 @@ pub fn prepare_meshlet_per_frame_resources(
     });
 
     for (view_entity, view) in &views {
+        // TODO: Move out of view resources, re-create only when size changes, and store the previous
         let occlusion_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("meshlet_occlusion_buffer"),
             size: gpu_scene.scene_meshlet_count as u64 * 4,
