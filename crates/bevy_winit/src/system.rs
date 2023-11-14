@@ -74,6 +74,13 @@ pub(crate) fn create_windows<'a>(
             window.window_theme = Some(convert_winit_theme(theme));
         }
 
+        if window.resolution.scale_factor() != winit_window.scale_factor() {
+            event_writer_scale_factor.send(WindowScaleFactorChanged {
+                window: entity,
+                scale_factor: winit_window.scale_factor(),
+            });
+        }
+
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor());
@@ -99,10 +106,6 @@ pub(crate) fn create_windows<'a>(
             }
         }
 
-        event_writer_scale_factor.send(WindowScaleFactorChanged {
-            window: entity,
-            scale_factor: winit_window.scale_factor(),
-        });
         event_writer_window.send(WindowCreated { window: entity });
     }
 }
