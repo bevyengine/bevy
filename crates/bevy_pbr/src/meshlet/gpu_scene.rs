@@ -19,7 +19,7 @@ use bevy_render::{
     MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{EntityHashMap, HashMap, HashSet};
 use std::{
     ops::{DerefMut, Range},
     sync::Arc,
@@ -158,13 +158,28 @@ pub fn prepare_meshlet_per_frame_resources(
     });
 
     for (view_entity, view) in &views {
-        // TODO: Move out of view resources, re-create only when size changes, and store the previous
+        let previous_occlusion_buffer = gpu_scene
+            .previous_occlusion_buffers
+            .get(&view_entity)
+            .map(Buffer::clone)
+            .unwrap_or_else(|| {
+                render_device.create_buffer(&BufferDescriptor {
+                    label: Some("meshlet_occlusion_buffer"),
+                    size: 0,
+                    usage: BufferUsages::STORAGE,
+                    mapped_at_creation: false,
+                })
+            });
+
         let occlusion_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("meshlet_occlusion_buffer"),
             size: gpu_scene.scene_meshlet_count as u64 * 4,
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
+        gpu_scene
+            .previous_occlusion_buffers
+            .insert(view_entity, occlusion_buffer.clone());
 
         let visibility_buffer = TextureDescriptor {
             label: Some("meshlet_visibility_buffer"),
@@ -227,6 +242,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
         commands.entity(view_entity).insert(MeshletViewResources {
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
+            previous_occlusion_buffer,
             occlusion_buffer,
             visibility_buffer: texture_cache.get(&render_device, visibility_buffer),
             visibility_buffer_draw_command_buffer,
@@ -251,7 +267,7 @@ pub fn prepare_meshlet_view_bind_groups(
     for (view_entity, view_resources) in &views {
         let entries = BindGroupEntries::sequential((
             gpu_scene.previous_thread_ids.binding().unwrap(),
-            todo!("Previous occlusion buffer"),
+            view_resources.previous_occlusion_buffer.as_entire_binding(),
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
@@ -346,6 +362,7 @@ pub struct MeshletGpuScene {
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
     previous_thread_ids: StorageBuffer<Vec<u32>>,
     previous_thread_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
+    previous_occlusion_buffers: EntityHashMap<Entity, Buffer>,
 
     culling_bind_group_layout: BindGroupLayout,
     visibility_buffer_bind_group_layout: BindGroupLayout,
@@ -400,6 +417,7 @@ impl FromWorld for MeshletGpuScene {
                 buffer
             },
             previous_thread_id_starts: HashMap::new(),
+            previous_occlusion_buffers: EntityHashMap::default(),
 
             culling_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
@@ -558,7 +576,8 @@ impl MeshletGpuScene {
 #[derive(Component)]
 pub struct MeshletViewResources {
     pub scene_meshlet_count: u32,
-    pub occlusion_buffer: Buffer,
+    previous_occlusion_buffer: Buffer,
+    occlusion_buffer: Buffer,
     pub visibility_buffer: CachedTexture,
     pub visibility_buffer_draw_command_buffer: Buffer,
     pub visibility_buffer_draw_index_buffer: Buffer,
