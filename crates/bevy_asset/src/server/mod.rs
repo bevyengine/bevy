@@ -280,8 +280,11 @@ impl AssetServer {
         handle
     }
 
+    /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,
+    /// you should use [`AssetServer::load`]. If you don't know the type of the asset, but you can't use an async method,
+    /// consider using [`AssetServer::load_untyped`].
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub(crate) async fn load_untyped_async<'a>(
+    pub async fn load_untyped_async<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
@@ -379,35 +382,53 @@ impl AssetServer {
                 e
             })?;
 
-        let (handle, should_load) = match input_handle {
+        // This contains Some(UntypedHandle), if it was retrievable
+        // If it is None, that is because it was _not_ retrievable, due to
+        //    1. The handle was not already passed in for this path, meaning we can't just use that
+        //    2. The asset has not been loaded yet, meaning there is no existing Handle for it
+        //    3. The path has a label, meaning the AssetLoader's root asset type is not the path's asset type
+        //
+        // In the None case, the only course of action is to wait for the asset to load so we can allocate the
+        // handle for that type.
+        //
+        // TODO: Note that in the None case, multiple asset loads for the same path can happen at the same time
+        // (rather than "early out-ing" in the "normal" case)
+        // This would be resolved by a universal asset id, as we would not need to resolve the asset type
+        // to generate the ID. See this issue: https://github.com/bevyengine/bevy/issues/10549
+        let handle_result = match input_handle {
             Some(handle) => {
                 // if a handle was passed in, the "should load" check was already done
-                (handle, true)
+                Some((handle, true))
             }
             None => {
                 let mut infos = self.data.infos.write();
-                infos.get_or_create_path_handle_untyped(
+                let result = infos.get_or_create_path_handle_internal(
                     path.clone(),
-                    loader.asset_type_id(),
-                    loader.asset_type_name(),
+                    path.label().is_none().then(|| loader.asset_type_id()),
                     HandleLoadingMode::Request,
                     meta_transform,
-                )
+                );
+                unwrap_with_context(result, loader.asset_type_name())
             }
         };
 
-        if path.label().is_none() && handle.type_id() != loader.asset_type_id() {
-            return Err(AssetLoadError::RequestedHandleTypeMismatch {
-                path: path.into_owned(),
-                requested: handle.type_id(),
-                actual_asset_name: loader.asset_type_name(),
-                loader_name: loader.type_name(),
-            });
-        }
-
-        if !should_load && !force {
-            return Ok(handle);
-        }
+        let handle = if let Some((handle, should_load)) = handle_result {
+            if path.label().is_none() && handle.type_id() != loader.asset_type_id() {
+                return Err(AssetLoadError::RequestedHandleTypeMismatch {
+                    path: path.into_owned(),
+                    requested: handle.type_id(),
+                    actual_asset_name: loader.asset_type_name(),
+                    loader_name: loader.type_name(),
+                });
+            }
+            if !should_load && !force {
+                return Ok(handle);
+            }
+            Some(handle)
+        } else {
+            None
+        };
+        // if the handle result is None, we definitely need to load the asset
 
         let (base_handle, base_path) = if path.label().is_some() {
             let mut infos = self.data.infos.write();
@@ -421,7 +442,7 @@ impl AssetServer {
             );
             (base_handle, base_path)
         } else {
-            (handle.clone(), path.clone())
+            (handle.clone().unwrap(), path.clone())
         };
 
         if let Some(meta_transform) = base_handle.meta_transform() {
@@ -433,25 +454,33 @@ impl AssetServer {
             .await
         {
             Ok(mut loaded_asset) => {
-                if let Some(label) = path.label_cow() {
-                    if !loaded_asset.labeled_assets.contains_key(&label) {
-                        return Err(AssetLoadError::MissingLabel {
-                            base_path,
-                            label: label.to_string(),
-                        });
+                let final_handle = if let Some(label) = path.label_cow() {
+                    match loaded_asset.labeled_assets.get(&label) {
+                        Some(labeled_asset) => labeled_asset.handle.clone(),
+                        None => {
+                            return Err(AssetLoadError::MissingLabel {
+                                base_path,
+                                label: label.to_string(),
+                            });
+                        }
                     }
-                }
+                } else {
+                    // if the path does not have a label, the handle must exist at this point
+                    handle.unwrap()
+                };
+
                 for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
                     self.send_asset_event(InternalAssetEvent::Loaded {
                         id: labeled_asset.handle.id(),
                         loaded_asset: labeled_asset.asset,
                     });
                 }
+
                 self.send_asset_event(InternalAssetEvent::Loaded {
                     id: base_handle.id(),
                     loaded_asset,
                 });
-                Ok(handle)
+                Ok(final_handle)
             }
             Err(err) => {
                 self.send_asset_event(InternalAssetEvent::Failed {
