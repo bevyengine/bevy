@@ -121,6 +121,8 @@ type IdCursor = isize;
 // See <https://github.com/rust-lang/rust/issues/106107>
 #[repr(align(8))]
 pub struct Entity {
+    // The field order below is necessary for rust to
+    // optimise better how it handles `Entity`
     index: u32,
     generation: u32,
 }
