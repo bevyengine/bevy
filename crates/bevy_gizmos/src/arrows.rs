@@ -12,7 +12,28 @@ pub struct ArrowBuilder<'a, 's> {
     tip_length: f32,
 }
 
+impl ArrowBuilder<'_, '_> {
+    /// Change the length of the tips to be `length`.
+    /// The default tip length is [length of the arrow]/10, which is sufficient for most applications.
+    ///
+    /// # example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, Color::GREEN)
+    ///         .with_tip_length(3.);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn with_tip_length(&mut self, length: f32) {
+        self.tip_length = length;
+    }
+}
+
 impl Drop for ArrowBuilder<'_, '_> {
+    /// actually draws the
     fn drop(&mut self) {
         // draw the body of the arrow
         self.gizmos.line(self.start, self.end, self.color);
