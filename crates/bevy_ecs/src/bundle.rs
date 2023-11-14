@@ -944,11 +944,10 @@ mod test {
     struct Simple(ComponentA);
 
     #[derive(Bundle)]
-    struct Tuple(#[bundle] Simple, ComponentB);
+    struct Tuple(Simple, ComponentB);
 
     #[derive(Bundle)]
     struct Record {
-        #[bundle]
         field0: Simple,
         field1: ComponentB,
     }
