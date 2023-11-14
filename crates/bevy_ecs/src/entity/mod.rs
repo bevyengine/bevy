@@ -115,10 +115,13 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy, Eq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq)]
+// Alignment repr necessary to allow LLVM to better output
+// optimised codegen for `to_bits`, `PartialEq` and `Ord`.
+#[repr(align(8))]
 pub struct Entity {
-    generation: u32,
     index: u32,
+    generation: u32,
 }
 
 // By not short-circuiting in comparisons, we get better codegen.
@@ -126,7 +129,38 @@ pub struct Entity {
 impl PartialEq for Entity {
     #[inline]
     fn eq(&self, other: &Entity) -> bool {
-        (self.generation == other.generation) & (self.index == other.index)
+        // By using `to_bits`, the codegen can be optimised out even
+        // further potentially. Relies on the correct alignment/order of
+        // `Entity`.
+        self.to_bits() == other.to_bits()
+    }
+}
+
+// The macro codegen output is not optimal and can't be optimised as well
+// by the compiler. This impl resolves that like with `PartialEq`, but by
+// instead relying on the better alignment of `Entity`, and then by
+// comparing against the bit representation directly instead of relying on
+// the normal field order.
+impl PartialOrd for Entity {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        // Make use of our `Ord` impl to ensure optimal codegen output
+        Some(self.cmp(other))
+    }
+}
+
+// The macro codegen output is not optimal and can't be optimised as well
+// by the compiler. This impl resolves that like with `PartialEq`, but by
+// instead relying on the better alignment of `Entity`, and then by
+// comparing against the bit representation directly instead of relying on
+// the normal field order.
+impl Ord for Entity {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // This will result in better codegen for ordering comparisons, plus
+        // avoids pitfalls with regards to macro codegen relying on property
+        // position when we want to compare against the bit representation.
+        self.to_bits().cmp(&other.to_bits())
     }
 }
 
