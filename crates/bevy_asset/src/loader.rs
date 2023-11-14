@@ -28,7 +28,7 @@ pub trait AssetLoader: Send + Sync + 'static {
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
-    type Error: std::error::Error + Send + Sync + 'static;
+    type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
@@ -90,7 +90,9 @@ where
                 .expect("Loader settings should exist")
                 .downcast_ref::<L::Settings>()
                 .expect("AssetLoader settings should match the loader type");
-            let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context).await?;
+            let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
+                .await
+                .map_err(|error| error.into())?;
             Ok(load_context.finish(asset, Some(meta)).into())
         })
     }
