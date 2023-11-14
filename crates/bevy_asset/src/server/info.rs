@@ -182,7 +182,7 @@ impl AssetInfos {
 
     /// Retrieves asset tracking data, or creates it if it doesn't exist.
     /// Returns true if an asset load should be kicked off
-    pub fn get_or_create_path_handle_internal(
+    pub(crate) fn get_or_create_path_handle_internal(
         &mut self,
         path: AssetPath<'static>,
         type_id: Option<TypeId>,
