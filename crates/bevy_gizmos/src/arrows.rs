@@ -52,7 +52,7 @@ impl Drop for ArrowBuilder<'_, '_> {
         // - extend the vectors so their length is `tip_length`
         // - rotate the world so +x is facing in the same direction as the arrow
         // - translate over to the tip of the arrow
-        let tips = tips.map(|v| rotation * (v * self.tip_length) + self.end);
+        let tips = tips.map(|v| rotation * (v.normalize() * self.tip_length) + self.end);
         for v in tips {
             // then actually draw the tips
             self.gizmos.line(self.end, v, self.color);
