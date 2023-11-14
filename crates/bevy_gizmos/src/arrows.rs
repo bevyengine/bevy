@@ -12,6 +12,7 @@ pub struct ArrowBuilder<'a, 's> {
     tip_length: f32,
 }
 
+/// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
 impl ArrowBuilder<'_, '_> {
     /// Change the length of the tips to be `length`.
     /// The default tip length is [length of the arrow]/10, which is sufficient for most applications.
