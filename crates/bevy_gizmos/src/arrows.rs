@@ -44,16 +44,13 @@ impl Drop for ArrowBuilder<'_, '_> {
         // then transform it so we're at the end of the arrow facing the right direction
         let pointing = (self.end - self.start).normalize();
         let rotation = Quat::from_rotation_arc(Vec3::X, pointing);
-        let tips = [(1, 0), (0, 1), (-1, 0), (0, -1)]
-            .into_iter()
-            .map(|(y, z)| Vec3 {
-                x: -1.,
-                y: y as f32,
-                z: z as f32,
-            })
-            .map(|v| v * self.tip_length)
-            .map(|v| rotation.mul_vec3(v))
-            .map(|v| v + self.end);
+let tips = [
+    Vec3::new(-1., 1., 0.),
+    Vec3::new(-1., 0., 1.),
+    Vec3::new(-1., -1., 0.),
+    Vec3::new(-1., 0., -1.),
+];
+let tips = tips.map(|v| rotation * (v * self.tip_length) + self.end);
         for v in tips {
             self.gizmos.line(self.end, v, self.color);
         }
