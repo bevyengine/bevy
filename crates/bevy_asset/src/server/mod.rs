@@ -387,6 +387,11 @@ impl AssetServer {
         //
         // In the None case, the only course of action is to wait for the asset to load so we can allocate the
         // handle for that type.
+        //
+        // Note that in the None case, multiple asset loads for the same path can happen at the same time
+        // (rather than "early out-ing" in the "normal" case)
+        // This would be resolved by a universal asset id, as we would not need to resolve the asset type
+        // to generate the ID. See this issue: https://github.com/bevyengine/bevy/issues/10549
         let handle_result = match input_handle {
             Some(handle) => {
                 // if a handle was passed in, the "should load" check was already done
