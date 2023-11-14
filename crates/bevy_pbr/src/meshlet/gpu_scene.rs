@@ -165,7 +165,7 @@ pub fn prepare_meshlet_per_frame_resources(
             .unwrap_or_else(|| {
                 render_device.create_buffer(&BufferDescriptor {
                     label: Some("meshlet_occlusion_buffer"),
-                    size: 0,
+                    size: 4,
                     usage: BufferUsages::STORAGE,
                     mapped_at_creation: false,
                 })
@@ -266,13 +266,13 @@ pub fn prepare_meshlet_view_bind_groups(
 
     for (view_entity, view_resources) in &views {
         let entries = BindGroupEntries::sequential((
-            gpu_scene.previous_thread_ids.binding().unwrap(),
-            view_resources.previous_occlusion_buffer.as_entire_binding(),
-            view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.previous_thread_ids.binding().unwrap(),
+            view_resources.previous_occlusion_buffer.as_entire_binding(),
+            view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
             view_resources
                 .visibility_buffer_draw_command_buffer
@@ -533,7 +533,7 @@ impl MeshletGpuScene {
             self.previous_thread_ids
                 .get_mut()
                 .push(if previous_thread_id_start.1 {
-                    u32::MAX
+                    0
                 } else {
                     previous_thread_id_start.0 + i as u32
                 });
@@ -596,7 +596,7 @@ pub struct MeshletViewBindGroups {
 fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
     // TODO: min_binding_size
     [
-        // Previous thread IDs
+        // Meshlets
         BindGroupLayoutEntry {
             binding: 0,
             visibility: ShaderStages::COMPUTE,
@@ -607,7 +607,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Previous occlusion buffer
+        // Instance uniforms
         BindGroupLayoutEntry {
             binding: 1,
             visibility: ShaderStages::COMPUTE,
@@ -618,42 +618,9 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Occlusion buffer
-        BindGroupLayoutEntry {
-            binding: 2,
-            visibility: ShaderStages::COMPUTE,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: false },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
-        // Meshlets
-        BindGroupLayoutEntry {
-            binding: 3,
-            visibility: ShaderStages::COMPUTE,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
-        // Instance uniforms
-        BindGroupLayoutEntry {
-            binding: 4,
-            visibility: ShaderStages::COMPUTE,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
         // Thread instance IDs
         BindGroupLayoutEntry {
-            binding: 5,
+            binding: 2,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
@@ -664,10 +631,43 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
         },
         // Thread meshlet IDs
         BindGroupLayoutEntry {
-            binding: 6,
+            binding: 3,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Previous thread IDs
+        BindGroupLayoutEntry {
+            binding: 4,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Previous occlusion buffer
+        BindGroupLayoutEntry {
+            binding: 5,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Occlusion buffer
+        BindGroupLayoutEntry {
+            binding: 6,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: false },
                 has_dynamic_offset: false,
                 min_binding_size: None,
             },

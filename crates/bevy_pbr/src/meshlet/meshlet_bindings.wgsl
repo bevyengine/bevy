@@ -54,8 +54,8 @@ struct DrawIndexedIndirect {
 
 #ifdef MESHLET_CULLING_PASS
 @group(0) @binding(4) var<storage, read> meshlet_previous_thread_ids: array<u32>;
-@group(0) @binding(5) var<storage, read> meshlet_previous_occlusion: array<u32>,
-@group(0) @binding(6) var<storage, write> meshlet_occlusion: array<u32>,
+@group(0) @binding(5) var<storage, read> meshlet_previous_occlusion: array<u32>;
+@group(0) @binding(6) var<storage, write> meshlet_occlusion: array<u32>;
 @group(0) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
 @group(0) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
 @group(0) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
