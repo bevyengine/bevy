@@ -280,6 +280,9 @@ impl AssetServer {
         handle
     }
 
+    /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,
+    /// you should use [`AssetServer::load`]. If you don't know the type of the asset, but you can't use an async method,
+    /// consider using [`AssetServer::load_untyped`].
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub async fn load_untyped_async<'a>(
         &self,
