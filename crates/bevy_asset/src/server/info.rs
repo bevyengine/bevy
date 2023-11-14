@@ -637,8 +637,9 @@ pub(crate) enum HandleLoadingMode {
 #[error("Cannot allocate a handle because no handle provider exists for asset type {0:?}")]
 pub struct MissingHandleProviderError(TypeId);
 
+/// An error encountered during [`AssetInfos::get_or_create_path_handle_internal`].
 #[derive(Error, Debug)]
-pub enum GetOrCreateHandleInternalError {
+pub(crate) enum GetOrCreateHandleInternalError {
     #[error(transparent)]
     MissingHandleProviderError(#[from] MissingHandleProviderError),
     #[error("Handle does not exist but TypeId was not specified.")]
