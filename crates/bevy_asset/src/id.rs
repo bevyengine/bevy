@@ -14,7 +14,7 @@ use std::{
 ///
 /// For an "untyped" / "generic-less" id, see [`UntypedAssetId`].
 #[derive(Reflect)]
-pub enum AssetId<A: Asset> {
+pub enum AssetId<A> {
     /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
     /// the "default" identifier used for assets. The alternative(s) (ex: [`AssetId::Uuid`]) will only be used if assets are
     /// explicitly registered that way.
@@ -32,7 +32,7 @@ pub enum AssetId<A: Asset> {
     Uuid { uuid: Uuid },
 }
 
-impl<A: Asset> AssetId<A> {
+impl<A> AssetId<A> {
     /// The uuid for the default [`AssetId`]. It is valid to assign a value to this in [`Assets`](crate::Assets)
     /// and by convention (where appropriate) assets should support this pattern.
     pub const DEFAULT_UUID: Uuid = Uuid::from_u128(200809721996911295814598172825939264631);
@@ -49,6 +49,16 @@ impl<A: Asset> AssetId<A> {
         }
     }
 
+    #[inline]
+    pub(crate) fn internal(self) -> InternalAssetId {
+        match self {
+            AssetId::Index { index, .. } => InternalAssetId::Index(index),
+            AssetId::Uuid { uuid } => InternalAssetId::Uuid(uuid),
+        }
+    }
+}
+
+impl<A: Asset> AssetId<A> {
     /// Converts this to an "untyped" / "generic-less" [`Asset`] identifier that stores the type information
     /// _inside_ the [`UntypedAssetId`].
     #[inline]
@@ -64,17 +74,9 @@ impl<A: Asset> AssetId<A> {
             },
         }
     }
-
-    #[inline]
-    pub(crate) fn internal(self) -> InternalAssetId {
-        match self {
-            AssetId::Index { index, .. } => InternalAssetId::Index(index),
-            AssetId::Uuid { uuid } => InternalAssetId::Uuid(uuid),
-        }
-    }
 }
 
-impl<A: Asset> Default for AssetId<A> {
+impl<A> Default for AssetId<A> {
     fn default() -> Self {
         AssetId::Uuid {
             uuid: Self::DEFAULT_UUID,

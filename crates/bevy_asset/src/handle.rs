@@ -121,7 +121,7 @@ impl std::fmt::Debug for StrongHandle {
 /// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-pub enum Handle<A: Asset> {
+pub enum Handle<A> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.  
     Strong(Arc<StrongHandle>),
@@ -198,7 +198,7 @@ impl<A: Asset> Handle<A> {
     }
 }
 
-impl<A: Asset> Default for Handle<A> {
+impl<A> Default for Handle<A> {
     fn default() -> Self {
         Handle::Weak(AssetId::default())
     }
