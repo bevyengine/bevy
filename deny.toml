@@ -12,6 +12,7 @@ ignore = []
 [licenses]
 unlicensed = "deny"
 copyleft = "deny"
+default = "deny"
 allow = [
     "MIT",
     "MIT-0",
@@ -22,10 +23,48 @@ allow = [
     "0BSD",
     "BSD-2-Clause",
     "CC0-1.0",
-    "MPL-2.0",
 ]
-exceptions = [{ name = "unicode-ident", allow = ["Unicode-DFS-2016"] }]
-default = "deny"
+exceptions = [
+    { name = "unicode-ident", allow = [
+        "Unicode-DFS-2016",
+    ] },
+    { name = "symphonia-bundle-flac", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-bundle-mp3", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-codec-aac", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-codec-adpcm", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-codec-pcm", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-codec-vorbis", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-core", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-format-isomp4", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-format-wav", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-metadata", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia-utils-xiph", allow = [
+        "MPL-2.0",
+    ] },
+    { name = "symphonia", allow = [
+        "MPL-2.0",
+    ] },
+]
 
 [bans]
 multiple-versions = "warn"
