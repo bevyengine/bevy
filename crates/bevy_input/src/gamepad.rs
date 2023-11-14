@@ -1263,8 +1263,12 @@ pub fn gamepad_event_system(
             GamepadEvent::Connection(connection_event) => {
                 connection_events.send(connection_event.clone());
             }
-            GamepadEvent::Button(button_event) => button_events.send(button_event.clone()),
-            GamepadEvent::Axis(axis_event) => axis_events.send(axis_event.clone()),
+            GamepadEvent::Button(button_event) => {
+                button_events.send(button_event.clone());
+            }
+            GamepadEvent::Axis(axis_event) => {
+                axis_events.send(axis_event.clone());
+            }
         }
     }
 }
