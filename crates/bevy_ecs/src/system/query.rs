@@ -1419,11 +1419,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Creates a [`SubQuery`] with the same underlying [`FilteredAccess`], matched tables and archetypes
+    /// Creates a [`SubQuery`] with the same underlying [`FilteredAccess`](crate::query::FilteredAccess), matched tables and archetypes
     /// as self but with a new type signature.
     ///
-    /// This means that archetypal query terms like [`With`] and [`Without`] will not always be respected
-    /// and non-archetypal terms like [`Added`] and [`Changed`] will only be respected if they are in the
+    /// This means that archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without) will not always be respected
+    /// and non-archetypal terms like [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) will only be respected if they are in the
     /// type signature.
     ///
     /// Panics if `NewQ` requires accesses that this query does not have.
@@ -1433,11 +1433,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         self.subquery_filtered::<NewQ, ()>()
     }
 
-    /// Creates a [`SubQuery`] with the same underlying [`FilteredAccess`], matched tables and archetypes
+    /// Creates a [`SubQuery`] with the same underlying [`FilteredAccess`](crate::query::FilteredAccess), matched tables and archetypes
     /// as self but with a new type signature.
     ///
-    /// This means that archetypal query terms like [`With`] and [`Without`] will not always be respected
-    /// and non-archetypal terms like [`Added`] and [`Changed`] will only be respected if they are in the
+    /// This means that archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without) will not always be respected
+    /// and non-archetypal terms like [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) will only be respected if they are in the
     /// type signature.
     ///
     /// Panics if `NewQ` requires accesses that this query does not have.
@@ -1559,7 +1559,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
 /// Type returned from [`Query::subquery`] containing the new [`QueryState`].
 ///
-/// Call [`Self::query`] or [`Self::into`] to construct the resulting [`Query`]
+/// Call [`query`](SubQuery::query) or [`into`](Into::into) to construct the resulting [`Query`]
 pub struct SubQuery<'w, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     world: UnsafeWorldCell<'w>,
     state: QueryState<Q, F>,

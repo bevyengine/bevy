@@ -41,7 +41,7 @@ pub struct QueryBuilder<'w, Q: WorldQuery = (), F: ReadOnlyWorldQuery = ()> {
 }
 
 impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
-    /// Creates a new builder with the [`Term`]s represented by `Q`
+    /// Creates a new builder with the accesses required for `Q` and `F`
     pub fn new(world: &'w mut World) -> Self {
         let fetch_state = Q::init_state(world);
         let filter_state = F::init_state(world);

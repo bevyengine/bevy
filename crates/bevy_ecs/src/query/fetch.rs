@@ -297,8 +297,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// Component access of `Self::ReadOnly` must be a subset of `Self`
 /// and `Self::ReadOnly` must match exactly the same archetypes/tables as `Self`
 ///
-/// Implementor must ensure that
-/// [`update_component_access`] and [`update_archetype_component_access`]
+/// Implementor must ensure that [`update_component_access`]
 /// exactly reflects the results of the following methods:
 ///
 /// - [`matches_component_set`]
@@ -312,7 +311,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`Query`]: crate::system::Query
 /// [`ReadOnly`]: Self::ReadOnly
 /// [`State`]: Self::State
-/// [`update_archetype_component_access`]: Self::update_archetype_component_access
 /// [`update_component_access`]: Self::update_component_access
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
@@ -369,7 +367,6 @@ pub unsafe trait WorldQuery {
     /// # Safety
     ///
     /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
-    /// - [`Self::update_archetype_component_access`] must have been previously called with `archetype`.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_archetype<'w>(
@@ -385,14 +382,12 @@ pub unsafe trait WorldQuery {
     /// # Safety
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
-    /// - `table` must belong to an archetype that was previously registered with
-    ///   [`Self::update_archetype_component_access`].
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
-    /// Adjust internal state to account for the access that is available in this [`Query`].
+    /// Adjust internal state to account for the access that is available in this [`QueryState`](super::QueryState).
     ///
-    /// Called when access is restricted such as when creating a [`SubQuery`] or calling [`QueryState::from_builder`]
+    /// Called when access is restricted such as when creating a [`SubQuery`](crate::system::SubQuery) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
     fn set_access(_state: &mut Self::State, _access: &FilteredAccess<ComponentId>) {}
 
     /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
