@@ -136,7 +136,7 @@ fn time_system(
                 Instant::now()
             };
             time.update_with_instant(new_time)
-        },
+        }
         TimeUpdateStrategy::ManualInstant(instant) => time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => time.update_with_duration(*duration),
     }
