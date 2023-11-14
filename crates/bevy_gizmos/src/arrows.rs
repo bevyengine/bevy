@@ -37,7 +37,20 @@ impl Drop for ArrowBuilder<'_, '_> {
 }
 
 impl<'s> Gizmos<'s> {
-    /// draw an arrow.
+    /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convienent viewing from any direction.
+    ///
+    /// This should be called for each frame the arrow needs to be rendered.
+    ///
+    /// # example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     pub fn arrow(&mut self, start: Vec3, end: Vec3, color: Color) -> ArrowBuilder<'_, 's> {
         // self.line_2d(start, end, color);
         let length = (end - start).length();
@@ -50,7 +63,20 @@ impl<'s> Gizmos<'s> {
         }
     }
 
-    /// draw an arrow in 2d space, on the x-y plane.
+    /// Draw an arrow in 2D (on the xy plane), from `start` to `end`.
+    ///
+    /// This should be called for each frame the arrow needs to be rendered.
+    ///
+    /// # example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, Color::GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     pub fn arrow_2d(&mut self, start: Vec2, end: Vec2, color: Color) -> ArrowBuilder<'_, 's> {
         self.arrow(start.extend(0.), end.extend(0.), color)
     }
