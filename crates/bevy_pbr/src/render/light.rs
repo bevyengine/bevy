@@ -263,9 +263,13 @@ pub struct ExtractedClustersPointLights {
 
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
+    views: Extract<Query<(Entity, &Clusters, &Camera)>>,
 ) {
-    for (entity, clusters) in &views {
+    for (entity, clusters, camera) in &views {
+        if !camera.is_active {
+            continue;
+        }
+
         commands.get_or_spawn(entity).insert((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),
