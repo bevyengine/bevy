@@ -1,5 +1,5 @@
 use bevy_asset::{Asset, Handle};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{impl_type_path, FromReflect, Reflect, TypePath};
 use bevy_render::{
     mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
@@ -98,12 +98,17 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// present, so the `pbr_fragment` shader functions can be called from the extension shader (see
 /// the `extended_material` example).
 #[derive(Asset, Clone, Reflect)]
-pub struct ExtendedMaterial<B: Material + FromReflect, E: MaterialExtension + FromReflect> {
+#[reflect(type_path = false)]
+pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub base: B,
     pub extension: E,
 }
 
-impl<B: Material + FromReflect, E: MaterialExtension + FromReflect> AsBindGroup
+// We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
+// causes the `TypePath` derive to not generate an implementation.
+impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
+
+impl<B: Material + Reflect + TypePath, E: MaterialExtension + Reflect + TypePath> AsBindGroup
     for ExtendedMaterial<B, E>
 {
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
