@@ -1768,6 +1768,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "shader_material_2d"
+path = "examples/shader/shader_material_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_2d]
+name = "Material"
+description = "A shader and a material that uses it on a 2d mesh"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "extended_material"
 path = "examples/shader/extended_material.rs"
 

@@ -135,7 +135,7 @@ impl ViewVisibility {
 /// * To get the inherited visibility of an entity, you should get its [`InheritedVisibility`].
 /// * For visibility hierarchies to work correctly, you must have both all of [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`].
 ///   * You may use the [`VisibilityBundle`] to guarantee this.
-#[derive(Bundle, Debug, Default)]
+#[derive(Bundle, Debug, Clone, Default)]
 pub struct VisibilityBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
@@ -384,7 +384,12 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// for that view.
 pub fn check_visibility(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
-    mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
+    mut view_query: Query<(
+        &mut VisibleEntities,
+        &Frustum,
+        Option<&RenderLayers>,
+        &Camera,
+    )>,
     mut visible_aabb_query: Query<(
         Entity,
         &InheritedVisibility,
@@ -395,7 +400,11 @@ pub fn check_visibility(
         Has<NoFrustumCulling>,
     )>,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
+    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+        if !camera.is_active {
+            continue;
+        }
+
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();

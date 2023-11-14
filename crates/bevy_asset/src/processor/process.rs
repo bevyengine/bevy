@@ -138,7 +138,7 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
                 .saver
                 .save(writer, saved_asset, &settings.saver_settings)
                 .await
-                .map_err(|error| ProcessError::AssetSaveError(Box::new(error)))?;
+                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
             Ok(output_settings)
         })
     }

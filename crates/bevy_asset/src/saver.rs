@@ -14,7 +14,7 @@ pub trait AssetSaver: Send + Sync + 'static {
     /// The type of [`AssetLoader`] used to load this [`Asset`]
     type OutputLoader: AssetLoader;
     /// The type of [error](`std::error::Error`) which could be encountered by this saver.
-    type Error: std::error::Error + Send + Sync + 'static;
+    type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
 
     /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
     /// `asset` is saved.  
@@ -53,7 +53,9 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
                 .downcast_ref::<S::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let saved_asset = SavedAsset::<S::Asset>::from_loaded(asset).unwrap();
-            self.save(writer, saved_asset, settings).await?;
+            if let Err(err) = self.save(writer, saved_asset, settings).await {
+                return Err(err.into());
+            }
             Ok(())
         })
     }
