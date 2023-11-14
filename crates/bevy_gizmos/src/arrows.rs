@@ -17,7 +17,8 @@ impl Drop for ArrowBuilder<'_, '_> {
         // draw the body of the arrow
         self.gizmos.line(self.start, self.end, self.color);
         // now the hard part is to draw the head in a sensible way
-        // put us in a coordinate system where the arrow is pointing up and ends at the origin
+        // put us in a coordinate system where the arrow is pointing towards +x and ends at the origin
+        // then transform it so we're at the end of the arrow facing the right direction
         let pointing = (self.end - self.start).normalize();
         let rotation = Quat::from_rotation_arc(Vec3::X, pointing);
         let tips = [(1, 0), (0, 1), (-1, 0), (0, -1)]
