@@ -1,6 +1,5 @@
 //! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
 
-use bevy::reflect::TypePath;
 use bevy::{
     pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
@@ -73,7 +72,7 @@ fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
     }
 }
 
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 struct MyExtension {
     // We need to ensure that the bindings of the base material and the extension do not conflict,
     // so we start from binding slot 100, leaving slots 0-99 for the base material.

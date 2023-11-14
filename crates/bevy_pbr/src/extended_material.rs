@@ -1,5 +1,5 @@
 use bevy_asset::{Asset, Handle};
-use bevy_reflect::TypePath;
+use bevy_reflect::{Reflect, FromReflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
@@ -97,13 +97,13 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// When used with `StandardMaterial` as the base, all the standard material fields are
 /// present, so the `pbr_fragment` shader functions can be called from the extension shader (see
 /// the `extended_material` example).
-#[derive(Asset, Clone, TypePath)]
-pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
+#[derive(Asset, Clone, Reflect)]
+pub struct ExtendedMaterial<B: Material + FromReflect, E: MaterialExtension + FromReflect> {
     pub base: B,
     pub extension: E,
 }
 
-impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
+impl<B: Material + FromReflect, E: MaterialExtension + FromReflect> AsBindGroup for ExtendedMaterial<B, E> {
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
 
     fn unprepared_bind_group(
@@ -148,7 +148,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     }
 }
 
-impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
+impl<B: Material + FromReflect, E: MaterialExtension + FromReflect> Material for ExtendedMaterial<B, E> {
     fn vertex_shader() -> bevy_render::render_resource::ShaderRef {
         match E::vertex_shader() {
             ShaderRef::Default => B::vertex_shader(),
