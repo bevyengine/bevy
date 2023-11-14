@@ -37,11 +37,10 @@ impl ArrowBuilder<'_, '_> {
 impl Drop for ArrowBuilder<'_, '_> {
     /// Draws the arrow, by drawing lines with the stored [`Gizmos`]
     fn drop(&mut self) {
-        // draw the body of the arrow
+        // first, draw the body of the arrow
         self.gizmos.line(self.start, self.end, self.color);
         // now the hard part is to draw the head in a sensible way
         // put us in a coordinate system where the arrow is pointing towards +x and ends at the origin
-        // then transform it so we're at the end of the arrow facing the right direction
         let pointing = (self.end - self.start).normalize();
         let rotation = Quat::from_rotation_arc(Vec3::X, pointing);
         let tips = [
@@ -50,8 +49,12 @@ impl Drop for ArrowBuilder<'_, '_> {
             Vec3::new(-1., -1., 0.),
             Vec3::new(-1., 0., -1.),
         ];
+        // - extend the vectors so their length is `tip_length`
+        // - rotate the world so +x is facing in the same direction as the arrow
+        // - translate over to the tip of the arrow
         let tips = tips.map(|v| rotation * (v * self.tip_length) + self.end);
         for v in tips {
+            // then actually draw the tips
             self.gizmos.line(self.end, v, self.color);
         }
     }
