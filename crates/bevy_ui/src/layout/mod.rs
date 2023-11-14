@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::{UVec2, Vec2};
-use bevy_render::camera::{Camera, NormalizedRenderTarget, RenderTarget};
+use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
 use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
@@ -256,35 +256,46 @@ pub fn ui_layout_system(
     just_children_query: Query<&Children>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
     mut removed_nodes: RemovedComponents<Node>,
+    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
 ) {
-    let primary_camera = cameras
-        .iter()
-        .find_map(|(entity, camera)| match camera.target {
-            RenderTarget::Window(bevy_window::WindowRef::Primary) if camera.is_active => {
-                Some(UiCamera(entity))
-            }
-            _ => None,
-        });
+    let primary_camera = cameras.iter().find_map(|(entity, camera)| {
+        if camera.is_primary() {
+            Some(UiCamera(entity))
+        } else {
+            None
+        }
+    });
     let root_nodes_defaulted = root_node_query
         .iter()
         .filter_map(|(entity, camera)| camera.or(primary_camera.as_ref()).map(|c| (entity, c)));
 
-    let mut root_nodes_grouped_by_camera: HashMap<Entity, Vec<Entity>> = HashMap::new();
+    let mut camera_root_nodes: HashMap<Entity, Vec<Entity>> = HashMap::new();
     for (entity, camera) in root_nodes_defaulted {
-        root_nodes_grouped_by_camera
+        camera_root_nodes
             .entry(camera.0)
             .or_insert_with(Vec::new)
             .push(entity);
     }
-
-    for (camera_id, group) in &root_nodes_grouped_by_camera {
-        let (_, camera) = cameras.get(*camera_id).unwrap();
+    let get_camera = |camera_id: Entity| {
+        let (_, camera) = cameras.get(camera_id).unwrap();
         let scale_factor = camera.target_scaling_factor().unwrap_or(1.0) * ui_scale.0;
-        let inverse_target_scale_factor = 1. / scale_factor;
+        (camera, scale_factor)
+    };
+    let belongs_to_camera = |camera_id: &Entity, ui_camera: &Option<&UiCamera>| match *ui_camera {
+        Some(ui_camera) => ui_camera.0 == *camera_id,
+        None => match &primary_camera {
+            Some(ui_camera) => ui_camera.0 == *camera_id,
+            None => false,
+        },
+    };
+
+    // Resize nodes
+    let resize_events = resize_events.read().collect::<Vec<_>>();
+    for (camera_id, roots) in &camera_root_nodes {
+        let (camera, scale_factor) = get_camera(*camera_id);
         let physical_size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
-        let resized = resize_events.read().any(|resized_window| {
+        let resized = resize_events.iter().any(|resized_window| {
             match camera.target.normalize(primary_window.get_single().ok()) {
                 Some(NormalizedRenderTarget::Window(window_ref)) => {
                     resized_window.window == window_ref.entity()
@@ -301,39 +312,19 @@ pub fn ui_layout_system(
         if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
             // update all nodes
             for (entity, style, ui_camera) in style_query.iter() {
-                if let Some(ui_camera) = ui_camera.or(primary_camera.as_ref()) {
-                    if ui_camera.entity() != *camera_id {
-                        continue;
-                    }
+                if belongs_to_camera(camera_id, &ui_camera) {
+                    ui_surface.upsert_node(entity, &style, &layout_context);
                 }
-                ui_surface.upsert_node(entity, &style, &layout_context);
             }
         } else {
             for (entity, style, ui_camera) in style_query.iter() {
-                if let Some(ui_camera) = ui_camera.or(primary_camera.as_ref()) {
-                    if ui_camera.entity() != *camera_id {
-                        continue;
-                    }
-                }
-                if style.is_changed() {
+                if belongs_to_camera(camera_id, &ui_camera) && style.is_changed() {
                     ui_surface.upsert_node(entity, &style, &layout_context);
                 }
             }
         }
 
-        ui_surface.set_camera_children(*camera_id, group.into_iter().cloned());
-
-        for entity in group {
-            update_uinode_geometry_recursive(
-                *entity,
-                &ui_surface,
-                &mut node_transform_query,
-                &just_children_query,
-                inverse_target_scale_factor as f32,
-                Vec2::ZERO,
-                Vec2::ZERO,
-            );
-        }
+        ui_surface.set_camera_children(*camera_id, roots.iter().cloned());
     }
     scale_factor_events.clear();
 
@@ -341,7 +332,6 @@ pub fn ui_layout_system(
     for entity in removed_content_sizes.read() {
         ui_surface.try_remove_measure(entity);
     }
-
     for (entity, mut content_size) in &mut measure_query {
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.update_measure(entity, measure_func);
@@ -356,15 +346,26 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
-        if children.is_changed() {
-            ui_surface.update_children(entity, &children);
-        }
+        ui_surface.update_children(entity, &children);
     }
 
-    // compute layouts
-    for (entity, camera) in cameras.iter() {
+    for (camera_id, root_nodes) in &camera_root_nodes {
+        let (camera, scale_factor) = get_camera(*camera_id);
+        let inverse_target_scale_factor = 1. / scale_factor;
         if let Some(rect) = camera.physical_viewport_rect() {
-            ui_surface.compute_camera_layout(entity, rect.size());
+            ui_surface.compute_camera_layout(*camera_id, rect.size());
+        }
+
+        for root in root_nodes {
+            update_uinode_geometry_recursive(
+                *root,
+                &ui_surface,
+                &mut node_transform_query,
+                &just_children_query,
+                inverse_target_scale_factor as f32,
+                Vec2::ZERO,
+                Vec2::ZERO,
+            );
         }
     }
 
