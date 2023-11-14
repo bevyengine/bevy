@@ -585,6 +585,8 @@ pub fn camera_system<T: CameraProjection + Component>(
         .filter_map(|event| {
             if let AssetEvent::Modified { id } = event {
                 Some(id)
+            } else if let AssetEvent::Added { id } = event {
+                Some(id)
             } else {
                 None
             }
