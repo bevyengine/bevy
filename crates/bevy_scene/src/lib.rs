@@ -19,7 +19,7 @@ mod scene_spawner;
 pub mod serde;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy scenes.
-pub use ron;
+pub use bevy_asset::ron;
 
 use bevy_ecs::schedule::IntoSystemConfigs;
 pub use bundle::*;

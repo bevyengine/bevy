@@ -1,4 +1,4 @@
-use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{DynamicSceneBuilder, Scene, SceneSpawnError, ron};
 use bevy_ecs::{
     entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
