@@ -1418,6 +1418,43 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
                 .is_ok()
         }
     }
+
+    /// Creates a [`SubQuery`] with the same underlying [`FilteredAccess`], matched tables and archetypes
+    /// as self but with a new type signature.
+    ///
+    /// This means that archetypal query terms like [`With`] and [`Without`] will not always be respected
+    /// and non-archetypal terms like [`Added`] and [`Changed`] will only be respected if they are in the
+    /// type signature.
+    ///
+    /// Panics if `NewQ` requires accesses that this query does not have.
+    ///
+    /// If including a filter type see [`Self::subquery_filtered`]
+    pub fn subquery<NewQ: WorldQuery>(&mut self) -> SubQuery<'w, NewQ> {
+        self.subquery_filtered::<NewQ, ()>()
+    }
+
+    /// Creates a [`SubQuery`] with the same underlying [`FilteredAccess`], matched tables and archetypes
+    /// as self but with a new type signature.
+    ///
+    /// This means that archetypal query terms like [`With`] and [`Without`] will not always be respected
+    /// and non-archetypal terms like [`Added`] and [`Changed`] will only be respected if they are in the
+    /// type signature.
+    ///
+    /// Panics if `NewQ` requires accesses that this query does not have.
+    pub fn subquery_filtered<NewQ: WorldQuery, NewF: ReadOnlyWorldQuery>(
+        &mut self,
+    ) -> SubQuery<'w, NewQ, NewF> {
+        // SAFETY: There are no other active borrows of data from world
+        let world = unsafe { self.world.world() };
+        let state = self.state.transmute_filtered::<NewQ, NewF>(world);
+        SubQuery {
+            world: self.world,
+            state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+            force_read_only_component_access: self.force_read_only_component_access,
+        }
+    }
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w Query<'_, 's, Q, F> {
@@ -1517,5 +1554,45 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
                 .as_readonly()
                 .iter_unchecked_manual(self.world, self.last_run, self.this_run)
         }
+    }
+}
+
+/// Type returned from [`Query::subquery`] containing the new [`QueryState`].
+///
+/// Call [`Self::query`] or [`Self::into`] to construct the resulting [`Query`]
+pub struct SubQuery<'w, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
+    world: UnsafeWorldCell<'w>,
+    state: QueryState<Q, F>,
+    last_run: Tick,
+    this_run: Tick,
+    force_read_only_component_access: bool,
+}
+
+impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> SubQuery<'w, Q, F> {
+    /// Create a [`Query`] from the underlying [`QueryState`].
+    pub fn query(&mut self) -> Query<'w, '_, Q, F> {
+        Query {
+            world: self.world,
+            state: &self.state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+            force_read_only_component_access: self.force_read_only_component_access,
+        }
+    }
+}
+
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> From<&'s mut SubQuery<'w, Q, F>>
+    for Query<'w, 's, Q, F>
+{
+    fn from(value: &'s mut SubQuery<'w, Q, F>) -> Query<'w, 's, Q, F> {
+        value.query()
+    }
+}
+
+impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> From<&mut Query<'w, '_, Q, F>>
+    for SubQuery<'w, Q, F>
+{
+    fn from(value: &mut Query<'w, '_, Q, F>) -> SubQuery<'w, Q, F> {
+        value.subquery_filtered()
     }
 }

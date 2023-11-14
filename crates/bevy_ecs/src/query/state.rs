@@ -8,7 +8,7 @@ use crate::{
         Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
         QueryIter, QueryParIter, WorldQuery,
     },
-    storage::{TableId, TableRow},
+    storage::{SparseSetIndex, TableId, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 #[cfg(feature = "trace")]
@@ -17,8 +17,8 @@ use fixedbitset::FixedBitSet;
 use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{
-    NopWorldQuery, QueryComponentError, QueryEntityError, QueryManyIter, QuerySingleError,
-    ROQueryItem, ReadOnlyWorldQuery,
+    NopWorldQuery, QueryBuilder, QueryComponentError, QueryEntityError, QueryManyIter,
+    QuerySingleError, ROQueryItem, ReadOnlyWorldQuery,
 };
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
@@ -138,6 +138,34 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         state
     }
 
+    /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits it's [`FilteredAccess`].
+    pub fn from_builder(builder: &mut QueryBuilder<Q, F>) -> Self {
+        let mut fetch_state = Q::init_state(builder.world_mut());
+        let filter_state = F::init_state(builder.world_mut());
+        Q::set_access(&mut fetch_state, builder.access());
+
+        let mut state = Self {
+            world_id: builder.world().id(),
+            archetype_generation: ArchetypeGeneration::initial(),
+            matched_table_ids: Vec::new(),
+            matched_archetype_ids: Vec::new(),
+            fetch_state,
+            filter_state,
+            component_access: builder.access().clone(),
+            matched_tables: Default::default(),
+            matched_archetypes: Default::default(),
+            archetype_component_access: Default::default(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                query = std::any::type_name::<Q>(),
+                filter = std::any::type_name::<F>(),
+            ),
+        };
+        state.update_archetypes(builder.world());
+        state
+    }
+
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     ///
     /// # Panics
@@ -250,17 +278,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub fn new_archetype(&mut self, archetype: &Archetype) {
         if Q::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
+            && self.matches_component_set(&|id| archetype.contains(id))
         {
-            Q::update_archetype_component_access(
-                &self.fetch_state,
-                archetype,
-                &mut self.archetype_component_access,
-            );
-            F::update_archetype_component_access(
-                &self.filter_state,
-                archetype,
-                &mut self.archetype_component_access,
-            );
+            self.update_archetype_component_access(archetype);
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow(archetype_index + 1);
@@ -273,6 +293,84 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 self.matched_tables.set(table_index, true);
                 self.matched_table_ids.push(archetype.table_id());
             }
+        }
+    }
+
+    /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
+    pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        self.component_access.filter_sets.iter().any(|set| {
+            set.with
+                .ones()
+                .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
+                && set
+                    .without
+                    .ones()
+                    .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
+        })
+    }
+
+    /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
+    pub fn update_archetype_component_access(&mut self, archetype: &Archetype) {
+        self.component_access.access.reads().for_each(|id| {
+            if let Some(id) = archetype.get_archetype_component_id(id) {
+                self.archetype_component_access.add_read(id);
+            }
+        });
+        self.component_access.access.writes().for_each(|id| {
+            if let Some(id) = archetype.get_archetype_component_id(id) {
+                self.archetype_component_access.add_write(id);
+            }
+        });
+    }
+
+    /// Creates a new [`QueryState`] with the same underlying [`FilteredAccess`], matched tables and archetypes
+    /// as self but with a new type signature.
+    ///
+    /// Panics if `NewQ` requires accesses that this query does not have.
+    ///
+    /// If including a filter type see [`Self::transmute_filtered`]
+    pub fn transmute<NewQ: WorldQuery>(&self, world: &World) -> QueryState<NewQ> {
+        self.transmute_filtered::<NewQ, ()>(world)
+    }
+
+    /// Creates a new [`QueryState`] with the same underlying [`FilteredAccess`], matched tables and archetypes
+    /// as self but with a new type signature.
+    ///
+    /// Panics if `NewQ` or `NewF` require accesses that this query does not have.
+    pub fn transmute_filtered<NewQ: WorldQuery, NewF: ReadOnlyWorldQuery>(
+        &self,
+        world: &World,
+    ) -> QueryState<NewQ, NewF> {
+        let mut component_access = FilteredAccess::default();
+        let mut fetch_state = NewQ::get_state(world).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
+        let filter_state = NewF::get_state(world).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+
+        NewQ::set_access(&mut fetch_state, &self.component_access);
+        NewQ::update_component_access(&fetch_state, &mut component_access);
+
+        let mut filter_component_access = FilteredAccess::default();
+        NewF::update_component_access(&filter_state, &mut filter_component_access);
+
+        component_access.extend(&filter_component_access);
+        assert!(component_access.is_subset(&self.component_access), "Transmuted state for {} attempts to access terms that are not allowed by original state {}.", std::any::type_name::<(NewQ, NewF)>(), std::any::type_name::<(Q, F)>() );
+
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_table_ids: self.matched_table_ids.clone(),
+            matched_archetype_ids: self.matched_archetype_ids.clone(),
+            fetch_state,
+            filter_state,
+            component_access: self.component_access.clone(),
+            matched_tables: self.matched_tables.clone(),
+            matched_archetypes: self.matched_archetypes.clone(),
+            archetype_component_access: self.archetype_component_access.clone(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                query = std::any::type_name::<NewQ>(),
+                filter = std::any::type_name::<NewF>(),
+            ),
         }
     }
 
@@ -1424,7 +1522,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::*, query::QueryEntityError};
+    use crate as bevy_ecs;
+    use crate::world::FilteredEntityRef;
+    use crate::{component::Component, prelude::*, query::QueryEntityError};
 
     #[test]
     fn get_many_unchecked_manual_uniqueness() {
@@ -1528,5 +1628,206 @@ mod tests {
 
         let mut query_state = world_1.query::<Entity>();
         let _panics = query_state.get_many_mut(&mut world_2, []);
+    }
+
+    mod subquery {
+        use super::*;
+
+        #[derive(Component, PartialEq, Debug)]
+        struct A(usize);
+
+        #[derive(Component, PartialEq, Debug)]
+        struct B(usize);
+
+        #[derive(Component, PartialEq, Debug)]
+        struct C(usize);
+
+        #[test]
+        fn can_transmute_to_more_general() {
+            let mut world = World::new();
+            world.spawn((A(1), B(0)));
+
+            let query_state = world.query::<(&A, &B)>();
+            let mut new_query_state = query_state.transmute::<&A>(&world);
+            assert_eq!(new_query_state.iter(&world).len(), 1);
+            let a = new_query_state.single(&world);
+
+            assert_eq!(a.0, 1);
+        }
+
+        #[test]
+        fn cannot_get_data_not_in_original_query() {
+            let mut world = World::new();
+            world.spawn((A(0), B(0)));
+            world.spawn((A(1), B(0), C(0)));
+
+            let query_state = world.query_filtered::<(&A, &B), Without<C>>();
+            let mut new_query_state = query_state.transmute::<&A>(&world);
+            // even though we change the query to not have Without<C>, we do not get the component with C.
+            let a = new_query_state.single(&world);
+
+            assert_eq!(a.0, 0);
+        }
+
+        #[test]
+        fn can_transmute_empty_tuple() {
+            let mut world = World::new();
+            world.init_component::<A>();
+            let entity = world.spawn(A(10)).id();
+
+            let q = world.query::<()>();
+            let mut q = q.transmute::<Entity>(&world);
+            assert_eq!(q.single(&world), entity);
+        }
+
+        #[test]
+        fn can_transmute_immut_fetch() {
+            let mut world = World::new();
+            world.spawn(A(10));
+
+            let q = world.query::<&A>();
+            let mut new_q = q.transmute::<Ref<A>>(&world);
+            assert!(new_q.single(&world).is_added());
+
+            let q = world.query::<Ref<A>>();
+            let _ = q.transmute::<&A>(&world);
+        }
+
+        #[test]
+        fn can_transmute_mut_fetch() {
+            let mut world = World::new();
+            world.spawn(A(0));
+
+            let q = world.query::<&mut A>();
+            let _ = q.transmute::<Ref<A>>(&world);
+            let _ = q.transmute::<&A>(&world);
+        }
+
+        #[test]
+        fn can_transmute_entity_mut() {
+            let mut world = World::new();
+            world.spawn(A(0));
+
+            let q: QueryState<EntityMut<'_>> = world.query::<EntityMut>();
+            let _ = q.transmute::<EntityRef>(&world);
+        }
+
+        #[test]
+        fn can_generalize_with_option() {
+            let mut world = World::new();
+            world.spawn((A(0), B(0)));
+
+            let query_state = world.query::<(Option<&A>, &B)>();
+            let _ = query_state.transmute::<Option<&A>>(&world);
+            let _ = query_state.transmute::<&B>(&world);
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "Transmuted state for ((&bevy_ecs::query::state::tests::subquery::A, &bevy_ecs::query::state::tests::subquery::B), ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::subquery::A, ())."
+        )]
+        fn cannot_transmute_to_include_data_not_in_original_query() {
+            let mut world = World::new();
+            world.init_component::<A>();
+            world.init_component::<B>();
+            world.spawn(A(0));
+
+            let query_state = world.query::<&A>();
+            let mut _new_query_state = query_state.transmute::<(&A, &B)>(&world);
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::subquery::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::subquery::A, ())."
+        )]
+        fn cannot_transmute_immut_to_mut() {
+            let mut world = World::new();
+            world.spawn(A(0));
+
+            let query_state = world.query::<&A>();
+            let mut _new_query_state = query_state.transmute::<&mut A>(&world);
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "Transmuted state for (&bevy_ecs::query::state::tests::subquery::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::subquery::A>, ())."
+        )]
+        fn cannot_transmute_option_to_immut() {
+            let mut world = World::new();
+            world.spawn(C(0));
+
+            let query_state = world.query::<Option<&A>>();
+            let mut new_query_state = query_state.transmute::<&A>(&world);
+            let x = new_query_state.single(&world);
+            assert_eq!(x.0, 1234);
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "Transmuted state for (&bevy_ecs::query::state::tests::subquery::A, ()) attempts to access terms that are not allowed by original state (bevy_ecs::world::entity_ref::EntityRef, ())."
+        )]
+        fn cannot_transmute_entity_ref() {
+            let mut world = World::new();
+            world.init_component::<A>();
+
+            let q = world.query::<EntityRef>();
+            let _ = q.transmute::<&A>(&world);
+        }
+
+        #[test]
+        fn can_transmute_filtered_entity() {
+            let mut world = World::new();
+            let entity = world.spawn((A(0), B(1))).id();
+            let query = QueryState::<(Entity, &A, &B)>::new(&mut world)
+                .transmute::<FilteredEntityRef>(&world);
+
+            let mut query = query;
+            // Our result is completely untyped
+            let entity_ref = query.single(&world);
+
+            assert_eq!(entity, entity_ref.id());
+            assert_eq!(0, entity_ref.get::<A>().unwrap().0);
+            assert_eq!(1, entity_ref.get::<B>().unwrap().0);
+        }
+
+        #[test]
+        fn can_transmute_added() {
+            let mut world = World::new();
+            let entity_a = world.spawn(A(0)).id();
+
+            let mut query = QueryState::<(Entity, &A, Has<B>)>::new(&mut world)
+                .transmute_filtered::<(Entity, Has<B>), Added<A>>(&world);
+
+            assert_eq!((entity_a, false), query.single(&world));
+
+            world.clear_trackers();
+
+            let entity_b = world.spawn((A(0), B(0))).id();
+            assert_eq!((entity_b, true), query.single(&world));
+
+            world.clear_trackers();
+
+            assert!(query.get_single(&world).is_err());
+        }
+
+        #[test]
+        fn can_transmute_changed() {
+            let mut world = World::new();
+            let entity_a = world.spawn(A(0)).id();
+
+            let mut detection_query = QueryState::<(Entity, &A)>::new(&mut world)
+                .transmute_filtered::<Entity, Changed<A>>(&world);
+
+            let mut change_query = QueryState::<&mut A>::new(&mut world);
+            assert_eq!(entity_a, detection_query.single(&world));
+
+            world.clear_trackers();
+
+            assert!(detection_query.get_single(&world).is_err());
+
+            change_query.single_mut(&mut world).0 = 1;
+
+            assert_eq!(entity_a, detection_query.single(&world));
+        }
     }
 }

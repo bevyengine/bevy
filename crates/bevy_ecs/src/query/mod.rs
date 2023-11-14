@@ -1,6 +1,7 @@
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod builder;
 mod error;
 mod fetch;
 mod filter;
@@ -9,6 +10,7 @@ mod par_iter;
 mod state;
 
 pub use access::*;
+pub use builder::*;
 pub use error::*;
 pub use fetch::*;
 pub use filter::*;
