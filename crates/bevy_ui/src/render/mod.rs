@@ -620,9 +620,11 @@ pub fn extract_text_uinodes(
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
 
-    let scale_factor = windows.get_single().map_or(1., |window| {
-        (window.resolution.scale_factor() * ui_scale.0) as f32
-    });
+    let scale_factor = (windows
+        .get_single()
+        .map(|window| window.scale_factor())
+        .unwrap_or(1.)
+        * ui_scale.0) as f32;
 
     let inverse_scale_factor = scale_factor.recip();
 
