@@ -34,7 +34,7 @@ impl ArrowBuilder<'_, '_> {
 }
 
 impl Drop for ArrowBuilder<'_, '_> {
-    /// actually draws the
+    /// actually draws the arrow, by drawing lines with the stored [`Gizmos`]
     fn drop(&mut self) {
         // draw the body of the arrow
         self.gizmos.line(self.start, self.end, self.color);
