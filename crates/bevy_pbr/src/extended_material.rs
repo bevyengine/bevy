@@ -1,5 +1,5 @@
 use bevy_asset::{Asset, Handle};
-use bevy_reflect::{Reflect, FromReflect};
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
@@ -103,7 +103,9 @@ pub struct ExtendedMaterial<B: Material + FromReflect, E: MaterialExtension + Fr
     pub extension: E,
 }
 
-impl<B: Material + FromReflect, E: MaterialExtension + FromReflect> AsBindGroup for ExtendedMaterial<B, E> {
+impl<B: Material + FromReflect, E: MaterialExtension + FromReflect> AsBindGroup
+    for ExtendedMaterial<B, E>
+{
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
 
     fn unprepared_bind_group(
@@ -148,7 +150,9 @@ impl<B: Material + FromReflect, E: MaterialExtension + FromReflect> AsBindGroup 
     }
 }
 
-impl<B: Material + FromReflect, E: MaterialExtension + FromReflect> Material for ExtendedMaterial<B, E> {
+impl<B: Material + FromReflect, E: MaterialExtension + FromReflect> Material
+    for ExtendedMaterial<B, E>
+{
     fn vertex_shader() -> bevy_render::render_resource::ShaderRef {
         match E::vertex_shader() {
             ShaderRef::Default => B::vertex_shader(),
