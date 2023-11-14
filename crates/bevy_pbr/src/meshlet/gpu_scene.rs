@@ -158,6 +158,13 @@ pub fn prepare_meshlet_per_frame_resources(
     });
 
     for (view_entity, view) in &views {
+        let occlusion_buffer = render_device.create_buffer(&BufferDescriptor {
+            label: Some("meshlet_occlusion_buffer"),
+            size: gpu_scene.scene_meshlet_count as u64 * 4,
+            usage: BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+
         let visibility_buffer = TextureDescriptor {
             label: Some("meshlet_visibility_buffer"),
             size: Extent3d {
@@ -219,6 +226,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
         commands.entity(view_entity).insert(MeshletViewResources {
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
+            occlusion_buffer,
             visibility_buffer: texture_cache.get(&render_device, visibility_buffer),
             visibility_buffer_draw_command_buffer,
             visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
@@ -242,6 +250,8 @@ pub fn prepare_meshlet_view_bind_groups(
     for (view_entity, view_resources) in &views {
         let entries = BindGroupEntries::sequential((
             gpu_scene.previous_thread_ids.binding().unwrap(),
+            todo!("Previous occlusion buffer"),
+            view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
@@ -547,6 +557,7 @@ impl MeshletGpuScene {
 #[derive(Component)]
 pub struct MeshletViewResources {
     pub scene_meshlet_count: u32,
+    pub occlusion_buffer: Buffer,
     pub visibility_buffer: CachedTexture,
     pub visibility_buffer_draw_command_buffer: Buffer,
     pub visibility_buffer_draw_index_buffer: Buffer,
@@ -562,7 +573,7 @@ pub struct MeshletViewBindGroups {
     pub material_draw: BindGroup,
 }
 
-fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
+fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
     // TODO: min_binding_size
     [
         // Previous thread IDs
@@ -576,7 +587,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
             },
             count: None,
         },
-        // Meshlets
+        // Previous occlusion buffer
         BindGroupLayoutEntry {
             binding: 1,
             visibility: ShaderStages::COMPUTE,
@@ -587,18 +598,18 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
             },
             count: None,
         },
-        // Instance uniforms
+        // Occlusion buffer
         BindGroupLayoutEntry {
             binding: 2,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
+                ty: BufferBindingType::Storage { read_only: false },
                 has_dynamic_offset: false,
                 min_binding_size: None,
             },
             count: None,
         },
-        // Thread instance IDs
+        // Meshlets
         BindGroupLayoutEntry {
             binding: 3,
             visibility: ShaderStages::COMPUTE,
@@ -609,7 +620,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
             },
             count: None,
         },
-        // Thread meshlet IDs
+        // Instance uniforms
         BindGroupLayoutEntry {
             binding: 4,
             visibility: ShaderStages::COMPUTE,
@@ -620,7 +631,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
             },
             count: None,
         },
-        // Meshlet bounding spheres
+        // Thread instance IDs
         BindGroupLayoutEntry {
             binding: 5,
             visibility: ShaderStages::COMPUTE,
@@ -631,9 +642,31 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
             },
             count: None,
         },
-        // Draw command buffer
+        // Thread meshlet IDs
         BindGroupLayoutEntry {
             binding: 6,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Meshlet bounding spheres
+        BindGroupLayoutEntry {
+            binding: 7,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Draw command buffer
+        BindGroupLayoutEntry {
+            binding: 8,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: false },
@@ -644,7 +677,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
         },
         // Draw index buffer
         BindGroupLayoutEntry {
-            binding: 7,
+            binding: 9,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: false },
@@ -655,7 +688,7 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 9] {
         },
         // View
         BindGroupLayoutEntry {
-            binding: 8,
+            binding: 10,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
