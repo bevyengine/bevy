@@ -118,6 +118,7 @@ type IdCursor = isize;
 #[derive(Clone, Copy, Eq)]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
+// See <https://github.com/rust-lang/rust/issues/106107>
 #[repr(align(8))]
 pub struct Entity {
     index: u32,
