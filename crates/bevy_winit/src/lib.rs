@@ -397,6 +397,7 @@ pub fn winit_runner(mut app: App) {
         Commands,
         Query<(Entity, &mut Window), Added<Window>>,
         EventWriter<WindowCreated>,
+        EventWriter<WindowScaleFactorChanged>,
         NonSendMut<WinitWindows>,
         NonSendMut<AccessKitAdapters>,
         ResMut<WinitActionHandlers>,
