@@ -607,7 +607,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
         if !camera.is_active {
             continue;
         }
-      
+
         if camera.is_primary() {
             primary_window_camera.0 = Some(entity);
         }
@@ -680,7 +680,6 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-
     for (uinode, global_transform, text, text_layout_info, view_visibility, clip, camera) in
         uinode_query.iter()
     {
@@ -692,13 +691,13 @@ pub fn extract_text_uinodes(
         let Some(camera_entity) = camera.map(UiCamera::entity).or(**primary_window_camera) else {
             continue;
         };
-        let scale_factor = camera_query
+        let scale_factor = (camera_query
             .get(camera_entity)
             .ok()
             .and_then(|c| c.target_scaling_factor())
             .unwrap_or(1.0)
-            * ui_scale.0;
-        let inverse_scale_factor = (scale_factor as f32).recip();
+            * ui_scale.0) as f32;
+        let inverse_scale_factor = scale_factor.recip();
 
         let mut affine = global_transform.affine();
 

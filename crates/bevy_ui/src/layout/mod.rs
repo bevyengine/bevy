@@ -351,7 +351,7 @@ pub fn ui_layout_system(
 
     for (camera_id, root_nodes) in &camera_root_nodes {
         let (camera, scale_factor) = get_camera(*camera_id);
-        let inverse_target_scale_factor = 1. / scale_factor;
+        let inverse_target_scale_factor = scale_factor.recip();
         if let Some(rect) = camera.physical_viewport_rect() {
             ui_surface.compute_camera_layout(*camera_id, rect.size());
         }
