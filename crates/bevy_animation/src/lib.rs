@@ -190,15 +190,20 @@ impl PlayingAnimation {
         self.elapsed += delta;
         self.seek_time += delta * self.speed;
 
-        if (self.seek_time > clip_duration && self.speed > 0.0)
-            || (self.seek_time < 0.0 && self.speed < 0.0)
-        {
-            self.completions += 1;
-        }
+        let over_time = self.speed > 0.0 && self.seek_time >= clip_duration;
+        let under_time = self.speed < 0.0 && self.seek_time < 0.0;
 
+        if over_time || under_time {
+            self.completions += 1;
+
+            if self.is_finished() {
+                return;
+            }
+        }
         if self.seek_time >= clip_duration {
             self.seek_time %= clip_duration;
         }
+        // Note: assumes delta is never lower than -clip_duration
         if self.seek_time < 0.0 {
             self.seek_time += clip_duration;
         }
