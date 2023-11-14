@@ -833,8 +833,8 @@ impl Bundles {
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
-                // SAFETY: T::component_id ensures its: 
-                // - info was created 
+                // SAFETY: T::component_id ensures its:
+                // - info was created
                 // - appropriate storage for it has been initialized.
                 // - was created in the same order as the components in T
                 unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
@@ -927,4 +927,29 @@ fn initialize_dynamic_bundle(
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
+}
+
+mod test {
+    use bevy_ecs_macros::{Bundle, Component};
+
+    use crate as bevy_ecs;
+
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[derive(Bundle)]
+    struct Tuple(#[bundle] Simple, ComponentB);
+
+    #[derive(Bundle)]
+    struct Record {
+        #[bundle]
+        field0: Simple,
+        field1: ComponentB,
+    }
 }

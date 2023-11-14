@@ -5,7 +5,7 @@ mod fetch;
 mod states;
 
 use crate::fetch::derive_world_query_impl;
-use bevy_macro_utils::{derive_label, ensure_no_collision, get_named_struct_fields, BevyManifest};
+use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -27,8 +27,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match get_named_struct_fields(&ast.data) {
-        Ok(fields) => &fields.named,
+    let named_fields = match get_struct_fields(&ast.data) {
+        Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
 
@@ -59,8 +59,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let field = named_fields
         .iter()
-        .map(|field| field.ident.as_ref().unwrap())
+        .map(|field| field.ident.as_ref())
         .collect::<Vec<_>>();
+
     let field_type = named_fields
         .iter()
         .map(|field| &field.ty)
@@ -69,20 +70,36 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    for ((field_type, field_kind), field) in
-        field_type.iter().zip(field_kind.iter()).zip(field.iter())
+    for (((i, field_type), field_kind), field) in field_type
+        .iter()
+        .enumerate()
+        .zip(field_kind.iter())
+        .zip(field.iter())
     {
+        let index = syn::Index::from(i);
         match field_kind {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
                 <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
                 });
-                field_get_components.push(quote! {
-                    self.#field.get_components(&mut *func);
-                });
-                field_from_components.push(quote! {
-                    #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
-                });
+                match field {
+                    Some(field) => {
+                        field_get_components.push(quote! {
+                            self.#field.get_components(&mut *func);
+                        });
+                        field_from_components.push(quote! {
+                            #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                        });
+                    }
+                    None => {
+                        field_get_components.push(quote! {
+                            self.#index.get_components(&mut *func);
+                        });
+                        field_from_components.push(quote! {
+                            #index: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                        });
+                    }
+                }
             }
 
             BundleFieldKind::Ignore => {
@@ -115,7 +132,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             where
                 __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
-                Self {
+                Self{
                     #(#field_from_components)*
                 }
             }
