@@ -551,6 +551,11 @@ pub fn extract_default_ui_camera_view<T: Component>(
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
+        // ignore inactive cameras
+        if !camera.is_active {
+            continue;
+        }
+
         if let (
             Some(logical_size),
             Some(URect {
