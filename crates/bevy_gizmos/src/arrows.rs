@@ -17,7 +17,7 @@ impl ArrowBuilder<'_, '_> {
     /// Change the length of the tips to be `length`.
     /// The default tip length is [length of the arrow]/10, which is sufficient for most applications.
     ///
-    /// # example
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -65,7 +65,7 @@ impl<'s> Gizmos<'s> {
     ///
     /// This should be called for each frame the arrow needs to be rendered.
     ///
-    /// # example
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
@@ -91,7 +91,7 @@ impl<'s> Gizmos<'s> {
     ///
     /// This should be called for each frame the arrow needs to be rendered.
     ///
-    /// # example
+    /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
