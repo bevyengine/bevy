@@ -187,7 +187,8 @@ impl Plugin for WinitPlugin {
             let (
                 commands,
                 mut windows,
-                event_writer,
+                event_writer_window,
+                event_writer_scale_factor,
                 winit_windows,
                 adapters,
                 handlers,

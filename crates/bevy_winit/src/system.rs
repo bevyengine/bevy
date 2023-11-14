@@ -11,7 +11,9 @@ use bevy_utils::{
     tracing::{error, info, warn},
     HashMap,
 };
-use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowScaleFactorChanged};
+use bevy_window::{
+    RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowScaleFactorChanged,
+};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use winit::{
@@ -97,7 +99,10 @@ pub(crate) fn create_windows<'a>(
             }
         }
 
-        event_writer_scale_factor.send(WindowScaleFactorChanged { window: entity, scale_factor: winit_window.scale_factor() });
+        event_writer_scale_factor.send(WindowScaleFactorChanged {
+            window: entity,
+            scale_factor: winit_window.scale_factor(),
+        });
         event_writer_window.send(WindowCreated { window: entity });
     }
 }
