@@ -179,6 +179,7 @@ pub(crate) enum AllocAtWithoutReplacement {
 
 impl Entity {
     #[cfg(test)]
+    #[inline]
     pub(crate) const fn new(index: u32, generation: u32) -> Entity {
         Entity { index, generation }
     }
@@ -231,6 +232,7 @@ impl Entity {
     /// In general, one should not try to synchronize the ECS by attempting to ensure that
     /// `Entity` lines up between instances, but instead insert a secondary identifier as
     /// a component.
+    #[inline]
     pub const fn from_raw(index: u32) -> Entity {
         Entity {
             index,
@@ -244,6 +246,7 @@ impl Entity {
     /// for serialization between runs.
     ///
     /// No particular structure is guaranteed for the returned bits.
+    #[inline]
     pub const fn to_bits(self) -> u64 {
         (self.generation as u64) << 32 | self.index as u64
     }
@@ -251,6 +254,7 @@ impl Entity {
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    #[inline]
     pub const fn from_bits(bits: u64) -> Self {
         Self {
             generation: (bits >> 32) as u32,
