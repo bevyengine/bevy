@@ -123,7 +123,11 @@ impl ViewNode for PostProcessNode {
     // but it's not a normal system so we need to define it manually.
     //
     // This query will only run on the view entity
-    type ViewQuery = &'static ViewTarget;
+    type ViewQuery = (
+        &'static ViewTarget,
+        // This makes sure the node only runs on cameras with the PostProcessSettings component
+        &'static PostProcessSettings,
+    );
 
     // Runs the node logic
     // This is where you encode draw commands.
@@ -136,7 +140,7 @@ impl ViewNode for PostProcessNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        view_target: QueryItem<Self::ViewQuery>,
+        (view_target, _post_process_settings): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
