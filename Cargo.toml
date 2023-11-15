@@ -1078,6 +1078,16 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_dependency"
+path = "examples/asset/asset_dependency.rs"
+
+[package.metadata.example.asset_dependency]
+name = "Asset Dependency"
+description = "Demonstrates loading assets that depend on other assets"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
 doc-scrape-examples = true

@@ -1,0 +1,4 @@
+(
+    value: 12345,
+    other_asset: "data/test.my_other_asset.ron",
+)
