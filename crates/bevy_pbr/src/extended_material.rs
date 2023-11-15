@@ -108,9 +108,7 @@ pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
 // causes the `TypePath` derive to not generate an implementation.
 impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
 
-impl<B: Material, E: MaterialExtension> AsBindGroup
-    for ExtendedMaterial<B, E>
-{
+impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
 
     fn unprepared_bind_group(
@@ -155,9 +153,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup
     }
 }
 
-impl<B: Material, E: MaterialExtension> Material
-    for ExtendedMaterial<B, E>
-{
+impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     fn vertex_shader() -> bevy_render::render_resource::ShaderRef {
         match E::vertex_shader() {
             ShaderRef::Default => B::vertex_shader(),
