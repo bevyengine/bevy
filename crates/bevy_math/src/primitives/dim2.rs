@@ -12,7 +12,7 @@ impl From<Vec2> for Direction2d {
 }
 
 impl Direction2d {
-    /// Create a direction from a [Vec2] that is already normalized
+    /// Create a direction from a [`Vec2`] that is already normalized
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
@@ -34,11 +34,11 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
-/// An unbounded plane in 2D space. It forms a separating surface trough the origin,
+/// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
 pub struct Plane2d {
-    /// The normal of the plane, the plane will be placed perpendicular to this direction
+    /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
@@ -48,8 +48,8 @@ impl Primitive2d for Plane2d {}
 /// For a finite line: [`Segment2d`]
 #[derive(Clone, Copy, Debug)]
 pub struct Line2d {
-    /// The direction of the line, the line extends infinitely in both the positive
-    /// and negative of this direction
+    /// The direction of the line. The line extends infinitely in both the given direction
+    /// and its opposite direction
     pub direction: Direction2d,
 }
 impl Primitive2d for Line2d {}
@@ -58,16 +58,16 @@ impl Primitive2d for Line2d {}
 #[doc(alias = "LineSegment2d")]
 #[derive(Clone, Debug)]
 pub struct Segment2d {
-    /// The direction of the line
+    /// The direction of the line segment
     pub direction: Direction2d,
-    /// Half the length of the line segment, the segment extends by this amount in both
-    /// the positive and negative direction
+    /// Half the length of the line segment. The segment extends by this amount in both
+    /// the given direction and its opposite direction
     pub half_length: f32,
 }
 impl Primitive2d for Segment2d {}
 
 impl Segment2d {
-    /// Create a line segment from a direction and full length of the line
+    /// Create a line segment from a direction and full length of the segment
     pub fn new(direction: Direction2d, length: f32) -> Self {
         Self {
             direction,
@@ -108,7 +108,8 @@ pub struct Polyline2d<const N: usize> {
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
-/// A series of connected line segments in 2D space.
+/// A series of connected line segments in 2D space, allocated on the heap
+/// in a `Box<[Vec2]>`.
 ///
 /// For a version without alloc: [`Polyline2d`]
 #[derive(Clone, Debug)]
@@ -138,12 +139,12 @@ pub struct Rectangle {
 impl Primitive2d for Rectangle {}
 
 impl Rectangle {
-    /// Create a Rectangle from a full width and height
+    /// Create a rectangle from a full width and height
     pub fn new(width: f32, height: f32) -> Self {
         Self::from_size(Vec2::new(width, height))
     }
 
-    /// Create a Rectangle from the full size of a rectangle
+    /// Create a rectangle from a given full size
     pub fn from_size(size: Vec2) -> Self {
         Self {
             half_width: size.x / 2.,
@@ -152,7 +153,8 @@ impl Rectangle {
     }
 }
 
-/// A polygon with N vertices
+/// A polygon with N vertices.
+///
 /// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug)]
 pub struct Polygon<const N: usize> {
@@ -161,7 +163,9 @@ pub struct Polygon<const N: usize> {
 }
 impl<const N: usize> Primitive2d for Polygon<N> {}
 
-/// A polygon with a variable number of vertices
+/// A polygon with a variable number of vertices, allocated on the heap
+/// in a `Box<[Vec2]>`.
+///
 /// For a version without alloc: [`Polygon`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolygon {
@@ -175,7 +179,7 @@ impl Primitive2d for BoxedPolygon {}
 pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
     pub circumcircle: Circle,
-    /// The number of vertices
-    pub n_vertices: usize,
+    /// The number of sides
+    pub sides: usize,
 }
 impl Primitive2d for RegularPolygon {}

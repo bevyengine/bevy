@@ -12,7 +12,7 @@ impl From<Vec3> for Direction3d {
 }
 
 impl Direction3d {
-    /// Create a direction from a [Vec3] that is already normalized
+    /// Create a direction from a [`Vec3`] that is already normalized
     pub fn from_normalized(value: Vec3) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
@@ -34,11 +34,11 @@ pub struct Sphere {
 }
 impl Primitive3d for Sphere {}
 
-/// An unbounded plane in 3D space. It forms a separating surface trough the origin,
+/// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
 pub struct Plane3d {
-    /// The normal of the plane, the plane will be placed perpendicular to this direction
+    /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Direction3d,
 }
 impl Primitive3d for Plane3d {}
@@ -59,14 +59,14 @@ impl Primitive3d for Line3d {}
 pub struct Segment3d {
     /// The direction of the line
     pub direction: Direction3d,
-    /// Half the length of the line segment, the segment extends by this amount in both
-    /// the positive and negative direction
+    /// Half the length of the line segment. The segment extends by this amount in both
+    /// the given direction and its opposite direction
     pub half_length: f32,
 }
 impl Primitive3d for Segment3d {}
 
 impl Segment3d {
-    /// Create a line segment from a direction and full length of the line
+    /// Create a line segment from a direction and full length of the segment
     pub fn new(direction: Direction3d, length: f32) -> Self {
         Self {
             direction,
@@ -107,7 +107,8 @@ pub struct Polyline3d<const N: usize> {
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
-/// A series of connected line segments in 3D space.
+/// A series of connected line segments in 3D space, allocated on the heap
+/// in a `Box<[Vec3]>`.
 ///
 /// For a version without alloc: [`Polyline3d`]
 #[derive(Clone, Debug)]
@@ -131,7 +132,7 @@ impl Cuboid {
         Self::from_size(Vec3::new(x_length, y_length, z_length))
     }
 
-    /// Create a cuboid from the full size of the cuboid
+    /// Create a cuboid from a given full size
     pub fn from_size(size: Vec3) -> Self {
         Self {
             half_extents: size / 2.,
