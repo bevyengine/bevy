@@ -1561,7 +1561,7 @@ mod tests {
         let e4 = world_b.spawn(A(4)).id();
         assert_eq!(
             e4,
-            Entity::new(3, 1).unwrap(),
+            Entity::from_raw(3),
             "new entity is created immediately after world_a's max entity"
         );
         assert!(world_b.get::<A>(e1).is_none());
@@ -1608,7 +1608,7 @@ mod tests {
             "failed mismatched spawn doesn't change existing entity"
         );
 
-        let high_non_existent_entity = Entity::new(6, 1).unwrap();
+        let high_non_existent_entity = Entity::from_raw(6);
         world_b
             .get_or_spawn(high_non_existent_entity)
             .unwrap()
@@ -1619,7 +1619,7 @@ mod tests {
             "inserting into newly allocated high / non-continuous entity id works"
         );
 
-        let high_non_existent_but_reserved_entity = Entity::new(5, 1).unwrap();
+        let high_non_existent_but_reserved_entity = Entity::from_raw(5);
         assert!(
             world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
             "entities between high-newly allocated entity and continuous block of existing entities don't exist"
@@ -1635,10 +1635,10 @@ mod tests {
         assert_eq!(
             reserved_entities,
             vec![
-                Entity::new(5, 1).unwrap(),
-                Entity::new(4, 1).unwrap(),
-                Entity::new(7, 1).unwrap(),
-                Entity::new(8, 1).unwrap(),
+                Entity::from_raw(5),
+                Entity::from_raw(4),
+                Entity::from_raw(7),
+                Entity::from_raw(8),
             ],
             "space between original entities and high entities is used for new entity ids"
         );

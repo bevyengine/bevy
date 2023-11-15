@@ -181,7 +181,7 @@ impl Entity {
     /// ```
     pub const PLACEHOLDER: Self = Self::from_raw(u32::MAX);
 
-    /// Creates a new entity ID with the specified `index` and a generation of 0.
+    /// Creates a new entity ID with the specified `index` and a generation of 1.
     ///
     /// # Note
     ///
