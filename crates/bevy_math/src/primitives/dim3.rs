@@ -1,4 +1,5 @@
 use super::Primitive3d;
+use crate::Vec2;
 use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
@@ -171,3 +172,38 @@ pub struct Capsule {
 }
 impl super::Primitive2d for Capsule {}
 impl Primitive3d for Capsule {}
+
+/// A cone primitive.
+#[derive(Clone, Copy, Debug)]
+pub struct Cone {
+    /// radius of the base
+    pub radius: f32,
+    /// height of the cone
+    pub height: f32,
+}
+impl Primitive3d for Cone {}
+
+/// A conical frustum primitive.
+/// A conical frustum can be created
+/// by slicing off a section of a cone.
+#[derive(Clone, Copy, Debug)]
+pub struct ConicalFrustum {
+    /// Radius of the top of the frustum
+    pub radius_top: f32,
+    /// Radius of the base of the frustum
+    pub radius_bottom: f32,
+    /// Height of the frustum
+    pub height: f32,
+}
+impl Primitive3d for ConicalFrustum {}
+
+/// A torus (AKA donut) primitive.
+#[derive(Clone, Copy, Debug)]
+pub struct Torus {
+    /// The radius of the overall shape
+    pub radius: f32,
+    /// The radius of the ring
+    pub ring_radius: f32,
+}
+
+impl Primitive3d for Torus {}

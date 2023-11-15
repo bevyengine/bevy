@@ -34,6 +34,16 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+/// An ellipse primitive
+#[derive(Clone, Copy, Debug)]
+pub struct Ellipse {
+    /// The "width" of the ellipse
+    pub width: f32,
+    /// The "height" of the ellipse
+    pub height: f32,
+}
+impl Primitive2d for Ellipse {}
+
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
