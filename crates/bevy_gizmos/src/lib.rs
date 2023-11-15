@@ -16,6 +16,7 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+mod arrows;
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
