@@ -322,7 +322,7 @@ pub struct RunSystemWithInput<I: 'static> {
 /// Running slow systems can become a bottleneck.
 ///
 /// If the system needs an [`In<_>`](crate::system::In) input value to run, use the
-/// [crate::system::RunSystemWithInput] type instead.
+/// [`crate::system::RunSystemWithInput`] type instead.
 ///
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use
