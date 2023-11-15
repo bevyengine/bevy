@@ -123,7 +123,7 @@ impl AnimationClip {
 }
 
 /// Repetition behavior of an animation.
-#[derive(Reflect, Copy, Clone, Default)]
+#[derive(Reflect, Debug, PartialEq, Eq, Copy, Clone, Default)]
 pub enum RepeatAnimation {
     /// The animation will finish after running once.
     #[default]
@@ -134,7 +134,7 @@ pub enum RepeatAnimation {
     Forever,
 }
 
-#[derive(Reflect)]
+#[derive(Debug, Reflect)]
 struct PlayingAnimation {
     repeat: RepeatAnimation,
     speed: f32,
