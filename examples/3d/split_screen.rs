@@ -11,7 +11,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, set_camera_viewports)
+        .add_systems(Update, (set_camera_viewports, button_system))
         .run();
 }
 
@@ -83,17 +83,103 @@ fn setup(
         ))
         .id();
 
+    // Set up UI
     commands
-        .spawn((NodeBundle::default(), UiCamera(left_camera)))
+        .spawn((
+            UiCamera(left_camera),
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            },
+        ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section("Left", TextStyle::default()));
+            parent.spawn(TextBundle::from_section(
+                "Left",
+                TextStyle {
+                    font_size: 20.,
+                    ..default()
+                },
+            ));
+            buttons_panel(parent);
         });
 
     commands
-        .spawn((NodeBundle::default(), UiCamera(right_camera)))
+        .spawn((
+            UiCamera(right_camera),
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            },
+        ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section("Right", TextStyle::default()));
+            parent.spawn(TextBundle::from_section(
+                "Right",
+                TextStyle {
+                    font_size: 20.,
+                    ..default()
+                },
+            ));
+            buttons_panel(parent);
         });
+
+    fn buttons_panel(parent: &mut ChildBuilder) {
+        parent
+            .spawn(NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::all(Val::Px(20.)),
+                    ..default()
+                },
+                ..default()
+            })
+            .with_children(|parent| {
+                rotate_button(parent, "<", Direction::Left);
+                rotate_button(parent, ">", Direction::Right);
+            });
+    }
+
+    fn rotate_button(parent: &mut ChildBuilder, caption: &str, direction: Direction) {
+        parent
+            .spawn((
+                RotateCamera(direction),
+                ButtonBundle {
+                    style: Style {
+                        width: Val::Px(40.),
+                        height: Val::Px(40.),
+                        border: UiRect::all(Val::Px(2.)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    border_color: Color::WHITE.into(),
+                    background_color: Color::DARK_GRAY.into(),
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent.spawn(TextBundle::from_section(
+                    caption,
+                    TextStyle {
+                        font_size: 20.,
+                        ..default()
+                    },
+                ));
+            });
+    }
 }
 
 #[derive(Component)]
@@ -101,6 +187,14 @@ struct LeftCamera;
 
 #[derive(Component)]
 struct RightCamera;
+
+#[derive(Component)]
+struct RotateCamera(Direction);
+
+enum Direction {
+    Left,
+    Right,
+}
 
 fn set_camera_viewports(
     windows: Query<&Window>,
@@ -132,5 +226,31 @@ fn set_camera_viewports(
             ),
             ..default()
         });
+    }
+}
+
+fn button_system(
+    interaction_query: Query<
+        (&Interaction, &UiCamera, &RotateCamera),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut camera_query: Query<&mut Transform, With<Camera>>,
+) {
+    for (interaction, ui_camera, RotateCamera(direction)) in &interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                // Since UiCamera propagates to the children, we can use it to find
+                // which side of the screen the button is on.
+                if let Ok(mut camera_transform) = camera_query.get_mut(ui_camera.entity()) {
+                    let angle = match direction {
+                        Direction::Left => -0.1,
+                        Direction::Right => 0.1,
+                    };
+                    camera_transform
+                        .rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
+                }
+            }
+            _ => {}
+        }
     }
 }
