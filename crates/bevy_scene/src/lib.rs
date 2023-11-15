@@ -18,6 +18,9 @@ mod scene_spawner;
 #[cfg(feature = "serialize")]
 pub mod serde;
 
+/// Rusty Object Notation, a crate used to serialize and deserialize bevy scenes.
+pub use bevy_asset::ron;
+
 use bevy_ecs::schedule::IntoSystemConfigs;
 pub use bundle::*;
 pub use dynamic_scene::*;
