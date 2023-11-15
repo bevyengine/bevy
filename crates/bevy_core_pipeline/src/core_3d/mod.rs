@@ -518,6 +518,7 @@ pub fn prepare_core_3d_depth_textures(
             // Required to read the output of the prepass
             usage |= TextureUsages::COPY_SRC;
         }
+        usage |= TextureUsages::TEXTURE_BINDING; // TODO: Required by MeshletPlugin
         render_target_usage
             .entry(camera.target.clone())
             .and_modify(|u| *u |= usage)

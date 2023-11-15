@@ -21,6 +21,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, HashMap, HashSet};
 use std::{
+    num::NonZeroU64,
     ops::{DerefMut, Range},
     sync::Arc,
 };
@@ -196,19 +197,48 @@ pub fn prepare_meshlet_per_frame_resources(
             view_formats: &[],
         };
 
+        let contents = &[
+            DrawIndexedIndirect {
+                vertex_count: 0,
+                instance_count: 1,
+                base_index: 0,
+                vertex_offset: 0,
+                base_instance: 0,
+            },
+            DrawIndexedIndirect {
+                vertex_count: 0,
+                instance_count: 1,
+                base_index: 0,
+                vertex_offset: 0,
+                base_instance: 0,
+            },
+        ];
         let visibility_buffer_draw_command_buffer =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_draw_command_buffer"),
-                contents: DrawIndexedIndirect {
-                    vertex_count: 0,
-                    instance_count: 1,
-                    base_index: 0,
-                    vertex_offset: 0,
-                    base_instance: 0,
-                }
-                .as_bytes(),
+                contents: unsafe {
+                    std::mem::transmute(std::slice::from_raw_parts(
+                        contents as *const _ as *const u8,
+                        std::mem::size_of::<DrawIndexedIndirect>(),
+                    ))
+                },
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
+
+        let depth_pyramid = TextureDescriptor {
+            label: Some("meshlet_depth_pyramid"),
+            size: Extent3d {
+                width: view.viewport.z,
+                height: view.viewport.w,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 9, // TODO
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::R32Float,
+            usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
 
         let material_depth_color = TextureDescriptor {
             label: Some("meshlet_material_depth_color"),
@@ -247,6 +277,7 @@ pub fn prepare_meshlet_per_frame_resources(
             visibility_buffer: texture_cache.get(&render_device, visibility_buffer),
             visibility_buffer_draw_command_buffer,
             visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
+            depth_pyramid: texture_cache.get(&render_device, depth_pyramid),
             material_depth_color: texture_cache.get(&render_device, material_depth_color),
             material_depth: texture_cache.get(&render_device, material_depth),
         });
@@ -274,17 +305,46 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources.previous_occlusion_buffer.as_entire_binding(),
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            view_resources
-                .visibility_buffer_draw_command_buffer
-                .as_entire_binding(),
+            BindingResource::Buffer(BufferBinding {
+                buffer: &view_resources.visibility_buffer_draw_command_buffer,
+                offset: 0,
+                size: Some(NonZeroU64::new(20).unwrap()),
+            }),
             view_resources
                 .visibility_buffer_draw_index_buffer
                 .as_entire_binding(),
             view_uniforms.clone(),
         ));
-        let culling = render_device.create_bind_group(
-            "meshlet_culling_bind_group",
-            &gpu_scene.culling_bind_group_layout,
+        let culling_first = render_device.create_bind_group(
+            "meshlet_culling_first_bind_group",
+            &gpu_scene.culling_first_bind_group_layout,
+            &entries,
+        );
+
+        let entries = BindGroupEntries::sequential((
+            gpu_scene.meshlets.binding(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
+            gpu_scene.thread_instance_ids.binding().unwrap(),
+            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.previous_thread_ids.binding().unwrap(),
+            view_resources.previous_occlusion_buffer.as_entire_binding(),
+            view_resources.occlusion_buffer.as_entire_binding(),
+            gpu_scene.meshlet_bounding_spheres.binding(),
+            BindingResource::Buffer(BufferBinding {
+                buffer: &view_resources.visibility_buffer_draw_command_buffer,
+                offset: 20,
+                size: Some(NonZeroU64::new(20).unwrap()),
+            }),
+            view_resources
+                .visibility_buffer_draw_index_buffer
+                .as_entire_binding(),
+            view_uniforms.clone(),
+            &view_resources.depth_pyramid.default_view,
+            &gpu_scene.depth_pyramid_sampler,
+        ));
+        let culling_second = render_device.create_bind_group(
+            "meshlet_culling_second_bind_group",
+            &gpu_scene.culling_second_bind_group_layout,
             &entries,
         );
 
@@ -333,7 +393,8 @@ pub fn prepare_meshlet_view_bind_groups(
         );
 
         commands.entity(view_entity).insert(MeshletViewBindGroups {
-            culling,
+            culling_first,
+            culling_second,
             visibility_buffer,
             copy_material_depth,
             material_draw,
@@ -364,10 +425,12 @@ pub struct MeshletGpuScene {
     previous_thread_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
     previous_occlusion_buffers: EntityHashMap<Entity, Buffer>,
 
-    culling_bind_group_layout: BindGroupLayout,
+    culling_first_bind_group_layout: BindGroupLayout,
+    culling_second_bind_group_layout: BindGroupLayout,
     visibility_buffer_bind_group_layout: BindGroupLayout,
     copy_material_depth_bind_group_layout: BindGroupLayout,
     material_draw_bind_group_layout: BindGroupLayout,
+    depth_pyramid_sampler: Sampler,
 }
 
 impl FromWorld for MeshletGpuScene {
@@ -419,10 +482,16 @@ impl FromWorld for MeshletGpuScene {
             previous_thread_id_starts: HashMap::new(),
             previous_occlusion_buffers: EntityHashMap::default(),
 
-            culling_bind_group_layout: render_device.create_bind_group_layout(
+            culling_first_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
-                    label: Some("meshlet_culling_bind_group_layout"),
-                    entries: &culling_bind_group_layout_entries(),
+                    label: Some("meshlet_culling_first_bind_group_layout"),
+                    entries: &culling_first_bind_group_layout_entries(),
+                },
+            ),
+            culling_second_bind_group_layout: render_device.create_bind_group_layout(
+                &BindGroupLayoutDescriptor {
+                    label: Some("meshlet_culling_second_bind_group_layout"),
+                    entries: &culling_second_bind_group_layout_entries(),
                 },
             ),
             visibility_buffer_bind_group_layout: render_device.create_bind_group_layout(
@@ -452,6 +521,20 @@ impl FromWorld for MeshletGpuScene {
                     entries: &material_draw_bind_group_layout_entries(),
                 },
             ),
+            depth_pyramid_sampler: render_device.create_sampler(&SamplerDescriptor {
+                label: Some("meshlet_depth_pyramid_sampler"),
+                address_mode_u: AddressMode::ClampToEdge,
+                address_mode_v: AddressMode::ClampToEdge,
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Nearest,
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 8.0, // TODO
+                compare: None,
+                anisotropy_clamp: 1,
+                border_color: None,
+            }),
         }
     }
 }
@@ -556,8 +639,12 @@ impl MeshletGpuScene {
         self.material_ids_present_in_scene.contains(material_id)
     }
 
-    pub fn culling_bind_group_layout(&self) -> BindGroupLayout {
-        self.culling_bind_group_layout.clone()
+    pub fn culling_first_bind_group_layout(&self) -> BindGroupLayout {
+        self.culling_first_bind_group_layout.clone()
+    }
+
+    pub fn culling_second_bind_group_layout(&self) -> BindGroupLayout {
+        self.culling_second_bind_group_layout.clone()
     }
 
     pub fn visibility_buffer_bind_group_layout(&self) -> BindGroupLayout {
@@ -581,19 +668,21 @@ pub struct MeshletViewResources {
     pub visibility_buffer: CachedTexture,
     pub visibility_buffer_draw_command_buffer: Buffer,
     pub visibility_buffer_draw_index_buffer: Buffer,
+    pub depth_pyramid: CachedTexture,
     pub material_depth_color: CachedTexture,
     pub material_depth: CachedTexture,
 }
 
 #[derive(Component)]
 pub struct MeshletViewBindGroups {
-    pub culling: BindGroup,
+    pub culling_first: BindGroup,
+    pub culling_second: BindGroup,
     pub visibility_buffer: BindGroup,
     pub copy_material_depth: BindGroup,
     pub material_draw: BindGroup,
 }
 
-fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
+fn culling_first_bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
     // TODO: min_binding_size
     [
         // Meshlets
@@ -715,6 +804,151 @@ fn culling_bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
                 has_dynamic_offset: true,
                 min_binding_size: None,
             },
+            count: None,
+        },
+    ]
+}
+
+fn culling_second_bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
+    // TODO: min_binding_size
+    [
+        // Meshlets
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Instance uniforms
+        BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Thread instance IDs
+        BindGroupLayoutEntry {
+            binding: 2,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Thread meshlet IDs
+        BindGroupLayoutEntry {
+            binding: 3,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Previous thread IDs
+        BindGroupLayoutEntry {
+            binding: 4,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Previous occlusion buffer
+        BindGroupLayoutEntry {
+            binding: 5,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Occlusion buffer
+        BindGroupLayoutEntry {
+            binding: 6,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Meshlet bounding spheres
+        BindGroupLayoutEntry {
+            binding: 7,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Draw command buffer
+        BindGroupLayoutEntry {
+            binding: 8,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Draw index buffer
+        BindGroupLayoutEntry {
+            binding: 9,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // View
+        BindGroupLayoutEntry {
+            binding: 10,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: true,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Depth pyramid
+        BindGroupLayoutEntry {
+            binding: 11,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: true },
+                view_dimension: TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        },
+        // Depth pyramid sampler
+        BindGroupLayoutEntry {
+            binding: 12,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
             count: None,
         },
     ]
