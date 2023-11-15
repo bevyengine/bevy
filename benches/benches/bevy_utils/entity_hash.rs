@@ -18,7 +18,7 @@ fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
     let x: f64 = rng.gen();
     let id = -(1.0 - x).log2() * (size as f64);
     let x: f64 = rng.gen();
-    let gen = 1 + -(1.0 - x).log2() * 2.0;
+    let gen = 1.0 + -(1.0 - x).log2() * 2.0;
 
     // this is not reliable, but we're internal so a hack is ok
     let bits = ((gen as u64) << 32) | (id as u64);
