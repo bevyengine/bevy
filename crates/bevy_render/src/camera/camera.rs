@@ -582,7 +582,7 @@ pub fn camera_system<T: CameraProjection + Component>(
 
     let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
         .read()
-        .filter_map(|event| {
+        .filter_map(|event| match event {
             AssetEvent::Modified { id } | AssetEvent::Added { id } => Some(id),
             _ => None,
         })
