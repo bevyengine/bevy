@@ -5,8 +5,8 @@ use crate::{
         Settings,
     },
     path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
-    UntypedHandle,
+    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, LoadedUntypedAsset,
+    UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
@@ -455,6 +455,21 @@ impl<'a> LoadContext<'a> {
         let path = path.into().to_owned();
         let handle = if self.should_load_dependencies {
             self.asset_server.load(path)
+        } else {
+            self.asset_server.get_or_create_path_handle(path, None)
+        };
+        self.dependencies.insert(handle.id().untyped());
+        handle
+    }
+
+    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset without knowing its type.
+    pub fn load_untyped<'b>(
+        &mut self,
+        path: impl Into<AssetPath<'b>>,
+    ) -> Handle<LoadedUntypedAsset> {
+        let path = path.into().to_owned();
+        let handle = if self.should_load_dependencies {
+            self.asset_server.load_untyped(path)
         } else {
             self.asset_server.get_or_create_path_handle(path, None)
         };
