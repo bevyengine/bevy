@@ -26,21 +26,19 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
 
 #ifdef MESHLET_SECOND_CULLING_PASS
-    var meshlet_visible = bool(meshlet_occlusion[thread_id.x]);
+    var meshlet_visible = true;
 #else
     let previous_thread_id = meshlet_previous_thread_ids[thread_id.x];
     var meshlet_visible = bool(meshlet_previous_occlusion[previous_thread_id]);
 #endif
 
-#ifndef MESHLET_SECOND_CULLING_PASS
-    // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
-    let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
-    let bounding_sphere_radius = model_scale * -bounding_sphere.radius;
-    for (var i = 0u; i < 6u; i++) {
-        meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > bounding_sphere_radius;
-        if !meshlet_visible { break; }
-    }
-#endif
+// TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
+let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
+let bounding_sphere_radius = model_scale * -bounding_sphere.radius;
+for (var i = 0u; i < 6u; i++) {
+    meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > bounding_sphere_radius;
+    if !meshlet_visible { break; }
+}
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     // TODO: Occlusion culling
@@ -55,5 +53,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         }
     }
 
+#ifndef MESHLET_SECOND_CULLING_PASS
     meshlet_occlusion[thread_id.x] = u32(meshlet_visible);
+#endif
 }
