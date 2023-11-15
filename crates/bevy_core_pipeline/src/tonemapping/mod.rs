@@ -185,6 +185,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
         }
+
         match key.tonemapping {
             Tonemapping::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
             Tonemapping::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
@@ -192,12 +193,34 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             }
             Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
-            Tonemapping::AgX => shader_defs.push("TONEMAP_METHOD_AGX".into()),
+            Tonemapping::AgX => {
+                #[cfg(not(feature = "tonemapping_luts"))]
+                bevy_log::error!(
+                    "AgX tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                );
+                shader_defs.push("TONEMAP_METHOD_AGX".into());
+            }
             Tonemapping::SomewhatBoringDisplayTransform => {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             }
-            Tonemapping::TonyMcMapface => shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into()),
+            Tonemapping::TonyMcMapface => {
+                #[cfg(not(feature = "tonemapping_luts"))]
+                bevy_log::error!(
+                    "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                );
+                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            }
             Tonemapping::BlenderFilmic => {
+                #[cfg(not(feature = "tonemapping_luts"))]
+                bevy_log::error!(
+                    "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
+                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
+                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
         }
@@ -306,8 +329,7 @@ pub fn get_lut_bindings<'a>(
     images: &'a RenderAssets<Image>,
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
-    bindings: [u32; 2],
-) -> [BindGroupEntry<'a>; 2] {
+) -> (&'a TextureView, &'a Sampler) {
     let image = match tonemapping {
         // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
         Tonemapping::None
@@ -320,16 +342,7 @@ pub fn get_lut_bindings<'a>(
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
     };
     let lut_image = images.get(image).unwrap();
-    [
-        BindGroupEntry {
-            binding: bindings[0],
-            resource: BindingResource::TextureView(&lut_image.texture_view),
-        },
-        BindGroupEntry {
-            binding: bindings[1],
-            resource: BindingResource::Sampler(&lut_image.sampler),
-        },
-    ]
+    (&lut_image.texture_view, &lut_image.sampler)
 }
 
 pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayoutEntry; 2] {
@@ -356,21 +369,26 @@ pub fn get_lut_bind_group_layout_entries(bindings: [u32; 2]) -> [BindGroupLayout
 // allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
 #[allow(dead_code)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
-    let mut image =
-        Image::from_buffer(bytes, image_type, CompressedImageFormats::NONE, false).unwrap();
-
-    image.sampler_descriptor = bevy_render::texture::ImageSampler::Descriptor(SamplerDescriptor {
-        label: Some("Tonemapping LUT sampler"),
-        address_mode_u: AddressMode::ClampToEdge,
-        address_mode_v: AddressMode::ClampToEdge,
-        address_mode_w: AddressMode::ClampToEdge,
-        mag_filter: FilterMode::Linear,
-        min_filter: FilterMode::Linear,
-        mipmap_filter: FilterMode::Linear,
-        ..default()
-    });
-
-    image
+    let image_sampler = bevy_render::texture::ImageSampler::Descriptor(
+        bevy_render::texture::ImageSamplerDescriptor {
+            label: Some("Tonemapping LUT sampler".to_string()),
+            address_mode_u: bevy_render::texture::ImageAddressMode::ClampToEdge,
+            address_mode_v: bevy_render::texture::ImageAddressMode::ClampToEdge,
+            address_mode_w: bevy_render::texture::ImageAddressMode::ClampToEdge,
+            mag_filter: bevy_render::texture::ImageFilterMode::Linear,
+            min_filter: bevy_render::texture::ImageFilterMode::Linear,
+            mipmap_filter: bevy_render::texture::ImageFilterMode::Linear,
+            ..default()
+        },
+    );
+    Image::from_buffer(
+        bytes,
+        image_type,
+        CompressedImageFormats::NONE,
+        false,
+        image_sampler,
+    )
+    .unwrap()
 }
 
 pub fn lut_placeholder() -> Image {
@@ -392,7 +410,7 @@ pub fn lut_placeholder() -> Image {
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             view_formats: &[],
         },
-        sampler_descriptor: ImageSampler::Default,
+        sampler: ImageSampler::Default,
         texture_view_descriptor: None,
     }
 }

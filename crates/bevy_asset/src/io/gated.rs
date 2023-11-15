@@ -1,5 +1,4 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use anyhow::Result;
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use parking_lot::RwLock;
@@ -96,12 +95,5 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
         path: &'a Path,
     ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
         self.reader.is_directory(path)
-    }
-
-    fn watch_for_changes(
-        &self,
-        event_sender: Sender<super::AssetSourceEvent>,
-    ) -> Option<Box<dyn super::AssetWatcher>> {
-        self.reader.watch_for_changes(event_sender)
     }
 }

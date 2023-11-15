@@ -13,6 +13,8 @@ use wgpu::{
     util::BufferInitDescriptor, BindingResource, BufferBinding, BufferDescriptor, BufferUsages,
 };
 
+use super::IntoBinding;
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
@@ -27,7 +29,7 @@ use wgpu::{
 /// Other options for storing GPU-accessible data are:
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
@@ -118,8 +120,8 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.changed = true;
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue), if a GPU-side backing buffer already exists.
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`], if a GPU-side backing buffer already exists.
     ///
     /// If a GPU-side buffer does not already exist for this data, such a buffer is initialized with currently
     /// available data.
@@ -139,6 +141,16 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     }
 }
 
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.buffer()
+            .expect("Failed to get buffer")
+            .as_entire_buffer_binding()
+            .into_binding()
+    }
+}
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic uniform buffer.
 ///
 /// Dynamic uniform buffers are available to shaders on a read-only basis. Dynamic uniform buffers are commonly used to make
@@ -153,8 +165,8 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 /// Other options for storing GPU-accessible data are:
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`UniformBuffer`]
+/// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
@@ -249,7 +261,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     ///
     /// `max_count` *must* be greater than or equal to the number of elements that are to be written to the buffer, or
     /// the writer will panic while writing.  Dropping the writer will schedule the buffer write into the provided
-    /// [`RenderQueue`](crate::renderer::RenderQueue).
+    /// [`RenderQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity to hold `max_count` elements, a new GPU-side buffer is created.
@@ -265,8 +277,16 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         device: &RenderDevice,
         queue: &'a RenderQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        let alignment =
-            AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64);
+        let alignment = if cfg!(ios_simulator) {
+            // On iOS simulator on silicon macs, metal validation check that the host OS alignment
+            // is respected, but the device reports the correct value for iOS, which is smaller.
+            // Use the larger value.
+            // See https://github.com/bevyengine/bevy/pull/10178 - remove if it's not needed anymore.
+            AlignmentValue::new(256)
+        } else {
+            AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64)
+        };
+
         let mut capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = alignment
             .round_up(T::min_size().get())
@@ -304,8 +324,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         }
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
@@ -365,5 +385,12 @@ impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
     #[inline]
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
         self.buffer_view.write(offset, val);
+    }
+}
+
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicUniformBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.binding().unwrap()
     }
 }

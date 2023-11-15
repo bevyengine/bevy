@@ -1,4 +1,6 @@
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::forward_io::VertexOutput
+// we can import items from shader modules in the assets folder with a quoted path
+#import "shaders/custom_material_import.wgsl"::COLOR_MULTIPLIER
 
 struct CustomMaterial {
     color: vec4<f32>,
@@ -10,7 +12,7 @@ struct CustomMaterial {
 
 @fragment
 fn fragment(
-    mesh: MeshVertexOutput,
+    mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    return material.color * textureSample(base_color_texture, base_color_sampler, mesh.uv);
+    return material.color * textureSample(base_color_texture, base_color_sampler, mesh.uv) * COLOR_MULTIPLIER;
 }

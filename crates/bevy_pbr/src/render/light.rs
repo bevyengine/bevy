@@ -1,12 +1,4 @@
-use crate::{
-    directional_light_order, point_light_order, AlphaMode, AmbientLight, Cascade,
-    CascadeShadowConfig, Cascades, CascadesVisibleEntities, Clusters, CubemapVisibleEntities,
-    DirectionalLight, DirectionalLightShadowMap, DrawPrepass, EnvironmentMapLight,
-    GlobalVisiblePointLights, Material, MaterialPipelineKey, MeshPipeline, MeshPipelineKey,
-    PointLight, PointLightShadowMap, PrepassPipeline, RenderMaterialInstances, RenderMaterials,
-    RenderMeshInstances, SpotLight, VisiblePointLights,
-};
-use bevy_core_pipeline::core_3d::Transparent3d;
+use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
@@ -15,9 +7,7 @@ use bevy_render::{
     mesh::Mesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
-    render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
-    },
+    render_phase::*,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
@@ -31,6 +21,8 @@ use bevy_utils::{
     HashMap,
 };
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
+
+use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -218,7 +210,6 @@ pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
 #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
-pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
@@ -272,9 +263,13 @@ pub struct ExtractedClustersPointLights {
 
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
+    views: Extract<Query<(Entity, &Clusters, &Camera)>>,
 ) {
-    for (entity, clusters) in &views {
+    for (entity, clusters, camera) in &views {
+        if !camera.is_active {
+            continue;
+        }
+
         commands.get_or_spawn(entity).insert((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),
@@ -912,7 +907,7 @@ pub fn prepare_lights(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: SHADOW_FORMAT,
+                format: CORE_3D_DEPTH_FORMAT,
                 label: Some("point_light_shadow_map_texture"),
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
@@ -933,7 +928,7 @@ pub fn prepare_lights(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: SHADOW_FORMAT,
+                format: CORE_3D_DEPTH_FORMAT,
                 label: Some("directional_light_shadow_map_texture"),
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
@@ -1172,7 +1167,7 @@ pub fn prepare_lights(
                     dimension: Some(TextureViewDimension::CubeArray),
                     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                     dimension: Some(TextureViewDimension::Cube),
-                    aspect: TextureAspect::All,
+                    aspect: TextureAspect::DepthOnly,
                     base_mip_level: 0,
                     mip_level_count: None,
                     base_array_layer: 0,
@@ -1187,7 +1182,7 @@ pub fn prepare_lights(
                 dimension: Some(TextureViewDimension::D2Array),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 dimension: Some(TextureViewDimension::D2),
-                aspect: TextureAspect::All,
+                aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
                 mip_level_count: None,
                 base_array_layer: 0,

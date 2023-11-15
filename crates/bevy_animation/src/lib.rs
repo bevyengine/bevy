@@ -190,15 +190,20 @@ impl PlayingAnimation {
         self.elapsed += delta;
         self.seek_time += delta * self.speed;
 
-        if (self.seek_time > clip_duration && self.speed > 0.0)
-            || (self.seek_time < 0.0 && self.speed < 0.0)
-        {
-            self.completions += 1;
-        }
+        let over_time = self.speed > 0.0 && self.seek_time >= clip_duration;
+        let under_time = self.speed < 0.0 && self.seek_time < 0.0;
 
+        if over_time || under_time {
+            self.completions += 1;
+
+            if self.is_finished() {
+                return;
+            }
+        }
         if self.seek_time >= clip_duration {
             self.seek_time %= clip_duration;
         }
+        // Note: assumes delta is never lower than -clip_duration
         if self.seek_time < 0.0 {
             self.seek_time += clip_duration;
         }
@@ -453,16 +458,16 @@ fn entity_from_path(
 /// Verify that there are no ancestors of a given entity that have an [`AnimationPlayer`].
 fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
-    parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
 ) -> bool {
     let Some(mut current) = player_parent.map(Parent::get) else {
         return true;
     };
     loop {
-        let Ok((maybe_player, parent)) = parents.get(current) else {
+        let Ok((has_player, parent)) = parents.get(current) else {
             return true;
         };
-        if maybe_player.is_some() {
+        if has_player {
             return false;
         }
         if let Some(parent) = parent {
@@ -483,7 +488,7 @@ pub fn animation_player(
     names: Query<&Name>,
     transforms: Query<&mut Transform>,
     morphs: Query<&mut MorphWeights>,
-    parents: Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    parents: Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
     animation_players
@@ -515,7 +520,7 @@ fn run_animation_player(
     transforms: &Query<&mut Transform>,
     morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
-    parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
     let paused = player.paused;
@@ -601,7 +606,7 @@ fn apply_animation(
     transforms: &Query<&mut Transform>,
     morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
-    parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
     if let Some(animation_clip) = animations.get(&animation.animation_clip) {

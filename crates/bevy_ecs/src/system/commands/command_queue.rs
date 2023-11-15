@@ -97,18 +97,18 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
-        // Pointer that will iterate over the entries of the buffer.
-        let mut cursor = self.bytes.as_mut_ptr();
+        // The range of pointers of the filled portion of `self.bytes`.
+        let bytes_range = self.bytes.as_mut_ptr_range();
 
-        // The address of the end of the buffer.
-        let end_addr = cursor as usize + self.bytes.len();
+        // Pointer that will iterate over the entries of the buffer.
+        let mut cursor = bytes_range.start;
 
         // Reset the buffer, so it can be reused after this function ends.
         // In the loop below, ownership of each command will be transferred into user code.
         // SAFETY: `set_len(0)` is always valid.
         unsafe { self.bytes.set_len(0) };
 
-        while (cursor as usize) < end_addr {
+        while cursor < bytes_range.end {
             // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
             // Since we know that the cursor is in bounds, it must point to the start of a new command.
             let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };

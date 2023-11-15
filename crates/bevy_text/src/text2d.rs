@@ -78,6 +78,8 @@ pub struct Text2dBundle {
     pub text_layout_info: TextLayoutInfo,
 }
 
+/// This system extracts the sprites from the 2D text components and adds them to the
+/// "render world".
 pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
@@ -85,6 +87,7 @@ pub fn extract_text2d_sprite(
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
+            Entity,
             &ViewVisibility,
             &Text,
             &TextLayoutInfo,
@@ -100,7 +103,9 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
-    for (view_visibility, text, text_layout_info, anchor, global_transform) in text2d_query.iter() {
+    for (original_entity, view_visibility, text, text_layout_info, anchor, global_transform) in
+        text2d_query.iter()
+    {
         if !view_visibility.get() {
             continue;
         }
@@ -125,8 +130,9 @@ pub fn extract_text2d_sprite(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
+            let entity = commands.spawn_empty().id();
             extracted_sprites.sprites.insert(
-                commands.spawn_empty().id(),
+                entity,
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
@@ -136,6 +142,7 @@ pub fn extract_text2d_sprite(
                     flip_x: false,
                     flip_y: false,
                     anchor: Anchor::Center.as_vec(),
+                    original_entity: Some(original_entity),
                 },
             );
         }
@@ -143,7 +150,7 @@ pub fn extract_text2d_sprite(
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
-/// This information is computed by the `TextPipeline` on insertion, then stored.
+/// This information is computed by the [`TextPipeline`] on insertion, then stored.
 ///
 /// ## World Resources
 ///
@@ -217,6 +224,7 @@ pub fn update_text2d_layout(
     }
 }
 
+/// Scales `value` by `factor`.
 pub fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
 }

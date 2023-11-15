@@ -120,13 +120,13 @@ impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
 ///     vec2(0.0, 1.0),
 ///     vec2(0.0, 1.0),
 /// ];
-/// let hermite = Hermite::new(points, tangents).to_curve();
+/// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
-pub struct Hermite<P: Point> {
+pub struct CubicHermite<P: Point> {
     control_points: Vec<(P, P)>,
 }
-impl<P: Point> Hermite<P> {
+impl<P: Point> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
     pub fn new(
         control_points: impl IntoIterator<Item = P>,
@@ -137,7 +137,7 @@ impl<P: Point> Hermite<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for Hermite<P> {
+impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let char_matrix = [
@@ -184,15 +184,15 @@ impl<P: Point> CubicGenerator<P> for Hermite<P> {
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ];
-/// let cardinal = CardinalSpline::new(0.3, points).to_curve();
+/// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
-pub struct CardinalSpline<P: Point> {
+pub struct CubicCardinalSpline<P: Point> {
     tension: f32,
     control_points: Vec<P>,
 }
 
-impl<P: Point> CardinalSpline<P> {
+impl<P: Point> CubicCardinalSpline<P> {
     /// Build a new Cardinal spline.
     pub fn new(tension: f32, control_points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -209,7 +209,7 @@ impl<P: Point> CardinalSpline<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for CardinalSpline<P> {
+impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let s = self.tension;
@@ -252,13 +252,13 @@ impl<P: Point> CubicGenerator<P> for CardinalSpline<P> {
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ];
-/// let b_spline = BSpline::new(points).to_curve();
+/// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
-pub struct BSpline<P: Point> {
+pub struct CubicBSpline<P: Point> {
     control_points: Vec<P>,
 }
-impl<P: Point> BSpline<P> {
+impl<P: Point> CubicBSpline<P> {
     /// Build a new Cardinal spline.
     pub fn new(control_points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -266,7 +266,7 @@ impl<P: Point> BSpline<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for BSpline<P> {
+impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let char_matrix = [

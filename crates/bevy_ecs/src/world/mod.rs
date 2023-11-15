@@ -383,7 +383,7 @@ impl World {
         }
     }
 
-    /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
+    /// Returns the components of an [`Entity`] through [`ComponentInfo`].
     #[inline]
     pub fn inspect_entity(&self, entity: Entity) -> Vec<&ComponentInfo> {
         let entity_location = self
@@ -1766,7 +1766,7 @@ impl World {
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
     ///
-    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
+    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
     /// times since the previous pass.
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
@@ -1993,15 +1993,15 @@ impl World {
     /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope<R>(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
-        let label = label.as_ref();
+        let label = label.intern();
         let Some(mut schedule) = self
             .get_resource_mut::<Schedules>()
             .and_then(|mut s| s.remove(label))
         else {
-            return Err(TryRunScheduleError(label.dyn_clone()));
+            return Err(TryRunScheduleError(label));
         };
 
         let value = f(self, &mut schedule);
@@ -2053,7 +2053,7 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn schedule_scope<R>(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> R {
         self.try_schedule_scope(label, f)
@@ -2069,7 +2069,7 @@ impl World {
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope(label, |world, sched| sched.run(world))
     }
@@ -2084,8 +2084,22 @@ impl World {
     /// # Panics
     ///
     /// If the requested schedule does not exist.
-    pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label, |world, sched| sched.run(world));
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    pub fn allow_ambiguous_component<T: Component>(&mut self) {
+        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
+        schedules.allow_ambiguous_component::<T>(self);
+        self.insert_resource(schedules);
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
+        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
+        schedules.allow_ambiguous_resource::<T>(self);
+        self.insert_resource(schedules);
     }
 }
 

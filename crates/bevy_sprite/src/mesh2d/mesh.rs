@@ -8,7 +8,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Vec2, Vec4};
+use bevy_math::{Affine3, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
     batching::{
@@ -178,7 +178,7 @@ impl From<&Mesh2dTransforms> for Mesh2dUniform {
 // NOTE: These must match the bit flags in bevy_sprite/src/mesh2d/mesh2d.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
-    struct MeshFlags: u32 {
+    pub struct MeshFlags: u32 {
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -295,9 +295,11 @@ impl FromWorld for Mesh2dPipeline {
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
+            let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+                ImageSampler::Descriptor(ref descriptor) => {
+                    render_device.create_sampler(&descriptor.as_wgpu())
+                }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
@@ -311,7 +313,7 @@ impl FromWorld for Mesh2dPipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
+                    bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -323,10 +325,7 @@ impl FromWorld for Mesh2dPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Vec2::new(
-                    image.texture_descriptor.size.width as f32,
-                    image.texture_descriptor.size.height as f32,
-                ),
+                size: image.size_f32(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -536,6 +535,13 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
@@ -555,7 +561,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 })],
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -589,14 +595,11 @@ pub fn prepare_mesh2d_bind_group(
 ) {
     if let Some(binding) = mesh2d_uniforms.binding() {
         commands.insert_resource(Mesh2dBindGroup {
-            value: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("mesh2d_bind_group"),
-                layout: &mesh2d_pipeline.mesh_layout,
-            }),
+            value: render_device.create_bind_group(
+                "mesh2d_bind_group",
+                &mesh2d_pipeline.mesh_layout,
+                &BindGroupEntries::single(binding),
+            ),
         });
     }
 }
@@ -619,20 +622,11 @@ pub fn prepare_mesh2d_view_bind_groups(
         globals_buffer.buffer.binding(),
     ) {
         for entity in &views {
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: globals.clone(),
-                    },
-                ],
-                label: Some("mesh2d_view_bind_group"),
-                layout: &mesh2d_pipeline.view_layout,
-            });
+            let view_bind_group = render_device.create_bind_group(
+                "mesh2d_view_bind_group",
+                &mesh2d_pipeline.view_layout,
+                &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
+            );
 
             commands.entity(entity).insert(Mesh2dViewBindGroup {
                 value: view_bind_group,

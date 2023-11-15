@@ -21,7 +21,7 @@ use bevy_render::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{BindGroupEntries, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
@@ -91,9 +91,11 @@ impl FromWorld for SpritePipeline {
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
+            let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+                ImageSampler::Descriptor(ref descriptor) => {
+                    render_device.create_sampler(&descriptor.as_wgpu())
+                }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
@@ -107,7 +109,7 @@ impl FromWorld for SpritePipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
+                    bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -118,10 +120,7 @@ impl FromWorld for SpritePipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Vec2::new(
-                    image.texture_descriptor.size.width as f32,
-                    image.texture_descriptor.size.height as f32,
-                ),
+                size: image.size_f32(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -325,6 +324,9 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
+    /// For cases where additional ExtractedSprites are created during extraction, this stores the
+    /// entity that caused that creation for use in determining visibility.
+    pub original_entity: Option<Entity>,
 }
 
 #[derive(Resource, Default)]
@@ -390,6 +392,7 @@ pub fn extract_sprites(
                 flip_y: sprite.flip_y,
                 image_handle_id: handle.id(),
                 anchor: sprite.anchor.as_vec(),
+                original_entity: None,
             },
         );
     }
@@ -425,6 +428,7 @@ pub fn extract_sprites(
                     flip_y: atlas_sprite.flip_y,
                     image_handle_id: texture_atlas.texture.id(),
                     anchor: atlas_sprite.anchor.as_vec(),
+                    original_entity: None,
                 },
             );
         }
@@ -550,7 +554,9 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
-            if !view_entities.contains(entity.index() as usize) {
+            let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
+
+            if !view_entities.contains(index as usize) {
                 continue;
             }
 
@@ -616,14 +622,11 @@ pub fn prepare_sprites(
         // Clear the sprite instances
         sprite_meta.sprite_instance_buffer.clear();
 
-        sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
-            label: Some("sprite_view_bind_group"),
-            layout: &sprite_pipeline.view_layout,
-        }));
+        sprite_meta.view_bind_group = Some(render_device.create_bind_group(
+            "sprite_view_bind_group",
+            &sprite_pipeline.view_layout,
+            &BindGroupEntries::single(view_binding),
+        ));
 
         // Index buffer indices
         let mut index = 0;
@@ -660,22 +663,14 @@ pub fn prepare_sprites(
                         .values
                         .entry(batch_image_handle)
                         .or_insert_with(|| {
-                            render_device.create_bind_group(&BindGroupDescriptor {
-                                entries: &[
-                                    BindGroupEntry {
-                                        binding: 0,
-                                        resource: BindingResource::TextureView(
-                                            &gpu_image.texture_view,
-                                        ),
-                                    },
-                                    BindGroupEntry {
-                                        binding: 1,
-                                        resource: BindingResource::Sampler(&gpu_image.sampler),
-                                    },
-                                ],
-                                label: Some("sprite_material_bind_group"),
-                                layout: &sprite_pipeline.material_layout,
-                            })
+                            render_device.create_bind_group(
+                                "sprite_material_bind_group",
+                                &sprite_pipeline.material_layout,
+                                &BindGroupEntries::sequential((
+                                    &gpu_image.texture_view,
+                                    &gpu_image.sampler,
+                                )),
+                            )
                         });
                 }
 

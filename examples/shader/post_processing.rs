@@ -20,12 +20,12 @@ use bevy::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
         render_resource::{
-            BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-            BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
-            ColorTargetState, ColorWrites, FragmentState, MultisampleState, Operations,
-            PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-            RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-            ShaderType, TextureFormat, TextureSampleType, TextureViewDimension,
+            BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+            BindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState,
+            MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
+            RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+            SamplerDescriptor, ShaderStages, ShaderType, TextureFormat, TextureSampleType,
+            TextureViewDimension,
         },
         renderer::{RenderContext, RenderDevice},
         texture::BevyDefault,
@@ -36,10 +36,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(AssetPlugin::default().watch_for_changes()),
-            PostProcessPlugin,
-        ))
+        .add_plugins((DefaultPlugins, PostProcessPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, update_settings))
         .run();
@@ -117,7 +114,7 @@ impl Plugin for PostProcessPlugin {
 #[derive(Default)]
 struct PostProcessNode;
 impl PostProcessNode {
-    pub const NAME: &str = "post_process";
+    pub const NAME: &'static str = "post_process";
 }
 
 // The ViewNode trait is required by the ViewNodeRunner
@@ -126,7 +123,11 @@ impl ViewNode for PostProcessNode {
     // but it's not a normal system so we need to define it manually.
     //
     // This query will only run on the view entity
-    type ViewQuery = &'static ViewTarget;
+    type ViewQuery = (
+        &'static ViewTarget,
+        // This makes sure the node only runs on cameras with the PostProcessSettings component
+        &'static PostProcessSettings,
+    );
 
     // Runs the node logic
     // This is where you encode draw commands.
@@ -139,7 +140,7 @@ impl ViewNode for PostProcessNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        view_target: QueryItem<Self::ViewQuery>,
+        (view_target, _post_process_settings): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
@@ -179,30 +180,19 @@ impl ViewNode for PostProcessNode {
         // The reason it doesn't work is because each post_process_write will alternate the source/destination.
         // The only way to have the correct source/destination for the bind_group
         // is to make sure you get it during the node execution.
-        let bind_group = render_context
-            .render_device()
-            .create_bind_group(&BindGroupDescriptor {
-                label: Some("post_process_bind_group"),
-                layout: &post_process_pipeline.layout,
-                // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        // Make sure to use the source view
-                        resource: BindingResource::TextureView(post_process.source),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        // Use the sampler created for the pipeline
-                        resource: BindingResource::Sampler(&post_process_pipeline.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        // Set the settings binding
-                        resource: settings_binding.clone(),
-                    },
-                ],
-            });
+        let bind_group = render_context.render_device().create_bind_group(
+            "post_process_bind_group",
+            &post_process_pipeline.layout,
+            // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
+            &BindGroupEntries::sequential((
+                // Make sure to use the source view
+                post_process.source,
+                // Use the sampler created for the pipeline
+                &post_process_pipeline.sampler,
+                // Set the settings binding
+                settings_binding.clone(),
+            )),
+        );
 
         // Begin the render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {

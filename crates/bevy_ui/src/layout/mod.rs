@@ -1,9 +1,9 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, Outline, Style, UiScale};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     event::EventReader,
     query::{With, Without},
@@ -19,6 +19,7 @@ use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::Taffy;
+use thiserror::Error;
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -228,10 +229,12 @@ with UI components as a child of an entity without UI components, results may be
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum LayoutError {
+    #[error("Invalid hierarchy")]
     InvalidHierarchy,
-    TaffyError(taffy::error::TaffyError),
+    #[error("Taffy error: {0}")]
+    TaffyError(#[from] taffy::error::TaffyError),
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
@@ -383,6 +386,34 @@ pub fn ui_layout_system(
             Vec2::ZERO,
             Vec2::ZERO,
         );
+    }
+}
+
+/// Resolve and update the widths of Node outlines
+pub fn resolve_outlines_system(
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    mut outlines_query: Query<(&Outline, &mut Node)>,
+) {
+    let viewport_size = primary_window
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO)
+        / ui_scale.0 as f32;
+
+    for (outline, mut node) in outlines_query.iter_mut() {
+        let node = node.bypass_change_detection();
+        node.outline_width = outline
+            .width
+            .resolve(node.size().x, viewport_size)
+            .unwrap_or(0.)
+            .max(0.);
+
+        node.outline_offset = outline
+            .width
+            .resolve(node.size().x, viewport_size)
+            .unwrap_or(0.)
+            .max(0.);
     }
 }
 

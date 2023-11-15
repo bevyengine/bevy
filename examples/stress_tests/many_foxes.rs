@@ -4,27 +4,45 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
+use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowPlugin, WindowResolution},
 };
+
+#[derive(FromArgs, Resource)]
+/// `many_foxes` stress test
+struct Args {
+    /// wether all foxes run in sync.
+    #[argh(switch)]
+    sync: bool,
+
+    /// total number of foxes.
+    #[argh(option, default = "1000")]
+    count: usize,
+}
 
 #[derive(Resource)]
 struct Foxes {
     count: usize,
     speed: f32,
     moving: bool,
+    sync: bool,
 }
 
 fn main() {
+    let args: Args = argh::from_env();
+
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                     present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
@@ -33,11 +51,10 @@ fn main() {
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(Foxes {
-            count: std::env::args()
-                .nth(1)
-                .map_or(1000, |s| s.parse::<usize>().unwrap()),
+            count: args.count,
             speed: 2.0,
             moving: true,
+            sync: args.sync,
         })
         .insert_resource(AmbientLight {
             color: Color::WHITE,
@@ -200,12 +217,15 @@ fn setup(
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
     foxes: Res<Foxes>,
-    mut player: Query<&mut AnimationPlayer>,
+    mut player: Query<(Entity, &mut AnimationPlayer)>,
     mut done: Local<bool>,
 ) {
     if !*done && player.iter().len() == foxes.count {
-        for mut player in &mut player {
+        for (entity, mut player) in &mut player {
             player.play(animations.0[0].clone_weak()).repeat();
+            if !foxes.sync {
+                player.seek_to(entity.index() as f32 / 10.0);
+            }
         }
         *done = true;
     }
