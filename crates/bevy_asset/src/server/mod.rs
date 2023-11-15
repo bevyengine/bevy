@@ -238,24 +238,7 @@ impl AssetServer {
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None, None)
-    }
-
-    /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset load. Instead,
-    /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
-    /// associated [`Assets`] resource.
-    ///
-    /// You can check the asset's load state by reading [`AssetEvent`] events, calling [`AssetServer::load_state`], or checking
-    /// the [`Assets`] storage to see if the [`Asset`] exists yet.
-    ///
-    /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
-    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn load_with_reader<'a, A: Asset>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-        reader: Box<Reader<'static>>,
-    ) -> Handle<A> {
-        self.load_with_meta_transform(path, None, Some(reader))
+        self.load_with_meta_transform(path, None)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
@@ -267,31 +250,13 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), None)
-    }
-
-    /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
-    /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
-    /// will be ignored and an error will be printed to the log.
-    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn load_with_settings_and_reader<'a, A: Asset, S: Settings>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
-        reader: Box<Reader<'static>>,
-    ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            Some(reader),
-        )
+        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)))
     }
 
     fn load_with_meta_transform<'a, A: Asset>(
         &self,
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
-        reader: Option<Box<Reader<'static>>>,
     ) -> Handle<A> {
         let path = path.into().into_owned();
         let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
@@ -305,10 +270,7 @@ impl AssetServer {
             let server = self.clone();
             IoTaskPool::get()
                 .spawn(async move {
-                    if let Err(err) = server
-                        .load_internal(owned_handle, path, false, None, reader)
-                        .await
-                    {
+                    if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
                         error!("{}", err);
                     }
                 })
@@ -327,7 +289,7 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = path.into();
-        self.load_internal(None, path, false, None, None).await
+        self.load_internal(None, path, false, None).await
     }
 
     /// Load an asset without knowing it's type. The method returns a handle to a [`LoadedUntypedAsset`].
@@ -405,13 +367,13 @@ impl AssetServer {
         path: AssetPath<'a>,
         force: bool,
         meta_transform: Option<MetaTransform>,
-        reader: Option<Box<Reader<'static>>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path = path.into_owned();
         let path_clone = path.clone();
-
-        let (mut meta, loader, mut reader) = if let Some(reader) = reader {
-            let loader = self.get_path_asset_loader(&path_clone).await.map_err(|e| {
+        let (mut meta, loader, mut reader) = self
+            .get_meta_loader_and_reader(&path_clone)
+            .await
+            .map_err(|e| {
                 // if there was an input handle, a "load" operation has already started, so we must produce a "failure" event, if
                 // we cannot find the meta and loader
                 if let Some(handle) = &input_handle {
@@ -419,22 +381,6 @@ impl AssetServer {
                 }
                 e
             })?;
-
-            let meta = loader.default_meta();
-
-            (meta, loader, reader)
-        } else {
-            self.get_meta_loader_and_reader(&path_clone)
-                .await
-                .map_err(|e| {
-                    // if there was an input handle, a "load" operation has already started, so we must produce a "failure" event, if
-                    // we cannot find the meta and loader
-                    if let Some(handle) = &input_handle {
-                        self.send_asset_event(InternalAssetEvent::Failed { id: handle.id() });
-                    }
-                    e
-                })?
-        };
 
         // This contains Some(UntypedHandle), if it was retrievable
         // If it is None, that is because it was _not_ retrievable, due to
@@ -553,7 +499,7 @@ impl AssetServer {
             .spawn(async move {
                 if server.data.infos.read().should_reload(&path) {
                     info!("Reloading {path} because it has changed");
-                    if let Err(err) = server.load_internal(None, path, true, None, None).await {
+                    if let Err(err) = server.load_internal(None, path, true, None).await {
                         error!("{}", err);
                     }
                 }

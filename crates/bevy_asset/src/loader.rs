@@ -9,7 +9,6 @@ use crate::{
     UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_log::error;
 use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use futures_lite::AsyncReadExt;
@@ -597,49 +596,6 @@ impl<'a> LoadContext<'a> {
         self.loader_dependencies.insert(path, hash);
 
         Ok(loaded_asset)
-    }
-
-    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
-    /// If the current context is a normal [`AssetServer::load`], an actual asset load will be kicked off immediately, which ensures the load happens
-    /// as soon as possible.
-    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.  
-    /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
-    /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
-    pub fn load_with_reader<'b, A: Asset>(
-        &mut self,
-        reader: Box<Reader<'static>>,
-        path: impl Into<AssetPath<'b>>,
-    ) -> Handle<A> {
-        let path = path.into().to_owned();
-        let handle = if self.should_load_dependencies {
-            self.asset_server.load_with_reader(path, reader)
-        } else {
-            error!("Deferred loading with a reader, which is likely unintentional");
-            self.asset_server.get_or_create_path_handle(path, None)
-        };
-        self.dependencies.insert(handle.id().untyped());
-        handle
-    }
-
-    /// Loads the [`Asset`] of type `A` at the given `path` with the given [`AssetLoader::Settings`] settings `S`. This is a "deferred"
-    /// load. If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
-    /// and the asset load will fail.  
-    pub fn load_with_settings_and_reader<'b, A: Asset, S: Settings + Default>(
-        &mut self,
-        path: impl Into<AssetPath<'b>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
-        reader: Box<Reader<'static>>,
-    ) -> Handle<A> {
-        let path = path.into();
-        let handle = if self.should_load_dependencies {
-            self.asset_server
-                .load_with_settings_and_reader(path.clone(), settings, reader)
-        } else {
-            error!("Deferred loading with a reader, which is likely unintentional");
-            self.asset_server.get_or_create_path_handle(path, None)
-        };
-        self.dependencies.insert(handle.id().untyped());
-        handle
     }
 }
 
