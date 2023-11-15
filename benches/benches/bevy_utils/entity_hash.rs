@@ -13,16 +13,16 @@ fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
     // -log₂(1-x) gives an exponential distribution with median 1.0
     // That lets us get values that are mostly small, but some are quite large
     // * For ids, half are in [0, size), half are unboundedly larger.
-    // * For generations, half are in [0, 2), half are unboundedly larger.
+    // * For generations, half are in [1, 3), half are unboundedly larger.
 
     let x: f64 = rng.gen();
     let id = -(1.0 - x).log2() * (size as f64);
     let x: f64 = rng.gen();
-    let gen = -(1.0 - x).log2() * 2.0;
+    let gen = 1 + -(1.0 - x).log2() * 2.0;
 
     // this is not reliable, but we're internal so a hack is ok
     let bits = ((gen as u64) << 32) | (id as u64);
-    let e = Entity::from_bits(bits);
+    let e = Entity::from_bits(bits).unwrap();
     assert_eq!(e.index(), id as u32);
     assert_eq!(e.generation(), gen as u32);
     e
@@ -57,7 +57,7 @@ fn entity_set_build_and_lookup(c: &mut Criterion) {
                 let set = EntityHashSet::from_iter(entities.iter().copied());
                 bencher.iter(|| entities.iter()
                     .copied()
-                    .map(|e| Entity::from_bits(e.to_bits() + 1))
+                    .map(|e| Entity::from_bits(e.to_bits() + 1).unwrap())
                     .filter(|e| set.contains(e)).count());
             },
         );
@@ -67,7 +67,7 @@ fn entity_set_build_and_lookup(c: &mut Criterion) {
                 let set = EntityHashSet::from_iter(entities.iter().copied());
                 bencher.iter(|| entities.iter()
                     .copied()
-                    .map(|e| Entity::from_bits(e.to_bits() + (1 << 32)))
+                    .map(|e| Entity::from_bits(e.to_bits() + (1 << 32)).unwrap())
                     .filter(|e| set.contains(e)).count());
             },
         );
