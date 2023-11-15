@@ -1202,10 +1202,10 @@ pub enum TranscodeFormat {
 /// An error that occurs when accessing specific pixels in a texture
 #[derive(Error, Debug)]
 pub enum TextureAccessError {
-    #[error("out of bounds ({0})")]
-    OutOfBounds(String),
-    #[error("unsupported texture format: {0}")]
-    UnsupportedTextureFormat(String),
+    #[error("out of bounds (x: {x}, y: {y}, z: {z})")]
+    OutOfBounds { x: f32, y: f32, z: f32 },
+    #[error("unsupported texture format: {0:?}")]
+    UnsupportedTextureFormat(TextureFormat),
 }
 
 /// An error that occurs when loading a texture
