@@ -26,9 +26,9 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
 
 #ifdef MESHLET_SECOND_CULLING_PASS
-    var meshlet_visible = bool(meshlet_occlusion[thread_id]);
+    var meshlet_visible = bool(meshlet_occlusion[thread_id.x]);
 #else
-    let previous_thread_id = meshlet_previous_thread_ids[thread_id];
+    let previous_thread_id = meshlet_previous_thread_ids[thread_id.x];
     var meshlet_visible = bool(meshlet_previous_occlusion[previous_thread_id]);
 #endif
 
@@ -55,5 +55,5 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         }
     }
 
-    meshlet_occlusion[thread_id] = u32(meshlet_visible);
+    meshlet_occlusion[thread_id.x] = u32(meshlet_visible);
 }

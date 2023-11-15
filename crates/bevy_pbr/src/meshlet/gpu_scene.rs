@@ -21,7 +21,6 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, HashMap, HashSet};
 use std::{
-    num::NonZeroU64,
     ops::{DerefMut, Range},
     sync::Arc,
 };
@@ -197,31 +196,30 @@ pub fn prepare_meshlet_per_frame_resources(
             view_formats: &[],
         };
 
-        let contents = &[
-            DrawIndexedIndirect {
-                vertex_count: 0,
-                instance_count: 1,
-                base_index: 0,
-                vertex_offset: 0,
-                base_instance: 0,
-            },
-            DrawIndexedIndirect {
-                vertex_count: 0,
-                instance_count: 1,
-                base_index: 0,
-                vertex_offset: 0,
-                base_instance: 0,
-            },
-        ];
-        let visibility_buffer_draw_command_buffer =
+        let visibility_buffer_draw_command_buffer_first =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("meshlet_visibility_buffer_draw_command_buffer"),
-                contents: unsafe {
-                    std::mem::transmute(std::slice::from_raw_parts(
-                        contents as *const _ as *const u8,
-                        std::mem::size_of::<DrawIndexedIndirect>(),
-                    ))
-                },
+                label: Some("meshlet_visibility_buffer_draw_command_buffer_first"),
+                contents: DrawIndexedIndirect {
+                    vertex_count: 0,
+                    instance_count: 1,
+                    base_index: 0,
+                    vertex_offset: 0,
+                    base_instance: 0,
+                }
+                .as_bytes(),
+                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
+            });
+        let visibility_buffer_draw_command_buffer_second =
+            render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("meshlet_visibility_buffer_draw_command_buffer_second"),
+                contents: DrawIndexedIndirect {
+                    vertex_count: 0,
+                    instance_count: 1,
+                    base_index: 0,
+                    vertex_offset: 0,
+                    base_instance: 0,
+                }
+                .as_bytes(),
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
 
@@ -275,7 +273,8 @@ pub fn prepare_meshlet_per_frame_resources(
             previous_occlusion_buffer,
             occlusion_buffer,
             visibility_buffer: texture_cache.get(&render_device, visibility_buffer),
-            visibility_buffer_draw_command_buffer,
+            visibility_buffer_draw_command_buffer_first,
+            visibility_buffer_draw_command_buffer_second,
             visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
             depth_pyramid: texture_cache.get(&render_device, depth_pyramid),
             material_depth_color: texture_cache.get(&render_device, material_depth_color),
@@ -305,11 +304,9 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources.previous_occlusion_buffer.as_entire_binding(),
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            BindingResource::Buffer(BufferBinding {
-                buffer: &view_resources.visibility_buffer_draw_command_buffer,
-                offset: 0,
-                size: Some(NonZeroU64::new(20).unwrap()),
-            }),
+            view_resources
+                .visibility_buffer_draw_command_buffer_first
+                .as_entire_binding(),
             view_resources
                 .visibility_buffer_draw_index_buffer
                 .as_entire_binding(),
@@ -330,11 +327,9 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources.previous_occlusion_buffer.as_entire_binding(),
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            BindingResource::Buffer(BufferBinding {
-                buffer: &view_resources.visibility_buffer_draw_command_buffer,
-                offset: 20,
-                size: Some(NonZeroU64::new(20).unwrap()),
-            }),
+            view_resources
+                .visibility_buffer_draw_command_buffer_second
+                .as_entire_binding(),
             view_resources
                 .visibility_buffer_draw_index_buffer
                 .as_entire_binding(),
@@ -666,7 +661,8 @@ pub struct MeshletViewResources {
     previous_occlusion_buffer: Buffer,
     occlusion_buffer: Buffer,
     pub visibility_buffer: CachedTexture,
-    pub visibility_buffer_draw_command_buffer: Buffer,
+    pub visibility_buffer_draw_command_buffer_first: Buffer,
+    pub visibility_buffer_draw_command_buffer_second: Buffer,
     pub visibility_buffer_draw_index_buffer: Buffer,
     pub depth_pyramid: CachedTexture,
     pub material_depth_color: CachedTexture,

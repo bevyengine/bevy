@@ -110,7 +110,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
             );
             draw_pass.set_render_pipeline(visibility_buffer_pipeline);
             draw_pass.draw_indexed_indirect(
-                &meshlet_view_resources.visibility_buffer_draw_command_buffer,
+                &meshlet_view_resources.visibility_buffer_draw_command_buffer_first,
                 0,
             );
         }
@@ -179,8 +179,8 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
             );
             draw_pass.set_render_pipeline(visibility_buffer_with_output_pipeline);
             draw_pass.draw_indexed_indirect(
-                &meshlet_view_resources.visibility_buffer_draw_command_buffer,
-                20,
+                &meshlet_view_resources.visibility_buffer_draw_command_buffer_second,
+                0,
             );
         }
 
