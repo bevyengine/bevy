@@ -6,7 +6,6 @@
 #![allow(clippy::type_complexity)]
 
 use bevy::{prelude::*, winit::WinitSettings};
-use bevy_internal::render::camera::Viewport;
 
 fn main() {
     App::new()
@@ -58,17 +57,7 @@ fn button_system(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
-            viewport: Some(Viewport {
-                physical_position: [200, 100].into(),
-                physical_size: [600, 600].into(),
-                ..default()
-            }),
-            ..default()
-        },
-        ..default()
-    });
+    commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
             style: Style {
