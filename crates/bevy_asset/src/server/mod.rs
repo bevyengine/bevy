@@ -349,7 +349,10 @@ impl AssetServer {
                         )
                         .into(),
                     }),
-                    Err(_) => server.send_asset_event(InternalAssetEvent::Failed { id }),
+                    Err(err) => {
+                        error!("{err}");
+                        server.send_asset_event(InternalAssetEvent::Failed { id });
+                    }
                 }
             })
             .detach();
@@ -652,7 +655,10 @@ impl AssetServer {
                         )
                         .into(),
                     }),
-                    Err(_) => server.send_asset_event(InternalAssetEvent::Failed { id }),
+                    Err(err) => {
+                        error!("Failed to load folder. {err}");
+                        server.send_asset_event(InternalAssetEvent::Failed { id });
+                    },
                 }
             })
             .detach();
