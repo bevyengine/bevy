@@ -928,28 +928,3 @@ fn initialize_dynamic_bundle(
 
     (id, storage_types)
 }
-
-#[cfg(test)]
-mod tests {
-    use bevy_ecs_macros::{Bundle, Component};
-
-    use crate as bevy_ecs;
-
-    #[derive(Component)]
-    struct ComponentA(u32);
-
-    #[derive(Component)]
-    struct ComponentB(u32);
-
-    #[derive(Bundle)]
-    struct Simple(ComponentA);
-
-    #[derive(Bundle)]
-    struct Tuple(Simple, ComponentB);
-
-    #[derive(Bundle)]
-    struct Record {
-        field0: Simple,
-        field1: ComponentB,
-    }
-}

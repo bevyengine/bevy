@@ -1725,4 +1725,22 @@ mod tests {
             "new entity was spawned and received C component"
         );
     }
+
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
+    }
 }
