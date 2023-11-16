@@ -351,7 +351,7 @@ impl AssetServer {
                     }),
                     Err(err) => {
                         error!("{err}");
-                        server.send_asset_event(InternalAssetEvent::Failed { id })
+                        server.send_asset_event(InternalAssetEvent::Failed { id });
                     }
                 }
             })
