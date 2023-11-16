@@ -29,6 +29,7 @@ impl TextureSlice {
     /// *original texture size* (rect) are above `stretch_value`.
     /// - `tile_x` - should the slice be tiled horizontally
     /// - `tile_y` - should the slice be tiled vertically
+    #[must_use]
     pub fn tiled(self, stretch_value: f32, (tile_x, tile_y): (bool, bool)) -> Vec<Self> {
         if !tile_x && !tile_y {
             return vec![self];

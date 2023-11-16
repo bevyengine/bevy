@@ -23,6 +23,7 @@ impl ComputedTextureSlices {
     /// * `original_entity` - the sprite entity
     /// * `sprite` - The sprite component
     /// * `handle` - The sprite texture handle
+    #[must_use]
     pub(crate) fn extract_sprites<'a>(
         &'a self,
         transform: &'a GlobalTransform,
@@ -54,6 +55,7 @@ impl ComputedTextureSlices {
 /// Returns `None` if either:
 /// - The scale mode is [`SpriteScaleMode::Stretched`]
 /// - The image asset is not loaded
+#[must_use]
 fn compute_sprite_slices(
     sprite: &Sprite,
     scale_mode: &SpriteScaleMode,

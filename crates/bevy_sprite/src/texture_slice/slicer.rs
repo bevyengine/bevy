@@ -45,6 +45,7 @@ pub enum SliceScaleMode {
 
 impl TextureSlicer {
     /// Computes the 4 corner slices
+    #[must_use]
     fn corner_slices(&self, base_rect: Rect, render_size: Vec2) -> [TextureSlice; 4] {
         let coef = render_size / base_rect.size();
         let BorderRect {
@@ -107,6 +108,7 @@ impl TextureSlicer {
     }
 
     /// Computes the 2 horizontal side slices (left and right borders)
+    #[must_use]
     fn horizontal_side_slices(
         &self,
         [tl_corner, tr_corner, bl_corner, br_corner]: &[TextureSlice; 4],
@@ -148,6 +150,7 @@ impl TextureSlicer {
     }
 
     /// Computes the 2 vertical side slices (bottom and top borders)
+    #[must_use]
     fn vertical_side_slices(
         &self,
         [tl_corner, tr_corner, bl_corner, br_corner]: &[TextureSlice; 4],
@@ -195,6 +198,7 @@ impl TextureSlicer {
     ///
     /// * `rect` - The section of the texture to slice in 9 parts
     /// * `render_size` - The optional draw size of the texture. If not set the `rect` size will be used.
+    #[must_use]
     pub(crate) fn compute_slices(
         &self,
         rect: Rect,
