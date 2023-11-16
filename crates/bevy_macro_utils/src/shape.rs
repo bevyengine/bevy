@@ -18,7 +18,7 @@ pub fn get_struct_fields(data: &syn::Data) -> syn::Result<&Punctuated<Field, Com
             // body; marking the entire body as the source of the error makes it
             // impossible to figure out which `derive` has a problem.
             Span::call_site().into(),
-            "Only structs/tuples with fields are supported",
+            "Only structs are supported",
         )),
     }
 }
