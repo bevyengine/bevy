@@ -31,7 +31,6 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
 /// Registration of default types to the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
@@ -209,7 +208,7 @@ mod tests {
         ));
         app.update();
 
-        let frame_count = app.world.resource::<FrameCount>();
+        let frame_count = app.world().resource::<FrameCount>();
         assert_eq!(1, frame_count.0);
     }
 }

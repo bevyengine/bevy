@@ -56,10 +56,9 @@ impl Plugin for TemporalAntiAliasPlugin {
         app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
@@ -87,7 +86,7 @@ impl Plugin for TemporalAntiAliasPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

@@ -96,7 +96,7 @@ impl Plugin for GizmoPlugin {
                     .after(TransformSystem::TransformPropagate),
             );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -114,11 +114,11 @@ impl Plugin for GizmoPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>();
+        let render_device = render_app.world().resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
