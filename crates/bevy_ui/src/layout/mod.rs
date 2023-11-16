@@ -52,7 +52,7 @@ struct RootNodePair {
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    camera_roots: HashMap<Entity, Vec<RootNodePair>>,
+    camera_roots: HashMap<Option<Entity>, Vec<RootNodePair>>,
     taffy: Taffy,
 }
 
@@ -145,7 +145,7 @@ without UI components as a child of an entity with UI components, results may be
     /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
     pub fn set_camera_children(
         &mut self,
-        camera_id: Entity,
+        camera_id: Option<Entity>,
         children: impl Iterator<Item = Entity>,
     ) {
         let viewport_style = taffy::style::Style {
@@ -190,7 +190,11 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
-    pub fn compute_camera_layout(&mut self, camera: Entity, render_target_resolution: UVec2) {
+    pub fn compute_camera_layout(
+        &mut self,
+        camera: Option<Entity>,
+        render_target_resolution: UVec2,
+    ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;
         };
@@ -243,8 +247,8 @@ pub enum LayoutError {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-    cameras: Query<(Entity, &Camera)>,
+    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
+    cameras: Query<&Camera>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
@@ -259,66 +263,74 @@ pub fn ui_layout_system(
     mut removed_nodes: RemovedComponents<Node>,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
 ) {
-    let primary_camera = cameras.iter().find_map(|(entity, camera)| {
-        if camera.is_primary() {
-            Some(UiCamera(entity))
-        } else {
-            None
-        }
-    });
-    let root_nodes_defaulted = root_node_query
-        .iter()
-        .filter_map(|(entity, camera)| camera.or(primary_camera.as_ref()).map(|c| (entity, c)));
-
-    let mut camera_root_nodes: HashMap<Entity, Vec<Entity>> = HashMap::new();
-    for (entity, camera) in root_nodes_defaulted {
+    let mut camera_root_nodes: HashMap<Option<Entity>, Vec<Entity>> = HashMap::new();
+    for (entity, camera) in &root_node_query {
         camera_root_nodes
-            .entry(camera.0)
+            .entry(camera.map(UiCamera::entity))
             .or_insert_with(Vec::new)
             .push(entity);
     }
-    let get_camera = |camera_id: Entity| {
-        let (_, camera) = cameras.get(camera_id).unwrap();
-        let scale_factor = camera.target_scaling_factor().unwrap_or(1.0) * ui_scale.0;
-        (camera, scale_factor)
-    };
-    let belongs_to_camera = |camera_id: &Entity, ui_camera: &Option<&UiCamera>| match *ui_camera {
-        Some(ui_camera) => ui_camera.0 == *camera_id,
-        None => match &primary_camera {
-            Some(ui_camera) => ui_camera.0 == *camera_id,
-            None => false,
-        },
+    let get_viewport_properties = |camera_id: Option<Entity>| {
+        if let Some(camera_id) = camera_id {
+            let camera = cameras.get(camera_id).unwrap();
+            let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
+            let scale_factor = camera.target_scaling_factor().unwrap_or(1.0) * ui_scale.0;
+            (size, scale_factor)
+        } else {
+            let size = primary_window
+                .get_single()
+                .map(|(_, window)| [window.physical_width(), window.physical_height()].into())
+                .unwrap_or(UVec2::ZERO);
+            let scale_factor = primary_window
+                .get_single()
+                .map(|(_, window)| window.scale_factor())
+                .unwrap_or(1.0)
+                * ui_scale.0;
+            (size, scale_factor)
+        }
     };
 
     // Resize nodes
     let resize_events = resize_events.read().collect::<Vec<_>>();
     for (camera_id, roots) in &camera_root_nodes {
-        let (camera, scale_factor) = get_camera(*camera_id);
-        let physical_size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
+        let (size, scale_factor) = get_viewport_properties(*camera_id);
         let resized = resize_events.iter().any(|resized_window| {
-            match camera.target.normalize(primary_window.get_single().ok()) {
-                Some(NormalizedRenderTarget::Window(window_ref)) => {
-                    resized_window.window == window_ref.entity()
+            let primary_window = primary_window.get_single().map(|(e, _)| e).ok();
+            match camera_id {
+                Some(camera_id) => {
+                    if let Some(NormalizedRenderTarget::Window(window_ref)) = cameras
+                        .get(*camera_id)
+                        .ok()
+                        .and_then(|camera| camera.target.normalize(primary_window))
+                    {
+                        resized_window.window == window_ref.entity()
+                    } else {
+                        false
+                    }
                 }
-                _ => false,
+                None => {
+                    // Camera if not specified, use primary window
+                    match primary_window {
+                        Some(primary_window) => resized_window.window == primary_window,
+                        None => false,
+                    }
+                }
             }
         });
 
-        let layout_context = LayoutContext::new(
-            scale_factor,
-            [physical_size.x as f32, physical_size.y as f32].into(),
-        );
+        let layout_context =
+            LayoutContext::new(scale_factor, [size.x as f32, size.y as f32].into());
 
         if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
             // update all nodes
             for (entity, style, ui_camera) in style_query.iter() {
-                if belongs_to_camera(camera_id, &ui_camera) {
+                if ui_camera.map(UiCamera::entity) == *camera_id {
                     ui_surface.upsert_node(entity, &style, &layout_context);
                 }
             }
         } else {
             for (entity, style, ui_camera) in style_query.iter() {
-                if belongs_to_camera(camera_id, &ui_camera) && style.is_changed() {
+                if ui_camera.map(UiCamera::entity) == *camera_id && style.is_changed() {
                     ui_surface.upsert_node(entity, &style, &layout_context);
                 }
             }
@@ -350,12 +362,10 @@ pub fn ui_layout_system(
     }
 
     for (camera_id, root_nodes) in &camera_root_nodes {
-        let (camera, scale_factor) = get_camera(*camera_id);
+        let (size, scale_factor) = get_viewport_properties(*camera_id);
         let inverse_target_scale_factor = scale_factor.recip();
-        if let Some(rect) = camera.physical_viewport_rect() {
-            ui_surface.compute_camera_layout(*camera_id, rect.size());
-        }
 
+        ui_surface.compute_camera_layout(*camera_id, size);
         for root in root_nodes {
             update_uinode_geometry_recursive(
                 *root,

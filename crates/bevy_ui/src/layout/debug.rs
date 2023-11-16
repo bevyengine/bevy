@@ -33,7 +33,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
 fn print_node(
     ui_surface: &UiSurface,
     taffy_to_entity: &HashMap<Node, Entity>,
-    entity: Entity,
+    entity: Option<Entity>,
     node: Node,
     has_sibling: bool,
     lines_string: String,
@@ -79,7 +79,7 @@ fn print_node(
         print_node(
             ui_surface,
             taffy_to_entity,
-            *child_entity,
+            Some(*child_entity),
             *child_node,
             has_sibling,
             new_string.clone(),

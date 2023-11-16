@@ -1714,7 +1714,7 @@ mod tests {
     }
 }
 
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
 pub struct UiCamera(pub Entity);
 
 impl UiCamera {
