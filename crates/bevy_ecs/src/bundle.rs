@@ -929,7 +929,8 @@ fn initialize_dynamic_bundle(
     (id, storage_types)
 }
 
-mod test {
+#[cfg(test)]
+mod tests {
     use bevy_ecs_macros::{Bundle, Component};
 
     use crate as bevy_ecs;
