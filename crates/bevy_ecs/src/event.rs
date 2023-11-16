@@ -784,7 +784,7 @@ pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
     !events.events_a.is_empty() || !events.events_b.is_empty()
 }
 
-/// [Iterator] over sent [`EventIds`](`EventId`) from a batch.
+/// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
 pub struct SendBatchIds<E> {
     last_count: usize,
     event_count: usize,
