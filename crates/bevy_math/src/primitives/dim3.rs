@@ -206,13 +206,6 @@ pub struct Cone {
 }
 impl Primitive3d for Cone {}
 
-impl Cone {
-    /// Create a new `Cone` from a radius and height
-    pub fn new(radius: f32, height: f32) -> Self {
-        Self { radius, height }
-    }
-}
-
 /// A conical frustum primitive.
 /// A conical frustum can be created
 /// by slicing off a section of a cone.
@@ -227,18 +220,6 @@ pub struct ConicalFrustum {
 }
 impl Primitive3d for ConicalFrustum {}
 
-impl ConicalFrustum {
-    /// Create a new `ConicalFrustum` from a top
-    /// radius, bottom radius, and height
-    pub fn new(radius_top: f32, radius_bottom: f32, height: f32) -> Self {
-        Self {
-            radius_top,
-            radius_bottom,
-            height,
-        }
-    }
-}
-
 /// A torus (AKA donut) primitive.
 #[derive(Clone, Copy, Debug)]
 pub struct Torus {
@@ -248,13 +229,3 @@ pub struct Torus {
     pub ring_radius: f32,
 }
 impl Primitive3d for Torus {}
-
-impl Torus {
-    /// Create a new `Torus` from a radius and ring radius
-    pub fn new(radius: f32, ring_radius: f32) -> Self {
-        Self {
-            radius,
-            ring_radius,
-        }
-    }
-}
