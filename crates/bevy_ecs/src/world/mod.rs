@@ -17,7 +17,7 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
-    event::{Event, EventId, Events},
+    event::{Event, EventId, Events, SendBatchIds},
     query::{DebugCheckedUnwrap, QueryEntityError, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -1616,7 +1616,7 @@ impl World {
     pub fn send_event_batch<E: Event>(
         &mut self,
         events: impl IntoIterator<Item = E>,
-    ) -> Option<impl Iterator<Item = EventId<E>>> {
+    ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             bevy_utils::tracing::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",

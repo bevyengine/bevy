@@ -210,16 +210,16 @@ impl<E: Event> Events<E> {
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
-    pub fn send_batch(
-        &mut self,
-        events: impl IntoIterator<Item = E>,
-    ) -> impl Iterator<Item = EventId<E>> {
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
         let last_count = self.event_count;
+
         self.extend(events);
-        (last_count..self.event_count).map(|id| EventId {
-            id,
+
+        SendBatchIds {
+            last_count,
+            event_count: self.event_count,
             _marker: PhantomData,
-        })
+        }
     }
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
@@ -543,10 +543,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
     /// This method returns the [IDs](`EventId`) of the sent `events`.
     ///
     /// See [`Events`] for details.
-    pub fn send_batch(
-        &mut self,
-        events: impl IntoIterator<Item = E>,
-    ) -> impl Iterator<Item = EventId<E>> {
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
         self.events.send_batch(events)
     }
 
@@ -785,6 +782,38 @@ pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
 /// needs to run or not.
 pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
     !events.events_a.is_empty() || !events.events_b.is_empty()
+}
+
+/// [Iterator] over sent [`EventIds`](`EventId`) from a batch.
+pub struct SendBatchIds<E> {
+    last_count: usize,
+    event_count: usize,
+    _marker: PhantomData<E>,
+}
+
+impl<E: Event> Iterator for SendBatchIds<E> {
+    type Item = EventId<E>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.last_count >= self.event_count {
+            return None;
+        }
+
+        let result = Some(EventId {
+            id: self.last_count,
+            _marker: PhantomData,
+        });
+
+        self.last_count += 1;
+
+        result
+    }
+}
+
+impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
+    fn len(&self) -> usize {
+        self.event_count.saturating_sub(self.last_count)
+    }
 }
 
 #[cfg(test)]

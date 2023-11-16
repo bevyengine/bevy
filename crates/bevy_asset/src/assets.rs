@@ -489,7 +489,7 @@ impl<A: Asset> Assets<A> {
     ///
     /// [`Events`]: bevy_ecs::event::Events
     pub fn asset_events(mut assets: ResMut<Self>, mut events: EventWriter<AssetEvent<A>>) {
-        let _ = events.send_batch(assets.queued_events.drain(..));
+        events.send_batch(assets.queued_events.drain(..));
     }
 }
 
