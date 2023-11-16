@@ -852,6 +852,7 @@ fn load_material(
     })
 }
 
+#[allow(clippy::result_large_err)]
 /// Loads a glTF node.
 fn load_node(
     gltf_node: &gltf::Node,
@@ -1235,6 +1236,7 @@ fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> Imag
     }
 }
 
+#[allow(clippy::result_large_err)]
 /// Maps the `primitive_topology` form glTF to `wgpu`.
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
