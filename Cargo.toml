@@ -1109,7 +1109,7 @@ required-features = ["file_watcher"]
 name = "Hot Reloading of Assets"
 description = "Demonstrates automatic reloading of assets when modified on disk"
 category = "Assets"
-wasm = true
+wasm = false
 
 [[example]]
 name = "asset_processing"

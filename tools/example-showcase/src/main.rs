@@ -581,17 +581,26 @@ header_message = \"Examples ({})\"
             for to_build in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_build.technical_name;
+                let required_features = if to_build.required_features.is_empty() {
+                    vec![]
+                } else {
+                    vec![
+                        "--features".to_string(),
+                        to_build.required_features.join(","),
+                    ]
+                };
+
                 if optimize_size {
                     cmd!(
                         sh,
-                        "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size"
+                        "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size {required_features...}"
                     )
                     .run()
                     .unwrap();
                 } else {
                     cmd!(
                         sh,
-                        "cargo run -p build-wasm-example -- --api {api} {example}"
+                        "cargo run -p build-wasm-example -- --api {api} {example} {required_features...}"
                     )
                     .run()
                     .unwrap();
