@@ -189,7 +189,11 @@ impl AssetInfos {
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
     ) -> Result<(UntypedHandle, bool), GetOrCreateHandleInternalError> {
-        match self.path_to_id.entry((path.clone(), type_id)) {
+        // TODO: Need to re-work this to actually handle the None case
+        let type_id_unwrapped =
+            type_id.ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
+
+        match self.path_to_id.entry((path.clone(), type_id_unwrapped)) {
             Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists

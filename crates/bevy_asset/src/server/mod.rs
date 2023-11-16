@@ -19,7 +19,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{CowArc, HashMap, HashSet};
+use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
@@ -901,9 +901,10 @@ pub fn handle_internal_asset_events(world: &mut World) {
                 current_folder = parent.to_path_buf();
                 let parent_asset_path =
                     AssetPath::from(current_folder.clone()).with_source(source.clone());
-                if let Some(folder_handle) = infos.get_path_handle(parent_asset_path.clone()) {
+
+                for folder_handle in infos.get_path_handles(parent_asset_path.clone()) {
                     info!("Reloading folder {parent_asset_path} because the content has changed");
-                    server.load_folder_internal(folder_handle.id(), parent_asset_path);
+                    server.load_folder_internal(folder_handle.id(), parent_asset_path.clone());
                 }
             }
         };
