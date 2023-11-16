@@ -70,10 +70,10 @@ impl WinitSettings {
     /// Returns the current [`UpdateMode`].
     ///
     /// **Note:** The output depends on whether the window has focus or not.
-    pub fn update_mode(&self, focused: bool) -> &UpdateMode {
+    pub fn update_mode(&self, focused: bool) -> UpdateMode {
         match focused {
-            true => &self.focused_mode,
-            false => &self.unfocused_mode,
+            true => self.focused_mode,
+            false => self.unfocused_mode,
         }
     }
 }

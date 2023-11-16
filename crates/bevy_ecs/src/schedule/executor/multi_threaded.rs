@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    panic::AssertUnwindSafe,
     sync::{Arc, Mutex},
 };
 
@@ -8,7 +9,6 @@ use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Instrument, Span};
-use std::panic::AssertUnwindSafe;
 
 use async_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
@@ -58,8 +58,6 @@ struct SystemTaskMetadata {
     archetype_component_access: Access<ArchetypeComponentId>,
     /// Indices of the systems that directly depend on the system.
     dependents: Vec<usize>,
-    /// Is `true` if the system does not access `!Send` data.
-    is_send: bool,
     /// Is `true` if the system is exclusive.
     is_exclusive: bool,
     /// Cached tracing span for system task
@@ -83,8 +81,6 @@ pub struct MultiThreadedExecutor {
     system_task_metadata: Vec<SystemTaskMetadata>,
     /// Union of the accesses of all currently running systems.
     active_access: Access<ArchetypeComponentId>,
-    /// Returns `true` if a system with non-`Send` access is running.
-    local_thread_running: bool,
     /// Returns `true` if an exclusive system is running.
     exclusive_running: bool,
     /// The number of systems expected to run.
@@ -154,7 +150,6 @@ impl SystemExecutor for MultiThreadedExecutor {
             self.system_task_metadata.push(SystemTaskMetadata {
                 archetype_component_access: default(),
                 dependents: schedule.system_dependents[index].clone(),
-                is_send: schedule.systems[index].is_send(),
                 is_exclusive: schedule.systems[index].is_exclusive(),
                 #[cfg(feature = "trace")]
                 system_task_span: info_span!(
@@ -278,7 +273,6 @@ impl MultiThreadedExecutor {
             num_completed_systems: 0,
             num_dependencies_remaining: Vec::new(),
             active_access: default(),
-            local_thread_running: false,
             exclusive_running: false,
             evaluated_sets: FixedBitSet::new(),
             ready_systems: FixedBitSet::new(),
@@ -375,10 +369,6 @@ impl MultiThreadedExecutor {
     ) -> bool {
         let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
-            return false;
-        }
-
-        if !system_meta.is_send && self.local_thread_running {
             return false;
         }
 
@@ -532,12 +522,7 @@ impl MultiThreadedExecutor {
         self.active_access
             .extend(&system_meta.archetype_component_access);
 
-        if system_meta.is_send {
-            scope.spawn(task);
-        } else {
-            self.local_thread_running = true;
-            scope.spawn_on_external(task);
-        }
+        scope.spawn(task);
     }
 
     /// # Safety
@@ -580,7 +565,7 @@ impl MultiThreadedExecutor {
                     .system_task_span
                     .clone(),
             );
-            scope.spawn_on_scope(task);
+            scope.spawn(task);
         } else {
             let task = async move {
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
@@ -610,11 +595,10 @@ impl MultiThreadedExecutor {
                     .system_task_span
                     .clone(),
             );
-            scope.spawn_on_scope(task);
+            scope.spawn(task);
         }
 
         self.exclusive_running = true;
-        self.local_thread_running = true;
     }
 
     fn finish_system_and_handle_dependents(&mut self, result: SystemResult) {
@@ -625,10 +609,6 @@ impl MultiThreadedExecutor {
 
         if self.system_task_metadata[system_index].is_exclusive {
             self.exclusive_running = false;
-        }
-
-        if !self.system_task_metadata[system_index].is_send {
-            self.local_thread_running = false;
         }
 
         debug_assert!(self.num_running_systems >= 1);

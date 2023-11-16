@@ -48,9 +48,10 @@ pub mod prelude {
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
             OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
+        storage::{ThreadLocal, ThreadLocalResource, ThreadLocals},
         system::{
-            Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoSystem, Local, ParallelCommands, ParamSet, Query,
+            ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
@@ -77,7 +78,6 @@ mod tests {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
         any::TypeId,
-        marker::PhantomData,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,
@@ -90,9 +90,6 @@ mod tests {
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
-
-    #[derive(Default)]
-    struct NonSendA(usize, PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -1270,36 +1267,6 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource() {
-        let mut world = World::default();
-        world.insert_non_send_resource(123i32);
-        world.insert_non_send_resource(456i64);
-        assert_eq!(*world.non_send_resource::<i32>(), 123);
-        assert_eq!(*world.non_send_resource_mut::<i64>(), 456);
-    }
-
-    #[test]
-    fn non_send_resource_points_to_distinct_data() {
-        let mut world = World::default();
-        world.insert_resource(A(123));
-        world.insert_non_send_resource(A(456));
-        assert_eq!(*world.resource::<A>(), A(123));
-        assert_eq!(*world.non_send_resource::<A>(), A(456));
-    }
-
-    #[test]
-    #[should_panic]
-    fn non_send_resource_panic() {
-        let mut world = World::default();
-        world.insert_non_send_resource(0i32);
-        std::thread::spawn(move || {
-            let _ = world.non_send_resource_mut::<i32>();
-        })
-        .join()
-        .unwrap();
-    }
-
-    #[test]
     fn exact_size_query() {
         let mut world = World::default();
         world.spawn((A(0), B(0)));
@@ -1414,32 +1381,6 @@ mod tests {
             assert!(!world.contains_resource::<A>());
         });
         assert_eq!(world.resource::<A>().0, 1);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendA from thread"
-    )]
-    fn non_send_resource_drop_from_different_thread() {
-        let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
-
-        let thread = std::thread::spawn(move || {
-            // Dropping the non-send resource on a different thread
-            // Should result in a panic
-            drop(world);
-        });
-
-        if let Err(err) = thread.join() {
-            std::panic::resume_unwind(err);
-        }
-    }
-
-    #[test]
-    fn non_send_resource_drop_from_same_thread() {
-        let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
-        drop(world);
     }
 
     #[test]

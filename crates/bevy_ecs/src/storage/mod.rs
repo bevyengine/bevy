@@ -22,14 +22,18 @@
 
 mod blob_vec;
 mod resource;
+mod resource_non_send;
 mod sparse_set;
 mod table;
 
 pub use resource::*;
+pub use resource_non_send::*;
 pub use sparse_set::*;
 pub use table::*;
 
-/// The raw data stores of a [`World`](crate::world::World)
+pub use bevy_ecs_macros::ThreadLocalResource;
+
+/// The raw data stores of a [`World`](crate::world::World).
 #[derive(Default)]
 pub struct Storages {
     /// Backing storage for [`SparseSet`] components.
@@ -38,6 +42,4 @@ pub struct Storages {
     pub tables: Tables,
     /// Backing storage for resources.
     pub resources: Resources<true>,
-    /// Backing storage for `!Send` resources.
-    pub non_send_resources: Resources<false>,
 }

@@ -16,17 +16,20 @@ use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdate
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{DetectChanges, Entity, EventReader, EventWriter},
+    prelude::{DetectChanges, Entity, EventReader, EventWriter, ThreadLocal, ThreadLocalResource},
     query::With,
     schedule::IntoSystemConfigs,
-    system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
-/// Maps window entities to their `AccessKit` [`Adapter`]s.
-#[derive(Default, Deref, DerefMut)]
+/// Maps each window entity to its `AccessKit` [`Adapter`].
+///
+/// **Note:** This is a [`ThreadLocalResource`] because the macOS implementation of [`Adapter`]
+/// is not [`Send`].
+#[derive(ThreadLocalResource, Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub HashMap<Entity, Adapter>);
 
 /// Maps window entities to their respective [`WinitActionHandler`]s.
@@ -45,14 +48,17 @@ impl ActionHandler for WinitActionHandler {
 }
 
 fn window_closed(
-    mut adapters: NonSendMut<AccessKitAdapters>,
     mut receivers: ResMut<WinitActionHandlers>,
     mut events: EventReader<WindowClosed>,
+    mut main_thread: ThreadLocal,
 ) {
-    for WindowClosed { window, .. } in events.read() {
-        adapters.remove(window);
-        receivers.remove(window);
-    }
+    main_thread.run(|tls| {
+        let mut adapters = tls.resource_mut::<AccessKitAdapters>();
+        for WindowClosed { window, .. } in events.read() {
+            adapters.remove(window);
+            receivers.remove(window);
+        }
+    });
 }
 
 fn poll_receivers(
@@ -75,7 +81,6 @@ fn should_update_accessibility_nodes(
 }
 
 fn update_accessibility_nodes(
-    adapters: NonSend<AccessKitAdapters>,
     focus: Res<Focus>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
@@ -85,61 +90,65 @@ fn update_accessibility_nodes(
         Option<&Parent>,
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
+    mut main_thread: ThreadLocal,
 ) {
     if let Ok((primary_window_id, primary_window)) = primary_window.get_single() {
-        if let Some(adapter) = adapters.get(&primary_window_id) {
-            let should_run = focus.is_changed() || !nodes.is_empty();
-            if should_run {
-                adapter.update_if_active(|| {
-                    let mut to_update = vec![];
-                    let mut name = None;
-                    if primary_window.focused {
-                        let title = primary_window.title.clone();
-                        name = Some(title.into_boxed_str());
-                    }
-                    let focus_id = (*focus).unwrap_or_else(|| primary_window_id).to_bits();
-                    let mut root_children = vec![];
-                    for (entity, node, children, parent) in &nodes {
-                        let mut node = (**node).clone();
-                        if let Some(parent) = parent {
-                            if !node_entities.contains(**parent) {
+        main_thread.run(|tls| {
+            let adapters = tls.resource::<AccessKitAdapters>();
+            if let Some(adapter) = adapters.get(&primary_window_id) {
+                let should_run = focus.is_changed() || !nodes.is_empty();
+                if should_run {
+                    adapter.update_if_active(|| {
+                        let mut to_update = vec![];
+                        let mut name = None;
+                        if primary_window.focused {
+                            let title = primary_window.title.clone();
+                            name = Some(title.into_boxed_str());
+                        }
+                        let focus_id = (*focus).unwrap_or_else(|| primary_window_id).to_bits();
+                        let mut root_children = vec![];
+                        for (entity, node, children, parent) in &nodes {
+                            let mut node = (**node).clone();
+                            if let Some(parent) = parent {
+                                if !node_entities.contains(**parent) {
+                                    root_children.push(NodeId(entity.to_bits()));
+                                }
+                            } else {
                                 root_children.push(NodeId(entity.to_bits()));
                             }
-                        } else {
-                            root_children.push(NodeId(entity.to_bits()));
-                        }
-                        if let Some(children) = children {
-                            for child in children {
-                                if node_entities.contains(*child) {
-                                    node.push_child(NodeId(child.to_bits()));
+                            if let Some(children) = children {
+                                for child in children {
+                                    if node_entities.contains(*child) {
+                                        node.push_child(NodeId(child.to_bits()));
+                                    }
                                 }
                             }
+                            to_update.push((
+                                NodeId(entity.to_bits()),
+                                node.build(&mut NodeClassSet::lock_global()),
+                            ));
                         }
-                        to_update.push((
-                            NodeId(entity.to_bits()),
-                            node.build(&mut NodeClassSet::lock_global()),
-                        ));
-                    }
-                    let mut root = NodeBuilder::new(Role::Window);
-                    if let Some(name) = name {
-                        root.set_name(name);
-                    }
-                    root.set_children(root_children);
-                    let root = root.build(&mut NodeClassSet::lock_global());
-                    let window_update = (NodeId(primary_window_id.to_bits()), root);
-                    to_update.insert(0, window_update);
-                    TreeUpdate {
-                        nodes: to_update,
-                        tree: None,
-                        focus: NodeId(focus_id),
-                    }
-                });
+                        let mut root = NodeBuilder::new(Role::Window);
+                        if let Some(name) = name {
+                            root.set_name(name);
+                        }
+                        root.set_children(root_children);
+                        let root = root.build(&mut NodeClassSet::lock_global());
+                        let window_update = (NodeId(primary_window_id.to_bits()), root);
+                        to_update.insert(0, window_update);
+                        TreeUpdate {
+                            nodes: to_update,
+                            tree: None,
+                            focus: NodeId(focus_id),
+                        }
+                    });
+                }
             }
-        }
+        });
     }
 }
 
-/// Implements winit-specific `AccessKit` functionality.
+/// Implements [`winit`]-specific `AccessKit` functionality.
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {

@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppLabel, Main, Plugin, SubApp};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_ecs::{
     schedule::MainThreadExecutor,
     system::Resource,
@@ -66,20 +66,20 @@ pub struct PipelinedRenderingPlugin;
 impl Plugin for PipelinedRenderingPlugin {
     fn build(&self, app: &mut App) {
         // Don't add RenderExtractApp if RenderApp isn't initialized.
-        if app.get_sub_app(RenderApp).is_err() {
+        if app.get_sub_app(RenderApp).is_none() {
             return;
         }
         app.insert_resource(MainThreadExecutor::new());
 
-        let mut sub_app = App::empty();
-        sub_app.init_schedule(Main);
-        app.insert_sub_app(RenderExtractApp, SubApp::new(sub_app, update_rendering));
+        let mut sub_app = SubApp::new();
+        sub_app.set_extract(renderer_extract);
+        app.insert_sub_app(RenderExtractApp, sub_app);
     }
 
     // Sets up the render thread and inserts resources into the main app used for controlling the render thread.
     fn cleanup(&self, app: &mut App) {
         // skip setting up when headless
-        if app.get_sub_app(RenderExtractApp).is_err() {
+        if app.get_sub_app(RenderExtractApp).is_none() {
             return;
         }
 
@@ -91,50 +91,50 @@ impl Plugin for PipelinedRenderingPlugin {
             .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
 
         // clone main thread executor to render world
-        let executor = app.world.get_resource::<MainThreadExecutor>().unwrap();
-        render_app.app.world.insert_resource(executor.clone());
+        let executor = app.world().get_resource::<MainThreadExecutor>().unwrap();
+        render_app.world_mut().insert_resource(executor.clone());
 
         render_to_app_sender.send_blocking(render_app).unwrap();
 
         app.insert_resource(MainToRenderAppSender(app_to_render_sender));
         app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
 
-        std::thread::spawn(move || {
-            #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("render thread").entered();
+        std::thread::Builder::new()
+            .name("render".to_string())
+            .spawn(move || {
+                let compute_task_pool = ComputeTaskPool::get();
+                loop {
+                    // run a scope here to allow main world to use this thread while it's waiting for the render app
+                    let sent_app = compute_task_pool
+                        .scope(|s| {
+                            s.spawn(async { app_to_render_receiver.recv().await });
+                        })
+                        .pop();
+                    let Some(Ok(mut render_app)) = sent_app else {
+                        break;
+                    };
 
-            let compute_task_pool = ComputeTaskPool::get();
-            loop {
-                // run a scope here to allow main world to use this thread while it's waiting for the render app
-                let sent_app = compute_task_pool
-                    .scope(|s| {
-                        s.spawn(async { app_to_render_receiver.recv().await });
-                    })
-                    .pop();
-                let Some(Ok(mut render_app)) = sent_app else {
-                    break;
-                };
+                    {
+                        #[cfg(feature = "trace")]
+                        let _sub_app_span =
+                            bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();
+                        render_app.update();
+                    }
 
-                {
-                    #[cfg(feature = "trace")]
-                    let _sub_app_span =
-                        bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();
-                    render_app.run();
+                    if render_to_app_sender.send_blocking(render_app).is_err() {
+                        break;
+                    }
                 }
 
-                if render_to_app_sender.send_blocking(render_app).is_err() {
-                    break;
-                }
-            }
-
-            bevy_utils::tracing::debug!("exiting pipelined rendering thread");
-        });
+                bevy_utils::tracing::debug!("exiting pipelined rendering thread");
+            })
+            .unwrap();
     }
 }
 
 // This function waits for the rendering world to be received,
 // runs extract, and then sends the rendering world back to the render thread.
-fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
+fn renderer_extract(app_world: &mut World, _world: &mut World) {
     app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
         // we use a scope here to run any main thread tasks that the render world still needs to run
         // while we wait for the render world to be received.

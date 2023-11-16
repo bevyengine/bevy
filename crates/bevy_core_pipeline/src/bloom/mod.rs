@@ -55,11 +55,9 @@ impl Plugin for BloomPlugin {
             UniformComponentPlugin::<BloomUniforms>::default(),
         ));
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
-
         render_app
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
@@ -101,11 +99,9 @@ impl Plugin for BloomPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
-
         render_app
             .init_resource::<BloomDownsamplingPipeline>()
             .init_resource::<BloomUpsamplingPipeline>();

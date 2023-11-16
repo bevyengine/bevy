@@ -26,14 +26,17 @@ pub(crate) struct CanvasParentResizeEventChannel {
 }
 
 fn canvas_parent_resize_event_handler(
-    winit_windows: NonSend<WinitWindows>,
     resize_events: Res<CanvasParentResizeEventChannel>,
+    mut main_thread: ThreadLocal,
 ) {
-    for event in resize_events.receiver.try_iter() {
-        if let Some(window) = winit_windows.get_window(event.window) {
-            window.set_inner_size(event.size);
+    main_thread.run(|tls| {
+        let winit_windows = tls.resource::<WinitWindows>();
+        for event in resize_events.receiver.try_iter() {
+            if let Some(window) = winit_windows.get_window(event.window) {
+                window.set_inner_size(event.size);
+            }
         }
-    }
+    });
 }
 
 fn get_size(selector: &str) -> Option<LogicalSize<f32>> {

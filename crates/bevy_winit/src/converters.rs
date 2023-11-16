@@ -307,3 +307,241 @@ pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window
     }
     window_buttons
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
+use winit::dpi::{PhysicalPosition, PhysicalSize};
+#[cfg(not(target_arch = "wasm32"))]
+use winit::event::{
+    AxisId, DeviceEvent, DeviceId, ElementState, Ime, ModifiersState, StartCause, Touch,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use winit::window::{Theme, WindowId};
+
+#[cfg(not(target_arch = "wasm32"))]
+// TODO: can remove all these types when we upgrade to winit 0.29
+#[derive(Debug, PartialEq)]
+#[allow(clippy::enum_variant_names)]
+pub(crate) enum Event<T> {
+    NewEvents(StartCause),
+    WindowEvent {
+        window_id: WindowId,
+        event: WindowEvent,
+    },
+    DeviceEvent {
+        device_id: DeviceId,
+        event: DeviceEvent,
+    },
+    UserEvent(T),
+    Suspended,
+    Resumed,
+    MainEventsCleared,
+    RedrawRequested(WindowId),
+    RedrawEventsCleared,
+    LoopDestroyed,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, PartialEq)]
+pub(crate) enum WindowEvent {
+    Resized(PhysicalSize<u32>),
+    Moved(PhysicalPosition<i32>),
+    CloseRequested,
+    Destroyed,
+    DroppedFile(PathBuf),
+    HoveredFile(PathBuf),
+    HoveredFileCancelled,
+    ReceivedCharacter(char),
+    Focused(bool),
+    KeyboardInput {
+        device_id: DeviceId,
+        input: winit::event::KeyboardInput,
+        is_synthetic: bool,
+    },
+    ModifiersChanged(ModifiersState),
+    Ime(Ime),
+    CursorMoved {
+        device_id: DeviceId,
+        position: PhysicalPosition<f64>,
+    },
+
+    CursorEntered {
+        device_id: DeviceId,
+    },
+    CursorLeft {
+        device_id: DeviceId,
+    },
+    MouseWheel {
+        device_id: DeviceId,
+        delta: winit::event::MouseScrollDelta,
+        phase: winit::event::TouchPhase,
+    },
+    MouseInput {
+        device_id: DeviceId,
+        state: ElementState,
+        button: winit::event::MouseButton,
+    },
+    TouchpadMagnify {
+        device_id: DeviceId,
+        delta: f64,
+        phase: winit::event::TouchPhase,
+    },
+    SmartMagnify {
+        device_id: DeviceId,
+    },
+    TouchpadRotate {
+        device_id: DeviceId,
+        delta: f32,
+        phase: winit::event::TouchPhase,
+    },
+    TouchpadPressure {
+        device_id: DeviceId,
+        pressure: f32,
+        stage: i64,
+    },
+    AxisMotion {
+        device_id: DeviceId,
+        axis: AxisId,
+        value: f64,
+    },
+    Touch(Touch),
+    ScaleFactorChanged {
+        scale_factor: f64,
+        new_inner_size: PhysicalSize<u32>,
+    },
+    ThemeChanged(Theme),
+    Occluded(bool),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn convert_event<T>(event: winit::event::Event<'_, T>) -> Event<T> {
+    match event {
+        winit::event::Event::NewEvents(start_cause) => Event::NewEvents(start_cause),
+        winit::event::Event::WindowEvent { window_id, event } => Event::WindowEvent {
+            window_id,
+            event: convert_window_event(event),
+        },
+        winit::event::Event::DeviceEvent { device_id, event } => {
+            Event::DeviceEvent { device_id, event }
+        }
+        winit::event::Event::UserEvent(value) => Event::UserEvent(value),
+        winit::event::Event::Suspended => Event::Suspended,
+        winit::event::Event::Resumed => Event::Resumed,
+        winit::event::Event::MainEventsCleared => Event::MainEventsCleared,
+        winit::event::Event::RedrawRequested(window_id) => Event::RedrawRequested(window_id),
+        winit::event::Event::RedrawEventsCleared => Event::RedrawEventsCleared,
+        winit::event::Event::LoopDestroyed => Event::LoopDestroyed,
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn convert_window_event(event: winit::event::WindowEvent<'_>) -> WindowEvent {
+    match event {
+        winit::event::WindowEvent::AxisMotion {
+            device_id,
+            axis,
+            value,
+        } => WindowEvent::AxisMotion {
+            device_id,
+            axis,
+            value,
+        },
+        winit::event::WindowEvent::CloseRequested => WindowEvent::CloseRequested,
+        winit::event::WindowEvent::CursorEntered { device_id } => {
+            WindowEvent::CursorEntered { device_id }
+        }
+        winit::event::WindowEvent::CursorLeft { device_id } => {
+            WindowEvent::CursorLeft { device_id }
+        }
+        winit::event::WindowEvent::CursorMoved {
+            device_id,
+            position,
+            ..
+        } => WindowEvent::CursorMoved {
+            device_id,
+            position,
+        },
+        winit::event::WindowEvent::Destroyed => WindowEvent::Destroyed,
+        winit::event::WindowEvent::DroppedFile(path_buf) => WindowEvent::DroppedFile(path_buf),
+        winit::event::WindowEvent::Focused(b) => WindowEvent::Focused(b),
+        winit::event::WindowEvent::HoveredFile(path_buf) => WindowEvent::HoveredFile(path_buf),
+        winit::event::WindowEvent::HoveredFileCancelled => WindowEvent::HoveredFileCancelled,
+        winit::event::WindowEvent::Ime(ime) => WindowEvent::Ime(ime),
+        winit::event::WindowEvent::KeyboardInput {
+            device_id,
+            input,
+            is_synthetic,
+        } => WindowEvent::KeyboardInput {
+            device_id,
+            input,
+            is_synthetic,
+        },
+        winit::event::WindowEvent::ModifiersChanged(modifiers_state) => {
+            WindowEvent::ModifiersChanged(modifiers_state)
+        }
+        winit::event::WindowEvent::MouseInput {
+            device_id,
+            state,
+            button,
+            ..
+        } => WindowEvent::MouseInput {
+            device_id,
+            state,
+            button,
+        },
+        winit::event::WindowEvent::MouseWheel {
+            device_id,
+            delta,
+            phase,
+            ..
+        } => WindowEvent::MouseWheel {
+            device_id,
+            delta,
+            phase,
+        },
+        winit::event::WindowEvent::Moved(new_position) => WindowEvent::Moved(new_position),
+        winit::event::WindowEvent::Occluded(b) => WindowEvent::Occluded(b),
+        winit::event::WindowEvent::ReceivedCharacter(char) => WindowEvent::ReceivedCharacter(char),
+        winit::event::WindowEvent::Resized(new_size) => WindowEvent::Resized(new_size),
+        winit::event::WindowEvent::ScaleFactorChanged {
+            scale_factor,
+            new_inner_size,
+        } => WindowEvent::ScaleFactorChanged {
+            scale_factor,
+            new_inner_size: *new_inner_size,
+        },
+        winit::event::WindowEvent::SmartMagnify { device_id } => {
+            WindowEvent::SmartMagnify { device_id }
+        }
+        winit::event::WindowEvent::ThemeChanged(theme) => WindowEvent::ThemeChanged(theme),
+        winit::event::WindowEvent::Touch(touch) => WindowEvent::Touch(touch),
+        winit::event::WindowEvent::TouchpadMagnify {
+            device_id,
+            delta,
+            phase,
+        } => WindowEvent::TouchpadMagnify {
+            device_id,
+            delta,
+            phase,
+        },
+        winit::event::WindowEvent::TouchpadPressure {
+            device_id,
+            pressure,
+            stage,
+        } => WindowEvent::TouchpadPressure {
+            device_id,
+            pressure,
+            stage,
+        },
+        winit::event::WindowEvent::TouchpadRotate {
+            device_id,
+            delta,
+            phase,
+        } => WindowEvent::TouchpadRotate {
+            device_id,
+            delta,
+            phase,
+        },
+    }
+}

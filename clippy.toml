@@ -1,1 +1,1 @@
-doc-valid-idents = ["GilRs", "glTF", "sRGB", "VSync", "WebGL2", "WebGPU", ".."]
+doc-valid-idents = ["DirectX", "iOS", "GilRs", "glTF", "macOS", "OpenGL", "sRGB", "VSync", "WebGL2", "WebGPU", ".."]

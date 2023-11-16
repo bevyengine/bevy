@@ -1,10 +1,10 @@
-use bevy_app::App;
+use bevy_app::{App, SubApp};
 use bevy_ecs::world::FromWorld;
 use bevy_log::warn;
 
 use super::{Node, RenderGraph};
 
-/// Adds common [`RenderGraph`] operations to [`App`].
+/// Adds common [`RenderGraph`] operations to [`SubApp`] (and [`App`]).
 pub trait RenderGraphApp {
     // Add a sub graph to the [`RenderGraph`]
     fn add_render_sub_graph(&mut self, sub_graph_name: &'static str) -> &mut Self;
@@ -31,14 +31,14 @@ pub trait RenderGraphApp {
     ) -> &mut Self;
 }
 
-impl RenderGraphApp for App {
+impl RenderGraphApp for SubApp {
     fn add_render_graph_node<T: Node + FromWorld>(
         &mut self,
         sub_graph_name: &'static str,
         node_name: &'static str,
     ) -> &mut Self {
-        let node = T::from_world(&mut self.world);
-        let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
+        let node = T::from_world(self.world_mut());
+        let mut render_graph = self.world_mut().get_resource_mut::<RenderGraph>().expect(
             "RenderGraph not found. Make sure you are using add_render_graph_node on the RenderApp",
         );
         if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph_name) {
@@ -54,7 +54,7 @@ impl RenderGraphApp for App {
         sub_graph_name: &'static str,
         edges: &[&'static str],
     ) -> &mut Self {
-        let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
+        let mut render_graph = self.world_mut().get_resource_mut::<RenderGraph>().expect(
             "RenderGraph not found. Make sure you are using add_render_graph_edges on the RenderApp",
         );
         if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph_name) {
@@ -71,7 +71,7 @@ impl RenderGraphApp for App {
         output_edge: &'static str,
         input_edge: &'static str,
     ) -> &mut Self {
-        let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
+        let mut render_graph = self.world_mut().get_resource_mut::<RenderGraph>().expect(
             "RenderGraph not found. Make sure you are using add_render_graph_edge on the RenderApp",
         );
         if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph_name) {
@@ -83,10 +83,45 @@ impl RenderGraphApp for App {
     }
 
     fn add_render_sub_graph(&mut self, sub_graph_name: &'static str) -> &mut Self {
-        let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
+        let mut render_graph = self.world_mut().get_resource_mut::<RenderGraph>().expect(
             "RenderGraph not found. Make sure you are using add_render_sub_graph on the RenderApp",
         );
         render_graph.add_sub_graph(sub_graph_name, RenderGraph::default());
+        self
+    }
+}
+
+impl RenderGraphApp for App {
+    fn add_render_graph_node<T: Node + FromWorld>(
+        &mut self,
+        sub_graph_name: &'static str,
+        node_name: &'static str,
+    ) -> &mut Self {
+        SubApp::add_render_graph_node::<T>(self.main_mut(), sub_graph_name, node_name);
+        self
+    }
+
+    fn add_render_graph_edge(
+        &mut self,
+        sub_graph_name: &'static str,
+        output_edge: &'static str,
+        input_edge: &'static str,
+    ) -> &mut Self {
+        SubApp::add_render_graph_edge(self.main_mut(), sub_graph_name, output_edge, input_edge);
+        self
+    }
+
+    fn add_render_graph_edges(
+        &mut self,
+        sub_graph_name: &'static str,
+        edges: &[&'static str],
+    ) -> &mut Self {
+        SubApp::add_render_graph_edges(self.main_mut(), sub_graph_name, edges);
+        self
+    }
+
+    fn add_render_sub_graph(&mut self, sub_graph_name: &'static str) -> &mut Self {
+        SubApp::add_render_sub_graph(self.main_mut(), sub_graph_name);
         self
     }
 }

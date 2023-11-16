@@ -322,18 +322,19 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
-        app.world.resource_mut::<Assets<StandardMaterial>>().insert(
-            Handle::<StandardMaterial>::default(),
-            StandardMaterial {
-                base_color: Color::rgb(1.0, 0.0, 0.5),
-                unlit: true,
-                ..Default::default()
-            },
-        );
+        app.world_mut()
+            .resource_mut::<Assets<StandardMaterial>>()
+            .insert(
+                Handle::<StandardMaterial>::default(),
+                StandardMaterial {
+                    base_color: Color::rgb(1.0, 0.0, 0.5),
+                    unlit: true,
+                    ..Default::default()
+                },
+            );
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         // Extract the required data from the main world
@@ -354,8 +355,8 @@ impl Plugin for PbrPlugin {
             )
             .init_resource::<LightMeta>();
 
-        let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
+        let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
+        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
             .unwrap();
@@ -367,9 +368,8 @@ impl Plugin for PbrPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         // Extract the required data from the main world

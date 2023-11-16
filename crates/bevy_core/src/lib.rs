@@ -26,11 +26,9 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant, Uuid};
 use std::borrow::Cow;
 use std::ffi::OsString;
-use std::marker::PhantomData;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
@@ -118,16 +116,15 @@ impl Plugin for TaskPoolPlugin {
         _app.add_systems(Last, tick_global_task_pools);
     }
 }
-/// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
-pub struct NonSendMarker(PhantomData<*mut ()>);
 
 /// A system used to check and advanced our task pools.
 ///
-/// Calls [`tick_global_task_pools_on_main_thread`],
-/// and uses [`NonSendMarker`] to ensure that this system runs on the main thread
+/// Calls [`tick_global_task_pools_on_main_thread`] on the main thread.
 #[cfg(not(target_arch = "wasm32"))]
-fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
-    tick_global_task_pools_on_main_thread();
+fn tick_global_task_pools(mut main_thread: ThreadLocal) {
+    main_thread.run(|_| {
+        tick_global_task_pools_on_main_thread();
+    });
 }
 
 /// Maintains a count of frames rendered since the start of the application.
@@ -209,7 +206,7 @@ mod tests {
         ));
         app.update();
 
-        let frame_count = app.world.resource::<FrameCount>();
+        let frame_count = app.world().resource::<FrameCount>();
         assert_eq!(1, frame_count.0);
     }
 }

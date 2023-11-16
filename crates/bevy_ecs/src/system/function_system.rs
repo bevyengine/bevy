@@ -22,9 +22,6 @@ pub struct SystemMeta {
     pub(crate) name: Cow<'static, str>,
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
-    // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
-    // SystemParams from overriding each other
-    is_send: bool,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -39,7 +36,6 @@ impl SystemMeta {
             name: name.into(),
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
-            is_send: true,
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -52,20 +48,6 @@ impl SystemMeta {
     #[inline]
     pub fn name(&self) -> &str {
         &self.name
-    }
-
-    /// Returns true if the system is [`Send`].
-    #[inline]
-    pub fn is_send(&self) -> bool {
-        self.is_send
-    }
-
-    /// Sets the system to be not [`Send`].
-    ///
-    /// This is irreversible.
-    #[inline]
-    pub fn set_non_send(&mut self) {
-        self.is_send = false;
     }
 }
 
@@ -452,11 +434,6 @@ where
     #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.system_meta.archetype_component_access
-    }
-
-    #[inline]
-    fn is_send(&self) -> bool {
-        self.system_meta.is_send
     }
 
     #[inline]
