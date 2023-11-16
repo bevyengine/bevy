@@ -39,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn animate(mut sprites: Query<&mut Sprite>, mut state: ResMut<AnimationState>, time: Res<Time>) {
     if state.current >= state.max || state.current <= state.min {
-        state.speed = -state.speed
+        state.speed = -state.speed;
     };
     state.current += state.speed * time.delta_seconds();
     for mut sprite in &mut sprites {
