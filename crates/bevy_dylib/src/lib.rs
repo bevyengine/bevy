@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::single_component_path_imports)]
 

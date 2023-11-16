@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage

@@ -1,5 +1,7 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
+
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
 //! This crate contains types for window management and events,

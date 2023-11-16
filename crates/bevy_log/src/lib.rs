@@ -1,5 +1,7 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
+
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
 //!

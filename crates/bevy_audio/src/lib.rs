@@ -21,6 +21,7 @@
 //! ```
 
 #![forbid(unsafe_code)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 

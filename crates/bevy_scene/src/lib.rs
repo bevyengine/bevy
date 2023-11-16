@@ -6,6 +6,7 @@
 
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 mod bundle;
 mod dynamic_scene;

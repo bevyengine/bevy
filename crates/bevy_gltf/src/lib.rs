@@ -4,6 +4,7 @@
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;

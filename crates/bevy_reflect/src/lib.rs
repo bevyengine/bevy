@@ -465,6 +465,7 @@
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [derive `Reflect`]: derive@crate::Reflect
 #![allow(clippy::type_complexity)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 mod array;
 mod fields;

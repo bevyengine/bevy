@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 mod bundle;
 mod dynamic_texture_atlas_builder;

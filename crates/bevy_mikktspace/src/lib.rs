@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::all)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 use glam::{Vec2, Vec3};
 

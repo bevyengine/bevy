@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 use bevy_macro_utils::BevyManifest;
 use encase_derive_impl::{implement, syn};

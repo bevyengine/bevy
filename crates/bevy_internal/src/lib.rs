@@ -1,5 +1,7 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
+
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.

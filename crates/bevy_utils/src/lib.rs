@@ -4,6 +4,7 @@
 //!
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
 #[allow(missing_docs)]

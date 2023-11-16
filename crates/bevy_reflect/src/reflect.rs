@@ -282,7 +282,6 @@ impl TypePath for dyn Reflect {
     }
 }
 
-#[deny(rustdoc::broken_intra_doc_links)]
 impl dyn Reflect {
     /// Downcasts the value to type `T`, consuming the trait object.
     ///

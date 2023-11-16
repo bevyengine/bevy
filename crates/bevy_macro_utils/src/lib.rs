@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 #![deny(unsafe_code)]
 //! A collection of helper types and functions for working on macros within the Bevy ecosystem.
 

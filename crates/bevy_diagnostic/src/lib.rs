@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 mod diagnostic;
 mod entity_count_diagnostics_plugin;

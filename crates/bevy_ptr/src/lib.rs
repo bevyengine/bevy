@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 #![allow(clippy::type_complexity)]
 
 use core::fmt::{self, Formatter, Pointer};

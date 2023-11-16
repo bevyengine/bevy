@@ -5,6 +5,7 @@
 
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 mod converter;
 mod gilrs_system;

@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 
 mod app;
 mod main_schedule;

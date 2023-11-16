@@ -1,5 +1,6 @@
 #![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
+#![forbid(rustdoc::broken_intra_doc_links)]
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;

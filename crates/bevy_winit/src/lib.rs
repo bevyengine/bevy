@@ -1,5 +1,7 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(rustdoc::broken_intra_doc_links)]
+
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of
