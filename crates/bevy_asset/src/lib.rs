@@ -1180,4 +1180,44 @@ mod tests {
         // running schedule does not error on ambiguity between the 2 uses_assets systems
         app.world.run_schedule(Update);
     }
+
+    // validate the Asset derive macro for various asset types
+    #[derive(Asset, TypePath)]
+    pub struct TestAsset;
+
+    #[allow(dead_code)]
+    #[derive(Asset, TypePath)]
+    pub enum EnumTestAsset {
+        Unnamed (
+            #[dependency]
+            Handle<TestAsset>,
+        ),
+        Named {
+            #[dependency]
+            handle: Handle<TestAsset>,
+            #[dependency]
+            vec_handles: Vec<Handle<TestAsset>>,
+            #[dependency]
+            embedded: TestAsset,
+        },
+        StructStyle(
+            #[dependency]
+            TestAsset,
+        ),
+        Empty,
+    }
+    
+    #[derive(Asset, TypePath)]
+    pub struct StructTestAsset {
+        #[dependency]
+        handle: Handle<TestAsset>,
+        #[dependency]
+        embedded: TestAsset,
+    }
+
+    #[derive(Asset, TypePath)]
+    pub struct TupleTestAsset (
+        #[dependency]
+        Handle<TestAsset>,
+    );
 }
