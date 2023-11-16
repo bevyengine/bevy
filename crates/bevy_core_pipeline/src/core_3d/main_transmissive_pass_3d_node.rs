@@ -6,7 +6,8 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
     render_resource::{
-        Extent3d, LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
+        Extent3d, LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+        StoreOp,
     },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
