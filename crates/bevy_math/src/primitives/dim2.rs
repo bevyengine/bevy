@@ -63,13 +63,6 @@ pub struct Plane2d {
 }
 impl Primitive2d for Plane2d {}
 
-impl Plane2d {
-    /// Create a new `Plane2d` from the normal of the plane
-    pub fn new(normal: Direction2d) -> Self {
-        Self { normal }
-    }
-}
-
 /// An infinite line along a direction in 2D space.
 ///
 /// For a finite line: [`Segment2d`]
