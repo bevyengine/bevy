@@ -76,7 +76,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .zip(field_kind.iter())
         .zip(field.iter())
     {
-        let index = syn::Index::from(i);
         match field_kind {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
@@ -92,6 +91,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         });
                     }
                     None => {
+                        let index = syn::Index::from(i);
                         field_get_components.push(quote! {
                             self.#index.get_components(&mut *func);
                         });
