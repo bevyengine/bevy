@@ -1,4 +1,4 @@
-#[cfg(feature = "file_watcher")]
+#[cfg(all(feature = "file_watcher", not(target_arch = "wasm32")))]
 mod file_watcher;
 
 #[cfg(feature = "multi-threaded")]
@@ -6,7 +6,7 @@ mod file_asset;
 #[cfg(not(feature = "multi-threaded"))]
 mod sync_file_asset;
 
-#[cfg(feature = "file_watcher")]
+#[cfg(all(feature = "file_watcher", not(target_arch = "wasm32")))]
 pub use file_watcher::*;
 
 use std::{
