@@ -16,7 +16,7 @@ use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::{
     any::{Any, TypeId},
-    path::Path,
+    path::{Path, PathBuf},
 };
 use thiserror::Error;
 
@@ -440,7 +440,13 @@ impl<'a> LoadContext<'a> {
             Default::default()
         };
         let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
+        reader
+            .read_to_end(&mut bytes)
+            .await
+            .map_err(|source| ReadAssetBytesError::Io {
+                path: path.path().to_path_buf(),
+                source,
+            })?;
         self.loader_dependencies.insert(path.clone_owned(), hash);
         Ok(bytes)
     }
@@ -570,8 +576,12 @@ pub enum ReadAssetBytesError {
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an io error while loading asset: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("Encountered an io error while loading asset at `{path}`: {source}")]
+    Io {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
 }
