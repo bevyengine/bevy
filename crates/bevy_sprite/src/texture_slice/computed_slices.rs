@@ -8,7 +8,7 @@ use bevy_render::texture::Image;
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
-/// Component storing texture slices for sprite entities with a tiled or sliced  [`SpriteDrawMode`]
+/// Component storing texture slices for sprite entities with a tiled or sliced  [`SpriteScaleMode`]
 ///
 /// This component is automatically inserted and updated
 #[derive(Debug, Clone, Component)]
