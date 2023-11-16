@@ -225,7 +225,7 @@ impl Primitive3d for ConicalFrustum {}
 pub struct Torus {
     /// The radius of the overall shape
     pub radius: f32,
-    /// The radius of the ring
+    /// The radius of the internal ring
     pub ring_radius: f32,
 }
 impl Primitive3d for Torus {}
