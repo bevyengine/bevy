@@ -137,7 +137,7 @@ impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
             vertices[index] = i;
             index += 1;
         }
-        return Self { vertices };
+        Self { vertices }
     }
 }
 
