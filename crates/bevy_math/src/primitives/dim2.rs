@@ -173,7 +173,7 @@ pub struct Triangle2d {
 impl Primitive2d for Triangle2d {}
 
 impl Triangle2d {
-    /// Create a new `Triangle2d` from a list of Vertices
+    /// Create a new `Triangle2d` from an array of vertices
     pub fn new(vertices: [Vec2; 3]) -> Self {
         Self { vertices }
     }
