@@ -468,6 +468,14 @@ impl Preprocessor {
                     return Err(ComposerErrorInner::DefineInModule(offset));
                 }
             } else {
+                for cap in self
+                    .def_regex
+                    .captures_iter(&line)
+                    .chain(self.def_regex_delimited.captures_iter(&line))
+                {
+                    effective_defs.insert(cap.get(1).unwrap().as_str().to_owned());
+                }
+
                 substitute_identifiers(&line, offset, &declared_imports, &mut used_imports, true)
                     .unwrap();
             }
