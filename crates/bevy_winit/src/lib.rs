@@ -693,16 +693,22 @@ pub fn winit_runner(mut app: App) {
                                 cursor,
                             });
                         }
-                        event::Ime::Commit(value) => event_writers.ime_input.send(Ime::Commit {
-                            window: window_entity,
-                            value,
-                        }),
-                        event::Ime::Enabled => event_writers.ime_input.send(Ime::Enabled {
-                            window: window_entity,
-                        }),
-                        event::Ime::Disabled => event_writers.ime_input.send(Ime::Disabled {
-                            window: window_entity,
-                        }),
+                        event::Ime::Commit(value) => {
+                            event_writers.ime_input.send(Ime::Commit {
+                                window: window_entity,
+                                value,
+                            });
+                        }
+                        event::Ime::Enabled => {
+                            event_writers.ime_input.send(Ime::Enabled {
+                                window: window_entity,
+                            });
+                        }
+                        event::Ime::Disabled => {
+                            event_writers.ime_input.send(Ime::Disabled {
+                                window: window_entity,
+                            });
+                        }
                     },
                     WindowEvent::ThemeChanged(theme) => {
                         event_writers.window_theme_changed.send(WindowThemeChanged {
