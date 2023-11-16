@@ -11,7 +11,7 @@ keywords = ["bevy"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-file_watcher = ["notify-debouncer-full", "watch", "multi-threaded"]
+file_watcher = ["notify-debouncer-full", "watch"]
 embedded_watcher = ["file_watcher"]
 multi-threaded = ["bevy_tasks/multi-threaded"]
 asset_processor = []
