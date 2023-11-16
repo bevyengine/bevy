@@ -34,27 +34,23 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
-impl Circle {
-    /// Create a `Circle` from a radius
-    pub fn new(radius: f32) -> Self {
-        Self { radius }
-    }
-}
-
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
-    /// The "width" of the ellipse
-    pub width: f32,
-    /// The "height" of the ellipse
-    pub height: f32,
+    /// The half "width" of the ellipse
+    pub half_width: f32,
+    /// The half "height" of the ellipse
+    pub half_height: f32,
 }
 impl Primitive2d for Ellipse {}
 
 impl Ellipse {
     /// Create a new `Ellipse` from a "width" and a "height"
     pub fn new(width: f32, height: f32) -> Self {
-        Self { width, height }
+        Self {
+            half_width: width / 2.0,
+            half_height: height / 2.0,
+        }
     }
 }
 
@@ -252,10 +248,12 @@ impl Primitive2d for RegularPolygon {}
 
 impl RegularPolygon {
     /// Create a new `RegularPolygon`
-    /// from a circumcircle and number of sides
-    pub fn new(circumcircle: Circle, sides: usize) -> Self {
+    /// from the radius of the circumcircle and number of sides
+    pub fn new(circumcircle_radius: f32, sides: usize) -> Self {
         Self {
-            circumcircle,
+            circumcircle: Circle {
+                radius: circumcircle_radius,
+            },
             sides,
         }
     }

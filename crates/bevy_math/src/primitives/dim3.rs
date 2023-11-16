@@ -34,13 +34,6 @@ pub struct Sphere {
 }
 impl Primitive3d for Sphere {}
 
-impl Sphere {
-    /// Create a new `Sphere` from a radius
-    pub fn new(radius: f32) -> Self {
-        Self { radius }
-    }
-}
-
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
@@ -49,13 +42,6 @@ pub struct Plane3d {
     pub normal: Direction3d,
 }
 impl Primitive3d for Plane3d {}
-
-impl Plane3d {
-    /// Create a new `Plane3d` from the normal of the plane
-    pub fn new(normal: Direction3d) -> Self {
-        Self { normal }
-    }
-}
 
 /// An infinite line along a direction in 3D space.
 ///
@@ -66,13 +52,6 @@ pub struct Line3d {
     pub direction: Direction3d,
 }
 impl Primitive3d for Line3d {}
-
-impl Line3d {
-    /// Create a new `Line3d` from the direction of the line
-    pub fn new(direction: Direction3d) -> Self {
-        Self { direction }
-    }
-}
 
 /// A segment of a line along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
@@ -209,10 +188,10 @@ impl Primitive3d for Capsule {}
 
 impl Capsule {
     /// Create a new `Capsule` from a radius and half-length
-    pub fn new(radius: f32, half_length: f32) -> Self {
+    pub fn new(radius: f32, length: f32) -> Self {
         Self {
             radius,
-            half_length,
+            half_length: length / 2.0,
         }
     }
 }
