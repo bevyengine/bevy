@@ -562,6 +562,62 @@ impl<'a> LoadContext<'a> {
         self.loader_dependencies.insert(path, hash);
         Ok(loaded_asset)
     }
+
+    /// Loads the asset at the given `path` directly from the provided `reader`. This is an async function that will wait until the asset is fully loaded before
+    /// returning. Use this if you need the _value_ of another asset in order to load the current asset, and that value comes from your [`Reader`].
+    /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
+    /// "load dependency".
+    ///
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadAndSave`] preprocessor,
+    /// changing a "load dependency" will result in re-processing of the asset.
+    ///
+    /// [`Process`]: crate::processor::Process
+    /// [`LoadAndSave`]: crate::processor::LoadAndSave
+    pub async fn load_direct_with_reader<'b>(
+        &mut self,
+        reader: &mut Reader<'_>,
+        path: impl Into<AssetPath<'b>>,
+    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        let path = path.into().into_owned();
+
+        let loader = self
+            .asset_server
+            .get_path_asset_loader(&path)
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: path.clone(),
+                error: error.into(),
+            })?;
+
+        let meta = loader.default_meta();
+
+        let loaded_asset = self
+            .asset_server
+            .load_with_meta_loader_and_reader(
+                &path,
+                meta,
+                &*loader,
+                reader,
+                false,
+                self.populate_hashes,
+            )
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: path.clone(),
+                error,
+            })?;
+
+        let info = loaded_asset
+            .meta
+            .as_ref()
+            .and_then(|m| m.processed_info().as_ref());
+
+        let hash = info.map(|i| i.full_hash).unwrap_or_default();
+
+        self.loader_dependencies.insert(path, hash);
+
+        Ok(loaded_asset)
+    }
 }
 
 /// An error produced when calling [`LoadContext::read_asset_bytes`]

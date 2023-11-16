@@ -282,6 +282,7 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.12.0", default-fea
 [dev-dependencies]
 rand = "0.8.0"
 ron = "0.8.0"
+flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
@@ -1074,6 +1075,17 @@ doc-scrape-examples = true
 [package.metadata.example.asset_loading]
 name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "asset_decompression"
+path = "examples/asset/asset_decompression.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_decompression]
+name = "Asset Decompression"
+description = "Demonstrates loading a compressed asset"
 category = "Assets"
 wasm = false
 
