@@ -135,6 +135,19 @@ pub struct Polyline2d<const N: usize> {
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
+impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
+
+        let mut index = 0;
+        for i in iter {
+            vertices[index] = i;
+            index += 1;
+        }
+        return Self { vertices };
+    }
+}
+
 impl<const N: usize> Polyline2d<N> {
     /// Create a new `Polyline2d` from an array of vertices
     pub fn new(vertices: [Vec2; N]) -> Self {

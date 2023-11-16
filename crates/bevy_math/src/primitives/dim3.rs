@@ -199,9 +199,9 @@ impl Capsule {
 /// A cone primitive.
 #[derive(Clone, Copy, Debug)]
 pub struct Cone {
-    /// The radius of the cone's base
+    /// radius of the base
     pub radius: f32,
-    /// The height of the cone
+    /// height of the cone
     pub height: f32,
 }
 impl Primitive3d for Cone {}
