@@ -8,7 +8,7 @@ use bevy_core_pipeline::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
     prelude::{Camera3d, ClearColor},
-    prepass::DeferredPrepass,
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
@@ -191,16 +191,11 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
-        let bind_group_1 = render_context
-            .render_device()
-            .create_bind_group(&BindGroupDescriptor {
-                label: Some("deferred_lighting_layout_group_1"),
-                layout: &deferred_lighting_layout.bind_group_layout_1,
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: deferred_lighting_pass_id_binding.clone(),
-                }],
-            });
+        let bind_group_1 = render_context.render_device().create_bind_group(
+            "deferred_lighting_layout_group_1",
+            &deferred_lighting_layout.bind_group_layout_1,
+            &BindGroupEntries::single(deferred_lighting_pass_id_binding),
+        );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("deferred_lighting_pass"),
@@ -243,7 +238,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 
 #[derive(Resource)]
 pub struct DeferredLightingLayout {
-    bind_group_layout_0: BindGroupLayout,
+    mesh_pipeline: MeshPipeline,
     bind_group_layout_1: BindGroupLayout,
 }
 
@@ -257,6 +252,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
+
+        // Let the shader code know that it's running in a deferred pipeline.
+        shader_defs.push("DEFERRED_LIGHTING_PIPELINE".into());
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
@@ -298,6 +296,21 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+            shader_defs.push("NORMAL_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+            shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+            shader_defs.push("MOTION_VECTOR_PREPASS".into());
+        }
+
+        // Always true, since we're in the deferred lighting pipeline
+        shader_defs.push("DEFERRED_PREPASS".into());
+
         let shadow_filter_method =
             key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
         if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
@@ -314,7 +327,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                self.bind_group_layout_0.clone(),
+                self.mesh_pipeline.get_view_layout(key.into()).clone(),
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {
@@ -377,7 +390,7 @@ impl FromWorld for DeferredLightingLayout {
             }],
         });
         Self {
-            bind_group_layout_0: world.resource::<MeshPipeline>().view_layout.clone(),
+            mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             bind_group_layout_1: layout,
         }
     }
@@ -408,13 +421,43 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&EnvironmentMapLight>,
             Option<&ShadowFilteringMethod>,
             Option<&ScreenSpaceAmbientOcclusionSettings>,
+            (
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
+            ),
         ),
         With<DeferredPrepass>,
     >,
     images: Res<RenderAssets<Image>>,
 ) {
-    for (entity, view, tonemapping, dither, environment_map, shadow_filter_method, ssao) in &views {
+    for (
+        entity,
+        view,
+        tonemapping,
+        dither,
+        environment_map,
+        shadow_filter_method,
+        ssao,
+        (normal_prepass, depth_prepass, motion_vector_prepass),
+    ) in &views
+    {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+
+        if normal_prepass {
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        // Always true, since we're in the deferred lighting pipeline
+        view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {

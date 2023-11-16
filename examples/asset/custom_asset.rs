@@ -2,12 +2,11 @@
 
 use bevy::utils::thiserror;
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext},
+    asset::{io::Reader, ron, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
     reflect::TypePath,
     utils::BoxedFuture,
 };
-use futures_lite::AsyncReadExt;
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -24,7 +23,7 @@ pub struct CustomAssetLoader;
 #[derive(Debug, Error)]
 pub enum CustomAssetLoaderError {
     /// An [IO](std::io) Error
-    #[error("Could not load file: {0}")]
+    #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
     /// A [RON](ron) Error
     #[error("Could not parse RON: {0}")]

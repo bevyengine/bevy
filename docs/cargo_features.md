@@ -32,9 +32,9 @@ The default feature set enables most of the expected features of a game engine, 
 |ktx2|KTX2 compressed texture support|
 |multi-threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
-|tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
+|tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.|
 |vorbis|OGG/VORBIS audio format support|
-|webgl2|Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm|
+|webgl2|Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
 
@@ -43,12 +43,14 @@ The default feature set enables most of the expected features of a game engine, 
 |feature name|description|
 |-|-|
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
+|asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
+|debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
@@ -59,6 +61,7 @@ The default feature set enables most of the expected features of a game engine, 
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
+|pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|

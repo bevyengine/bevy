@@ -5,10 +5,14 @@
 // Source code heavily based on XeGTAO v1.30 from Intel
 // https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
 
-#import bevy_pbr::gtao_utils fast_acos
-#import bevy_pbr::utils PI, HALF_PI
-#import bevy_render::view View
-#import bevy_render::globals Globals
+#import bevy_pbr::{
+    gtao_utils::fast_acos,
+    utils::{PI, HALF_PI},
+}
+#import bevy_render::{
+    view::View,
+    globals::Globals,
+}
 
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
@@ -22,7 +26,7 @@
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index_lut, pixel_coordinates % 64, 0).r;
 
-#ifdef TEMPORAL_NOISE
+#ifdef TEMPORAL_JITTER
     index += 288u * (globals.frame_count % 64u);
 #endif
 

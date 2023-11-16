@@ -1,4 +1,4 @@
-#import bevy_render::view  View
+#import bevy_render::view::View
 
 const TEXTURED_QUAD: u32 = 0u;
 

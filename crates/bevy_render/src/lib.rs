@@ -92,19 +92,19 @@ pub enum RenderSet {
     /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
-    /// A sub-set within Queue where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
     QueueMeshes,
-    // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
+    // TODO: This could probably be moved in favor of a system ordering abstraction in `Render` or `Queue`
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
     Prepare,
-    /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bind groups.
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
     /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
-    /// A sub-set within Prepare for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
     /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
     PrepareFlush,
@@ -127,7 +127,7 @@ impl Render {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
     /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_deferred`] is inserted into each `*Flush` set.
+    /// and a copy of [`apply_deferred`] is inserted into each [`*Flush` set](RenderSet).
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
@@ -406,7 +406,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = App::empty();
-    render_app.main_schedule_label = Box::new(Render);
+    render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     extract_schedule.set_apply_final_deferred(false);
@@ -475,7 +475,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 fn apply_extract_commands(render_world: &mut World) {
     render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
         schedules
-            .get_mut(&ExtractSchedule)
+            .get_mut(ExtractSchedule)
             .unwrap()
             .apply_deferred(render_world);
     });

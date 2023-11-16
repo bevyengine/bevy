@@ -1,6 +1,6 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
-    schedule::{ExecutorKind, Schedule, ScheduleLabel},
+    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel},
     system::{Local, Resource},
     world::{Mut, World},
 };
@@ -71,6 +71,9 @@ pub struct RunFixedUpdateLoop;
 ///
 /// The exclusive `run_fixed_update_schedule` system runs this schedule.
 /// This is run by the [`RunFixedUpdateLoop`] schedule.
+///
+/// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
+/// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdate;
 
@@ -105,21 +108,21 @@ pub struct Last;
 #[derive(Resource, Debug)]
 pub struct MainScheduleOrder {
     /// The labels to run for the [`Main`] schedule (in the order they will be run).
-    pub labels: Vec<Box<dyn ScheduleLabel>>,
+    pub labels: Vec<InternedScheduleLabel>,
 }
 
 impl Default for MainScheduleOrder {
     fn default() -> Self {
         Self {
             labels: vec![
-                Box::new(First),
-                Box::new(PreUpdate),
-                Box::new(StateTransition),
-                Box::new(RunFixedUpdateLoop),
-                Box::new(Update),
-                Box::new(SpawnScene),
-                Box::new(PostUpdate),
-                Box::new(Last),
+                First.intern(),
+                PreUpdate.intern(),
+                StateTransition.intern(),
+                RunFixedUpdateLoop.intern(),
+                Update.intern(),
+                SpawnScene.intern(),
+                PostUpdate.intern(),
+                Last.intern(),
             ],
         }
     }
@@ -133,7 +136,7 @@ impl MainScheduleOrder {
             .iter()
             .position(|current| (**current).eq(&after))
             .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
-        self.labels.insert(index + 1, Box::new(schedule));
+        self.labels.insert(index + 1, schedule.intern());
     }
 }
 
@@ -148,8 +151,8 @@ impl Main {
         }
 
         world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
-            for label in &order.labels {
-                let _ = world.try_run_schedule(&**label);
+            for &label in &order.labels {
+                let _ = world.try_run_schedule(label);
             }
         });
     }

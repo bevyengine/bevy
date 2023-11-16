@@ -7,10 +7,8 @@ use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Shader,
-    render_resource::{
-        AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-    },
+    prelude::*,
+    render_resource::*,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
@@ -38,6 +36,7 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<NoWireframe>()
             .register_type::<WireframeConfig>()
+            .register_type::<WireframeColor>()
             .init_resource::<WireframeConfig>()
             .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
             .add_systems(Startup, setup_global_wireframe_material)
