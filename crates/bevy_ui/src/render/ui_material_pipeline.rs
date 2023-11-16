@@ -300,7 +300,6 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     ) -> RenderCommandResult {
         let Some(material) = materials.into_inner().get(&material_handle.material) else {
             return RenderCommandResult::Failure;
-
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
@@ -733,7 +732,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
         let Some(material) = render_materials.get(&extracted_uinode.material) else {
-            continue
+            continue;
         };
         for (view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
