@@ -559,7 +559,7 @@ pub enum ReadAssetBytesError {
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an io error while loading asset at "{path}": {source}")]
+    #[error("Encountered an io error while loading asset at `{path}`: {source}")]
     Io {
         path: PathBuf,
         #[source]
