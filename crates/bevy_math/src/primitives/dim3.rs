@@ -187,7 +187,7 @@ impl super::Primitive2d for Capsule {}
 impl Primitive3d for Capsule {}
 
 impl Capsule {
-    /// Create a new `Capsule` from a radius and half-length
+    /// Create a new `Capsule` from a radius and length
     pub fn new(radius: f32, length: f32) -> Self {
         Self {
             radius,
