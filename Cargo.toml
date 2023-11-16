@@ -441,6 +441,26 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_tile"
+path = "examples/2d/sprite_tile.rs"
+
+[package.metadata.example.sprite_tile]
+name = "Sprite Tile"
+description = "Renders a sprite tiled in a grid"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_slice"
+path = "examples/2d/sprite_slice.rs"
+
+[package.metadata.example.sprite_slice]
+name = "Sprite Slice"
+description = "Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 doc-scrape-examples = true

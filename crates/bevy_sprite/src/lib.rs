@@ -7,6 +7,7 @@ mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
+mod texture_slice;
 
 pub mod collide_aabb;
 
@@ -14,8 +15,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
-        sprite::Sprite,
+        sprite::{Sprite, SpriteScaleMode},
         texture_atlas::{TextureAtlas, TextureAtlasSprite},
+        texture_slice::{BorderRect, SliceScaleMode, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }
@@ -27,6 +29,7 @@ pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
+pub use texture_slice::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
@@ -50,6 +53,7 @@ pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(27633439
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SpriteSystem {
     ExtractSprites,
+    ComputeSlices,
 }
 
 impl Plugin for SpritePlugin {
@@ -63,13 +67,22 @@ impl Plugin for SpritePlugin {
         app.init_asset::<TextureAtlas>()
             .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
+            .register_type::<SpriteScaleMode>()
+            .register_type::<TextureSlicer>()
             .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
             .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
-                calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+                (
+                    calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+                    (
+                        compute_slices_on_asset_event,
+                        compute_slices_on_sprite_change,
+                    )
+                        .in_set(SpriteSystem::ComputeSlices),
+                ),
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {

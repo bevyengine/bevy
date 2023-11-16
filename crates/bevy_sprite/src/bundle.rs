@@ -1,6 +1,6 @@
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite,
+    Sprite, SpriteScaleMode,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -13,6 +13,8 @@ use bevy_transform::components::{GlobalTransform, Transform};
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
+    /// Defines if how the sprite behaves along its size
+    pub scale_mode: SpriteScaleMode,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub texture: Handle<Image>,
@@ -30,6 +32,8 @@ pub struct SpriteBundle {
 pub struct SpriteSheetBundle {
     /// The specific sprite from the texture atlas to be drawn, defaulting to the sprite at index 0.
     pub sprite: TextureAtlasSprite,
+    /// Defines if how the sprite behaves along its size
+    pub scale_mode: SpriteScaleMode,
     /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,
     /// Data pertaining to how the sprite is drawn on the screen

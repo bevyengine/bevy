@@ -3,6 +3,8 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::color::Color;
 
+use crate::TextureSlicer;
+
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default)]
 #[repr(C)]
@@ -21,6 +23,26 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
+}
+
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub enum SpriteScaleMode {
+    /// The entire texture stretches when its dimensions change. This is the default option.
+    #[default]
+    Stretched,
+    /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
+    Sliced(TextureSlicer),
+    /// The texture will be repeated if stretched beyond `stretched_value`
+    Tiled {
+        /// Should the image repeat horizontally
+        tile_x: bool,
+        /// Should the image repeat vertically
+        tile_y: bool,
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
+        /// *original texture size* are above this value.
+        stretch_value: f32,
+    },
 }
 
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
