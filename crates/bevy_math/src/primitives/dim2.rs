@@ -34,6 +34,13 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+impl Circle {
+    /// Create a `Circle` from a radius
+    pub fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+}
+
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
@@ -44,6 +51,13 @@ pub struct Ellipse {
 }
 impl Primitive2d for Ellipse {}
 
+impl Ellipse {
+    /// Create a new `Ellipse` from a "width" and a "height"
+    pub fn new(width: f32, height: f32) -> Self {
+        Self { width, height }
+    }
+}
+
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
@@ -52,6 +66,13 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Plane2d {
+    /// Create a new `Plane2d` from the normal of the plane
+    pub fn new(normal: Direction2d) -> Self {
+        Self { normal }
+    }
+}
 
 /// An infinite line along a direction in 2D space.
 ///
@@ -118,6 +139,13 @@ pub struct Polyline2d<const N: usize> {
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
+impl<const N: usize> Polyline2d<N> {
+    /// Create a new `Polyline2d` from an array of vertices
+    pub fn new(vertices: [Vec2; N]) -> Self {
+        Self { vertices }
+    }
+}
+
 /// A series of connected line segments in 2D space, allocated on the heap
 /// in a `Box<[Vec2]>`.
 ///
@@ -129,6 +157,13 @@ pub struct BoxedPolyline2d {
 }
 impl Primitive2d for BoxedPolyline2d {}
 
+impl BoxedPolyline2d {
+    /// Create a new `Polyline2d` from an array of vertices
+    pub fn new(vertices: Box<[Vec2]>) -> Self {
+        Self { vertices }
+    }
+}
+
 /// A triangle in 2D space
 #[derive(Clone, Debug)]
 pub struct Triangle2d {
@@ -136,6 +171,13 @@ pub struct Triangle2d {
     pub vertices: [Vec2; 3],
 }
 impl Primitive2d for Triangle2d {}
+
+impl Triangle2d {
+    /// Create a new `Triangle2d` from a list of Vertices
+    pub fn new(vertices: [Vec2; 3]) -> Self {
+        Self { vertices }
+    }
+}
 
 /// A rectangle primitive
 #[doc(alias = "Quad")]
@@ -168,10 +210,17 @@ impl Rectangle {
 /// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug)]
 pub struct Polygon<const N: usize> {
-    /// The vertices of the polygon
+    /// The vertices of the `Polygon`
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polygon<N> {}
+
+impl<const N: usize> Polygon<N> {
+    /// Create a new `Polygon` from an array of vertices
+    pub fn new(vertices: [Vec2; N]) -> Self {
+        Self { vertices }
+    }
+}
 
 /// A polygon with a variable number of vertices, allocated on the heap
 /// in a `Box<[Vec2]>`.
@@ -179,10 +228,17 @@ impl<const N: usize> Primitive2d for Polygon<N> {}
 /// For a version without alloc: [`Polygon`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolygon {
-    /// The vertices of the polygon
+    /// The vertices of the `BoxedPolygon`
     pub vertices: Box<[Vec2]>,
 }
 impl Primitive2d for BoxedPolygon {}
+
+impl BoxedPolygon {
+    /// Create a new `BoxedPolygon` from an array of vertices
+    pub fn new(vertices: Box<[Vec2]>) -> Self {
+        Self { vertices }
+    }
+}
 
 /// A polygon where all vertices lie on a circle, equally far apart
 #[derive(Clone, Copy, Debug)]
@@ -193,3 +249,14 @@ pub struct RegularPolygon {
     pub sides: usize,
 }
 impl Primitive2d for RegularPolygon {}
+
+impl RegularPolygon {
+    /// Create a new `RegularPolygon`
+    /// from a circumcircle and number of sides
+    pub fn new(circumcircle: Circle, sides: usize) -> Self {
+        Self {
+            circumcircle,
+            sides,
+        }
+    }
+}

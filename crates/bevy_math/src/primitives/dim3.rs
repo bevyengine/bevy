@@ -1,5 +1,4 @@
 use super::Primitive3d;
-use crate::Vec2;
 use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
@@ -35,6 +34,13 @@ pub struct Sphere {
 }
 impl Primitive3d for Sphere {}
 
+impl Sphere {
+    /// Create a new `Sphere` from a radius
+    pub fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+}
+
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
@@ -43,6 +49,13 @@ pub struct Plane3d {
     pub normal: Direction3d,
 }
 impl Primitive3d for Plane3d {}
+
+impl Plane3d {
+    /// Create a new `Plane3d` from the normal of the plane
+    pub fn new(normal: Direction3d) -> Self {
+        Self { normal }
+    }
+}
 
 /// An infinite line along a direction in 3D space.
 ///
@@ -53,6 +66,13 @@ pub struct Line3d {
     pub direction: Direction3d,
 }
 impl Primitive3d for Line3d {}
+
+impl Line3d {
+    /// Create a new `Line3d` from the direction of the line
+    pub fn new(direction: Direction3d) -> Self {
+        Self { direction }
+    }
+}
 
 /// A segment of a line along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
@@ -108,6 +128,13 @@ pub struct Polyline3d<const N: usize> {
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
+impl<const N: usize> Polyline3d<N> {
+    /// Create a new `Polyline3d` from a list of vertices
+    pub fn new(vertices: [Vec3; N]) -> Self {
+        Self { vertices }
+    }
+}
+
 /// A series of connected line segments in 3D space, allocated on the heap
 /// in a `Box<[Vec3]>`.
 ///
@@ -118,6 +145,13 @@ pub struct BoxedPolyline3d {
     pub vertices: Box<[Vec3]>,
 }
 impl Primitive3d for BoxedPolyline3d {}
+
+impl BoxedPolyline3d {
+    /// Create a new `BoxedPolyline3d` from a list of vertices
+    pub fn new(vertices: Box<[Vec3]>) -> Self {
+        Self { vertices }
+    }
+}
 
 /// A cuboid primitive, more commonly known as a box.
 #[derive(Clone, Copy, Debug)]
@@ -173,6 +207,16 @@ pub struct Capsule {
 impl super::Primitive2d for Capsule {}
 impl Primitive3d for Capsule {}
 
+impl Capsule {
+    /// Create a new `Capsule` from a radius and half-length
+    pub fn new(radius: f32, half_length: f32) -> Self {
+        Self {
+            radius,
+            half_length,
+        }
+    }
+}
+
 /// A cone primitive.
 #[derive(Clone, Copy, Debug)]
 pub struct Cone {
@@ -182,6 +226,13 @@ pub struct Cone {
     pub height: f32,
 }
 impl Primitive3d for Cone {}
+
+impl Cone {
+    /// Create a new `Cone` from a radius and height
+    pub fn new(radius: f32, height: f32) -> Self {
+        Self { radius, height }
+    }
+}
 
 /// A conical frustum primitive.
 /// A conical frustum can be created
@@ -197,6 +248,18 @@ pub struct ConicalFrustum {
 }
 impl Primitive3d for ConicalFrustum {}
 
+impl ConicalFrustum {
+    /// Create a new `ConicalFrustum` from a top
+    /// radius, bottom radius, and height
+    pub fn new(radius_top: f32, radius_bottom: f32, height: f32) -> Self {
+        Self {
+            radius_top,
+            radius_bottom,
+            height,
+        }
+    }
+}
+
 /// A torus (AKA donut) primitive.
 #[derive(Clone, Copy, Debug)]
 pub struct Torus {
@@ -205,5 +268,14 @@ pub struct Torus {
     /// The radius of the ring
     pub ring_radius: f32,
 }
-
 impl Primitive3d for Torus {}
+
+impl Torus {
+    /// Create a new `Torus` from a radius and ring radius
+    pub fn new(radius: f32, ring_radius: f32) -> Self {
+        Self {
+            radius,
+            ring_radius,
+        }
+    }
+}
