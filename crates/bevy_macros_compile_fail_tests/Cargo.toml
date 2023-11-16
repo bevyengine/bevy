@@ -11,6 +11,3 @@ publish = false
 [dependencies]
 bevy_derive = { path = "../bevy_derive" }
 trybuild = "1.0.71"
-
-[lints]
-workspace = true
