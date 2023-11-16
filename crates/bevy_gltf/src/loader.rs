@@ -78,7 +78,7 @@ pub enum GltfError {
     ReadAssetBytesError(#[from] ReadAssetBytesError),
     /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] AssetLoadError),
+    AssetLoadError(#[from] Box<AssetLoadError>),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     MissingAnimationSampler(usize),
@@ -852,7 +852,6 @@ fn load_material(
     })
 }
 
-#[allow(clippy::result_large_err)]
 /// Loads a glTF node.
 fn load_node(
     gltf_node: &gltf::Node,
@@ -1236,7 +1235,6 @@ fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> Imag
     }
 }
 
-#[allow(clippy::result_large_err)]
 /// Maps the `primitive_topology` form glTF to `wgpu`.
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
