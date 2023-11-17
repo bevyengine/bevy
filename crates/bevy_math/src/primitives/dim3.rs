@@ -111,10 +111,9 @@ impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
     fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
         let mut vertices: [Vec3; N] = [Vec3::ZERO; N];
 
+        let iter = iter.into_iter().take(N);
+
         for (index, i) in iter.into_iter().enumerate() {
-            if index >= N {
-                break;
-            }
             vertices[index] = i;
         }
         Self { vertices }
