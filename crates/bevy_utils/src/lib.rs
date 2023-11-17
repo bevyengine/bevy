@@ -266,16 +266,17 @@ impl BuildHasher for EntityHash {
 /// A very fast hash that is only designed to work on generational indices
 /// like `Entity`. It will panic if attempting to hash a type containing
 /// non-u64 fields.
+///
+/// This is heavily optimized for typical cases, where there are lots of runs
+/// of contiguous indices and almost no generation conflicts.
+///
+/// If you have an unusual case -- say all your indices are multiples of 256
+/// or most of the entities are dead generations -- then you might want also to
+/// try [`AHasher`] for a slower hash computation but fewer lookup conflicts.
 #[derive(Debug, Default)]
 pub struct EntityHasher {
     hash: u64,
 }
-
-// This value comes from rustc-hash (also known as FxHasher) which in turn got
-// it from Firefox. It is something like `u64::MAX / N` for an N that gives a
-// value close to π and works well for distributing bits for hashing when using
-// with a wrapping multiplication.
-const FRAC_U64MAX_PI: u64 = 0x517cc1b727220a95;
 
 impl Hasher for EntityHasher {
     fn write(&mut self, _bytes: &[u8]) {
@@ -284,11 +285,28 @@ impl Hasher for EntityHasher {
 
     #[inline]
     fn write_u64(&mut self, i: u64) {
-        // Apparently hashbrown's hashmap uses the upper 7 bits for some SIMD
-        // optimisation that uses those bits for binning. This hash function
-        // was faster than i | (i << (64 - 7)) in the worst cases, and was
-        // faster than PassHasher for all cases tested.
-        self.hash = i | (i.wrapping_mul(FRAC_U64MAX_PI) << 32);
+        // SwissTable (and thus `hashbrown`) cares about two things from the hash:
+        // - H1: low bits (masked by `2ⁿ-1`) to pick the slot in which to store the item
+        // - H2: high 7 bits are used to SIMD optimize hash collision probing
+        // For more see <https://abseil.io/about/design/swisstables#metadata-layout>
+
+        // This hash function assumes that the entity ids are still well-distributed,
+        // so for H1 leaves the entity id alone in the low bits so that id locality
+        // will also give memory locality for things spawned together.
+        // For H2, take advantage of the fact that while multiplication doesn't
+        // spread entropy to the low bits, it's incredibly good at spreading it
+        // upward, which is exactly where we need it the most.
+
+        // The high 32 bits of this are ⅟φ for Fibonacci hashing.  That works
+        // particularly well for hashing for the same reason as described in
+        // <https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/>
+        // It loses no information because it has a modular inverse.
+        // (Specifically, `0x144c_bc89_u32 * 0x9e37_79b9_u32 == 1`.)
+        // The low 32 bits are just 1, to leave the entity id there unchanged.
+        const UPPER_PHI: u64 = 0x9e37_79b9_0000_0001;
+        // This bit-masking is free, as the optimizer can just not load the generation.
+        let id = i & 0xFFFF_FFFF;
+        self.hash = id.wrapping_mul(UPPER_PHI);
     }
 
     #[inline]
