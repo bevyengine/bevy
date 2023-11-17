@@ -107,6 +107,24 @@ pub struct Polyline3d<const N: usize> {
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
+impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
+    fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
+        let mut vertices: [Vec3; N] = [Vec3::ZERO; N];
+
+        for (index, i) in iter.into_iter().take(N).enumerate() {
+            vertices[index] = i;
+        }
+        Self { vertices }
+    }
+}
+
+impl<const N: usize> Polyline3d<N> {
+    /// Create a new `Polyline3d` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
+
 /// A series of connected line segments in 3D space, allocated on the heap
 /// in a `Box<[Vec3]>`.
 ///
@@ -117,6 +135,22 @@ pub struct BoxedPolyline3d {
     pub vertices: Box<[Vec3]>,
 }
 impl Primitive3d for BoxedPolyline3d {}
+
+impl FromIterator<Vec3> for BoxedPolyline3d {
+    fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
+        let vertices: Vec<Vec3> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
+impl BoxedPolyline3d {
+    /// Create a new `BoxedPolyline3d` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
 
 /// A cuboid primitive, more commonly known as a box.
 #[derive(Clone, Copy, Debug)]
@@ -171,3 +205,47 @@ pub struct Capsule {
 }
 impl super::Primitive2d for Capsule {}
 impl Primitive3d for Capsule {}
+
+impl Capsule {
+    /// Create a new `Capsule` from a radius and length
+    pub fn new(radius: f32, length: f32) -> Self {
+        Self {
+            radius,
+            half_length: length / 2.0,
+        }
+    }
+}
+
+/// A cone primitive.
+#[derive(Clone, Copy, Debug)]
+pub struct Cone {
+    /// The radius of the base
+    pub radius: f32,
+    /// The height of the cone
+    pub height: f32,
+}
+impl Primitive3d for Cone {}
+
+/// A conical frustum primitive.
+/// A conical frustum can be created
+/// by slicing off a section of a cone.
+#[derive(Clone, Copy, Debug)]
+pub struct ConicalFrustum {
+    /// The radius of the top of the frustum
+    pub radius_top: f32,
+    /// The radius of the base of the frustum
+    pub radius_bottom: f32,
+    /// The height of the frustum
+    pub height: f32,
+}
+impl Primitive3d for ConicalFrustum {}
+
+/// A torus (AKA donut) primitive.
+#[derive(Clone, Copy, Debug)]
+pub struct Torus {
+    /// The radius of the overall shape
+    pub radius: f32,
+    /// The radius of the internal ring
+    pub ring_radius: f32,
+}
+impl Primitive3d for Torus {}

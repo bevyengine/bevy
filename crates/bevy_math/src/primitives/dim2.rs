@@ -34,6 +34,26 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+/// An ellipse primitive
+#[derive(Clone, Copy, Debug)]
+pub struct Ellipse {
+    /// The half "width" of the ellipse
+    pub half_width: f32,
+    /// The half "height" of the ellipse
+    pub half_height: f32,
+}
+impl Primitive2d for Ellipse {}
+
+impl Ellipse {
+    /// Create a new `Ellipse` from a "width" and a "height"
+    pub fn new(width: f32, height: f32) -> Self {
+        Self {
+            half_width: width / 2.0,
+            half_height: height / 2.0,
+        }
+    }
+}
+
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
@@ -108,6 +128,24 @@ pub struct Polyline2d<const N: usize> {
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
+impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
+
+        for (index, i) in iter.into_iter().take(N).enumerate() {
+            vertices[index] = i;
+        }
+        Self { vertices }
+    }
+}
+
+impl<const N: usize> Polyline2d<N> {
+    /// Create a new `Polyline2d` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
+
 /// A series of connected line segments in 2D space, allocated on the heap
 /// in a `Box<[Vec2]>`.
 ///
@@ -119,6 +157,22 @@ pub struct BoxedPolyline2d {
 }
 impl Primitive2d for BoxedPolyline2d {}
 
+impl FromIterator<Vec2> for BoxedPolyline2d {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let vertices: Vec<Vec2> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
+impl BoxedPolyline2d {
+    /// Create a new `BoxedPolyline2d` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
+
 /// A triangle in 2D space
 #[derive(Clone, Debug)]
 pub struct Triangle2d {
@@ -126,6 +180,15 @@ pub struct Triangle2d {
     pub vertices: [Vec2; 3],
 }
 impl Primitive2d for Triangle2d {}
+
+impl Triangle2d {
+    /// Create a new `Triangle2d` from `a`, `b`, and `c`,
+    pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+        Self {
+            vertices: [a, b, c],
+        }
+    }
+}
 
 /// A rectangle primitive
 #[doc(alias = "Quad")]
@@ -158,10 +221,28 @@ impl Rectangle {
 /// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug)]
 pub struct Polygon<const N: usize> {
-    /// The vertices of the polygon
+    /// The vertices of the `Polygon`
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polygon<N> {}
+
+impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
+
+        for (index, i) in iter.into_iter().take(N).enumerate() {
+            vertices[index] = i;
+        }
+        Self { vertices }
+    }
+}
+
+impl<const N: usize> Polygon<N> {
+    /// Create a new `Polygon` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
 
 /// A polygon with a variable number of vertices, allocated on the heap
 /// in a `Box<[Vec2]>`.
@@ -169,10 +250,26 @@ impl<const N: usize> Primitive2d for Polygon<N> {}
 /// For a version without alloc: [`Polygon`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolygon {
-    /// The vertices of the polygon
+    /// The vertices of the `BoxedPolygon`
     pub vertices: Box<[Vec2]>,
 }
 impl Primitive2d for BoxedPolygon {}
+
+impl FromIterator<Vec2> for BoxedPolygon {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let vertices: Vec<Vec2> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
+impl BoxedPolygon {
+    /// Create a new `BoxedPolygon` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
 
 /// A polygon where all vertices lie on a circle, equally far apart
 #[derive(Clone, Copy, Debug)]
@@ -183,3 +280,21 @@ pub struct RegularPolygon {
     pub sides: usize,
 }
 impl Primitive2d for RegularPolygon {}
+
+impl RegularPolygon {
+    /// Create a new `RegularPolygon`
+    /// from the radius of the circumcircle and number of sides
+    ///
+    /// # Panics
+    ///
+    /// Panics if `circumcircle_radius` is non-positive
+    pub fn new(circumcircle_radius: f32, sides: usize) -> Self {
+        assert!(circumcircle_radius > 0.0);
+        Self {
+            circumcircle: Circle {
+                radius: circumcircle_radius,
+            },
+            sides,
+        }
+    }
+}
