@@ -167,7 +167,7 @@ impl FromIterator<Vec2> for BoxedPolyline2d {
 }
 
 impl BoxedPolyline2d {
-    /// Create a new `BoxedPolyline2d` from an array of vertices
+    /// Create a new `BoxedPolyline2d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
     }
@@ -238,7 +238,7 @@ impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
 }
 
 impl<const N: usize> Polygon<N> {
-    /// Create a new `Polygon` from an array of vertices
+    /// Create a new `Polygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
     }
@@ -265,7 +265,7 @@ impl FromIterator<Vec2> for BoxedPolygon {
 }
 
 impl BoxedPolygon {
-    /// Create a new `BoxedPolygon` from an array of vertices
+    /// Create a new `BoxedPolygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
     }

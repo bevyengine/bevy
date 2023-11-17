@@ -119,7 +119,7 @@ impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
 }
 
 impl<const N: usize> Polyline3d<N> {
-    /// Create a new `Polyline3d` from an array of vertices
+    /// Create a new `Polyline3d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
         Self::from_iter(vertices)
     }
@@ -146,7 +146,7 @@ impl FromIterator<Vec3> for BoxedPolyline3d {
 }
 
 impl BoxedPolyline3d {
-    /// Create a new `BoxedPolyline3d` from an array of vertices
+    /// Create a new `BoxedPolyline3d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
         Self::from_iter(vertices)
     }
