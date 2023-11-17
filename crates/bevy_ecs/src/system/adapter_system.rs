@@ -146,6 +146,14 @@ where
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         self.system.default_system_sets()
     }
+
+    fn before_list(&self) -> Vec<InternedSystemSet> {
+        Vec::new()
+    }
+
+    fn after_list(&self) -> Vec<InternedSystemSet> {
+        Vec::new()
+    }
 }
 
 // SAFETY: The inner system is read-only.

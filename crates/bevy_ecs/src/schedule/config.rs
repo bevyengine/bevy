@@ -79,10 +79,18 @@ impl SystemConfigs {
     fn new_system(system: BoxedSystem) -> Self {
         // include system in its default sets
         let sets = system.default_system_sets().into_iter().collect();
+        let mut dependencies = Vec::new();
+        for before in system.before_list() {
+            dependencies.push(Dependency::new(DependencyKind::Before, before));
+        }
+        for after in system.after_list() {
+            dependencies.push(Dependency::new(DependencyKind::After, after));
+        }
         Self::NodeConfig(SystemConfig {
             node: system,
             graph_info: GraphInfo {
                 sets,
+                dependencies,
                 ..Default::default()
             },
             conditions: Vec::new(),

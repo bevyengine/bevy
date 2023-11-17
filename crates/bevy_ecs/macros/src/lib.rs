@@ -188,6 +188,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
+                type BarrierList = (#(#param::BarrierList,)*);
 
                 fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
@@ -392,6 +393,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             {
                 type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
+                type BarrierList = ();
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {

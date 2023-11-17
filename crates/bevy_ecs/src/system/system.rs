@@ -39,6 +39,9 @@ pub trait System: Send + Sync + 'static {
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
 
+    fn before_list(&self) -> Vec<InternedSystemSet>;
+    fn after_list(&self) -> Vec<InternedSystemSet>;
+
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
 

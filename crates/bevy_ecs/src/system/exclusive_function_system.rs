@@ -155,6 +155,14 @@ where
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
     }
+
+    fn before_list(&self) -> Vec<InternedSystemSet> {
+        Vec::new()
+    }
+
+    fn after_list(&self) -> Vec<InternedSystemSet> {
+        Vec::new()
+    }
 }
 
 /// A trait implemented for all exclusive system functions that can be used as [`System`]s.

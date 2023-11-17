@@ -11,6 +11,7 @@ use crate::{
 use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
+use crate::system::barrier::BarrierList;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
 
@@ -532,6 +533,14 @@ where
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
+    }
+
+    fn before_list(&self) -> Vec<InternedSystemSet> {
+        <F::Param as SystemParam>::BarrierList::before_list()
+    }
+
+    fn after_list(&self) -> Vec<InternedSystemSet> {
+        <F::Param as SystemParam>::BarrierList::after_list()
     }
 }
 

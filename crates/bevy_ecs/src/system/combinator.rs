@@ -232,6 +232,22 @@ where
         default_sets.append(&mut self.b.default_system_sets());
         default_sets
     }
+
+    fn before_list(&self) -> Vec<InternedSystemSet> {
+        self.a
+            .before_list()
+            .into_iter()
+            .chain(self.b.before_list())
+            .collect()
+    }
+
+    fn after_list(&self) -> Vec<InternedSystemSet> {
+        self.a
+            .after_list()
+            .into_iter()
+            .chain(self.b.after_list())
+            .collect()
+    }
 }
 
 /// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.

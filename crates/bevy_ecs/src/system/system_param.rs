@@ -1,4 +1,5 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
+use crate::system::barrier::BarrierList;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -104,6 +105,9 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
+    /// System with this param will be executed before these barriers.
+    type BarrierList: BarrierList;
+
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](Self::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
@@ -164,6 +168,7 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
 {
     type State = QueryState<Q, F>;
     type Item<'w, 's> = Query<'w, 's, Q, F>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new(world);
@@ -414,6 +419,7 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -473,6 +479,7 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<Res<'w, T>>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Res::<T>::init_state(world, system_meta)
@@ -504,6 +511,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -563,6 +571,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<ResMut<'w, T>>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         ResMut::<T>::init_state(world, system_meta)
@@ -596,6 +605,7 @@ unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 unsafe impl SystemParam for &'_ World {
     type State = ();
     type Item<'w, 's> = &'w World;
+    type BarrierList = ();
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let mut access = Access::default();
@@ -729,6 +739,7 @@ where
 unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Local<'s, T>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         SyncCell::new(T::from_world(world))
@@ -900,6 +911,7 @@ unsafe impl<T: SystemBuffer> ReadOnlySystemParam for Deferred<'_, T> {}
 unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Deferred<'s, T>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         SyncCell::new(T::from_world(world))
@@ -988,6 +1000,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
 unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1047,6 +1060,7 @@ unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSend<'_, T>> {}
 unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSend<'w, T>>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         NonSend::<T>::init_state(world, system_meta)
@@ -1075,6 +1089,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
 unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1131,6 +1146,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSendMut<'w, T>>;
+    type BarrierList = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         NonSendMut::<T>::init_state(world, system_meta)
@@ -1159,6 +1175,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
 unsafe impl<'a> SystemParam for &'a Archetypes {
     type State = ();
     type Item<'w, 's> = &'w Archetypes;
+    type BarrierList = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1180,6 +1197,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
 unsafe impl<'a> SystemParam for &'a Components {
     type State = ();
     type Item<'w, 's> = &'w Components;
+    type BarrierList = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1201,6 +1219,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
 unsafe impl<'a> SystemParam for &'a Entities {
     type State = ();
     type Item<'w, 's> = &'w Entities;
+    type BarrierList = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1222,6 +1241,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Bundles {}
 unsafe impl<'a> SystemParam for &'a Bundles {
     type State = ();
     type Item<'w, 's> = &'w Bundles;
+    type BarrierList = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1272,6 +1292,7 @@ unsafe impl ReadOnlySystemParam for SystemChangeTick {}
 unsafe impl SystemParam for SystemChangeTick {
     type State = ();
     type Item<'w, 's> = SystemChangeTick;
+    type BarrierList = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1332,6 +1353,7 @@ impl<'s> std::fmt::Display for SystemName<'s> {
 unsafe impl SystemParam for SystemName<'_> {
     type State = Cow<'static, str>;
     type Item<'w, 's> = SystemName<'s>;
+    type BarrierList = ();
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.name.clone()
@@ -1362,6 +1384,7 @@ macro_rules! impl_system_param_tuple {
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
+            type BarrierList = ($($param::BarrierList,)*);
 
             #[inline]
             fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
@@ -1508,6 +1531,7 @@ unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
 unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, P> {
     type State = P::State;
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
+    type BarrierList = P::BarrierList;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         P::init_state(world, system_meta)
@@ -1536,6 +1560,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
 unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     type State = ();
     type Item<'world, 'state> = Self;
+    type BarrierList = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 

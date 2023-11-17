@@ -22,10 +22,17 @@ pub use self::graph_utils::NodeId;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_ecs_macros::SystemParam;
+    use std::fmt;
+    use std::fmt::Debug;
+    use std::hash::{Hash, Hasher};
+    use std::marker::PhantomData;
     use std::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
+    use crate::event::{Event, EventReader, EventWriter, Events};
     pub use crate::schedule::{IntoSystemSetConfigs, Schedule, SystemSet};
+    use crate::system::{After, Before};
     pub use crate::system::{Res, ResMut};
     pub use crate::{prelude::World, system::Resource};
 
@@ -1097,5 +1104,115 @@ mod tests {
             schedule.initialize(&mut world).unwrap();
             assert!(schedule.graph().conflicting_systems().is_empty());
         }
+    }
+
+    #[test]
+    fn test_before_after_from_param() {
+        #[derive(SystemSet, Debug, Hash, Eq, PartialEq, Default, Clone, Copy)]
+        struct MyBarrier;
+
+        #[derive(Resource)]
+        struct MyRes {
+            x: u32,
+        }
+
+        fn first(_before: Before<MyBarrier>, mut res: ResMut<MyRes>) {
+            assert_eq!(0, res.x);
+            res.x = 1;
+        }
+
+        fn second(_after: After<MyBarrier>, mut res: ResMut<MyRes>) {
+            assert_eq!(1, res.x);
+            res.x = 2;
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((second, first));
+
+        let mut world = World::new();
+        world.insert_resource(MyRes { x: 0 });
+
+        schedule.run(&mut world);
+
+        assert_eq!(2, world.resource::<MyRes>().x);
+    }
+
+    // Test `Before`/`After` work when hidden inside `#[derive(SystemParam)]`.
+    #[test]
+    fn test_before_after_derive_system_param() {
+        #[derive(SystemSet)]
+        struct MyEventBarrier<T>(PhantomData<T>);
+
+        impl<T> Default for MyEventBarrier<T> {
+            fn default() -> Self {
+                Self(PhantomData)
+            }
+        }
+
+        impl<T> Clone for MyEventBarrier<T> {
+            fn clone(&self) -> Self {
+                Self(PhantomData)
+            }
+        }
+
+        impl<T> Copy for MyEventBarrier<T> {}
+
+        impl<T> PartialEq for MyEventBarrier<T> {
+            fn eq(&self, _other: &Self) -> bool {
+                true
+            }
+        }
+
+        impl<T> Eq for MyEventBarrier<T> {}
+
+        impl<T> Hash for MyEventBarrier<T> {
+            fn hash<H: Hasher>(&self, _state: &mut H) {}
+        }
+
+        impl<T> Debug for MyEventBarrier<T> {
+            fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                Ok(())
+            }
+        }
+
+        #[derive(SystemParam)]
+        struct MyBarrierEventReader<'w, 's, T: Event> {
+            reader: EventReader<'w, 's, T>,
+            _before: Before<MyEventBarrier<T>>,
+        }
+
+        #[derive(SystemParam)]
+        struct MyBarrierEventWriter<'w, T: Event> {
+            writer: EventWriter<'w, T>,
+            _after: After<MyEventBarrier<T>>,
+        }
+
+        #[derive(Event)]
+        struct MyEvent;
+
+        #[derive(Resource)]
+        struct MyRes(bool);
+
+        fn read(mut reader: MyBarrierEventReader<MyEvent>) {
+            assert_eq!(1, reader.reader.read().count());
+        }
+
+        fn write(mut writer: MyBarrierEventWriter<MyEvent>, mut res: ResMut<MyRes>) {
+            writer.writer.send(MyEvent);
+            assert_eq!(false, res.0);
+            res.0 = true;
+        }
+
+        let mut schedule = Schedule::default();
+
+        let mut world = World::default();
+        world.insert_resource(MyRes(false));
+        world.init_resource::<Events<MyEvent>>();
+
+        schedule.add_systems((read, write));
+
+        schedule.run(&mut world);
+
+        assert_eq!(true, world.resource::<MyRes>().0);
     }
 }
