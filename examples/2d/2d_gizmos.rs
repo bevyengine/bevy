@@ -53,6 +53,12 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
     gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., Color::ORANGE_RED);
+
+    gizmos.arrow_2d(
+        Vec2::ZERO,
+        Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
+        Color::YELLOW,
+    );
 }
 
 fn update_config(mut config: ResMut<GizmoConfig>, keyboard: Res<Input<KeyCode>>, time: Res<Time>) {

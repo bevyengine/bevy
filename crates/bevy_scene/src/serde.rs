@@ -496,6 +496,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::ron;
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
     use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};

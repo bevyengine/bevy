@@ -16,6 +16,7 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+mod arrows;
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
@@ -37,7 +38,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{ROQueryItem, Without},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
@@ -78,7 +79,9 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
+        app.register_type::<GizmoConfig>()
+            .register_type::<AabbGizmoConfig>()
+            .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
@@ -136,7 +139,8 @@ impl Plugin for GizmoPlugin {
 }
 
 /// A [`Resource`] that stores configuration for gizmos.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
@@ -189,7 +193,7 @@ impl Default for GizmoConfig {
 }
 
 /// Configuration for drawing the [`Aabb`] component on entities.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Reflect)]
 pub struct AabbGizmoConfig {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///

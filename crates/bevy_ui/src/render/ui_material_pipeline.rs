@@ -295,10 +295,9 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials
-            .into_inner()
-            .get(&material_handle.material)
-            .unwrap();
+        let Some(material) = materials.into_inner().get(&material_handle.material) else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
     }
@@ -734,7 +733,9 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let material = render_materials.get(&extracted_uinode.material).unwrap();
+        let Some(material) = render_materials.get(&extracted_uinode.material) else {
+            continue;
+        };
         for (mut transparent_phase, keys) in &mut views {
             let Some(texture_format) = keys.get_packed_key() else {
                 continue;

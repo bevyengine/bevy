@@ -71,6 +71,9 @@ pub struct RunFixedUpdateLoop;
 ///
 /// The exclusive `run_fixed_update_schedule` system runs this schedule.
 /// This is run by the [`RunFixedUpdateLoop`] schedule.
+///
+/// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
+/// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdate;
 

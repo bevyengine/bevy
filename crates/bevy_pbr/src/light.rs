@@ -833,9 +833,13 @@ fn clip_to_view(inverse_projection: Mat4, clip: Vec4) -> Vec4 {
 
 pub fn add_clusters(
     mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>), (With<Camera>, Without<Clusters>)>,
+    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), Without<Clusters>>,
 ) {
-    for (entity, config) in &cameras {
+    for (entity, config, camera) in &cameras {
+        if !camera.is_active {
+            continue;
+        }
+
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
         commands
