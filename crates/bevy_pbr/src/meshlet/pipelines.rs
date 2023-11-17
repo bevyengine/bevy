@@ -10,15 +10,18 @@ use bevy_ecs::{
 use bevy_render::render_resource::*;
 
 pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4325134235233421);
-pub const MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
+pub const MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(5325134235233421);
-pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
+pub const MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(6325134235233421);
+pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(7325134235233421);
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
     cull_first: CachedComputePipelineId,
     cull_second: CachedComputePipelineId,
+    downsample_depth: CachedRenderPipelineId,
     visibility_buffer: CachedRenderPipelineId, // TODO: Need two variants, with/without DEPTH_CLAMP_ORTHO
     visibility_buffer_with_output: CachedRenderPipelineId, // TODO: Need two variants, with/without DEPTH_CLAMP_ORTHO
     copy_material_depth: CachedRenderPipelineId,
@@ -29,6 +32,7 @@ impl FromWorld for MeshletPipelines {
         let gpu_scene = world.resource::<MeshletGpuScene>();
         let cull_first_layout = gpu_scene.culling_first_bind_group_layout();
         let cull_second_layout = gpu_scene.culling_second_bind_group_layout();
+        let downsample_depth_layout = gpu_scene.downsample_depth_bind_group_layout();
         let visibility_buffer_layout = gpu_scene.visibility_buffer_bind_group_layout();
         let copy_material_depth_layout = gpu_scene.copy_material_depth_bind_group_layout();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
@@ -57,6 +61,26 @@ impl FromWorld for MeshletPipelines {
                     ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 0),
                 ],
                 entry_point: "cull_meshlets".into(),
+            }),
+
+            downsample_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+                label: Some("meshlet_downsample_depth".into()),
+                layout: vec![downsample_depth_layout],
+                push_constant_ranges: vec![],
+                vertex: fullscreen_shader_vertex_state(),
+                primitive: PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: MultisampleState::default(),
+                fragment: Some(FragmentState {
+                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec![],
+                    entry_point: "downsample_depth".into(),
+                    targets: vec![Some(ColorTargetState {
+                        format: TextureFormat::R32Float,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    })],
+                }),
             }),
 
             visibility_buffer: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
@@ -182,12 +206,14 @@ impl MeshletPipelines {
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
+        &RenderPipeline,
     )> {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
         Some((
             pipeline_cache.get_compute_pipeline(pipeline.cull_first)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_second)?,
+            pipeline_cache.get_render_pipeline(pipeline.downsample_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_with_output)?,
             pipeline_cache.get_render_pipeline(pipeline.copy_material_depth)?,

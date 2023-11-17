@@ -15,11 +15,11 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, ViewUniforms},
+    view::{ExtractedView, ViewDepthTexture, ViewUniforms},
     MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{EntityHashMap, HashMap, HashSet};
+use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
 use std::{
     ops::{DerefMut, Range},
     sync::Arc,
@@ -223,20 +223,36 @@ pub fn prepare_meshlet_per_frame_resources(
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
 
-        let depth_pyramid = TextureDescriptor {
-            label: Some("meshlet_depth_pyramid"),
-            size: Extent3d {
-                width: view.viewport.z,
-                height: view.viewport.w,
-                depth_or_array_layers: 1,
+        let depth_pyramid = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("meshlet_depth_pyramid"),
+                size: Extent3d {
+                    // Round down to nearest power of 2 to ensure depth is conservative
+                    width: 1 << (31 - view.viewport.z.leading_zeros()),
+                    height: 1 << (31 - view.viewport.w.leading_zeros()),
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 9,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R32Float,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
             },
-            mip_level_count: 9, // TODO
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::R32Float,
-            usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        };
+        );
+        let depth_pyramid_mips = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(|i| {
+            depth_pyramid.texture.create_view(&TextureViewDescriptor {
+                label: Some("meshlet_depth_pyramid_texture_view"),
+                format: Some(TextureFormat::R32Float),
+                dimension: Some(TextureViewDimension::D2),
+                aspect: TextureAspect::All,
+                base_mip_level: i,
+                mip_level_count: Some(1),
+                base_array_layer: 0,
+                array_layer_count: None,
+            })
+        });
 
         let material_depth_color = TextureDescriptor {
             label: Some("meshlet_material_depth_color"),
@@ -276,7 +292,8 @@ pub fn prepare_meshlet_per_frame_resources(
             visibility_buffer_draw_command_buffer_first,
             visibility_buffer_draw_command_buffer_second,
             visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
-            depth_pyramid: texture_cache.get(&render_device, depth_pyramid),
+            depth_pyramid,
+            depth_pyramid_mips,
             material_depth_color: texture_cache.get(&render_device, material_depth_color),
             material_depth: texture_cache.get(&render_device, material_depth),
         });
@@ -285,7 +302,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
 pub fn prepare_meshlet_view_bind_groups(
     gpu_scene: Res<MeshletGpuScene>,
-    views: Query<(Entity, &MeshletViewResources)>,
+    views: Query<(Entity, &MeshletViewResources, &ViewDepthTexture)>,
     view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
@@ -294,7 +311,7 @@ pub fn prepare_meshlet_view_bind_groups(
         return;
     };
 
-    for (view_entity, view_resources) in &views {
+    for (view_entity, view_resources, view_depth_texture) in &views {
         let entries = BindGroupEntries::sequential((
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
@@ -343,6 +360,21 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
+        let downsample_depth = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(|i| {
+            render_device.create_bind_group(
+                "meshlet_downsample_depth_bind_group",
+                &gpu_scene.downsample_depth_bind_group_layout,
+                &BindGroupEntries::sequential((
+                    if i == 0 {
+                        &view_depth_texture.view
+                    } else {
+                        &view_resources.depth_pyramid_mips[i - 1]
+                    },
+                    &gpu_scene.depth_pyramid_sampler,
+                )),
+            )
+        });
+
         let entries = BindGroupEntries::sequential((
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
@@ -390,6 +422,7 @@ pub fn prepare_meshlet_view_bind_groups(
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             culling_first,
             culling_second,
+            downsample_depth,
             visibility_buffer,
             copy_material_depth,
             material_draw,
@@ -423,6 +456,7 @@ pub struct MeshletGpuScene {
     culling_first_bind_group_layout: BindGroupLayout,
     culling_second_bind_group_layout: BindGroupLayout,
     visibility_buffer_bind_group_layout: BindGroupLayout,
+    downsample_depth_bind_group_layout: BindGroupLayout,
     copy_material_depth_bind_group_layout: BindGroupLayout,
     material_draw_bind_group_layout: BindGroupLayout,
     depth_pyramid_sampler: Sampler,
@@ -489,6 +523,12 @@ impl FromWorld for MeshletGpuScene {
                     entries: &culling_second_bind_group_layout_entries(),
                 },
             ),
+            downsample_depth_bind_group_layout: render_device.create_bind_group_layout(
+                &BindGroupLayoutDescriptor {
+                    label: Some("meshlet_downsample_depth_bind_group_layout"),
+                    entries: &downsample_depth_bind_group_layout_entries(),
+                },
+            ),
             visibility_buffer_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
                     label: Some("meshlet_visibility_buffer_bind_group_layout"),
@@ -518,17 +558,7 @@ impl FromWorld for MeshletGpuScene {
             ),
             depth_pyramid_sampler: render_device.create_sampler(&SamplerDescriptor {
                 label: Some("meshlet_depth_pyramid_sampler"),
-                address_mode_u: AddressMode::ClampToEdge,
-                address_mode_v: AddressMode::ClampToEdge,
-                address_mode_w: AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Nearest,
-                lod_min_clamp: 0.0,
-                lod_max_clamp: 8.0, // TODO
-                compare: None,
-                anisotropy_clamp: 1,
-                border_color: None,
+                ..default()
             }),
         }
     }
@@ -642,6 +672,10 @@ impl MeshletGpuScene {
         self.culling_second_bind_group_layout.clone()
     }
 
+    pub fn downsample_depth_bind_group_layout(&self) -> BindGroupLayout {
+        self.downsample_depth_bind_group_layout.clone()
+    }
+
     pub fn visibility_buffer_bind_group_layout(&self) -> BindGroupLayout {
         self.visibility_buffer_bind_group_layout.clone()
     }
@@ -665,6 +699,7 @@ pub struct MeshletViewResources {
     pub visibility_buffer_draw_command_buffer_second: Buffer,
     pub visibility_buffer_draw_index_buffer: Buffer,
     pub depth_pyramid: CachedTexture,
+    pub depth_pyramid_mips: [TextureView; 9],
     pub material_depth_color: CachedTexture,
     pub material_depth: CachedTexture,
 }
@@ -673,6 +708,7 @@ pub struct MeshletViewResources {
 pub struct MeshletViewBindGroups {
     pub culling_first: BindGroup,
     pub culling_second: BindGroup,
+    pub downsample_depth: [BindGroup; 9],
     pub visibility_buffer: BindGroup,
     pub copy_material_depth: BindGroup,
     pub material_draw: BindGroup,
@@ -934,7 +970,7 @@ fn culling_second_bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
             binding: 11,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Texture {
-                sample_type: TextureSampleType::Float { filterable: true },
+                sample_type: TextureSampleType::Float { filterable: false },
                 view_dimension: TextureViewDimension::D2,
                 multisampled: false,
             },
@@ -945,6 +981,27 @@ fn culling_second_bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
             binding: 12,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
+        },
+    ]
+}
+
+fn downsample_depth_bind_group_layout_entries() -> [BindGroupLayoutEntry; 2] {
+    [
+        BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: false },
+                view_dimension: TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
             count: None,
         },
     ]

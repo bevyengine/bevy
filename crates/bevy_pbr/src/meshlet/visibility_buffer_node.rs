@@ -44,6 +44,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         let Some((
             culling_first_pipeline,
             culling_second_pipeline,
+            downsample_depth_pipeline,
             visibility_buffer_pipeline,
             visibility_buffer_with_output_pipeline,
             copy_material_depth_pipeline,
@@ -115,7 +116,28 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
             );
         }
 
-        // TODO: Depth pyramid generation pass
+        render_context
+            .command_encoder()
+            .push_debug_group("meshlet_downsample_depth");
+        for i in 0..9 {
+            let downsample_pass = RenderPassDescriptor {
+                label: Some("meshlet_downsample_depth_pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &meshlet_view_resources.depth_pyramid_mips[i],
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK.into()),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            };
+            let mut downsample_pass = render_context.begin_tracked_render_pass(downsample_pass);
+            downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth[i], &[]);
+            downsample_pass.set_render_pipeline(downsample_depth_pipeline);
+            downsample_pass.draw(0..3, 0..1);
+        }
+        render_context.command_encoder().pop_debug_group();
 
         {
             let command_encoder = render_context.command_encoder();
