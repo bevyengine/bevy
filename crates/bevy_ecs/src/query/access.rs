@@ -483,13 +483,13 @@ impl<T: SparseSetIndex> AccessFilters<T> {
 
     /// Returns whether a `With` constraint exists for `index`.
     #[inline]
-    pub fn get_with(&self, index: T) -> bool {
+    pub fn contains_with(&self, index: T) -> bool {
         self.with.contains(index.sparse_set_index())
     }
 
     /// Returns whether a `Without` constraint exists for `index`.
     #[inline]
-    pub fn get_without(&self, index: T) -> bool {
+    pub fn contains_without(&self, index: T) -> bool {
         self.without.contains(index.sparse_set_index())
     }
 
