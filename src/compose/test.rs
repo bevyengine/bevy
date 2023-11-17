@@ -1478,7 +1478,10 @@ mod test {
 
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
 
-        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor { label: None });
+        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: None,
+            timestamp_writes: None,
+        });
 
         pass.set_pipeline(&pipeline);
         pass.set_bind_group(0, &bindgroup, &[]);

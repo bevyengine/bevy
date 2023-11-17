@@ -10,16 +10,15 @@
     e.fine_member = 4.0;
     fine: f32,
     fine_member: f32,
-    let _e11: f32 = bad_X_naga_oil_mod_XM5WG6YTBNRZQX;
-    let _e22: f32 = d.fine;
-    let _e25: f32 = e.fine_member;
-    let _e4: f32 = fineX_naga_oil_mod_XMZXHGX(1.0);
-    let _e6: f32 = bad_X_naga_oil_mod_XMZXHGX(2.0);
-    let _e9: f32 = fineX_naga_oil_mod_XM5WG6YTBNRZQX;
-    let a: f32 = (fineX_naga_oil_mod_XMNXW443UOMX + bad_X_naga_oil_mod_XMNXW443UOMX);
-    let b: f32 = (_e4 + _e6);
-    let c: f32 = (_e9 + _e11);
-    return ((((a + b) + c) + _e22) + _e25);
+    let _e1: f32 = fineX_naga_oil_mod_XMZXHGX(1.0);
+    let _e20: f32 = d.fine;
+    let _e23: f32 = e.fine_member;
+    let _e3: f32 = bad_X_naga_oil_mod_XMZXHGX(2.0);
+    let _e6: f32 = fineX_naga_oil_mod_XM5WG6YTBNRZQX;
+    let _e8: f32 = bad_X_naga_oil_mod_XM5WG6YTBNRZQX;
+    let b: f32 = (_e1 + _e3);
+    let c: f32 = (_e6 + _e8);
+    return ((((2.0 + b) + c) + _e20) + _e23);
     return in;
     return in_1;
     var d: IsFineX_naga_oil_mod_XON2HE5LDORZQX;

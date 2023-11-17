@@ -634,20 +634,29 @@ impl<'a> DerivedModule<'a> {
             binding: r.binding.clone(),
         });
 
+        let expressions = Rc::new(RefCell::new(Arena::new()));
+        let expr_map = Rc::new(RefCell::new(HashMap::new()));
+
         let mut local_variables = Arena::new();
         for (h_l, l) in func.local_variables.iter() {
             let new_local = LocalVariable {
                 name: l.name.clone(),
                 ty: self.import_type(&l.ty),
-                init: l.init.map(|c| self.import_const_expression(c)),
+                init: l.init.map(|c| {
+                    self.import_expression(
+                        c,
+                        &func.expressions,
+                        expr_map.clone(),
+                        expressions.clone(),
+                        false,
+                        true,
+                    )
+                }),
             };
             let span = func.local_variables.get_span(h_l);
             let new_h = local_variables.append(new_local, self.map_span(span));
             assert_eq!(h_l, new_h);
         }
-
-        let expressions = Rc::new(RefCell::new(Arena::new()));
-        let expr_map = Rc::new(RefCell::new(HashMap::new()));
 
         let body = self.import_block(
             &func.body,

@@ -1,4 +1,4 @@
-struct gen___atomic_compare_exchange_resultUint4_ {
+struct _atomic_compare_exchange_resultUint4_ {
     old_value: u32,
     exchanged: bool,
 }
@@ -27,7 +27,7 @@ fn entry_pointX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX() -> f32 {
     let _e27: u32 = atomicExchange((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), _e25);
     let _e28: u32 = y;
     y = (_e28 + _e27);
-    let _e33: gen___atomic_compare_exchange_resultUint4_ = atomicCompareExchangeWeak((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), 12u, 0u);
+    let _e33: _atomic_compare_exchange_resultUint4_ = atomicCompareExchangeWeak((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), 12u, 0u);
     if _e33.exchanged {
         let _e36: u32 = y;
         y = (_e36 + _e33.old_value);

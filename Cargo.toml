@@ -1,6 +1,6 @@
 [package]
 name = "naga_oil"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "a crate for combining and manipulating shaders using naga IR"
@@ -17,7 +17,7 @@ prune = []
 allow_deprecated = []
 
 [dependencies]
-naga = { version = "0.13", features = ["wgsl-in", "wgsl-out", "clone", "span"] }
+naga = { version = "0.14.1", features = ["wgsl-in", "wgsl-out", "clone", "span"] }
 tracing = "0.1"
 regex = "1.8"
 regex-syntax = "0.7"
@@ -28,9 +28,9 @@ bit-set = "0.5"
 rustc-hash = "1.1.0"
 unicode-ident = "1"
 once_cell = "1.17.0"
-indexmap = "1.9.3"
+indexmap = "2"
 
 [dev-dependencies]
-wgpu = { version = "0.17", features = ["naga"] }
+wgpu = { version = "0.18", features = ["naga"] }
 futures-lite = "1"
 tracing-subscriber = { version = "0.3", features = ["std", "fmt"] }
