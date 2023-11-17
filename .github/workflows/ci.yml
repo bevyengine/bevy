@@ -59,9 +59,6 @@ jobs:
           components: rustfmt, clippy
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-      - name: Install taplo
-        run: | 
-          cargo install taplo-cli --locked
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
@@ -165,6 +162,27 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
+
+  toml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install taplo
+        run: | 
+          cargo install taplo-cli --locked
+      - name: Run Taplo
+        id: taplo
+        # See tools/ci/src/main.rs for the commands this runs
+        run: taplo fmt --check --diff --option indent_string="    "
+      - name: Taplo info
+        if: steps.taplo.outcome == failure()
+        run: |
+          echo 'To fix toml fmt, please run `taplo fmt --option indent_string="    "`.'
+          echo `note: indent_string is with 4 spaces.`
+          echo 'Or if you use VSCode, use the Even Better Toml extension and indent using 4 spaces.'
 
   run-examples-on-windows-dx12:
     runs-on: windows-latest
