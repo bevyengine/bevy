@@ -113,7 +113,7 @@ impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
 
         let iter = iter.into_iter().take(N);
 
-        for (index, i) in iter.into_iter().enumerate() {
+        for (index, i) in iter.into_iter().take(N).enumerate() {
             vertices[index] = i;
         }
         Self { vertices }

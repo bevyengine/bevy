@@ -132,9 +132,7 @@ impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
         let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
 
-        let iter = iter.into_iter().take(N);
-
-        for (index, i) in iter.into_iter().enumerate() {
+        for (index, i) in iter.into_iter().take(N).enumerate() {
             vertices[index] = i;
         }
         Self { vertices }
