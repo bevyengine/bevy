@@ -1,7 +1,7 @@
-#[cfg(all(feature = "embedded_watcher", not(target_arch = "wasm32")))]
+#[cfg(feature = "embedded_watcher")]
 mod embedded_watcher;
 
-#[cfg(all(feature = "embedded_watcher", not(target_arch = "wasm32")))]
+#[cfg(feature = "embedded_watcher")]
 pub use embedded_watcher::*;
 
 use crate::io::{
@@ -21,7 +21,7 @@ pub const EMBEDDED: &str = "embedded";
 #[derive(Resource, Default)]
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
-    #[cfg(all(feature = "embedded_watcher", not(target_arch = "wasm32")))]
+    #[cfg(feature = "embedded_watcher")]
     root_paths: std::sync::Arc<
         parking_lot::RwLock<bevy_utils::HashMap<std::path::PathBuf, std::path::PathBuf>>,
     >,
@@ -34,7 +34,7 @@ impl EmbeddedAssetRegistry {
     /// or a [`Vec<u8>`].
     #[allow(unused)]
     pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
-        #[cfg(all(feature = "embedded_watcher", not(target_arch = "wasm32")))]
+        #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
             .insert(full_path.to_owned(), asset_path.to_owned());
@@ -47,7 +47,7 @@ impl EmbeddedAssetRegistry {
     /// or a [`Vec<u8>`].
     #[allow(unused)]
     pub fn insert_meta(&self, full_path: &Path, asset_path: &Path, value: impl Into<Value>) {
-        #[cfg(all(feature = "embedded_watcher", not(target_arch = "wasm32")))]
+        #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
             .insert(full_path.to_owned(), asset_path.to_owned());
@@ -68,7 +68,7 @@ impl EmbeddedAssetRegistry {
                 })
             });
 
-        #[cfg(all(feature = "embedded_watcher", not(target_arch = "wasm32")))]
+        #[cfg(feature = "embedded_watcher")]
         {
             let root_paths = self.root_paths.clone();
             let dir = self.dir.clone();
@@ -196,7 +196,7 @@ macro_rules! embedded_asset {
             .world
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
-        #[cfg(all(feature = "embedded_watcher", not(target_arch = "wasm32")))]
+        #[cfg(feature = "embedded_watcher")]
         let full_path = std::path::Path::new(file!()).parent().unwrap().join($path);
         #[cfg(not(feature = "embedded_watcher"))]
         let full_path = std::path::PathBuf::new();
