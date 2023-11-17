@@ -231,11 +231,11 @@ impl Primitive3d for Cone {}
 /// by slicing off a section of a cone.
 #[derive(Clone, Copy, Debug)]
 pub struct ConicalFrustum {
-    /// Radius of the top of the frustum
+    /// The radius of the top of the frustum
     pub radius_top: f32,
-    /// Radius of the base of the frustum
+    /// The radius of the base of the frustum
     pub radius_bottom: f32,
-    /// Height of the frustum
+    /// The height of the frustum
     pub height: f32,
 }
 impl Primitive3d for ConicalFrustum {}
