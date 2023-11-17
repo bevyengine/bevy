@@ -50,6 +50,9 @@ impl VolumeLevel {
     pub fn get(&self) -> f32 {
         self.0
     }
+
+    /// Zero (silent) volume level
+    pub const ZERO: Self = VolumeLevel(0.0);
 }
 
 /// The way Bevy manages the sound playback.
