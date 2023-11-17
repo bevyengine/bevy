@@ -303,6 +303,17 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         &mut self.access
     }
 
+    /// Returns an iterator over the underlying filter sets, collected into disjunctive normal form.
+    ///
+    /// Filter sets are stored in an "ORs of ANDs" format, meaning that a filter `(With<A>, Or<(With<B>, Without<C>)>)`
+    /// expands into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`. All [`AccessFilters`] in the filter sets vector
+    /// are implicitly joined with an `Or` clause, and each `AccessFilters` stores a set of `With` and `Without`
+    /// constraints.
+    #[inline]
+    pub fn iter_filter_sets(&self) -> impl Iterator<Item = &AccessFilters<T>> {
+        self.filter_sets.iter()
+    }
+
     /// Adds access to the element given by `index`.
     pub fn add_read(&mut self, index: T) {
         self.access.add_read(index.clone());
@@ -320,10 +331,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
     /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: T) {
-        let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
-            filter.with.grow(index + 1);
-            filter.with.insert(index);
+            filter.add_with(index.clone());
         }
     }
 
@@ -332,10 +341,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
     /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: T) {
-        let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
-            filter.without.grow(index + 1);
-            filter.without.insert(index);
+            filter.add_without(index.clone());
         }
     }
 
@@ -396,8 +403,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         // in this case we can short-circuit by performing an in-place union for each bitset.
         if other.filter_sets.len() == 1 {
             for filter in &mut self.filter_sets {
-                filter.with.union_with(&other.filter_sets[0].with);
-                filter.without.union_with(&other.filter_sets[0].without);
+                filter.union_with(&other.filter_sets[0]);
             }
             return;
         }
@@ -406,8 +412,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         for filter in &self.filter_sets {
             for other_filter in &other.filter_sets {
                 let mut new_filter = filter.clone();
-                new_filter.with.union_with(&other_filter.with);
-                new_filter.without.union_with(&other_filter.without);
+                new_filter.union_with(other_filter);
                 new_filters.push(new_filter);
             }
         }
@@ -425,8 +430,9 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 }
 
+/// A set of `With` and `Without` constraints for `T`.
 #[derive(Clone, Eq, PartialEq)]
-struct AccessFilters<T> {
+pub struct AccessFilters<T> {
     with: FixedBitSet,
     without: FixedBitSet,
     _index_type: PhantomData<T>,
@@ -452,6 +458,53 @@ impl<T: SparseSetIndex> Default for AccessFilters<T> {
 }
 
 impl<T: SparseSetIndex> AccessFilters<T> {
+    /// Add a `With` constraint for `index`.
+    #[inline]
+    fn add_with(&mut self, index: T) {
+        let index = index.sparse_set_index();
+        self.with.grow(index + 1);
+        self.with.insert(index);
+    }
+
+    /// Add a `Without` constraint for `index`.
+    #[inline]
+    fn add_without(&mut self, index: T) {
+        let index = index.sparse_set_index();
+        self.without.grow(index + 1);
+        self.without.insert(index);
+    }
+
+    /// Perform an in-place union with `other`'s corresponding `With` and `Without` sets.
+    #[inline]
+    fn union_with(&mut self, other: &Self) {
+        self.with.union_with(&other.with);
+        self.without.union_with(&other.without);
+    }
+
+    /// Returns whether a `With` constraint exists for `index`.
+    #[inline]
+    pub fn get_with(&self, index: T) -> bool {
+        self.with.contains(index.sparse_set_index())
+    }
+
+    /// Returns whether a `Without` constraint exists for `index`.
+    #[inline]
+    pub fn get_without(&self, index: T) -> bool {
+        self.without.contains(index.sparse_set_index())
+    }
+
+    /// Returns the indices with `With` constraints.
+    #[inline]
+    pub fn with(&self) -> impl Iterator<Item = T> + '_ {
+        self.with.ones().map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices with `Without` constraints.
+    #[inline]
+    pub fn without(&self) -> impl Iterator<Item = T> + '_ {
+        self.without.ones().map(T::get_sparse_set_index)
+    }
+
     fn is_ruled_out_by(&self, other: &Self) -> bool {
         // Although not technically complete, we don't consider the case when `AccessFilters`'s
         // `without` bitset contradicts its own `with` bitset (e.g. `(With<A>, Without<A>)`).
