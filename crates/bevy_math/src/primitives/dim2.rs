@@ -1,4 +1,4 @@
-use super::Primitive2d;
+use super::{Primitive2d, WindingOrder};
 use crate::Vec2;
 
 /// A normalized vector pointing in a direction in 2D space
@@ -174,7 +174,7 @@ impl BoxedPolyline2d {
 }
 
 /// A triangle in 2D space
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
@@ -182,11 +182,31 @@ pub struct Triangle2d {
 impl Primitive2d for Triangle2d {}
 
 impl Triangle2d {
-    /// Create a new `Triangle2d` from `a`, `b`, and `c`,
+    /// Create a new `Triangle2d` from points `a`, `b`, and `c`
     pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             vertices: [a, b, c],
         }
+    }
+
+    /// Get the [`WindingOrder`] of the triangle
+    #[doc(alias = "orientation")]
+    pub fn winding_order(&self) -> WindingOrder {
+        let [a, b, c] = self.vertices;
+        let area = (b - a).perp_dot(c - a);
+        if area > f32::EPSILON {
+            WindingOrder::Counterclockwise
+        } else if area < -f32::EPSILON {
+            WindingOrder::Clockwise
+        } else {
+            WindingOrder::Invalid
+        }
+    }
+
+    /// Reverse the [`WindingOrder`] of the triangle
+    /// by swapping the second and third vertices
+    pub fn reverse(&mut self) {
+        self.vertices.swap(1, 2)
     }
 }
 
@@ -297,4 +317,33 @@ impl RegularPolygon {
             sides,
         }
     }
+}
+
+#[test]
+fn triangle_winding_order() {
+    let mut cw_triangle = Triangle2d::new(
+        Vec2::new(0.0, 2.0),
+        Vec2::new(-0.5, -1.2),
+        Vec2::new(-1.0, -1.0),
+    );
+    assert_eq!(cw_triangle.winding_order(), WindingOrder::Clockwise);
+
+    let ccw_triangle = Triangle2d::new(
+        Vec2::new(0.0, 2.0),
+        Vec2::new(-1.0, -1.0),
+        Vec2::new(-0.5, -1.2),
+    );
+    assert_eq!(ccw_triangle.winding_order(), WindingOrder::Counterclockwise);
+
+    // The clockwise triangle should be the same as the counterclockwise
+    // triangle when reversed
+    cw_triangle.reverse();
+    assert_eq!(cw_triangle, ccw_triangle);
+
+    let invalid_triangle = Triangle2d::new(
+        Vec2::new(0.0, 2.0),
+        Vec2::new(0.0, -1.0),
+        Vec2::new(0.0, -1.2),
+    );
+    assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
 }
