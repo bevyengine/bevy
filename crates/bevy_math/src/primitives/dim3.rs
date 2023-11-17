@@ -107,10 +107,24 @@ pub struct Polyline3d<const N: usize> {
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
-impl<const N: usize> Polyline3d<N> {
-    /// Create a new `Polyline3d` from a list of vertices
-    pub fn new(vertices: [Vec3; N]) -> Self {
+impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
+    fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
+        let mut vertices: [Vec3; N] = [Vec3::ZERO; N];
+
+        for (index, i) in iter.into_iter().enumerate() {
+            if index >= N {
+                break;
+            }
+            vertices[index] = i;
+        }
         Self { vertices }
+    }
+}
+
+impl<const N: usize> Polyline3d<N> {
+    /// Create a new `Polyline3d` from an array of vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
+        Self::from_iter(vertices.into_iter())
     }
 }
 
