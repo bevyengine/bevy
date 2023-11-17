@@ -182,9 +182,11 @@ pub struct Triangle2d {
 impl Primitive2d for Triangle2d {}
 
 impl Triangle2d {
-    /// Create a new `Triangle2d` from an array of vertices
-    pub fn new(vertices: [Vec2; 3]) -> Self {
-        Self { vertices }
+    /// Create a new `Triangle2d` from `a`, `b`, and `c`,
+    pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+        Self {
+            vertices: [a, b, c],
+        }
     }
 }
 
@@ -224,10 +226,21 @@ pub struct Polygon<const N: usize> {
 }
 impl<const N: usize> Primitive2d for Polygon<N> {}
 
+impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
+
+        for (index, i) in iter.into_iter().take(N).enumerate() {
+            vertices[index] = i;
+        }
+        Self { vertices }
+    }
+}
+
 impl<const N: usize> Polygon<N> {
     /// Create a new `Polygon` from an array of vertices
-    pub fn new(vertices: [Vec2; N]) -> Self {
-        Self { vertices }
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
     }
 }
 
