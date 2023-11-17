@@ -136,13 +136,13 @@ pub struct NodeQuery {
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera, Option<&UiCameraConfig>)>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
     ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -170,14 +170,6 @@ pub fn ui_focus_system(
 
     let is_ui_disabled =
         |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
-
-    let primary_camera = camera_query.iter().find_map(|(entity, camera, _)| {
-        if camera.is_primary() {
-            Some(entity)
-        } else {
-            None
-        }
-    });
 
     let camera_cursor_positions: Vec<(Entity, Vec2)> = camera_query
         .iter()
@@ -230,23 +222,30 @@ pub fn ui_focus_system(
 
                         return None;
                     }
-                }
-
-                let Some(ui_camera_entity) =
-                    node.ui_camera.map(UiCamera::entity).or(primary_camera)
-                else {
+                } else {
                     return None;
                 };
-                let cursor_position =
-                    camera_cursor_positions
-                        .iter()
-                        .find_map(|(camera_entity, position)| {
-                            if *camera_entity == ui_camera_entity {
-                                Some(*position)
-                            } else {
-                                None
-                            }
-                        });
+                let cursor_position = match node.ui_camera.map(UiCamera::entity) {
+                    Some(ui_camera_entity) => {
+                        camera_cursor_positions
+                            .iter()
+                            .find_map(|(camera_entity, position)| {
+                                if *camera_entity == ui_camera_entity {
+                                    Some(*position)
+                                } else {
+                                    None
+                                }
+                            })
+                    }
+                    None =>
+                    // UiCamera is not set, so we use the primary window
+                    {
+                        primary_window
+                            .and_then(|entity| windows.get(entity).ok())
+                            .and_then(|window| window.cursor_position())
+                            .or_else(|| touches_input.first_pressed_position())
+                    }
+                };
 
                 let position = node.global_transform.translation();
                 let ui_position = position.truncate();

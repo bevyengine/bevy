@@ -263,9 +263,9 @@ pub fn ui_layout_system(
     mut removed_nodes: RemovedComponents<Node>,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
 ) {
-    let mut camera_root_nodes: HashMap<Option<Entity>, Vec<Entity>> = HashMap::new();
+    let mut camera_to_root_nodes_map: HashMap<Option<Entity>, Vec<Entity>> = HashMap::new();
     for (entity, camera) in &root_node_query {
-        camera_root_nodes
+        camera_to_root_nodes_map
             .entry(camera.map(UiCamera::entity))
             .or_insert_with(Vec::new)
             .push(entity);
@@ -292,7 +292,7 @@ pub fn ui_layout_system(
 
     // Resize nodes
     let resize_events = resize_events.read().collect::<Vec<_>>();
-    for (camera_id, roots) in &camera_root_nodes {
+    for (camera_id, root_nodes) in &camera_to_root_nodes_map {
         let (size, scale_factor) = get_viewport_properties(*camera_id);
         let resized = resize_events.iter().any(|resized_window| {
             let primary_window = primary_window.get_single().map(|(e, _)| e).ok();
@@ -309,7 +309,7 @@ pub fn ui_layout_system(
                     }
                 }
                 None => {
-                    // Camera if not specified, use primary window
+                    // If no camera specified, default to primary window
                     match primary_window {
                         Some(primary_window) => resized_window.window == primary_window,
                         None => false,
@@ -321,33 +321,31 @@ pub fn ui_layout_system(
         let layout_context =
             LayoutContext::new(scale_factor, [size.x as f32, size.y as f32].into());
 
-        if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
-            // update all nodes
-            for (entity, style, ui_camera) in style_query.iter() {
-                if ui_camera.map(UiCamera::entity) == *camera_id {
-                    ui_surface.upsert_node(entity, &style, &layout_context);
-                }
-            }
-        } else {
-            for (entity, style, ui_camera) in style_query.iter() {
-                if ui_camera.map(UiCamera::entity) == *camera_id && style.is_changed() {
+        // update all nodes
+        for (entity, style, ui_camera) in style_query.iter() {
+            if ui_camera.map(UiCamera::entity) == *camera_id {
+                if resized
+                    || !scale_factor_events.is_empty()
+                    || ui_scale.is_changed()
+                    || style.is_changed()
+                {
                     ui_surface.upsert_node(entity, &style, &layout_context);
                 }
             }
         }
 
-        ui_surface.set_camera_children(*camera_id, roots.iter().cloned());
+        ui_surface.set_camera_children(*camera_id, root_nodes.iter().cloned());
     }
     scale_factor_events.clear();
 
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.read() {
-        ui_surface.try_remove_measure(entity);
-    }
     for (entity, mut content_size) in &mut measure_query {
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.update_measure(entity, measure_func);
         }
+    }
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_content_sizes.read() {
+        ui_surface.try_remove_measure(entity);
     }
 
     // clean up removed nodes
@@ -361,7 +359,7 @@ pub fn ui_layout_system(
         ui_surface.update_children(entity, &children);
     }
 
-    for (camera_id, root_nodes) in &camera_root_nodes {
+    for (camera_id, root_nodes) in &camera_to_root_nodes_map {
         let (size, scale_factor) = get_viewport_properties(*camera_id);
         let inverse_target_scale_factor = scale_factor.recip();
 

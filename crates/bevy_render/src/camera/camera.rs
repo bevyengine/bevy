@@ -363,13 +363,6 @@ impl Camera {
 
         (!world_space_coords.is_nan()).then_some(world_space_coords)
     }
-
-    pub fn is_primary(&self) -> bool {
-        match self.target {
-            RenderTarget::Window(WindowRef::Primary) => self.is_active,
-            _ => false,
-        }
-    }
 }
 
 /// Control how this camera outputs once rendering is completed.

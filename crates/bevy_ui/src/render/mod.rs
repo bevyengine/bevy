@@ -4,10 +4,10 @@ mod ui_material_pipeline;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 
-use bevy_derive::Deref;
 use bevy_hierarchy::Parent;
+use bevy_render::camera::{ExtractedCamera, NormalizedRenderTarget};
 use bevy_render::render_phase::PhaseItem;
-use bevy_render::view::ViewVisibility;
+use bevy_render::view::{ExtractedWindows, ViewVisibility};
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -41,6 +41,7 @@ use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
+use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -76,7 +77,6 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
-        .init_resource::<PrimaryWindowCamera>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
@@ -171,7 +171,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub camera_entity: Entity,
+    pub camera_entity: Option<Entity>,
 }
 
 #[derive(Resource, Default)]
@@ -181,7 +181,6 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    primary_window_camera: Res<PrimaryWindowCamera>,
     images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     uinode_query: Extract<
@@ -217,11 +216,6 @@ pub fn extract_atlas_uinodes(
         if !view_visibility.get() || color.0.is_fully_transparent() {
             continue;
         }
-
-        // Skip if no camera is set
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(primary_window_camera.0) else {
-            continue;
-        };
 
         let (mut atlas_rect, mut atlas_size, image) =
             if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
@@ -267,7 +261,7 @@ pub fn extract_atlas_uinodes(
                 atlas_size: Some(atlas_size),
                 flip_x: atlas_image.flip_x,
                 flip_y: atlas_image.flip_y,
-                camera_entity,
+                camera_entity: camera.map(UiCamera::entity),
             },
         );
     }
@@ -288,7 +282,7 @@ pub(crate) fn resolve_border_thickness(value: Val, parent_width: f32, viewport_s
 pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    primary_window_camera: Res<PrimaryWindowCamera>,
+    primary_window: Extract<Query<&Window, With<PrimaryWindow>>>,
     camera_query: Extract<Query<&Camera>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -321,14 +315,18 @@ pub fn extract_uinode_borders(
         {
             continue;
         }
-        // Skip if no camera is set
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(**primary_window_camera) else {
-            continue;
+
+        let target_logical_viewport_size = match camera {
+            Some(UiCamera(camera_entity)) => camera_query
+                .get(*camera_entity)
+                .ok()
+                .and_then(|c| c.logical_viewport_size()),
+            None => primary_window
+                .get_single()
+                .map(|w| [w.resolution.width(), w.resolution.height()].into())
+                .ok(),
         };
-        let ui_logical_viewport_size = camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(|c| c.logical_viewport_size())
+        let ui_logical_viewport_size = target_logical_viewport_size
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -398,7 +396,7 @@ pub fn extract_uinode_borders(
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        camera_entity,
+                        camera_entity: camera.map(UiCamera::entity),
                     },
                 );
             }
@@ -409,7 +407,6 @@ pub fn extract_uinode_borders(
 pub fn extract_uinode_outlines(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    primary_window_camera: Res<PrimaryWindowCamera>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -433,10 +430,6 @@ pub fn extract_uinode_outlines(
         {
             continue;
         }
-        // Skip if no camera is set
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(**primary_window_camera) else {
-            continue;
-        };
 
         // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
         let clip =
@@ -496,7 +489,7 @@ pub fn extract_uinode_outlines(
                         clip,
                         flip_x: false,
                         flip_y: false,
-                        camera_entity,
+                        camera_entity: camera.map(UiCamera::entity),
                     },
                 );
             }
@@ -506,7 +499,6 @@ pub fn extract_uinode_outlines(
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    primary_window_camera: Res<PrimaryWindowCamera>,
     images: Extract<Res<Assets<Image>>>,
     uinode_query: Extract<
         Query<
@@ -531,10 +523,6 @@ pub fn extract_uinodes(
         if !view_visibility.get() || color.0.is_fully_transparent() {
             continue;
         }
-        // Skip if no camera is set
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(**primary_window_camera) else {
-            continue;
-        };
 
         let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
             // Skip loading images
@@ -561,7 +549,7 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 flip_x,
                 flip_y,
-                camera_entity,
+                camera_entity: camera.map(UiCamera::entity),
             },
         );
     }
@@ -578,21 +566,11 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
-#[derive(Resource, Deref, Default, Debug)]
-pub struct PrimaryWindowCamera(pub Option<Entity>);
-
-impl From<PrimaryWindowCamera> for Option<Entity> {
-    fn from(camera: PrimaryWindowCamera) -> Self {
-        camera.0
-    }
-}
-
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
-    mut primary_window_camera: ResMut<PrimaryWindowCamera>,
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
@@ -606,10 +584,6 @@ pub fn extract_default_ui_camera_view<T: Component>(
         // ignore inactive cameras
         if !camera.is_active {
             continue;
-        }
-
-        if camera.is_primary() {
-            primary_window_camera.0 = Some(entity);
         }
 
         if let (
@@ -664,8 +638,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
 pub fn extract_text_uinodes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    primary_window_camera: Res<PrimaryWindowCamera>,
     camera_query: Extract<Query<&Camera>>,
+    primary_window: Extract<Query<&Window, With<PrimaryWindow>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -687,16 +661,18 @@ pub fn extract_text_uinodes(
         if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
             continue;
         }
-        // Skip if no camera is set
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(**primary_window_camera) else {
-            continue;
+        let target_scale_factor = match camera {
+            Some(UiCamera(camera_entity)) => camera_query
+                .get(*camera_entity)
+                .ok()
+                .and_then(|c| c.target_scaling_factor()),
+
+            None => {
+                // No camera is set, so we use the primary window scale factor
+                primary_window.get_single().map(|w| w.scale_factor()).ok()
+            }
         };
-        let scale_factor = (camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(|c| c.target_scaling_factor())
-            .unwrap_or(1.0)
-            * ui_scale.0) as f32;
+        let scale_factor = (target_scale_factor.unwrap_or(1.0) * ui_scale.0) as f32;
         let inverse_scale_factor = scale_factor.recip();
 
         let mut affine = global_transform.affine();
@@ -744,7 +720,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    camera_entity,
+                    camera_entity: camera.map(UiCamera::entity),
                 },
             );
         }
@@ -788,7 +764,7 @@ pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
-    pub camera: Entity,
+    pub camera: Option<Entity>,
 }
 
 const TEXTURED_QUAD: u32 = 0;
@@ -796,15 +772,21 @@ const UNTEXTURED_QUAD: u32 = 1;
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
+    extracted_windows: Res<ExtractedWindows>,
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut views: Query<(Entity, &ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(
+        Entity,
+        &ExtractedView,
+        Option<&ExtractedCamera>,
+        &mut RenderPhase<TransparentUi>,
+    )>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
-    for (view_entity, view, mut transparent_phase) in &mut views {
+    for (view_entity, view, camera, mut transparent_phase) in &mut views {
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
@@ -815,9 +797,29 @@ pub fn queue_uinodes(
             .reserve(extracted_uinodes.uinodes.len());
 
         for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-            if view_entity != extracted_uinode.camera_entity {
-                continue;
+            // Skip if the node is not in the current view
+            match extracted_uinode.camera_entity {
+                Some(camera_entity) => {
+                    if view_entity != camera_entity {
+                        continue;
+                    }
+                }
+                None => {
+                    // Compare view with primary window if no camera is explicitly set for the node
+                    if let (
+                        Some(NormalizedRenderTarget::Window(window_ref)),
+                        Some(primary_window),
+                    ) = (
+                        camera.and_then(|c| c.target.as_ref()),
+                        extracted_windows.primary,
+                    ) {
+                        if window_ref.entity() != primary_window {
+                            continue;
+                        }
+                    }
+                }
             }
+
             transparent_phase.add(TransparentUi {
                 draw_function,
                 pipeline,

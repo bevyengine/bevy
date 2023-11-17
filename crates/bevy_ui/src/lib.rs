@@ -175,17 +175,17 @@ impl Plugin for UiPlugin {
 
             system
         });
-        app.add_systems(
-            PostUpdate,
-            widget::update_atlas_content_size_system.before(UiSystem::Layout),
-        );
+
         app.add_systems(
             PostUpdate,
             (
+                widget::update_atlas_content_size_system.before(UiSystem::Layout),
+                update_ui_camera_system
+                    .in_set(UiSystem::Layout)
+                    .before(ui_layout_system),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                update_ui_camera_system.in_set(UiSystem::Layout),
                 resolve_outlines_system
                     .in_set(UiSystem::Outlines)
                     .after(UiSystem::Layout),
