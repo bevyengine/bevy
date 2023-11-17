@@ -166,22 +166,23 @@ jobs:
   toml:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: always()
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - name: Install taplo
         run: | 
-          cargo install taplo-cli --locked
+          curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-full-linux-x86_64.gz \
+          | gzip -d - \
+          | install -m 755 /dev/stdin /usr/local/bin/taplo
       - name: Run Taplo
         id: taplo
         run: taplo fmt --check --diff --option indent_string="    "
       - name: Taplo info
-        if: steps.taplo.outcome == failure()
+        if: failure()
         run: |
           echo 'To fix toml fmt, please run `taplo fmt --option indent_string="    "`.'
-          echo `note: indent_string is with 4 spaces.`
+          echo 'note: indent_string is with 4 spaces.'
           echo 'Or if you use VSCode, use the Even Better Toml extension and indent using 4 spaces.'
+
 
   run-examples-on-windows-dx12:
     runs-on: windows-latest
