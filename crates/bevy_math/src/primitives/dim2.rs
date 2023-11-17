@@ -319,31 +319,36 @@ impl RegularPolygon {
     }
 }
 
-#[test]
-fn triangle_winding_order() {
-    let mut cw_triangle = Triangle2d::new(
-        Vec2::new(0.0, 2.0),
-        Vec2::new(-0.5, -1.2),
-        Vec2::new(-1.0, -1.0),
-    );
-    assert_eq!(cw_triangle.winding_order(), WindingOrder::Clockwise);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let ccw_triangle = Triangle2d::new(
-        Vec2::new(0.0, 2.0),
-        Vec2::new(-1.0, -1.0),
-        Vec2::new(-0.5, -1.2),
-    );
-    assert_eq!(ccw_triangle.winding_order(), WindingOrder::Counterclockwise);
+    #[test]
+    fn triangle_winding_order() {
+        let mut cw_triangle = Triangle2d::new(
+            Vec2::new(0.0, 2.0),
+            Vec2::new(-0.5, -1.2),
+            Vec2::new(-1.0, -1.0),
+        );
+        assert_eq!(cw_triangle.winding_order(), WindingOrder::Clockwise);
 
-    // The clockwise triangle should be the same as the counterclockwise
-    // triangle when reversed
-    cw_triangle.reverse();
-    assert_eq!(cw_triangle, ccw_triangle);
+        let ccw_triangle = Triangle2d::new(
+            Vec2::new(0.0, 2.0),
+            Vec2::new(-1.0, -1.0),
+            Vec2::new(-0.5, -1.2),
+        );
+        assert_eq!(ccw_triangle.winding_order(), WindingOrder::Counterclockwise);
 
-    let invalid_triangle = Triangle2d::new(
-        Vec2::new(0.0, 2.0),
-        Vec2::new(0.0, -1.0),
-        Vec2::new(0.0, -1.2),
-    );
-    assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
+        // The clockwise triangle should be the same as the counterclockwise
+        // triangle when reversed
+        cw_triangle.reverse();
+        assert_eq!(cw_triangle, ccw_triangle);
+
+        let invalid_triangle = Triangle2d::new(
+            Vec2::new(0.0, 2.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(0.0, -1.2),
+        );
+        assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
+    }
 }
