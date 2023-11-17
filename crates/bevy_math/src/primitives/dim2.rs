@@ -145,7 +145,7 @@ impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
 impl<const N: usize> Polyline2d<N> {
     /// Create a new `Polyline2d` from an array of vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
-        Self::from_iter(vertices.into_iter())
+        Self::from_iter(vertices)
     }
 }
 
