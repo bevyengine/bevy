@@ -952,4 +952,36 @@ mod tests {
         assert!(Entity::new(2, 2) > Entity::new(1, 2));
         assert!(Entity::new(2, 2) >= Entity::new(1, 2));
     }
+
+    // Feel free to change this test if needed, but it seemed like an important
+    // part of the best-case performance changes in PR#9903.
+    #[test]
+    fn entity_hash_keeps_similar_ids_together() {
+        use std::hash::BuildHasher;
+        let hash = bevy_utils::EntityHash;
+
+        let first_id = 0xC0FFEE << 8;
+        let first_hash = hash.hash_one(Entity::from_raw(first_id));
+
+        for i in 1..=255 {
+            let id = first_id + i;
+            let hash = hash.hash_one(Entity::from_raw(id));
+            assert_eq!(hash.wrapping_sub(first_hash) as u32, i);
+        }
+    }
+
+    #[test]
+    fn entity_hash_id_bitflip_affects_high_7_bits() {
+        use std::hash::BuildHasher;
+        let hash = bevy_utils::EntityHash;
+
+        let first_id = 0xC0FFEE;
+        let first_hash = hash.hash_one(Entity::from_raw(first_id)) >> 57;
+
+        for bit in 0..u32::BITS {
+            let id = first_id ^ (1 << bit);
+            let hash = hash.hash_one(Entity::from_raw(id)) >> 57;
+            assert_ne!(hash, first_hash);
+        }
+    }
 }
