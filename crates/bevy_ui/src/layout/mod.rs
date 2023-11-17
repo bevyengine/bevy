@@ -323,14 +323,13 @@ pub fn ui_layout_system(
 
         // update all nodes
         for (entity, style, ui_camera) in style_query.iter() {
-            if ui_camera.map(UiCamera::entity) == *camera_id {
-                if resized
+            if ui_camera.map(UiCamera::entity) == *camera_id
+                && (resized
                     || !scale_factor_events.is_empty()
                     || ui_scale.is_changed()
-                    || style.is_changed()
-                {
-                    ui_surface.upsert_node(entity, &style, &layout_context);
-                }
+                    || style.is_changed())
+            {
+                ui_surface.upsert_node(entity, &style, &layout_context);
             }
         }
 
