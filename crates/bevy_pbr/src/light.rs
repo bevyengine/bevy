@@ -165,6 +165,24 @@ impl Default for SpotLight {
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
 ///
+/// ## Setup
+///
+/// `DirectionalLight` entity requires a few more components to work properly.
+/// Consider using the [`DirectionalLightBundle`].
+///
+/// ```
+/// # use bevy_ecs::system::Commands;
+/// # use bevy_pbr::{DirectionalLight, DirectionalLightBundle};
+/// # use bevy_transform::components::Transform;
+/// # fn test(mut commands: Commands) {
+/// commands.spawn(DirectionalLightBundle {
+///     directional_light: DirectionalLight::default(),
+///     transform: Transform::IDENTITY,
+///     ..Default::default()
+/// });
+/// # }
+/// ```
+///
 /// ## Shadows
 ///
 /// To enable shadows, set the `shadows_enabled` property to `true`.
