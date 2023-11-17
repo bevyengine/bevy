@@ -208,7 +208,10 @@ impl DerefMut for MainWorld {
 
 pub mod main_graph {
     pub mod node {
-        pub const CAMERA_DRIVER: &str = "camera_driver";
+        use bevy_render_macros::RenderGraphLabel;
+
+        #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderGraphLabel)]
+        pub struct CameraDriver;
     }
 }
 

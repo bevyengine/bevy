@@ -10,8 +10,8 @@ use thiserror::Error;
 
 use crate::{
     render_graph::{
-        Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
-        SlotType, SlotValue,
+        Edge, InternedRGLabel, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext,
+        SlotLabel, SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -45,7 +45,7 @@ pub enum RenderGraphRunnerError {
         "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
     )]
     MismatchedInputCount {
-        node_name: Option<Cow<'static, str>>,
+        node_name: InternedRGLabel,
         slot_count: usize,
         value_count: usize,
     },
@@ -120,7 +120,10 @@ impl RenderGraphRunner {
 
             node_outputs.insert(input_node.id, input_values);
 
-            for (_, node_state) in graph.iter_node_outputs(input_node.id).expect("node exists") {
+            for (_, node_state) in graph
+                .iter_node_outputs(input_node.label)
+                .expect("node exists")
+            {
                 node_queue.push_front(node_state);
             }
         }
@@ -134,7 +137,7 @@ impl RenderGraphRunner {
             let mut slot_indices_and_inputs: SmallVec<[(usize, SlotValue); 4]> = SmallVec::new();
             // check if all dependencies have finished running
             for (edge, input_node) in graph
-                .iter_node_inputs(node_state.id)
+                .iter_node_inputs(node_state.label)
                 .expect("node is in graph")
             {
                 match edge {
@@ -169,7 +172,7 @@ impl RenderGraphRunner {
 
             if inputs.len() != node_state.input_slots.len() {
                 return Err(RenderGraphRunnerError::MismatchedInputCount {
-                    node_name: node_state.name.clone(),
+                    node_name: node_state.label,
                     slot_count: node_state.input_slots.len(),
                     value_count: inputs.len(),
                 });
@@ -220,7 +223,10 @@ impl RenderGraphRunner {
             }
             node_outputs.insert(node_state.id, values);
 
-            for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {
+            for (_, node_state) in graph
+                .iter_node_outputs(node_state.label)
+                .expect("node exists")
+            {
                 node_queue.push_front(node_state);
             }
         }

@@ -2,8 +2,9 @@ mod as_bind_group;
 mod extract_component;
 mod extract_resource;
 
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
+use quote::format_ident;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
@@ -57,4 +58,22 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     as_bind_group::derive_as_bind_group(input).unwrap_or_else(|err| err.to_compile_error().into())
+}
+
+/// Derive macro generating an impl of the trait `RenderGraphLabel`.
+///
+/// This does not work for unions.
+#[proc_macro_derive(RenderGraphLabel)]
+pub fn derive_render_graph_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let mut trait_path = bevy_render_path();
+    trait_path
+        .segments
+        .push(format_ident!("render_graph").into());
+    let mut dyn_eq_path = trait_path.clone();
+    trait_path
+        .segments
+        .push(format_ident!("RenderGraphLabel").into());
+    dyn_eq_path.segments.push(format_ident!("DynEq").into());
+    derive_label(input, "RenderGraphLabel", &trait_path, &dyn_eq_path)
 }

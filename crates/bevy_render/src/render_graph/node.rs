@@ -10,9 +10,20 @@ use bevy_ecs::{
     query::{QueryItem, QueryState, ReadOnlyWorldQuery},
     world::{FromWorld, World},
 };
+pub use bevy_utils::label::DynEq;
+use bevy_utils::{define_label, intern::Interned};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
+
+define_label!(
+    /// A strongly-typed class of labels used to identify an [`Node`] in a render graph.
+    RenderGraphLabel,
+    RENDER_GRAPH_LABEL_INTERNER
+);
+
+/// A shorthand for `Interned<dyn RenderGraphLabel>`.
+pub type InternedRGLabel = Interned<dyn RenderGraphLabel>;
 
 define_atomic_id!(NodeId);
 
@@ -70,7 +81,7 @@ pub enum NodeRunError {
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].
 #[derive(Debug)]
 pub struct Edges {
-    id: NodeId,
+    id: InternedRGLabel,
     input_edges: Vec<Edge>,
     output_edges: Vec<Edge>,
 }
@@ -90,7 +101,7 @@ impl Edges {
 
     /// Returns this node's id.
     #[inline]
-    pub fn id(&self) -> NodeId {
+    pub fn id(&self) -> InternedRGLabel {
         self.id
     }
 
@@ -185,7 +196,7 @@ impl Edges {
 /// The `input_slots` and `output_slots` are provided by the `node`.
 pub struct NodeState {
     pub id: NodeId,
-    pub name: Option<Cow<'static, str>>,
+    pub label: InternedRGLabel,
     /// The name of the type that implements [`Node`].
     pub type_name: &'static str,
     pub node: Box<dyn Node>,
@@ -196,26 +207,26 @@ pub struct NodeState {
 
 impl Debug for NodeState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{:?} ({:?})", self.id, self.name)
+        writeln!(f, "{:?} ({:?})", self.id, self.label)
     }
 }
 
 impl NodeState {
     /// Creates an [`NodeState`] without edges, but the `input_slots` and `output_slots`
     /// are provided by the `node`.
-    pub fn new<T>(id: NodeId, node: T) -> Self
+    pub fn new<T>(id: NodeId, node: T, label: InternedRGLabel) -> Self
     where
         T: Node,
     {
         NodeState {
             id,
-            name: None,
+            label,
             input_slots: node.input().into(),
             output_slots: node.output().into(),
             node: Box::new(node),
             type_name: std::any::type_name::<T>(),
             edges: Edges {
-                id,
+                id: label,
                 input_edges: Vec::new(),
                 output_edges: Vec::new(),
             },
