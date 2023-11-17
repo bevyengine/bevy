@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
     commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        scale_mode: SpriteScaleMode::Tiled {
+        scale_mode: ImageScaleMode::Tiled {
             tile_x: true,
             tile_y: true,
             stretch_value: 0.5, // The image will tile every 128px

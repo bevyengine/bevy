@@ -1,4 +1,4 @@
-use crate::{ExtractedSprite, Sprite, SpriteScaleMode};
+use crate::{ExtractedSprite, ImageScaleMode, Sprite};
 
 use super::TextureSlice;
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -58,11 +58,11 @@ impl ComputedTextureSlices {
 #[must_use]
 fn compute_sprite_slices(
     sprite: &Sprite,
-    scale_mode: &SpriteScaleMode,
+    scale_mode: &ImageScaleMode,
     image_handle: &Handle<Image>,
     images: &Assets<Image>,
 ) -> Option<ComputedTextureSlices> {
-    if let SpriteScaleMode::Stretched = scale_mode {
+    if let ImageScaleMode::Stretched = scale_mode {
         return None;
     }
     let image_size = images.get(image_handle).map(|i| {
@@ -72,15 +72,15 @@ fn compute_sprite_slices(
         )
     })?;
     let slices = match scale_mode {
-        SpriteScaleMode::Stretched => unreachable!(),
-        SpriteScaleMode::Sliced(slicer) => slicer.compute_slices(
+        ImageScaleMode::Stretched => unreachable!(),
+        ImageScaleMode::Sliced(slicer) => slicer.compute_slices(
             sprite.rect.unwrap_or(Rect {
                 min: Vec2::ZERO,
                 max: image_size,
             }),
             sprite.custom_size,
         ),
-        SpriteScaleMode::Tiled {
+        ImageScaleMode::Tiled {
             tile_x,
             tile_y,
             stretch_value,
@@ -105,7 +105,7 @@ pub(crate) fn compute_slices_on_asset_event(
     mut commands: Commands,
     mut events: EventReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
-    sprites: Query<(Entity, &SpriteScaleMode, &Sprite, &Handle<Image>)>,
+    sprites: Query<(Entity, &ImageScaleMode, &Sprite, &Handle<Image>)>,
 ) {
     // We store the asset ids of added/modified image assets
     let added_handles: HashSet<_> = events
@@ -134,9 +134,9 @@ pub(crate) fn compute_slices_on_sprite_change(
     mut commands: Commands,
     images: Res<Assets<Image>>,
     changed_sprites: Query<
-        (Entity, &SpriteScaleMode, &Sprite, &Handle<Image>),
+        (Entity, &ImageScaleMode, &Sprite, &Handle<Image>),
         Or<(
-            Changed<SpriteScaleMode>,
+            Changed<ImageScaleMode>,
             Changed<Handle<Image>>,
             Changed<Sprite>,
         )>,

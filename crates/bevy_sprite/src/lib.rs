@@ -15,7 +15,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
-        sprite::{Sprite, SpriteScaleMode},
+        sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasSprite},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
@@ -67,7 +67,7 @@ impl Plugin for SpritePlugin {
         app.init_asset::<TextureAtlas>()
             .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
-            .register_type::<SpriteScaleMode>()
+            .register_type::<ImageScaleMode>()
             .register_type::<TextureSlicer>()
             .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()

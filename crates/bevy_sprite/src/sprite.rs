@@ -25,9 +25,10 @@ pub struct Sprite {
     pub anchor: Anchor,
 }
 
+/// Controls how the image is altered when scaled.
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default)]
-pub enum SpriteScaleMode {
+pub enum ImageScaleMode {
     /// The entire texture stretches when its dimensions change. This is the default option.
     #[default]
     Stretched,
