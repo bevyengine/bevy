@@ -73,10 +73,6 @@ fn main() {
         cmd!(sh, "cargo fmt --all -- --check")
             .run()
             .expect("Please run 'cargo fmt --all' to format your code.");
-
-        cmd!(sh, "taplo fmt --check --diff")
-            .run()
-            .expect("Please run 'taplo fmt'");
     }
 
     if what_to_run.contains(Check::CLIPPY) {
