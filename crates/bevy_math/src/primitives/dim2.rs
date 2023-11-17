@@ -206,7 +206,7 @@ impl Triangle2d {
     /// Reverse the [`WindingOrder`] of the triangle
     /// by swapping the second and third vertices
     pub fn reverse(&mut self) {
-        self.vertices.swap(1, 2)
+        self.vertices.swap(1, 2);
     }
 }
 
