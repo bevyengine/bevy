@@ -11,14 +11,10 @@ keywords = ["bevy"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.12.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.12.0", features = [
-    "bevy_reflect",
-] }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0", features = ["bevy_reflect"] }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0" }
 bevy_math = { path = "../bevy_math", version = "0.12.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
-    "bevy",
-] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = ["bevy"] }
 serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1.0"
 
