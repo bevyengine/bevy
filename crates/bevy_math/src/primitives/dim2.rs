@@ -157,10 +157,19 @@ pub struct BoxedPolyline2d {
 }
 impl Primitive2d for BoxedPolyline2d {}
 
+impl FromIterator<Vec2> for BoxedPolyline2d {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let vertices: Vec<Vec2> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
 impl BoxedPolyline2d {
-    /// Create a new `Polyline2d` from an array of vertices
-    pub fn new(vertices: Box<[Vec2]>) -> Self {
-        Self { vertices }
+    /// Create a new `BoxedPolyline2d` from an array of vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
     }
 }
 
@@ -233,10 +242,19 @@ pub struct BoxedPolygon {
 }
 impl Primitive2d for BoxedPolygon {}
 
+impl FromIterator<Vec2> for BoxedPolygon {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let vertices: Vec<Vec2> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
 impl BoxedPolygon {
     /// Create a new `BoxedPolygon` from an array of vertices
-    pub fn new(vertices: Box<[Vec2]>) -> Self {
-        Self { vertices }
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
     }
 }
 
@@ -253,7 +271,12 @@ impl Primitive2d for RegularPolygon {}
 impl RegularPolygon {
     /// Create a new `RegularPolygon`
     /// from the radius of the circumcircle and number of sides
+    ///
+    /// # Panics
+    ///
+    /// Panics if `circumcircle_radius` is non-positive
     pub fn new(circumcircle_radius: f32, sides: usize) -> Self {
+        assert!(circumcircle_radius > 0.0);
         Self {
             circumcircle: Circle {
                 radius: circumcircle_radius,

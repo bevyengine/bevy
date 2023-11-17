@@ -111,8 +111,6 @@ impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
     fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
         let mut vertices: [Vec3; N] = [Vec3::ZERO; N];
 
-        let iter = iter.into_iter().take(N);
-
         for (index, i) in iter.into_iter().take(N).enumerate() {
             vertices[index] = i;
         }
@@ -138,10 +136,19 @@ pub struct BoxedPolyline3d {
 }
 impl Primitive3d for BoxedPolyline3d {}
 
+impl FromIterator<Vec3> for BoxedPolyline3d {
+    fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
+        let vertices: Vec<Vec3> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
 impl BoxedPolyline3d {
-    /// Create a new `BoxedPolyline3d` from a list of vertices
-    pub fn new(vertices: Box<[Vec3]>) -> Self {
-        Self { vertices }
+    /// Create a new `BoxedPolyline3d` from an array of vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
+        Self::from_iter(vertices)
     }
 }
 
