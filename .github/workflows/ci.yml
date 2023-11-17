@@ -175,7 +175,6 @@ jobs:
           cargo install taplo-cli --locked
       - name: Run Taplo
         id: taplo
-        # See tools/ci/src/main.rs for the commands this runs
         run: taplo fmt --check --diff --option indent_string="    "
       - name: Taplo info
         if: steps.taplo.outcome == failure()
