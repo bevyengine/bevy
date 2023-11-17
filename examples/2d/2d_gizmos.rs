@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-
+use bevy::render::camera::ScalingMode;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -12,8 +12,20 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, asset_server: Res<AssetServer>) {
+    commands.insert_resource(MyMesh(meshes.add(shape::Cube { size: 1.0 }.into())));
+    commands.spawn(Camera2dBundle {
+        projection: OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical(1080.),
+            ..default()
+        },
+        ..default()
+    });
+
+    commands.spawn(SpriteBundle {
+        texture: asset_server.load("branding/icon.png"),
+        ..default()
+    });
     // text
     commands.spawn(TextBundle::from_section(
         "Hold 'Left' or 'Right' to change the line width",
@@ -24,8 +36,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
     ));
 }
+#[derive(Resource)]
+struct MyMesh(Handle<Mesh>);
 
-fn system(mut gizmos: Gizmos, time: Res<Time>) {
+fn system(mut gizmos: Gizmos, time: Res<Time>, mesh: Res<MyMesh>) {
+    gizmos.mesh(
+        &mesh.0,
+        Transform::from_xyz(0., 1., -50.)
+            .with_rotation(Quat::from_rotation_x(-time.elapsed_seconds()))
+            .with_scale(Vec3::splat(50.)),
+        Color::RED,
+    );
+
     let sin = time.elapsed_seconds().sin() * 50.;
     gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
     gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
