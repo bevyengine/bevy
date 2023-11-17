@@ -1188,10 +1188,7 @@ mod tests {
     #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub enum EnumTestAsset {
-        Unnamed (
-            #[dependency]
-            Handle<TestAsset>,
-        ),
+        Unnamed(#[dependency] Handle<TestAsset>),
         Named {
             #[dependency]
             handle: Handle<TestAsset>,
@@ -1200,13 +1197,10 @@ mod tests {
             #[dependency]
             embedded: TestAsset,
         },
-        StructStyle(
-            #[dependency]
-            TestAsset,
-        ),
+        StructStyle(#[dependency] TestAsset),
         Empty,
     }
-    
+
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1216,8 +1210,5 @@ mod tests {
     }
 
     #[derive(Asset, TypePath)]
-    pub struct TupleTestAsset (
-        #[dependency]
-        Handle<TestAsset>,
-    );
+    pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }
