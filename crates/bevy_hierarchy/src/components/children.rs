@@ -13,7 +13,7 @@ use std::ops::Deref;
 /// Contains references to the child entities of this entity.
 ///
 /// Each child must contain a [`Parent`] component that points back to this entity.
-/// This component rarely needed to be created manually,
+/// This component rarely needs to be created manually,
 /// consider using higher level utilities like [`BuildChildren::with_children`]
 /// which are safer and easier to use.
 ///
