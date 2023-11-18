@@ -1,7 +1,10 @@
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
 use crate::Vec3;
+
+#[allow(clippy::excessive_precision)]
+const TWO_PI_SQUARED: f32 = 19.73920880217871723766898199;
 
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -49,7 +52,7 @@ impl Sphere {
 
     /// Get the volume of the sphere
     pub fn volume(&self) -> f32 {
-        4.0 * std::f32::consts::FRAC_PI_3 * self.radius * self.radius * self.radius
+        4.0 * FRAC_PI_3 * self.radius * self.radius * self.radius
     }
 }
 
@@ -404,9 +407,9 @@ impl Primitive3d for Torus {}
 
 impl Torus {
     /// Get the minor radius of the torus.
-    /// This corresponds to half of the thickness
-    /// of the ring
-    #[doc(alias = "ring_half_thickness")]
+    /// This corresponds to the radius of the ring or tube
+    #[doc(alias = "ring_radius")]
+    #[doc(alias = "cross_section_radius")]
     pub fn minor_radius(&self) -> f32 {
         (self.outer_radius - self.inner_radius) / 2.0
     }
@@ -414,16 +417,21 @@ impl Torus {
     /// Get the major radius of the torus.
     /// This corresponds to the distance from the center
     /// of the torus to the middle of the ring
+    #[doc(alias = "radius_of_revolution")]
     pub fn major_radius(&self) -> f32 {
         self.outer_radius - self.minor_radius()
     }
-    /// Get the surface area of the torus
+
+    /// Get the surface area of the torus. Note that this only produces
+    /// the expected result when the torus has a ring and isn't self-intersecting
     pub fn area(&self) -> f32 {
-        4.0 * PI * PI * self.major_radius() * self.minor_radius()
+        2.0 * TWO_PI_SQUARED * self.major_radius() * self.minor_radius()
     }
 
-    /// Get the volume of the torus
+    /// Get the volume of the torus. Note that this only produces
+    /// the expected result when the torus has a ring and isn't self-intersecting
     pub fn volume(&self) -> f32 {
-        2.0 * PI * PI * self.major_radius() * self.minor_radius().powi(2)
+        let minor_radius = self.minor_radius();
+        TWO_PI_SQUARED * self.major_radius() * minor_radius * minor_radius
     }
 }
