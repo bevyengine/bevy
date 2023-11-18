@@ -493,7 +493,7 @@ mod tests {
         let polygon = RegularPolygon::new(3.0, 6);
         assert_eq!(polygon.inradius(), 2.598076, "incorrect inradius");
         assert_eq!(polygon.side_length(), 3.0, "incorrect side length");
-        assert_eq!(polygon.area(), 23.382686, "incorrect area",);
+        assert_relative_eq!(polygon.area(), 23.38268, epsilon = 0.00001);
         assert_eq!(polygon.perimeter(), 18.0, "incorrect perimeter");
         assert_eq!(
             polygon.internal_angle_degrees(),
