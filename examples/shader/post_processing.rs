@@ -7,7 +7,8 @@
 
 use bevy::{
     core_pipeline::{
-        clear_color::ClearColorConfig, core_3d,
+        clear_color::ClearColorConfig,
+        core_3d::{self, graph::Labels3d},
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
     ecs::query::QueryItem,
@@ -17,7 +18,7 @@ use bevy::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
         render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
+            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_resource::{
             BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
@@ -41,6 +42,9 @@ fn main() {
         .add_systems(Update, (rotate, update_settings))
         .run();
 }
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+pub struct PostProcessLabel;
 
 /// It is generally encouraged to set up post processing effects as a plugin
 struct PostProcessPlugin;
@@ -83,18 +87,18 @@ impl Plugin for PostProcessPlugin {
             .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(
                 // Specify the name of the graph, in this case we want the graph for 3d
                 core_3d::graph::NAME,
-                // It also needs the name of the node
-                PostProcessNode::NAME,
+                // It also needs the label of the node
+                PostProcessLabel,
             )
             .add_render_graph_edges(
                 core_3d::graph::NAME,
                 // Specify the node ordering.
                 // This will automatically create all required node edges to enforce the given ordering.
-                &[
-                    core_3d::graph::node::TONEMAPPING,
-                    PostProcessNode::NAME,
-                    core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                ],
+                (
+                    Labels3d::Tonemapping,
+                    PostProcessLabel,
+                    Labels3d::EndMainPassPostProcessing,
+                ),
             );
     }
 
@@ -113,9 +117,6 @@ impl Plugin for PostProcessPlugin {
 // The post process node used for the render graph
 #[derive(Default)]
 struct PostProcessNode;
-impl PostProcessNode {
-    pub const NAME: &'static str = "post_process";
-}
 
 // The ViewNode trait is required by the ViewNodeRunner
 impl ViewNode for PostProcessNode {

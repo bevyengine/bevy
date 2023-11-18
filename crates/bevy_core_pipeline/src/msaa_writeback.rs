@@ -1,7 +1,7 @@
 use crate::{
     blit::{BlitPipeline, BlitPipelineKey},
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::{graph::Labels2d, CORE_2D},
+    core_3d::{graph::Labels3d, CORE_3D},
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -30,16 +30,14 @@ impl Plugin for MsaaWritebackPlugin {
             prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
         );
         {
-            use core_2d::graph::node::*;
             render_app
-                .add_render_graph_node::<MsaaWritebackNode>(CORE_2D, MSAA_WRITEBACK)
-                .add_render_graph_edge(CORE_2D, MSAA_WRITEBACK, MAIN_PASS);
+                .add_render_graph_node::<MsaaWritebackNode>(CORE_2D, Labels2d::MsaaWriteback)
+                .add_render_graph_edge(CORE_2D, Labels2d::MsaaWriteback, Labels2d::MainPass);
         }
         {
-            use core_3d::graph::node::*;
             render_app
-                .add_render_graph_node::<MsaaWritebackNode>(CORE_3D, MSAA_WRITEBACK)
-                .add_render_graph_edge(CORE_3D, MSAA_WRITEBACK, START_MAIN_PASS);
+                .add_render_graph_node::<MsaaWritebackNode>(CORE_3D, Labels3d::MsaaWriteback)
+                .add_render_graph_edge(CORE_3D, Labels3d::MsaaWriteback, Labels3d::StartMainPass);
         }
     }
 }

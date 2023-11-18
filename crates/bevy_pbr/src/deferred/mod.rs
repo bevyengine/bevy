@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     clear_color::ClearColorConfig,
-    core_3d,
+    core_3d::{self, graph::Labels3d},
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
@@ -17,7 +17,7 @@ use bevy_render::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
     render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner},
     render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
     renderer::{RenderContext, RenderDevice},
     texture::Image,
@@ -121,15 +121,15 @@ impl Plugin for DeferredPbrLightingPlugin {
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
                 core_3d::graph::NAME,
-                DEFERRED_LIGHTING_PASS,
+                DeferredLightingPass3dNode,
             )
             .add_render_graph_edges(
                 core_3d::graph::NAME,
-                &[
-                    core_3d::graph::node::START_MAIN_PASS,
-                    DEFERRED_LIGHTING_PASS,
-                    core_3d::graph::node::MAIN_OPAQUE_PASS,
-                ],
+                (
+                    Labels3d::StartMainPass,
+                    DeferredLightingPass3dNode,
+                    Labels3d::MainOpaquePass,
+                ),
             );
     }
 
@@ -142,7 +142,9 @@ impl Plugin for DeferredPbrLightingPlugin {
     }
 }
 
-pub const DEFERRED_LIGHTING_PASS: &str = "deferred_opaque_pbr_lighting_pass_3d";
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+pub struct DeferredLightingPass3dNode;
+
 #[derive(Default)]
 pub struct DeferredOpaquePass3dPbrLightingNode;
 

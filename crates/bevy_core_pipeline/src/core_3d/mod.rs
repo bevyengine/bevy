@@ -4,29 +4,36 @@ mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
 
 pub mod graph {
+    use bevy_render::render_graph::RenderLabel;
+
     pub const NAME: &str = "core_3d";
+
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
-    pub mod node {
-        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
-        pub const PREPASS: &str = "prepass";
-        pub const DEFERRED_PREPASS: &str = "deferred_prepass";
-        pub const COPY_DEFERRED_LIGHTING_ID: &str = "copy_deferred_lighting_id";
-        pub const END_PREPASSES: &str = "end_prepasses";
-        pub const START_MAIN_PASS: &str = "start_main_pass";
-        pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
-        pub const MAIN_TRANSMISSIVE_PASS: &str = "main_transmissive_pass";
-        pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
-        pub const END_MAIN_PASS: &str = "end_main_pass";
-        pub const BLOOM: &str = "bloom";
-        pub const TONEMAPPING: &str = "tonemapping";
-        pub const FXAA: &str = "fxaa";
-        pub const UPSCALING: &str = "upscaling";
-        pub const CONTRAST_ADAPTIVE_SHARPENING: &str = "contrast_adaptive_sharpening";
-        pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum Labels3d {
+        MsaaWriteback,
+        Prepass,
+        DeferredPrepass,
+        CopyDeferredLightingId,
+        EndPrepasses,
+        StartMainPass,
+        MainOpaquePass,
+        MainTransmissivePass,
+        MainTransparentPass,
+        EndMainPass,
+        Bloom,
+        Tonemapping,
+        Fxaa,
+        Taa,
+        Upscaling,
+        ContrastAdaptiveSharpening,
+        EndMainPassPostProcessing,
     }
 }
+
 pub const CORE_3D: &str = graph::NAME;
 
 // PERF: vulkan docs recommend using 24 bit depth for better performance
@@ -77,6 +84,8 @@ use crate::{
     upscaling::UpscalingNode,
 };
 
+use self::graph::Labels3d;
+
 pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
@@ -119,52 +128,54 @@ impl Plugin for Core3dPlugin {
                 ),
             );
 
-        use graph::node::*;
         render_app
             .add_render_sub_graph(CORE_3D)
-            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, PREPASS)
+            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, Labels3d::Prepass)
             .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
                 CORE_3D,
-                DEFERRED_PREPASS,
+                Labels3d::DeferredPrepass,
             )
             .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
                 CORE_3D,
-                COPY_DEFERRED_LIGHTING_ID,
+                Labels3d::CopyDeferredLightingId,
             )
-            .add_render_graph_node::<EmptyNode>(CORE_3D, END_PREPASSES)
-            .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
+            .add_render_graph_node::<EmptyNode>(CORE_3D, Labels3d::EndPrepasses)
+            .add_render_graph_node::<EmptyNode>(CORE_3D, Labels3d::StartMainPass)
             .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
                 CORE_3D,
-                MAIN_OPAQUE_PASS,
+                Labels3d::MainOpaquePass,
             )
             .add_render_graph_node::<ViewNodeRunner<MainTransmissivePass3dNode>>(
                 CORE_3D,
-                MAIN_TRANSMISSIVE_PASS,
+                Labels3d::MainTransmissivePass,
             )
             .add_render_graph_node::<ViewNodeRunner<MainTransparentPass3dNode>>(
                 CORE_3D,
-                MAIN_TRANSPARENT_PASS,
+                Labels3d::MainTransparentPass,
             )
-            .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS)
-            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_3D, TONEMAPPING)
-            .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS_POST_PROCESSING)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_3D, UPSCALING)
+            .add_render_graph_node::<EmptyNode>(CORE_3D, Labels3d::EndMainPass)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(
+                CORE_3D,
+                Labels3d::Tonemapping,
+            )
+            .add_render_graph_node::<EmptyNode>(CORE_3D, Labels3d::EndMainPassPostProcessing)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_3D, Labels3d::Upscaling)
             .add_render_graph_edges(
                 CORE_3D,
-                &[
-                    PREPASS,
-                    DEFERRED_PREPASS,
-                    COPY_DEFERRED_LIGHTING_ID,
-                    END_PREPASSES,
-                    START_MAIN_PASS,
-                    MAIN_OPAQUE_PASS,
-                    MAIN_TRANSMISSIVE_PASS,
-                    MAIN_TRANSPARENT_PASS,
-                    END_MAIN_PASS,
-                    TONEMAPPING,
-                    END_MAIN_PASS_POST_PROCESSING,
-                    UPSCALING,
-                ],
+                (
+                    Labels3d::Prepass,
+                    Labels3d::DeferredPrepass,
+                    Labels3d::CopyDeferredLightingId,
+                    Labels3d::EndPrepasses,
+                    Labels3d::StartMainPass,
+                    Labels3d::MainOpaquePass,
+                    Labels3d::MainTransmissivePass,
+                    Labels3d::MainTransparentPass,
+                    Labels3d::EndMainPass,
+                    Labels3d::Tonemapping,
+                    Labels3d::EndMainPassPostProcessing,
+                    Labels3d::Upscaling,
+                ),
             );
     }
 }
