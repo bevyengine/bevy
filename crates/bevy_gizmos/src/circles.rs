@@ -7,7 +7,7 @@ use std::f32::consts::TAU;
 
 pub const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
-pub fn circle_inner(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
+fn circle_inner(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
     (0..segments + 1).map(move |i| {
         let angle = i as f32 * TAU / segments as f32;
         Vec2::from(angle.sin_cos()) * radius
