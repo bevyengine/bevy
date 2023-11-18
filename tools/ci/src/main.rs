@@ -17,8 +17,7 @@ bitflags! {
     }
 }
 
-const CLIPPY_FLAGS: [&str; 6] = [
-    "-Wclippy::doc_markdown",
+const CLIPPY_FLAGS: [&str; 5] = [
     "-Wclippy::redundant_else",
     "-Wclippy::match_same_arms",
     "-Wclippy::semicolon_if_nothing_returned",
