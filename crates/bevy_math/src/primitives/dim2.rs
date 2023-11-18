@@ -50,7 +50,7 @@ impl Circle {
     /// Get the perimeter or circumference of the circle
     #[doc(alias = "circumference")]
     pub fn perimeter(&self) -> f32 {
-        PI * self.radius
+        2.0 * PI * self.radius
     }
 }
 
