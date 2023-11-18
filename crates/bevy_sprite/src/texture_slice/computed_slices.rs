@@ -8,7 +8,7 @@ use bevy_render::texture::Image;
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
-/// Component storing texture slices for sprite entities with a tiled or sliced  [`SpriteScaleMode`]
+/// Component storing texture slices for sprite entities with a tiled or sliced  [`ImageScaleMode`]
 ///
 /// This component is automatically inserted and updated
 #[derive(Debug, Clone, Component)]
@@ -53,7 +53,7 @@ impl ComputedTextureSlices {
 /// will be computed according to the `image_handle` dimensions or the sprite rect.
 ///
 /// Returns `None` if either:
-/// - The scale mode is [`SpriteScaleMode::Stretched`]
+/// - The scale mode is [`ImageScaleMode::Stretched`]
 /// - The image asset is not loaded
 #[must_use]
 fn compute_sprite_slices(
