@@ -4,7 +4,7 @@ use super::Primitive2d;
 use crate::Vec2;
 
 /// A normalized vector pointing in a direction in 2D space
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Direction2d(Vec2);
 
 impl From<Vec2> for Direction2d {
@@ -29,7 +29,7 @@ impl std::ops::Deref for Direction2d {
 }
 
 /// A circle primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Circle {
     /// The radius of the circle
     pub radius: f32,
@@ -55,7 +55,7 @@ impl Circle {
 }
 
 /// An ellipse primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Ellipse {
     /// The half "width" of the ellipse
     pub half_width: f32,
@@ -101,7 +101,7 @@ impl Primitive2d for Line2d {}
 
 /// A segment of a line along a direction in 2D space.
 #[doc(alias = "LineSegment2d")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Segment2d {
     /// The direction of the line segment
     pub direction: Direction2d,
@@ -199,7 +199,7 @@ impl BoxedPolyline2d {
 }
 
 /// A triangle in 2D space
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
@@ -352,7 +352,7 @@ impl BoxedPolygon {
 }
 
 /// A polygon where all vertices lie on a circle, equally far apart
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
     pub circumcircle: Circle,

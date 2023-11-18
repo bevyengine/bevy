@@ -4,7 +4,7 @@ use super::{Circle, Primitive3d};
 use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Direction3d(Vec3);
 
 impl From<Vec3> for Direction3d {
@@ -29,7 +29,7 @@ impl std::ops::Deref for Direction3d {
 }
 
 /// A sphere primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
@@ -55,7 +55,7 @@ impl Sphere {
 
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Direction3d,
@@ -70,7 +70,7 @@ impl Plane3d {
     /// # Panics
     ///
     /// Panics if `a == b`, `b == c` or `a == c`.
-    pub fn from_points(&self, a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
+    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
         debug_assert!(a != b && b != c && a != c);
         let normal = Direction3d::from((b - a).cross(c - a));
         let translation = (a + b + c) / 3.0;
@@ -190,7 +190,7 @@ impl BoxedPolyline3d {
 }
 
 /// A cuboid primitive, more commonly known as a box.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
@@ -236,7 +236,7 @@ impl Cuboid {
 }
 
 /// A cylinder primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cylinder {
     /// The radius of the cylinder
     pub radius: f32,
@@ -286,7 +286,7 @@ impl Cylinder {
 
 /// A capsule primitive.
 /// A capsule is defined as a surface at a distance (radius) from a line
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Capsule {
     /// The radius of the capsule
     pub radius: f32,
@@ -327,7 +327,7 @@ impl Capsule {
 }
 
 /// A cone primitive.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cone {
     /// The radius of the base
     pub radius: f32,
@@ -377,7 +377,7 @@ impl Cone {
 /// A conical frustum primitive.
 /// A conical frustum can be created
 /// by slicing off a section of a cone.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ConicalFrustum {
     /// The radius of the top of the frustum
     pub radius_top: f32,
@@ -389,7 +389,7 @@ pub struct ConicalFrustum {
 impl Primitive3d for ConicalFrustum {}
 
 /// A torus (AKA donut) primitive.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Torus {
     /// The inner radius of the torus, the distance
     /// from the center to the closest edge of the ring
