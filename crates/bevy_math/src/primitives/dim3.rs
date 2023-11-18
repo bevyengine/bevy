@@ -316,13 +316,15 @@ impl Capsule {
 
     /// Get the surface area of the capsule
     pub fn area(&self) -> f32 {
-        // Simplified version of 2pi * r * (2r + h)
+        // Modified version of 2pi * r * (2r + h)
         4.0 * PI * self.radius * (self.radius + self.half_length)
     }
 
     /// Get the volume of the capsule
     pub fn volume(&self) -> f32 {
-        4.0 * std::f32::consts::FRAC_PI_3 * self.radius * self.radius * self.radius
+        // Modified version of pi * r^2 * (4/3 * r + a)
+        let diameter = self.radius * 2.0;
+        PI * self.radius * diameter * (diameter / 3.0 + self.half_length)
     }
 }
 
