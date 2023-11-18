@@ -386,11 +386,11 @@ impl RegularPolygon {
         self.circumcircle.radius
     }
 
-    /// Get the apothem or inradius of the regular polygon.
+    /// Get the inradius or apothem of the regular polygon.
     /// This is the radius of the largest circle that can
     /// be drawn within the polygon
-    #[doc(alias = "inradius")]
-    pub fn apothem(&self) -> f32 {
+    #[doc(alias = "apothem")]
+    pub fn inradius(&self) -> f32 {
         self.circumradius() * (PI / self.sides as f32).cos()
     }
 
