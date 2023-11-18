@@ -401,8 +401,9 @@ impl RegularPolygon {
 
     /// Get the area of the regular polygon
     pub fn area(&self) -> f32 {
-        let apothem = self.apothem();
-        self.sides as f32 * apothem * apothem * (PI / self.sides as f32).tan()
+        let sides = self.sides as f32;
+        let side_length = self.side_length();
+        0.25 * sides * side_length.powi(2) * (PI / sides).tan().recip()
     }
 
     /// Get the perimeter of the regular polygon.
