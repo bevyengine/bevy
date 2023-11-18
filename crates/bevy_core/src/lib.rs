@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
+
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;

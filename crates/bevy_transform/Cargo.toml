@@ -25,3 +25,6 @@ glam = { version = "0.24", features = ["approx"] }
 
 [features]
 serialize = ["dep:serde", "bevy_math/serialize"]
+
+[lints]
+workspace = true

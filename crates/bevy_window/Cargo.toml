@@ -28,3 +28,6 @@ raw-window-handle = "0.5"
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
+
+[lints]
+workspace = true

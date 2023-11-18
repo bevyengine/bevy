@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![allow(clippy::all)]
 
 use glam::{Vec2, Vec3};

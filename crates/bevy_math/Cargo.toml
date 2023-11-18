@@ -20,3 +20,6 @@ mint = ["glam/mint"]
 glam_assert = ["glam/glam-assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["glam/debug-glam-assert"]
+
+[lints]
+workspace = true

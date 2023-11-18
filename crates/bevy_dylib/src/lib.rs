@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![allow(clippy::single_component_path_imports)]
 
 //! Forces dynamic linking of Bevy.

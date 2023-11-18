@@ -32,3 +32,5 @@ downcast-rs = "1.2.0"
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [ "Window" ] }
 
+[lints]
+workspace = true

@@ -35,3 +35,6 @@ radsort = "0.1"
 naga_oil = "0.10"
 smallvec = "1.6"
 thread_local = "1.0"
+
+[lints]
+workspace = true

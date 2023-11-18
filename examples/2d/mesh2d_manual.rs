@@ -5,8 +5,6 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
-#![allow(clippy::type_complexity)]
-
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     prelude::*,
