@@ -60,20 +60,18 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     as_bind_group::derive_as_bind_group(input).unwrap_or_else(|err| err.to_compile_error().into())
 }
 
-/// Derive macro generating an impl of the trait `RenderGraphLabel`.
+/// Derive macro generating an impl of the trait `RenderNode`.
 ///
 /// This does not work for unions.
-#[proc_macro_derive(RenderGraphLabel)]
-pub fn derive_render_graph_label(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(RenderNode)]
+pub fn derive_render_node(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_render_path();
     trait_path
         .segments
         .push(format_ident!("render_graph").into());
     let mut dyn_eq_path = trait_path.clone();
-    trait_path
-        .segments
-        .push(format_ident!("RenderGraphLabel").into());
+    trait_path.segments.push(format_ident!("RenderNode").into());
     dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "RenderGraphLabel", &trait_path, &dyn_eq_path)
+    derive_label(input, "RenderNode", &trait_path, &dyn_eq_path)
 }

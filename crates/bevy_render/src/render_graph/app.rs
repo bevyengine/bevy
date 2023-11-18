@@ -2,7 +2,7 @@ use bevy_app::App;
 use bevy_ecs::world::FromWorld;
 use bevy_log::warn;
 
-use super::{IntoRGLabelArray, Node, RenderGraph, RenderGraphLabel};
+use super::{IntoRenderNodeArray, Node, RenderGraph, RenderNode};
 
 /// Adds common [`RenderGraph`] operations to [`App`].
 pub trait RenderGraphApp {
@@ -14,21 +14,21 @@ pub trait RenderGraphApp {
     fn add_render_graph_node<T: Node + FromWorld>(
         &mut self,
         sub_graph_name: &'static str,
-        node_label: impl RenderGraphLabel,
+        node_label: impl RenderNode,
     ) -> &mut Self;
     /// Automatically add the required node edges based on the given ordering
     fn add_render_graph_edges<const N: usize>(
         &mut self,
         sub_graph_name: &'static str,
-        edges: impl IntoRGLabelArray<N>,
+        edges: impl IntoRenderNodeArray<N>,
     ) -> &mut Self;
 
     /// Add node edge to the specified graph
     fn add_render_graph_edge(
         &mut self,
         sub_graph_name: &'static str,
-        output_node: impl RenderGraphLabel,
-        input_node: impl RenderGraphLabel,
+        output_node: impl RenderNode,
+        input_node: impl RenderNode,
     ) -> &mut Self;
 }
 
@@ -36,7 +36,7 @@ impl RenderGraphApp for App {
     fn add_render_graph_node<T: Node + FromWorld>(
         &mut self,
         sub_graph_name: &'static str,
-        node_label: impl RenderGraphLabel,
+        node_label: impl RenderNode,
     ) -> &mut Self {
         let node = T::from_world(&mut self.world);
         let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
@@ -53,7 +53,7 @@ impl RenderGraphApp for App {
     fn add_render_graph_edges<const N: usize>(
         &mut self,
         sub_graph_name: &'static str,
-        edges: impl IntoRGLabelArray<N>,
+        edges: impl IntoRenderNodeArray<N>,
     ) -> &mut Self {
         let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
             "RenderGraph not found. Make sure you are using add_render_graph_edges on the RenderApp",
@@ -69,8 +69,8 @@ impl RenderGraphApp for App {
     fn add_render_graph_edge(
         &mut self,
         sub_graph_name: &'static str,
-        output_node: impl RenderGraphLabel,
-        input_node: impl RenderGraphLabel,
+        output_node: impl RenderNode,
+        input_node: impl RenderNode,
     ) -> &mut Self {
         let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
             "RenderGraph not found. Make sure you are using add_render_graph_edge on the RenderApp",

@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     render_graph::{
-        Edge, InternedRGLabel, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext,
+        Edge, InternedRenderNode, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext,
         SlotLabel, SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},
@@ -45,7 +45,7 @@ pub enum RenderGraphRunnerError {
         "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
     )]
     MismatchedInputCount {
-        node_name: InternedRGLabel,
+        node_name: InternedRenderNode,
         slot_count: usize,
         value_count: usize,
     },

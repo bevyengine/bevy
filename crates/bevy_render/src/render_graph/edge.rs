@@ -1,4 +1,4 @@
-use super::InternedRGLabel;
+use super::InternedRenderNode;
 
 /// An edge, which connects two [`Nodes`](super::Node) in
 /// a [`RenderGraph`](crate::render_graph::RenderGraph).
@@ -22,28 +22,28 @@ pub enum Edge {
     /// and connecting the output slot at the `output_index` of the output_node
     /// with the slot at the `input_index` of the `input_node`.
     SlotEdge {
-        input_node: InternedRGLabel,
+        input_node: InternedRenderNode,
         input_index: usize,
-        output_node: InternedRGLabel,
+        output_node: InternedRenderNode,
         output_index: usize,
     },
     /// An edge describing to ordering of both nodes (`output_node` before `input_node`).
     NodeEdge {
-        input_node: InternedRGLabel,
-        output_node: InternedRGLabel,
+        input_node: InternedRenderNode,
+        output_node: InternedRenderNode,
     },
 }
 
 impl Edge {
     /// Returns the id of the `input_node`.
-    pub fn get_input_node(&self) -> InternedRGLabel {
+    pub fn get_input_node(&self) -> InternedRenderNode {
         match self {
             Edge::SlotEdge { input_node, .. } | Edge::NodeEdge { input_node, .. } => *input_node,
         }
     }
 
     /// Returns the id of the `output_node`.
-    pub fn get_output_node(&self) -> InternedRGLabel {
+    pub fn get_output_node(&self) -> InternedRenderNode {
         match self {
             Edge::SlotEdge { output_node, .. } | Edge::NodeEdge { output_node, .. } => *output_node,
         }
