@@ -980,7 +980,7 @@ fn culling_second_bind_group_layout_entries() -> [BindGroupLayoutEntry; 13] {
         BindGroupLayoutEntry {
             binding: 12,
             visibility: ShaderStages::COMPUTE,
-            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
             count: None,
         },
     ]

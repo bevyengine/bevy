@@ -11,6 +11,9 @@
     meshlet_bounding_spheres,
     view,
 }
+#ifdef MESHLET_SECOND_CULLING_PASS
+#import bevy_pbr::meshlet_bindings::{depth_pyramid, depth_pyramid_sampler}
+#endif
 #import bevy_render::maths::affine_to_square
 
 @compute
@@ -24,6 +27,8 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let model = affine_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
+    let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
+    let bounding_sphere_radius = model_scale * -bounding_sphere.radius;
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     var meshlet_visible = true;
@@ -33,15 +38,24 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 #endif
 
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
-    let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
-    let bounding_sphere_radius = model_scale * -bounding_sphere.radius;
     for (var i = 0u; i < 6u; i++) {
         meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > bounding_sphere_radius;
         if !meshlet_visible { break; }
     }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
-    // TODO: Occlusion culling
+    var aabb: vec4<f32>;
+    if project_sphere(bounding_sphere_center.xyz, bounding_sphere_radius, &aabb) {
+        let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
+        let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
+        let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
+        let level = floor(log2(max(width, height)));
+
+        let depth = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, (aabb.xy + aabb.zw) * 0.5, level).x;
+        let sphere_depth = view.projection[3][2] / (bounding_sphere_center.z - bounding_sphere_radius);
+
+        meshlet_visible &= sphere_depth >= depth;
+    }
 #endif
 
     if meshlet_visible {
@@ -56,4 +70,32 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 #ifdef MESHLET_SECOND_CULLING_PASS
     meshlet_occlusion[thread_id.x] = u32(meshlet_visible);
 #endif
+}
+
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere
+// https://jcgt.org/published/0002/02/05/paper.pdf
+fn project_sphere(c: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>) -> bool {
+    if c.z < r + view.projection[3][2] {
+        return false;
+    }
+
+    let cr = c * r;
+    let czr2 = c.x * c.z -r * r;
+
+    let vx = sqrt(c.x * c.x + czr2);
+    let min_x = (vx * c.x - cr.z) / (vx * c.z + cr.x);
+    let max_x = (vx * c.x + cr.z) / (vx * c.z - cr.x);
+
+	let vy = sqrt(c.y * c.y + czr2);
+	let min_y = (vy * c.y - cr.z) / (vy * c.z + cr.y);
+	let max_y = (vy * c.y + cr.z) / (vy * c.z - cr.y);
+
+    let p00 = view.projection[0][0];
+    let p11 = view.projection[1][1];
+
+    var aabb = vec4(min_x * p00, min_y * p11, max_x * p00, max_y * p11);
+    aabb = aabb.xwzy * vec4(0.5, -0.5, 0.5, -0.5) + vec4(0.5);
+
+    *aabb_out = aabb;
+    return true;
 }
