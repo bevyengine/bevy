@@ -193,7 +193,12 @@ fn insert_reflect(
     let Some(mut entity) = world.get_entity_mut(entity) else {
         panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {entity:?} because it doesn't exist in this World.", component.reflect_type_path());
     };
-    let Some(type_registration) = type_registry.get_with_type_path(type_info) else {
+    let Some(type_registration) = type_registry.get_with_type_path(type_info).or_else(|| {
+        let Some(component_type) = component.get_represented_type_info() else {
+            panic!("Could not get type information for component type {} because it doesn't represent any type.", component.reflect_type_path());
+        };
+        type_registry.get_with_type_path(component_type.type_path())
+    }) else {
         panic!("Could not get type registration (for component type {}) because it doesn't exist in the TypeRegistry.", component.reflect_type_path());
     };
     let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
@@ -346,17 +351,22 @@ mod tests {
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands.spawn_empty().id();
+        let entity2 = commands.spawn_empty().id();
 
         let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
+        let boxed_reflect_component_a_clone = boxed_reflect_component_a.clone_value();
 
         commands
             .entity(entity)
             .insert_reflect(boxed_reflect_component_a);
+        commands
+            .entity(entity2)
+            .insert_reflect(boxed_reflect_component_a_clone);
         system_state.apply(&mut world);
 
         assert_eq!(
             world.entity(entity).get::<ComponentA>(),
-            Some(&ComponentA(916))
+            world.entity(entity2).get::<ComponentA>()
         );
     }
 
