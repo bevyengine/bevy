@@ -455,15 +455,15 @@ mod tests {
     #[test]
     fn circle_math() {
         let circle = Circle { radius: 3.0 };
-        assert_eq!(circle.diameter(), 6.0);
-        assert_relative_eq!(circle.area(), 28.274334);
-        assert_relative_eq!(circle.perimeter(), 18.849556);
+        assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
+        assert_eq!(circle.area(), 28.274334, "incorrect area");
+        assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
     }
 
     #[test]
     fn ellipse_math() {
         let ellipse = Ellipse::new(6.0, 2.0);
-        assert_relative_eq!(ellipse.area(), 9.424778);
+        assert_eq!(ellipse.area(), 9.424778, "incorrect area");
     }
 
     #[test]
@@ -473,8 +473,8 @@ mod tests {
             Vec2::new(1.0, 4.0),
             Vec2::new(7.0, 0.0),
         );
-        assert_relative_eq!(triangle.perimeter(), 22.097439);
-        assert_relative_eq!(triangle.area(), 21.0);
+        assert_eq!(triangle.area(), 21.0, "incorrect area");
+        assert_eq!(triangle.perimeter(), 22.097439, "incorrect perimeter");
     }
 
     #[test]
@@ -484,8 +484,8 @@ mod tests {
             rectangle,
             Rectangle::from_corners(Vec2::new(-1.5, -3.5), Vec2::new(1.5, 3.5))
         );
-        assert_eq!(rectangle.area(), 21.0);
-        assert_eq!(rectangle.perimeter(), 20.0);
+        assert_eq!(rectangle.area(), 21.0, "incorrect area");
+        assert_eq!(rectangle.perimeter(), 20.0, "incorrect perimeter");
     }
 
     #[test]
@@ -500,8 +500,20 @@ mod tests {
             120.0,
             "incorrect internal angle"
         );
-        assert_eq!(polygon.internal_angle_radians(), 120_f32.to_radians());
-        assert_eq!(polygon.external_angle_degrees(), 60.0);
-        assert_eq!(polygon.external_angle_radians(), 60_f32.to_radians());
+        assert_eq!(
+            polygon.internal_angle_radians(),
+            120_f32.to_radians(),
+            "incorrect internal angle"
+        );
+        assert_eq!(
+            polygon.external_angle_degrees(),
+            60.0,
+            "incorrect external angle"
+        );
+        assert_eq!(
+            polygon.external_angle_radians(),
+            60_f32.to_radians(),
+            "incorrect external angle"
+        );
     }
 }
