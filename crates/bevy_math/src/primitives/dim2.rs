@@ -217,7 +217,7 @@ impl Triangle2d {
     /// Get the area of the triangle
     pub fn area(&self) -> f32 {
         let [a, b, c] = self.vertices;
-        0.5 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y))
+        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
     }
 
     /// Get the perimeter of the triangle
@@ -236,7 +236,7 @@ impl Triangle2d {
 
 /// A rectangle primitive
 #[doc(alias = "Quad")]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rectangle {
     /// The half width of the rectangle
     pub half_width: f32,
@@ -442,5 +442,66 @@ impl RegularPolygon {
     /// within the angle being in the exterior of the polygon
     pub fn external_angle_radians(&self) -> f32 {
         2.0 * PI / self.sides as f32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Reference values were computed by hand and/or with external tools
+
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn circle_math() {
+        let circle = Circle { radius: 3.0 };
+        assert_eq!(circle.diameter(), 6.0);
+        assert_relative_eq!(circle.area(), 28.274334);
+        assert_relative_eq!(circle.perimeter(), 18.849556);
+    }
+
+    #[test]
+    fn ellipse_math() {
+        let ellipse = Ellipse::new(6.0, 2.0);
+        assert_relative_eq!(ellipse.area(), 9.424778);
+    }
+
+    #[test]
+    fn triangle_math() {
+        let triangle = Triangle2d::new(
+            Vec2::new(-2.0, -1.0),
+            Vec2::new(1.0, 4.0),
+            Vec2::new(7.0, 0.0),
+        );
+        assert_relative_eq!(triangle.perimeter(), 22.097439);
+        assert_relative_eq!(triangle.area(), 21.0);
+    }
+
+    #[test]
+    fn rectangle_math() {
+        let rectangle = Rectangle::new(3.0, 7.0);
+        assert_eq!(
+            rectangle,
+            Rectangle::from_corners(Vec2::new(-1.5, -3.5), Vec2::new(1.5, 3.5))
+        );
+        assert_eq!(rectangle.area(), 21.0);
+        assert_eq!(rectangle.perimeter(), 20.0);
+    }
+
+    #[test]
+    fn regular_polygon_math() {
+        let polygon = RegularPolygon::new(3.0, 6);
+        assert_eq!(polygon.inradius(), 2.598076, "incorrect inradius");
+        assert_eq!(polygon.side_length(), 3.0, "incorrect side length");
+        assert_eq!(polygon.area(), 23.382686, "incorrect area",);
+        assert_eq!(polygon.perimeter(), 18.0, "incorrect perimeter");
+        assert_eq!(
+            polygon.internal_angle_degrees(),
+            120.0,
+            "incorrect internal angle"
+        );
+        assert_eq!(polygon.internal_angle_radians(), 120_f32.to_radians());
+        assert_eq!(polygon.external_angle_degrees(), 60.0);
+        assert_eq!(polygon.external_angle_radians(), 60_f32.to_radians());
     }
 }

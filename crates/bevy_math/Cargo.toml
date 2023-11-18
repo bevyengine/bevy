@@ -12,6 +12,9 @@ keywords = ["bevy"]
 glam = { version = "0.24.1", features = ["bytemuck"] }
 serde = { version = "1", features = ["derive"], optional = true }
 
+[dev-dependencies]
+approx = "0.5"
+
 [features]
 serialize = ["dep:serde", "glam/serde"]
 # Enable interoperation of glam types with mint-compatible libraries
