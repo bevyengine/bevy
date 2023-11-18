@@ -435,3 +435,98 @@ impl Torus {
         TWO_PI_SQUARED * self.major_radius() * minor_radius * minor_radius
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // Reference values were computed by hand and/or with external tools
+
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn sphere_math() {
+        let sphere = Sphere { radius: 4.0 };
+        assert_eq!(sphere.diameter(), 8.0, "incorrect diameter");
+        assert_eq!(sphere.area(), 201.06193, "incorrect area");
+        assert_eq!(sphere.volume(), 268.08257, "incorrect volume");
+    }
+
+    #[test]
+    fn plane_from_points() {
+        let (plane, translation) = Plane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+        assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
+        assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
+    }
+
+    #[test]
+    fn cuboid_math() {
+        let cuboid = Cuboid::new(3.0, 7.0, 2.0);
+        assert_eq!(
+            cuboid,
+            Cuboid::from_corners(Vec3::new(-1.5, -3.5, -1.0), Vec3::new(1.5, 3.5, 1.0)),
+            "incorrect dimensions when created from corners"
+        );
+        assert_eq!(cuboid.area(), 82.0, "incorrect area");
+        assert_eq!(cuboid.volume(), 42.0, "incorrect volume");
+    }
+
+    #[test]
+    fn cylinder_math() {
+        let cylinder = Cylinder::new(2.0, 9.0);
+        assert_eq!(
+            cylinder.base(),
+            Circle { radius: 2.0 },
+            "base produces incorrect circle"
+        );
+        assert_eq!(
+            cylinder.lateral_area(),
+            113.097336,
+            "incorrect lateral area"
+        );
+        assert_eq!(cylinder.base_area(), 12.566371, "incorrect base area");
+        assert_relative_eq!(cylinder.area(), 138.23007);
+        assert_eq!(cylinder.volume(), 113.097336, "incorrect volume");
+    }
+
+    #[test]
+    fn capsule_math() {
+        let capsule = Capsule::new(2.0, 9.0);
+        assert_eq!(
+            capsule.to_cylinder(),
+            Cylinder::new(2.0, 9.0),
+            "cylinder wasn't created correctly from a capsule"
+        );
+        assert_eq!(capsule.area(), 163.36282, "incorrect area");
+        assert_relative_eq!(capsule.volume(), 146.60765);
+    }
+
+    #[test]
+    fn cone_math() {
+        let cone = Cone {
+            radius: 2.0,
+            height: 9.0,
+        };
+        assert_eq!(
+            cone.base(),
+            Circle { radius: 2.0 },
+            "base produces incorrect circle"
+        );
+        assert_eq!(cone.slant_height(), 9.219544, "incorrect slant height");
+        assert_eq!(cone.lateral_area(), 57.92811, "incorrect lateral area");
+        assert_eq!(cone.base_area(), 12.566371, "incorrect base area");
+        assert_relative_eq!(cone.area(), 70.49447);
+        assert_eq!(cone.volume(), 37.699111, "incorrect volume");
+    }
+
+    #[test]
+    fn torus_math() {
+        let torus = Torus {
+            inner_radius: 2.5,
+            outer_radius: 3.1,
+        };
+        assert_relative_eq!(torus.minor_radius(), 0.3);
+        assert_eq!(torus.major_radius(), 2.8);
+        assert_relative_eq!(torus.area(), 33.16187);
+        assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+}
