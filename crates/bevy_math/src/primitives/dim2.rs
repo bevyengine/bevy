@@ -214,6 +214,12 @@ impl Triangle2d {
         }
     }
 
+    /// Get the area of the triangle
+    pub fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        0.5 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y))
+    }
+
     /// Get the perimeter of the triangle
     pub fn perimeter(&self) -> f32 {
         let [a, b, c] = self.vertices;
@@ -225,12 +231,6 @@ impl Triangle2d {
         debug_assert!(self.area() != 0.0, "triangle has no area");
 
         ab + bc + ca
-    }
-
-    /// Get the area of the triangle
-    pub fn area(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        0.5 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y))
     }
 }
 
