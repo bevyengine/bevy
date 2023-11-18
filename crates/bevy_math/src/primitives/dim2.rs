@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use super::Primitive2d;
 use crate::Vec2;
 
@@ -34,6 +36,24 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+impl Circle {
+    /// Get the diameter of the circle
+    pub fn diameter(&self) -> f32 {
+        2.0 * self.radius
+    }
+
+    /// Get the area of the circle
+    pub fn area(&self) -> f32 {
+        PI * self.radius * self.radius
+    }
+
+    /// Get the perimeter or circumference of the circle
+    #[doc(alias = "circumference")]
+    pub fn perimeter(&self) -> f32 {
+        PI * self.radius
+    }
+}
+
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
@@ -51,6 +71,11 @@ impl Ellipse {
             half_width: width / 2.0,
             half_height: height / 2.0,
         }
+    }
+
+    /// Get the area of the ellipse
+    pub fn area(&self) -> f32 {
+        PI * self.half_width * self.half_height
     }
 }
 
@@ -188,6 +213,29 @@ impl Triangle2d {
             vertices: [a, b, c],
         }
     }
+
+    /// Get the perimeter of the triangle
+    pub fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+
+        let ab = a.distance(b);
+        let bc = b.distance(c);
+        let ca = c.distance(a);
+
+        // Should we also check if the triangle has a non-zero area?
+        debug_assert!(
+            ab != 0.0 && bc != 0.0 && ca != 0.0,
+            "triangle side has a length of 0.0"
+        );
+
+        ab + bc + ca
+    }
+
+    /// Get the area of the triangle
+    pub fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        0.5 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y))
+    }
 }
 
 /// A rectangle primitive
@@ -202,17 +250,53 @@ pub struct Rectangle {
 impl Primitive2d for Rectangle {}
 
 impl Rectangle {
-    /// Create a rectangle from a full width and height
+    /// Create a new `Rectangle` from a full width and height
     pub fn new(width: f32, height: f32) -> Self {
-        Self::from_size(Vec2::new(width, height))
+        Self {
+            half_width: width / 2.0,
+            half_height: height / 2.0,
+        }
     }
 
-    /// Create a rectangle from a given full size
+    /// Create a new `Rectangle` from a given full size
     pub fn from_size(size: Vec2) -> Self {
+        Self::from_half_size(size / 2.0)
+    }
+
+    /// Create a new `Rectangle` from a given half-size
+    pub fn from_half_size(half_size: Vec2) -> Self {
         Self {
-            half_width: size.x / 2.,
-            half_height: size.y / 2.,
+            half_width: half_size.x,
+            half_height: half_size.y,
         }
+    }
+
+    /// Create a new `Rectangle` from two corner points
+    pub fn from_corners(point1: Vec2, point2: Vec2) -> Self {
+        Self {
+            half_width: 0.5 * (point2.x - point1.x).abs(),
+            half_height: 0.5 * (point2.y - point1.y).abs(),
+        }
+    }
+
+    /// Get the size of the rectangle
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(2.0 * self.half_width, 2.0 * self.half_height)
+    }
+
+    /// Get the half-size of the rectangle
+    pub fn half_size(&self) -> Vec2 {
+        Vec2::new(self.half_width, self.half_height)
+    }
+
+    /// Get the area of the rectangle
+    pub fn area(&self) -> f32 {
+        4.0 * self.half_width * self.half_height
+    }
+
+    /// Get the perimeter of the rectangle
+    pub fn perimeter(&self) -> f32 {
+        4.0 * (self.half_width + self.half_height)
     }
 }
 
@@ -287,14 +371,79 @@ impl RegularPolygon {
     ///
     /// # Panics
     ///
-    /// Panics if `circumcircle_radius` is non-positive
-    pub fn new(circumcircle_radius: f32, sides: usize) -> Self {
-        assert!(circumcircle_radius > 0.0);
+    /// Panics if `circumradius` is non-positive
+    pub fn new(circumradius: f32, sides: usize) -> Self {
+        assert!(circumradius > 0.0, "polygon has a non-positive radius");
+        assert!(sides > 2, "polygon has less than 3 sides");
+
         Self {
             circumcircle: Circle {
-                radius: circumcircle_radius,
+                radius: circumradius,
             },
             sides,
         }
+    }
+
+    /// Get the radius of the circumcircle on which all vertices
+    /// of the regular polygon lie
+    pub fn circumradius(&self) -> f32 {
+        self.circumcircle.radius
+    }
+
+    /// Get the apothem or inradius of the regular polygon.
+    /// This is the radius of the largest circle that can
+    /// be drawn within the polygon
+    #[doc(alias = "inradius")]
+    pub fn apothem(&self) -> f32 {
+        self.circumradius() * (PI / self.sides as f32).cos()
+    }
+
+    /// Get the length of one side of the regular polygon
+    pub fn side_length(&self) -> f32 {
+        2.0 * self.circumradius() * (PI / self.sides as f32).sin()
+    }
+
+    /// Get the area of the regular polygon
+    pub fn area(&self) -> f32 {
+        let apothem = self.apothem();
+        self.sides as f32 * apothem * apothem * (PI / self.sides as f32).tan()
+    }
+
+    /// Get the perimeter of the regular polygon.
+    /// This is the sum of its sides
+    pub fn perimeter(&self) -> f32 {
+        self.sides as f32 * self.side_length()
+    }
+
+    /// Get the internal angle of the regular polygon in degrees.
+    ///
+    /// This is the angle formed by two adjacent sides with points
+    /// within the angle being in the interior of the polygon
+    pub fn internal_angle_degrees(&self) -> f32 {
+        (self.sides - 2) as f32 / self.sides as f32 * 180.0
+    }
+
+    /// Get the internal angle of the regular polygon in radians.
+    ///
+    /// This is the angle formed by two adjacent sides with points
+    /// within the angle being in the interior of the polygon
+    pub fn internal_angle_radians(&self) -> f32 {
+        (self.sides - 2) as f32 * PI / self.sides as f32
+    }
+
+    /// Get the external angle of the regular polygon in degrees.
+    ///
+    /// This is the angle formed by two adjacent sides with points
+    /// within the angle being in the exterior of the polygon
+    pub fn external_angle_degrees(&self) -> f32 {
+        360.0 / self.sides as f32
+    }
+
+    /// Get the external angle of the regular polygon in radians.
+    ///
+    /// This is the angle formed by two adjacent sides with points
+    /// within the angle being in the exterior of the polygon
+    pub fn external_angle_radians(&self) -> f32 {
+        2.0 * PI / self.sides as f32
     }
 }
