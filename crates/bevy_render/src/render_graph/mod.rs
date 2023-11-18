@@ -17,7 +17,7 @@ use thiserror::Error;
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum RenderGraphError {
     #[error("node {0:?} does not exist")]
-    InvalidNode(InternedRenderNode),
+    InvalidNode(InternedRenderLabel),
     #[error("output node slot does not exist")]
     InvalidOutputNodeSlot(SlotLabel),
     #[error("input node slot does not exist")]
@@ -26,9 +26,9 @@ pub enum RenderGraphError {
     WrongNodeType,
     #[error("attempted to connect output slot {output_slot} from node {output_node:?} to incompatible input slot {input_slot} from node {input_node:?}")]
     MismatchedNodeSlots {
-        output_node: InternedRenderNode,
+        output_node: InternedRenderLabel,
         output_slot: usize,
-        input_node: InternedRenderNode,
+        input_node: InternedRenderLabel,
         input_slot: usize,
     },
     #[error("attempted to add an edge that already exists")]
@@ -37,18 +37,18 @@ pub enum RenderGraphError {
     EdgeDoesNotExist(Edge),
     #[error("node {node:?} has an unconnected input slot {input_slot}")]
     UnconnectedNodeInputSlot {
-        node: InternedRenderNode,
+        node: InternedRenderLabel,
         input_slot: usize,
     },
     #[error("node {node:?} has an unconnected output slot {output_slot}")]
     UnconnectedNodeOutputSlot {
-        node: InternedRenderNode,
+        node: InternedRenderLabel,
         output_slot: usize,
     },
     #[error("node {node:?} input slot {input_slot} already occupied by {occupied_by_node:?}")]
     NodeInputSlotAlreadyOccupied {
-        node: InternedRenderNode,
+        node: InternedRenderLabel,
         input_slot: usize,
-        occupied_by_node: InternedRenderNode,
+        occupied_by_node: InternedRenderLabel,
     },
 }

@@ -208,9 +208,9 @@ impl DerefMut for MainWorld {
 
 pub mod main_graph {
     pub mod node {
-        use bevy_render_macros::RenderNode;
+        use crate::render_graph::RenderLabel;
 
-        #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderNode)]
+        #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
         pub struct CameraDriver;
     }
 }

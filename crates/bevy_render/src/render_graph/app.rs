@@ -2,7 +2,7 @@ use bevy_app::App;
 use bevy_ecs::world::FromWorld;
 use bevy_log::warn;
 
-use super::{IntoRenderNodeArray, Node, RenderGraph, RenderNode};
+use super::{IntoRenderNodeArray, Node, RenderGraph, RenderLabel};
 
 /// Adds common [`RenderGraph`] operations to [`App`].
 pub trait RenderGraphApp {
@@ -14,7 +14,7 @@ pub trait RenderGraphApp {
     fn add_render_graph_node<T: Node + FromWorld>(
         &mut self,
         sub_graph_name: &'static str,
-        node_label: impl RenderNode,
+        node_label: impl RenderLabel,
     ) -> &mut Self;
     /// Automatically add the required node edges based on the given ordering
     fn add_render_graph_edges<const N: usize>(
@@ -27,8 +27,8 @@ pub trait RenderGraphApp {
     fn add_render_graph_edge(
         &mut self,
         sub_graph_name: &'static str,
-        output_node: impl RenderNode,
-        input_node: impl RenderNode,
+        output_node: impl RenderLabel,
+        input_node: impl RenderLabel,
     ) -> &mut Self;
 }
 
@@ -36,7 +36,7 @@ impl RenderGraphApp for App {
     fn add_render_graph_node<T: Node + FromWorld>(
         &mut self,
         sub_graph_name: &'static str,
-        node_label: impl RenderNode,
+        node_label: impl RenderLabel,
     ) -> &mut Self {
         let node = T::from_world(&mut self.world);
         let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
@@ -69,8 +69,8 @@ impl RenderGraphApp for App {
     fn add_render_graph_edge(
         &mut self,
         sub_graph_name: &'static str,
-        output_node: impl RenderNode,
-        input_node: impl RenderNode,
+        output_node: impl RenderLabel,
+        input_node: impl RenderLabel,
     ) -> &mut Self {
         let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
             "RenderGraph not found. Make sure you are using add_render_graph_edge on the RenderApp",

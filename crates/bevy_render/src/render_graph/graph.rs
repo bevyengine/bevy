@@ -1,16 +1,15 @@
 use crate::{
     render_graph::{
         Edge, Node, NodeId, NodeRunError, NodeState, RenderGraphContext, RenderGraphError,
-        RenderNode, SlotInfo, SlotLabel,
+        RenderLabel, SlotInfo, SlotLabel,
     },
     renderer::RenderContext,
 };
 use bevy_ecs::{prelude::World, system::Resource};
-use bevy_render_macros::RenderNode;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
-use super::{EdgeExistence, InternedRenderNode, IntoRenderNodeArray};
+use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
 
 /// The render graph configures the modular, parallel and re-usable render logic.
 /// It is a retained and stateless (nodes themselves may have their own internal state) structure,
@@ -51,12 +50,12 @@ use super::{EdgeExistence, InternedRenderNode, IntoRenderNodeArray};
 /// ```
 #[derive(Resource, Default)]
 pub struct RenderGraph {
-    nodes: HashMap<InternedRenderNode, NodeState>,
+    nodes: HashMap<InternedRenderLabel, NodeState>,
     sub_graphs: HashMap<Cow<'static, str>, RenderGraph>,
 }
 
 /// The label for the input node of a graph. Used to connect other nodes to it.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderNode)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
 pub struct GraphInput;
 
 impl RenderGraph {
@@ -110,7 +109,7 @@ impl RenderGraph {
 
     /// Adds the `node` with the `label` to the graph.
     /// If the label is already present replaces it instead.
-    pub fn add_node<T>(&mut self, label: impl RenderNode, node: T) -> NodeId
+    pub fn add_node<T>(&mut self, label: impl RenderLabel, node: T) -> NodeId
     where
         T: Node,
     {
@@ -143,7 +142,7 @@ impl RenderGraph {
 
     /// Removes the `node` with the `label` from the graph.
     /// If the label does not exist, nothing happens.
-    pub fn remove_node(&mut self, label: impl RenderNode) -> Result<(), RenderGraphError> {
+    pub fn remove_node(&mut self, label: impl RenderLabel) -> Result<(), RenderGraphError> {
         let label = label.intern();
         if let Some(node_state) = self.nodes.remove(&label) {
             // Remove all edges from other nodes to this one. Note that as we're removing this
@@ -187,7 +186,7 @@ impl RenderGraph {
     }
 
     /// Retrieves the [`NodeState`] referenced by the `label`.
-    pub fn get_node_state(&self, label: impl RenderNode) -> Result<&NodeState, RenderGraphError> {
+    pub fn get_node_state(&self, label: impl RenderLabel) -> Result<&NodeState, RenderGraphError> {
         let label = label.intern();
         self.nodes
             .get(&label)
@@ -197,7 +196,7 @@ impl RenderGraph {
     /// Retrieves the [`NodeState`] referenced by the `label` mutably.
     pub fn get_node_state_mut(
         &mut self,
-        label: impl RenderNode,
+        label: impl RenderLabel,
     ) -> Result<&mut NodeState, RenderGraphError> {
         let label = label.intern();
         self.nodes
@@ -206,7 +205,7 @@ impl RenderGraph {
     }
 
     /// Retrieves the [`Node`] referenced by the `label`.
-    pub fn get_node<T>(&self, label: impl RenderNode) -> Result<&T, RenderGraphError>
+    pub fn get_node<T>(&self, label: impl RenderLabel) -> Result<&T, RenderGraphError>
     where
         T: Node,
     {
@@ -214,7 +213,7 @@ impl RenderGraph {
     }
 
     /// Retrieves the [`Node`] referenced by the `label` mutably.
-    pub fn get_node_mut<T>(&mut self, label: impl RenderNode) -> Result<&mut T, RenderGraphError>
+    pub fn get_node_mut<T>(&mut self, label: impl RenderLabel) -> Result<&mut T, RenderGraphError>
     where
         T: Node,
     {
@@ -231,9 +230,9 @@ impl RenderGraph {
     /// - [`add_slot_edge`](Self::add_slot_edge) for an infallible version.
     pub fn try_add_slot_edge(
         &mut self,
-        output_node: impl RenderNode,
+        output_node: impl RenderLabel,
         output_slot: impl Into<SlotLabel>,
-        input_node: impl RenderNode,
+        input_node: impl RenderLabel,
         input_slot: impl Into<SlotLabel>,
     ) -> Result<(), RenderGraphError> {
         let output_slot = output_slot.into();
@@ -284,9 +283,9 @@ impl RenderGraph {
     /// - [`try_add_slot_edge`](Self::try_add_slot_edge) for a fallible version.
     pub fn add_slot_edge(
         &mut self,
-        output_node: impl RenderNode,
+        output_node: impl RenderLabel,
         output_slot: impl Into<SlotLabel>,
-        input_node: impl RenderNode,
+        input_node: impl RenderLabel,
         input_slot: impl Into<SlotLabel>,
     ) {
         self.try_add_slot_edge(output_node, output_slot, input_node, input_slot)
@@ -297,9 +296,9 @@ impl RenderGraph {
     /// nothing happens.
     pub fn remove_slot_edge(
         &mut self,
-        output_node: impl RenderNode,
+        output_node: impl RenderLabel,
         output_slot: impl Into<SlotLabel>,
-        input_node: impl RenderNode,
+        input_node: impl RenderLabel,
         input_slot: impl Into<SlotLabel>,
     ) -> Result<(), RenderGraphError> {
         let output_slot = output_slot.into();
@@ -348,8 +347,8 @@ impl RenderGraph {
     /// - [`add_node_edge`](Self::add_node_edge) for an infallible version.
     pub fn try_add_node_edge(
         &mut self,
-        output_node: impl RenderNode,
-        input_node: impl RenderNode,
+        output_node: impl RenderLabel,
+        input_node: impl RenderLabel,
     ) -> Result<(), RenderGraphError> {
         let output_node = output_node.intern();
         let input_node = input_node.intern();
@@ -381,7 +380,7 @@ impl RenderGraph {
     /// # See also
     ///
     /// - [`try_add_node_edge`](Self::try_add_node_edge) for a fallible version.
-    pub fn add_node_edge(&mut self, output_node: impl RenderNode, input_node: impl RenderNode) {
+    pub fn add_node_edge(&mut self, output_node: impl RenderLabel, input_node: impl RenderLabel) {
         self.try_add_node_edge(output_node, input_node).unwrap();
     }
 
@@ -389,8 +388,8 @@ impl RenderGraph {
     /// happens.
     pub fn remove_node_edge(
         &mut self,
-        output_node: impl RenderNode,
-        input_node: impl RenderNode,
+        output_node: impl RenderLabel,
+        input_node: impl RenderLabel,
     ) -> Result<(), RenderGraphError> {
         let output_node = output_node.intern();
         let input_node = input_node.intern();
@@ -528,7 +527,7 @@ impl RenderGraph {
     /// for the node referenced by the label.
     pub fn iter_node_inputs(
         &self,
-        label: impl RenderNode,
+        label: impl RenderLabel,
     ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
         let node = self.get_node_state(label)?;
         Ok(node
@@ -543,7 +542,7 @@ impl RenderGraph {
     /// for the node referenced by the label.
     pub fn iter_node_outputs(
         &self,
-        label: impl RenderNode,
+        label: impl RenderLabel,
     ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
         let node = self.get_node_state(label)?;
         Ok(node
@@ -653,15 +652,14 @@ mod tests {
     use crate::{
         render_graph::{
             Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
-            RenderNode, SlotInfo, SlotType,
+            RenderLabel, SlotInfo, SlotType,
         },
         renderer::RenderContext,
     };
     use bevy_ecs::world::{FromWorld, World};
-    use bevy_render_macros::RenderNode;
     use bevy_utils::HashSet;
 
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderNode)]
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     enum TestLabels {
         A,
         B,
@@ -707,7 +705,7 @@ mod tests {
         }
     }
 
-    fn input_nodes(label: impl RenderNode, graph: &RenderGraph) -> HashSet<NodeId> {
+    fn input_nodes(label: impl RenderLabel, graph: &RenderGraph) -> HashSet<NodeId> {
         graph
             .iter_node_inputs(label)
             .unwrap()
@@ -715,7 +713,7 @@ mod tests {
             .collect::<HashSet<NodeId>>()
     }
 
-    fn output_nodes(label: impl RenderNode, graph: &RenderGraph) -> HashSet<NodeId> {
+    fn output_nodes(label: impl RenderLabel, graph: &RenderGraph) -> HashSet<NodeId> {
         graph
             .iter_node_outputs(label)
             .unwrap()

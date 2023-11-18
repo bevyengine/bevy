@@ -16,24 +16,26 @@ use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 
+pub use bevy_render_macros::RenderLabel;
+
 define_label!(
     /// A strongly-typed class of labels used to identify an [`Node`] in a render graph.
-    RenderNode,
-    RENDER_NODE_INTERNER
+    RenderLabel,
+    RENDER_LABEL_INTERNER
 );
 
-/// A shorthand for `Interned<dyn RenderNode>`.
-pub type InternedRenderNode = Interned<dyn RenderNode>;
+/// A shorthand for `Interned<dyn RenderLabel>`.
+pub type InternedRenderLabel = Interned<dyn RenderLabel>;
 
 pub trait IntoRenderNodeArray<const N: usize> {
-    fn into_array(self) -> [InternedRenderNode; N];
+    fn into_array(self) -> [InternedRenderLabel; N];
 }
 
-macro_rules! impl_render_node_tuples {
+macro_rules! impl_render_label_tuples {
     ($N: expr, $(($T: ident, $I: ident)),*) => {
-        impl<$($T: RenderNode),*> IntoRenderNodeArray<$N> for ($($T,)*) {
+        impl<$($T: RenderLabel),*> IntoRenderNodeArray<$N> for ($($T,)*) {
             #[inline]
-            fn into_array(self) -> [InternedRenderNode; $N] {
+            fn into_array(self) -> [InternedRenderLabel; $N] {
                 let ($($I,)*) = self;
                 [$($I.intern(), )*]
             }
@@ -41,7 +43,7 @@ macro_rules! impl_render_node_tuples {
     }
 }
 
-all_tuples_with_size!(impl_render_node_tuples, 2, 32, T, l);
+all_tuples_with_size!(impl_render_label_tuples, 2, 32, T, l);
 
 define_atomic_id!(NodeId);
 
@@ -99,7 +101,7 @@ pub enum NodeRunError {
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].
 #[derive(Debug)]
 pub struct Edges {
-    node: InternedRenderNode,
+    node: InternedRenderLabel,
     input_edges: Vec<Edge>,
     output_edges: Vec<Edge>,
 }
@@ -120,7 +122,7 @@ impl Edges {
     /// Returns this node's id.
     // TODO: rename
     #[inline]
-    pub fn id(&self) -> InternedRenderNode {
+    pub fn id(&self) -> InternedRenderLabel {
         self.node
     }
 
@@ -215,7 +217,7 @@ impl Edges {
 /// The `input_slots` and `output_slots` are provided by the `node`.
 pub struct NodeState {
     pub id: NodeId,
-    pub label: InternedRenderNode,
+    pub label: InternedRenderLabel,
     /// The name of the type that implements [`Node`].
     pub type_name: &'static str,
     pub node: Box<dyn Node>,
@@ -233,7 +235,7 @@ impl Debug for NodeState {
 impl NodeState {
     /// Creates an [`NodeState`] without edges, but the `input_slots` and `output_slots`
     /// are provided by the `node`.
-    pub fn new<T>(id: NodeId, node: T, label: InternedRenderNode) -> Self
+    pub fn new<T>(id: NodeId, node: T, label: InternedRenderLabel) -> Self
     where
         T: Node,
     {
