@@ -84,10 +84,7 @@ impl Plugin for GameOfLifeComputePlugin {
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node(GameOfLifeLabel, GameOfLifeNode::default());
-        render_graph.add_node_edge(
-            GameOfLifeLabel,
-            bevy::render::main_graph::node::CameraDriver,
-        );
+        render_graph.add_node_edge(GameOfLifeLabel, bevy::render::graph::CameraDriverLabel);
     }
 
     fn finish(&self, app: &mut App) {

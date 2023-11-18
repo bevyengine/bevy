@@ -206,13 +206,11 @@ impl DerefMut for MainWorld {
     }
 }
 
-pub mod main_graph {
-    pub mod node {
-        use crate::render_graph::RenderLabel;
+pub mod graph {
+    use crate::render_graph::RenderLabel;
 
-        #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-        pub struct CameraDriver;
-    }
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub struct CameraDriverLabel;
 }
 
 #[derive(Resource)]
