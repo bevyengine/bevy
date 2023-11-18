@@ -1,4 +1,4 @@
-//! Additional Gizmo Functions -- Arrows
+//! Additional [`Gizmos`] Functions -- Arrows
 
 use crate::prelude::Gizmos;
 use bevy_math::{Quat, Vec2, Vec3};
