@@ -49,11 +49,16 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
         let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
         let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
-        let level = floor(log2(max(width, height)));
+        let depth_level = floor(log2(max(width, height)));
+        let depth_uv = (aabb.xy + aabb.zw) * 0.5;
 
-        let depth = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, (aabb.xy + aabb.zw) * 0.5, level).x;
+        let depth_quad_a = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level).x;
+        let depth_quad_b = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(1i, 0i)).x;
+        let depth_quad_c = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(0i, 1i)).x;
+        let depth_quad_d = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(1i, 1i)).x;
+        let depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
+
         let sphere_depth = view.projection[3][2] / (bounding_sphere_center.z - bounding_sphere_radius);
-
         meshlet_visible &= sphere_depth >= depth;
     }
 #endif
