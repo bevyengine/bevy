@@ -10,7 +10,7 @@ use bevy_render_macros::RenderGraphLabel;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
-use super::{EdgeExistence, InternedRGLabel, RenderGraphLabel};
+use super::{EdgeExistence, InternedRGLabel, IntoRGLabelArray, RenderGraphLabel};
 
 /// The render graph configures the modular, parallel and re-usable render logic.
 /// It is a retained and stateless (nodes themselves may have their own internal state) structure,
@@ -119,6 +119,26 @@ impl RenderGraph {
         let node_state = NodeState::new(id, node, label);
         self.nodes.insert(label, node_state);
         id
+    }
+
+    /// Add `node_edge`s based on the order of the given `edges` array.
+    ///
+    /// Defining an edge that already exists is not considered an error with this api.
+    /// It simply won't create a new edge.
+    pub fn add_node_edges<const N: usize>(&mut self, edges: impl IntoRGLabelArray<N>) {
+        for window in edges.into_array().windows(2) {
+            let [a, b] = window else {
+                break;
+            };
+            if let Err(err) = self.try_add_node_edge(*a, *b) {
+                match err {
+                    // Already existing edges are very easy to produce with this api
+                    // and shouldn't cause a panic
+                    RenderGraphError::EdgeAlreadyExists(_) => {}
+                    _ => panic!("{err:?}"),
+                }
+            }
+        }
     }
 
     /// Removes the `node` with the `label` from the graph.
@@ -858,26 +878,23 @@ mod tests {
         let b_id = graph.add_node(TestLabels::B, SimpleNode);
         let c_id = graph.add_node(TestLabels::C, SimpleNode);
 
-        // TODO:
-        /*
-        graph.add_node_edges(&["A", "B", "C"]);
+        graph.add_node_edges((TestLabels::A, TestLabels::B, TestLabels::C));
 
         assert!(
-            output_nodes("A", &graph) == HashSet::from_iter(vec![b_id]),
+            output_nodes(TestLabels::A, &graph) == HashSet::from_iter(vec![b_id]),
             "A -> B"
         );
         assert!(
-            input_nodes("B", &graph) == HashSet::from_iter(vec![a_id]),
+            input_nodes(TestLabels::B, &graph) == HashSet::from_iter(vec![a_id]),
             "A -> B"
         );
         assert!(
-            output_nodes("B", &graph) == HashSet::from_iter(vec![c_id]),
+            output_nodes(TestLabels::B, &graph) == HashSet::from_iter(vec![c_id]),
             "B -> C"
         );
         assert!(
-            input_nodes("C", &graph) == HashSet::from_iter(vec![b_id]),
+            input_nodes(TestLabels::C, &graph) == HashSet::from_iter(vec![b_id]),
             "B -> C"
         );
-        */
     }
 }

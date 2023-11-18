@@ -11,7 +11,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 pub use bevy_utils::label::DynEq;
-use bevy_utils::{define_label, intern::Interned};
+use bevy_utils::{all_tuples_with_size, define_label, intern::Interned};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
@@ -24,6 +24,24 @@ define_label!(
 
 /// A shorthand for `Interned<dyn RenderGraphLabel>`.
 pub type InternedRGLabel = Interned<dyn RenderGraphLabel>;
+
+pub trait IntoRGLabelArray<const N: usize> {
+    fn into_array(self) -> [InternedRGLabel; N];
+}
+
+macro_rules! impl_rg_label_tuples {
+    ($N: expr, $(($T: ident, $I: ident)),*) => {
+        impl<$($T: RenderGraphLabel),*> IntoRGLabelArray<$N> for ($($T,)*) {
+            #[inline]
+            fn into_array(self) -> [InternedRGLabel; $N] {
+                let ($($I,)*) = self;
+                [$($I.intern(), )*]
+            }
+        }
+    }
+}
+
+all_tuples_with_size!(impl_rg_label_tuples, 2, 32, T, l);
 
 define_atomic_id!(NodeId);
 
