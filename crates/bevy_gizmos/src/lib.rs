@@ -19,6 +19,7 @@
 mod arrows;
 pub mod gizmos;
 
+mod mesh_pipeline;
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
@@ -27,7 +28,11 @@ mod pipeline_3d;
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
+    pub use crate::{
+        gizmos::Gizmos,
+        mesh_pipeline::{GizmoStyle, GizmoMeshBundle},
+        AabbGizmo, AabbGizmoConfig, GizmoConfig,
+    };
 }
 
 use bevy_app::{Last, Plugin, PostUpdate};
@@ -69,20 +74,27 @@ use bevy_transform::{
 use gizmos::{GizmoStorage, Gizmos};
 use std::mem;
 
-const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
+use crate::mesh_pipeline::GizmoMeshPlugin;
 
-/// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
+const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
+const UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(0866298078381252566);
+
+/// A [`Plugin`] that provides drawing API's for visual debugging.
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, UTILS_SHADER_HANDLE, "utils.wgsl", Shader::from_wgsl);
 
         app.register_type::<GizmoConfig>()
             .register_type::<AabbGizmoConfig>()
-            .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
+            .add_plugins((
+                UniformComponentPlugin::<LineGizmoUniform>::default(),
+                GizmoMeshPlugin,
+                RenderAssetPlugin::<LineGizmo>::default(),
+            ))
             .init_asset::<LineGizmo>()
-            .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()

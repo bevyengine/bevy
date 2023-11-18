@@ -1,7 +1,7 @@
+#import bevy_render::view::coords_to_viewport_uv
 #import bevy_pbr::{
     mesh_view_bindings::view,
     forward_io::VertexOutput,
-    utils::coords_to_viewport_uv,
 }
 
 @group(1) @binding(0) var texture: texture_2d<f32>;

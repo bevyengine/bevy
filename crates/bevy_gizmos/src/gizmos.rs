@@ -2,13 +2,14 @@
 
 use std::{f32::consts::TAU, iter};
 
+use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
     system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::World,
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
-use bevy_render::color::Color;
-use bevy_transform::TransformPoint;
+use bevy_render::{color::Color, mesh::Mesh};
+use bevy_transform::{components::Transform, TransformPoint};
 
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
@@ -21,6 +22,7 @@ pub(crate) struct GizmoStorage {
     pub list_colors: Vec<ColorItem>,
     pub strip_positions: Vec<PositionItem>,
     pub strip_colors: Vec<ColorItem>,
+    pub meshes: Vec<(AssetId<Mesh>, Transform, Color)>,
 }
 
 /// A [`SystemParam`] for drawing gizmos.
@@ -39,6 +41,7 @@ struct GizmoBuffer {
     list_colors: Vec<ColorItem>,
     strip_positions: Vec<PositionItem>,
     strip_colors: Vec<ColorItem>,
+    meshes: Vec<(AssetId<Mesh>, Transform, Color)>,
 }
 
 impl SystemBuffer for GizmoBuffer {
@@ -48,6 +51,7 @@ impl SystemBuffer for GizmoBuffer {
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
         storage.strip_colors.append(&mut self.strip_colors);
+        storage.meshes.append(&mut self.meshes);
     }
 }
 
@@ -569,6 +573,31 @@ impl<'s> Gizmos<'s> {
         let rotation = Mat2::from_angle(rotation);
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
+    }
+
+    /// Draw a mesh.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_asset::prelude::*;
+    /// fn system(
+    ///     mut gizmos: Gizmos,
+    ///     asset_server: Res<AssetServer>,
+    /// ) {
+    ///     gizmos.mesh(
+    ///         asset_server.load("my_mesh.gltf#Mesh0/Primitive0"),
+    ///         Transform::IDENTITY,
+    ///         Color::GREEN,
+    ///     );
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn mesh(&mut self, mesh: &Handle<Mesh>, transform: Transform, color: Color) {
+        self.buffer.meshes.push((mesh.id(), transform, color))
     }
 
     #[inline]

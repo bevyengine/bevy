@@ -17,6 +17,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    commands.insert_resource(MyMesh(meshes.add(shape::Cube { size: 1.0 }.into())));
+
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
@@ -28,9 +30,11 @@ fn setup(
         ..default()
     });
     // cube
-    commands.spawn(PbrBundle {
+    commands.spawn(GizmoMeshBundle {
+        style: GizmoStyle {
+            color: Color::rgb(0.8, 0.7, 0.6),
+        },
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -65,7 +69,16 @@ fn setup(
     );
 }
 
-fn system(mut gizmos: Gizmos, time: Res<Time>) {
+#[derive(Resource)]
+struct MyMesh(Handle<Mesh>);
+
+fn system(mut gizmos: Gizmos, time: Res<Time>, mesh: Res<MyMesh>) {
+    gizmos.mesh(
+        &mesh.0,
+        Transform::from_xyz(1., 1., 0.)
+            .with_rotation(Quat::from_rotation_x(time.elapsed_seconds())),
+        Color::RED,
+    );
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.)),
         Color::BLACK,
