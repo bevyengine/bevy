@@ -322,7 +322,6 @@ impl Capsule {
 
     /// Get the volume of the capsule
     pub fn volume(&self) -> f32 {
-        // Simplified version of 2pi * r * (2r + h)
         4.0 * std::f32::consts::FRAC_PI_3 * self.radius * self.radius * self.radius
     }
 }
