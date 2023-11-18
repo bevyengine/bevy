@@ -1,4 +1,7 @@
 //! Additional [`Gizmos`] Functions -- Arrows
+//!
+//! Includes the implementation of [`Gizmos::arrow`] and [`Gizmos::arrow_2d`],
+//! and assorted support items.
 
 use crate::prelude::Gizmos;
 use bevy_math::{Quat, Vec2, Vec3};
