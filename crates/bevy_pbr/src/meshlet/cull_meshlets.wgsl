@@ -53,7 +53,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         }
     }
 
-#ifndef MESHLET_SECOND_CULLING_PASS
+#ifdef MESHLET_SECOND_CULLING_PASS
     meshlet_occlusion[thread_id.x] = u32(meshlet_visible);
 #endif
 }
