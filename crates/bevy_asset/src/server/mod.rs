@@ -12,7 +12,7 @@ use crate::{
         MetaTransform, Settings,
     },
     path::AssetPath,
-    Asset, AssetEvent, AssetHandleProvider, AssetId, Assets, DeserializeMetaError,
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetMetaMode, Assets, DeserializeMetaError,
     ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
@@ -54,6 +54,7 @@ pub(crate) struct AssetServerData {
     asset_event_receiver: Receiver<InternalAssetEvent>,
     sources: AssetSources,
     mode: AssetServerMode,
+    meta_mode: AssetMetaMode,
 }
 
 /// The "asset mode" the server is currently in.
@@ -68,14 +69,26 @@ pub enum AssetServerMode {
 impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
     /// asset sources and hot-reload them.
-    pub fn new(sources: AssetSources, mode: AssetServerMode, watching_for_changes: bool) -> Self {
-        Self::new_with_loaders(sources, Default::default(), mode, watching_for_changes)
+    pub fn new(
+        sources: AssetSources,
+        mode: AssetServerMode,
+        meta_mode: AssetMetaMode,
+        watching_for_changes: bool,
+    ) -> Self {
+        Self::new_with_loaders(
+            sources,
+            Default::default(),
+            mode,
+            meta_mode,
+            watching_for_changes,
+        )
     }
 
     pub(crate) fn new_with_loaders(
         sources: AssetSources,
         loaders: Arc<RwLock<AssetLoaders>>,
         mode: AssetServerMode,
+        meta_mode: AssetMetaMode,
         watching_for_changes: bool,
     ) -> Self {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
@@ -85,6 +98,7 @@ impl AssetServer {
             data: Arc::new(AssetServerData {
                 sources,
                 mode,
+                meta_mode,
                 asset_event_sender,
                 asset_event_receiver,
                 loaders,
@@ -811,44 +825,57 @@ impl AssetServer {
             AssetServerMode::Processed { .. } => source.processed_reader()?,
         };
         let reader = asset_reader.read(asset_path.path()).await?;
-        match asset_reader.read_meta_bytes(asset_path.path()).await {
-            Ok(meta_bytes) => {
-                // TODO: this isn't fully minimal yet. we only need the loader
-                let minimal: AssetMetaMinimal = ron::de::from_bytes(&meta_bytes).map_err(|e| {
-                    AssetLoadError::DeserializeMeta {
-                        path: asset_path.clone_owned(),
-                        error: Box::new(DeserializeMetaError::DeserializeMinimal(e)),
-                    }
-                })?;
-                let loader_name = match minimal.asset {
-                    AssetActionMinimal::Load { loader } => loader,
-                    AssetActionMinimal::Process { .. } => {
-                        return Err(AssetLoadError::CannotLoadProcessedAsset {
-                            path: asset_path.clone_owned(),
-                        })
-                    }
-                    AssetActionMinimal::Ignore => {
-                        return Err(AssetLoadError::CannotLoadIgnoredAsset {
-                            path: asset_path.clone_owned(),
-                        })
-                    }
-                };
-                let loader = self.get_asset_loader_with_type_name(&loader_name).await?;
-                let meta = loader.deserialize_meta(&meta_bytes).map_err(|e| {
-                    AssetLoadError::DeserializeMeta {
-                        path: asset_path.clone_owned(),
-                        error: Box::new(e),
-                    }
-                })?;
+        let read_meta = match &self.data.meta_mode {
+            AssetMetaMode::Always => true,
+            AssetMetaMode::Paths(paths) => paths.contains(asset_path),
+            AssetMetaMode::Never => false,
+        };
 
-                Ok((meta, loader, reader))
+        if read_meta {
+            match asset_reader.read_meta_bytes(asset_path.path()).await {
+                Ok(meta_bytes) => {
+                    // TODO: this isn't fully minimal yet. we only need the loader
+                    let minimal: AssetMetaMinimal =
+                        ron::de::from_bytes(&meta_bytes).map_err(|e| {
+                            AssetLoadError::DeserializeMeta {
+                                path: asset_path.clone_owned(),
+                                error: Box::new(DeserializeMetaError::DeserializeMinimal(e)),
+                            }
+                        })?;
+                    let loader_name = match minimal.asset {
+                        AssetActionMinimal::Load { loader } => loader,
+                        AssetActionMinimal::Process { .. } => {
+                            return Err(AssetLoadError::CannotLoadProcessedAsset {
+                                path: asset_path.clone_owned(),
+                            })
+                        }
+                        AssetActionMinimal::Ignore => {
+                            return Err(AssetLoadError::CannotLoadIgnoredAsset {
+                                path: asset_path.clone_owned(),
+                            })
+                        }
+                    };
+                    let loader = self.get_asset_loader_with_type_name(&loader_name).await?;
+                    let meta = loader.deserialize_meta(&meta_bytes).map_err(|e| {
+                        AssetLoadError::DeserializeMeta {
+                            path: asset_path.clone_owned(),
+                            error: Box::new(e),
+                        }
+                    })?;
+
+                    Ok((meta, loader, reader))
+                }
+                Err(AssetReaderError::NotFound(_)) => {
+                    let loader = self.get_path_asset_loader(asset_path).await?;
+                    let meta = loader.default_meta();
+                    Ok((meta, loader, reader))
+                }
+                Err(err) => Err(err.into()),
             }
-            Err(AssetReaderError::NotFound(_)) => {
-                let loader = self.get_path_asset_loader(asset_path).await?;
-                let meta = loader.default_meta();
-                Ok((meta, loader, reader))
-            }
-            Err(err) => Err(err.into()),
+        } else {
+            let loader = self.get_path_asset_loader(asset_path).await?;
+            let meta = loader.default_meta();
+            Ok((meta, loader, reader))
         }
     }
 

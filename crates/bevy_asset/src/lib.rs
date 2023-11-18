@@ -52,6 +52,7 @@ use bevy_ecs::{
 };
 use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
+use bevy_utils::HashSet;
 use std::{any::TypeId, sync::Arc};
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -75,6 +76,8 @@ pub struct AssetPlugin {
     pub watch_for_changes_override: Option<bool>,
     /// The [`AssetMode`] to use for this server.
     pub mode: AssetMode,
+    /// How meta files should be accessed. This will be ignored for processed assets, as this mode require meta files.
+    pub meta_mode: AssetMetaMode,
 }
 
 #[derive(Debug)]
@@ -101,6 +104,18 @@ pub enum AssetMode {
     Processed,
 }
 
+/// Configures how asset meta will be used.
+#[derive(Debug, Default, Clone)]
+pub enum AssetMetaMode {
+    /// Always assume assets have meta files.
+    #[default]
+    Always,
+    /// Only look up meta files for the provided paths. The default meta will be used for any paths not contained in this set.
+    Paths(HashSet<AssetPath<'static>>),
+    /// Never assume assets have meta files. If meta files exist, they will be ignored and the default meta will be used.
+    Never,
+}
+
 impl Default for AssetPlugin {
     fn default() -> Self {
         Self {
@@ -108,6 +123,7 @@ impl Default for AssetPlugin {
             file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
+            meta_mode: Default::default(),
         }
     }
 }
@@ -146,6 +162,7 @@ impl Plugin for AssetPlugin {
                     app.insert_resource(AssetServer::new(
                         sources,
                         AssetServerMode::Unprocessed,
+                        self.meta_mode.clone(),
                         watch,
                     ));
                 }
@@ -161,6 +178,7 @@ impl Plugin for AssetPlugin {
                             sources,
                             processor.server().data.loaders.clone(),
                             AssetServerMode::Processed,
+                            AssetMetaMode::Always,
                             watch,
                         ))
                         .insert_resource(processor)
@@ -173,6 +191,7 @@ impl Plugin for AssetPlugin {
                         app.insert_resource(AssetServer::new(
                             sources,
                             AssetServerMode::Processed,
+                            AssetMetaMode::Always,
                             watch,
                         ));
                     }
