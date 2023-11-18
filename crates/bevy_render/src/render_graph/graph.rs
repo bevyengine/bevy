@@ -1,7 +1,7 @@
 use crate::{
     render_graph::{
-        Edge, Node, NodeId, NodeRunError, NodeState, RenderGraphContext, RenderGraphError,
-        RenderLabel, SlotInfo, SlotLabel,
+        Edge, Node, NodeRunError, NodeState, RenderGraphContext, RenderGraphError, RenderLabel,
+        SlotInfo, SlotLabel,
     },
     renderer::RenderContext,
 };
@@ -32,9 +32,15 @@ use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
 /// ```
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::World;
-/// # use bevy_render::render_graph::{RenderGraph, Node, RenderGraphContext, NodeRunError};
+/// # use bevy_render::render_graph::{RenderGraph, RenderLabel, Node, RenderGraphContext, NodeRunError};
 /// # use bevy_render::renderer::RenderContext;
 /// #
+/// #[derive(RenderLabel)]
+/// enum Labels {
+///     A,
+///     B,
+/// }
+///
 /// # struct MyNode;
 /// #
 /// # impl Node for MyNode {
@@ -44,9 +50,9 @@ use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
 /// # }
 /// #
 /// let mut graph = RenderGraph::default();
-/// graph.add_node("input_node", MyNode);
-/// graph.add_node("output_node", MyNode);
-/// graph.add_node_edge("output_node", "input_node");
+/// graph.add_node(Labels::A, MyNode);
+/// graph.add_node(Labels::B, MyNode);
+/// graph.add_node_edge(Labels::B, Labels::A);
 /// ```
 #[derive(Resource, Default)]
 pub struct RenderGraph {
@@ -71,7 +77,7 @@ impl RenderGraph {
     }
 
     /// Creates an [`GraphInputNode`] with the specified slots if not already present.
-    pub fn set_input(&mut self, inputs: Vec<SlotInfo>) -> NodeId {
+    pub fn set_input(&mut self, inputs: Vec<SlotInfo>) {
         assert!(
             matches!(
                 self.get_node_state(GraphInput),
@@ -109,15 +115,13 @@ impl RenderGraph {
 
     /// Adds the `node` with the `label` to the graph.
     /// If the label is already present replaces it instead.
-    pub fn add_node<T>(&mut self, label: impl RenderLabel, node: T) -> NodeId
+    pub fn add_node<T>(&mut self, label: impl RenderLabel, node: T)
     where
         T: Node,
     {
-        let id = NodeId::new();
         let label = label.intern();
-        let node_state = NodeState::new(id, node, label);
+        let node_state = NodeState::new(label, node);
         self.nodes.insert(label, node_state);
-        id
     }
 
     /// Add `node_edge`s based on the order of the given `edges` array.
@@ -609,7 +613,7 @@ impl RenderGraph {
 impl Debug for RenderGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for node in self.iter_nodes() {
-            writeln!(f, "{:?}", node.id)?;
+            writeln!(f, "{:?}", node.label)?;
             writeln!(f, "  in: {:?}", node.input_slots)?;
             writeln!(f, "  out: {:?}", node.output_slots)?;
         }
@@ -651,8 +655,8 @@ impl Node for GraphInputNode {
 mod tests {
     use crate::{
         render_graph::{
-            Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
-            RenderLabel, SlotInfo, SlotType,
+            node::IntoRenderNodeArray, Edge, InternedRenderLabel, Node, NodeRunError, RenderGraph,
+            RenderGraphContext, RenderGraphError, RenderLabel, SlotInfo, SlotType,
         },
         renderer::RenderContext,
     };
@@ -705,29 +709,29 @@ mod tests {
         }
     }
 
-    fn input_nodes(label: impl RenderLabel, graph: &RenderGraph) -> HashSet<NodeId> {
+    fn input_nodes(label: impl RenderLabel, graph: &RenderGraph) -> HashSet<InternedRenderLabel> {
         graph
             .iter_node_inputs(label)
             .unwrap()
-            .map(|(_edge, node)| node.id)
-            .collect::<HashSet<NodeId>>()
+            .map(|(_edge, node)| node.label)
+            .collect::<HashSet<InternedRenderLabel>>()
     }
 
-    fn output_nodes(label: impl RenderLabel, graph: &RenderGraph) -> HashSet<NodeId> {
+    fn output_nodes(label: impl RenderLabel, graph: &RenderGraph) -> HashSet<InternedRenderLabel> {
         graph
             .iter_node_outputs(label)
             .unwrap()
-            .map(|(_edge, node)| node.id)
-            .collect::<HashSet<NodeId>>()
+            .map(|(_edge, node)| node.label)
+            .collect::<HashSet<InternedRenderLabel>>()
     }
 
     #[test]
     fn test_graph_edges() {
         let mut graph = RenderGraph::default();
-        let a_id = graph.add_node(TestLabels::A, TestNode::new(0, 1));
-        let b_id = graph.add_node(TestLabels::B, TestNode::new(0, 1));
-        let c_id = graph.add_node(TestLabels::C, TestNode::new(1, 1));
-        let d_id = graph.add_node(TestLabels::D, TestNode::new(1, 0));
+        graph.add_node(TestLabels::A, TestNode::new(0, 1));
+        graph.add_node(TestLabels::B, TestNode::new(0, 1));
+        graph.add_node(TestLabels::C, TestNode::new(1, 1));
+        graph.add_node(TestLabels::D, TestNode::new(1, 0));
 
         graph.add_slot_edge(TestLabels::A, "out_0", TestLabels::C, "in_0");
         graph.add_node_edge(TestLabels::B, TestLabels::C);
@@ -738,7 +742,8 @@ mod tests {
             "A has no inputs"
         );
         assert!(
-            output_nodes(TestLabels::A, &graph) == HashSet::from_iter(vec![c_id]),
+            output_nodes(TestLabels::A, &graph)
+                == HashSet::from_iter((TestLabels::C,).into_array()),
             "A outputs to C"
         );
 
@@ -747,21 +752,24 @@ mod tests {
             "B has no inputs"
         );
         assert!(
-            output_nodes(TestLabels::B, &graph) == HashSet::from_iter(vec![c_id]),
+            output_nodes(TestLabels::B, &graph)
+                == HashSet::from_iter((TestLabels::C,).into_array()),
             "B outputs to C"
         );
 
         assert!(
-            input_nodes(TestLabels::C, &graph) == HashSet::from_iter(vec![a_id, b_id]),
+            input_nodes(TestLabels::C, &graph)
+                == HashSet::from_iter((TestLabels::A, TestLabels::B).into_array()),
             "A and B input to C"
         );
         assert!(
-            output_nodes(TestLabels::D, &graph) == HashSet::from_iter(vec![d_id]),
+            output_nodes(TestLabels::C, &graph)
+                == HashSet::from_iter((TestLabels::D,).into_array()),
             "C outputs to D"
         );
 
         assert!(
-            input_nodes(TestLabels::D, &graph) == HashSet::from_iter(vec![c_id]),
+            input_nodes(TestLabels::D, &graph) == HashSet::from_iter((TestLabels::C,).into_array()),
             "C inputs to D"
         );
         assert!(
@@ -862,26 +870,28 @@ mod tests {
         }
 
         let mut graph = RenderGraph::default();
-        let a_id = graph.add_node(TestLabels::A, SimpleNode);
-        let b_id = graph.add_node(TestLabels::B, SimpleNode);
-        let c_id = graph.add_node(TestLabels::C, SimpleNode);
+        graph.add_node(TestLabels::A, SimpleNode);
+        graph.add_node(TestLabels::B, SimpleNode);
+        graph.add_node(TestLabels::C, SimpleNode);
 
         graph.add_node_edges((TestLabels::A, TestLabels::B, TestLabels::C));
 
         assert!(
-            output_nodes(TestLabels::A, &graph) == HashSet::from_iter(vec![b_id]),
+            output_nodes(TestLabels::A, &graph)
+                == HashSet::from_iter((TestLabels::B,).into_array()),
             "A -> B"
         );
         assert!(
-            input_nodes(TestLabels::B, &graph) == HashSet::from_iter(vec![a_id]),
+            input_nodes(TestLabels::B, &graph) == HashSet::from_iter((TestLabels::A,).into_array()),
             "A -> B"
         );
         assert!(
-            output_nodes(TestLabels::B, &graph) == HashSet::from_iter(vec![c_id]),
+            output_nodes(TestLabels::B, &graph)
+                == HashSet::from_iter((TestLabels::C,).into_array()),
             "B -> C"
         );
         assert!(
-            input_nodes(TestLabels::C, &graph) == HashSet::from_iter(vec![b_id]),
+            input_nodes(TestLabels::C, &graph) == HashSet::from_iter((TestLabels::B,).into_array()),
             "B -> C"
         );
     }

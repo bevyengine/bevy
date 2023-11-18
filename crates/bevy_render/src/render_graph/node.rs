@@ -1,5 +1,4 @@
 use crate::{
-    define_atomic_id,
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos,
@@ -43,9 +42,7 @@ macro_rules! impl_render_label_tuples {
     }
 }
 
-all_tuples_with_size!(impl_render_label_tuples, 2, 32, T, l);
-
-define_atomic_id!(NodeId);
+all_tuples_with_size!(impl_render_label_tuples, 1, 32, T, l);
 
 /// A render node that can be added to a [`RenderGraph`](super::RenderGraph).
 ///
@@ -101,7 +98,7 @@ pub enum NodeRunError {
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].
 #[derive(Debug)]
 pub struct Edges {
-    node: InternedRenderLabel,
+    label: InternedRenderLabel,
     input_edges: Vec<Edge>,
     output_edges: Vec<Edge>,
 }
@@ -119,11 +116,10 @@ impl Edges {
         &self.output_edges
     }
 
-    /// Returns this node's id.
-    // TODO: rename
+    /// Returns this node's label.
     #[inline]
-    pub fn id(&self) -> InternedRenderLabel {
-        self.node
+    pub fn label(&self) -> InternedRenderLabel {
+        self.label
     }
 
     /// Adds an edge to the `input_edges` if it does not already exist.
@@ -188,7 +184,7 @@ impl Edges {
             })
             .ok_or(RenderGraphError::UnconnectedNodeInputSlot {
                 input_slot: index,
-                node: self.node,
+                node: self.label,
             })
     }
 
@@ -206,7 +202,7 @@ impl Edges {
             })
             .ok_or(RenderGraphError::UnconnectedNodeOutputSlot {
                 output_slot: index,
-                node: self.node,
+                node: self.label,
             })
     }
 }
@@ -216,7 +212,6 @@ impl Edges {
 ///
 /// The `input_slots` and `output_slots` are provided by the `node`.
 pub struct NodeState {
-    pub id: NodeId,
     pub label: InternedRenderLabel,
     /// The name of the type that implements [`Node`].
     pub type_name: &'static str,
@@ -228,26 +223,25 @@ pub struct NodeState {
 
 impl Debug for NodeState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{:?} ({:?})", self.id, self.label)
+        writeln!(f, "{:?} ({:?})", self.label, self.type_name)
     }
 }
 
 impl NodeState {
     /// Creates an [`NodeState`] without edges, but the `input_slots` and `output_slots`
     /// are provided by the `node`.
-    pub fn new<T>(id: NodeId, node: T, label: InternedRenderLabel) -> Self
+    pub fn new<T>(label: InternedRenderLabel, node: T) -> Self
     where
         T: Node,
     {
         NodeState {
-            id,
             label,
             input_slots: node.input().into(),
             output_slots: node.output().into(),
             node: Box::new(node),
             type_name: std::any::type_name::<T>(),
             edges: Edges {
-                node: label,
+                label,
                 input_edges: Vec::new(),
                 output_edges: Vec::new(),
             },
@@ -290,38 +284,6 @@ impl NodeState {
         }
 
         Ok(())
-    }
-}
-
-/// A [`NodeLabel`] is used to reference a [`NodeState`] by either its name or [`NodeId`]
-/// inside the [`RenderGraph`](super::RenderGraph).
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum NodeLabel {
-    Id(NodeId),
-    Name(Cow<'static, str>),
-}
-
-impl From<&NodeLabel> for NodeLabel {
-    fn from(value: &NodeLabel) -> Self {
-        value.clone()
-    }
-}
-
-impl From<String> for NodeLabel {
-    fn from(value: String) -> Self {
-        NodeLabel::Name(value.into())
-    }
-}
-
-impl From<&'static str> for NodeLabel {
-    fn from(value: &'static str) -> Self {
-        NodeLabel::Name(value.into())
-    }
-}
-
-impl From<NodeId> for NodeLabel {
-    fn from(value: NodeId) -> Self {
-        NodeLabel::Id(value)
     }
 }
 

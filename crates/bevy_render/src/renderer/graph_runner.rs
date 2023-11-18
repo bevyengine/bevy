@@ -10,8 +10,8 @@ use thiserror::Error;
 
 use crate::{
     render_graph::{
-        Edge, InternedRenderLabel, NodeId, NodeRunError, NodeState, RenderGraph,
-        RenderGraphContext, SlotLabel, SlotType, SlotValue,
+        Edge, InternedRenderLabel, NodeRunError, NodeState, RenderGraph, RenderGraphContext,
+        SlotLabel, SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -79,7 +79,8 @@ impl RenderGraphRunner {
         inputs: &[SlotValue],
         view_entity: Option<Entity>,
     ) -> Result<(), RenderGraphRunnerError> {
-        let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
+        let mut node_outputs: HashMap<InternedRenderLabel, SmallVec<[SlotValue; 4]>> =
+            HashMap::default();
         #[cfg(feature = "trace")]
         let span = if let Some(name) = &graph_name {
             info_span!("run_graph", name = name.deref())
@@ -118,7 +119,7 @@ impl RenderGraphRunner {
                 }
             }
 
-            node_outputs.insert(input_node.id, input_values);
+            node_outputs.insert(input_node.label, input_values);
 
             for (_, node_state) in graph
                 .iter_node_outputs(input_node.label)
@@ -130,7 +131,7 @@ impl RenderGraphRunner {
 
         'handle_node: while let Some(node_state) = node_queue.pop_back() {
             // skip nodes that are already processed
-            if node_outputs.contains_key(&node_state.id) {
+            if node_outputs.contains_key(&node_state.label) {
                 continue;
             }
 
@@ -146,7 +147,7 @@ impl RenderGraphRunner {
                         input_index,
                         ..
                     } => {
-                        if let Some(outputs) = node_outputs.get(&input_node.id) {
+                        if let Some(outputs) = node_outputs.get(&input_node.label) {
                             slot_indices_and_inputs
                                 .push((*input_index, outputs[*output_index].clone()));
                         } else {
@@ -155,7 +156,7 @@ impl RenderGraphRunner {
                         }
                     }
                     Edge::NodeEdge { .. } => {
-                        if !node_outputs.contains_key(&input_node.id) {
+                        if !node_outputs.contains_key(&input_node.label) {
                             node_queue.push_front(node_state);
                             continue 'handle_node;
                         }
@@ -221,7 +222,7 @@ impl RenderGraphRunner {
                     });
                 }
             }
-            node_outputs.insert(node_state.id, values);
+            node_outputs.insert(node_state.label, values);
 
             for (_, node_state) in graph
                 .iter_node_outputs(node_state.label)
