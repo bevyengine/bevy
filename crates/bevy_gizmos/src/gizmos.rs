@@ -2,7 +2,7 @@
 
 use std::{f32::consts::TAU, iter};
 
-pub use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
 use bevy_ecs::{
     system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::World,
