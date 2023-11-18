@@ -222,11 +222,7 @@ impl Triangle2d {
         let bc = b.distance(c);
         let ca = c.distance(a);
 
-        // Should we also check if the triangle has a non-zero area?
-        debug_assert!(
-            ab != 0.0 && bc != 0.0 && ca != 0.0,
-            "triangle side has a length of 0.0"
-        );
+        debug_assert!(self.area() != 0.0, "triangle has no area");
 
         ab + bc + ca
     }
