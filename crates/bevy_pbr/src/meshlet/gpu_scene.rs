@@ -229,8 +229,8 @@ pub fn prepare_meshlet_per_frame_resources(
                 label: Some("meshlet_depth_pyramid"),
                 size: Extent3d {
                     // Round down to nearest power of 2 to ensure depth is conservative
-                    width: 1 << (31 - view.viewport.z.leading_zeros()),
-                    height: 1 << (31 - view.viewport.w.leading_zeros()),
+                    width: (1 << (31 - view.viewport.z.leading_zeros())) / 2,
+                    height: (1 << (31 - view.viewport.w.leading_zeros())) / 2,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 9,
