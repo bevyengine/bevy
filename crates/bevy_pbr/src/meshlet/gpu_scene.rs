@@ -699,6 +699,7 @@ pub struct MeshletViewResources {
     pub visibility_buffer_draw_command_buffer_second: Buffer,
     pub visibility_buffer_draw_index_buffer: Buffer,
     pub depth_pyramid: CachedTexture,
+    // TODO: Dynamic number of mips based on view resolution
     pub depth_pyramid_mips: [TextureView; 9],
     pub material_depth_color: CachedTexture,
     pub material_depth: CachedTexture,
