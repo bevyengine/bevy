@@ -229,6 +229,7 @@ fn set_camera_viewports(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn button_system(
     interaction_query: Query<
         (&Interaction, &UiCamera, &RotateCamera),
@@ -237,20 +238,16 @@ fn button_system(
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
     for (interaction, ui_camera, RotateCamera(direction)) in &interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                // Since UiCamera propagates to the children, we can use it to find
-                // which side of the screen the button is on.
-                if let Ok(mut camera_transform) = camera_query.get_mut(ui_camera.entity()) {
-                    let angle = match direction {
-                        Direction::Left => -0.1,
-                        Direction::Right => 0.1,
-                    };
-                    camera_transform
-                        .rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
-                }
+        if let Interaction::Pressed = *interaction {
+            // Since UiCamera propagates to the children, we can use it to find
+            // which side of the screen the button is on.
+            if let Ok(mut camera_transform) = camera_query.get_mut(ui_camera.entity()) {
+                let angle = match direction {
+                    Direction::Left => -0.1,
+                    Direction::Right => 0.1,
+                };
+                camera_transform.rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
             }
-            _ => {}
         }
     }
 }
