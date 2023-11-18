@@ -5,7 +5,7 @@ use bevy_math::{Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use std::f32::consts::TAU;
 
-pub const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
+pub(crate) const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
 fn circle_inner(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
     (0..segments + 1).map(move |i| {
