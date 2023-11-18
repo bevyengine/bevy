@@ -285,6 +285,20 @@ impl Hasher for EntityHasher {
 
     #[inline]
     fn write_u64(&mut self, i: u64) {
+        // We ignore the generation entirely.  It's always functionally correct
+        // to omit things when hashing, so long as it's consistent, just a perf
+        // trade-off.  This hasher is designed for "normal" cases, where nearly
+        // everything in the table is a live entity, meaning there are few
+        // generation conflicts.  And thus it's overall faster to just ignore
+        // the generation during hashing, leaving it to the `Entity::eq` to
+        // confirm the generation matches -- just like `Entity::eq` checks that
+        // the index is actually the right one, since there's always the chance
+        // of a conflict in the index despite a good hash function.
+        //
+        // This masking actually ends up with negative cost after optimization,
+        // since it saves needing to do the shift-and-or between the fields.
+        let index = i & 0xFFFF_FFFF;
+
         // SwissTable (and thus `hashbrown`) cares about two things from the hash:
         // - H1: low bits (masked by `2ⁿ-1`) to pick the slot in which to store the item
         // - H2: high 7 bits are used to SIMD optimize hash collision probing
@@ -302,11 +316,10 @@ impl Hasher for EntityHasher {
         // <https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/>
         // It loses no information because it has a modular inverse.
         // (Specifically, `0x144c_bc89_u32 * 0x9e37_79b9_u32 == 1`.)
+        //
         // The low 32 bits are just 1, to leave the entity id there unchanged.
         const UPPER_PHI: u64 = 0x9e37_79b9_0000_0001;
-        // This bit-masking is free, as the optimizer can just not load the generation.
-        let id = i & 0xFFFF_FFFF;
-        self.hash = id.wrapping_mul(UPPER_PHI);
+        self.hash = index.wrapping_mul(UPPER_PHI);
     }
 
     #[inline]
