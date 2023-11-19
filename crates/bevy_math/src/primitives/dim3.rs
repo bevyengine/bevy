@@ -240,12 +240,62 @@ pub struct ConicalFrustum {
 }
 impl Primitive3d for ConicalFrustum {}
 
-/// A torus (AKA donut) primitive.
-#[derive(Clone, Copy, Debug)]
+/// A torus primitive, often representing a ring or donut shape
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Torus {
-    /// The radius of the overall shape
-    pub radius: f32,
-    /// The radius of the internal ring
-    pub ring_radius: f32,
+    /// The radius of the tube of the torus
+    #[doc(
+        alias = "ring_radius",
+        alias = "tube_radius",
+        alias = "cross_section_radius"
+    )]
+    pub minor_radius: f32,
+    /// The distance from the center of the torus to the center of the tube
+    #[doc(alias = "radius_of_revolution")]
+    pub major_radius: f32,
 }
 impl Primitive3d for Torus {}
+
+impl Torus {
+    /// Create a new `Torus` from an inner and outer radius.
+    ///
+    /// The inner radius is the radius of the hole, and the outer radius
+    /// is the radius of the entire object
+    pub fn new(inner_radius: f32, outer_radius: f32) -> Self {
+        let minor_radius = (outer_radius - inner_radius) / 2.0;
+        Self {
+            minor_radius,
+            major_radius: outer_radius - minor_radius,
+        }
+    }
+
+    /// Get the inner radius of the torus.
+    /// For a ring torus, this corresponds to the radius of the hole
+    pub fn inner_radius(&self) -> f32 {
+        self.major_radius - self.minor_radius
+    }
+
+    /// Get the outer radius of the torus.
+    /// This corresponds to the overall radius of the entire object
+    pub fn outer_radius(&self) -> f32 {
+        self.major_radius + self.minor_radius
+    }
+
+    /// Return `true` if the torus has a ring. The major radius
+    /// is greater than the minor radius
+    pub fn is_ring_torus(&self) -> bool {
+        self.major_radius > self.minor_radius
+    }
+
+    /// Return `true` if the torus has no hole but also isn't
+    /// self-intersecting. The major radius is equal to the minor radius
+    pub fn is_horn_torus(&self) -> bool {
+        self.major_radius == self.minor_radius
+    }
+
+    /// Return `true` if the torus is self-intersecting.
+    /// The major radius is less than the minor radius
+    pub fn is_spindle_torus(&self) -> bool {
+        self.major_radius < self.minor_radius
+    }
+}
