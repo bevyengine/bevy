@@ -2,9 +2,10 @@ mod camera_2d;
 mod main_pass_2d_node;
 
 pub mod graph {
-    use bevy_render::render_graph::RenderLabel;
+    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
 
-    pub const NAME: &str = "core_2d";
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
+    pub struct SubGraph2d;
 
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
@@ -22,8 +23,6 @@ pub mod graph {
         EndMainPassPostProcessing,
     }
 }
-
-pub const CORE_2D: &str = graph::NAME;
 
 use std::ops::Range;
 
@@ -47,7 +46,7 @@ use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
-use self::graph::Labels2d;
+use self::graph::{Labels2d, SubGraph2d};
 
 pub struct Core2dPlugin;
 
@@ -70,16 +69,16 @@ impl Plugin for Core2dPlugin {
             );
 
         render_app
-            .add_render_sub_graph(CORE_2D)
-            .add_render_graph_node::<MainPass2dNode>(CORE_2D, Labels2d::MainPass)
+            .add_render_sub_graph(SubGraph2d)
+            .add_render_graph_node::<MainPass2dNode>(SubGraph2d, Labels2d::MainPass)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(
-                CORE_2D,
+                SubGraph2d,
                 Labels2d::Tonemapping,
             )
-            .add_render_graph_node::<EmptyNode>(CORE_2D, Labels2d::EndMainPassPostProcessing)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_2D, Labels2d::Upscaling)
+            .add_render_graph_node::<EmptyNode>(SubGraph2d, Labels2d::EndMainPassPostProcessing)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(SubGraph2d, Labels2d::Upscaling)
             .add_render_graph_edges(
-                CORE_2D,
+                SubGraph2d,
                 (
                     Labels2d::MainPass,
                     Labels2d::Tonemapping,

@@ -2,8 +2,8 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
-use bevy_core_pipeline::core_2d::graph::Labels2d;
-use bevy_core_pipeline::core_3d::graph::Labels3d;
+use bevy_core_pipeline::core_2d::graph::{Labels2d, SubGraph2d};
+use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::PhaseItem;
@@ -14,7 +14,7 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
-use crate::graph::LabelsUi;
+use crate::graph::{LabelsUi, SubGraphUi};
 use crate::Outline;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
@@ -46,12 +46,11 @@ use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
-pub mod draw_ui_graph {
-    pub const NAME: &str = "draw_ui";
-}
-
 pub mod graph {
-    use bevy_render::render_graph::RenderLabel;
+    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
+    pub struct SubGraphUi;
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum LabelsUi {
@@ -111,23 +110,17 @@ pub fn build_ui_render(app: &mut App) {
     let ui_graph_3d = get_ui_graph(render_app);
     let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-    if let Some(graph_2d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_2d::graph::NAME) {
-        graph_2d.add_sub_graph(draw_ui_graph::NAME, ui_graph_2d);
-        graph_2d.add_node(
-            LabelsUi::UiPass,
-            RunGraphOnViewNode::new(draw_ui_graph::NAME),
-        );
+    if let Some(graph_2d) = graph.get_sub_graph_mut(SubGraph2d) {
+        graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
+        graph_2d.add_node(LabelsUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
         graph_2d.add_node_edge(Labels2d::MainPass, LabelsUi::UiPass);
         graph_2d.add_node_edge(Labels2d::EndMainPassPostProcessing, LabelsUi::UiPass);
         graph_2d.add_node_edge(LabelsUi::UiPass, Labels2d::Upscaling);
     }
 
-    if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
-        graph_3d.add_sub_graph(draw_ui_graph::NAME, ui_graph_3d);
-        graph_3d.add_node(
-            LabelsUi::UiPass,
-            RunGraphOnViewNode::new(draw_ui_graph::NAME),
-        );
+    if let Some(graph_3d) = graph.get_sub_graph_mut(SubGraph3d) {
+        graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
+        graph_3d.add_node(LabelsUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
         graph_3d.add_node_edge(Labels3d::EndMainPass, LabelsUi::UiPass);
         graph_3d.add_node_edge(Labels3d::EndMainPassPostProcessing, LabelsUi::UiPass);
         graph_3d.add_node_edge(LabelsUi::UiPass, Labels3d::Upscaling);

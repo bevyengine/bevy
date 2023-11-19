@@ -7,8 +7,7 @@
 
 use bevy::{
     core_pipeline::{
-        clear_color::ClearColorConfig,
-        core_3d::{self, graph::Labels3d},
+        clear_color::ClearColorConfig, core_3d::graph::Labels3d,
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
     ecs::query::QueryItem,
@@ -34,6 +33,7 @@ use bevy::{
         RenderApp,
     },
 };
+use bevy_internal::core_pipeline::core_3d::graph::SubGraph3d;
 
 fn main() {
     App::new()
@@ -42,9 +42,6 @@ fn main() {
         .add_systems(Update, (rotate, update_settings))
         .run();
 }
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct PostProcessLabel;
 
 /// It is generally encouraged to set up post processing effects as a plugin
 struct PostProcessPlugin;
@@ -85,13 +82,13 @@ impl Plugin for PostProcessPlugin {
             // The [`ViewNodeRunner`] is a special [`Node`] that will automatically run the node for each view
             // matching the [`ViewQuery`]
             .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(
-                // Specify the name of the graph, in this case we want the graph for 3d
-                core_3d::graph::NAME,
+                // Specify the label of the graph, in this case we want the graph for 3d
+                SubGraph3d,
                 // It also needs the label of the node
                 PostProcessLabel,
             )
             .add_render_graph_edges(
-                core_3d::graph::NAME,
+                SubGraph3d,
                 // Specify the node ordering.
                 // This will automatically create all required node edges to enforce the given ordering.
                 (
@@ -113,6 +110,9 @@ impl Plugin for PostProcessPlugin {
             .init_resource::<PostProcessPipeline>();
     }
 }
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+pub struct PostProcessLabel;
 
 // The post process node used for the render graph
 #[derive(Default)]

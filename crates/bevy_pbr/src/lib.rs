@@ -17,7 +17,7 @@ mod render;
 mod ssao;
 
 pub use alpha::*;
-use bevy_core_pipeline::core_3d::graph::Labels3d;
+use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
@@ -362,9 +362,7 @@ impl Plugin for PbrPlugin {
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
-            .unwrap();
+        let draw_3d_graph = graph.get_sub_graph_mut(SubGraph3d).unwrap();
         draw_3d_graph.add_node(LabelsPbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(LabelsPbr::ShadowPass, Labels3d::StartMainPass);
     }

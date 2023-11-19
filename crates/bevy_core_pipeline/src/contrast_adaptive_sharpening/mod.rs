@@ -1,6 +1,6 @@
 use crate::{
-    core_2d::{graph::Labels2d, CORE_2D},
-    core_3d::{graph::Labels3d, CORE_3D},
+    core_2d::graph::{Labels2d, SubGraph2d},
+    core_3d::graph::{Labels3d, SubGraph3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
@@ -123,14 +123,14 @@ impl Plugin for CASPlugin {
 
         {
             render_app
-                .add_render_graph_node::<CASNode>(CORE_3D, Labels3d::ContrastAdaptiveSharpening)
+                .add_render_graph_node::<CASNode>(SubGraph3d, Labels3d::ContrastAdaptiveSharpening)
                 .add_render_graph_edge(
-                    CORE_3D,
+                    SubGraph3d,
                     Labels3d::Tonemapping,
                     Labels3d::ContrastAdaptiveSharpening,
                 )
                 .add_render_graph_edges(
-                    CORE_3D,
+                    SubGraph3d,
                     (
                         Labels3d::Fxaa,
                         Labels3d::ContrastAdaptiveSharpening,
@@ -140,14 +140,14 @@ impl Plugin for CASPlugin {
         }
         {
             render_app
-                .add_render_graph_node::<CASNode>(CORE_2D, Labels2d::ConstrastAdaptiveSharpening)
+                .add_render_graph_node::<CASNode>(SubGraph2d, Labels2d::ConstrastAdaptiveSharpening)
                 .add_render_graph_edge(
-                    CORE_2D,
+                    SubGraph2d,
                     Labels2d::Tonemapping,
                     Labels2d::ConstrastAdaptiveSharpening,
                 )
                 .add_render_graph_edges(
-                    CORE_2D,
+                    SubGraph2d,
                     (
                         Labels2d::Fxaa,
                         Labels2d::ConstrastAdaptiveSharpening,

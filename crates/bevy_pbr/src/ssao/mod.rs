@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::{graph::Labels3d, CORE_3D},
+    core_3d::graph::{Labels3d, SubGraph3d},
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
@@ -107,11 +107,11 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
-                CORE_3D,
+                SubGraph3d,
                 LabelsPbr::ScreenSpaceAmbientOcclusion,
             )
             .add_render_graph_edges(
-                CORE_3D,
+                SubGraph3d,
                 (
                     // END_PRE_PASSES -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
                     Labels3d::EndPrepasses,

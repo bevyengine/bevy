@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     clear_color::ClearColorConfig,
-    core_3d::{self, graph::Labels3d},
+    core_3d::graph::{Labels3d, SubGraph3d},
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
@@ -120,11 +120,11 @@ impl Plugin for DeferredPbrLightingPlugin {
                 (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
-                core_3d::graph::NAME,
+                SubGraph3d,
                 DeferredLightingPass3dNode,
             )
             .add_render_graph_edges(
-                core_3d::graph::NAME,
+                SubGraph3d,
                 (
                     Labels3d::StartMainPass,
                     DeferredLightingPass3dNode,

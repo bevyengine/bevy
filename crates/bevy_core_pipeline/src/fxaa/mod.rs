@@ -1,6 +1,6 @@
 use crate::{
-    core_2d::{graph::Labels2d, CORE_2D},
-    core_3d::{ graph::Labels3d, CORE_3D},
+    core_2d::graph::{Labels2d, SubGraph2d},
+    core_3d::graph::{Labels3d, SubGraph3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
@@ -93,18 +93,18 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
             .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
-            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(CORE_3D, Labels3d::Fxaa)
+            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(SubGraph3d, Labels3d::Fxaa)
             .add_render_graph_edges(
-                CORE_3D,
+                SubGraph3d,
                 (
                     Labels3d::Tonemapping,
                     Labels3d::Fxaa,
                     Labels3d::EndMainPassPostProcessing,
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(CORE_2D, Labels2d::Fxaa)
+            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(SubGraph2d, Labels2d::Fxaa)
             .add_render_graph_edges(
-                CORE_2D,
+                SubGraph2d,
                 (
                     Labels2d::Tonemapping,
                     Labels2d::Fxaa,
