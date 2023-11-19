@@ -119,7 +119,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         render_context
             .command_encoder()
             .push_debug_group("meshlet_downsample_depth");
-        for i in 0..9 {
+        for i in 0..6 {
             let downsample_pass = RenderPassDescriptor {
                 label: Some("meshlet_downsample_depth_pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {

@@ -233,7 +233,7 @@ pub fn prepare_meshlet_per_frame_resources(
                     height: (1 << (31 - view.viewport.w.leading_zeros())) / 2,
                     depth_or_array_layers: 1,
                 },
-                mip_level_count: 9,
+                mip_level_count: 6,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R32Float,
@@ -241,7 +241,7 @@ pub fn prepare_meshlet_per_frame_resources(
                 view_formats: &[],
             },
         );
-        let depth_pyramid_mips = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(|i| {
+        let depth_pyramid_mips = [0, 1, 2, 3, 4, 5].map(|i| {
             depth_pyramid.texture.create_view(&TextureViewDescriptor {
                 label: Some("meshlet_depth_pyramid_texture_view"),
                 format: Some(TextureFormat::R32Float),
@@ -360,7 +360,7 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
-        let downsample_depth = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(|i| {
+        let downsample_depth = [0, 1, 2, 3, 4, 5].map(|i| {
             render_device.create_bind_group(
                 "meshlet_downsample_depth_bind_group",
                 &gpu_scene.downsample_depth_bind_group_layout,
@@ -700,7 +700,7 @@ pub struct MeshletViewResources {
     pub visibility_buffer_draw_index_buffer: Buffer,
     pub depth_pyramid: CachedTexture,
     // TODO: Dynamic number of mips based on view resolution
-    pub depth_pyramid_mips: [TextureView; 9],
+    pub depth_pyramid_mips: [TextureView; 6],
     pub material_depth_color: CachedTexture,
     pub material_depth: CachedTexture,
 }
@@ -709,7 +709,7 @@ pub struct MeshletViewResources {
 pub struct MeshletViewBindGroups {
     pub culling_first: BindGroup,
     pub culling_second: BindGroup,
-    pub downsample_depth: [BindGroup; 9],
+    pub downsample_depth: [BindGroup; 6],
     pub visibility_buffer: BindGroup,
     pub copy_material_depth: BindGroup,
     pub material_draw: BindGroup,
