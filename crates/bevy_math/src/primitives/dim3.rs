@@ -241,6 +241,7 @@ pub struct ConicalFrustum {
 impl Primitive3d for ConicalFrustum {}
 
 /// The type of torus determined by the minor and major radii
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TorusKind {
     /// A torus that has a ring.
     /// The major radius is greater than the minor radius
