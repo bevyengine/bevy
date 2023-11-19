@@ -31,6 +31,7 @@ members = [
 
 [workspace.lints.clippy]
 type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
 
 [lints]
 workspace = true
