@@ -252,6 +252,9 @@ pub enum TorusKind {
     /// A self-intersecting torus.
     /// The major radius is less than the minor radius
     Spindle,
+    /// A torus with non-geometric properties like
+    /// a non-positive minor or major radius
+    Invalid,
 }
 
 /// A torus primitive, often representing a ring or donut shape
@@ -307,7 +310,8 @@ impl Torus {
     ///
     /// The torus can either be a *ring torus* that has a hole,
     /// a *horn torus* that doesn't have a hole but also isn't self-intersecting,
-    /// or a *spindle torus* that is self-intersecting
+    /// or a *spindle torus* that is self-intersecting. If the minor or major radius
+    /// is non-positive or infinite, [`TorusKind::Invalid`] is returned
     ///
     /// # Panics
     ///
@@ -315,11 +319,20 @@ impl Torus {
     #[inline]
     #[must_use]
     pub fn kind(&self) -> TorusKind {
-        match self
-            .major_radius
-            .partial_cmp(&self.minor_radius)
-            .expect("radius of torus is NaN")
+        // Panic if NaN radius
+        assert!(!self.minor_radius.is_nan(), "minor radius of torus is NaN");
+        assert!(!self.major_radius.is_nan(), "major radius of torus is NaN");
+
+        // A torus typically can't have a non-positive or infinite minor or major radius
+        if self.minor_radius <= 0.0
+            || self.minor_radius.is_infinite()
+            || self.major_radius <= 0.0
+            || self.major_radius.is_infinite()
         {
+            return TorusKind::Invalid;
+        }
+
+        match self.major_radius.partial_cmp(&self.minor_radius).unwrap() {
             std::cmp::Ordering::Greater => TorusKind::Ring,
             std::cmp::Ordering::Equal => TorusKind::Horn,
             std::cmp::Ordering::Less => TorusKind::Spindle,
