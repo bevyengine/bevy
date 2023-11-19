@@ -1,55 +1,56 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
+use crate as bevy_gizmos;
+pub use bevy_gizmos_macros::GizmoConfigGroup;
+
+use bevy_ecs::{component::Component, system::Resource};
+use bevy_reflect::{Reflect, TypePath};
+use bevy_render::view::RenderLayers;
+use bevy_utils::HashMap;
 use core::panic;
 use std::{
     any::TypeId,
     ops::{Deref, DerefMut},
 };
 
-use bevy_ecs::{component::Component, system::Resource};
-use bevy_reflect::{Reflect, TypePath};
-use bevy_render::view::RenderLayers;
-use bevy_utils::HashMap;
-
-/// A trait used for custom gizmo configs.
+/// A trait used to create gizmo configs groups.
 ///
-/// Here you can store additional configuration for you gizmos not covered by [`GizmoConfig`]
+/// Here you can store additional configuration for you gizmo group not covered by [`GizmoConfig`]
 ///
-/// Make sure to derive [`Default`] + [`Reflect`], and register in the app using `app.init_gizmo_config::<T>()`
-pub trait CustomGizmoConfig: Reflect + TypePath + Default {}
+/// Make sure to derive [`Default`] + [`Reflect`] and register in the app using `app.init_gizmo_group::<T>()`
+pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
-/// The default gizmo config.
-#[derive(Default, Reflect)]
-pub struct DefaultGizmoConfig;
-impl CustomGizmoConfig for DefaultGizmoConfig {}
+/// The default gizmo config group.
+#[derive(Default, Reflect, GizmoConfigGroup)]
+pub struct DefaultGizmoGroup;
 
-/// A [`Resource`] storing [`GizmoConfig`] and [`CustomGizmoConfig`] structs
+/// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
 ///
-/// Use `app.init_gizmo_config::<T>()` to register a custom config.
+/// Use `app.init_gizmo_group::<T>()` to register a custom config group.
 #[derive(Resource, Default)]
 pub struct GizmoConfigStore {
-    // INVARIANT: store must map TypeId::of::<T>() to correct type T
+    // INVARIANT: must map TypeId::of::<T>() to correct type T
     store: HashMap<TypeId, (GizmoConfig, Box<dyn Reflect>)>,
 }
 
 impl GizmoConfigStore {
-    /// Returns [`GizmoConfig`] and `&dyn` [`CustomGizmoConfig`] associated with [`TypePath`] of a [`CustomGizmoConfig`]
+    /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a [`GizmoConfigGroup`]
     pub fn get_dyn(&self, config_type_id: &TypeId) -> Option<(&GizmoConfig, &dyn Reflect)> {
         let (config, ext) = self.store.get(config_type_id)?;
         Some((config, ext.deref()))
     }
 
-    /// Returns [`GizmoConfig`] and [`CustomGizmoConfig`] associated with a [`CustomGizmoConfig`] `T`
-    pub fn get<T: CustomGizmoConfig>(&self) -> (&GizmoConfig, &T) {
+    /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
+    pub fn get<T: GizmoConfigGroup>(&self) -> (&GizmoConfig, &T) {
         let Some((config, ext)) = self.get_dyn(&TypeId::of::<T>()) else {
-            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_config<T>()`?", T::type_path());
+            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
-        // hash map invariant guarantees that `&dyn CustomGizmoConfig` is of correct type T
+        // hash map invariant guarantees that &dyn Reflect is of correct type T
         let ext = ext.as_any().downcast_ref().unwrap();
         (config, ext)
     }
 
-    /// Returns mutable [`GizmoConfig`] and `&dyn` [`CustomGizmoConfig`] associated with [`TypePath`] of a [`CustomGizmoConfig`]
+    /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a [`GizmoConfigGroup`]
     pub fn get_mut_dyn(
         &mut self,
         config_type_id: &TypeId,
@@ -58,12 +59,12 @@ impl GizmoConfigStore {
         Some((config, ext.deref_mut()))
     }
 
-    /// Returns mutable [`GizmoConfig`] and [`CustomGizmoConfig`] associated with a [`CustomGizmoConfig`] `T`
-    pub fn get_mut<T: CustomGizmoConfig>(&mut self) -> (&mut GizmoConfig, &mut T) {
+    /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
+    pub fn get_mut<T: GizmoConfigGroup>(&mut self) -> (&mut GizmoConfig, &mut T) {
         let Some((config, ext)) = self.get_mut_dyn(&TypeId::of::<T>()) else {
-            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_config<T>()`?", T::type_path());
+            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
-        // hash map invariant guarantees that `&dyn CustomGizmoConfig` is of correct type T
+        // hash map invariant guarantees that &dyn Reflect is of correct type T
         let ext = ext.as_any_mut().downcast_mut().unwrap();
         (config, ext)
     }
@@ -84,14 +85,14 @@ impl GizmoConfigStore {
             .map(|(id, (config, ext))| (id, config, ext.deref_mut()))
     }
 
-    /// Inserts [`GizmoConfig`] and [`CustomGizmoConfig`] replacing old values
-    pub fn insert<T: CustomGizmoConfig>(&mut self, config: GizmoConfig, ext_config: T) {
-        // INVARIANT: hash map must only map TypeId::of::<T>() to Box<T>
+    /// Inserts [`GizmoConfig`] and [`GizmoConfigGroup`] replacing old values
+    pub fn insert<T: GizmoConfigGroup>(&mut self, config: GizmoConfig, ext_config: T) {
+        // INVARIANT: hash map must correctly map TypeId::of::<T>() to &dyn Reflect of type T
         self.store
             .insert(TypeId::of::<T>(), (config, Box::new(ext_config)));
     }
 
-    pub(crate) fn register<T: CustomGizmoConfig>(&mut self) {
+    pub(crate) fn register<T: GizmoConfigGroup>(&mut self) {
         self.insert(GizmoConfig::default(), T::default());
     }
 }

@@ -7,17 +7,15 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_gizmo_config::<MyRoundGizmoConfig>()
+        .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, update_config))
         .run();
 }
 
-// We can create our own gizmo config!
-#[derive(Default, Reflect)]
-struct MyRoundGizmoConfig {}
-
-impl CustomGizmoConfig for MyRoundGizmoConfig {}
+// We can create our own gizmo config group!
+#[derive(Default, Reflect, GizmoConfigGroup)]
+struct MyRoundGizmos {}
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
@@ -34,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmoConfig>, time: Res<Time>) {
+fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Time>) {
     let sin = time.elapsed_seconds().sin() * 50.;
     gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
     gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
@@ -71,7 +69,7 @@ fn update_config(
     keyboard: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let (config, _) = config_store.get_mut::<DefaultGizmoConfig>();
+    let (config, _) = config_store.get_mut::<DefaultGizmoGroup>();
     if keyboard.pressed(KeyCode::Right) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
@@ -84,7 +82,7 @@ fn update_config(
         config.enabled ^= true;
     }
 
-    let (my_config, _) = config_store.get_mut::<MyRoundGizmoConfig>();
+    let (my_config, _) = config_store.get_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::Up) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);

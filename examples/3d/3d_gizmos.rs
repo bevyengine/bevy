@@ -7,17 +7,15 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_gizmo_config::<MyRoundGizmoConfig>()
+        .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, rotate_camera, update_config))
         .run();
 }
 
-// We can create our own gizmo config!
-#[derive(Default, Reflect)]
-struct MyRoundGizmoConfig {}
-
-impl CustomGizmoConfig for MyRoundGizmoConfig {}
+// We can create our own gizmo config group!
+#[derive(Default, Reflect, GizmoConfigGroup)]
+struct MyRoundGizmos {}
 
 fn setup(
     mut commands: Commands,
@@ -75,7 +73,7 @@ fn setup(
     );
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmoConfig>, time: Res<Time>) {
+fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Time>) {
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         Color::BLACK,
@@ -133,7 +131,7 @@ fn update_config(
         }
     }
 
-    let (config, _) = config_store.get_mut::<DefaultGizmoConfig>();
+    let (config, _) = config_store.get_mut::<DefaultGizmoGroup>();
     if keyboard.pressed(KeyCode::Right) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
@@ -146,7 +144,7 @@ fn update_config(
         config.enabled ^= true;
     }
 
-    let (my_config, _) = config_store.get_mut::<MyRoundGizmoConfig>();
+    let (my_config, _) = config_store.get_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::Up) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
@@ -161,7 +159,7 @@ fn update_config(
 
     if keyboard.just_pressed(KeyCode::A) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
-        // We can change this behaviour in the extended configuration of AabbGizmos config
-        config_store.get_mut::<AabbGizmoConfig>().1.draw_all ^= true;
+        // We can change this behaviour in the configuration of AabbGizmoGroup
+        config_store.get_mut::<AabbGizmoGroup>().1.draw_all ^= true;
     }
 }

@@ -1,4 +1,6 @@
-//! A module adding visualization of [`Aabb`]s for debugging.
+//! A module adding debug visualization of [`Aabb`]s.
+
+use crate as bevy_gizmos;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_ecs::{
@@ -17,7 +19,7 @@ use bevy_transform::{
 };
 
 use crate::{
-    config::{CustomGizmoConfig, GizmoConfigStore},
+    config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
     AppGizmoBuilder,
 };
@@ -27,23 +29,23 @@ pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<AabbGizmoConfig>()
-            .init_gizmo_config::<AabbGizmoConfig>()
+        app.register_type::<AabbGizmoGroup>()
+            .init_gizmo_group::<AabbGizmoGroup>()
             .add_systems(
                 PostUpdate,
                 (
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
-                        config.get::<AabbGizmoConfig>().1.draw_all
+                        config.get::<AabbGizmoGroup>().1.draw_all
                     }),
                 )
                     .after(TransformSystem::TransformPropagate),
             );
     }
 }
-/// Configuration for drawing the [Aabb](bevy_render::primitives::Aabb) component on entities.
-#[derive(Clone, Default, Reflect)]
-pub struct AabbGizmoConfig {
+/// The [`GizmoConfigGroup`] used for debug visualizations of [`Aabb`] components on entities
+#[derive(Clone, Default, Reflect, GizmoConfigGroup)]
+pub struct AabbGizmoGroup {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///
     /// To draw a specific entity's bounding box, you can add the [ShowAabbGizmo](crate::ShowAabbGizmo) component.
@@ -58,8 +60,6 @@ pub struct AabbGizmoConfig {
     pub default_color: Option<Color>,
 }
 
-impl CustomGizmoConfig for AabbGizmoConfig {}
-
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default)]
@@ -72,7 +72,7 @@ pub struct ShowAabbGizmo {
 
 fn draw_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
-    mut gizmos: Gizmos<AabbGizmoConfig>,
+    mut gizmos: Gizmos<AabbGizmoGroup>,
 ) {
     for (entity, &aabb, &transform, gizmo) in &query {
         let color = gizmo
@@ -85,7 +85,7 @@ fn draw_aabbs(
 
 fn draw_all_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
-    mut gizmos: Gizmos<AabbGizmoConfig>,
+    mut gizmos: Gizmos<AabbGizmoGroup>,
 ) {
     for (entity, &aabb, &transform) in &query {
         let color = gizmos

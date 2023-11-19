@@ -29,13 +29,14 @@ mod pipeline_3d;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        aabb::{AabbGizmoConfig, ShowAabbGizmo},
-        config::{CustomGizmoConfig, DefaultGizmoConfig, GizmoConfig, GizmoConfigStore},
+        aabb::{AabbGizmoGroup, ShowAabbGizmo},
+        config::{DefaultGizmoGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
         AppGizmoBuilder,
     };
 }
 
+use aabb::AabbGizmoPlugin;
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_core::cast_slice;
@@ -63,11 +64,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
-use config::{
-    CustomGizmoConfig, DefaultGizmoConfig, GizmoConfig, GizmoConfigStore, GizmoMeshConfig,
-};
+use config::{DefaultGizmoGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig};
 use gizmos::GizmoStorage;
-use aabb::AabbGizmoPlugin;
 use std::{any::TypeId, mem};
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
@@ -85,7 +83,7 @@ impl Plugin for GizmoPlugin {
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfigStore>()
-            .init_gizmo_config::<DefaultGizmoConfig>()
+            .init_gizmo_group::<DefaultGizmoGroup>()
             .add_plugins(AabbGizmoPlugin);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -127,16 +125,16 @@ impl Plugin for GizmoPlugin {
     }
 }
 
-/// A trait adding `init_gizmo_config<T>()` to the app
+/// A trait adding `init_gizmo_group<T>()` to the app
 pub trait AppGizmoBuilder {
-    /// Registers [`CustomGizmoConfig`] `T` in the app enabling the use of [`Gizmos<T>`].
+    /// Registers [`GizmoConfigGroup`] `T` in the app enabling the use of [`Gizmos<T>`].
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
-    fn init_gizmo_config<T: CustomGizmoConfig + Default>(&mut self) -> &mut Self;
+    fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
-    fn init_gizmo_config<T: CustomGizmoConfig + Default>(&mut self) -> &mut Self {
+    fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self {
         if self.world.contains_resource::<GizmoStorage<T>>() {
             return self;
         }
@@ -164,7 +162,7 @@ struct LineGizmoHandles {
     strip: HashMap<TypeId, Handle<LineGizmo>>,
 }
 
-fn update_gizmo_meshes<T: CustomGizmoConfig>(
+fn update_gizmo_meshes<T: GizmoConfigGroup>(
     mut line_gizmos: ResMut<Assets<LineGizmo>>,
     mut handles: ResMut<LineGizmoHandles>,
     mut storage: ResMut<GizmoStorage<T>>,
@@ -212,7 +210,7 @@ fn update_gizmo_meshes<T: CustomGizmoConfig>(
     }
 }
 
-fn extract_gizmo_data<T: CustomGizmoConfig>(
+fn extract_gizmo_data<T: GizmoConfigGroup>(
     mut commands: Commands,
     handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
