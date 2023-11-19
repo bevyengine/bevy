@@ -240,6 +240,19 @@ pub struct ConicalFrustum {
 }
 impl Primitive3d for ConicalFrustum {}
 
+/// The type of torus determined by the minor and major radii
+pub enum TorusKind {
+    /// A torus that has a ring.
+    /// The major radius is greater than the minor radius
+    Ring,
+    /// A torus that has no hole but also doesn't intersect itself.
+    /// The major radius is equal to the minor radius
+    Horn,
+    /// A self-intersecting torus.
+    /// The major radius is less than the minor radius
+    Spindle,
+}
+
 /// A torus primitive, often representing a ring or donut shape
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Torus {
@@ -281,21 +294,16 @@ impl Torus {
         self.major_radius + self.minor_radius
     }
 
-    /// Return `true` if the torus has a ring. The major radius
-    /// is greater than the minor radius
-    pub fn is_ring_torus(&self) -> bool {
-        self.major_radius > self.minor_radius
-    }
-
-    /// Return `true` if the torus has no hole but also isn't
-    /// self-intersecting. The major radius is equal to the minor radius
-    pub fn is_horn_torus(&self) -> bool {
-        self.major_radius == self.minor_radius
-    }
-
-    /// Return `true` if the torus is self-intersecting.
-    /// The major radius is less than the minor radius
-    pub fn is_spindle_torus(&self) -> bool {
-        self.major_radius < self.minor_radius
+    /// Get the [`TorusKind`] determined by the minor and major radii.
+    ///
+    /// The torus can either be a *ring torus* that has a hole,
+    /// a *horn torus* that doesn't have a hole but also isn't self-intersecting,
+    /// or a *spindle torus* that is self-intersecting
+    pub fn kind(&self) -> TorusKind {
+        match self.major_radius.total_cmp(&self.minor_radius) {
+            std::cmp::Ordering::Greater => TorusKind::Ring,
+            std::cmp::Ordering::Equal => TorusKind::Horn,
+            std::cmp::Ordering::Less => TorusKind::Spindle,
+        }
     }
 }
