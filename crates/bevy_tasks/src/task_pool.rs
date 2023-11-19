@@ -353,12 +353,16 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
         let executor: &async_executor::Executor = &self.executor;
+        #[allow(clippy::undocumented_unsafe_blocks)]
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
+        #[allow(clippy::undocumented_unsafe_blocks)]
         let external_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(external_executor) };
+        #[allow(clippy::undocumented_unsafe_blocks)]
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
+        #[allow(clippy::undocumented_unsafe_blocks)]
         let spawned: &'env ConcurrentQueue<
             FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>,
         > = unsafe { mem::transmute(&spawned) };
@@ -373,6 +377,7 @@ impl TaskPool {
         };
 
         // shadow the variable so that the owned value cannot be used for the rest of the function
+        #[allow(clippy::undocumented_unsafe_blocks)]
         let scope: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
         f(scope);
