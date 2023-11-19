@@ -104,15 +104,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// # Panics
     /// See [`for_each`].
+    ///
+    /// [`for_each`]: self::QueryParIter::for_each
     #[inline]
-    pub fn map<
-        R: Send + Sync,
-        FN: Fn(QueryItem<'w, Q>) -> R + Send + Sync + Clone
-    >(self, func: FN) -> std::sync::mpsc::IntoIter<R> {
+    pub fn map<R: Send + Sync, FN: Fn(QueryItem<'w, Q>) -> R + Send + Sync + Clone>(
+        self,
+        func: FN,
+    ) -> std::sync::mpsc::IntoIter<R> {
         let (sender, receiver) = std::sync::mpsc::channel();
-        self.for_each(|ws_reader| {
-            sender.clone().send(func(ws_reader)).unwrap()
-        });
+        self.for_each(|ws_reader| sender.clone().send(func(ws_reader)).unwrap());
         receiver.into_iter()
     }
 
@@ -226,10 +226,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        self as bevy_ecs,
-        prelude::*,
-    };
+    use crate::{self as bevy_ecs, prelude::*};
 
     #[derive(Clone, Component, Debug)]
     struct Data(f32);
@@ -257,12 +254,25 @@ mod tests {
         let mut world = test_world();
         let mut query = world.query::<&mut Data>();
 
+        // Simple non-mutating map returns the expected result
         assert_eq!(
-            query.par_iter(&world).map(|data|{ data.0 * 3.0 }).collect::<Vec<f32>>(),
+            query
+                .par_iter(&world)
+                .map(|data| { data.0 * 3.0 })
+                .collect::<Vec<f32>>(),
             vec![3.0 as f32; 80]
         );
+
+        // A map past mutation works as expected if queried afterwards.
         assert_eq!(
-            query.par_iter(&world).map(|data|{ data.0 * 2.0 }).sum::<f32>(),
-            160.0)
+            query
+                .par_iter(&world)
+                .map(|data: Data| {
+                    data.0 *= 3.0;
+                    data.0
+                })
+                .collect::<Vec<f32>>(),
+            vec![3.0 as f32; 80]
+        );
     }
 }
