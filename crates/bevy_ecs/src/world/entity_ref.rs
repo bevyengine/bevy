@@ -1065,6 +1065,16 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
         }
     }
 }
+
+impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
+    #[inline]
+    pub fn or_default(self) -> Mut<'a, T> {
+        match self {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(mut entry) => entry.insert(Default::default()),
+        }
+    }
+}
 pub struct OccupiedEntry<'w, 'a, T: Component> {
     _marker: PhantomData<T>,
     entity_world: &'a mut EntityWorldMut<'w>,
@@ -1077,11 +1087,27 @@ impl<'a, T: Component> OccupiedEntry<'_, 'a, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
         unsafe { std::mem::transmute(self.entity_world.get_mut::<T>().unwrap_unchecked()) }
     }
+
+    #[inline]
+    pub fn into_mut(self) -> Mut<'a, T> {
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.get_mut().unwrap_unchecked() }
+    }
 }
 
 pub struct VacantEntry<'w, 'a, T: Component> {
     _marker: PhantomData<T>,
     entity_world: &'a mut EntityWorldMut<'w>,
+}
+
+impl<'a, T: Component> VacantEntry<'_, 'a, T> {
+    #[inline]
+    pub fn insert(&mut self, component: T) -> Mut<'a, T> {
+        self.entity_world.insert(component);
+        // TODO: Again, yuck
+        // SAFETY: We just added this component.
+        unsafe { std::mem::transmute(self.entity_world.get_mut::<T>().unwrap_unchecked()) }
+    }
 }
 
 /// Inserts a dynamic [`Bundle`] into the entity.
