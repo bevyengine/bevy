@@ -3,8 +3,6 @@ use bevy_ecs::{prelude::Entity, world::World};
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
 use smallvec::{smallvec, SmallVec};
-#[cfg(feature = "trace")]
-use std::ops::Deref;
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
@@ -82,8 +80,8 @@ impl RenderGraphRunner {
         let mut node_outputs: HashMap<InternedRenderLabel, SmallVec<[SlotValue; 4]>> =
             HashMap::default();
         #[cfg(feature = "trace")]
-        let span = if let Some(name) = &graph_name {
-            info_span!("run_graph", name = name.deref())
+        let span = if let Some(label) = &sub_graph {
+            info_span!("run_graph", name = format!("{label:?}"))
         } else {
             info_span!("run_graph", name = "main_graph")
         };
