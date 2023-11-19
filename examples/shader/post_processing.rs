@@ -7,7 +7,8 @@
 
 use bevy::{
     core_pipeline::{
-        clear_color::ClearColorConfig, core_3d::graph::Labels3d,
+        clear_color::ClearColorConfig,
+        core_3d::graph::{Labels3d, SubGraph3d},
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
     ecs::query::QueryItem,
@@ -33,7 +34,6 @@ use bevy::{
         RenderApp,
     },
 };
-use bevy_internal::core_pipeline::core_3d::graph::SubGraph3d;
 
 fn main() {
     App::new()
