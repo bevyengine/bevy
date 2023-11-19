@@ -573,7 +573,7 @@ impl<'a> LoadContext<'a> {
     ///
     /// [`Process`]: crate::processor::Process
     /// [`LoadAndSave`]: crate::processor::LoadAndSave
-    pub async fn load_direct_with_reader<'b>(
+    pub async fn load_direct_with_reader_and_path<'b>(
         &mut self,
         reader: &mut Reader<'_>,
         path: impl Into<AssetPath<'b>>,
@@ -615,6 +615,97 @@ impl<'a> LoadContext<'a> {
         let hash = info.map(|i| i.full_hash).unwrap_or_default();
 
         self.loader_dependencies.insert(path, hash);
+
+        Ok(loaded_asset)
+    }
+
+    /// Loads the asset from the given `reader` directly as the asset type `type_id`. This is an async function that will wait until the asset is fully loaded before
+    /// returning. Use this if you need the _value_ of another asset in order to load the current asset, and that value comes from your [`Reader`].
+    /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets.
+    pub async fn load_direct_with_reader_and_type_id<'b>(
+        &mut self,
+        reader: &mut Reader<'_>,
+        type_id: TypeId,
+    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        let loader = self
+            .asset_server
+            .get_asset_loader_with_asset_type_id(type_id)
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: self.asset_path.clone_owned(),
+                error: error.into(),
+            })?;
+
+        let meta = loader.default_meta();
+
+        let load_context = LoadContext::new(
+            self.asset_server,
+            self.asset_path.clone_owned(),
+            self.should_load_dependencies,
+            self.populate_hashes,
+        );
+
+        let loaded_asset = loader
+            .load(reader, meta, load_context)
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: self.asset_path.clone_owned(),
+                error: AssetLoadError::AssetLoaderError {
+                    path: self.asset_path.clone_owned(),
+                    loader_name: loader.type_name(),
+                    error,
+                },
+            })?;
+
+        Ok(loaded_asset)
+    }
+
+    /// Loads the asset from the given `reader` directly as the asset type `type_id`. This is an async function that will wait until the asset is fully loaded before
+    /// returning. Use this if you need the _value_ of another asset in order to load the current asset, and that value comes from your [`Reader`].
+    /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets.
+    pub async fn load_direct_with_reader<'b, A: Asset>(
+        &mut self,
+        reader: &mut Reader<'_>,
+    ) -> Result<A, LoadDirectError> {
+        let loader = self
+            .asset_server
+            .get_asset_loader_with_asset_type::<A>()
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: self.asset_path.clone_owned(),
+                error: error.into(),
+            })?;
+
+        let meta = loader.default_meta();
+
+        let load_context = LoadContext::new(
+            self.asset_server,
+            self.asset_path.clone_owned(),
+            self.should_load_dependencies,
+            self.populate_hashes,
+        );
+
+        let loaded_asset = loader
+            .load(reader, meta, load_context)
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: self.asset_path.clone_owned(),
+                error: AssetLoadError::AssetLoaderError {
+                    path: self.asset_path.clone_owned(),
+                    loader_name: loader.type_name(),
+                    error,
+                },
+            })?
+            .take::<A>()
+            .ok_or_else(|| LoadDirectError {
+                dependency: self.asset_path.clone_owned(),
+                error: AssetLoadError::RequestedHandleTypeMismatch {
+                    path: self.asset_path.clone_owned(),
+                    requested: TypeId::of::<A>(),
+                    actual_asset_name: loader.asset_type_name(),
+                    loader_name: loader.type_name(),
+                },
+            })?;
 
         Ok(loaded_asset)
     }

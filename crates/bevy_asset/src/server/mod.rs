@@ -820,19 +820,31 @@ impl AssetServer {
                 Ok((meta, loader, reader))
             }
             Err(AssetReaderError::NotFound(_)) => {
-                let loader = if let Some(type_id) = asset_type_id {
-                    // If provided a TypeId for the Asset to be loaded, use that to select the loader.
-                    self.get_asset_loader_with_asset_type_id(type_id).await.ok()
-                } else {
-                    None
+                let loader = 'type_resolution: {
+                    let Some(type_id) = asset_type_id else {
+                        // If not provided an asset_type_id, type inference is broken
+                        break 'type_resolution None;
+                    };
+
+                    let None = asset_path.label() else {
+                        // Labelled sub-assets could be any type, not just the one registered for the loader
+                        break 'type_resolution None;
+                    };
+
+                    let Ok(loader) = self.get_asset_loader_with_asset_type_id(type_id).await else {
+                        bevy_log::warn!(
+                            "Could not load asset via type_id: no asset loader registered for {:?}",
+                            type_id
+                        );
+                        break 'type_resolution None;
+                    };
+
+                    Some(loader)
                 };
 
-                let loader = if let Some(loader) = loader {
-                    loader
-                } else {
-                    bevy_log::warn!("Could not load asset via type_id");
-                    // Fallback to using the file extension to choose the loader.
-                    self.get_path_asset_loader(asset_path).await?
+                let loader = match loader {
+                    Some(loader) => loader,
+                    None => self.get_path_asset_loader(asset_path).await?,
                 };
 
                 let meta = loader.default_meta();
