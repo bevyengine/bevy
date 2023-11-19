@@ -10,8 +10,8 @@ use thiserror::Error;
 
 use crate::{
     render_graph::{
-        Edge, InternedRenderLabel, NodeRunError, NodeState, RenderGraph, RenderGraphContext,
-        SlotLabel, SlotType, SlotValue,
+        Edge, InternedRenderLabel, InternedRenderSubGraph, NodeRunError, NodeState, RenderGraph,
+        RenderGraphContext, SlotLabel, SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -28,11 +28,11 @@ pub enum RenderGraphRunnerError {
         slot_index: usize,
         slot_name: Cow<'static, str>,
     },
-    #[error("graph (name: '{graph_name:?}') could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+    #[error("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
-        graph_name: Option<Cow<'static, str>>,
+        sub_graph: Option<InternedRenderSubGraph>,
     },
     #[error("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
@@ -73,7 +73,7 @@ impl RenderGraphRunner {
 
     fn run_graph(
         graph: &RenderGraph,
-        graph_name: Option<Cow<'static, str>>,
+        sub_graph: Option<InternedRenderSubGraph>,
         render_context: &mut RenderContext,
         world: &World,
         inputs: &[SlotValue],
@@ -114,7 +114,7 @@ impl RenderGraphRunner {
                     return Err(RenderGraphRunnerError::MissingInput {
                         slot_index: i,
                         slot_name: input_slot.name.clone(),
-                        graph_name,
+                        sub_graph,
                     });
                 }
             }
@@ -196,11 +196,11 @@ impl RenderGraphRunner {
 
                 for run_sub_graph in context.finish() {
                     let sub_graph = graph
-                        .get_sub_graph(&run_sub_graph.name)
+                        .get_sub_graph(run_sub_graph.sub_graph)
                         .expect("sub graph exists because it was validated when queued.");
                     Self::run_graph(
                         sub_graph,
-                        Some(run_sub_graph.name),
+                        Some(run_sub_graph.sub_graph),
                         render_context,
                         world,
                         &run_sub_graph.inputs,

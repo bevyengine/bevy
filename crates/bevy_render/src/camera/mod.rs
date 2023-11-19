@@ -25,7 +25,6 @@ impl Plugin for CameraPlugin {
             .register_type::<Viewport>()
             .register_type::<Option<Viewport>>()
             .register_type::<ScalingMode>()
-            .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()
             .init_resource::<ManualTextureViews>()
             .add_plugins((

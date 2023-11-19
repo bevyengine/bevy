@@ -6,10 +6,21 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::{prelude::World, system::Resource};
-use bevy_utils::HashMap;
-use std::{borrow::Cow, fmt::Debug};
+use bevy_utils::{define_label, intern::Interned, HashMap};
+use std::fmt::Debug;
 
 use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
+
+pub use bevy_render_macros::RenderSubGraph;
+
+define_label!(
+    /// A strongly-typed class of labels used to identify a [`SubGraph`] in a render graph.
+    RenderSubGraph,
+    RENDER_SUB_GRAPH_INTERNER
+);
+
+/// A shorthand for `Interned<dyn RenderSubGraph>`.
+pub type InternedRenderSubGraph = Interned<dyn RenderSubGraph>;
 
 /// The render graph configures the modular, parallel and re-usable render logic.
 /// It is a retained and stateless (nodes themselves may have their own internal state) structure,
@@ -57,7 +68,7 @@ use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
 #[derive(Resource, Default)]
 pub struct RenderGraph {
     nodes: HashMap<InternedRenderLabel, NodeState>,
-    sub_graphs: HashMap<Cow<'static, str>, RenderGraph>,
+    sub_graphs: HashMap<InternedRenderSubGraph, RenderGraph>,
 }
 
 /// The label for the input node of a graph. Used to connect other nodes to it.
@@ -514,17 +525,17 @@ impl RenderGraph {
     }
 
     /// Returns an iterator over the sub graphs.
-    pub fn iter_sub_graphs(&self) -> impl Iterator<Item = (&str, &RenderGraph)> {
-        self.sub_graphs
-            .iter()
-            .map(|(name, graph)| (name.as_ref(), graph))
+    pub fn iter_sub_graphs(&self) -> impl Iterator<Item = (InternedRenderSubGraph, &RenderGraph)> {
+        self.sub_graphs.iter().map(|(name, graph)| (*name, graph))
     }
 
     /// Returns an iterator over the sub graphs, that allows modifying each value.
-    pub fn iter_sub_graphs_mut(&mut self) -> impl Iterator<Item = (&str, &mut RenderGraph)> {
+    pub fn iter_sub_graphs_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (InternedRenderSubGraph, &mut RenderGraph)> {
         self.sub_graphs
             .iter_mut()
-            .map(|(name, graph)| (name.as_ref(), graph))
+            .map(|(name, graph)| (*name, graph))
     }
 
     /// Returns an iterator over a tuple of the input edges and the corresponding output nodes
@@ -557,56 +568,58 @@ impl RenderGraph {
             .map(move |(edge, input_node)| (edge, self.get_node_state(input_node).unwrap())))
     }
 
-    /// Adds the `sub_graph` with the `name` to the graph.
-    /// If the name is already present replaces it instead.
-    pub fn add_sub_graph(&mut self, name: impl Into<Cow<'static, str>>, sub_graph: RenderGraph) {
-        self.sub_graphs.insert(name.into(), sub_graph);
+    /// Adds the `sub_graph` with the `label` to the graph.
+    /// If the label is already present replaces it instead.
+    pub fn add_sub_graph(&mut self, label: impl RenderSubGraph, sub_graph: RenderGraph) {
+        self.sub_graphs.insert(label.intern(), sub_graph);
     }
 
-    /// Removes the `sub_graph` with the `name` from the graph.
-    /// If the name does not exist then nothing happens.
-    pub fn remove_sub_graph(&mut self, name: impl Into<Cow<'static, str>>) {
-        self.sub_graphs.remove(&name.into());
+    /// Removes the `sub_graph` with the `label` from the graph.
+    /// If the label does not exist then nothing happens.
+    pub fn remove_sub_graph(&mut self, label: impl RenderSubGraph) {
+        self.sub_graphs.remove(&label.intern());
     }
 
-    /// Retrieves the sub graph corresponding to the `name`.
-    pub fn get_sub_graph(&self, name: impl AsRef<str>) -> Option<&RenderGraph> {
-        self.sub_graphs.get(name.as_ref())
+    /// Retrieves the sub graph corresponding to the `label`.
+    pub fn get_sub_graph(&self, label: impl RenderSubGraph) -> Option<&RenderGraph> {
+        self.sub_graphs.get(&label.intern())
     }
 
-    /// Retrieves the sub graph corresponding to the `name` mutably.
-    pub fn get_sub_graph_mut(&mut self, name: impl AsRef<str>) -> Option<&mut RenderGraph> {
-        self.sub_graphs.get_mut(name.as_ref())
+    /// Retrieves the sub graph corresponding to the `label` mutably.
+    pub fn get_sub_graph_mut(&mut self, label: impl RenderSubGraph) -> Option<&mut RenderGraph> {
+        self.sub_graphs.get_mut(&label.intern())
     }
 
-    /// Retrieves the sub graph corresponding to the `name`.
+    /// Retrieves the sub graph corresponding to the `label`.
     ///
     /// # Panics
     ///
-    /// Panics if any invalid node name is given.
+    /// Panics if any invalid subgraph label is given.
     ///
     /// # See also
     ///
     /// - [`get_sub_graph`](Self::get_sub_graph) for a fallible version.
-    pub fn sub_graph(&self, name: impl AsRef<str>) -> &RenderGraph {
+    pub fn sub_graph(&self, label: impl RenderSubGraph) -> &RenderGraph {
+        let label = label.intern();
         self.sub_graphs
-            .get(name.as_ref())
-            .unwrap_or_else(|| panic!("Node {} not found in sub_graph", name.as_ref()))
+            .get(&label)
+            .unwrap_or_else(|| panic!("Subgraph {label:?} not found"))
     }
 
-    /// Retrieves the sub graph corresponding to the `name` mutably.
+    /// Retrieves the sub graph corresponding to the `label` mutably.
     ///
     /// # Panics
     ///
-    /// Panics if any invalid node name is given.
+    /// Panics if any invalid subgraph label is given.
     ///
     /// # See also
     ///
     /// - [`get_sub_graph_mut`](Self::get_sub_graph_mut) for a fallible version.
-    pub fn sub_graph_mut(&mut self, name: impl AsRef<str>) -> &mut RenderGraph {
+    pub fn sub_graph_mut(&mut self, label: impl RenderSubGraph) -> &mut RenderGraph {
+        let label = label.intern();
         self.sub_graphs
-            .get_mut(name.as_ref())
-            .unwrap_or_else(|| panic!("Node {} not found in sub_graph", name.as_ref()))
+            .get_mut(&label)
+            .unwrap_or_else(|| panic!("Subgraph {label:?} not found"))
     }
 }
 

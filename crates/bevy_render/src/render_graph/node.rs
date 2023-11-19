@@ -12,13 +12,15 @@ use bevy_ecs::{
 pub use bevy_utils::label::DynEq;
 use bevy_utils::{all_tuples_with_size, define_label, intern::Interned};
 use downcast_rs::{impl_downcast, Downcast};
-use std::{borrow::Cow, fmt::Debug};
+use std::fmt::Debug;
 use thiserror::Error;
 
 pub use bevy_render_macros::RenderLabel;
 
+use super::{InternedRenderSubGraph, RenderSubGraph};
+
 define_label!(
-    /// A strongly-typed class of labels used to identify an [`Node`] in a render graph.
+    /// A strongly-typed class of labels used to identify a [`Node`] in a render graph.
     RenderLabel,
     RENDER_LABEL_INTERNER
 );
@@ -304,16 +306,16 @@ impl Node for EmptyNode {
     }
 }
 
-/// A [`RenderGraph`](super::RenderGraph) [`Node`] that runs the configured graph name once.
+/// A [`RenderGraph`](super::RenderGraph) [`Node`] that runs the configured subgraph once.
 /// This makes it easier to insert sub-graph runs into a graph.
 pub struct RunGraphOnViewNode {
-    graph_name: Cow<'static, str>,
+    sub_graph: InternedRenderSubGraph,
 }
 
 impl RunGraphOnViewNode {
-    pub fn new<T: Into<Cow<'static, str>>>(graph_name: T) -> Self {
+    pub fn new<T: RenderSubGraph>(sub_graph: T) -> Self {
         Self {
-            graph_name: graph_name.into(),
+            sub_graph: sub_graph.intern(),
         }
     }
 }
@@ -325,7 +327,7 @@ impl Node for RunGraphOnViewNode {
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        graph.run_sub_graph(self.graph_name.clone(), vec![], Some(graph.view_entity()))?;
+        graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()))?;
         Ok(())
     }
 }
