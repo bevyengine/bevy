@@ -28,7 +28,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let model = affine_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
     let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
-    let bounding_sphere_radius = model_scale * -bounding_sphere.radius;
+    let bounding_sphere_radius = model_scale * bounding_sphere.radius;
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     var meshlet_visible = true;
@@ -39,7 +39,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
     for (var i = 0u; i < 6u; i++) {
-        meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > bounding_sphere_radius;
+        meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > -bounding_sphere_radius;
         if !meshlet_visible { break; }
     }
 
@@ -79,13 +79,15 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
-fn try_project_sphere(c: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>) -> bool {
+fn try_project_sphere(cp: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>) -> bool {
+    let c = vec3(cp.xy, -cp.z);
+
     if c.z < r + view.projection[3][2] {
         return false;
     }
 
     let cr = c * r;
-    let czr2 = c.x * c.z -r * r;
+    let czr2 = c.z * c.z - r * r;
 
     let vx = sqrt(c.x * c.x + czr2);
     let min_x = (vx * c.x - cr.z) / (vx * c.z + cr.x);
