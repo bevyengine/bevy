@@ -1,4 +1,4 @@
-//! Additional [`Gizmos`] Functions -- Arrows
+//! Additional [`Gizmos`] Functions -- Circles
 //!
 //! Includes the implementation of [`Gizmos::circle`] and [`Gizmos::circle_2d`],
 //! and assorted support items.
