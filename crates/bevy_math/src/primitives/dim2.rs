@@ -195,7 +195,7 @@ impl Triangle2d {
         let [a, b, c] = self.vertices;
         let area = (b - a).perp_dot(c - a);
         if area > f32::EPSILON {
-            WindingOrder::Counterclockwise
+            WindingOrder::CounterClockwise
         } else if area < -f32::EPSILON {
             WindingOrder::Clockwise
         } else {
@@ -337,7 +337,7 @@ mod tests {
             Vec2::new(-1.0, -1.0),
             Vec2::new(-0.5, -1.2),
         );
-        assert_eq!(ccw_triangle.winding_order(), WindingOrder::Counterclockwise);
+        assert_eq!(ccw_triangle.winding_order(), WindingOrder::CounterClockwise);
 
         // The clockwise triangle should be the same as the counterclockwise
         // triangle when reversed

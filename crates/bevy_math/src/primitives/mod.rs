@@ -19,7 +19,6 @@ pub enum WindingOrder {
     /// A clockwise winding order
     Clockwise,
     /// A counterclockwise winding order
-    Counterclockwise,
-    /// An invalid winding order indicating that it could not be computed reliably
+    CounterClockwise,
     Invalid,
 }
