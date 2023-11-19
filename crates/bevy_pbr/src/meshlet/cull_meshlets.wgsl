@@ -46,7 +46,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 #ifdef MESHLET_SECOND_CULLING_PASS
     var aabb: vec4<f32>;
     let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
-    if project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius, &aabb) {
+    if try_project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius, &aabb) {
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
         let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
         let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
@@ -57,10 +57,10 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let depth_quad_b = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(1i, 0i)).x;
         let depth_quad_c = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(0i, 1i)).x;
         let depth_quad_d = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(1i, 1i)).x;
-        let depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
+        let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
 
-        let sphere_depth = -view.projection[3][2] / (bounding_sphere_center_view_space.z - bounding_sphere_radius);
-        meshlet_visible &= sphere_depth >= depth;
+        let sphere_depth = -view.projection[3][2] / (bounding_sphere_center_view_space.z + bounding_sphere_radius);
+        meshlet_visible &= sphere_depth >= occluder_depth;
     }
 #endif
 
@@ -79,8 +79,8 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
-fn project_sphere(c: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>) -> bool {
-    if c.z < r + view.projection[3][2] {
+fn try_project_sphere(c: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>) -> bool {
+    if c.z < r - view.projection[3][2] {
         return false;
     }
 
