@@ -284,13 +284,17 @@ impl Torus {
     }
 
     /// Get the inner radius of the torus.
-    /// For a ring torus, this corresponds to the radius of the hole
+    /// For a ring torus, this corresponds to the radius of the hole,
+    /// or `major_radius - minor_radius`
+    #[inline]
     pub fn inner_radius(&self) -> f32 {
         self.major_radius - self.minor_radius
     }
 
     /// Get the outer radius of the torus.
-    /// This corresponds to the overall radius of the entire object
+    /// This corresponds to the overall radius of the entire object,
+    /// or `major_radius + minor_radius`
+    #[inline]
     pub fn outer_radius(&self) -> f32 {
         self.major_radius + self.minor_radius
     }
@@ -300,6 +304,7 @@ impl Torus {
     /// The torus can either be a *ring torus* that has a hole,
     /// a *horn torus* that doesn't have a hole but also isn't self-intersecting,
     /// or a *spindle torus* that is self-intersecting
+    #[inline]
     pub fn kind(&self) -> TorusKind {
         match self.major_radius.total_cmp(&self.minor_radius) {
             std::cmp::Ordering::Greater => TorusKind::Ring,
