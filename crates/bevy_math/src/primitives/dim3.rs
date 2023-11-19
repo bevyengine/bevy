@@ -287,6 +287,7 @@ impl Torus {
     /// For a ring torus, this corresponds to the radius of the hole,
     /// or `major_radius - minor_radius`
     #[inline]
+    #[must_use]
     pub fn inner_radius(&self) -> f32 {
         self.major_radius - self.minor_radius
     }
@@ -295,6 +296,7 @@ impl Torus {
     /// This corresponds to the overall radius of the entire object,
     /// or `major_radius + minor_radius`
     #[inline]
+    #[must_use]
     pub fn outer_radius(&self) -> f32 {
         self.major_radius + self.minor_radius
     }
@@ -309,6 +311,7 @@ impl Torus {
     ///
     /// Panics if the minor or major radius of the torus is `NaN`
     #[inline]
+    #[must_use]
     pub fn kind(&self) -> TorusKind {
         match self
             .major_radius
