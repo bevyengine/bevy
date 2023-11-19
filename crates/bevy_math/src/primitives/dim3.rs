@@ -279,9 +279,6 @@ impl Torus {
         let minor_radius = (outer_radius - inner_radius) / 2.0;
         let major_radius = outer_radius - minor_radius;
 
-        assert!(minor_radius > 0.0, "minor radius of torus in non-positive");
-        assert!(major_radius > 0.0, "major radius of torus in non-positive");
-
         Self {
             minor_radius,
             major_radius,
