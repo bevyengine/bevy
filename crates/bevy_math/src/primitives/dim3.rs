@@ -253,7 +253,8 @@ pub enum TorusKind {
     /// The major radius is less than the minor radius
     Spindle,
     /// A torus with non-geometric properties like
-    /// a non-positive minor or major radius
+    /// a minor or major radius that is non-positive,
+    /// infinite or `NaN`
     Invalid,
 }
 
@@ -310,24 +311,18 @@ impl Torus {
     ///
     /// The torus can either be a *ring torus* that has a hole,
     /// a *horn torus* that doesn't have a hole but also isn't self-intersecting,
-    /// or a *spindle torus* that is self-intersecting. If the minor or major radius
-    /// is non-positive or infinite, [`TorusKind::Invalid`] is returned
+    /// or a *spindle torus* that is self-intersecting.
     ///
-    /// # Panics
-    ///
-    /// Panics if the minor or major radius of the torus is `NaN`
+    /// If the minor or major radius is non-positive, infinite or `NaN`,
+    /// [`TorusKind::Invalid`] is returned
     #[inline]
     #[must_use]
     pub fn kind(&self) -> TorusKind {
-        // Panic if NaN radius
-        assert!(!self.minor_radius.is_nan(), "minor radius of torus is NaN");
-        assert!(!self.major_radius.is_nan(), "major radius of torus is NaN");
-
-        // A torus typically can't have a non-positive or infinite minor or major radius
+        // Invalid if minor or major radius is non-positive, infinite or NaN
         if self.minor_radius <= 0.0
-            || self.minor_radius.is_infinite()
+            || !self.minor_radius.is_finite()
             || self.major_radius <= 0.0
-            || self.major_radius.is_infinite()
+            || !self.major_radius.is_finite()
         {
             return TorusKind::Invalid;
         }
