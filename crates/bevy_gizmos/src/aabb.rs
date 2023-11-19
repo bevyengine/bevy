@@ -48,7 +48,7 @@ impl Plugin for AabbGizmoPlugin {
 pub struct AabbGizmoGroup {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///
-    /// To draw a specific entity's bounding box, you can add the [ShowAabbGizmo](crate::ShowAabbGizmo) component.
+    /// To draw a specific entity's bounding box, you can add the [`ShowAabbGizmo`] component.
     ///
     /// Defaults to `false`.
     pub draw_all: bool,
@@ -66,7 +66,7 @@ pub struct AabbGizmoGroup {
 pub struct ShowAabbGizmo {
     /// The color of the box.
     ///
-    /// The default color from the [`AabbGizmoConfig`] resource is used if `None`,
+    /// The default color from the [`AabbGizmoGroup`] config is used if `None`,
     pub color: Option<Color>,
 }
 

@@ -13,7 +13,7 @@
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
-//! See the documentation on [`Gizmos`] for more examples.
+//! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
 
 pub mod aabb;
 mod arrows;
@@ -127,7 +127,7 @@ impl Plugin for GizmoPlugin {
 
 /// A trait adding `init_gizmo_group<T>()` to the app
 pub trait AppGizmoBuilder {
-    /// Registers [`GizmoConfigGroup`] `T` in the app enabling the use of [`Gizmos<T>`].
+    /// Registers [`GizmoConfigGroup`] `T` in the app enabling the use of [Gizmos<T>](crate::gizmos::Gizmos<T>).
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self;
