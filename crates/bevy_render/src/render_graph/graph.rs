@@ -97,7 +97,7 @@ impl RenderGraph {
             "Graph already has an input node"
         );
 
-        self.add_node(GraphInput, GraphInputNode { inputs })
+        self.add_node(GraphInput, GraphInputNode { inputs });
     }
 
     /// Returns the [`NodeState`] of the input node of this graph.

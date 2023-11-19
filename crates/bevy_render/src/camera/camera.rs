@@ -693,7 +693,7 @@ pub fn extract_cameras(
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
-                    render_graph: camera_render_graph.0.clone(),
+                    render_graph: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
