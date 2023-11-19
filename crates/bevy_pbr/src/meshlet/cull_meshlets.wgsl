@@ -45,7 +45,8 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     var aabb: vec4<f32>;
-    if project_sphere(bounding_sphere_center.xyz, bounding_sphere_radius, &aabb) {
+    let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
+    if project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius, &aabb) {
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
         let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
         let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
@@ -58,7 +59,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let depth_quad_d = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(1i, 1i)).x;
         let depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
 
-        let sphere_depth = view.projection[3][2] / (bounding_sphere_center.z - bounding_sphere_radius);
+        let sphere_depth = -view.projection[3][2] / (bounding_sphere_center_view_space.z - bounding_sphere_radius);
         meshlet_visible &= sphere_depth >= depth;
     }
 #endif
@@ -77,8 +78,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 #endif
 }
 
-// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere
-// https://jcgt.org/published/0002/02/05/paper.pdf
+// https://zeux.io/2023/01/12/approximate-projected-bounds
 fn project_sphere(c: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>) -> bool {
     if c.z < r + view.projection[3][2] {
         return false;
