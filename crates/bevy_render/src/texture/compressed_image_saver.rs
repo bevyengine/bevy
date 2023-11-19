@@ -40,7 +40,7 @@ impl AssetSaver for CompressedImageSaver {
 
         let mut source_image = compressor_params.source_image_mut(0);
         let size = image.size();
-        source_image.init(&image.data, size.x as u32, size.y as u32, 4);
+        source_image.init(&image.data, size.x, size.y, 4);
 
         let mut compressor = basis_universal::Compressor::new(4);
         // SAFETY: the CompressorParams are "valid" to the best of our knowledge. The basis-universal
@@ -55,6 +55,7 @@ impl AssetSaver for CompressedImageSaver {
             Ok(ImageLoaderSettings {
                 format: ImageFormatSetting::Format(ImageFormat::Basis),
                 is_srgb,
+                sampler: image.sampler.clone(),
             })
         }
         .boxed()

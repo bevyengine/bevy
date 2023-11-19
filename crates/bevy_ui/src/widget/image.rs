@@ -92,10 +92,7 @@ pub fn update_image_content_size_system(
 
     for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
-            let size = Vec2::new(
-                texture.texture_descriptor.size.width as f32,
-                texture.texture_descriptor.size.height as f32,
-            );
+            let size = texture.size_f32();
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size
                 || combined_scale_factor != *previous_combined_scale_factor

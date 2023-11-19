@@ -1,15 +1,8 @@
-// If using this WGSL snippet as an #import, the following should be in scope:
-//
-// - the `morph_weights` uniform of type `MorphWeights`
-// - the `morph_targets` 3d texture
-//
-// They are defined in `mesh_types.wgsl` and `mesh_bindings.wgsl`.
-
 #define_import_path bevy_pbr::morph
 
 #ifdef MORPH_TARGETS
 
-#import bevy_pbr::mesh_types MorphWeights
+#import bevy_pbr::mesh_types::MorphWeights;
 
 #ifdef MESH_BINDGROUP_1
 

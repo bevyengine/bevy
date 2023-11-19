@@ -1,7 +1,8 @@
-#import bevy_sprite::mesh2d_functions as mesh_functions
-#import bevy_sprite::mesh2d_bindings       mesh
-#import bevy_sprite::mesh2d_vertex_output  VertexOutput
-#import bevy_sprite::mesh2d_view_bindings  view
+#import bevy_sprite::{
+    mesh2d_functions as mesh_functions,
+    mesh2d_vertex_output::VertexOutput,
+    mesh2d_view_bindings::view,
+}
 
 #ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
@@ -66,7 +67,7 @@ fn fragment(
 #ifdef VERTEX_COLORS
     var color = in.color;
 #ifdef TONEMAP_IN_SHADER
-    color = bevy_core_pipeline::tonemapping::tone_mapping(color, view.color_grading);
+    color = tonemapping::tone_mapping(color, view.color_grading);
 #endif
     return color;
 #else

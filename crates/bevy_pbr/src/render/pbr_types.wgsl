@@ -6,6 +6,12 @@ struct StandardMaterial {
     perceptual_roughness: f32,
     metallic: f32,
     reflectance: f32,
+    diffuse_transmission: f32,
+    specular_transmission: f32,
+    thickness: f32,
+    ior: f32,
+    attenuation_distance: f32,
+    attenuation_color: vec4<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -30,6 +36,10 @@ const STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP: u32       = 64u;
 const STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y: u32              = 128u;
 const STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT: u32                = 256u;
 const STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT: u32                  = 512u;
+const STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT: u32 = 1024u;
+const STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT: u32          = 2048u;
+const STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT: u32 = 4096u;
+const STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT: u32        = 8192u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32       = 3758096384u; // (0b111u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 0u;          // (0u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 536870912u;  // (1u32 << 29)
@@ -51,6 +61,12 @@ fn standard_material_new() -> StandardMaterial {
     material.perceptual_roughness = 0.5;
     material.metallic = 0.00;
     material.reflectance = 0.5;
+    material.diffuse_transmission = 0.0;
+    material.specular_transmission = 0.0;
+    material.thickness = 0.0;
+    material.ior = 1.5;
+    material.attenuation_distance = 1.0;
+    material.attenuation_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
     material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
     material.alpha_cutoff = 0.5;
     material.parallax_depth_scale = 0.1;

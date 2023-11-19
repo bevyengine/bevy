@@ -1,7 +1,10 @@
 #define_import_path bevy_pbr::shadow_sampling
 
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::utils PI
+#import bevy_pbr::{
+    mesh_view_bindings as view_bindings,
+    utils::{PI, interleaved_gradient_noise},
+    utils,
+}
 
 // Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
@@ -68,13 +71,6 @@ fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, array_
     return sum * (1.0 / 144.0);
 }
 
-// https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
-fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
-    let frame = f32(view_bindings::globals.frame_count % 64u);
-    let xy = pixel_coordinates + 5.588238 * frame;
-    return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
-}
-
 fn map(min1: f32, max1: f32, min2: f32, max2: f32, value: f32) -> f32 {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
@@ -82,7 +78,7 @@ fn map(min1: f32, max1: f32, min2: f32, max2: f32, value: f32) -> f32 {
 fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_index: i32, texel_size: f32) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
 
-    let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size);
+    let random_angle = 2.0 * PI * interleaved_gradient_noise(light_local * shadow_map_size, view_bindings::globals.frame_count);
     let m = vec2(sin(random_angle), cos(random_angle));
     let rotation_matrix = mat2x2(
         m.y, -m.x,
@@ -94,14 +90,14 @@ fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_
     let uv_offset_scale = f / (texel_size * shadow_map_size);
 
     // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-    let sample_offset1 = (rotation_matrix * vec2(-0.7071,  0.7071)) * uv_offset_scale;
-    let sample_offset2 = (rotation_matrix * vec2(-0.0000, -0.8750)) * uv_offset_scale;
-    let sample_offset3 = (rotation_matrix * vec2( 0.5303,  0.5303)) * uv_offset_scale;
-    let sample_offset4 = (rotation_matrix * vec2(-0.6250, -0.0000)) * uv_offset_scale;
-    let sample_offset5 = (rotation_matrix * vec2( 0.3536, -0.3536)) * uv_offset_scale;
-    let sample_offset6 = (rotation_matrix * vec2(-0.0000,  0.3750)) * uv_offset_scale;
-    let sample_offset7 = (rotation_matrix * vec2(-0.1768, -0.1768)) * uv_offset_scale;
-    let sample_offset8 = (rotation_matrix * vec2( 0.1250,  0.0000)) * uv_offset_scale;
+    let sample_offset1 = (rotation_matrix * utils::SPIRAL_OFFSET_0_) * uv_offset_scale;
+    let sample_offset2 = (rotation_matrix * utils::SPIRAL_OFFSET_1_) * uv_offset_scale;
+    let sample_offset3 = (rotation_matrix * utils::SPIRAL_OFFSET_2_) * uv_offset_scale;
+    let sample_offset4 = (rotation_matrix * utils::SPIRAL_OFFSET_3_) * uv_offset_scale;
+    let sample_offset5 = (rotation_matrix * utils::SPIRAL_OFFSET_4_) * uv_offset_scale;
+    let sample_offset6 = (rotation_matrix * utils::SPIRAL_OFFSET_5_) * uv_offset_scale;
+    let sample_offset7 = (rotation_matrix * utils::SPIRAL_OFFSET_6_) * uv_offset_scale;
+    let sample_offset8 = (rotation_matrix * utils::SPIRAL_OFFSET_7_) * uv_offset_scale;
 
     var sum = 0.0;
     sum += sample_shadow_map_hardware(light_local + sample_offset1, depth, array_index);

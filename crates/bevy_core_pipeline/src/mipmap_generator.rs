@@ -15,15 +15,14 @@ use bevy_ecs::{
 use bevy_math::UVec2;
 use bevy_render::{
     render_resource::{
-        AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState,
-        LoadOp, MultisampleState, Operations, PipelineCache, PrimitiveState,
-        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-        TextureViewDimension,
+        AddressMode, BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, LoadOp,
+        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -477,11 +476,11 @@ where
 
             bind_group_entries.extend(custom_bind_group_entries.iter().cloned());
 
-            bind_groups.push(render_device.create_bind_group(&BindGroupDescriptor {
-                label: Some(M::debug_names().rest_bind_group),
-                layout: &pipeline.bind_group_layout,
-                entries: &bind_group_entries,
-            }));
+            bind_groups.push(render_device.create_bind_group(
+                Some(M::debug_names().rest_bind_group),
+                &pipeline.bind_group_layout,
+                &bind_group_entries,
+            ));
         }
 
         Self {
@@ -539,14 +538,11 @@ where
 
         bind_group_entries.extend(custom_bind_group_entries.iter().cloned());
 
-        let first_bind_group =
-            render_context
-                .render_device()
-                .create_bind_group(&BindGroupDescriptor {
-                    label: Some(M::debug_names().first_bind_group),
-                    layout: &pipeline.bind_group_layout,
-                    entries: &bind_group_entries,
-                });
+        let first_bind_group = render_context.render_device().create_bind_group(
+            Some(M::debug_names().first_bind_group),
+            &pipeline.bind_group_layout,
+            &bind_group_entries,
+        );
 
         let view = &texture.view(0);
 

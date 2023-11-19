@@ -1,10 +1,6 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {

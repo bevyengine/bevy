@@ -35,6 +35,7 @@ pub fn ui_stack_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
+    mut update_query: Query<&mut Node>,
 ) {
     // Generate `StackingContext` tree
     let mut global_context = StackingContext::default();
@@ -55,6 +56,14 @@ pub fn ui_stack_system(
     ui_stack.uinodes.clear();
     ui_stack.uinodes.reserve(total_entry_count);
     fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
+
+    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
+        update_query
+            .get_mut(*entity)
+            .unwrap()
+            .bypass_change_detection()
+            .stack_index = i as u32;
+    }
 }
 
 /// Generate z-index based UI node tree

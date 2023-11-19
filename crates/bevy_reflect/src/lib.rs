@@ -464,7 +464,6 @@
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [derive `Reflect`]: derive@crate::Reflect
-#![allow(clippy::type_complexity)]
 
 mod array;
 mod fields;
@@ -762,6 +761,39 @@ mod tests {
         assert!(!not_expected
             .reflect_partial_eq(reflected.as_ref())
             .unwrap_or_default());
+    }
+
+    #[test]
+    fn from_reflect_should_allow_ignored_unnamed_fields() {
+        #[derive(Reflect, Eq, PartialEq, Debug)]
+        struct MyTupleStruct(i8, #[reflect(ignore)] i16, i32);
+
+        let expected = MyTupleStruct(1, 0, 3);
+
+        let mut dyn_tuple_struct = DynamicTupleStruct::default();
+        dyn_tuple_struct.insert(1_i8);
+        dyn_tuple_struct.insert(3_i32);
+        let my_tuple_struct = <MyTupleStruct as FromReflect>::from_reflect(&dyn_tuple_struct);
+
+        assert_eq!(Some(expected), my_tuple_struct);
+
+        #[derive(Reflect, Eq, PartialEq, Debug)]
+        enum MyEnum {
+            Tuple(i8, #[reflect(ignore)] i16, i32),
+        }
+
+        let expected = MyEnum::Tuple(1, 0, 3);
+
+        let mut dyn_tuple = DynamicTuple::default();
+        dyn_tuple.insert(1_i8);
+        dyn_tuple.insert(3_i32);
+
+        let mut dyn_enum = DynamicEnum::default();
+        dyn_enum.set_variant("Tuple", dyn_tuple);
+
+        let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
+
+        assert_eq!(Some(expected), my_enum);
     }
 
     #[test]

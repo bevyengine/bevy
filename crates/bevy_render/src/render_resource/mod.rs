@@ -1,5 +1,6 @@
 mod batched_uniform_buffer;
 mod bind_group;
+mod bind_group_entries;
 mod bind_group_layout;
 mod buffer;
 mod buffer_vec;
@@ -14,6 +15,7 @@ mod texture;
 mod uniform_buffer;
 
 pub use bind_group::*;
+pub use bind_group_entries::*;
 pub use bind_group_layout::*;
 pub use buffer::*;
 pub use buffer_vec::*;
@@ -36,9 +38,9 @@ pub use wgpu::{
     ComputePipelineDescriptor as RawComputePipelineDescriptor, DepthBiasState, DepthStencilState,
     Extent3d, Face, Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState,
     FrontFace, ImageCopyBuffer, ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase,
-    ImageDataLayout, ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode,
-    MultisampleState, Operations, Origin3d, PipelineLayout, PipelineLayoutDescriptor, PolygonMode,
-    PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
+    ImageDataLayout, ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, Maintain,
+    MapMode, MultisampleState, Operations, Origin3d, PipelineLayout, PipelineLayoutDescriptor,
+    PolygonMode, PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
     ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,

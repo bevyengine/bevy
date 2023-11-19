@@ -7,12 +7,10 @@ use crate::{
     texture::FallbackImage,
 };
 pub use bevy_render_macros::AsBindGroup;
+use bevy_utils::thiserror::Error;
 use encase::ShaderType;
 use std::ops::Deref;
-use wgpu::{
-    BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BindingResource,
-};
+use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);
 render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
@@ -289,11 +287,7 @@ pub trait AsBindGroup {
             })
             .collect::<Vec<_>>();
 
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Self::label(),
-            layout,
-            entries: &entries,
-        });
+        let bind_group = render_device.create_bind_group(Self::label(), layout, &entries);
 
         Ok(PreparedBindGroup {
             bindings,
@@ -332,8 +326,10 @@ pub trait AsBindGroup {
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
+#[derive(Debug, Error)]
 pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
+    #[error("The bind group could not be generated")]
     RetryNextUpdate,
 }
 
