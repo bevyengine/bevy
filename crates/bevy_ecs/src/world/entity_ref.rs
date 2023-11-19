@@ -10,7 +10,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
-use std::any::TypeId;
+use std::{any::TypeId, marker::PhantomData};
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
@@ -1032,6 +1032,35 @@ impl<'w> EntityWorldMut<'w> {
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
     }
+
+    pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
+        if let Some(_) = self.get::<T>() {
+            Entry::Occupied(OccupiedEntry {
+                _marker: PhantomData::default(),
+                entity_world: self,
+            })
+        } else {
+            Entry::Vacant(VacantEntry {
+                _marker: PhantomData::default(),
+                entity_world: self,
+            })
+        }
+    }
+}
+
+pub enum Entry<'w, 'a, T: Component> {
+    Occupied(OccupiedEntry<'w, 'a, T>),
+    Vacant(VacantEntry<'w, 'a, T>),
+}
+
+pub struct OccupiedEntry<'w, 'a, T: Component> {
+    _marker: PhantomData<T>,
+    entity_world: &'a mut EntityWorldMut<'w>,
+}
+
+pub struct VacantEntry<'w, 'a, T: Component> {
+    _marker: PhantomData<T>,
+    entity_world: &'a mut EntityWorldMut<'w>,
 }
 
 /// Inserts a dynamic [`Bundle`] into the entity.
