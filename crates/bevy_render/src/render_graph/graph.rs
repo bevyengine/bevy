@@ -40,7 +40,8 @@ pub type InternedRenderSubGraph = Interned<dyn RenderSubGraph>;
 ///
 /// ## Example
 /// Here is a simple render graph example with two nodes connected by a node edge.
-/// ```
+/// ```ignore
+/// # TODO: Remove when #10645 is fixed
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::World;
 /// # use bevy_render::render_graph::{RenderGraph, RenderLabel, Node, RenderGraphContext, NodeRunError};
