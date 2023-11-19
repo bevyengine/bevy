@@ -100,6 +100,22 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
         self
     }
 
+    /// Runs `func` on each query result in parallel and returns an iterator to the resulting data.
+    ///
+    /// # Panics
+    /// See [`for_each`].
+    #[inline]
+    pub fn map<
+        R: Send + Sync,
+        FN: Fn(QueryItem<'w, Q>) -> R + Send + Sync + Clone
+    >(self, func: FN) -> std::sync::mpsc::IntoIter<R> {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        self.for_each(|ws_reader| {
+            sender.clone().send(func(ws_reader)).unwrap()
+        });
+        receiver.into_iter()
+    }
+
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
@@ -205,5 +221,48 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             self.batching_strategy.batch_size_limits.start,
             self.batching_strategy.batch_size_limits.end,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        prelude::*,
+    };
+
+    #[derive(Clone, Component, Debug)]
+    struct Data(f32);
+
+    macro_rules! create_entities {
+        ($world:ident; $( $variants:ident ),*) => {
+            $(
+                #[derive(Component)]
+                struct $variants(f32);
+                for _ in 0..20 {
+                    $world.spawn(($variants(0.0), Data(1.0)));
+                }
+            )*
+        };
+    }
+
+    fn test_world() -> World {
+        let mut world = World::new();
+        create_entities!(world; A, B, C, D);
+        world
+    }
+
+    #[test]
+    fn map_simple_test() {
+        let mut world = test_world();
+        let mut query = world.query::<&mut Data>();
+
+        assert_eq!(
+            query.par_iter(&world).map(|data|{ data.0 * 3.0 }).collect::<Vec<f32>>(),
+            vec![3.0 as f32; 80]
+        );
+        assert_eq!(
+            query.par_iter(&world).map(|data|{ data.0 * 2.0 }).sum::<f32>(),
+            160.0)
     }
 }
