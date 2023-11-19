@@ -304,9 +304,17 @@ impl Torus {
     /// The torus can either be a *ring torus* that has a hole,
     /// a *horn torus* that doesn't have a hole but also isn't self-intersecting,
     /// or a *spindle torus* that is self-intersecting
+    ///
+    /// # Panics
+    ///
+    /// Panics if the minor or major radius of the torus is `NaN`
     #[inline]
     pub fn kind(&self) -> TorusKind {
-        match self.major_radius.total_cmp(&self.minor_radius) {
+        match self
+            .major_radius
+            .partial_cmp(&self.minor_radius)
+            .expect("radius of torus is NaN")
+        {
             std::cmp::Ordering::Greater => TorusKind::Ring,
             std::cmp::Ordering::Equal => TorusKind::Horn,
             std::cmp::Ordering::Less => TorusKind::Spindle,
