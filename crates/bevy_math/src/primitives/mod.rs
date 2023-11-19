@@ -20,5 +20,8 @@ pub enum WindingOrder {
     Clockwise,
     /// A counterclockwise winding order
     CounterClockwise,
+    /// An invalid winding order indicating that it could not be computed reliably.
+    /// This often happens in *degenerate cases* where the points lie on the same line
+    #[doc(alias = "Degenerate")]
     Invalid,
 }
