@@ -80,7 +80,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
 fn try_project_sphere(c: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>) -> bool {
-    if c.z < r - view.projection[3][2] {
+    if c.z < r + view.projection[3][2] {
         return false;
     }
 
