@@ -193,7 +193,7 @@ impl AssetServer {
     }
 
     /// Retrieves the default [`AssetLoader`] for the given [`Asset`] [`TypeId`], if one can be found.
-    pub async fn get_asset_type_id_asset_loader<'a>(
+    pub async fn get_asset_loader_with_asset_type_id<'a>(
         &self,
         type_id: TypeId,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
@@ -206,6 +206,14 @@ impl AssetServer {
         loader
             .await
             .ok_or(MissingAssetLoaderForTypeIdError { type_id })
+    }
+
+    /// Retrieves the default [`AssetLoader`] for the given [`Asset`] type, if one can be found.
+    pub async fn get_asset_loader_with_asset_type<'a, A: Asset>(
+        &self,
+    ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
+        self.get_asset_loader_with_asset_type_id(TypeId::of::<A>())
+            .await
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset load. Instead,
@@ -814,7 +822,7 @@ impl AssetServer {
             Err(AssetReaderError::NotFound(_)) => {
                 let loader = if let Some(type_id) = asset_type_id {
                     // If provided a TypeId for the Asset to be loaded, use that to select the loader.
-                    self.get_asset_type_id_asset_loader(type_id).await.ok()
+                    self.get_asset_loader_with_asset_type_id(type_id).await.ok()
                 } else {
                     None
                 };

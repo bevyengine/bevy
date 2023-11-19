@@ -8,7 +8,7 @@ use std::{any::TypeId, fmt::Debug, sync::Arc};
 /// Storage for [`AssetLoader`]'s, providing helper methods for efficient access.
 #[derive(Debug, Default)]
 pub struct AssetLoaders {
-    values: HashMap<TypeId, MaybeAssetLoader>,
+    type_id_to_loader: HashMap<TypeId, MaybeAssetLoader>,
     extension_to_type_id: HashMap<String, TypeId>,
     type_name_to_type_id: HashMap<&'static str, TypeId>,
     preregistered_loaders: HashMap<&'static str, TypeId>,
@@ -44,7 +44,7 @@ impl AssetLoaders {
         &self,
         type_id: TypeId,
     ) -> impl Future<Output = Option<AssetLoaderSmartPointer>> + 'static {
-        let loader = self.values.get(&type_id).cloned();
+        let loader = self.type_id_to_loader.get(&type_id).cloned();
 
         async {
             match loader? {
@@ -102,10 +102,11 @@ impl AssetLoaders {
 
         if is_new {
             self.type_name_to_type_id.insert(type_name, type_id);
-            self.values.insert(type_id, MaybeAssetLoader::Ready(loader));
+            self.type_id_to_loader
+                .insert(type_id, MaybeAssetLoader::Ready(loader));
         } else {
             let maybe_loader = std::mem::replace(
-                self.values.get_mut(&type_id).unwrap(),
+                self.type_id_to_loader.get_mut(&type_id).unwrap(),
                 MaybeAssetLoader::Ready(loader.clone()),
             );
             match maybe_loader {
@@ -147,6 +148,6 @@ impl AssetLoaders {
 
         let loader = MaybeAssetLoader::Pending { sender, receiver };
 
-        self.values.insert(type_id, loader);
+        self.type_id_to_loader.insert(type_id, loader);
     }
 }
