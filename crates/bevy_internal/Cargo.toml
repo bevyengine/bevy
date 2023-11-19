@@ -153,3 +153,6 @@ bevy_ui = { path = "../bevy_ui", optional = true, version = "0.12.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.12.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.12.0" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.12.0", default-features = false }
+
+[lints]
+workspace = true

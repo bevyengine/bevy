@@ -104,6 +104,8 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
     my_gizmos
         .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, Color::BLACK)
         .circle_segments(64);
+
+    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, Color::YELLOW);
 }
 
 fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {

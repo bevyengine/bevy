@@ -24,3 +24,6 @@ wasm-bindgen-futures = "0.4"
 
 [dev-dependencies]
 instant = { version = "0.1", features = ["wasm-bindgen"] }
+
+[lints]
+workspace = true

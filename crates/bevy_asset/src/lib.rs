@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -36,6 +34,9 @@ pub use reflect::*;
 pub use server::*;
 
 pub use bevy_utils::BoxedFuture;
+
+/// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
+pub use ron;
 
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},

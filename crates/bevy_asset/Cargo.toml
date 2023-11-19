@@ -38,7 +38,6 @@ parking_lot = { version = "0.12", features = ["arc_lock", "send_guard"] }
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1.0"
-notify-debouncer-full = { version = "0.3.1", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_winit = { path = "../bevy_winit", version = "0.12.0" }
@@ -49,5 +48,11 @@ web-sys = { version = "0.3", features = ["Request", "Window", "Response"] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+notify-debouncer-full = { version = "0.3.1", optional = true }
+
 [dev-dependencies]
 bevy_core = { path = "../bevy_core", version = "0.12.0" }
+
+[lints]
+workspace = true

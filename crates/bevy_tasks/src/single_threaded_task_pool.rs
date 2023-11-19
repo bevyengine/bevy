@@ -186,6 +186,9 @@ impl TaskPool {
     }
 }
 
+/// An empty task used in single-threaded contexts.
+///
+/// This does nothing and is therefore safe, and recommended, to ignore.
 #[derive(Debug)]
 pub struct FakeTask;
 

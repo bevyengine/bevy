@@ -45,3 +45,6 @@ crossbeam-channel = "0.5"
 
 [package.metadata.docs.rs]
 features = ["x11"]
+
+[lints]
+workspace = true

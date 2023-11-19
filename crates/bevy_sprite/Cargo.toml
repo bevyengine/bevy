@@ -35,3 +35,6 @@ thiserror = "1.0"
 rectangle-pack = "0.4"
 bitflags = "2.3"
 radsort = "0.1"
+
+[lints]
+workspace = true

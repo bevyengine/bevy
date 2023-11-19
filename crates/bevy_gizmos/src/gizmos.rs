@@ -38,7 +38,7 @@ pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
 pub struct Gizmos<'w, 's, T: GizmoConfigGroup = DefaultGizmoGroup> {
     buffer: Deferred<'s, GizmoBuffer<T>>,
-    enabled: bool,
+    pub(crate) enabled: bool,
     /// The currently used [`GizmoConfig`]
     pub config: &'w GizmoConfig,
     /// The currently used [`GizmoConfigGroup`]
