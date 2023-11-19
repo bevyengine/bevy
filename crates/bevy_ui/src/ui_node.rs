@@ -1309,7 +1309,7 @@ pub struct GridPlacement {
 impl GridPlacement {
     pub const DEFAULT: Self = Self {
         start: None,
-        #[allow(clippy::undocumented_unsafe_blocks)]
+        // SAFETY: This is trivially safe as 1 is non-zero.
         span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
         end: None,
     };

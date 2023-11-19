@@ -58,7 +58,7 @@ macro_rules! render_resource_wrapper {
         // If in future there is a case where a wrapper is required for a non-send/sync type
         // we can implement a macro variant that omits these manual Send + Sync impls
         unsafe impl Send for $wrapper_type {}
-        #[allow(clippy::undocumented_unsafe_blocks)]
+        // SAFETY: As explained above, we ensure correctness by checking that $wgpu_type implements Send and Sync.
         unsafe impl Sync for $wrapper_type {}
         const _: () = {
             trait AssertSendSyncBound: Send + Sync {}

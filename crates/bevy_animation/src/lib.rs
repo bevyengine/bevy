@@ -646,7 +646,7 @@ fn apply_animation(
             let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
                 continue;
             };
-            #[allow(clippy::undocumented_unsafe_blocks)]
+            // SAFETY: As above, there can't be other AnimationPlayers with this target so this fetch can't alias
             let mut morphs = unsafe { morphs.get_unchecked(target) };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform
