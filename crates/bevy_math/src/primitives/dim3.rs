@@ -396,43 +396,34 @@ impl Primitive3d for ConicalFrustum {}
 /// A torus (AKA donut) primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Torus {
-    /// The inner radius of the torus, the distance
-    /// from the center to the closest edge of the ring
-    pub inner_radius: f32,
-    /// The outer radius of the torus, the distance
-    /// from the center to the farthest part of the ring
-    pub outer_radius: f32,
+    /// The radius of the overall shape
+    pub radius: f32,
+    /// The radius of the internal ring
+    #[doc(alias = "minor_radius")]
+    #[doc(alias = "cross_section_radius")]
+    pub ring_radius: f32,
 }
 impl Primitive3d for Torus {}
 
 impl Torus {
-    /// Get the minor radius of the torus.
-    /// This corresponds to the radius of the ring or tube
-    #[doc(alias = "ring_radius")]
-    #[doc(alias = "cross_section_radius")]
-    pub fn minor_radius(&self) -> f32 {
-        (self.outer_radius - self.inner_radius) / 2.0
-    }
-
     /// Get the major radius of the torus.
     /// This corresponds to the distance from the center
     /// of the torus to the middle of the ring
     #[doc(alias = "radius_of_revolution")]
     pub fn major_radius(&self) -> f32 {
-        self.outer_radius - self.minor_radius()
+        self.radius - self.ring_radius
     }
 
     /// Get the surface area of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     pub fn area(&self) -> f32 {
-        2.0 * TWO_PI_SQUARED * self.major_radius() * self.minor_radius()
+        2.0 * TWO_PI_SQUARED * self.major_radius() * self.ring_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     pub fn volume(&self) -> f32 {
-        let minor_radius = self.minor_radius();
-        TWO_PI_SQUARED * self.major_radius() * minor_radius * minor_radius
+        TWO_PI_SQUARED * self.major_radius() * self.ring_radius.powi(2)
     }
 }
 
@@ -521,10 +512,9 @@ mod tests {
     #[test]
     fn torus_math() {
         let torus = Torus {
-            inner_radius: 2.5,
-            outer_radius: 3.1,
+            ring_radius: 0.3,
+            radius: 3.1,
         };
-        assert_relative_eq!(torus.minor_radius(), 0.3);
         assert_eq!(torus.major_radius(), 2.8);
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
