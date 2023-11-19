@@ -239,7 +239,7 @@ impl RenderGraph {
     /// Adds the [`Edge::SlotEdge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node` and also connects the `output_slot` to the `input_slot`.
     ///
-    /// Fails if any invalid [`RenderNode`]s or [`SlotLabel`]s are given.
+    /// Fails if any invalid [`RenderLabel`]s or [`SlotLabel`]s are given.
     ///
     /// # See also
     ///
@@ -292,7 +292,7 @@ impl RenderGraph {
     ///
     /// # Panics
     ///
-    /// Any invalid [`RenderNode`]s or [`SlotLabel`]s are given.
+    /// Any invalid [`RenderLabel`]s or [`SlotLabel`]s are given.
     ///
     /// # See also
     ///
@@ -356,7 +356,7 @@ impl RenderGraph {
     /// Adds the [`Edge::NodeEdge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node`.
     ///
-    /// Fails if any invalid [`RenderNode`] is given.
+    /// Fails if any invalid [`RenderLabel`] is given.
     ///
     /// # See also
     ///
@@ -391,7 +391,7 @@ impl RenderGraph {
     ///
     /// # Panics
     ///
-    /// Panics if any invalid [`RenderNode`] is given.
+    /// Panics if any invalid [`RenderLabel`] is given.
     ///
     /// # See also
     ///
