@@ -1053,9 +1053,30 @@ pub enum Entry<'w, 'a, T: Component> {
     Vacant(VacantEntry<'w, 'a, T>),
 }
 
+impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
+    #[inline]
+    pub fn and_modify<F: FnOnce(Mut<'a, T>)>(self, f: F) -> Self {
+        match self {
+            Entry::Occupied(mut entry) => {
+                f(entry.get_mut());
+                Entry::Occupied(entry)
+            }
+            Entry::Vacant(entry) => Entry::Vacant(entry),
+        }
+    }
+}
 pub struct OccupiedEntry<'w, 'a, T: Component> {
     _marker: PhantomData<T>,
     entity_world: &'a mut EntityWorldMut<'w>,
+}
+
+impl<'a, T: Component> OccupiedEntry<'_, 'a, T> {
+    #[inline]
+    pub fn get_mut(&mut self) -> Mut<'a, T> {
+        // TODO: YUCKITY YUCK
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { std::mem::transmute(self.entity_world.get_mut::<T>().unwrap_unchecked()) }
+    }
 }
 
 pub struct VacantEntry<'w, 'a, T: Component> {
