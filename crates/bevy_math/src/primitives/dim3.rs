@@ -3,9 +3,6 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Primitive3d};
 use crate::Vec3;
 
-#[allow(clippy::excessive_precision)]
-const TWO_PI_SQUARED: f32 = 19.73920880217871723766898199;
-
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Direction3d(Vec3);
@@ -47,12 +44,12 @@ impl Sphere {
 
     /// Get the surface area of the sphere
     pub fn area(&self) -> f32 {
-        4.0 * PI * self.radius * self.radius
+        4.0 * PI * self.radius.powi(2)
     }
 
     /// Get the volume of the sphere
     pub fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius * self.radius * self.radius
+        4.0 * FRAC_PI_3 * self.radius.powi(2) * self.radius
     }
 }
 
@@ -108,7 +105,7 @@ impl Segment3d {
     pub fn new(direction: Direction3d, length: f32) -> Self {
         Self {
             direction,
-            half_length: length / 2.,
+            half_length: length / 2.0,
         }
     }
 
@@ -122,7 +119,7 @@ impl Segment3d {
         let length = diff.length();
         (
             Self::new(Direction3d::from_normalized(diff / length), length),
-            (point1 + point2) / 2.,
+            (point1 + point2) / 2.0,
         )
     }
 
@@ -209,7 +206,7 @@ impl Cuboid {
     /// Create a new `Cuboid` from a given full size
     pub fn from_size(size: Vec3) -> Self {
         Self {
-            half_size: size / 2.,
+            half_size: size / 2.0,
         }
     }
 
@@ -253,7 +250,7 @@ impl Cylinder {
     pub fn new(radius: f32, height: f32) -> Self {
         Self {
             radius,
-            half_height: height / 2.,
+            half_height: height / 2.0,
         }
     }
 
@@ -273,7 +270,7 @@ impl Cylinder {
 
     /// Get the surface area of one base of the cylinder
     pub fn base_area(&self) -> f32 {
-        PI * self.radius * self.radius
+        PI * self.radius.powi(2)
     }
 
     /// Get the total surface area of the cylinder
@@ -365,7 +362,7 @@ impl Cone {
 
     /// Get the surface area of the base of the cone
     pub fn base_area(&self) -> f32 {
-        PI * self.radius * self.radius
+        PI * self.radius.powi(2)
     }
 
     /// Get the total surface area of the cone
@@ -417,13 +414,13 @@ impl Torus {
     /// Get the surface area of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     pub fn area(&self) -> f32 {
-        2.0 * TWO_PI_SQUARED * self.major_radius() * self.ring_radius
+        4.0 * PI.powi(2) * self.major_radius() * self.ring_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     pub fn volume(&self) -> f32 {
-        TWO_PI_SQUARED * self.major_radius() * self.ring_radius.powi(2)
+        2.0 * PI.powi(2) * self.major_radius() * self.ring_radius.powi(2)
     }
 }
 

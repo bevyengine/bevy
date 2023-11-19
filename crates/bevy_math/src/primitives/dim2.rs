@@ -44,7 +44,7 @@ impl Circle {
 
     /// Get the area of the circle
     pub fn area(&self) -> f32 {
-        PI * self.radius * self.radius
+        PI * self.radius.powi(2)
     }
 
     /// Get the perimeter or circumference of the circle
@@ -116,7 +116,7 @@ impl Segment2d {
     pub fn new(direction: Direction2d, length: f32) -> Self {
         Self {
             direction,
-            half_length: length / 2.,
+            half_length: length / 2.0,
         }
     }
 
@@ -128,7 +128,7 @@ impl Segment2d {
         let length = diff.length();
         (
             Self::new(Direction2d::from_normalized(diff / length), length),
-            (point1 + point2) / 2.,
+            (point1 + point2) / 2.0,
         )
     }
 
@@ -270,8 +270,8 @@ impl Rectangle {
     /// Create a new `Rectangle` from two corner points
     pub fn from_corners(point1: Vec2, point2: Vec2) -> Self {
         Self {
-            half_width: 0.5 * (point2.x - point1.x).abs(),
-            half_height: 0.5 * (point2.y - point1.y).abs(),
+            half_width: (point2.x - point1.x).abs() / 2.0,
+            half_height: (point2.y - point1.y).abs() / 2.0,
         }
     }
 
