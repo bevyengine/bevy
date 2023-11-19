@@ -161,7 +161,7 @@ pub struct Cuboid {
 impl Primitive3d for Cuboid {}
 
 impl Cuboid {
-    /// Create a cuboid from a full x, y and z length
+    /// Create a cuboid from a full x, y, and z length
     pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self::from_size(Vec3::new(x_length, y_length, z_length))
     }
@@ -254,7 +254,7 @@ pub enum TorusKind {
     Spindle,
     /// A torus with non-geometric properties like
     /// a minor or major radius that is non-positive,
-    /// infinite or `NaN`
+    /// infinite, or `NaN`
     Invalid,
 }
 
@@ -313,12 +313,12 @@ impl Torus {
     /// a *horn torus* that doesn't have a hole but also isn't self-intersecting,
     /// or a *spindle torus* that is self-intersecting.
     ///
-    /// If the minor or major radius is non-positive, infinite or `NaN`,
+    /// If the minor or major radius is non-positive, infinite, or `NaN`,
     /// [`TorusKind::Invalid`] is returned
     #[inline]
     #[must_use]
     pub fn kind(&self) -> TorusKind {
-        // Invalid if minor or major radius is non-positive, infinite or NaN
+        // Invalid if minor or major radius is non-positive, infinite, or NaN
         if self.minor_radius <= 0.0
             || !self.minor_radius.is_finite()
             || self.major_radius <= 0.0
