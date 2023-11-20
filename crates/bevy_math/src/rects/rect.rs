@@ -277,7 +277,7 @@ impl Rect {
         r
     }
 
-    /// Check if this rectangle overlaps another rectangle. 
+    /// Check if this rectangle overlaps another rectangle.
     /// Touching edges count as overlapping.
     ///  
     /// # Examples
@@ -293,9 +293,9 @@ impl Rect {
     #[inline]
     pub fn overlaps(&self, other: Self) -> bool {
         (self.min[0] <= other.max[0])
-        && (self.max[0] >= other.min[0])
-        && (self.min[1] <= other.max[1])
-        && (self.max[1] >= other.min[1])
+            && (self.max[0] >= other.min[0])
+            && (self.min[1] <= other.max[1])
+            && (self.max[1] >= other.min[1])
     }
 
     /// Create a new rectangle with a constant inset.
