@@ -55,8 +55,8 @@ pub trait Mipmap: Clone + PartialEq + Eq + Hash + Send + Sync + 'static {
     /// Returns a structure with various labels for `wgpu` objects.
     fn debug_names() -> Arc<MipmapDebugNames>;
 
-    /// Given the pipeline key, adds any needed custom shader definitions to the shader.
-    fn add_custom_shader_defs(&self, _shader_defs: &mut Vec<ShaderDefVal>) {}
+    /// Returns any needed custom shader definitions.
+    fn shader_defs(&self) -> Vec<ShaderDefVal>;
 
     /// The number of mip levels to omit, starting from the smallest.
     ///
@@ -292,7 +292,7 @@ where
         }
 
         // Add any custom shader definitions as appropriate.
-        key.mipmapper.add_custom_shader_defs(&mut shader_defs);
+        shader_defs.extend(key.mipmapper.shader_defs().into_iter());
 
         // Build the descriptor.
         RenderPipelineDescriptor {

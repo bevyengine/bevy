@@ -18,9 +18,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{uvec2, UVec2};
 use bevy_render::{
     camera::ExtractedCamera,
-    extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
-    },
+    extract_component::ExtractComponentPlugin,
     prelude::Color,
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -30,7 +28,7 @@ use bevy_render::{
     view::ViewTarget,
     Render, RenderApp, RenderSet,
 };
-use downsampling_pipeline::{prepare_downsampling_pipeline, BloomUniforms};
+use downsampling_pipeline::prepare_downsampling_pipeline;
 use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
@@ -121,7 +119,6 @@ impl ViewNode for BloomNode {
         &'static ViewTarget,
         &'static MipmappedTexture<BloomDownsamplingMipmapper>,
         &'static BloomBindGroups,
-        &'static BloomBindings,
         &'static BloomSettings,
         &'static UpsamplingPipelineIds,
         &'static MipmapPipelineIds<BloomDownsamplingMipmapper>,
@@ -139,7 +136,6 @@ impl ViewNode for BloomNode {
             view_target,
             bloom_texture,
             bind_groups,
-            bloom_bindings,
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,

@@ -1,6 +1,6 @@
 use super::{
-    downsampling_pipeline::{BloomBindings, BloomUniforms},
-    BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT,
+    downsampling_pipeline::BloomBindings, BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE,
+    BLOOM_TEXTURE_FORMAT,
 };
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{

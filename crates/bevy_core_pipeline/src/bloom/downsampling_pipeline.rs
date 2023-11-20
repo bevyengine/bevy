@@ -58,9 +58,11 @@ impl Mipmap for BloomDownsamplingMipmapper {
         BLOOM_TEXTURE_FORMAT
     }
 
-    fn add_custom_shader_defs(&self, shader_defs: &mut Vec<ShaderDefVal>) {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
         if self.prefilter {
-            shader_defs.push("USE_THRESHOLD".into());
+            vec!["USE_THRESHOLD".into()]
+        } else {
+            vec![]
         }
     }
 
