@@ -277,7 +277,7 @@ impl Rect {
         r
     }
 
-    /// Check if this rectangle contains another rectangle.
+    /// Check if this rectangle fully contains another rectangle.
     /// Touching edges count as containing.
     ///  
     /// # Examples
