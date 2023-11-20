@@ -1,5 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
+use crate::entity::Entity;
 use crate::{
     self as bevy_ecs,
     change_detection::MAX_CHANGE_AGE,
@@ -287,22 +288,55 @@ impl ComponentInfo {
 /// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
 /// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ComponentId(usize);
+pub struct ComponentId {
+    /// The actual index of the `ComponentId`. This uniquely identifies the component this id refers
+    /// to.
+    index: u32,
+    /// An optional `Entity`, which is used for relations. If this is a non-relation
+    /// `ComponentId`, the value of this field is `ComponentId::NO_TARGET`.
+    target: Entity,
+}
 
 impl ComponentId {
+    /// No target is specified for the [`ComponentId`].
+    ///
+    /// This value is always used for ordinary (non-relation) components.
+    const NO_TARGET: Entity = Entity::PLACEHOLDER;
+
     /// Creates a new [`ComponentId`].
     ///
     /// The `index` is a unique value associated with each type of component in a given world.
     /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
     #[inline]
     pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
+        ComponentId {
+            index: index as u32,
+            target: Self::NO_TARGET,
+        }
+    }
+
+    /// Creates a new relation [`ComponentId`].
+    ///
+    /// The relation is of the input `ComponentId` and the target is the given entity.
+    ///
+    /// ## Examples
+    /// ```rust,ignore
+    /// let child_of: ComponentId = todo!(); // Get the component id of `ChildOf`
+    /// let parent: Entity = todo!(); // Get some parent
+    /// let child_of_parent: ComponentId = child_of.relation(parent);
+    /// ```
+    #[inline]
+    pub const fn relation(self, target: Entity) -> Self {
+        ComponentId {
+            index: self.index,
+            target,
+        }
     }
 
     /// Returns the index of the current component.
     #[inline]
-    pub fn index(self) -> usize {
-        self.0
+    pub const fn index(self) -> usize {
+        self.index as usize
     }
 }
 
@@ -314,7 +348,7 @@ impl SparseSetIndex for ComponentId {
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Self(value)
+        Self::new(value)
     }
 }
 
@@ -464,7 +498,7 @@ impl Components {
         let index = indices.entry(type_id).or_insert_with(|| {
             Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
         });
-        ComponentId(*index)
+        ComponentId::new(*index)
     }
 
     /// Initializes a component described by `descriptor`.
@@ -484,7 +518,7 @@ impl Components {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         let index = Components::init_component_inner(&mut self.components, storages, descriptor);
-        ComponentId(index)
+        ComponentId::new(index)
     }
 
     #[inline]
@@ -494,7 +528,7 @@ impl Components {
         descriptor: ComponentDescriptor,
     ) -> usize {
         let index = components.len();
-        let info = ComponentInfo::new(ComponentId(index), descriptor);
+        let info = ComponentInfo::new(ComponentId::new(index), descriptor);
         if info.descriptor.storage_type == StorageType::SparseSet {
             storages.sparse_sets.get_or_insert(&info);
         }
@@ -519,7 +553,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0)
+        self.components.get(id.index())
     }
 
     /// Returns the name associated with the given component.
@@ -537,13 +571,15 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0)
+        self.components.get_unchecked(id.index())
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).map(|index| ComponentId(*index))
+        self.indices
+            .get(&type_id)
+            .map(|index| ComponentId::new(*index))
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -583,7 +619,7 @@ impl Components {
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices
             .get(&type_id)
-            .map(|index| ComponentId(*index))
+            .map(|index| ComponentId::new(*index))
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -660,11 +696,11 @@ impl Components {
         let index = self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
             let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), descriptor));
+            components.push(ComponentInfo::new(ComponentId::new(index), descriptor));
             index
         });
 
-        ComponentId(*index)
+        ComponentId::new(*index)
     }
 
     /// Gets an iterator over all components registered with this instance.

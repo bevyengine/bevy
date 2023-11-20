@@ -89,6 +89,17 @@ impl<'w> EntityRef<'w> {
         self.0.contains_id(component_id)
     }
 
+    /// Returns `true` if the current entity is related to `target` by the given relation.
+    /// Otherwise, this returns false.
+    #[inline]
+    pub fn contains_relation<R: Component>(&self, target: Entity) -> bool {
+        let rel_id = match self.world.component_id::<R>() {
+            Some(id) => id.relation(target),
+            None => return false,
+        };
+        self.contains_id(rel_id)
+    }
+
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
     /// Otherwise, this returns false.
     ///
@@ -107,6 +118,22 @@ impl<'w> EntityRef<'w> {
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get::<T>() }
+    }
+
+    /// Gets access to the relation of type `R` for the current entity and target.
+    /// Returns `None` if the entity does not have this relation to that target.
+    #[inline]
+    pub fn get_relation<R: Component>(&self, target: Entity) -> Option<&'_ R> {
+        let rel_id = self.world.component_id::<R>()?.relation(target);
+
+        // SAFETY:
+        // - &self implies shared access for the duration of the returned value
+        let ptr = unsafe { self.as_unsafe_world_cell_readonly().get_by_id(rel_id)? };
+        // SAFETY:
+        // - The relation is created from the component id of `R`, so the value pointed to must be of
+        // type `R`
+        // - get_by_id should return an aligned pointer for the correct type
+        Some(unsafe { ptr.deref::<R>() })
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -480,6 +507,17 @@ impl<'w> EntityWorldMut<'w> {
             .contains_id(component_id)
     }
 
+    /// Returns `true` if the current entity is related to `target` by the given relation.
+    /// Otherwise, this returns false.
+    #[inline]
+    pub fn contains_relation<R: Component>(&self, target: Entity) -> bool {
+        let rel_id = match self.world.component_id::<R>() {
+            Some(id) => id.relation(target),
+            None => return false,
+        };
+        self.contains_id(rel_id)
+    }
+
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
     /// Otherwise, this returns false.
     ///
@@ -509,12 +547,43 @@ impl<'w> EntityWorldMut<'w> {
         EntityRef::from(self).get_ref()
     }
 
+    /// Gets access to the relation of type `R` for the current entity and target.
+    /// Returns `None` if the entity does not have this relation to that target.
+    #[inline]
+    pub fn get_relation<R: Component>(&self, target: Entity) -> Option<&'_ R> {
+        let rel_id = self.world.component_id::<R>()?.relation(target);
+
+        // SAFETY:
+        // - &self implies shared access for the duration of the returned value
+        let ptr = unsafe { self.as_unsafe_world_cell_readonly().get_by_id(rel_id)? };
+        // SAFETY:
+        // - The relation is created from the component id of `R`, so the value pointed to must be of
+        // type `R`
+        // - get_by_id should return an aligned pointer for the correct type
+        Some(unsafe { ptr.deref::<R>() })
+    }
+
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.as_unsafe_entity_cell().get_mut() }
+    }
+
+    /// Gets mutable access to the relation of type `R` for the current entity and target.
+    /// Returns `None` if the entity does not have this relation to that target.
+    #[inline]
+    pub fn get_relation_mut<R: Component>(&mut self, target: Entity) -> Option<Mut<'_, R>> {
+        let rel_id = self.world.component_id::<R>()?.relation(target);
+
+        // SAFETY:
+        // - &mut self implies exclusive access for the duration of the returned value
+        let ptr = unsafe { self.as_unsafe_world_cell().get_mut_by_id(rel_id)? };
+        // SAFETY:
+        // - The relation is created from the component id of `R`, so the value pointed to must be of
+        // type `R`
+        Some(unsafe { ptr.with_type::<R>() })
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -584,6 +653,42 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         unsafe {
             self.location = bundle_inserter.insert(self.entity, self.location, bundle);
+        }
+
+        self
+    }
+
+    /// Adds a relation to an entity.
+    ///
+    /// This will overwrite previous values of the same relation to the same entity.
+    ///
+    /// ## Panics
+    /// Will panic if the target is this entity. Self referential relationships are not allowed.
+    pub fn add_relation<R: Component>(&mut self, relation: R, target: Entity) -> &mut Self {
+        if self.entity == target {
+            panic!("entities are not allowed to have self-referential relationships");
+        }
+
+        let change_tick = self.world.change_tick();
+        let relation_id = self.world.init_component::<R>().relation(target);
+        let (bundle_info, _) = self
+            .world
+            .bundles
+            .init_dynamic_info(&mut self.world.components, &[relation_id]);
+        let mut bundle_inserter = bundle_info.get_bundle_inserter(
+            &mut self.world.entities,
+            &mut self.world.archetypes,
+            &mut self.world.components,
+            &mut self.world.storages,
+            self.location.archetype_id,
+            change_tick,
+        );
+
+        // SAFETY:
+        // - entity exists in the source archetype
+        // - `R` matches `bundle_info`
+        unsafe {
+            self.location = bundle_inserter.insert(self.entity, self.location, relation);
         }
 
         self
@@ -890,6 +995,75 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes the relation from this entity.
+    pub fn remove_relation<R: Component>(&mut self, target: Entity) -> &mut Self {
+        let relation_id = self.world.init_component::<R>().relation(target);
+
+        let archetypes = &mut self.world.archetypes;
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let entities = &mut self.world.entities;
+        let removed_components = &mut self.world.removed_components;
+
+        let (bundle_info, _) = self
+            .world
+            .bundles
+            .init_dynamic_info(components, &[relation_id]);
+        let old_location = self.location;
+
+        // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
+        // components exist in `bundle_info` because `Bundles::init_dynamic_info` initializes a `BundleInfo` containing `R`
+        let new_archetype_id = unsafe {
+            remove_bundle_from_archetype(
+                archetypes,
+                storages,
+                components,
+                old_location.archetype_id,
+                bundle_info,
+                true,
+            )
+            .expect("intersections should always return a result")
+        };
+
+        if new_archetype_id == old_location.archetype_id {
+            return self;
+        }
+
+        let old_archetype = &mut archetypes[old_location.archetype_id];
+        let entity = self.entity;
+        for component_id in bundle_info.components().iter().cloned() {
+            if old_archetype.contains(component_id) {
+                removed_components.send(component_id, entity);
+
+                // Make sure to drop components stored in sparse sets.
+                // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                    storages
+                        .sparse_sets
+                        .get_mut(component_id)
+                        .unwrap()
+                        .remove(entity);
+                }
+            }
+        }
+
+        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
+        unsafe {
+            Self::move_entity_from_remove::<true>(
+                entity,
+                &mut self.location,
+                old_location.archetype_id,
+                old_location,
+                entities,
+                archetypes,
+                storages,
+                new_archetype_id,
+            );
+        }
+
+        self
+    }
+
     /// Despawns the current entity.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
@@ -1103,8 +1277,8 @@ unsafe fn remove_bundle_from_archetype(
         // this Bundle removal result is cached. just return that!
         result
     } else {
-        let mut next_table_components;
-        let mut next_sparse_set_components;
+        let mut next_table_components: Vec<ComponentId>;
+        let mut next_sparse_set_components: Vec<ComponentId>;
         let next_table_id;
         {
             let current_archetype = &mut archetypes[archetype_id];
@@ -1129,12 +1303,16 @@ unsafe fn remove_bundle_from_archetype(
                 }
             }
 
-            // sort removed components so we can do an efficient "sorted remove". archetype
-            // components are already sorted
+            // sort removed components so we can do an efficient "sorted remove".
+            // TODO: Previously, this relied (incorrectly) on archetype iterators being sorted, which happened
+            // to be true. Having changed to a HashMap, this is no longer true. A stable hashmap is
+            // available which might be better than sorting. Benchmarks/profiling needed.
             removed_table_components.sort();
             removed_sparse_set_components.sort();
             next_table_components = current_archetype.table_components().collect();
+            next_table_components.sort();
             next_sparse_set_components = current_archetype.sparse_set_components().collect();
+            next_sparse_set_components.sort();
             sorted_remove(&mut next_table_components, &removed_table_components);
             sorted_remove(
                 &mut next_sparse_set_components,

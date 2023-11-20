@@ -1724,4 +1724,223 @@ mod tests {
             "new entity was spawned and received C component"
         );
     }
+
+    #[test]
+    fn relation_child_of() {
+        #[derive(Component)]
+        struct ChildOf;
+
+        let mut world = World::new();
+
+        let parent = world.spawn(()).id();
+        let mut child = world.spawn(());
+        let child = child.add_relation(ChildOf, parent);
+
+        assert!(child.contains_relation::<ChildOf>(parent));
+    }
+
+    #[test]
+    fn relation_rock_paper_scissors() {
+        #[derive(Component)]
+        struct Beats;
+
+        let mut world = World::new();
+
+        let rock = world.spawn(()).id();
+        let paper = world.spawn(()).id();
+        let scissors = world.spawn(()).id();
+
+        world.entity_mut(rock).add_relation(Beats, scissors);
+        world.entity_mut(paper).add_relation(Beats, rock);
+        world.entity_mut(scissors).add_relation(Beats, paper);
+
+        assert!(world.entity(rock).contains_relation::<Beats>(scissors));
+        assert!(world.entity(paper).contains_relation::<Beats>(rock));
+        assert!(world.entity(scissors).contains_relation::<Beats>(paper));
+    }
+
+    #[test]
+    fn relation_spoke_and_hub() {
+        #[derive(Component)]
+        struct Connected;
+
+        let mut world = World::new();
+
+        let spoke1 = world.spawn(()).id();
+        let spoke2 = world.spawn(()).id();
+        let spoke3 = world.spawn(()).id();
+        let hub = world.spawn(()).id();
+
+        world
+            .entity_mut(spoke1)
+            .add_relation(Connected, hub)
+            .add_relation(Connected, spoke2)
+            .add_relation(Connected, spoke3);
+        world
+            .entity_mut(spoke2)
+            .add_relation(Connected, hub)
+            .add_relation(Connected, spoke1)
+            .add_relation(Connected, spoke3);
+        world
+            .entity_mut(spoke3)
+            .add_relation(Connected, hub)
+            .add_relation(Connected, spoke1)
+            .add_relation(Connected, spoke2);
+        world
+            .entity_mut(hub)
+            .add_relation(Connected, spoke1)
+            .add_relation(Connected, spoke2)
+            .add_relation(Connected, spoke3);
+
+        fn permute<T>(slice: &[T], mut for_each: impl FnMut(&T, &T)) {
+            for i in 0..slice.len() {
+                for j in 0..slice.len() {
+                    if i == j {
+                        continue;
+                    }
+
+                    let (lhs, rhs) = (&slice[i], &slice[j]);
+
+                    for_each(lhs, rhs);
+                }
+            }
+        }
+
+        permute(&[hub, spoke1, spoke2, spoke3], |lhs, rhs| {
+            assert!(world.entity(*lhs).contains_relation::<Connected>(*rhs));
+        });
+    }
+
+    #[test]
+    fn relation_eats() {
+        #[derive(Component)]
+        struct Eats(u32);
+
+        let mut world = World::new();
+
+        let adam = world.spawn(()).id();
+        let eve = world.spawn(()).id();
+        let apples = world.spawn(()).id();
+
+        world.entity_mut(adam).add_relation(Eats(2), apples);
+        world.entity_mut(eve).add_relation(Eats(3), apples);
+
+        assert_eq!(
+            world.entity(adam).get_relation::<Eats>(apples).unwrap().0,
+            2
+        );
+        assert_eq!(world.entity(eve).get_relation::<Eats>(apples).unwrap().0, 3);
+    }
+
+    #[test]
+    fn relation_add_overwrite() {
+        #[derive(Component)]
+        struct Has(usize);
+
+        let mut world = World::new();
+
+        let apples = world.spawn(()).id();
+        let oranges = world.spawn(()).id();
+
+        let mut jane = world.spawn(());
+        jane.add_relation(Has(12), apples)
+            .add_relation(Has(20), oranges);
+
+        jane.add_relation(Has(13), apples);
+
+        assert_eq!(jane.get_relation::<Has>(apples).unwrap().0, 13);
+    }
+
+    #[test]
+    fn relation_get_mut() {
+        #[derive(Component)]
+        struct Has(usize);
+
+        let mut world = World::new();
+
+        let apples = world.spawn(()).id();
+        let mut eve = world.spawn(());
+
+        eve.add_relation(Has(24), apples);
+
+        eve.get_relation_mut::<Has>(apples).unwrap().0 -= 1;
+
+        assert_eq!(eve.get_relation::<Has>(apples).unwrap().0, 23);
+    }
+
+    #[test]
+    fn relation_no_entity_collision() {
+        #[derive(Component)]
+        struct Hates;
+
+        let mut world = World::new();
+
+        let john = world.spawn(()).id();
+        let steve = world.spawn(()).id();
+
+        world.entity_mut(john).add_relation(Hates, steve);
+
+        world.despawn(steve);
+
+        let fred = world.spawn(()).id();
+
+        // If the indices are not equal here, this test is not testing for what it should be
+        assert_eq!(fred.index(), steve.index());
+
+        assert!(world.entity(john).contains_relation::<Hates>(steve));
+        assert!(!world.entity(john).contains_relation::<Hates>(fred));
+    }
+
+    #[test]
+    fn relation_components_and_relations_not_the_same() {
+        #[derive(Component)]
+        struct Rel;
+
+        let mut world = World::new();
+
+        let target = world.spawn(()).id();
+        let target2 = world.spawn(()).id();
+        let mut e = world.spawn(());
+        e.add_relation(Rel, target);
+
+        assert!(e.contains_relation::<Rel>(target));
+        assert!(!e.contains::<Rel>());
+        assert!(!e.contains_relation::<Rel>(target2));
+    }
+
+    #[test]
+    fn relation_can_access_disjoint() {
+        #[derive(Component)]
+        struct Rel;
+
+        let mut world = World::new();
+
+        let target = world.spawn(()).id();
+
+        let rel_id = world.init_component::<Rel>();
+        let rel_target_id = rel_id.relation(target);
+
+        let mut access = crate::query::Access::new();
+        access.add_read(rel_target_id);
+
+        assert!(!access.has_read(rel_id));
+    }
+
+    #[test]
+    fn relation_remove() {
+        #[derive(Component)]
+        struct Rel(Box<i32>);
+
+        let mut world = World::new();
+
+        let target = world.spawn(()).id();
+        let mut e = world.spawn(());
+        e.add_relation(Rel(Box::new(12)), target);
+
+        assert!(e.contains_relation::<Rel>(target));
+
+        e.remove_relation::<Rel>(target);
+
+        assert!(!e.contains_relation::<Rel>(target));
+    }
 }
