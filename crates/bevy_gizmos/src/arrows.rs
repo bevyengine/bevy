@@ -51,8 +51,9 @@ impl ArrowBuilder<'_, '_> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[doc(alias = "arrow_head_length")]
-    pub fn with_tip_length(&mut self, length: f32) {
+    pub fn with_tip_length(&mut self, length: f32) -> &mut Self {
         self.tip_length = length;
+        self
     }
 
     /// Make the arrow double-ended.
