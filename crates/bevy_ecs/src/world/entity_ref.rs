@@ -1055,7 +1055,7 @@ pub enum Entry<'w, 'a, T: Component> {
 
 impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     #[inline]
-    pub fn and_modify<F: FnOnce(Mut<'a, T>)>(self, f: F) -> Self {
+    pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
         match self {
             Entry::Occupied(mut entry) => {
                 f(entry.get_mut());
@@ -1080,7 +1080,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     pub fn or_insert(self, default: T) -> Mut<'a, T> {
         match self {
             Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(mut entry) => entry.insert(default),
+            Entry::Vacant(entry) => entry.insert(default),
         }
     }
 
@@ -1088,7 +1088,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> Mut<'a, T> {
         match self {
             Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(mut entry) => entry.insert(default()),
+            Entry::Vacant(entry) => entry.insert(default()),
         }
     }
 }
@@ -1098,7 +1098,7 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
     pub fn or_default(self) -> Mut<'a, T> {
         match self {
             Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(mut entry) => entry.insert(Default::default()),
+            Entry::Vacant(entry) => entry.insert(Default::default()),
         }
     }
 }
@@ -1110,16 +1110,20 @@ pub struct OccupiedEntry<'w, 'a, T: Component> {
 
 impl<'a, T: Component> OccupiedEntry<'_, 'a, T> {
     #[inline]
-    pub fn get_mut(&mut self) -> Mut<'a, T> {
-        // TODO: YUCKITY YUCK
+    pub fn get_mut(&mut self) -> Mut<'_, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
-        unsafe { std::mem::transmute(self.entity_world.get_mut::<T>().unwrap_unchecked()) }
+        unsafe { self.entity_world.get_mut::<T>().unwrap_unchecked() }
     }
 
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
         unsafe { self.entity_world.get_mut().unwrap_unchecked() }
+    }
+
+    #[inline]
+    pub fn insert(&mut self, component: T) {
+        self.entity_world.insert(component);
     }
 }
 
@@ -1128,13 +1132,21 @@ pub struct VacantEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
 }
 
-impl<'a, T: Component> VacantEntry<'_, 'a, T> {
+impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     #[inline]
-    pub fn insert(&mut self, component: T) -> Mut<'a, T> {
+    pub fn insert(self, component: T) -> Mut<'a, T> {
         self.entity_world.insert(component);
-        // TODO: Again, yuck
         // SAFETY: We just added this component.
-        unsafe { std::mem::transmute(self.entity_world.get_mut::<T>().unwrap_unchecked()) }
+        unsafe { self.entity_world.get_mut::<T>().unwrap_unchecked() }
+    }
+
+    #[inline]
+    pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
+        self.entity_world.insert(component);
+        OccupiedEntry {
+            _marker: PhantomData::default(),
+            entity_world: self.entity_world,
+        }
     }
 }
 
