@@ -1068,14 +1068,11 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     #[inline]
     pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
         match self {
-            Entry::Occupied(entry) => entry,
-            Entry::Vacant(mut entry) => {
+            Entry::Occupied(mut entry) => {
                 entry.insert(component);
-                OccupiedEntry {
-                    _marker: PhantomData::default(),
-                    entity_world: entry.entity_world,
-                }
+                entry
             }
+            Entry::Vacant(entry) => entry.insert_entry(component),
         }
     }
 
