@@ -1034,6 +1034,26 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Gets an Entry into the world for this entity and component for in-place manipulation.
+    ///
+    /// The type parameter specifies which component to get.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let mut entity = world.spawn(Comp(0));
+    /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
+    /// # assert_eq!(world.query::<&Comp>().single(&world).0, 1);
+    ///
+    /// let mut new_entity = world.spawn_empty();
+    /// entity.entry().or_insert_with(|| Comp(4));
+    /// # assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// ```
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
         if self.contains::<T>() {
             Entry::Occupied(OccupiedEntry {
