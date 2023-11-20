@@ -1063,6 +1063,20 @@ pub enum Entry<'w, 'a, T: Component> {
 
 impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// Provides in-place mutable access to an occupied entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(0));
+    ///
+    /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 1);
+    /// ```
     #[inline]
     pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
         match self {
@@ -1074,7 +1088,24 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
         }
     }
 
-    /// Sets the value of the entry, and returns an [`OccupiedEntry`].
+    /// Replaces the component of the entry, and returns an [`OccupiedEntry`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// let entry = entity.entry().insert_entry(Comp(4));
+    /// assert_eq!(entry.get(), &Comp(4));
+    ///
+    /// let entry = entity.entry().insert_entry(Comp(2));
+    /// assert_eq!(entry.get(), &Comp(2));
+    /// ```
     #[inline]
     pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
         match self {
@@ -1088,6 +1119,25 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
 
     /// Ensures the entry has this component by inserting the default if empty, and returns a
     /// mutable reference to this component in the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// entity.entry().or_insert(Comp(4));
+    /// # let entity_id = entity.id();
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    ///
+    /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
+    /// entity.entry().or_insert(Comp(15)).0 *= 2;
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 8);
+    /// ```
     #[inline]
     pub fn or_insert(self, default: T) -> Mut<'a, T> {
         match self {
@@ -1098,6 +1148,20 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
 
     /// Ensures the entry has this component by inserting the result of the default function if
     /// empty, and returns a mutable reference to this component in the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// entity.entry().or_insert_with(|| Comp(4));
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// ```
     #[inline]
     pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> Mut<'a, T> {
         match self {
@@ -1110,6 +1174,20 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
 impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
     /// Ensures the entry has this component by inserting the default value if empty, and
     /// returns a mutable reference to this component in the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// entity.entry::<Comp>().or_default();
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 0);
+    /// ```
     #[inline]
     pub fn or_default(self) -> Mut<'a, T> {
         match self {
