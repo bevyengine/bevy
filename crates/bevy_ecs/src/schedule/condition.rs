@@ -91,7 +91,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # fn my_system() {}
     /// app.add_systems(
     ///     // `resource_equals` will only get run if the resource `R` exists.
-    ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
+    ///     my_system.run_if(resource_exists::<R>.and_then(resource_equals(R(0)))),
     /// );
     /// # app.run(&mut world);
     /// ```
@@ -129,7 +129,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
     /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
-    ///     my_system.run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
+    ///     my_system.run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
     /// );
     /// #
     /// # world.insert_resource(C(false));
@@ -390,7 +390,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying funcition that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying function that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -419,7 +419,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>()))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -472,7 +472,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>()))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -534,7 +534,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>()))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
