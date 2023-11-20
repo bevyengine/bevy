@@ -690,17 +690,20 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
             &prepass_pipeline.view_layout_no_motion_vectors,
-            &BindGroupEntries::sequential((view_binding.clone(), globals_binding.clone())),
+            &BindGroupEntries::with_indices((
+                (0, view_binding.clone()),
+                (9, globals_binding.clone()),
+            )),
         ));
 
         if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
                 &prepass_pipeline.view_layout_motion_vectors,
-                &BindGroupEntries::sequential((
-                    view_binding,
-                    globals_binding,
-                    previous_view_proj_binding,
+                &BindGroupEntries::with_indices((
+                    (0, view_binding),
+                    (9, globals_binding),
+                    (2, previous_view_proj_binding),
                 )),
             ));
         }
