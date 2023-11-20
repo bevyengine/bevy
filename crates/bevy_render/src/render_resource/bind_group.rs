@@ -99,7 +99,7 @@ impl Deref for BindGroup {
 /// @group(2) @binding(3) var<storage> values: array<f32>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
-/// are generally bound to group 1.
+/// are generally bound to group 2.
 ///
 /// The following field-level attributes are supported:
 ///
