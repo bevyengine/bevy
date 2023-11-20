@@ -21,3 +21,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0" }
+
+[lints]
+workspace = true

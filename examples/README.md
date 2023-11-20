@@ -181,6 +181,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader

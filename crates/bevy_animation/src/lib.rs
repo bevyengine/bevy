@@ -1,7 +1,6 @@
 //! Animation for the game engine Bevy
 
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 
 use std::ops::Deref;
 use std::time::Duration;
@@ -123,7 +122,7 @@ impl AnimationClip {
 }
 
 /// Repetition behavior of an animation.
-#[derive(Reflect, Copy, Clone, Default)]
+#[derive(Reflect, Debug, PartialEq, Eq, Copy, Clone, Default)]
 pub enum RepeatAnimation {
     /// The animation will finish after running once.
     #[default]
@@ -134,7 +133,7 @@ pub enum RepeatAnimation {
     Forever,
 }
 
-#[derive(Reflect)]
+#[derive(Debug, Reflect)]
 struct PlayingAnimation {
     repeat: RepeatAnimation,
     speed: f32,

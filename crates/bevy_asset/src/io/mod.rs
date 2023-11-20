@@ -1,3 +1,10 @@
+#[cfg(all(feature = "file_watcher", target_arch = "wasm32"))]
+compile_error!(
+    "The \"file_watcher\" feature for hot reloading does not work \
+    on WASM.\nDisable \"file_watcher\" \
+    when compiling to WASM"
+);
+
 #[cfg(target_os = "android")]
 pub mod android;
 pub mod embedded;

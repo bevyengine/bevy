@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
@@ -16,6 +15,7 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+mod arrows;
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
