@@ -277,23 +277,24 @@ impl Rect {
         r
     }
 
-    /// Check if this rectangle fully contains another rectangle.
-    /// Touching edges count as containing.
-    ///  
+    /// Checks if this rectangle intersects with another rectangle.
+    /// Two rectangles are considered to intersect if they share any common area,
+    /// including touching along edges or corners.
+    ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::Rect;
     /// let r1 = Rect::new(0., 0., 5., 1.);
     /// let r2 = Rect::new(1., -1., 3., 3.);
     /// let r3 = Rect::new(6., 0., 1., 1.);
     /// let r4 = Rect::new(0., 0., 0., 0.);
-    /// assert!(r1.contains_rect(r2));
-    /// assert!(r1.contains_rect(r3));
-    /// assert!(r4.is_empty() && r4.contains_rect(r4));
+    /// assert!(r1.intersects(r2));
+    /// assert!(r1.intersects(r3));
+    /// assert!(r4.is_empty() && r4.intersects(r4));
     /// ```
     #[inline]
-    pub fn contains_rect(&self, other: Self) -> bool {
+    pub fn intersects(&self, other: Self) -> bool {
         (self.min[0] <= other.max[0])
             && (self.max[0] >= other.min[0])
             && (self.min[1] <= other.max[1])
