@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -37,6 +35,9 @@ pub use server::*;
 
 pub use bevy_utils::BoxedFuture;
 
+/// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
+pub use ron;
+
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
@@ -50,6 +51,13 @@ use bevy_ecs::{
 use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use std::{any::TypeId, sync::Arc};
+
+#[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
+compile_error!(
+    "The \"file_watcher\" feature for hot reloading requires the \
+    \"multi-threaded\" feature to be functional.\n\
+    Consider either disabling the \"file_watcher\" feature or enabling \"multi-threaded\""
+);
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
@@ -74,6 +82,7 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
 }
 
+#[derive(Debug)]
 pub enum AssetMode {
     /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
     ///
