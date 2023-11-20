@@ -1078,6 +1078,14 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
             }
         }
     }
+
+    #[inline]
+    pub fn or_insert(self, default: T) -> Mut<'a, T> {
+        match self {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(mut entry) => entry.insert(default),
+        }
+    }
 }
 
 impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
