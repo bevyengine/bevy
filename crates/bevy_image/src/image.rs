@@ -919,16 +919,16 @@ impl Image {
                 bytes[3] as f32 / u8::MAX as f32,
             )),
             TextureFormat::Bgra8UnormSrgb => Ok(Color::rgba(
-                bytes[3] as f32 / u8::MAX as f32,
                 bytes[2] as f32 / u8::MAX as f32,
                 bytes[1] as f32 / u8::MAX as f32,
                 bytes[0] as f32 / u8::MAX as f32,
+                bytes[3] as f32 / u8::MAX as f32,
             )),
             TextureFormat::Bgra8Unorm => Ok(Color::rgba_linear(
-                bytes[3] as f32 / u8::MAX as f32,
                 bytes[2] as f32 / u8::MAX as f32,
                 bytes[1] as f32 / u8::MAX as f32,
                 bytes[0] as f32 / u8::MAX as f32,
+                bytes[3] as f32 / u8::MAX as f32,
             )),
             TextureFormat::Rgba32Float => Ok(Color::rgba_linear(
                 f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
