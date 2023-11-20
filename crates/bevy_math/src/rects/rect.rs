@@ -277,8 +277,8 @@ impl Rect {
         r
     }
 
-    /// Check if this rectangle overlaps another rectangle.
-    /// Touching edges count as overlapping.
+    /// Check if this rectangle contains another rectangle.
+    /// Touching edges count as containing. An empty rectangle never contains anything.
     ///  
     /// # Examples
     ///
@@ -287,11 +287,11 @@ impl Rect {
     /// let r1 = Rect::new(0., 0., 5., 1.);
     /// let r2 = Rect::new(1., -1., 3., 3.);
     /// let r3 = Rect::new(6., 0., 1., 1.);
-    /// assert!(r1.overlaps(r2));
-    /// assert!(r1.overlaps(r3));
+    /// assert!(r1.contains_rect(r2));
+    /// assert!(r1.contains_rect(r3));
     /// ```
     #[inline]
-    pub fn overlaps(&self, other: Self) -> bool {
+    pub fn contains_rect(&self, other: Self) -> bool {
         (self.min[0] <= other.max[0])
             && (self.max[0] >= other.min[0])
             && (self.min[1] <= other.max[1])
