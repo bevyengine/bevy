@@ -1245,8 +1245,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn get(&self) -> &T {
-        // SAFETY: If we have an OccupiedEntry the component must exist.
-        unsafe { self.entity_world.get::<T>().unwrap_unchecked() }
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.get::<T>().unwrap()
     }
 
     /// Gets a mutable reference to the component in the entry.
@@ -1278,8 +1278,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
-        // SAFETY: If we have an OccupiedEntry the component must exist.
-        unsafe { self.entity_world.get_mut::<T>().unwrap_unchecked() }
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.get_mut::<T>().unwrap()
     }
 
     /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry with
@@ -1307,8 +1307,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
-        // SAFETY: If we have an OccupiedEntry the component must exist.
-        unsafe { self.entity_world.get_mut().unwrap_unchecked() }
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.get_mut().unwrap()
     }
 
     /// Replaces the component of the entry.
@@ -1354,8 +1354,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn take(self) -> T {
-        // SAFETY: If we have an OccupiedEntry the component must exist.
-        unsafe { self.entity_world.take().unwrap_unchecked() }
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.take().unwrap()
     }
 }
 
@@ -1387,8 +1387,8 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     #[inline]
     pub fn insert(self, component: T) -> Mut<'a, T> {
         self.entity_world.insert(component);
-        // SAFETY: We just added this component.
-        unsafe { self.entity_world.get_mut::<T>().unwrap_unchecked() }
+        // This shouldn't panic because we just added this component
+        self.entity_world.get_mut::<T>().unwrap()
     }
 
     /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
