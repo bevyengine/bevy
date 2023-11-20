@@ -2,12 +2,14 @@
 
 ## Table of Contents
 
-- [Runtime](#runtime)
-  - [Chrome tracing format](#chrome-tracing-format)
-  - [Tracy profiler](#tracy-profiler)
-  - [Adding your own spans](#adding-your-own-spans)
-  - [Perf flame graph](#perf-flame-graph)
-- [Compile time](#compile-time)
+- [Profiling](#profiling)
+  - [Table of Contents](#table-of-contents)
+  - [Runtime](#runtime)
+    - [Chrome tracing format](#chrome-tracing-format)
+    - [Tracy profiler](#tracy-profiler)
+    - [Adding your own spans](#adding-your-own-spans)
+    - [`perf` Flame Graph](#perf-flame-graph)
+  - [Compile time](#compile-time)
 
 ## Runtime
 
@@ -40,7 +42,7 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 
 There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
 
-It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml#L22).
+It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml#L25).
 
 In one terminal, run:
 `./capture-release -o my_capture.tracy`
