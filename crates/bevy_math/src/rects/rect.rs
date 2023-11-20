@@ -277,6 +277,27 @@ impl Rect {
         r
     }
 
+    /// Check if this rectangle overlaps another rectangle. 
+    /// Touching edges count as overlapping.
+    ///  
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_math::Rect;
+    /// let r1 = Rect::new(0., 0., 5., 1.); // w=5 h=1
+    /// let r2 = Rect::new(1., -1., 3., 3.); // w=2 h=4
+    /// let r3 = Rect::new(6., 0., 1., 1.); // w=1 h=1
+    /// assert!(r1.overlaps(r2));
+    /// assert!(r1.overlaps(r3));
+    /// ```
+    #[inline]
+    pub fn overlaps(&self, other: Self) -> bool {
+        (self.min[0] <= other.max[0])
+        && (self.max[0] >= other.min[0])
+        && (self.min[1] <= other.max[1])
+        && (self.max[1] >= other.min[1])
+    }
+
     /// Create a new rectangle with a constant inset.
     ///
     /// The inset is the extra border on all sides. A positive inset produces a larger rectangle,
