@@ -33,6 +33,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
+once_cell = "1"
 radsort = "0.1"
 
 [lints]

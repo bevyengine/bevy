@@ -1,6 +1,6 @@
 use super::{
-    downsampling_pipeline::BloomUniforms, BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE,
-    BLOOM_TEXTURE_FORMAT,
+    downsampling_pipeline::{BloomBindings, BloomUniforms},
+    BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT,
 };
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
@@ -18,7 +18,8 @@ pub struct UpsamplingPipelineIds {
 
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
-    pub bind_group_layout: BindGroupLayout,
+    pub image_bind_group_layout: BindGroupLayout,
+    pub custom_bind_group_layout: BindGroupLayout,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -31,7 +32,7 @@ impl FromWorld for BloomUpsamplingPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let bind_group_layout =
+        let image_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("bloom_upsampling_bind_group_layout"),
                 entries: &[
@@ -53,21 +54,15 @@ impl FromWorld for BloomUpsamplingPipeline {
                         visibility: ShaderStages::FRAGMENT,
                         count: None,
                     },
-                    // BloomUniforms
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(BloomUniforms::min_size()),
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
                 ],
             });
 
-        BloomUpsamplingPipeline { bind_group_layout }
+        let custom_bind_group_layout = BloomBindings::bind_group_layout(render_device);
+
+        BloomUpsamplingPipeline {
+            image_bind_group_layout,
+            custom_bind_group_layout,
+        }
     }
 }
 
@@ -115,7 +110,10 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
 
         RenderPipelineDescriptor {
             label: Some("bloom_upsampling_pipeline".into()),
-            layout: vec![self.bind_group_layout.clone()],
+            layout: vec![
+                self.image_bind_group_layout.clone(),
+                self.custom_bind_group_layout.clone(),
+            ],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: BLOOM_SHADER_HANDLE,

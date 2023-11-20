@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 use super::{BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
 use crate::mipmap_generator::{Mipmap, MipmapDebugNames, MipmapPipeline, MipmapPipelineIds};
@@ -9,15 +9,22 @@ use bevy_ecs::{
 };
 use bevy_math::Vec4;
 use bevy_render::render_resource::*;
+use once_cell::sync::Lazy;
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(AsBindGroup, PartialEq, Eq, Hash, Clone)]
 pub struct BloomDownsamplingMipmapper {
     prefilter: bool,
 }
 
+#[derive(Component, AsBindGroup)]
+pub struct BloomBindings {
+    #[uniform(0)]
+    pub uniforms: BloomUniforms,
+}
+
 /// The uniform struct extracted from [`BloomSettings`] attached to a Camera.
 /// Will be available for use in the Bloom shader.
-#[derive(Component, ShaderType, Clone)]
+#[derive(ShaderType, Clone)]
 pub struct BloomUniforms {
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
@@ -26,19 +33,13 @@ pub struct BloomUniforms {
 }
 
 impl Mipmap for BloomDownsamplingMipmapper {
-    fn debug_names() -> &'static MipmapDebugNames {
-        static DEBUG_NAMES: MipmapDebugNames = MipmapDebugNames {
-            bind_group_layout: "bloom_downsampling_bind_group_layout",
-            first_bind_group: "bloom_downsampling_first_bind_group",
-            first_pass: "bloom_downsampling_first_pass",
-            first_pipeline: "bloom_downsampling_first_pipeline",
-            rest_bind_group: "bloom_downsampling_rest_bind_group",
-            rest_pass: "bloom_downsampling_rest_pass",
-            rest_pipeline: "bloom_downsampling_rest_pipeline",
-            texture: "bloom_texture",
-        };
+    type BindGroup = BloomBindings;
 
-        &DEBUG_NAMES
+    fn debug_names() -> Arc<MipmapDebugNames> {
+        static DEBUG_NAMES: Lazy<Arc<MipmapDebugNames>> =
+            Lazy::new(|| Arc::new(MipmapDebugNames::from_prefix("bloom_downsampling")));
+
+        (*DEBUG_NAMES).clone()
     }
 
     fn shader_entry_point(first: bool) -> Cow<'static, str> {
@@ -55,20 +56,6 @@ impl Mipmap for BloomDownsamplingMipmapper {
 
     fn texture_format() -> TextureFormat {
         BLOOM_TEXTURE_FORMAT
-    }
-
-    fn add_custom_bind_group_layout_entries(entries: &mut Vec<BindGroupLayoutEntry>) {
-        // Downsampling settings binding
-        entries.push(BindGroupLayoutEntry {
-            binding: 2,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: Some(BloomUniforms::min_size()),
-            },
-            visibility: ShaderStages::FRAGMENT,
-            count: None,
-        });
     }
 
     fn add_custom_shader_defs(&self, shader_defs: &mut Vec<ShaderDefVal>) {

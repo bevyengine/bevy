@@ -3,7 +3,7 @@
 //! A variety of passes need to or will need to do this, and using this module
 //! helps to reduce boilerplate and code duplication.
 
-use std::{borrow::Cow, hash::Hash, marker::PhantomData};
+use std::{borrow::Cow, hash::Hash, marker::PhantomData, sync::Arc};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -15,14 +15,15 @@ use bevy_ecs::{
 use bevy_math::UVec2;
 use bevy_render::{
     render_resource::{
-        AddressMode, BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, LoadOp,
-        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
-        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-        SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+        AddressMode, AsBindGroup, BindGroup, BindGroupEntry, BindGroupLayout,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState,
+        LoadOp, MultisampleState, Operations, PipelineCache, PreparedBindGroup, PrimitiveState,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+        TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -35,6 +36,8 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 ///
 /// The type that implements this trait is used as the pipeline key for the mipmapping shader.
 pub trait Mipmap: Clone + PartialEq + Eq + Hash + Send + Sync + 'static {
+    type BindGroup: AsBindGroup;
+
     /// Returns a handle to the mipmapping shader.
     ///
     /// This shader is expected to have a 2D input texture at group 0, binding 0
@@ -50,10 +53,7 @@ pub trait Mipmap: Clone + PartialEq + Eq + Hash + Send + Sync + 'static {
     fn shader_entry_point(first: bool) -> Cow<'static, str>;
 
     /// Returns a structure with various labels for `wgpu` objects.
-    fn debug_names() -> &'static MipmapDebugNames;
-
-    /// Adds bind group layout entries for any custom inputs to the shader.
-    fn add_custom_bind_group_layout_entries(_entries: &mut Vec<BindGroupLayoutEntry>) {}
+    fn debug_names() -> Arc<MipmapDebugNames>;
 
     /// Given the pipeline key, adds any needed custom shader definitions to the shader.
     fn add_custom_shader_defs(&self, _shader_defs: &mut Vec<ShaderDefVal>) {}
@@ -79,27 +79,25 @@ where
 /// These show up in debugging tools like `RenderDoc`.
 pub struct MipmapDebugNames {
     /// The label for the mipmapper's bind group layout.
-    pub bind_group_layout: &'static str,
-    /// The label for the mipmap texture.
-    pub texture: &'static str,
+    pub bind_group_layout: String,
     /// The label for the pipeline associated with the shader invocation that
     /// renders to mip level 0.
-    pub first_pipeline: &'static str,
+    pub first_pipeline: String,
     /// The label for the pipeline associated with the shader invocation that
     /// renders to mip levels greater than 0.
-    pub rest_pipeline: &'static str,
+    pub rest_pipeline: String,
     /// The label for the bind group associated with the shader invocation that
     /// renders to mip level 0.
-    pub first_bind_group: &'static str,
+    pub first_bind_group: String,
     /// The label for the bind group associated with the shader invocation that
     /// renders to mip levels greater than 0.
-    pub rest_bind_group: &'static str,
+    pub rest_bind_group: String,
     /// The label for the render pass associated with the shader invocation that
     /// renders to mip level 0.
-    pub first_pass: &'static str,
+    pub first_pass: String,
     /// The label for the render pass associated with the shader invocation that
     /// renders to mip levels greater than 0.
-    pub rest_pass: &'static str,
+    pub rest_pass: String,
 }
 
 /// IDs for the render pipelines associated with the mipmapper.
@@ -129,11 +127,14 @@ pub struct MipmapPipeline<T>
 where
     T: Mipmap,
 {
-    /// The bind group associated with the shader.
+    /// The bind group that contains the image to be sampled from.
     ///
     /// Group 0, binding 0 is the source image. Group 0, binding 1 is the
     /// sampler.
-    pub bind_group_layout: BindGroupLayout,
+    pub image_bind_group_layout: BindGroupLayout,
+
+    /// The custom bind group layout that the mipmapper specifies.
+    pub custom_bind_group_layout: BindGroupLayout,
 
     /// The sampler that's used to sample from binding 0.
     ///
@@ -197,7 +198,8 @@ pub struct MipmapBindGroups<M>
 where
     M: Mipmap,
 {
-    bind_groups: Box<[BindGroup]>,
+    image_bind_groups: Box<[BindGroup]>,
+    pub(crate) custom_bind_group: BindGroup,
     sampler: Sampler,
     phantom: PhantomData<M>,
 }
@@ -231,7 +233,7 @@ where
         let render_device = world.resource::<RenderDevice>();
 
         // Create the common bind group layout entries.
-        let mut bind_group_layout_entries = vec![
+        let bind_group_layout_entries = [
             BindGroupLayoutEntry {
                 binding: 0,
                 ty: BindingType::Texture {
@@ -250,17 +252,18 @@ where
             },
         ];
 
-        // Ask the mipmapper to add any custom entries.
-        M::add_custom_bind_group_layout_entries(&mut bind_group_layout_entries);
-
-        let bind_group_layout =
+        let image_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some(M::debug_names().bind_group_layout),
+                label: Some(&M::debug_names().bind_group_layout),
                 entries: &bind_group_layout_entries,
             });
 
+        let custom_bind_group_layout =
+            <M::BindGroup as AsBindGroup>::bind_group_layout(render_device);
+
         Self {
-            bind_group_layout,
+            image_bind_group_layout,
+            custom_bind_group_layout,
             sampler: render_device.create_sampler(&SamplerDescriptor {
                 min_filter: FilterMode::Linear,
                 mag_filter: FilterMode::Linear,
@@ -294,11 +297,14 @@ where
         // Build the descriptor.
         RenderPipelineDescriptor {
             label: Some(if key.first {
-                M::debug_names().first_pipeline.into()
+                Cow::Owned(M::debug_names().first_pipeline.clone().into())
             } else {
-                M::debug_names().rest_pipeline.into()
+                Cow::Owned(M::debug_names().rest_pipeline.clone().into())
             }),
-            layout: vec![self.bind_group_layout.clone()],
+            layout: vec![
+                self.image_bind_group_layout.clone(),
+                self.custom_bind_group_layout.clone(),
+            ],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: M::shader(),
@@ -373,7 +379,7 @@ where
         let aspect_ratio = size.x as f32 / size.y as f32;
 
         let texture_descriptor = TextureDescriptor {
-            label: Some(M::debug_names().texture),
+            label: None,
             size: if aspect_ratio >= 1.0 {
                 Extent3d {
                     width: ((size.x as f32).round() as u32).max(1),
@@ -458,12 +464,12 @@ where
         render_device: &RenderDevice,
         pipeline: &MipmapPipeline<M>,
         texture: &MipmappedTexture<M>,
-        custom_bind_group_entries: &[BindGroupEntry],
+        custom_bind_group: &PreparedBindGroup<()>,
     ) -> Self {
         let mut bind_groups = Vec::with_capacity(texture.mip_count as usize - 1);
         for src_mip_level in 0..(texture.mip_count - 1) {
             let texture_view = texture.view(src_mip_level);
-            let mut bind_group_entries = vec![
+            let bind_group_entries = vec![
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(&texture_view),
@@ -474,17 +480,16 @@ where
                 },
             ];
 
-            bind_group_entries.extend(custom_bind_group_entries.iter().cloned());
-
             bind_groups.push(render_device.create_bind_group(
-                Some(M::debug_names().rest_bind_group),
-                &pipeline.bind_group_layout,
+                Some(&*M::debug_names().rest_bind_group),
+                &pipeline.image_bind_group_layout,
                 &bind_group_entries,
             ));
         }
 
         Self {
-            bind_groups: bind_groups.into_boxed_slice(),
+            image_bind_groups: bind_groups.into_boxed_slice(),
+            custom_bind_group: custom_bind_group.bind_group.clone(),
             sampler: pipeline.sampler.clone(),
             phantom: PhantomData,
         }
@@ -509,7 +514,6 @@ pub fn generate_mipmaps<M>(
     bind_groups: &MipmapBindGroups<M>,
     texture: &MipmappedTexture<M>,
     source: &TextureView,
-    custom_bind_group_entries: &[BindGroupEntry],
     dynamic_uniform_indices: &[u32],
 ) -> bool
 where
@@ -525,7 +529,7 @@ where
     // Run the first pass.
 
     {
-        let mut bind_group_entries = vec![
+        let image_bind_group_entries = vec![
             BindGroupEntry {
                 binding: 0,
                 resource: BindingResource::TextureView(source),
@@ -536,18 +540,16 @@ where
             },
         ];
 
-        bind_group_entries.extend(custom_bind_group_entries.iter().cloned());
-
-        let first_bind_group = render_context.render_device().create_bind_group(
-            Some(M::debug_names().first_bind_group),
-            &pipeline.bind_group_layout,
-            &bind_group_entries,
+        let first_image_bind_group = render_context.render_device().create_bind_group(
+            Some(&*M::debug_names().first_bind_group),
+            &pipeline.image_bind_group_layout,
+            &image_bind_group_entries,
         );
 
         let view = &texture.view(0);
 
         let mut first_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some(M::debug_names().first_pass),
+            label: Some(&M::debug_names().first_pass),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view,
                 resolve_target: None,
@@ -557,7 +559,8 @@ where
         });
 
         first_pass.set_render_pipeline(first_pipeline);
-        first_pass.set_bind_group(0, &first_bind_group, dynamic_uniform_indices);
+        first_pass.set_bind_group(0, &first_image_bind_group, dynamic_uniform_indices);
+        first_pass.set_bind_group(1, &bind_groups.custom_bind_group, &[]);
         first_pass.draw(0..3, 0..1);
     }
 
@@ -566,7 +569,7 @@ where
     for dest_mip_level in 1..(texture.mip_count - 1) {
         let view = &texture.view(dest_mip_level);
         let mut rest_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some(M::debug_names().rest_pass),
+            label: Some(&M::debug_names().rest_pass),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view,
                 resolve_target: None,
@@ -581,9 +584,10 @@ where
         rest_pass.set_render_pipeline(rest_pipeline);
         rest_pass.set_bind_group(
             0,
-            &bind_groups.bind_groups[dest_mip_level as usize - 1],
+            &bind_groups.image_bind_groups[dest_mip_level as usize - 1],
             dynamic_uniform_indices,
         );
+        rest_pass.set_bind_group(1, &bind_groups.custom_bind_group, &[]);
         rest_pass.draw(0..3, 0..1);
     }
 
@@ -597,6 +601,20 @@ where
     fn default() -> Self {
         Self {
             phantom: Default::default(),
+        }
+    }
+}
+
+impl MipmapDebugNames {
+    pub fn from_prefix(prefix: &str) -> MipmapDebugNames {
+        MipmapDebugNames {
+            bind_group_layout: format!("{}_bind_group_layout", prefix),
+            first_pipeline: format!("{}_first_pipeline", prefix),
+            rest_pipeline: format!("{}_rest_pipeline", prefix),
+            first_bind_group: format!("{}_first_bind_group", prefix),
+            rest_bind_group: format!("{}_rest_bind_group", prefix),
+            first_pass: format!("{}_first_pass", prefix),
+            rest_pass: format!("{}_rest_pass", prefix),
         }
     }
 }
