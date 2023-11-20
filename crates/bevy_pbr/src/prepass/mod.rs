@@ -702,8 +702,8 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
                 &prepass_pipeline.view_layout_motion_vectors,
                 &BindGroupEntries::with_indices((
                     (0, view_binding),
-                    (9, globals_binding),
                     (2, previous_view_proj_binding),
+                    (9, globals_binding),
                 )),
             ));
         }
