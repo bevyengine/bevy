@@ -287,8 +287,10 @@ impl Rect {
     /// let r1 = Rect::new(0., 0., 5., 1.);
     /// let r2 = Rect::new(1., -1., 3., 3.);
     /// let r3 = Rect::new(6., 0., 1., 1.);
+    /// let r4 = Rect::new(0., 0., 0., 0.);
     /// assert!(r1.contains_rect(r2));
     /// assert!(r1.contains_rect(r3));
+    /// assert!(r4.is_empty() && r4.contains_rect(r4));
     /// ```
     #[inline]
     pub fn contains_rect(&self, other: Self) -> bool {
