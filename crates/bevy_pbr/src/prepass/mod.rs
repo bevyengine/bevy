@@ -245,7 +245,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                     },
                     // Globals
                     BindGroupLayoutEntry {
-                        binding: 1,
+                        binding: 9,
                         visibility: ShaderStages::VERTEX_FRAGMENT,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
@@ -285,7 +285,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                     },
                     // Globals
                     BindGroupLayoutEntry {
-                        binding: 1,
+                        binding: 9,
                         visibility: ShaderStages::VERTEX_FRAGMENT,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
