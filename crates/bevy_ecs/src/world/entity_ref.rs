@@ -1044,15 +1044,16 @@ impl<'w> EntityWorldMut<'w> {
     /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
     /// struct Comp(u32);
     ///
-    /// let mut world = World::new();
-    ///
-    /// let mut entity = world.spawn(Comp(0));
-    /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
-    /// # assert_eq!(world.query::<&Comp>().single(&world).0, 1);
-    ///
-    /// let mut new_entity = world.spawn_empty();
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
     /// entity.entry().or_insert_with(|| Comp(4));
-    /// # assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// # let entity_id = entity.id();
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    ///
+    /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
+    /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 5);
+    ///
     /// ```
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
         if self.contains::<T>() {
