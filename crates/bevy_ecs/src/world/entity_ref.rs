@@ -1036,13 +1036,13 @@ impl<'w> EntityWorldMut<'w> {
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
         if let Some(_) = self.get::<T>() {
             Entry::Occupied(OccupiedEntry {
-                _marker: PhantomData::default(),
                 entity_world: self,
+                _marker: PhantomData::default(),
             })
         } else {
             Entry::Vacant(VacantEntry {
-                _marker: PhantomData::default(),
                 entity_world: self,
+                _marker: PhantomData::default(),
             })
         }
     }
@@ -1104,8 +1104,8 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
 }
 
 pub struct OccupiedEntry<'w, 'a, T: Component> {
-    _marker: PhantomData<T>,
     entity_world: &'a mut EntityWorldMut<'w>,
+    _marker: PhantomData<T>,
 }
 
 impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
@@ -1140,8 +1140,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
 }
 
 pub struct VacantEntry<'w, 'a, T: Component> {
-    _marker: PhantomData<T>,
     entity_world: &'a mut EntityWorldMut<'w>,
+    _marker: PhantomData<T>,
 }
 
 impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
@@ -1156,8 +1156,8 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
         self.entity_world.insert(component);
         OccupiedEntry {
-            _marker: PhantomData::default(),
             entity_world: self.entity_world,
+            _marker: PhantomData::default(),
         }
     }
 }
