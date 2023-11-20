@@ -82,6 +82,7 @@ fn main() {
                         Some(Ok(size)) => size,
                         _ => 0,
                     };
+                    // SAFETY: [u64] is Send + Sync
                     let id = world.init_component_with_descriptor(unsafe {
                         ComponentDescriptor::new_with_layout(
                             name.to_string(),
@@ -113,18 +114,24 @@ fn main() {
                         .filter_map(|value| value.parse::<u64>().ok())
                         .collect();
 
-                    unsafe {
+                    // SAFETY:
+                    // - All components will be interpreted as [u64]
+                    // - len and layout are taken directly from the component descriptor
+                    let ptr = unsafe {
                         let data = std::alloc::alloc_zeroed(info.layout()).cast::<u64>();
                         data.copy_from(values.as_mut_ptr(), values.len());
                         let non_null = NonNull::new_unchecked(data.cast());
-                        let ptr = OwningPtr::new(non_null);
+                        OwningPtr::new(non_null)
+                    };
 
-                        to_insert_ids.push(id);
-                        to_insert_ptr.push(ptr);
-                    }
+                    to_insert_ids.push(id);
+                    to_insert_ptr.push(ptr);
                 });
 
                 let mut entity = world.spawn_empty();
+                // SAFETY:
+                // - Component ids have been taken from the same world
+                // - The pointer with the correct layout
                 unsafe {
                     entity.insert_by_ids(&to_insert_ids, to_insert_ptr.into_iter());
                 }
@@ -135,6 +142,7 @@ fn main() {
                 parse_query(rest, &mut builder, &components);
                 let query = builder.build();
 
+                // SAFETY: Our query state is valid as we just built it
                 unsafe { system.state_mut().0 = query };
                 system.run((), &mut world);
             }
@@ -213,6 +221,9 @@ fn query_system(mut query: Query<FilteredEntityMut>, world: &World) {
                 let info = world.components().get_info(id).unwrap();
                 let len = info.layout().size() / std::mem::size_of::<u64>();
 
+                // SAFETY:
+                // - All components are created with layout [u64]
+                // - len is calculated from the component descriptor
                 let data = unsafe {
                     std::slice::from_raw_parts_mut(ptr.assert_unique().as_ptr().cast::<u64>(), len)
                 };

@@ -1429,7 +1429,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Panics if `NewQ` requires accesses that this query does not have.
     ///
     /// If including a filter type see [`Self::subquery_filtered`]
-    pub fn subquery<NewQ: WorldQuery>(&mut self) -> SubQuery<'w, NewQ> {
+    pub fn subquery<NewQ: WorldQuery>(&mut self) -> SubQuery<'_, NewQ> {
         self.subquery_filtered::<NewQ, ()>()
     }
 
@@ -1443,7 +1443,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Panics if `NewQ` requires accesses that this query does not have.
     pub fn subquery_filtered<NewQ: WorldQuery, NewF: ReadOnlyWorldQuery>(
         &mut self,
-    ) -> SubQuery<'w, NewQ, NewF> {
+    ) -> SubQuery<'_, NewQ, NewF> {
         // SAFETY: There are no other active borrows of data from world
         let world = unsafe { self.world.world() };
         let state = self.state.transmute_filtered::<NewQ, NewF>(world);
@@ -1589,10 +1589,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> From<&'s mut SubQuery<'w, Q, 
     }
 }
 
-impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> From<&mut Query<'w, '_, Q, F>>
-    for SubQuery<'w, Q, F>
+impl<'w, 'q, Q: WorldQuery, F: ReadOnlyWorldQuery> From<&'q mut Query<'w, '_, Q, F>>
+    for SubQuery<'q, Q, F>
 {
-    fn from(value: &mut Query<'w, '_, Q, F>) -> SubQuery<'w, Q, F> {
+    fn from(value: &'q mut Query<'w, '_, Q, F>) -> SubQuery<'q, Q, F> {
         value.subquery_filtered()
     }
 }
