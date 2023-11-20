@@ -18,8 +18,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
 
 tracing-subscriber = { version = "0.3.1", features = [
-    "registry",
-    "env-filter",
+  "registry",
+  "env-filter",
 ] }
 tracing-chrome = { version = "0.7.0", optional = true }
 tracing-tracy = { version = "0.10.0", optional = true }

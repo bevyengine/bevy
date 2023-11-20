@@ -175,13 +175,12 @@ jobs:
           | install -m 755 /dev/stdin /usr/local/bin/taplo
       - name: Run Taplo
         id: taplo
-        run: taplo fmt --check --diff --option indent_string="    "
+        run: taplo fmt --check --diff
       - name: Taplo info
         if: failure()
         run: |
-          echo 'To fix toml fmt, please run `taplo fmt --option indent_string="    "`.'
-          echo 'note: indent_string is with 4 spaces.'
-          echo 'Or if you use VSCode, use the Even Better Toml extension and indent using 4 spaces.'
+          echo 'To fix toml fmt, please run `taplo fmt`'
+          echo 'Or if you use VSCode, use the Even Better Toml extension'
 
 
   run-examples-on-windows-dx12:

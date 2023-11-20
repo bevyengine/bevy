@@ -15,7 +15,7 @@ bevy_asset = { path = "../bevy_asset", version = "0.12.0" }
 bevy_core = { path = "../bevy_core", version = "0.12.0" }
 bevy_math = { path = "../bevy_math", version = "0.12.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
-    "bevy",
+  "bevy",
 ] }
 bevy_render = { path = "../bevy_render", version = "0.12.0" }
 bevy_time = { path = "../bevy_time", version = "0.12.0" }
