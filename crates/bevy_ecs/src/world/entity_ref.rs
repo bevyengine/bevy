@@ -1205,6 +1205,21 @@ pub struct OccupiedEntry<'w, 'a, T: Component> {
 
 impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// Gets a reference to the component in the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    ///     assert_eq!(o.get().0, 5);
+    /// }
+    /// ```
     #[inline]
     pub fn get(&self) -> &T {
         // SAFETY: If we have an OccupiedEntry the component must exist.
@@ -1217,6 +1232,27 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// the `Entry` value, see [`into_mut`].
     ///
     /// [`into_mut`]: Self::into_mut
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(mut o) = entity.entry::<Comp>() {
+    ///     o.get_mut().0 += 10;
+    ///     assert_eq!(o.get().0, 15);
+    ///
+    ///     // We can use the same Entry multiple times.
+    ///     o.get_mut().0 += 2
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 17);
+    /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
@@ -1229,6 +1265,23 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// If you need multiple references to the `OccupiedEntry`, see [`get_mut`].
     ///
     /// [`get_mut`]: Self::get_mut
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    ///     o.into_mut().0 += 10;
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 15);
+    /// ```
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
@@ -1236,12 +1289,46 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     }
 
     /// Replaces the component of the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(mut o) = entity.entry::<Comp>() {
+    ///     o.insert(Comp(10));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// ```
     #[inline]
     pub fn insert(&mut self, component: T) {
         self.entity_world.insert(component);
     }
 
-    /// Removes the component from the entry and returns its value.
+    /// Removes the component from the entry and returns it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    ///     assert_eq!(o.take(), Comp(5));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().iter(&world).len(), 0);
+    /// ```
     #[inline]
     pub fn take(self) -> T {
         // SAFETY: If we have an OccupiedEntry the component must exist.
@@ -1257,6 +1344,23 @@ pub struct VacantEntry<'w, 'a, T: Component> {
 
 impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     /// Inserts the component into the `VacantEntry` and returns a mutable reference to it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// if let Entry::Vacant(v) = entity.entry::<Comp>() {
+    ///     v.insert(Comp(10));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// ```
     #[inline]
     pub fn insert(self, component: T) -> Mut<'a, T> {
         self.entity_world.insert(component);
@@ -1265,6 +1369,23 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     }
 
     /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// if let Entry::Vacant(v) = entity.entry::<Comp>() {
+    ///     v.insert_entry(Comp(10));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// ```
     #[inline]
     pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
         self.entity_world.insert(component);
