@@ -1117,8 +1117,8 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
         }
     }
 
-    /// Ensures the entry has this component by inserting the default if empty, and returns a
-    /// mutable reference to this component in the entry.
+    /// Ensures the entry has this component by inserting the given default if empty, and
+    /// returns a mutable reference to this component in the entry.
     ///
     /// # Examples
     ///
