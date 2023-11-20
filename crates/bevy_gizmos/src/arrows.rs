@@ -17,6 +17,24 @@ pub struct ArrowBuilder<'a, 's> {
     double_ended: bool,
 }
 
+/// Represents how the end of an arrow should be drawn.
+/// See also [`Gizmos::arrow`] and [`Gizmos::arrow_2d`].
+#[derive(Default, Debug)]
+pub enum ArrowHead {
+    /// No head. Putting this on both ends causes the arrow to just be a line.
+    None,
+    /// General-purpose arrow head with four tips for viewing from any angle. Default
+    #[default]
+    Normal,
+    /// Two-tip arrow head, facing as close to `towards` as possible while still being inline with the arrow body
+    Billboarded(
+        /// Arrow will attempt to be most visible from this direction.
+        /// - in 3d applications, this would typically be the camera position.
+        /// - in 2d applications, this would typically be [`Vec3::Y`] or [`Vec3::Z`]
+        Vec3,
+    ),
+}
+
 impl ArrowBuilder<'_, '_> {
     /// Change the length of the tips to be `length`.
     /// The default tip length is [length of the arrow]/10.
@@ -37,7 +55,7 @@ impl ArrowBuilder<'_, '_> {
         self.tip_length = length;
     }
 
-    /// Make the arrow double-ended
+    /// Make the arrow double-ended.
     ///
     /// # Example
     /// ```
@@ -46,12 +64,31 @@ impl ArrowBuilder<'_, '_> {
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, Color::GREEN)
-    ///         .with_double_ended(true);
+    ///         .with_double_ended();
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn with_double_ended(&mut self, state: bool) {
-        self.double_ended = state;
+    pub fn with_double_ended(&mut self) -> &mut Self {
+        self.double_ended = true;
+        return self;
+    }
+
+    /// Make the arrow single-ended (the default).
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, Color::GREEN)
+    ///         .with_double_ended();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn with_single_ended(&mut self) -> &mut Self {
+        self.double_ended = false;
+        return self;
     }
 }
 
