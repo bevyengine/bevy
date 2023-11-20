@@ -1051,9 +1051,13 @@ impl<'w> EntityWorldMut<'w> {
 
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
 ///
-/// This `enum` is constructed from the [`entry`] method on [`WorldEntityMut`].
+/// This `enum` is constructed from the [`entry`] method on [`EntityWorldMut`].
+///
+/// [`entry`]: EntityWorldMut::entry
 pub enum Entry<'w, 'a, T: Component> {
+    /// An occupied entry.
     Occupied(OccupiedEntry<'w, 'a, T>),
+    /// A vacant entry.
     Vacant(VacantEntry<'w, 'a, T>),
 }
 
@@ -1115,7 +1119,7 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
     }
 }
 
-/// A view into an occupied entry in a [`WorldEntityMut`]. It is part of the [`Entry`] enum.
+/// A view into an occupied entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
 pub struct OccupiedEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
     _marker: PhantomData<T>,
@@ -1133,6 +1137,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     ///
     /// If you need a reference to the `OccupiedEntry` which may outlive the destruction of
     /// the `Entry` value, see [`into_mut`].
+    ///
+    /// [`into_mut`]: Self::into_mut
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
@@ -1143,6 +1149,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// a lifetime bound to the `EntityWorldMut`.
     ///
     /// If you need multiple references to the `OccupiedEntry`, see [`get_mut`].
+    ///
+    /// [`get_mut`]: Self::get_mut
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
@@ -1163,7 +1171,7 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     }
 }
 
-/// A view into a vacant entry in a [`WorldEntityMut`]. It is part of the [`Entry`] enum.
+/// A view into a vacant entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
 pub struct VacantEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
     _marker: PhantomData<T>,
