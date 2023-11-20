@@ -1072,7 +1072,7 @@ impl<'w> EntityWorldMut<'w> {
 
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
 ///
-/// This `enum` is constructed from the [`entry`] method on [`EntityWorldMut`].
+/// This `enum` can only be constructed from the [`entry`] method on [`EntityWorldMut`].
 ///
 /// [`entry`]: EntityWorldMut::entry
 pub enum Entry<'w, 'a, T: Component> {
@@ -1219,6 +1219,8 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
 }
 
 /// A view into an occupied entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
+///
+/// The contained entity must have the component type parameter if we have this struct.
 pub struct OccupiedEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
     _marker: PhantomData<T>,
