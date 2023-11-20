@@ -1108,7 +1108,13 @@ pub struct OccupiedEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
 }
 
-impl<'a, T: Component> OccupiedEntry<'_, 'a, T> {
+impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
+    #[inline]
+    pub fn get(&self) -> &T {
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.get::<T>().unwrap_unchecked() }
+    }
+
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
@@ -1124,6 +1130,12 @@ impl<'a, T: Component> OccupiedEntry<'_, 'a, T> {
     #[inline]
     pub fn insert(&mut self, component: T) {
         self.entity_world.insert(component);
+    }
+
+    #[inline]
+    pub fn take(self) -> T {
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.take().unwrap_unchecked() }
     }
 }
 
