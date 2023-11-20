@@ -47,3 +47,6 @@ bincode = "1.3"
 name = "reflect_docs"
 path = "examples/reflect_docs.rs"
 required-features = ["documentation"]
+
+[lints]
+workspace = true

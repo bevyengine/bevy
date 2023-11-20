@@ -28,7 +28,6 @@ oboe = { version = "0.5", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 rodio = { version = "0.17", default-features = false, features = ["wasm-bindgen"] }
 
-
 [features]
 mp3 = ["rodio/mp3"]
 flac = ["rodio/flac"]
@@ -43,3 +42,6 @@ symphonia-vorbis = ["rodio/symphonia-vorbis"]
 symphonia-wav = ["rodio/symphonia-wav"]
 # Enable using a shared stdlib for cxx on Android.
 android_shared_stdcxx = ["oboe/shared-stdcxx"]
+
+[lints]
+workspace = true
