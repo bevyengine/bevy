@@ -284,9 +284,9 @@ impl Rect {
     ///
     /// ```rust
     /// # use bevy_math::Rect;
-    /// let r1 = Rect::new(0., 0., 5., 1.); // w=5 h=1
-    /// let r2 = Rect::new(1., -1., 3., 3.); // w=2 h=4
-    /// let r3 = Rect::new(6., 0., 1., 1.); // w=1 h=1
+    /// let r1 = Rect::new(0., 0., 5., 1.);
+    /// let r2 = Rect::new(1., -1., 3., 3.);
+    /// let r3 = Rect::new(6., 0., 1., 1.);
     /// assert!(r1.overlaps(r2));
     /// assert!(r1.overlaps(r3));
     /// ```
