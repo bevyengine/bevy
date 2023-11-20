@@ -1033,6 +1033,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location = self.world.entities().get(self.entity).unwrap();
     }
 
+    /// Gets an Entry into the world for this entity and component for in-place manipulation.
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
         if let Some(_) = self.get::<T>() {
             Entry::Occupied(OccupiedEntry {
@@ -1048,12 +1049,16 @@ impl<'w> EntityWorldMut<'w> {
     }
 }
 
+/// A view into a single entity and component in a world, which may either be vacant or occupied.
+///
+/// This `enum` is constructed from the [`entry`] method on [`WorldEntityMut`].
 pub enum Entry<'w, 'a, T: Component> {
     Occupied(OccupiedEntry<'w, 'a, T>),
     Vacant(VacantEntry<'w, 'a, T>),
 }
 
 impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
+    /// Provides in-place mutable access to an occupied entry.
     #[inline]
     pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
         match self {
@@ -1065,6 +1070,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
         }
     }
 
+    /// Sets the value of the entry, and returns an [`OccupiedEntry`].
     #[inline]
     pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
         match self {
@@ -1076,6 +1082,8 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
         }
     }
 
+    /// Ensures the entry has this component by inserting the default if empty, and returns a
+    /// mutable reference to this component in the entry.
     #[inline]
     pub fn or_insert(self, default: T) -> Mut<'a, T> {
         match self {
@@ -1084,6 +1092,8 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
         }
     }
 
+    /// Ensures the entry has this component by inserting the result of the default function if
+    /// empty, and returns a mutable reference to this component in the entry.
     #[inline]
     pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> Mut<'a, T> {
         match self {
@@ -1094,6 +1104,8 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
 }
 
 impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
+    /// Ensures the entry has this component by inserting the default value if empty, and
+    /// returns a mutable reference to this component in the entry.
     #[inline]
     pub fn or_default(self) -> Mut<'a, T> {
         match self {
@@ -1103,35 +1115,47 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
     }
 }
 
+/// A view into an occupied entry in a [`WorldEntityMut`]. It is part of the [`Entry`] enum.
 pub struct OccupiedEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
     _marker: PhantomData<T>,
 }
 
 impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
+    /// Gets a reference to the component in the entry.
     #[inline]
     pub fn get(&self) -> &T {
         // SAFETY: If we have an OccupiedEntry the component must exist.
         unsafe { self.entity_world.get::<T>().unwrap_unchecked() }
     }
 
+    /// Gets a mutable reference to the component in the entry.
+    ///
+    /// If you need a reference to the `OccupiedEntry` which may outlive the destruction of
+    /// the `Entry` value, see [`into_mut`].
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
         unsafe { self.entity_world.get_mut::<T>().unwrap_unchecked() }
     }
 
+    /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry with
+    /// a lifetime bound to the `EntityWorldMut`.
+    ///
+    /// If you need multiple references to the `OccupiedEntry`, see [`get_mut`].
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
         // SAFETY: If we have an OccupiedEntry the component must exist.
         unsafe { self.entity_world.get_mut().unwrap_unchecked() }
     }
 
+    /// Replaces the component of the entry.
     #[inline]
     pub fn insert(&mut self, component: T) {
         self.entity_world.insert(component);
     }
 
+    /// Removes the component from the entry and returns its value.
     #[inline]
     pub fn take(self) -> T {
         // SAFETY: If we have an OccupiedEntry the component must exist.
@@ -1139,12 +1163,14 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     }
 }
 
+/// A view into a vacant entry in a [`WorldEntityMut`]. It is part of the [`Entry`] enum.
 pub struct VacantEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
     _marker: PhantomData<T>,
 }
 
 impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
+    /// Inserts the component into the `VacantEntry` and returns a mutable reference to it.
     #[inline]
     pub fn insert(self, component: T) -> Mut<'a, T> {
         self.entity_world.insert(component);
@@ -1152,6 +1178,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
         unsafe { self.entity_world.get_mut::<T>().unwrap_unchecked() }
     }
 
+    /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
     #[inline]
     pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
         self.entity_world.insert(component);
