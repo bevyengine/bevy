@@ -14,6 +14,7 @@ pub struct ArrowBuilder<'a, 's> {
     end: Vec3,
     color: Color,
     tip_length: f32,
+    double_ended: bool,
 }
 
 impl ArrowBuilder<'_, '_> {
@@ -35,6 +36,23 @@ impl ArrowBuilder<'_, '_> {
     pub fn with_tip_length(&mut self, length: f32) {
         self.tip_length = length;
     }
+
+    /// Make the arrow double-ended
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, Color::GREEN)
+    ///         .with_double_ended(true);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn with_double_ended(&mut self, state: bool) {
+        self.double_ended = state;
+    }
 }
 
 impl Drop for ArrowBuilder<'_, '_> {
@@ -53,12 +71,21 @@ impl Drop for ArrowBuilder<'_, '_> {
             Vec3::new(-1., 0., -1.),
         ];
         // - extend the vectors so their length is `tip_length`
-        // - rotate the world so +x is facing in the same direction as the arrow
-        // - translate over to the tip of the arrow
-        let tips = tips.map(|v| rotation * (v.normalize() * self.tip_length) + self.end);
+        let tips = tips.map(|v| (v.normalize() * self.tip_length));
         for v in tips {
+            // - rotate the world so +x is facing in the same direction as the arrow
+            // - translate over to the tip of the arrow
             // then actually draw the tips
-            self.gizmos.line(self.end, v, self.color);
+            self.gizmos
+                .line(self.end, self.end + (rotation * v), self.color);
+        }
+        if self.double_ended {
+            // same thing but draw starting from the start and use the inverse rotation
+            let rotation = Quat::from_rotation_arc(Vec3::NEG_X, pointing);
+            for v in tips {
+                self.gizmos
+                    .line(self.start, self.start + (rotation * v), self.color);
+            }
         }
     }
 }
@@ -86,6 +113,7 @@ impl<'s> Gizmos<'s> {
             end,
             color,
             tip_length: length / 10.,
+            double_ended: false,
         }
     }
 
