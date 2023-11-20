@@ -22,3 +22,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 
 # other
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"] }
+
+[lints]
+workspace = true
