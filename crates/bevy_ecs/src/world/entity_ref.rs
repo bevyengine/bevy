@@ -1035,15 +1035,15 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Gets an Entry into the world for this entity and component for in-place manipulation.
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
-        if let Some(_) = self.get::<T>() {
+        if self.contains::<T>() {
             Entry::Occupied(OccupiedEntry {
                 entity_world: self,
-                _marker: PhantomData::default(),
+                _marker: PhantomData,
             })
         } else {
             Entry::Vacant(VacantEntry {
                 entity_world: self,
-                _marker: PhantomData::default(),
+                _marker: PhantomData,
             })
         }
     }
@@ -1391,7 +1391,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
         self.entity_world.insert(component);
         OccupiedEntry {
             entity_world: self.entity_world,
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 }
