@@ -57,6 +57,7 @@ pub mod graph {
         ShadowPass,
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
+        DeferredLightingPass,
     }
 }
 

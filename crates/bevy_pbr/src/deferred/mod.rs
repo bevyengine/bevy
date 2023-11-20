@@ -1,4 +1,6 @@
-use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings};
+use crate::{
+    graph::LabelsPbr, MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
@@ -17,7 +19,7 @@ use bevy_render::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
     render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
     renderer::{RenderContext, RenderDevice},
     texture::Image,
@@ -121,13 +123,13 @@ impl Plugin for DeferredPbrLightingPlugin {
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
                 SubGraph3d,
-                DeferredLightingPass3dNode,
+                LabelsPbr::DeferredLightingPass,
             )
             .add_render_graph_edges(
                 SubGraph3d,
                 (
                     Labels3d::StartMainPass,
-                    DeferredLightingPass3dNode,
+                    LabelsPbr::DeferredLightingPass,
                     Labels3d::MainOpaquePass,
                 ),
             );
@@ -141,9 +143,6 @@ impl Plugin for DeferredPbrLightingPlugin {
         render_app.init_resource::<DeferredLightingLayout>();
     }
 }
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct DeferredLightingPass3dNode;
 
 #[derive(Default)]
 pub struct DeferredOpaquePass3dPbrLightingNode;
