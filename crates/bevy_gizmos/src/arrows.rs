@@ -12,6 +12,8 @@ pub struct ArrowBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     start: Vec3,
     end: Vec3,
+    front: ArrowHead,
+    back: ArrowHead,
     color: Color,
     tip_length: f32,
     double_ended: bool,
@@ -19,7 +21,7 @@ pub struct ArrowBuilder<'a, 's> {
 
 /// Represents how the end of an arrow should be drawn.
 /// See also [`Gizmos::arrow`] and [`Gizmos::arrow_2d`].
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Copy, Clone)]
 pub enum ArrowHead {
     /// No head. Putting this on both ends causes the arrow to just be a line.
     None,
@@ -28,7 +30,7 @@ pub enum ArrowHead {
     Normal,
     /// Two-tip arrow head, facing as close to `towards` as possible while still being inline with the arrow body
     Billboarded(
-        /// Arrow will attempt to be most visible from this direction.
+        /// Will attempt to be most visible from this direction.
         /// - in 3d applications, this would typically be the camera position.
         /// - in 2d applications, this would typically be [`Vec3::Y`] or [`Vec3::Z`]
         Vec3,
@@ -57,6 +59,8 @@ impl ArrowBuilder<'_, '_> {
     }
 
     /// Make the arrow double-ended.
+    /// sets both ends of the arrow to [`ArrowHead::Normal`]
+    /// if you want to use a different head, use [`ArrowBuilder::???`]
     ///
     /// # Example
     /// ```
@@ -65,11 +69,11 @@ impl ArrowBuilder<'_, '_> {
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, Color::GREEN)
-    ///         .with_double_ended();
+    ///         .double_ended();
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn with_double_ended(&mut self) -> &mut Self {
+    pub fn double_ended(&mut self) -> &mut Self {
         self.double_ended = true;
         return self;
     }
