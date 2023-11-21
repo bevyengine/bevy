@@ -14,7 +14,7 @@ use crate::{
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    texture::{BevyDefault, CachedTexture, DepthAttachment, TextureCache},
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -343,16 +343,14 @@ impl ViewTarget {
 #[derive(Component)]
 pub struct ViewDepthTexture {
     pub texture: Texture,
-    pub view: TextureView,
-    first_write: Arc<AtomicBool>,
+    pub attachment: DepthAttachment,
 }
 
 impl ViewDepthTexture {
-    pub fn new(texture: CachedTexture) -> Self {
+    pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
         Self {
             texture: texture.texture,
-            view: texture.default_view,
-            first_write: Arc::new(AtomicBool::new(true)),
+            attachment: DepthAttachment::new(texture.default_view, clear_value),
         }
     }
 }
@@ -531,7 +529,6 @@ fn prepare_view_targets(
                     main_texture: main_textures.main_texture.clone(),
                     out_texture: out_texture_view.clone(),
                     out_texture_format: out_texture_format.add_srgb_suffix(),
-                    first_write: Arc::new(AtomicBool::new(true)),
                 });
             }
         }

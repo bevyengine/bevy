@@ -75,21 +75,7 @@ impl ViewNode for MainOpaquePass3dNode {
             color_attachments: &[Some(
                 target.get_color_attachment(Operations { load, store: true }),
             )],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &depth.view,
-                // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
-                depth_ops: Some(Operations {
-                    load: if depth.is_first_write() {
-                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                        camera_3d.depth_load_op.clone()
-                    } else {
-                        Camera3dDepthLoadOp::Load
-                    }
-                    .into(),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
+            depth_stencil_attachment: Some(depth.attachment.get_attachment(true)),
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {

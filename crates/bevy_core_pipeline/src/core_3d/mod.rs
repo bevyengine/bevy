@@ -529,7 +529,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = HashMap::default();
-    for (entity, camera, _, _) in &views_3d {
+    for (entity, camera, _, camera_3d) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -563,9 +563,13 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands
-            .entity(entity)
-            .insert(ViewDepthTexture::new(cached_texture));
+        commands.entity(entity).insert(ViewDepthTexture::new(
+            cached_texture,
+            match camera_3d.depth_load_op {
+                Camera3dDepthLoadOp::Clear(v) => Some(v),
+                Camera3dDepthLoadOp::Load => None,
+            },
+        ));
     }
 }
 

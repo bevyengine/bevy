@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
+use bevy_render::view;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -103,20 +104,7 @@ impl ViewNode for PrepassNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("prepass"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &view_depth_texture.view,
-                    depth_ops: Some(Operations {
-                        load: if view_depth_texture.is_first_write() {
-                            // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                            camera_3d.depth_load_op.clone()
-                        } else {
-                            Camera3dDepthLoadOp::Load
-                        }
-                        .into(),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: Some(view_depth_texture.attachment.get_attachment(true)),
             });
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);

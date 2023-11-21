@@ -152,20 +152,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("deferred"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &view_depth_texture.view,
-                    depth_ops: Some(Operations {
-                        load: if view_depth_texture.is_first_write() {
-                            // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                            camera_3d.depth_load_op.clone()
-                        } else {
-                            Camera3dDepthLoadOp::Load
-                        }
-                        .into(),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: Some(view_depth_texture.attachment.get_attachment(true)),
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {

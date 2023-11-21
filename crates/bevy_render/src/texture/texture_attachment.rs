@@ -55,16 +55,17 @@ pub struct DepthAttachment {
 }
 
 impl DepthAttachment {
-    pub fn new(view: TextureView, clear_value: f32) -> Self {
+    pub fn new(view: TextureView, clear_value: Option<f32>) -> Self {
         Self {
             view,
-            clear_value,
-            is_first_call: Arc::new(AtomicBool::new(true)),
+            clear_value: clear_value.unwrap(),
+            is_first_call: Arc::new(AtomicBool::new(clear_value.is_some())),
         }
     }
 
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
-    /// `clear_value` if this is the first time calling this function, otherwise the it will be loaded.
+    /// `clear_value` if this is the first time calling this function, and a clear value was provided,
+    /// otherwise the it will be loaded.
     pub fn get_attachment(&self, store: bool) -> RenderPassDepthStencilAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
