@@ -3,7 +3,7 @@
 
 use bevy::{
     prelude::*,
-    tasks::{block_on, future::future, AsyncComputeTaskPool, Task},
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
 use rand::Rng;
 use std::time::{Duration, Instant};
