@@ -228,8 +228,6 @@ impl Triangle2d {
         let bc = b.distance(c);
         let ca = c.distance(a);
 
-        debug_assert!(self.area() != 0.0, "triangle has no area");
-
         ab + bc + ca
     }
 
