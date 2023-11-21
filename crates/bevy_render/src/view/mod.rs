@@ -193,7 +193,6 @@ pub struct ViewTarget {
     main_texture: Arc<AtomicUsize>,
     out_texture: TextureView,
     out_texture_format: TextureFormat,
-    first_write: Arc<AtomicBool>,
 }
 
 pub struct PostProcessWrite<'a> {
@@ -203,10 +202,6 @@ pub struct PostProcessWrite<'a> {
 
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
-
-    pub fn is_first_write(&self) -> bool {
-        self.first_write.fetch_and(false, Ordering::SeqCst)
-    }
 
     /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture_view`] and resolve to [`Self::main_texture`] if
     /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
@@ -359,10 +354,6 @@ impl ViewDepthTexture {
             view: texture.default_view,
             first_write: Arc::new(AtomicBool::new(true)),
         }
-    }
-
-    pub fn is_first_write(&self) -> bool {
-        self.first_write.fetch_and(false, Ordering::SeqCst)
     }
 }
 

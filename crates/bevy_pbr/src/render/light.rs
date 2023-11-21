@@ -520,15 +520,8 @@ fn face_index_to_name(face_index: usize) -> &'static str {
 
 #[derive(Component)]
 pub struct ShadowView {
-    pub depth_texture_view: TextureView,
+    pub depth_attachment: DepthAttachment,
     pub pass_name: String,
-    first_write: Arc<AtomicBool>,
-}
-
-impl ShadowView {
-    pub fn is_first_write(&self) -> bool {
-        self.first_write.fetch_and(false, Ordering::SeqCst)
-    }
 }
 
 #[derive(Component)]
@@ -1013,13 +1006,12 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
-                            depth_texture_view,
+                            depth_attachment: DepthAttachment::new(depth_texture_view, 0.0),
                             pass_name: format!(
                                 "shadow pass point light {} {}",
                                 light_index,
                                 face_index_to_name(face_index)
                             ),
-                            first_write: Arc::new(AtomicBool::new(true)),
                         },
                         ExtractedView {
                             viewport: UVec4::new(
@@ -1076,9 +1068,8 @@ pub fn prepare_lights(
             let view_light_entity = commands
                 .spawn((
                     ShadowView {
-                        depth_texture_view,
+                        depth_attachment: DepthAttachment::new(depth_texture_view, 0.0),
                         pass_name: format!("shadow pass spot light {light_index}"),
-                        first_write: Arc::new(AtomicBool::new(true)),
                     },
                     ExtractedView {
                         viewport: UVec4::new(
@@ -1142,10 +1133,9 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
-                            depth_texture_view,
+                            depth_attachment: DepthAttachment::new(depth_texture_view, 0.0),
                             pass_name: format!(
                                 "shadow pass directional light {light_index} cascade {cascade_index}"),
-                            first_write: Arc::new(AtomicBool::new(true)),
                         },
                         ExtractedView {
                             viewport: UVec4::new(
@@ -1775,18 +1765,9 @@ impl Node for ShadowPassNode {
                     render_context.begin_tracked_render_pass(RenderPassDescriptor {
                         label: Some(&view_light.pass_name),
                         color_attachments: &[],
-                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                            view: &view_light.depth_texture_view,
-                            depth_ops: Some(Operations {
-                                load: if view_light.is_first_write() {
-                                    LoadOp::Clear(0.0)
-                                } else {
-                                    LoadOp::Load
-                                },
-                                store: true,
-                            }),
-                            stencil_ops: None,
-                        }),
+                        depth_stencil_attachment: Some(
+                            view_light.depth_attachment.get_attachment(true),
+                        ),
                     });
 
                 shadow_phase.render(&mut render_pass, world, view_light_entity);
