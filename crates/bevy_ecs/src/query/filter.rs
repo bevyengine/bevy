@@ -554,7 +554,7 @@ impl_tick_filter!(
     /// # Deferred
     ///
     /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
-    /// are visible only after deferreds are applied,
+    /// are visible only after deferred operations are applied,
     /// typically at the end of the schedule iteration.
     ///
     /// # Examples
