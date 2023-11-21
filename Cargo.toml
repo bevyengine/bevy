@@ -1345,6 +1345,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "indexing"
+path = "examples/ecs/indexing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.indexing]
+name = "Indexing"
+description = "Get access to entities via component values"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
 doc-scrape-examples = true
