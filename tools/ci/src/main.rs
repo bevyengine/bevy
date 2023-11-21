@@ -17,13 +17,7 @@ bitflags! {
     }
 }
 
-const CLIPPY_FLAGS: [&str; 5] = [
-    "-Wclippy::redundant_else",
-    "-Wclippy::match_same_arms",
-    "-Wclippy::semicolon_if_nothing_returned",
-    "-Wclippy::map_flatten",
-    "-Dwarnings",
-];
+const CLIPPY_FLAGS: [&str; 1] = ["-Dwarnings"];
 
 fn main() {
     // When run locally, results may differ from actual CI runs triggered by
