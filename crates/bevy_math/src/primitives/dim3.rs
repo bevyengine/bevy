@@ -198,7 +198,7 @@ pub struct Cuboid {
 impl Primitive3d for Cuboid {}
 
 impl Cuboid {
-    /// Create a new `Cuboid` from a full x, y and z length
+    /// Create a new `Cuboid` from a full x, y, and z length
     pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self::from_size(Vec3::new(x_length, y_length, z_length))
     }
@@ -390,37 +390,107 @@ pub struct ConicalFrustum {
 }
 impl Primitive3d for ConicalFrustum {}
 
-/// A torus (AKA donut) primitive.
+/// The type of torus determined by the minor and major radii
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TorusKind {
+    /// A torus that has a ring.
+    /// The major radius is greater than the minor radius
+    Ring,
+    /// A torus that has no hole but also doesn't intersect itself.
+    /// The major radius is equal to the minor radius
+    Horn,
+    /// A self-intersecting torus.
+    /// The major radius is less than the minor radius
+    Spindle,
+    /// A torus with non-geometric properties like
+    /// a minor or major radius that is non-positive,
+    /// infinite, or `NaN`
+    Invalid,
+}
+
+/// A torus primitive, often representing a ring or donut shape
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Torus {
-    /// The radius of the overall shape
-    pub radius: f32,
-    /// The radius of the internal ring
-    #[doc(alias = "minor_radius")]
-    #[doc(alias = "cross_section_radius")]
-    pub ring_radius: f32,
+    /// The radius of the tube of the torus
+    #[doc(
+        alias = "ring_radius",
+        alias = "tube_radius",
+        alias = "cross_section_radius"
+    )]
+    pub minor_radius: f32,
+    /// The distance from the center of the torus to the center of the tube
+    #[doc(alias = "radius_of_revolution")]
+    pub major_radius: f32,
 }
 impl Primitive3d for Torus {}
 
 impl Torus {
-    /// Get the major radius of the torus.
-    /// This corresponds to the distance from the center
-    /// of the torus to the middle of the ring
-    #[doc(alias = "radius_of_revolution")]
-    pub fn major_radius(&self) -> f32 {
-        self.radius - self.ring_radius
+    /// Create a new `Torus` from an inner and outer radius.
+    ///
+    /// The inner radius is the radius of the hole, and the outer radius
+    /// is the radius of the entire object
+    pub fn new(inner_radius: f32, outer_radius: f32) -> Self {
+        let minor_radius = (outer_radius - inner_radius) / 2.0;
+        let major_radius = outer_radius - minor_radius;
+
+        Self {
+            minor_radius,
+            major_radius,
+        }
+    }
+
+    /// Get the inner radius of the torus.
+    /// For a ring torus, this corresponds to the radius of the hole,
+    /// or `major_radius - minor_radius`
+    #[inline]
+    pub fn inner_radius(&self) -> f32 {
+        self.major_radius - self.minor_radius
+    }
+
+    /// Get the outer radius of the torus.
+    /// This corresponds to the overall radius of the entire object,
+    /// or `major_radius + minor_radius`
+    #[inline]
+    pub fn outer_radius(&self) -> f32 {
+        self.major_radius + self.minor_radius
+    }
+
+    /// Get the [`TorusKind`] determined by the minor and major radii.
+    ///
+    /// The torus can either be a *ring torus* that has a hole,
+    /// a *horn torus* that doesn't have a hole but also isn't self-intersecting,
+    /// or a *spindle torus* that is self-intersecting.
+    ///
+    /// If the minor or major radius is non-positive, infinite, or `NaN`,
+    /// [`TorusKind::Invalid`] is returned
+    #[inline]
+    pub fn kind(&self) -> TorusKind {
+        // Invalid if minor or major radius is non-positive, infinite, or NaN
+        if self.minor_radius <= 0.0
+            || !self.minor_radius.is_finite()
+            || self.major_radius <= 0.0
+            || !self.major_radius.is_finite()
+        {
+            return TorusKind::Invalid;
+        }
+
+        match self.major_radius.partial_cmp(&self.minor_radius).unwrap() {
+            std::cmp::Ordering::Greater => TorusKind::Ring,
+            std::cmp::Ordering::Equal => TorusKind::Horn,
+            std::cmp::Ordering::Less => TorusKind::Spindle,
+        }
     }
 
     /// Get the surface area of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     pub fn area(&self) -> f32 {
-        4.0 * PI.powi(2) * self.major_radius() * self.ring_radius
+        4.0 * PI.powi(2) * self.major_radius * self.minor_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     pub fn volume(&self) -> f32 {
-        2.0 * PI.powi(2) * self.major_radius() * self.ring_radius.powi(2)
+        2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
     }
 }
 
@@ -509,10 +579,27 @@ mod tests {
     #[test]
     fn torus_math() {
         let torus = Torus {
-            ring_radius: 0.3,
-            radius: 3.1,
+            minor_radius: 0.3,
+            major_radius: 2.8,
         };
-        assert_eq!(torus.major_radius(), 2.8);
+        assert_eq!(torus.inner_radius(), 2.5, "incorrect inner radius");
+        assert_eq!(torus.outer_radius(), 3.1, "incorrect outer radius");
+        assert_eq!(torus.kind(), TorusKind::Ring, "incorrect torus kind");
+        assert_eq!(
+            Torus::new(0.0, 1.0).kind(),
+            TorusKind::Horn,
+            "incorrect torus kind"
+        );
+        assert_eq!(
+            Torus::new(-0.5, 1.0).kind(),
+            TorusKind::Spindle,
+            "incorrect torus kind"
+        );
+        assert_eq!(
+            Torus::new(1.5, 1.0).kind(),
+            TorusKind::Invalid,
+            "torus should be invalid"
+        );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
     }

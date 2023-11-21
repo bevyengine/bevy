@@ -1,4 +1,4 @@
-use crate::{Asset, AssetIndex, Handle, UntypedHandle};
+use crate::{Asset, AssetIndex};
 use bevy_reflect::{Reflect, Uuid};
 use std::{
     any::TypeId,
@@ -6,11 +6,12 @@ use std::{
     hash::Hash,
     marker::PhantomData,
 };
+use thiserror::Error;
 
 /// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
 /// lifetime of the Asset. This means it _can_ point to an [`Asset`] that no longer exists.
 ///
-/// For an identifier tied to the lifetime of an asset, see [`Handle`].
+/// For an identifier tied to the lifetime of an asset, see [`Handle`](`crate::Handle`).
 ///
 /// For an "untyped" / "generic-less" id, see [`UntypedAssetId`].
 #[derive(Reflect)]
@@ -53,16 +54,7 @@ impl<A: Asset> AssetId<A> {
     /// _inside_ the [`UntypedAssetId`].
     #[inline]
     pub fn untyped(self) -> UntypedAssetId {
-        match self {
-            AssetId::Index { index, .. } => UntypedAssetId::Index {
-                index,
-                type_id: TypeId::of::<A>(),
-            },
-            AssetId::Uuid { uuid } => UntypedAssetId::Uuid {
-                uuid,
-                type_id: TypeId::of::<A>(),
-            },
-        }
+        self.into()
     }
 
     #[inline]
@@ -95,6 +87,7 @@ impl<A: Asset> Display for AssetId<A> {
         Debug::fmt(self, f)
     }
 }
+
 impl<A: Asset> Debug for AssetId<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -123,6 +116,7 @@ impl<A: Asset> Hash for AssetId<A> {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.internal().hash(state);
+        TypeId::of::<A>().hash(state);
     }
 }
 
@@ -164,52 +158,10 @@ impl<A: Asset> From<Uuid> for AssetId<A> {
     }
 }
 
-impl<A: Asset> From<Handle<A>> for AssetId<A> {
-    #[inline]
-    fn from(value: Handle<A>) -> Self {
-        value.id()
-    }
-}
-
-impl<A: Asset> From<&Handle<A>> for AssetId<A> {
-    #[inline]
-    fn from(value: &Handle<A>) -> Self {
-        value.id()
-    }
-}
-
-impl<A: Asset> From<UntypedHandle> for AssetId<A> {
-    #[inline]
-    fn from(value: UntypedHandle) -> Self {
-        value.id().typed()
-    }
-}
-
-impl<A: Asset> From<&UntypedHandle> for AssetId<A> {
-    #[inline]
-    fn from(value: &UntypedHandle) -> Self {
-        value.id().typed()
-    }
-}
-
-impl<A: Asset> From<UntypedAssetId> for AssetId<A> {
-    #[inline]
-    fn from(value: UntypedAssetId) -> Self {
-        value.typed()
-    }
-}
-
-impl<A: Asset> From<&UntypedAssetId> for AssetId<A> {
-    #[inline]
-    fn from(value: &UntypedAssetId) -> Self {
-        value.typed()
-    }
-}
-
 /// An "untyped" / "generic-less" [`Asset`] identifier that behaves much like [`AssetId`], but stores the [`Asset`] type
 /// information at runtime instead of compile-time. This increases the size of the type, but it enables storing asset ids
 /// across asset types together and enables comparisons between them.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone)]
 pub enum UntypedAssetId {
     /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
     /// the "default" identifier used for assets. The alternative(s) (ex: [`UntypedAssetId::Uuid`]) will only be used if assets are
@@ -263,13 +215,20 @@ impl UntypedAssetId {
     /// Panics if the [`TypeId`] of `A` does not match the stored type id.
     #[inline]
     pub fn typed<A: Asset>(self) -> AssetId<A> {
-        assert_eq!(
-            self.type_id(),
-            TypeId::of::<A>(),
-            "The target AssetId<{}>'s TypeId does not match the TypeId of this UntypedAssetId",
-            std::any::type_name::<A>()
-        );
-        self.typed_unchecked()
+        let Ok(id) = self.try_typed() else {
+            panic!(
+                "The target AssetId<{}>'s TypeId does not match the TypeId of this UntypedAssetId",
+                std::any::type_name::<A>()
+            )
+        };
+
+        id
+    }
+
+    /// Try to convert this to a "typed" [`AssetId`].
+    #[inline]
+    pub fn try_typed<A: Asset>(self) -> Result<AssetId<A>, UntypedAssetIdConversionError> {
+        AssetId::try_from(self)
     }
 
     /// Returns the stored [`TypeId`] of the referenced [`Asset`].
@@ -309,24 +268,30 @@ impl Display for UntypedAssetId {
     }
 }
 
-impl<A: Asset> From<AssetId<A>> for UntypedAssetId {
+impl PartialEq for UntypedAssetId {
     #[inline]
-    fn from(value: AssetId<A>) -> Self {
-        value.untyped()
+    fn eq(&self, other: &Self) -> bool {
+        self.internal().eq(&other.internal())
     }
 }
 
-impl<A: Asset> From<Handle<A>> for UntypedAssetId {
+impl Eq for UntypedAssetId {}
+
+impl Hash for UntypedAssetId {
     #[inline]
-    fn from(value: Handle<A>) -> Self {
-        value.id().untyped()
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.internal().hash(state);
+        self.type_id().hash(state);
     }
 }
 
-impl<A: Asset> From<&Handle<A>> for UntypedAssetId {
-    #[inline]
-    fn from(value: &Handle<A>) -> Self {
-        value.id().untyped()
+impl PartialOrd for UntypedAssetId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self.type_id() != other.type_id() {
+            None
+        } else {
+            Some(self.internal().cmp(&other.internal()))
+        }
     }
 }
 
@@ -373,5 +338,173 @@ impl From<AssetIndex> for InternalAssetId {
 impl From<Uuid> for InternalAssetId {
     fn from(value: Uuid) -> Self {
         Self::Uuid(value)
+    }
+}
+
+// Cross Operations
+
+impl<A: Asset> PartialEq<UntypedAssetId> for AssetId<A> {
+    #[inline]
+    fn eq(&self, other: &UntypedAssetId) -> bool {
+        TypeId::of::<A>() == other.type_id() && self.internal().eq(&other.internal())
+    }
+}
+
+impl<A: Asset> PartialEq<AssetId<A>> for UntypedAssetId {
+    #[inline]
+    fn eq(&self, other: &AssetId<A>) -> bool {
+        other.eq(self)
+    }
+}
+
+impl<A: Asset> PartialOrd<UntypedAssetId> for AssetId<A> {
+    #[inline]
+    fn partial_cmp(&self, other: &UntypedAssetId) -> Option<std::cmp::Ordering> {
+        if TypeId::of::<A>() != other.type_id() {
+            None
+        } else {
+            Some(self.internal().cmp(&other.internal()))
+        }
+    }
+}
+
+impl<A: Asset> PartialOrd<AssetId<A>> for UntypedAssetId {
+    #[inline]
+    fn partial_cmp(&self, other: &AssetId<A>) -> Option<std::cmp::Ordering> {
+        Some(other.partial_cmp(self)?.reverse())
+    }
+}
+
+impl<A: Asset> From<AssetId<A>> for UntypedAssetId {
+    #[inline]
+    fn from(value: AssetId<A>) -> Self {
+        let type_id = TypeId::of::<A>();
+
+        match value {
+            AssetId::Index { index, .. } => UntypedAssetId::Index { type_id, index },
+            AssetId::Uuid { uuid } => UntypedAssetId::Uuid { type_id, uuid },
+        }
+    }
+}
+
+impl<A: Asset> TryFrom<UntypedAssetId> for AssetId<A> {
+    type Error = UntypedAssetIdConversionError;
+
+    #[inline]
+    fn try_from(value: UntypedAssetId) -> Result<Self, Self::Error> {
+        let found = value.type_id();
+        let expected = TypeId::of::<A>();
+
+        match value {
+            UntypedAssetId::Index { index, type_id } if type_id == expected => Ok(AssetId::Index {
+                index,
+                marker: PhantomData,
+            }),
+            UntypedAssetId::Uuid { uuid, type_id } if type_id == expected => {
+                Ok(AssetId::Uuid { uuid })
+            }
+            _ => Err(UntypedAssetIdConversionError::TypeIdMismatch { expected, found }),
+        }
+    }
+}
+
+/// Errors preventing the conversion of to/from an [`UntypedAssetId`] and an [`AssetId`].
+#[derive(Error, Debug, PartialEq, Clone)]
+#[non_exhaustive]
+pub enum UntypedAssetIdConversionError {
+    /// Caused when trying to convert an [`UntypedAssetId`] into an [`AssetId`] of the wrong type.
+    #[error("This UntypedAssetId is for {found:?} and cannot be converted into an AssetId<{expected:?}>")]
+    TypeIdMismatch { expected: TypeId, found: TypeId },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type TestAsset = ();
+
+    const UUID_1: Uuid = Uuid::from_u128(123);
+    const UUID_2: Uuid = Uuid::from_u128(456);
+
+    /// Simple utility to directly hash a value using a fixed hasher
+    fn hash<T: Hash>(data: &T) -> u64 {
+        use std::hash::Hasher;
+
+        let mut hasher = bevy_utils::AHasher::default();
+        data.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Typed and Untyped `AssetIds` should be equivalent to each other and themselves
+    #[test]
+    fn equality() {
+        let typed = AssetId::<TestAsset>::Uuid { uuid: UUID_1 };
+        let untyped = UntypedAssetId::Uuid {
+            type_id: TypeId::of::<TestAsset>(),
+            uuid: UUID_1,
+        };
+
+        assert_eq!(Ok(typed), AssetId::try_from(untyped));
+        assert_eq!(UntypedAssetId::from(typed), untyped);
+        assert_eq!(typed, untyped);
+    }
+
+    /// Typed and Untyped `AssetIds` should be orderable amongst each other and themselves
+    #[test]
+    fn ordering() {
+        assert!(UUID_1 < UUID_2);
+
+        let typed_1 = AssetId::<TestAsset>::Uuid { uuid: UUID_1 };
+        let typed_2 = AssetId::<TestAsset>::Uuid { uuid: UUID_2 };
+        let untyped_1 = UntypedAssetId::Uuid {
+            type_id: TypeId::of::<TestAsset>(),
+            uuid: UUID_1,
+        };
+        let untyped_2 = UntypedAssetId::Uuid {
+            type_id: TypeId::of::<TestAsset>(),
+            uuid: UUID_2,
+        };
+
+        assert!(typed_1 < typed_2);
+        assert!(untyped_1 < untyped_2);
+
+        assert!(UntypedAssetId::from(typed_1) < untyped_2);
+        assert!(untyped_1 < UntypedAssetId::from(typed_2));
+
+        assert!(AssetId::try_from(untyped_1).unwrap() < typed_2);
+        assert!(typed_1 < AssetId::try_from(untyped_2).unwrap());
+
+        assert!(typed_1 < untyped_2);
+        assert!(untyped_1 < typed_2);
+    }
+
+    /// Typed and Untyped `AssetIds` should be equivalently hashable to each other and themselves
+    #[test]
+    fn hashing() {
+        let typed = AssetId::<TestAsset>::Uuid { uuid: UUID_1 };
+        let untyped = UntypedAssetId::Uuid {
+            type_id: TypeId::of::<TestAsset>(),
+            uuid: UUID_1,
+        };
+
+        assert_eq!(
+            hash(&typed),
+            hash(&AssetId::<TestAsset>::try_from(untyped).unwrap())
+        );
+        assert_eq!(hash(&UntypedAssetId::from(typed)), hash(&untyped));
+        assert_eq!(hash(&typed), hash(&untyped));
+    }
+
+    /// Typed and Untyped `AssetIds` should be interchangeable
+    #[test]
+    fn conversion() {
+        let typed = AssetId::<TestAsset>::Uuid { uuid: UUID_1 };
+        let untyped = UntypedAssetId::Uuid {
+            type_id: TypeId::of::<TestAsset>(),
+            uuid: UUID_1,
+        };
+
+        assert_eq!(Ok(typed), AssetId::try_from(untyped));
+        assert_eq!(UntypedAssetId::from(typed), untyped);
     }
 }

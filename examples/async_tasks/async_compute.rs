@@ -3,9 +3,8 @@
 
 use bevy::{
     prelude::*,
-    tasks::{block_on, AsyncComputeTaskPool, Task},
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
-use futures_lite::future;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
