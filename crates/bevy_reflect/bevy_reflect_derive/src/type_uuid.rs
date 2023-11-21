@@ -17,9 +17,12 @@ pub(crate) fn type_uuid_derive(input: DeriveInput) -> syn::Result<TokenStream> {
             continue;
         };
 
-        let uuid_str = match &name_value.value {
-            Expr::Lit(ExprLit{lit: Lit::Str(lit_str), ..}) => lit_str,
-            _ => return Err(syn::Error::new_spanned(attribute, "`uuid` attribute must take the form `#[uuid = \"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\"]`.")),
+        let Expr::Lit(ExprLit {
+            lit: Lit::Str(uuid_str),
+            ..
+        }) = &name_value.value
+        else {
+            return Err(syn::Error::new_spanned(attribute, "`uuid` attribute must take the form `#[uuid = \"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\"]`."));
         };
 
         uuid =

@@ -124,9 +124,8 @@ where
     unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<Q::Item<'w>> {
         for entity in self.entity_iter.by_ref() {
             let entity = *entity.borrow();
-            let location = match self.entities.get(entity) {
-                Some(location) => location,
-                None => continue,
+            let Some(location) = self.entities.get(entity) else {
+                continue;
             };
 
             if !self
