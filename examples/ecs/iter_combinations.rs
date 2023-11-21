@@ -38,7 +38,7 @@ struct BodyBundle {
 }
 
 fn generate_bodies(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -94,7 +94,7 @@ fn generate_bodies(
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
-                    ) * time.delta_seconds(),
+                    ) * time.timestep().as_secs_f32(),
             ),
         });
     }
