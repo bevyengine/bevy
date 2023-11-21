@@ -7,18 +7,22 @@ use wgpu::{
     LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, TextureView,
 };
 
-/// A wrapper for a [TextureView] that is used as a [RenderPassColorAttachment].
+/// A wrapper for a [CachedTexture] that is used as a [RenderPassColorAttachment].
 pub struct ColorAttachment {
-    pub view: TextureView,
+    pub texture: CachedTexture,
     pub resolve_target: Option<TextureView>,
     clear_color: Color,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl ColorAttachment {
-    pub fn new(view: TextureView, resolve_target: Option<TextureView>, clear_color: Color) -> Self {
+    pub fn new(
+        texture: CachedTexture,
+        resolve_target: Option<TextureView>,
+        clear_color: Color,
+    ) -> Self {
         Self {
-            view,
+            texture,
             resolve_target,
             clear_color,
             is_first_call: Arc::new(AtomicBool::new(true)),
@@ -33,7 +37,7 @@ impl ColorAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
         RenderPassColorAttachment {
-            view: &self.view,
+            view: &self.texture.default_view,
             resolve_target: self.resolve_target.as_ref(),
             ops: Operations {
                 load: if first_call {
