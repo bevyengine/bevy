@@ -56,14 +56,16 @@ impl Default for Interaction {
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
-/// A None value means that the cursor position is unknown.
+
 ///
 /// It can be used alongside interaction to get the position of the press.
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub struct RelativeCursorPosition {
+    /// Visible area of the Node relative to the size of the entire Node.
     pub normalized_visible_node_rect: Rect,
-    /// Cursor position relative to size and position of the Node.
+    /// Cursor position relative to the size and position of the Node.
+    /// A None value indicates that the cursor position is unknown.
     pub normalized: Option<Vec2>,
 }
 
