@@ -21,7 +21,7 @@ pub struct RemovedSystem<I = (), O = ()> {
     system: BoxedSystem<I, O>,
 }
 
-impl RemovedSystem {
+impl<I, O> RemovedSystem<I, O> {
     /// Is the system initialized?
     /// A system is initialized the first time it's ran.
     pub fn initialized(&self) -> bool {
@@ -29,7 +29,7 @@ impl RemovedSystem {
     }
 
     /// The system removed from the storage.
-    pub fn system(self) -> BoxedSystem {
+    pub fn system(self) -> BoxedSystem<I, O> {
         self.system
     }
 }
