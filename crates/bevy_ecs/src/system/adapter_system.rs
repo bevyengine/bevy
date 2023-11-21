@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use super::{ReadOnlySystem, System};
+use super::{ReadOnlySystem, System, SystemParamUserMetaRequest};
 use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCell};
 
 /// Customizes the behavior of an [`AdapterSystem`]
@@ -145,6 +145,10 @@ where
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         self.system.default_system_sets()
+    }
+
+    fn param_user_meta(&self, request: &mut SystemParamUserMetaRequest) {
+        self.system.param_user_meta(request);
     }
 }
 

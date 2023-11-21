@@ -11,7 +11,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{ReadOnlySystem, System};
+use super::{ReadOnlySystem, System, SystemParamUserMetaRequest};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -231,6 +231,11 @@ where
         let mut default_sets = self.a.default_system_sets();
         default_sets.append(&mut self.b.default_system_sets());
         default_sets
+    }
+
+    fn param_user_meta(&self, request: &mut SystemParamUserMetaRequest) {
+        self.a.param_user_meta(request);
+        self.b.param_user_meta(request);
     }
 }
 

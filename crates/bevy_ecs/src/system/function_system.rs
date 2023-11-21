@@ -14,7 +14,7 @@ use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
 
-use super::{In, IntoSystem, ReadOnlySystem};
+use super::{In, IntoSystem, ReadOnlySystem, SystemParamUserMetaRequest};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -532,6 +532,10 @@ where
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
+    }
+
+    fn param_user_meta(&self, request: &mut SystemParamUserMetaRequest) {
+        F::Param::user_meta(request);
     }
 }
 

@@ -9,7 +9,7 @@ use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Acce
 use std::any::TypeId;
 use std::borrow::Cow;
 
-use super::IntoSystem;
+use super::{IntoSystem, SystemParamUserMetaRequest};
 
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
@@ -38,6 +38,12 @@ pub trait System: Send + Sync + 'static {
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
+
+    /// Request user metadata for the parameters of the system.
+    ///
+    /// This function cannot be called from outside of `bevy_ecs`.
+    /// Use [`dyn System::param_user_meta_dyn`] instead.
+    fn param_user_meta(&self, request: &mut SystemParamUserMetaRequest);
 
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
@@ -106,6 +112,16 @@ pub trait System: Send + Sync + 'static {
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn set_last_run(&mut self, last_run: Tick);
+}
+
+// TODO(stepancheg): we shouldn't need 'static here.
+impl<In: 'static, Out: 'static > dyn System<In=In, Out=Out> {
+    /// Request user metadata from the system parameters.
+    ///
+    /// Metadata is defined with [`SystemParam::user_meta`](crate::system::SystemParam::user_meta).
+    pub fn param_user_meta_dyn<T: 'static>(&self) -> Vec<T> {
+        SystemParamUserMetaRequest::with(|req| self.param_user_meta(req))
+    }
 }
 
 /// [`System`] types that do not modify the [`World`] when run.

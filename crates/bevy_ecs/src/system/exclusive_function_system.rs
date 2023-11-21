@@ -12,6 +12,7 @@ use crate::{
 
 use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+use crate::system::{ SystemParamUserMetaRequest};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -154,6 +155,10 @@ where
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
+    }
+
+    fn param_user_meta(&self, _request: &mut SystemParamUserMetaRequest) {
+        // Exclusive system param does not have user meta.
     }
 }
 

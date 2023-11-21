@@ -22,6 +22,7 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use crate::system::system_param_user_meta::SystemParamUserMetaRequest;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -103,6 +104,16 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
+
+    /// Provide user (i.e. unknown to bevy) metadata for the parameter.
+    ///
+    /// This function cannot be called directly. [`dyn System::param_user_meta_dyn]
+    /// can be used to fetch the metadata.
+    ///
+    /// Default implementation of this function does not do anything in Bevy,
+    /// except for composite params (i.e. tuples and `#[derive(SystemParam)]`)
+    /// which collect metadata from all of their fields.
+    fn user_meta(_request: &mut SystemParamUserMetaRequest) {}
 
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](Self::State).
@@ -1362,6 +1373,10 @@ macro_rules! impl_system_param_tuple {
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
+
+            fn user_meta(_request: &mut SystemParamUserMetaRequest) {
+                $($param::user_meta(_request);)*
+            }
 
             #[inline]
             fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
