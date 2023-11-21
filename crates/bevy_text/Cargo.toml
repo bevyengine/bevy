@@ -18,7 +18,9 @@ bevy_app = { path = "../bevy_app", version = "0.12.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.12.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
 bevy_math = { path = "../bevy_math", version = "0.12.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = ["bevy"] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
+  "bevy",
+] }
 bevy_render = { path = "../bevy_render", version = "0.12.0" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.12.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
@@ -29,7 +31,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 ab_glyph = "0.2.6"
 glyph_brush_layout = "0.2.1"
 thiserror = "1.0"
-serde = {version = "1", features = ["derive"]}
+serde = { version = "1", features = ["derive"] }
 
 [lints]
 workspace = true
