@@ -597,7 +597,7 @@ impl_tick_filter!(
     ///
     /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
     /// (like entity creation or entity component addition or removal)
-    /// are visible only after deferreds are applied,
+    /// are visible only after deferred operations are applied,
     /// typically at the end of the schedule iteration.
     ///
     /// # Examples
