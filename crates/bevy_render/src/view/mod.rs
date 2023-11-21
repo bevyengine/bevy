@@ -426,8 +426,8 @@ pub fn prepare_view_uniforms(
 
 #[derive(Clone)]
 struct MainTargetTextures {
-    a: CachedTexture,
-    b: CachedTexture,
+    a: ColorAttachment,
+    b: ColorAttachment,
     sampled: Option<CachedTexture>,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
