@@ -35,7 +35,7 @@ pub use futures_lite::future::block_on;
 mod iter;
 pub use iter::ParallelIterator;
 
-pub use futures_lite as future;
+pub use futures_lite;
 
 #[allow(missing_docs)]
 pub mod prelude {
