@@ -136,6 +136,11 @@ impl CommandQueue {
             cursor = unsafe { cursor.add(size) };
         }
     }
+
+    /// Moves all [`Command`]s from `other` into `self`, leaving `other` empty.
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.bytes.append(&mut other.bytes);
+    }
 }
 
 #[cfg(test)]
@@ -209,6 +214,29 @@ mod test {
         assert_eq!(world.entities().len(), 2);
 
         // The previous call to `apply` cleared the queue.
+        // This call should do nothing.
+        queue.apply(&mut world);
+        assert_eq!(world.entities().len(), 2);
+    }
+
+    #[test]
+    fn test_command_queue_append() {
+        let mut queue = CommandQueue::default();
+
+        queue.push(SpawnCommand);
+        queue.push(SpawnCommand);
+
+        queue.append(&mut CommandQueue::default());
+
+        let mut new = CommandQueue::default();
+        new.append(&mut queue);
+
+        let mut world = World::new();
+        new.apply(&mut world);
+
+        assert_eq!(world.entities().len(), 2);
+
+        // The previous call to `append` cleared `queue`.
         // This call should do nothing.
         queue.apply(&mut world);
         assert_eq!(world.entities().len(), 2);
