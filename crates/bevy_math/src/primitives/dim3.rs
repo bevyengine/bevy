@@ -71,7 +71,10 @@ impl Plane3d {
     ///
     /// Panics if `a == b`, `b == c` or `a == c`.
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        debug_assert!(a != b && b != c && a != c);
+        debug_assert!(
+            a != b && b != c && a != c,
+            "each corner of a triangle must be unique"
+        );
         let normal = Direction3d::from((b - a).cross(c - a));
         let translation = (a + b + c) / 3.0;
         (Self { normal }, translation)
