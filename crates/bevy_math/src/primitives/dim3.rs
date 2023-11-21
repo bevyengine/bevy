@@ -49,7 +49,7 @@ impl Sphere {
 
     /// Get the volume of the sphere
     pub fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius.powi(2) * self.radius
+        4.0 * FRAC_PI_3 * self.radius.powi(3)
     }
 }
 
