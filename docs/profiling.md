@@ -2,14 +2,12 @@
 
 ## Table of Contents
 
-- [Profiling](#profiling)
-  - [Table of Contents](#table-of-contents)
-  - [Runtime](#runtime)
-    - [Chrome tracing format](#chrome-tracing-format)
-    - [Tracy profiler](#tracy-profiler)
-    - [Adding your own spans](#adding-your-own-spans)
-    - [`perf` Flame Graph](#perf-flame-graph)
-  - [Compile time](#compile-time)
+- [Runtime](#runtime)
+  - [Chrome tracing format](#chrome-tracing-format)
+  - [Tracy profiler](#tracy-profiler)
+  - [Adding your own spans](#adding-your-own-spans)
+  - [Perf flame graph](#perf-flame-graph)
+- [Compile time](#compile-time)
 
 ## Runtime
 
