@@ -1,23 +1,16 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
-use bevy_render::view;
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Color,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{
-        LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-        RenderPassDescriptor,
-    },
+    render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-
-use crate::core_3d::{Camera3d, Camera3dDepthLoadOp};
 
 use super::{AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, ViewPrepassTextures};
 
@@ -30,7 +23,6 @@ pub struct PrepassNode;
 impl ViewNode for PrepassNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static Camera3d,
         &'static RenderPhase<Opaque3dPrepass>,
         &'static RenderPhase<AlphaMask3dPrepass>,
         &'static ViewDepthTexture,
@@ -44,7 +36,6 @@ impl ViewNode for PrepassNode {
         render_context: &mut RenderContext,
         (
             camera,
-            camera_3d,
             opaque_prepass_phase,
             alpha_mask_prepass_phase,
             view_depth_texture,
@@ -59,36 +50,11 @@ impl ViewNode for PrepassNode {
             view_prepass_textures
                 .normal
                 .as_ref()
-                .map(|view_normals_texture| RenderPassColorAttachment {
-                    view: &view_normals_texture.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: if view_prepass_textures.is_first_normal_write() {
-                            LoadOp::Clear(Color::BLACK.into())
-                        } else {
-                            LoadOp::Load
-                        },
-                        store: true,
-                    },
-                }),
+                .map(|normals_texture| normals_texture.get_attachment()),
             view_prepass_textures
                 .motion_vectors
                 .as_ref()
-                .map(|view_motion_vectors_texture| RenderPassColorAttachment {
-                    view: &view_motion_vectors_texture.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: if view_prepass_textures.is_first_motion_vectors_write() {
-                            // Red and Green channels are X and Y components of the motion vectors
-                            // Blue channel doesn't matter, but set to 0.0 for possible faster clear
-                            // https://gpuopen.com/performance/#clears
-                            LoadOp::Clear(Color::BLACK.into())
-                        } else {
-                            LoadOp::Load
-                        },
-                        store: true,
-                    },
-                }),
+                .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
             // Use None in place of Deferred attachments
             None,
             None,
@@ -104,7 +70,7 @@ impl ViewNode for PrepassNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("prepass"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(view_depth_texture.attachment.get_attachment(true)),
+                depth_stencil_attachment: Some(view_depth_texture.get_attachment(true)),
             });
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
@@ -131,7 +97,7 @@ impl ViewNode for PrepassNode {
                 // Copy depth buffer to texture
                 render_context.command_encoder().copy_texture_to_texture(
                     view_depth_texture.texture.as_image_copy(),
-                    prepass_depth_texture.texture.as_image_copy(),
+                    prepass_depth_texture.texture.texture.as_image_copy(),
                     view_prepass_textures.size,
                 );
             }

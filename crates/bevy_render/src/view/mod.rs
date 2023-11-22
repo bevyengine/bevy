@@ -6,7 +6,9 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
+    camera::{
+        ClearColor, ClearColorConfig, ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter,
+    },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     primitives::Frustum,
@@ -28,8 +30,8 @@ use std::sync::{
     Arc,
 };
 use wgpu::{
-    Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsages,
+    Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureUsages,
 };
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
@@ -203,40 +205,30 @@ pub struct PostProcessWrite<'a> {
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
-    /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture_view`] and resolve to [`Self::main_texture`] if
-    /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
-    pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
-        match &self.main_textures.sampled {
-            Some(CachedTexture {
-                default_view: sampled_texture_view,
-                ..
-            }) => RenderPassColorAttachment {
-                view: sampled_texture_view,
-                resolve_target: Some(self.main_texture_view()),
-                ops,
-            },
-            None => self.get_unsampled_color_attachment(ops),
+    /// Retrieve this target's main texture's color attachment.
+    pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.b.get_attachment()
+        } else {
+            self.main_textures.a.get_attachment()
         }
     }
 
-    /// Retrieve an "unsampled" color attachment using [`Self::main_texture`].
-    pub fn get_unsampled_color_attachment(
-        &self,
-        ops: Operations<Color>,
-    ) -> RenderPassColorAttachment {
-        RenderPassColorAttachment {
-            view: self.main_texture_view(),
-            resolve_target: None,
-            ops,
+    /// Retrieve this target's "unsampled" main texture's color attachment.
+    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.b.get_unsampled_attachment()
+        } else {
+            self.main_textures.a.get_unsampled_attachment()
         }
     }
 
     /// The "main" unsampled texture.
     pub fn main_texture(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.a.texture
+            &self.main_textures.a.texture.texture
         } else {
-            &self.main_textures.b.texture
+            &self.main_textures.b.texture.texture
         }
     }
 
@@ -248,18 +240,18 @@ impl ViewTarget {
     /// ahead of time.
     pub fn main_texture_other(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.b.texture
+            &self.main_textures.b.texture.texture
         } else {
-            &self.main_textures.a.texture
+            &self.main_textures.a.texture.texture
         }
     }
 
     /// The "main" unsampled texture.
     pub fn main_texture_view(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.a.default_view
+            &self.main_textures.a.texture.default_view
         } else {
-            &self.main_textures.b.default_view
+            &self.main_textures.b.texture.default_view
         }
     }
 
@@ -271,16 +263,17 @@ impl ViewTarget {
     /// ahead of time.
     pub fn main_texture_other_view(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.b.default_view
+            &self.main_textures.b.texture.default_view
         } else {
-            &self.main_textures.a.default_view
+            &self.main_textures.a.texture.default_view
         }
     }
 
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&Texture> {
         self.main_textures
-            .sampled
+            .a
+            .resolve_target
             .as_ref()
             .map(|sampled| &sampled.texture)
     }
@@ -288,7 +281,8 @@ impl ViewTarget {
     /// The "main" sampled texture view.
     pub fn sampled_main_texture_view(&self) -> Option<&TextureView> {
         self.main_textures
-            .sampled
+            .a
+            .resolve_target
             .as_ref()
             .map(|sampled| &sampled.default_view)
     }
@@ -328,13 +322,13 @@ impl ViewTarget {
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
             PostProcessWrite {
-                source: &self.main_textures.a.default_view,
-                destination: &self.main_textures.b.default_view,
+                source: &self.main_textures.a.texture.default_view,
+                destination: &self.main_textures.b.texture.default_view,
             }
         } else {
             PostProcessWrite {
-                source: &self.main_textures.b.default_view,
-                destination: &self.main_textures.a.default_view,
+                source: &self.main_textures.b.texture.default_view,
+                destination: &self.main_textures.a.texture.default_view,
             }
         }
     }
@@ -343,7 +337,7 @@ impl ViewTarget {
 #[derive(Component)]
 pub struct ViewDepthTexture {
     pub texture: Texture,
-    pub attachment: DepthAttachment,
+    attachment: DepthAttachment,
 }
 
 impl ViewDepthTexture {
@@ -352,6 +346,10 @@ impl ViewDepthTexture {
             texture: texture.texture,
             attachment: DepthAttachment::new(texture.default_view, clear_value),
         }
+    }
+
+    pub fn get_attachment(&self, store: bool) -> RenderPassDepthStencilAttachment {
+        self.attachment.get_attachment(store)
     }
 }
 
@@ -428,7 +426,6 @@ pub fn prepare_view_uniforms(
 struct MainTargetTextures {
     a: ColorAttachment,
     b: ColorAttachment,
-    sampled: Option<CachedTexture>,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -440,6 +437,7 @@ fn prepare_view_targets(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
+    clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
@@ -462,6 +460,11 @@ fn prepare_view_targets(
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
                     TextureFormat::bevy_default()
+                };
+
+                let clear_color = match camera.clear_color {
+                    ClearColorConfig::Custom(color) => color,
+                    _ => clear_color_global.0,
                 };
 
                 let main_textures = textures
@@ -516,9 +519,8 @@ fn prepare_view_targets(
                             None
                         };
                         MainTargetTextures {
-                            a,
-                            b,
-                            sampled,
+                            a: ColorAttachment::new(a, sampled.clone(), clear_color),
+                            b: ColorAttachment::new(b, sampled, clear_color),
                             main_texture: Arc::new(AtomicUsize::new(0)),
                         }
                     });

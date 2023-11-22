@@ -7,6 +7,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
+    color::Color,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::BindGroupEntries,
     renderer::RenderContext,
@@ -84,10 +85,14 @@ impl Node for MsaaWritebackNode {
                 // The target's "resolve target" is the "destination" in post_process
                 // We will indirectly write the results to the "destination" using
                 // the MSAA resolve step.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Clear(Default::default()),
-                    store: true,
-                }))],
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: todo!("What goes here?"),
+                    resolve_target: Some(&post_process.destination),
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK.into()),
+                        store: true,
+                    },
+                })],
                 depth_stencil_attachment: None,
             };
 

@@ -2,7 +2,6 @@
 
 pub mod blit;
 pub mod bloom;
-pub mod clear_color;
 pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
@@ -31,7 +30,6 @@ pub mod experimental {
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        clear_color::ClearColor,
         core_2d::{Camera2d, Camera2dBundle},
         core_3d::{Camera3d, Camera3dBundle},
     };
@@ -40,7 +38,6 @@ pub mod prelude {
 use crate::{
     blit::BlitPlugin,
     bloom::BloomPlugin,
-    clear_color::{ClearColor, ClearColorConfig},
     contrast_adaptive_sharpening::CASPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,

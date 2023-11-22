@@ -1,6 +1,5 @@
 use crate::{
-    clear_color::{ClearColor, ClearColorConfig},
-    core_3d::{Camera3d, Opaque3d},
+    core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
@@ -8,16 +7,14 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
-    render_resource::{
-        LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    },
+    render_resource::{PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::{AlphaMask3d, Camera3dDepthLoadOp};
+use super::AlphaMask3d;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
 #[derive(Default)]
@@ -27,7 +24,6 @@ impl ViewNode for MainOpaquePass3dNode {
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3d>,
         &'static RenderPhase<AlphaMask3d>,
-        &'static Camera3d,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static SkyboxPipelineId>,
@@ -43,7 +39,6 @@ impl ViewNode for MainOpaquePass3dNode {
             camera,
             opaque_phase,
             alpha_mask_phase,
-            camera_3d,
             target,
             depth,
             skybox_pipeline,
@@ -52,16 +47,6 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let load = if target.is_first_write() {
-            match camera_3d.clear_color {
-                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
-                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                ClearColorConfig::None => LoadOp::Load,
-            }
-        } else {
-            LoadOp::Load
-        };
-
         // Run the opaque pass, sorted front-to-back
         // NOTE: Scoped to drop the mutable borrow of render_context
         #[cfg(feature = "trace")]
@@ -70,12 +55,8 @@ impl ViewNode for MainOpaquePass3dNode {
         // Setup render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("main_opaque_pass_3d"),
-            // NOTE: The opaque pass loads the color
-            // buffer as well as writing to it.
-            color_attachments: &[Some(
-                target.get_color_attachment(Operations { load, store: true }),
-            )],
-            depth_stencil_attachment: Some(depth.attachment.get_attachment(true)),
+            color_attachments: &[Some(target.get_color_attachment())],
+            depth_stencil_attachment: Some(depth.get_attachment(true)),
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {

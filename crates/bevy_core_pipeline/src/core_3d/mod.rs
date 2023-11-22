@@ -32,11 +32,7 @@ pub const CORE_3D: &str = graph::NAME;
 // PERF: vulkan docs recommend using 24 bit depth for better performance
 pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-use std::{
-    cmp::Reverse,
-    ops::Range,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::{cmp::Reverse, ops::Range};
 
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -46,6 +42,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
+    color::Color,
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
@@ -58,7 +55,7 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, TextureCache},
+    texture::{BevyDefault, ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -830,15 +827,16 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture,
-            normal: cached_normals_texture,
-            motion_vectors: cached_motion_vectors_texture,
-            deferred: cached_deferred_texture,
+            depth: cached_depth_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+            normal: cached_normals_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+            // Red and Green channels are X and Y components of the motion vectors
+            // Blue channel doesn't matter, but set to 0.0 for possible faster clear
+            // https://gpuopen.com/performance/#clears
+            motion_vectors: cached_motion_vectors_texture
+                .map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+            deferred: cached_deferred_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
             deferred_lighting_pass_id: deferred_lighting_pass_id_texture,
             size,
-            first_normal_write: Arc::new(AtomicBool::new(true)),
-            first_motion_vectors_write: Arc::new(AtomicBool::new(true)),
-            first_deferred_write: Arc::new(AtomicBool::new(true)),
         });
     }
 }

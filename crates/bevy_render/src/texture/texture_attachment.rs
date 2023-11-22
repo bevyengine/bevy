@@ -10,7 +10,7 @@ use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencil
 #[derive(Clone)]
 pub struct ColorAttachment {
     pub texture: CachedTexture,
-    pub resolve_target: Option<TextureView>,
+    pub resolve_target: Option<CachedTexture>,
     clear_color: Color,
     is_first_call: Arc<AtomicBool>,
 }
@@ -18,7 +18,7 @@ pub struct ColorAttachment {
 impl ColorAttachment {
     pub fn new(
         texture: CachedTexture,
-        resolve_target: Option<TextureView>,
+        resolve_target: Option<CachedTexture>,
         clear_color: Color,
     ) -> Self {
         Self {
@@ -38,7 +38,28 @@ impl ColorAttachment {
 
         RenderPassColorAttachment {
             view: &self.texture.default_view,
-            resolve_target: self.resolve_target.as_deref(),
+            resolve_target: self.resolve_target.as_ref().map(|t| &*t.default_view),
+            ops: Operations {
+                load: if first_call {
+                    LoadOp::Clear(self.clear_color.into())
+                } else {
+                    LoadOp::Load
+                },
+                store: true,
+            },
+        }
+    }
+
+    /// Get this texture view as an attachment, without the resolve target. The attachment will be cleared with
+    /// a value of `clear_color` if this is the first time calling this function, otherwise the it will be loaded.
+    ///
+    /// The returned attachment will always have writing enabled (`store: true`).
+    pub fn get_unsampled_attachment(&self) -> RenderPassColorAttachment {
+        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+
+        RenderPassColorAttachment {
+            view: &self.texture.default_view,
+            resolve_target: None,
             ops: Operations {
                 load: if first_call {
                     LoadOp::Clear(self.clear_color.into())
