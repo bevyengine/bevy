@@ -270,11 +270,10 @@ impl FromWorld for Mesh2dPipeline {
 
         let mesh_layout = render_device.create_bind_group_layout(
             "mesh2d_layout",
-            &[GpuArrayBuffer::<Mesh2dUniform>::binding_layout(
-                0,
+            &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX_FRAGMENT,
-                render_device,
-            )],
+                GpuArrayBuffer::<Mesh2dUniform>::binding_layout(render_device),
+            ),
         );
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {

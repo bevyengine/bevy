@@ -17,30 +17,18 @@ mod layout_entry {
     use crate::MeshUniform;
     use bevy_render::{
         render_resource::{
-            BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, GpuArrayBuffer,
-            ShaderStages, TextureSampleType, TextureViewDimension,
+            binding_types::uniform_buffer, BindGroupLayoutEntry, BindingType, BufferSize,
+            GpuArrayBuffer, ShaderStages, TextureSampleType, TextureViewDimension,
         },
         renderer::RenderDevice,
     };
 
     fn buffer(binding: u32, size: u64, visibility: ShaderStages) -> BindGroupLayoutEntry {
-        BindGroupLayoutEntry {
-            binding,
-            visibility,
-            count: None,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: BufferSize::new(size),
-            },
-        }
+        uniform_buffer(true, BufferSize::new(size)).build(binding, visibility)
     }
     pub(super) fn model(render_device: &RenderDevice, binding: u32) -> BindGroupLayoutEntry {
-        GpuArrayBuffer::<MeshUniform>::binding_layout(
-            binding,
-            ShaderStages::VERTEX_FRAGMENT,
-            render_device,
-        )
+        GpuArrayBuffer::<MeshUniform>::binding_layout(render_device)
+            .build(binding, ShaderStages::VERTEX_FRAGMENT)
     }
     pub(super) fn skinning(binding: u32) -> BindGroupLayoutEntry {
         buffer(binding, JOINT_BUFFER_SIZE as u64, ShaderStages::VERTEX)
