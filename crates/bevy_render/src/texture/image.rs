@@ -110,7 +110,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
-    /// If false, this asset will be unloaded from `Assets<Image>` via `remove_untracked()`
+    /// If false, this asset will be unloaded from `Assets<Image>` via `remove()`
     /// once it has been uploaded to the GPU.
     ///
     /// This saves on RAM usage by not keeping a redundant copy of the image in memory once

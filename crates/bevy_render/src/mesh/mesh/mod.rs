@@ -121,7 +121,7 @@ pub struct Mesh {
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
-    /// If false, this asset will be unloaded from `Assets<Mesh>` via `remove_untracked()`
+    /// If false, this asset will be unloaded from `Assets<Mesh>` via `remove()`
     /// once it has been uploaded to the GPU.
     ///
     /// This saves on RAM usage by not keeping a redundant copy of the mesh in memory once
