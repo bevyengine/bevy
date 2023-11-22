@@ -175,17 +175,26 @@ impl Time<Fixed> {
         self.context().overstep
     }
 
+    /// Discard a part of the overstep amount.
+    ///
+    /// If `discard` is higher than overstep, the overstep becomes zero.
+    #[inline]
+    pub fn discard_overstep(&mut self, discard: Duration) {
+        let context = self.context_mut();
+        context.overstep = context.overstep.saturating_sub(discard);
+    }
+
     /// Returns the amount of overstep time accumulated toward new steps, as an
     /// [`f32`] fraction of the timestep.
     #[inline]
-    pub fn overstep_percentage(&self) -> f32 {
+    pub fn overstep_fraction(&self) -> f32 {
         self.context().overstep.as_secs_f32() / self.context().timestep.as_secs_f32()
     }
 
     /// Returns the amount of overstep time accumulated toward new steps, as an
     /// [`f64`] fraction of the timestep.
     #[inline]
-    pub fn overstep_percentage_f64(&self) -> f64 {
+    pub fn overstep_fraction_f64(&self) -> f64 {
         self.context().overstep.as_secs_f64() / self.context().timestep.as_secs_f64()
     }
 
@@ -265,56 +274,56 @@ mod test {
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
         assert_eq!(time.overstep(), Duration::from_secs(1));
-        assert_eq!(time.overstep_percentage(), 0.5);
-        assert_eq!(time.overstep_percentage_f64(), 0.5);
+        assert_eq!(time.overstep_fraction(), 0.5);
+        assert_eq!(time.overstep_fraction_f64(), 0.5);
 
         assert!(!time.expend()); // false
 
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
         assert_eq!(time.overstep(), Duration::from_secs(1));
-        assert_eq!(time.overstep_percentage(), 0.5);
-        assert_eq!(time.overstep_percentage_f64(), 0.5);
+        assert_eq!(time.overstep_fraction(), 0.5);
+        assert_eq!(time.overstep_fraction_f64(), 0.5);
 
         time.accumulate(Duration::from_secs(1));
 
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
         assert_eq!(time.overstep(), Duration::from_secs(2));
-        assert_eq!(time.overstep_percentage(), 1.0);
-        assert_eq!(time.overstep_percentage_f64(), 1.0);
+        assert_eq!(time.overstep_fraction(), 1.0);
+        assert_eq!(time.overstep_fraction_f64(), 1.0);
 
         assert!(time.expend()); // true
 
         assert_eq!(time.delta(), Duration::from_secs(2));
         assert_eq!(time.elapsed(), Duration::from_secs(2));
         assert_eq!(time.overstep(), Duration::ZERO);
-        assert_eq!(time.overstep_percentage(), 0.0);
-        assert_eq!(time.overstep_percentage_f64(), 0.0);
+        assert_eq!(time.overstep_fraction(), 0.0);
+        assert_eq!(time.overstep_fraction_f64(), 0.0);
 
         assert!(!time.expend()); // false
 
         assert_eq!(time.delta(), Duration::from_secs(2));
         assert_eq!(time.elapsed(), Duration::from_secs(2));
         assert_eq!(time.overstep(), Duration::ZERO);
-        assert_eq!(time.overstep_percentage(), 0.0);
-        assert_eq!(time.overstep_percentage_f64(), 0.0);
+        assert_eq!(time.overstep_fraction(), 0.0);
+        assert_eq!(time.overstep_fraction_f64(), 0.0);
 
         time.accumulate(Duration::from_secs(1));
 
         assert_eq!(time.delta(), Duration::from_secs(2));
         assert_eq!(time.elapsed(), Duration::from_secs(2));
         assert_eq!(time.overstep(), Duration::from_secs(1));
-        assert_eq!(time.overstep_percentage(), 0.5);
-        assert_eq!(time.overstep_percentage_f64(), 0.5);
+        assert_eq!(time.overstep_fraction(), 0.5);
+        assert_eq!(time.overstep_fraction_f64(), 0.5);
 
         assert!(!time.expend()); // false
 
         assert_eq!(time.delta(), Duration::from_secs(2));
         assert_eq!(time.elapsed(), Duration::from_secs(2));
         assert_eq!(time.overstep(), Duration::from_secs(1));
-        assert_eq!(time.overstep_percentage(), 0.5);
-        assert_eq!(time.overstep_percentage_f64(), 0.5);
+        assert_eq!(time.overstep_fraction(), 0.5);
+        assert_eq!(time.overstep_fraction_f64(), 0.5);
     }
 
     #[test]

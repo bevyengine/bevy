@@ -26,7 +26,6 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        color: Color::ANTIQUE_WHITE,
         font_size: 20.,
         ..default()
     };

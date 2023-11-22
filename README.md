@@ -48,8 +48,11 @@ Before contributing or participating in discussions with the community, you shou
 * **[GitHub Discussions](https://github.com/bevyengine/bevy/discussions):** The best place for questions about Bevy, answered right here!
 * **[Bevy Assets](https://bevyengine.org/assets/):** A collection of awesome Bevy projects, tools, plugins and learning materials.
 
+### Contributing
+
 If you'd like to help build Bevy, check out the **[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
-For simple problems, feel free to open an issue or PR and tackle it yourself!
+For simple problems, feel free to [open an issue](https://github.com/bevyengine/bevy/issues) or
+[PR](https://github.com/bevyengine/bevy/pulls) and tackle it yourself!
 
 For more complex architecture decisions and experimental mad science, please open an [RFC](https://github.com/bevyengine/rfcs) (Request For Comments) so we can brainstorm together effectively!
 

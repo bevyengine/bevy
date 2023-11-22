@@ -1,7 +1,8 @@
-#import bevy_pbr::mesh_types
-#import bevy_pbr::mesh_view_bindings  globals
-#import bevy_pbr::prepass_utils
-#import bevy_pbr::forward_io  VertexOutput
+#import bevy_pbr::{
+    mesh_view_bindings::globals,
+    prepass_utils,
+    forward_io::VertexOutput,
+}
 
 struct ShowPrepassSettings {
     show_depth: u32,

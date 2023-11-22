@@ -6,10 +6,12 @@ use bevy_ecs::{
     schedule::SystemConfigs,
     system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{thiserror::Error, HashMap, HashSet};
 use std::marker::PhantomData;
 
+#[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
+    #[error("Failed to prepare asset")]
     RetryNextUpdate(E),
 }
 

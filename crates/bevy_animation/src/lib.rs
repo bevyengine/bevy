@@ -1,7 +1,6 @@
 //! Animation for the game engine Bevy
 
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 
 use std::ops::Deref;
 use std::time::Duration;
@@ -123,7 +122,7 @@ impl AnimationClip {
 }
 
 /// Repetition behavior of an animation.
-#[derive(Reflect, Copy, Clone, Default)]
+#[derive(Reflect, Debug, PartialEq, Eq, Copy, Clone, Default)]
 pub enum RepeatAnimation {
     /// The animation will finish after running once.
     #[default]
@@ -134,7 +133,7 @@ pub enum RepeatAnimation {
     Forever,
 }
 
-#[derive(Reflect)]
+#[derive(Debug, Reflect)]
 struct PlayingAnimation {
     repeat: RepeatAnimation,
     speed: f32,
@@ -190,15 +189,20 @@ impl PlayingAnimation {
         self.elapsed += delta;
         self.seek_time += delta * self.speed;
 
-        if (self.seek_time > clip_duration && self.speed > 0.0)
-            || (self.seek_time < 0.0 && self.speed < 0.0)
-        {
-            self.completions += 1;
-        }
+        let over_time = self.speed > 0.0 && self.seek_time >= clip_duration;
+        let under_time = self.speed < 0.0 && self.seek_time < 0.0;
 
+        if over_time || under_time {
+            self.completions += 1;
+
+            if self.is_finished() {
+                return;
+            }
+        }
         if self.seek_time >= clip_duration {
             self.seek_time %= clip_duration;
         }
+        // Note: assumes delta is never lower than -clip_duration
         if self.seek_time < 0.0 {
             self.seek_time += clip_duration;
         }
@@ -642,6 +646,7 @@ fn apply_animation(
             let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
                 continue;
             };
+            // SAFETY: As above, there can't be other AnimationPlayers with this target so this fetch can't alias
             let mut morphs = unsafe { morphs.get_unchecked(target) };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform

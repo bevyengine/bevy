@@ -589,7 +589,7 @@ pub struct WindowResolution {
     physical_height: u32,
     /// Code-provided ratio of physical size to logical size.
     ///
-    /// Should be used instead `scale_factor` when set.
+    /// Should be used instead of `scale_factor` when set.
     scale_factor_override: Option<f64>,
     /// OS-provided ratio of physical size to logical size.
     ///

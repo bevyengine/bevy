@@ -4,7 +4,7 @@ use crate::{
     schedule::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
-        set::{BoxedSystemSet, IntoSystemSet, SystemSet},
+        set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
     system::{BoxedSystem, IntoSystem, System},
@@ -21,7 +21,7 @@ fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     Box::new(condition_system)
 }
 
-fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
+fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
     match &mut graph_info.ambiguous_with {
         detection @ Ambiguity::Check => {
             *detection = Ambiguity::IgnoreWithSet(vec![set]);
@@ -93,20 +93,20 @@ impl SystemConfigs {
 
 impl<T> NodeConfigs<T> {
     /// Adds a new boxed system set to the systems.
-    pub fn in_set_dyn(&mut self, set: BoxedSystemSet) {
+    pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 config.graph_info.sets.push(set);
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.in_set_dyn(set.dyn_clone());
+                    config.in_set_inner(set);
                 }
             }
         }
     }
 
-    fn before_inner(&mut self, set: BoxedSystemSet) {
+    fn before_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 config
@@ -116,13 +116,13 @@ impl<T> NodeConfigs<T> {
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.before_inner(set.dyn_clone());
+                    config.before_inner(set);
                 }
             }
         }
     }
 
-    fn after_inner(&mut self, set: BoxedSystemSet) {
+    fn after_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 config
@@ -132,7 +132,7 @@ impl<T> NodeConfigs<T> {
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.after_inner(set.dyn_clone());
+                    config.after_inner(set);
                 }
             }
         }
@@ -183,14 +183,14 @@ impl<T> NodeConfigs<T> {
         }
     }
 
-    fn ambiguous_with_inner(&mut self, set: BoxedSystemSet) {
+    fn ambiguous_with_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 ambiguous_with(&mut config.graph_info, set);
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.ambiguous_with_inner(set.dyn_clone());
+                    config.ambiguous_with_inner(set);
                 }
             }
         }
@@ -249,6 +249,39 @@ impl<T> NodeConfigs<T> {
 }
 
 /// Types that can convert into a [`SystemConfigs`].
+///
+/// This trait is implemented for "systems" (functions whose arguments all implement
+/// [`SystemParam`](crate::system::SystemParam)), or tuples thereof.
+/// It is a common entry point for system configurations.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # struct AppMock;
+/// # struct Update;
+/// # impl AppMock {
+/// #     pub fn add_systems<M>(
+/// #         &mut self,
+/// #         schedule: Update,
+/// #         systems: impl IntoSystemConfigs<M>,
+/// #    ) -> &mut Self { self }
+/// # }
+/// # let mut app = AppMock;
+///
+/// fn handle_input() {}
+///
+/// fn update_camera() {}
+/// fn update_character() {}
+///
+/// app.add_systems(
+///     Update,
+///     (
+///         handle_input,
+///         (update_camera, update_character).after(handle_input)
+///     )
+/// );
+/// ```
 pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
@@ -268,6 +301,9 @@ where
     ///
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
+    ///
+    /// Note: The given set is not implicitly added to the schedule when this system set is added.
+    /// It is safe, but no dependencies will be created.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
@@ -277,6 +313,9 @@ where
     ///
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
+    ///
+    /// Note: The given set is not implicitly added to the schedule when this system set is added.
+    /// It is safe, but no dependencies will be created.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
@@ -410,20 +449,20 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             "adding arbitrary systems to a system type set is not allowed"
         );
 
-        self.in_set_dyn(set.dyn_clone());
+        self.in_set_inner(set.intern());
 
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.before_inner(set.dyn_clone());
+        self.before_inner(set.intern());
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.after_inner(set.dyn_clone());
+        self.after_inner(set.intern());
         self
     }
 
@@ -446,7 +485,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.ambiguous_with_inner(set.dyn_clone());
+        self.ambiguous_with_inner(set.intern());
         self
     }
 
@@ -494,11 +533,11 @@ macro_rules! impl_system_collection {
 all_tuples!(impl_system_collection, 1, 20, P, S);
 
 /// A [`SystemSet`] with scheduling metadata.
-pub type SystemSetConfig = NodeConfig<BoxedSystemSet>;
+pub type SystemSetConfig = NodeConfig<InternedSystemSet>;
 
 impl SystemSetConfig {
     #[track_caller]
-    pub(super) fn new(set: BoxedSystemSet) -> Self {
+    pub(super) fn new(set: InternedSystemSet) -> Self {
         // system type sets are automatically populated
         // to avoid unintentionally broad changes, they cannot be configured
         assert!(
@@ -515,7 +554,7 @@ impl SystemSetConfig {
 }
 
 /// A collection of [`SystemSetConfig`].
-pub type SystemSetConfigs = NodeConfigs<BoxedSystemSet>;
+pub type SystemSetConfigs = NodeConfigs<InternedSystemSet>;
 
 /// Types that can convert into a [`SystemSetConfigs`].
 pub trait IntoSystemSetConfigs
@@ -614,21 +653,21 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
-        self.in_set_dyn(set.dyn_clone());
+        self.in_set_inner(set.intern());
 
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.before_inner(set.dyn_clone());
+        self.before_inner(set.intern());
 
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.after_inner(set.dyn_clone());
+        self.after_inner(set.intern());
 
         self
     }
@@ -655,7 +694,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.ambiguous_with_inner(set.dyn_clone());
+        self.ambiguous_with_inner(set.intern());
 
         self
     }
@@ -673,13 +712,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
 impl<S: SystemSet> IntoSystemSetConfigs for S {
     fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::NodeConfig(SystemSetConfig::new(Box::new(self)))
-    }
-}
-
-impl IntoSystemSetConfigs for BoxedSystemSet {
-    fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::NodeConfig(SystemSetConfig::new(self))
+        SystemSetConfigs::NodeConfig(SystemSetConfig::new(self.intern()))
     }
 }
 

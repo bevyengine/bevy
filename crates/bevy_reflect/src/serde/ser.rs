@@ -68,7 +68,22 @@ impl<'a> Serialize for ReflectSerializer<'a> {
     {
         let mut state = serializer.serialize_map(Some(1))?;
         state.serialize_entry(
-            self.value.reflect_type_path(),
+            self.value
+                .get_represented_type_info()
+                .ok_or_else(|| {
+                    if self.value.is_dynamic() {
+                        Error::custom(format_args!(
+                            "cannot serialize dynamic value without represented type: {}",
+                            self.value.reflect_type_path()
+                        ))
+                    } else {
+                        Error::custom(format_args!(
+                            "cannot get type info for {}",
+                            self.value.reflect_type_path()
+                        ))
+                    }
+                })?
+                .type_path(),
             &TypedReflectSerializer::new(self.value, self.registry),
         )?;
         state.end()
@@ -197,7 +212,7 @@ impl<'a> Serialize for StructSerializer<'a> {
 
         for (index, value) in self.struct_value.iter_fields().enumerate() {
             if serialization_data
-                .map(|data| data.is_ignored_field(index))
+                .map(|data| data.is_field_skipped(index))
                 .unwrap_or(false)
             {
                 continue;
@@ -250,7 +265,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
 
         for (index, value) in self.tuple_struct.iter_fields().enumerate() {
             if serialization_data
-                .map(|data| data.is_ignored_field(index))
+                .map(|data| data.is_field_skipped(index))
                 .unwrap_or(false)
             {
                 continue;

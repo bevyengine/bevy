@@ -105,7 +105,7 @@ impl TextureAtlasBuilder {
         let rect_height = (packed_location.height() - padding.y) as usize;
         let rect_x = packed_location.x() as usize;
         let rect_y = packed_location.y() as usize;
-        let atlas_width = atlas_texture.texture_descriptor.size.width as usize;
+        let atlas_width = atlas_texture.width() as usize;
         let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
@@ -247,10 +247,7 @@ impl TextureAtlasBuilder {
             self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
-            size: Vec2::new(
-                atlas_texture.texture_descriptor.size.width as f32,
-                atlas_texture.texture_descriptor.size.height as f32,
-            ),
+            size: atlas_texture.size_f32(),
             texture: textures.add(atlas_texture),
             textures: texture_rects,
             texture_handles: Some(texture_ids),

@@ -496,6 +496,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::ron;
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
     use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
@@ -504,7 +505,7 @@ mod tests {
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
     use bevy_reflect::{Reflect, ReflectSerialize};
-    use bevy_utils::HashMap;
+    use bevy_utils::EntityHashMap;
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -678,7 +679,7 @@ mod tests {
             "expected `entities` to contain 3 entities"
         );
 
-        let mut map = HashMap::default();
+        let mut map = EntityHashMap::default();
         let mut dst_world = create_world();
         scene.write_to_world(&mut dst_world, &mut map).unwrap();
 
@@ -717,7 +718,7 @@ mod tests {
 
         let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let mut map = HashMap::default();
+        let mut map = EntityHashMap::default();
         let mut dst_world = create_world();
         deserialized_scene
             .write_to_world(&mut dst_world, &mut map)

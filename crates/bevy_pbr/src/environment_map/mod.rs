@@ -6,10 +6,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
-    render_resource::{
-        BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType,
-        Shader, ShaderStages, TextureSampleType, TextureViewDimension,
-    },
+    render_resource::*,
     texture::{FallbackImageCubemap, Image},
 };
 
@@ -46,7 +43,8 @@ impl Plugin for EnvironmentMapPlugin {
 /// The diffuse map uses the Lambertian distribution, and the specular map uses the GGX distribution.
 ///
 /// `KhronosGroup` also has several prefiltered environment maps that can be found [here](https://github.com/KhronosGroup/glTF-Sample-Environments).
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, Clone, ExtractComponent)]
+#[extract_component_filter(With<Camera3d>)]
 pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,
     pub specular_map: Handle<Image>,
@@ -60,22 +58,11 @@ impl EnvironmentMapLight {
     }
 }
 
-impl ExtractComponent for EnvironmentMapLight {
-    type Query = &'static Self;
-    type Filter = With<Camera3d>;
-    type Out = Self;
-
-    fn extract_component(item: bevy_ecs::query::QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        Some(item.clone())
-    }
-}
-
 pub fn get_bindings<'a>(
     environment_map_light: Option<&EnvironmentMapLight>,
     images: &'a RenderAssets<Image>,
     fallback_image_cubemap: &'a FallbackImageCubemap,
-    bindings: [u32; 3],
-) -> [BindGroupEntry<'a>; 3] {
+) -> (&'a TextureView, &'a TextureView, &'a Sampler) {
     let (diffuse_map, specular_map) = match (
         environment_map_light.and_then(|env_map| images.get(&env_map.diffuse_map)),
         environment_map_light.and_then(|env_map| images.get(&env_map.specular_map)),
@@ -89,20 +76,7 @@ pub fn get_bindings<'a>(
         ),
     };
 
-    [
-        BindGroupEntry {
-            binding: bindings[0],
-            resource: BindingResource::TextureView(diffuse_map),
-        },
-        BindGroupEntry {
-            binding: bindings[1],
-            resource: BindingResource::TextureView(specular_map),
-        },
-        BindGroupEntry {
-            binding: bindings[2],
-            resource: BindingResource::Sampler(&fallback_image_cubemap.sampler),
-        },
-    ]
+    (diffuse_map, specular_map, &fallback_image_cubemap.sampler)
 }
 
 pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntry; 3] {

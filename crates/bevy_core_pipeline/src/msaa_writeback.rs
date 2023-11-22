@@ -8,6 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_resource::BindGroupEntries,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
     Render, RenderSet,
@@ -90,23 +91,11 @@ impl Node for MsaaWritebackNode {
                 depth_stencil_attachment: None,
             };
 
-            let bind_group =
-                render_context
-                    .render_device()
-                    .create_bind_group(&BindGroupDescriptor {
-                        label: None,
-                        layout: &blit_pipeline.texture_bind_group,
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                resource: BindingResource::TextureView(post_process.source),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::Sampler(&blit_pipeline.sampler),
-                            },
-                        ],
-                    });
+            let bind_group = render_context.render_device().create_bind_group(
+                None,
+                &blit_pipeline.texture_bind_group,
+                &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),
+            );
 
             let mut render_pass = render_context
                 .command_encoder()
