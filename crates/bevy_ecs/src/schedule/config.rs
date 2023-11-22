@@ -138,7 +138,7 @@ impl<T> NodeConfigs<T> {
         }
     }
 
-    fn before_ignore_deferred_inner(&mut self, set: BoxedSystemSet) {
+    fn before_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 config
@@ -148,13 +148,13 @@ impl<T> NodeConfigs<T> {
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.before_ignore_deferred_inner(set.dyn_clone());
+                    config.before_ignore_deferred_inner(set.intern());
                 }
             }
         }
     }
 
-    fn after_ignore_deferred_inner(&mut self, set: BoxedSystemSet) {
+    fn after_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 config
@@ -164,7 +164,7 @@ impl<T> NodeConfigs<T> {
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.after_ignore_deferred_inner(set.dyn_clone());
+                    config.after_ignore_deferred_inner(set.intern());
                 }
             }
         }
@@ -468,13 +468,13 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn before_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.before_ignore_deferred_inner(set.dyn_clone());
+        self.before_ignore_deferred_inner(set.intern());
         self
     }
 
     fn after_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.after_ignore_deferred_inner(set.dyn_clone());
+        self.after_ignore_deferred_inner(set.intern());
         self
     }
 
@@ -674,14 +674,14 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
     fn before_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.before_ignore_deferred_inner(set.dyn_clone());
+        self.before_ignore_deferred_inner(set.intern());
 
         self
     }
 
     fn after_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.after_ignore_deferred_inner(set.dyn_clone());
+        self.after_ignore_deferred_inner(set.intern());
 
         self
     }
