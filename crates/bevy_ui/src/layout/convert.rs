@@ -236,6 +236,7 @@ impl From<Display> for taffy::style::Display {
         match value {
             Display::Flex => taffy::style::Display::Flex,
             Display::Grid => taffy::style::Display::Grid,
+            Display::Block => taffy::style::Display::Block,
             Display::None => taffy::style::Display::None,
         }
     }

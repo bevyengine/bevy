@@ -770,10 +770,12 @@ impl Default for Direction {
     reflect(Serialize, Deserialize)
 )]
 pub enum Display {
-    /// Use Flexbox layout model to determine the position of this [`Node`].
+    /// Use Flexbox layout model to determine the position of this [`Node`]'s children.
     Flex,
-    /// Use CSS Grid layout model to determine the position of this [`Node`].
+    /// Use CSS Grid layout model to determine the position of this [`Node`]'s children.
     Grid,
+    /// Use CSS Block layout model to determine the position of this [`Node`]'s children.
+    Block,
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
