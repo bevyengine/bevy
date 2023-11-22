@@ -292,14 +292,14 @@ where
         }
 
         // Add any custom shader definitions as appropriate.
-        shader_defs.extend(key.mipmapper.shader_defs().into_iter());
+        shader_defs.extend(key.mipmapper.shader_defs());
 
         // Build the descriptor.
         RenderPipelineDescriptor {
             label: Some(if key.first {
-                Cow::Owned(M::debug_names().first_pipeline.clone().into())
+                Cow::Owned(M::debug_names().first_pipeline.clone())
             } else {
-                Cow::Owned(M::debug_names().rest_pipeline.clone().into())
+                Cow::Owned(M::debug_names().rest_pipeline.clone())
             }),
             layout: vec![
                 self.image_bind_group_layout.clone(),
