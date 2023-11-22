@@ -562,11 +562,20 @@ header_message = \"Examples ({})\"
                 let sh = Shell::new().unwrap();
 
                 // setting a canvas by default to help with integration
-                cmd!(sh, "sed -i.bak 's/canvas: None,/canvas: Some(\"#bevy\".to_string()),/' crates/bevy_window/src/window.rs").run().unwrap();
-                cmd!(sh, "sed -i.bak 's/fit_canvas_to_parent: false,/fit_canvas_to_parent: true,/' crates/bevy_window/src/window.rs").run().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/window-settings-wasm.patch"
+                )
+                .run()
+                .unwrap();
 
                 // setting the asset folder root to the root url of this domain
-                cmd!(sh, "sed -i.bak 's/asset_folder: \"assets\"/asset_folder: \"\\/assets\\/examples\\/\"/' crates/bevy_asset/src/lib.rs").run().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/asset-source-website.patch"
+                )
+                .run()
+                .unwrap();
             }
 
             let work_to_do = || {
@@ -581,17 +590,26 @@ header_message = \"Examples ({})\"
             for to_build in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_build.technical_name;
+                let required_features = if to_build.required_features.is_empty() {
+                    vec![]
+                } else {
+                    vec![
+                        "--features".to_string(),
+                        to_build.required_features.join(","),
+                    ]
+                };
+
                 if optimize_size {
                     cmd!(
                         sh,
-                        "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size"
+                        "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size {required_features...}"
                     )
                     .run()
                     .unwrap();
                 } else {
                     cmd!(
                         sh,
-                        "cargo run -p build-wasm-example -- --api {api} {example}"
+                        "cargo run -p build-wasm-example -- --api {api} {example} {required_features...}"
                     )
                     .run()
                     .unwrap();

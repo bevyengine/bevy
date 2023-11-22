@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.70.0"
+rust-version = "1.74.0"
 
 [workspace]
 exclude = [
@@ -28,6 +28,14 @@ members = [
   "tools/example-showcase",
   "errors",
 ]
+
+[workspace.lints.clippy]
+type_complexity = "allow"
+doc_markdown = "warn"
+undocumented_unsafe_blocks = "warn"
+
+[lints]
+workspace = true
 
 [features]
 default = [
@@ -282,6 +290,7 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.12.0", default-fea
 [dev-dependencies]
 rand = "0.8.0"
 ron = "0.8.0"
+flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
@@ -1078,6 +1087,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_decompression"
+path = "examples/asset/asset_decompression.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_decompression]
+name = "Asset Decompression"
+description = "Demonstrates loading a compressed asset"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
 doc-scrape-examples = true
@@ -1109,7 +1129,7 @@ required-features = ["file_watcher"]
 name = "Hot Reloading of Assets"
 description = "Demonstrates automatic reloading of assets when modified on disk"
 category = "Assets"
-wasm = true
+wasm = false
 
 [[example]]
 name = "asset_processing"

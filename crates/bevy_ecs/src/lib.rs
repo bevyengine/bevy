@@ -1,6 +1,4 @@
-#![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -1724,5 +1722,23 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
     }
 }
