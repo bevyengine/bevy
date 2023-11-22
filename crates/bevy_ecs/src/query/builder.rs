@@ -200,7 +200,7 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
         &self.access
     }
 
-    /// Transmute the existing builder adding erquired accesses.
+    /// Transmute the existing builder adding required accesses.
     /// This will maintain all exisiting accesses.
     ///
     /// If including a filter type see [`Self::transmute_filtered`]
@@ -208,7 +208,7 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
         self.transmute_filtered::<NewQ, ()>()
     }
 
-    /// Transmute the existing builder adding erquired accesses.
+    /// Transmute the existing builder adding required accesses.
     /// This will maintain all existing accesses.
     pub fn transmute_filtered<NewQ: WorldQuery, NewF: ReadOnlyWorldQuery>(
         &mut self,
@@ -224,7 +224,7 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
 
         self.extend_access(access);
         // SAFETY:
-        // - We have included all requried acceses for NewQ and NewF
+        // - We have included all required acceses for NewQ and NewF
         // - The layout of all QueryBuilder instances is the same
         unsafe { std::mem::transmute(self) }
     }
