@@ -1,12 +1,12 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use glam::{Vec2, Vec3, Vec3A};
-
 use std::{
     fmt::Debug,
     iter::Sum,
     ops::{Add, Mul, Sub},
 };
+
+use glam::{Vec2, Vec3, Vec3A};
 
 /// A point in space of any dimension that supports the math ops needed for cubic spline
 /// interpolation.
@@ -283,6 +283,97 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
             .collect();
 
         CubicCurve { segments }
+    }
+}
+
+/// A Non-Uniform Rational B-Spline
+pub struct CubicNurbs<P: Point> {
+    control_points: Vec<P>,
+    weights: Vec<f32>,
+    knot_vector: Vec<f32>,
+}
+impl<P: Point> CubicNurbs<P> {
+    /// Generates a Non-Uniform Rational B-Spline.
+    ///
+    /// If provided, weights vector must have the same amount of items as the control points vector
+    ///
+    /// If provided, the knot vector must have n + 4 elements, where n is the amoutn of control
+    /// points
+    pub fn new(
+        control_points: impl Into<Vec<P>>,
+        weights: Option<impl Into<Vec<f32>>>,
+        knot_vector: Option<impl Into<Vec<f32>>>,
+    ) -> Self {
+        let control_points: Vec<P> = control_points.into();
+        let control_points_len = control_points.len();
+
+        let weights = weights
+            .map(Into::into)
+            .unwrap_or_else(|| vec![1.0; control_points_len]);
+
+        let knot_vector: Vec<f32> = knot_vector.map(Into::into).unwrap_or_else(|| {
+            let start_end_knots_multiplicity = 4;
+            // This iterator chain generates a default knot vector such that the curve passes through end
+            // and start points. It has start and end knots of multiplicity equal to the order of a
+            // curve (cubic curve has order of 4) with a step of 1 for knots inbetween.
+            std::iter::repeat(0.0)
+                .take(start_end_knots_multiplicity)
+                .chain((1..(control_points_len - 1)).map(|int_val| int_val as f32))
+                .chain(
+                    std::iter::repeat(control_points_len as f32).take(start_end_knots_multiplicity),
+                )
+                .collect()
+        });
+
+        let knot_vector_required_length = control_points_len + 4; // Number of control points +
+                                                                  // curve order
+
+        // Check the knot vector length
+        if knot_vector.len() != knot_vector_required_length {
+            // TODO: change to result
+            panic!(
+                "Invalid knot vector length: {knot_vector_required_length} expected, {} provided",
+                knot_vector.len()
+            );
+        }
+
+        // Check the knot vector for being nondescending (previous elements is less than or equal
+        // to the next)
+        {
+            let mut is_nondescending = true;
+
+            for window_slice in knot_vector.windows(2) {
+                let prev = window_slice[0];
+                let next = window_slice[1];
+                is_nondescending = is_nondescending && (prev <= next);
+            }
+
+            if !is_nondescending {
+                // TODO: change to result
+                panic!("Invalid knot vector, elements are not nondescending");
+            }
+        }
+
+        // Check the weights vector length
+        if weights.len() != control_points_len {
+            // TODO: change to result
+            panic!(
+                "Invalid weights vector length: {control_points_len} expected, {} provided",
+                weights.len()
+            );
+        }
+
+        Self {
+            control_points,
+            weights,
+            knot_vector,
+        }
+    }
+}
+impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
+    #[inline]
+    fn to_curve(&self) -> CubicCurve<P> {
+        todo!()
     }
 }
 
