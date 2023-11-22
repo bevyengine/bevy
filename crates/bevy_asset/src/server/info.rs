@@ -189,11 +189,12 @@ impl AssetInfos {
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
     ) -> Result<(UntypedHandle, bool), GetOrCreateHandleInternalError> {
-        // TODO: Need to re-work this to actually handle the None case
-        let type_id_unwrapped =
+        // TODO: It is not currently possible to create or get a `Handle` without the `type_id` parameter.
+        // This function should
+        let type_id =
             type_id.ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
 
-        match self.path_to_id.entry((path.clone(), type_id_unwrapped)) {
+        match self.path_to_id.entry((path.clone(), type_id)) {
             Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists
@@ -223,9 +224,6 @@ impl AssetInfos {
                     // We must create a new strong handle for the existing id and ensure that the drop of the old
                     // strong handle doesn't remove the asset from the Assets collection
                     info.handle_drops_to_skip += 1;
-                    let type_id = type_id.ok_or(
-                        GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified,
-                    )?;
                     let provider = self
                         .handle_providers
                         .get(&type_id)
@@ -242,8 +240,6 @@ impl AssetInfos {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
                 };
-                let type_id = type_id
-                    .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
                 let handle = Self::create_handle_internal(
                     &mut self.infos,
                     &self.handle_providers,
