@@ -9,7 +9,7 @@ pub enum AssetEvent<A: Asset> {
     Added { id: AssetId<A> },
     /// Emitted whenever an [`Asset`] value is modified.
     Modified { id: AssetId<A> },
-    /// Emitted whenever an [`Asset`] is removed.
+    /// Emitted whenever an [`Asset`] has no more [`super::Handle::Strong`]s.
     Removed { id: AssetId<A> },
     /// Emitted whenever an [`Asset`] has been fully loaded (including its dependencies and all "recursive dependencies").
     LoadedWithDependencies { id: AssetId<A> },
