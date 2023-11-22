@@ -483,6 +483,8 @@ impl<A: Asset> Assets<A> {
                 continue;
             }
 
+            // TODO: We don't want to send another asset removal event if the asset was manually removed
+            // by the user (without unloading for the case of RenderAssets)...
             if drop_event.asset_server_managed {
                 if infos.process_handle_drop(id.untyped(TypeId::of::<A>())) {
                     assets.remove_always_emit_event(id.typed());
