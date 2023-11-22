@@ -45,7 +45,7 @@ use bevy_ecs::schedule::State;
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource, Reflect)]
 #[reflect(Default)]
-pub struct Input<T: Clone + Eq + Hash + Send + Sync + 'static> {
+pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that has just been pressed.
@@ -54,7 +54,7 @@ pub struct Input<T: Clone + Eq + Hash + Send + Sync + 'static> {
     just_released: HashSet<T>,
 }
 
-impl<T: Clone + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
+impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -66,12 +66,12 @@ impl<T: Clone + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
 
 impl<T> Input<T>
 where
-    T: Clone + Eq + Hash + Send + Sync + 'static,
+    T: Copy + Eq + Hash + Send + Sync + 'static,
 {
     /// Registers a press for the given `input`.
     pub fn press(&mut self, input: T) {
         // Returns `true` if the `input` wasn't pressed.
-        if self.pressed.insert(input.clone()) {
+        if self.pressed.insert(input) {
             self.just_pressed.insert(input);
         }
     }

@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
