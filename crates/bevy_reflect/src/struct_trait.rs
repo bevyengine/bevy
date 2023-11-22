@@ -543,7 +543,12 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
 /// ```
 #[inline]
 pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let mut debug = f.debug_struct(dyn_struct.reflect_type_path());
+    let mut debug = f.debug_struct(
+        dyn_struct
+            .get_represented_type_info()
+            .map(|s| s.type_path())
+            .unwrap_or("Uknown"),
+    );
     for field_index in 0..dyn_struct.field_len() {
         let field = dyn_struct.field_at(field_index).unwrap();
         debug.field(
