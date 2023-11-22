@@ -16,7 +16,9 @@
 //! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
 
 pub mod aabb;
-mod arrows;
+pub mod arcs;
+pub mod arrows;
+pub mod circles;
 pub mod config;
 pub mod gizmos;
 
