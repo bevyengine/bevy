@@ -25,7 +25,6 @@ pub struct AssetHandleProvider {
 
 pub(crate) struct DropEvent {
     pub(crate) id: InternalAssetId,
-    pub(crate) last_strong_handle: bool,
     pub(crate) asset_server_managed: bool,
 }
 
@@ -91,6 +90,15 @@ pub struct StrongHandle {
     /// 2. configuration that must be repeatable when the asset is hot-reloaded
     pub(crate) meta_transform: Option<MetaTransform>,
     pub(crate) drop_sender: Sender<DropEvent>,
+}
+
+impl Drop for StrongHandle {
+    fn drop(&mut self) {
+        let _ = self.drop_sender.send(DropEvent {
+            id: self.id.internal(),
+            asset_server_managed: self.asset_server_managed,
+        });
+    }
 }
 
 impl std::fmt::Debug for StrongHandle {
@@ -185,18 +193,6 @@ impl<A: Asset> Handle<A> {
     #[inline]
     pub fn untyped(self) -> UntypedHandle {
         self.into()
-    }
-}
-
-impl<T: Asset> Drop for Handle<T> {
-    fn drop(&mut self) {
-        if let Self::Strong(strong_handle) = self {
-            let _ = strong_handle.drop_sender.send(DropEvent {
-                id: strong_handle.id.internal(),
-                last_strong_handle: Arc::strong_count(strong_handle) == 1,
-                asset_server_managed: strong_handle.asset_server_managed,
-            });
-        }
     }
 }
 

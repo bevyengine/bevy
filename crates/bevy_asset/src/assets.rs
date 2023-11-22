@@ -476,7 +476,9 @@ impl<A: Asset> Assets<A> {
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id;
 
-            if !drop_event.last_strong_handle {
+            // TODO: How to differentiate between the asset being unloaded with remove_untracked(),
+            // and the asset not being loaded yet?
+            if !assets.contains(id.typed()) {
                 not_ready.push(drop_event);
                 continue;
             }
