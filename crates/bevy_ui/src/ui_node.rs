@@ -896,8 +896,10 @@ impl Default for Overflow {
 pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
-    /// Hide overflowing items.
+    /// Hide overflowing items by clipping.
     Clip,
+    /// Hide overflowing items by influencing layout and then clipping.
+    Hidden,
 }
 
 impl OverflowAxis {

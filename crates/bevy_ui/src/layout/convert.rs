@@ -246,7 +246,7 @@ impl From<OverflowAxis> for taffy::style::Overflow {
         match value {
             OverflowAxis::Visible => taffy::style::Overflow::Visible,
             OverflowAxis::Clip => taffy::style::Overflow::Clip,
-            // TODO: Add OverflowAxis::Hidden to Bevy
+            OverflowAxis::Hidden => taffy::style::Overflow::Hidden,
         }
     }
 }
