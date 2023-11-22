@@ -319,7 +319,7 @@ pub fn winit_runner(mut app: App) {
         app.update();
     }
 
-    let mut event_loop = app
+    let event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()
         .unwrap();
@@ -486,13 +486,11 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::KeyboardInput { ref event, .. } => {
                         let keyboard_event =
                             converters::convert_keyboard_input(event, window_entity);
-                        if let bevy_input::keyboard::Key::Character(c) =
-                            converters::convert_logical_key_code(&event.logical_key)
-                        {
-                            if let Some(first_char) = c.chars().next() {
+                        if event.state.is_pressed() {
+                            if let winit::keyboard::Key::Character(c) = &event.logical_key {
                                 event_writers.character_input.send(ReceivedCharacter {
                                     window: window_entity,
-                                    char: first_char,
+                                    char: c.clone(),
                                 });
                             }
                         }

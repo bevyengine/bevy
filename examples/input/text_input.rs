@@ -169,7 +169,9 @@ fn listen_received_character_events(
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
     for event in events.read() {
-        edit_text.single_mut().sections[0].value.push(event.char);
+        edit_text.single_mut().sections[0]
+            .value
+            .push_str(&event.char);
     }
 }
 

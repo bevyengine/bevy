@@ -10,16 +10,15 @@ fn main() {
 }
 
 /// This system prints 'A' key state
-fn keyboard_input_system(keyboard_input: Res<Input<Key>>) {
-    if keyboard_input.pressed(Key::Character("a".into())) {
+fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.pressed(KeyCode::KeyA) {
         info!("'A' currently pressed");
     }
 
-    if keyboard_input.just_pressed(Key::Character("a".into())) {
+    if keyboard_input.just_pressed(KeyCode::KeyA) {
         info!("'A' just pressed");
     }
-
-    if keyboard_input.just_released(Key::Character("a".into())) {
+    if keyboard_input.just_released(KeyCode::KeyA) {
         info!("'A' just released");
     }
 }

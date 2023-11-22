@@ -4,6 +4,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::event::Event;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
+use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -172,7 +173,7 @@ pub struct ReceivedCharacter {
     /// Window that received the character.
     pub window: Entity,
     /// Received character.
-    pub char: char,
+    pub char: SmolStr,
 }
 
 /// A Input Method Editor event.
