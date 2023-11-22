@@ -2,42 +2,92 @@
 #![allow(clippy::type_complexity)]
 
 use bevy::{
-    hierarchy::{Index, IndexPlugin},
+    hierarchy::{Index, IndexPlugin, Indexer},
     prelude::*,
 };
-use std::hash::Hash;
 
-#[derive(Component, Hash, Clone, PartialEq, Eq, Debug)]
-struct Player(usize);
-
+/// Flag for an inventory item.
 #[derive(Component)]
-struct Head;
+struct Item;
 
+/// Represents something with an owner. Similar to parent-child relationships, but distinct.
 #[derive(Component)]
-struct Body;
+struct Owner(Entity);
+
+/// Flag for a player.
+#[derive(Component)]
+struct Player;
+
+/// Flag for an NPC.
+#[derive(Component)]
+struct Npc;
+
+/// Index [`Owner`] by the contained [`Entity`]
+struct OwnerIndexer;
+
+impl Indexer for OwnerIndexer {
+    type Input = Owner;
+
+    type Index = Entity;
+
+    fn index(input: &Self::Input) -> Self::Index {
+        input.0
+    }
+}
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(IndexPlugin::<Player>::default())
-        .add_systems(Startup, |mut commands: Commands| {
-            for player in 0..4 {
-                commands.spawn((Head, Player(player)));
-                commands.spawn((Body, Player(player)));
-            }
-        })
-        .add_systems(FixedUpdate, get_bodies_for_head)
+        // This will only index owned items
+        .add_plugins(IndexPlugin::<Owner, With<Item>, OwnerIndexer>::default())
+        .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, print_player_items)
         .run();
 }
 
-fn get_bodies_for_head(
-    heads: Query<(Entity, &Player), With<Head>>,
-    bodies: Query<Entity, With<Body>>,
-    mut index: Index<Player>,
-) {
-    for (head_entity, head_player) in heads.iter() {
-        for body_entity in index.get(head_player).flat_map(|entity| bodies.get(entity)) {
-            info!("{head_player:?}: {head_entity:?} <-> {body_entity:?}");
+fn setup(mut commands: Commands) {
+    // Spawn a single player with 10 items, all in their possession.
+    let mut player = commands.spawn(Player);
+    let player_id = player.id();
+
+    player.with_children(|builder| {
+        for _ in 0..10 {
+            builder.spawn((Item, Owner(builder.parent_entity())));
         }
+    });
+
+    // Spawn 100 NPCs with 10 items each.
+    for _ in 0..100 {
+        commands.spawn(Npc).with_children(|builder| {
+            for _ in 0..10 {
+                builder.spawn((Item, Owner(builder.parent_entity())));
+            }
+        });
     }
+
+    // This NPC is a thief! They're holding one of the player's items
+    commands.spawn(Npc).with_children(|builder| {
+        builder.spawn((Item, Owner(player_id)));
+    });
+}
+
+fn print_player_items(
+    player: Query<Entity, With<Player>>,
+    mut items_by_owner: Index<Owner, With<Item>, OwnerIndexer>,
+    mut printed: Local<bool>,
+) {
+    if *printed {
+        return;
+    }
+
+    // This is a single-player "game"
+    let player = player.single();
+
+    // With an index, their isn't a need for an "Owned" component, akin to "Children" for "Parent".
+    // Instead, we can ask the index itself for what entities are "Owned" by a particular entity.
+    let item_count = items_by_owner.get_by_index(&player).count();
+
+    info!("Player owns {item_count} item(s)");
+
+    *printed = true;
 }
