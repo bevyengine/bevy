@@ -66,7 +66,7 @@ pub struct AabbGizmoConfigGroup {
 pub struct ShowAabbGizmo {
     /// The color of the box.
     ///
-    /// The default color from the [`AabbGizmoGroup`] config is used if `None`,
+    /// The default color from the [`AabbGizmoConfigGroup`] config is used if `None`,
     pub color: Option<Color>,
 }
 
