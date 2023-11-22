@@ -48,13 +48,13 @@ use crate::{
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     msaa_writeback::MsaaWritebackPlugin,
-    prepass::{DepthPrepass, NormalPrepass},
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
-use bevy_render::{extract_resource::ExtractResourcePlugin, prelude::Shader};
+use bevy_render::prelude::Shader;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
@@ -68,13 +68,11 @@ impl Plugin for CorePipelinePlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<ClearColor>()
-            .register_type::<ClearColorConfig>()
-            .register_type::<DepthPrepass>()
+        app.register_type::<DepthPrepass>()
             .register_type::<NormalPrepass>()
-            .init_resource::<ClearColor>()
+            .register_type::<MotionVectorPrepass>()
+            .register_type::<DeferredPrepass>()
             .add_plugins((
-                ExtractResourcePlugin::<ClearColor>::default(),
                 Core2dPlugin,
                 Core3dPlugin,
                 CopyDeferredLightingIdPlugin,

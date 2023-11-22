@@ -1,13 +1,13 @@
-use crate::prelude::Color;
+use super::CachedTexture;
+use crate::{prelude::Color, render_resource::TextureView};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use wgpu::{
-    LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, TextureView,
-};
+use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment};
 
 /// A wrapper for a [CachedTexture] that is used as a [RenderPassColorAttachment].
+#[derive(Clone)]
 pub struct ColorAttachment {
     pub texture: CachedTexture,
     pub resolve_target: Option<TextureView>,
@@ -38,7 +38,7 @@ impl ColorAttachment {
 
         RenderPassColorAttachment {
             view: &self.texture.default_view,
-            resolve_target: self.resolve_target.as_ref(),
+            resolve_target: self.resolve_target.as_deref(),
             ops: Operations {
                 load: if first_call {
                     LoadOp::Clear(self.clear_color.into())
