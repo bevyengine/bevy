@@ -478,6 +478,7 @@ mod tests {
         primitive_value: i8,
         option_value: Option<String>,
         option_value_complex: Option<SomeStruct>,
+        option_none_value: Option<String>,
         tuple_value: (f32, usize),
         list_value: Vec<i32>,
         array_value: [i32; 5],
@@ -577,6 +578,7 @@ mod tests {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
+            option_none_value: None,
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
@@ -777,6 +779,7 @@ mod tests {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
+            option_none_value: None,
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
@@ -835,6 +838,7 @@ mod tests {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
+            option_none_value: None,
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
@@ -880,5 +884,115 @@ mod tests {
         ];
 
         assert_eq!(expected, bytes);
+    }
+
+    #[test]
+    fn should_serialize_json() {
+        let mut map = HashMap::new();
+        map.insert(64, 32);
+
+        let input = MyStruct {
+            primitive_value: 123,
+            option_value: Some(String::from("Hello world!")),
+            option_value_complex: Some(SomeStruct { foo: 123 }),
+            option_none_value: None,
+            tuple_value: (PI, 1337),
+            list_value: vec![-2, -1, 0, 1, 2],
+            array_value: [-2, -1, 0, 1, 2],
+            map_value: map,
+            struct_value: SomeStruct { foo: 999999999 },
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_struct: SomeUnitStruct,
+            unit_enum: SomeEnum::Unit,
+            newtype_enum: SomeEnum::NewType(123),
+            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
+            struct_enum: SomeEnum::Struct {
+                foo: String::from("Struct variant value"),
+            },
+            ignored_struct: SomeIgnoredStruct { ignored: 123 },
+            ignored_tuple_struct: SomeIgnoredTupleStruct(123),
+            ignored_struct_variant: SomeIgnoredEnum::Struct {
+                foo: String::from("Struct Variant"),
+            },
+            ignored_tuple_variant: SomeIgnoredEnum::Tuple(1.23, 3.45),
+            custom_serialize: CustomSerialize {
+                value: 100,
+                inner_struct: SomeSerializableStruct { foo: 101 },
+            },
+        };
+
+        let registry = get_registry();
+        let serializer = ReflectSerializer::new(&input, &registry);
+
+        let output = serde_json::to_string_pretty(&serializer).unwrap();
+        let expected = r#"{
+  "bevy_reflect::serde::ser::tests::MyStruct": {
+    "primitive_value": 123,
+    "option_value": "Hello world!",
+    "option_value_complex": {
+      "foo": 123
+    },
+    "option_none_value": null,
+    "tuple_value": [
+      3.1415927,
+      1337
+    ],
+    "list_value": [
+      -2,
+      -1,
+      0,
+      1,
+      2
+    ],
+    "array_value": [
+      -2,
+      -1,
+      0,
+      1,
+      2
+    ],
+    "map_value": {
+      "64": 32
+    },
+    "struct_value": {
+      "foo": 999999999
+    },
+    "tuple_struct_value": [
+      "Tuple Struct"
+    ],
+    "unit_struct": {},
+    "unit_enum": "Unit",
+    "newtype_enum": {
+      "NewType": 123
+    },
+    "tuple_enum": {
+      "Tuple": [
+        1.23,
+        3.21
+      ]
+    },
+    "struct_enum": {
+      "Struct": {
+        "foo": "Struct variant value"
+      }
+    },
+    "ignored_struct": {},
+    "ignored_tuple_struct": [],
+    "ignored_struct_variant": {
+      "Struct": {}
+    },
+    "ignored_tuple_variant": {
+      "Tuple": []
+    },
+    "custom_serialize": {
+      "value": 100,
+      "renamed": {
+        "foo": 101
+      }
+    }
+  }
+}"#;
+
+        assert_eq!(expected, output);
     }
 }
