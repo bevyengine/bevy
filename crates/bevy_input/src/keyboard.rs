@@ -1,5 +1,70 @@
 //! The keyboard input functionality.
 
+// This file contains a substantial portion of the UI Events Specification by the W3C. In
+// particular, the variant names within `KeyCode` and their documentation are modified
+// versions of contents of the aforementioned specification.
+//
+// The original documents are:
+//
+//
+// ### For `KeyCode`
+// UI Events KeyboardEvent code Values
+// https://www.w3.org/TR/2017/CR-uievents-code-20170601/
+// Copyright © 2017 W3C® (MIT, ERCIM, Keio, Beihang).
+//
+// These documents were used under the terms of the following license. This W3C license as well as
+// the W3C short notice apply to the `KeyCode` enums and their variants and the
+// documentation attached to their variants.
+
+// --------- BEGGINING OF W3C LICENSE --------------------------------------------------------------
+//
+// License
+//
+// By obtaining and/or copying this work, you (the licensee) agree that you have read, understood,
+// and will comply with the following terms and conditions.
+//
+// Permission to copy, modify, and distribute this work, with or without modification, for any
+// purpose and without fee or royalty is hereby granted, provided that you include the following on
+// ALL copies of the work or portions thereof, including modifications:
+//
+// - The full text of this NOTICE in a location viewable to users of the redistributed or derivative
+//   work.
+// - Any pre-existing intellectual property disclaimers, notices, or terms and conditions. If none
+//   exist, the W3C Software and Document Short Notice should be included.
+// - Notice of any changes or modifications, through a copyright statement on the new code or
+//   document such as "This software or document includes material copied from or derived from
+//   [title and URI of the W3C document]. Copyright © [YEAR] W3C® (MIT, ERCIM, Keio, Beihang)."
+//
+// Disclaimers
+//
+// THIS WORK IS PROVIDED "AS IS," AND COPYRIGHT HOLDERS MAKE NO REPRESENTATIONS OR WARRANTIES,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO, WARRANTIES OF MERCHANTABILITY OR FITNESS FOR
+// ANY PARTICULAR PURPOSE OR THAT THE USE OF THE SOFTWARE OR DOCUMENT WILL NOT INFRINGE ANY THIRD
+// PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS.
+//
+// COPYRIGHT HOLDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL OR CONSEQUENTIAL DAMAGES
+// ARISING OUT OF ANY USE OF THE SOFTWARE OR DOCUMENT.
+//
+// The name and trademarks of copyright holders may NOT be used in advertising or publicity
+// pertaining to the work without specific, written prior permission. Title to copyright in this
+// work will at all times remain with copyright holders.
+//
+// --------- END OF W3C LICENSE --------------------------------------------------------------------
+
+// --------- BEGGINING OF W3C SHORT NOTICE ---------------------------------------------------------
+//
+// winit: https://github.com/rust-windowing/winit
+//
+// Copyright © 2021 World Wide Web Consortium, (Massachusetts Institute of Technology, European
+// Research Consortium for Informatics and Mathematics, Keio University, Beihang). All Rights
+// Reserved. This work is distributed under the W3C® Software License [1] in the hope that it will
+// be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE.
+//
+// [1] http://www.w3.org/Consortium/Legal/copyright-software
+//
+// --------- END OF W3C SHORT NOTICE ---------------------------------------------------------------
+
 use crate::{ButtonState, Input};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::{
