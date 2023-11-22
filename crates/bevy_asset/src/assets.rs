@@ -398,6 +398,15 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    /// Removes the [`Asset`] with the given `id`, if its exists. This always emits [`AssetEvent::Removed`], regardless
+    /// of whether or not the asset exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    fn remove_always_emit_event(&mut self, id: impl Into<AssetId<A>>) {
+        let id = id.into();
+        self.remove_untracked(id);
+        self.queued_events.push(AssetEvent::Removed { id });
+    }
+
     /// Returns `true` if there are no assets in this collection.
     pub fn is_empty(&self) -> bool {
         self.dense_storage.is_empty() && self.hash_map.is_empty()
@@ -466,18 +475,21 @@ impl<A: Asset> Assets<A> {
         let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id;
-            if !assets.contains(id.typed()) {
+
+            if !drop_event.last_strong_handle {
                 not_ready.push(drop_event);
                 continue;
             }
+
             if drop_event.asset_server_managed {
                 if infos.process_handle_drop(id.untyped(TypeId::of::<A>())) {
-                    assets.remove(id.typed());
+                    assets.remove_always_emit_event(id.typed());
                 }
             } else {
-                assets.remove(id.typed());
+                assets.remove_always_emit_event(id.typed());
             }
         }
+
         // TODO: this is _extremely_ inefficient find a better fix
         // This will also loop failed assets indefinitely. Is that ok?
         for event in not_ready {

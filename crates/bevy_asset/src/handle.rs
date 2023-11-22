@@ -25,6 +25,7 @@ pub struct AssetHandleProvider {
 
 pub(crate) struct DropEvent {
     pub(crate) id: InternalAssetId,
+    pub(crate) last_strong_handle: bool,
     pub(crate) asset_server_managed: bool,
 }
 
@@ -92,15 +93,6 @@ pub struct StrongHandle {
     pub(crate) drop_sender: Sender<DropEvent>,
 }
 
-impl Drop for StrongHandle {
-    fn drop(&mut self) {
-        let _ = self.drop_sender.send(DropEvent {
-            id: self.id.internal(),
-            asset_server_managed: self.asset_server_managed,
-        });
-    }
-}
-
 impl std::fmt::Debug for StrongHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StrongHandle")
@@ -124,7 +116,7 @@ impl std::fmt::Debug for StrongHandle {
 #[reflect(Component)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
-    /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.  
+    /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
     Strong(Arc<StrongHandle>),
     /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
     /// nor will it keep assets alive.
@@ -189,10 +181,22 @@ impl<A: Asset> Handle<A> {
 
     /// Converts this [`Handle`] to an "untyped" / "generic-less" [`UntypedHandle`], which stores the [`Asset`] type information
     /// _inside_ [`UntypedHandle`]. This will return [`UntypedHandle::Strong`] for [`Handle::Strong`] and [`UntypedHandle::Weak`] for
-    /// [`Handle::Weak`].  
+    /// [`Handle::Weak`].
     #[inline]
     pub fn untyped(self) -> UntypedHandle {
         self.into()
+    }
+}
+
+impl<T: Asset> Drop for Handle<T> {
+    fn drop(&mut self) {
+        if let Self::Strong(strong_handle) = self {
+            let _ = strong_handle.drop_sender.send(DropEvent {
+                id: strong_handle.id.internal(),
+                last_strong_handle: Arc::strong_count(strong_handle) == 1,
+                asset_server_managed: strong_handle.asset_server_managed,
+            });
+        }
     }
 }
 
