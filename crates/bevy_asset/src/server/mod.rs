@@ -705,7 +705,7 @@ impl AssetServer {
     /// Returns an active handle for the given path, if the asset at the given path has already started loading,
     /// or is still "alive".
     pub fn get_handle<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Option<Handle<A>> {
-        self.get_handle_untyped(path)
+        self.get_handles_untyped(path)
             .into_iter()
             .filter(|handle| handle.type_id() == TypeId::of::<A>())
             .map(|h| h.typed_debug_checked())
@@ -722,10 +722,10 @@ impl AssetServer {
 
     /// Returns an active untyped handle for the given path, if the asset at the given path has already started loading,
     /// or is still "alive".
-    pub fn get_handle_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Vec<UntypedHandle> {
+    pub fn get_handles_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Vec<UntypedHandle> {
         let infos = self.data.infos.read();
         let path = path.into();
-        infos.get_path_handles(path)
+        infos.get_path_handles(path).collect()
     }
 
     /// Returns the path for the given `id`, if it has one.

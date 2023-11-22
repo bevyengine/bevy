@@ -264,12 +264,14 @@ impl AssetInfos {
         self.infos.get_mut(&id)
     }
 
-    pub(crate) fn get_path_handles(&self, path: AssetPath) -> Vec<UntypedHandle> {
+    pub(crate) fn get_path_handles<'a>(
+        &'a self,
+        path: AssetPath<'a>,
+    ) -> impl Iterator<Item = UntypedHandle> + 'a {
         self.path_to_id
             .iter()
             .filter(move |((key_path, _), _)| key_path == &path)
             .filter_map(move |((_, _), id)| self.get_id_handle(*id))
-            .collect()
     }
 
     pub(crate) fn get_id_handle(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
