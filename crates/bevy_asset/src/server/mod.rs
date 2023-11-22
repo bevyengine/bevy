@@ -12,8 +12,8 @@ use crate::{
         MetaTransform, Settings,
     },
     path::AssetPath,
-    Asset, AssetEvent, AssetHandleProvider, AssetId, Assets, DeserializeMetaError,
-    ErasedLoadedAsset, Handle, LoadedUntypedAsset, MetaCheck, UntypedAssetId, UntypedHandle,
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetMetaCheck, Assets, DeserializeMetaError,
+    ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
@@ -54,7 +54,7 @@ pub(crate) struct AssetServerData {
     asset_event_receiver: Receiver<InternalAssetEvent>,
     sources: AssetSources,
     mode: AssetServerMode,
-    meta_mode: MetaCheck,
+    meta_check: AssetMetaCheck,
 }
 
 /// The "asset mode" the server is currently in.
@@ -69,17 +69,29 @@ pub enum AssetServerMode {
 impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
     /// asset sources and hot-reload them.
-    pub fn new(
+    pub fn new(sources: AssetSources, mode: AssetServerMode, watching_for_changes: bool) -> Self {
+        Self::new_with_loaders(
+            sources,
+            Default::default(),
+            mode,
+            AssetMetaCheck::Always,
+            watching_for_changes,
+        )
+    }
+
+    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
+    /// asset sources and hot-reload them.
+    pub fn new_with_meta_check(
         sources: AssetSources,
         mode: AssetServerMode,
-        meta_mode: MetaCheck,
+        meta_check: AssetMetaCheck,
         watching_for_changes: bool,
     ) -> Self {
         Self::new_with_loaders(
             sources,
             Default::default(),
             mode,
-            meta_mode,
+            meta_check,
             watching_for_changes,
         )
     }
@@ -88,7 +100,7 @@ impl AssetServer {
         sources: AssetSources,
         loaders: Arc<RwLock<AssetLoaders>>,
         mode: AssetServerMode,
-        meta_mode: MetaCheck,
+        meta_check: AssetMetaCheck,
         watching_for_changes: bool,
     ) -> Self {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
@@ -98,7 +110,7 @@ impl AssetServer {
             data: Arc::new(AssetServerData {
                 sources,
                 mode,
-                meta_mode,
+                meta_check,
                 asset_event_sender,
                 asset_event_receiver,
                 loaders,
@@ -825,10 +837,10 @@ impl AssetServer {
             AssetServerMode::Processed { .. } => source.processed_reader()?,
         };
         let reader = asset_reader.read(asset_path.path()).await?;
-        let read_meta = match &self.data.meta_mode {
-            MetaCheck::Always => true,
-            MetaCheck::Paths(paths) => paths.contains(asset_path),
-            MetaCheck::Never => false,
+        let read_meta = match &self.data.meta_check {
+            AssetMetaCheck::Always => true,
+            AssetMetaCheck::Paths(paths) => paths.contains(asset_path),
+            AssetMetaCheck::Never => false,
         };
 
         if read_meta {

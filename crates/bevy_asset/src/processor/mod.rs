@@ -13,7 +13,7 @@ use crate::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError, MetaCheck,
+    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
@@ -72,10 +72,10 @@ impl AssetProcessor {
         // The asset processor uses its own asset server with its own id space
         let mut sources = source.build_sources(false, false);
         sources.gate_on_processor(data.clone());
-        let server = AssetServer::new(
+        let server = AssetServer::new_with_meta_check(
             sources,
             AssetServerMode::Processed,
-            MetaCheck::Always,
+            AssetMetaCheck::Always,
             false,
         );
         Self { server, data }
