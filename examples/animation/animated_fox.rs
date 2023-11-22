@@ -136,22 +136,22 @@ fn keyboard_animation_control(
                 .repeat();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Key1) {
+        if keyboard_input.just_pressed(KeyCode::F1) {
             player.set_repeat(RepeatAnimation::Count(1));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Key3) {
+        if keyboard_input.just_pressed(KeyCode::F3) {
             player.set_repeat(RepeatAnimation::Count(3));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Key5) {
+        if keyboard_input.just_pressed(KeyCode::F5) {
             player.set_repeat(RepeatAnimation::Count(5));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::L) {
+        if keyboard_input.just_pressed(KeyCode::KeyL) {
             player.set_repeat(RepeatAnimation::Forever);
         }
     }

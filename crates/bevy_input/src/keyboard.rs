@@ -76,8 +76,6 @@ use bevy_reflect::Reflect;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-#[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
 
 /// A keyboard input event.
 ///

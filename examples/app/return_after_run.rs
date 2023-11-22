@@ -6,7 +6,6 @@
 //! - It is not possible to recreate a window afer the event loop has been terminated.
 
 use bevy::{prelude::*, window::WindowPlugin};
-use bevy_internal::log::LogPlugin;
 
 fn main() {
     println!("Running Bevy App");
