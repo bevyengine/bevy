@@ -2,12 +2,10 @@ use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    clear_color::ClearColorConfig,
     core_3d,
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
-    prelude::{Camera3d, ClearColor},
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -154,7 +152,6 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static DeferredLightingIdDepthTexture,
-        &'static Camera3d,
         &'static DeferredLightingPipeline,
     );
 
@@ -169,7 +166,6 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             mesh_view_bind_group,
             target,
             deferred_lighting_id_depth_texture,
-            camera_3d,
             deferred_lighting_pipeline,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
@@ -197,21 +193,9 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
         );
 
-        let load = if target.is_first_write() {
-            match camera_3d.clear_color {
-                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
-                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                ClearColorConfig::None => LoadOp::Load,
-            }
-        } else {
-            LoadOp::Load
-        };
-
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("deferred_lighting_pass"),
-            color_attachments: &[Some(
-                target.get_color_attachment(Operations { load, store: true }),
-            )],
+            color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {

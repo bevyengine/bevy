@@ -33,7 +33,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
-    render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
+    render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
     texture::{CachedTexture, ColorAttachment},
 };
 use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
@@ -81,6 +81,26 @@ pub struct ViewPrepassTextures {
     pub deferred_lighting_pass_id: Option<CachedTexture>,
     /// The size of the textures.
     pub size: Extent3d,
+}
+
+impl ViewPrepassTextures {
+    pub fn depth_view(&self) -> Option<&TextureView> {
+        self.depth.as_ref().map(|t| &t.texture.default_view)
+    }
+
+    pub fn normal_view(&self) -> Option<&TextureView> {
+        self.normal.as_ref().map(|t| &t.texture.default_view)
+    }
+
+    pub fn motion_vectors_view(&self) -> Option<&TextureView> {
+        self.motion_vectors
+            .as_ref()
+            .map(|t| &t.texture.default_view)
+    }
+
+    pub fn deferred_view(&self) -> Option<&TextureView> {
+        self.deferred.as_ref().map(|t| &t.texture.default_view)
+    }
 }
 
 /// Opaque phase of the 3D prepass.

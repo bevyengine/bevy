@@ -20,15 +20,7 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use std::{
-    hash::Hash,
-    num::NonZeroU64,
-    ops::Range,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-};
+use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;
 
@@ -1006,7 +998,7 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
-                            depth_attachment: DepthAttachment::new(depth_texture_view, 0.0),
+                            depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                             pass_name: format!(
                                 "shadow pass point light {} {}",
                                 light_index,
@@ -1068,7 +1060,7 @@ pub fn prepare_lights(
             let view_light_entity = commands
                 .spawn((
                     ShadowView {
-                        depth_attachment: DepthAttachment::new(depth_texture_view, 0.0),
+                        depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                         pass_name: format!("shadow pass spot light {light_index}"),
                     },
                     ExtractedView {
@@ -1133,7 +1125,7 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
-                            depth_attachment: DepthAttachment::new(depth_texture_view, 0.0),
+                            depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                             pass_name: format!(
                                 "shadow pass directional light {light_index} cascade {cascade_index}"),
                         },

@@ -2,7 +2,6 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 
-use bevy_render::texture::ColorAttachment;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -76,26 +75,25 @@ impl ViewNode for DeferredGBufferPrepassNode {
             );
         }
 
-        let deferred_attachment = |deferred_texture: &ColorAttachment| {
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            {
-                RenderPassColorAttachment {
-                    view: &deferred_texture.texture.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Load,
-                        store: true,
-                    },
-                }
-            }
-            #[cfg(not(all(feature = "webgl", target_arch = "wasm32")))]
-            deferred_texture.get_attachment()
-        };
         color_attachments.push(
             view_prepass_textures
                 .deferred
                 .as_ref()
-                .map(deferred_attachment),
+                .map(|deferred_texture| {
+                    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                    {
+                        RenderPassColorAttachment {
+                            view: &deferred_texture.texture.default_view,
+                            resolve_target: None,
+                            ops: Operations {
+                                load: LoadOp::Load,
+                                store: true,
+                            },
+                        }
+                    }
+                    #[cfg(not(all(feature = "webgl", target_arch = "wasm32")))]
+                    deferred_texture.get_attachment()
+                }),
         );
 
         color_attachments.push(
