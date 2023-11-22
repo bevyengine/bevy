@@ -10,7 +10,10 @@ const IMAGE_HEIGHT: u32 = 256;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Let's make the fixed timestep really fast for this example.
+        // In this example, we will use a fixed timestep to draw a pattern on the screen
+        // one pixel at a time, so the pattern will gradually emerge over time, and
+        // the speed at which it appears is not tied to the framerate.
+        // Let's make the fixed update very fast, so it doesn't take too long. :)
         .insert_resource(Time::<Fixed>::from_hz(256.0))
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, draw)
