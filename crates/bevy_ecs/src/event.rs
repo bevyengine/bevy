@@ -191,7 +191,8 @@ impl<E: Event> Events<E> {
 
     /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
-    pub fn send(&mut self, event: E) {
+    /// This method returns the [ID](`EventId`) of the sent `event`.
+    pub fn send(&mut self, event: E) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
             _marker: PhantomData,
@@ -202,14 +203,32 @@ impl<E: Event> Events<E> {
 
         self.events_b.push(event_instance);
         self.event_count += 1;
+
+        event_id
+    }
+
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
+    /// This is more efficient than sending each event individually.
+    /// This method returns the [IDs](`EventId`) of the sent `events`.
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+        let last_count = self.event_count;
+
+        self.extend(events);
+
+        SendBatchIds {
+            last_count,
+            event_count: self.event_count,
+            _marker: PhantomData,
+        }
     }
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
-    pub fn send_default(&mut self)
+    /// This method returns the [ID](`EventId`) of the sent `event`.
+    pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,
     {
-        self.send(Default::default());
+        self.send(Default::default())
     }
 
     /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
@@ -512,26 +531,31 @@ pub struct EventWriter<'w, E: Event> {
 
 impl<'w, E: Event> EventWriter<'w, E> {
     /// Sends an `event`, which can later be read by [`EventReader`]s.
+    /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
     /// See [`Events`] for details.
-    pub fn send(&mut self, event: E) {
-        self.events.send(event);
+    pub fn send(&mut self, event: E) -> EventId<E> {
+        self.events.send(event)
     }
 
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
     /// This is more efficient than sending each event individually.
+    /// This method returns the [IDs](`EventId`) of the sent `events`.
     ///
     /// See [`Events`] for details.
-    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) {
-        self.events.extend(events);
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+        self.events.send_batch(events)
     }
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
-    pub fn send_default(&mut self)
+    /// This method returns the [ID](`EventId`) of the sent `event`.
+    ///
+    /// See [`Events`] for details.
+    pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,
     {
-        self.events.send_default();
+        self.events.send_default()
     }
 }
 
@@ -758,6 +782,38 @@ pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
 /// needs to run or not.
 pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
     !events.events_a.is_empty() || !events.events_b.is_empty()
+}
+
+/// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
+pub struct SendBatchIds<E> {
+    last_count: usize,
+    event_count: usize,
+    _marker: PhantomData<E>,
+}
+
+impl<E: Event> Iterator for SendBatchIds<E> {
+    type Item = EventId<E>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.last_count >= self.event_count {
+            return None;
+        }
+
+        let result = Some(EventId {
+            id: self.last_count,
+            _marker: PhantomData,
+        });
+
+        self.last_count += 1;
+
+        result
+    }
+}
+
+impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
+    fn len(&self) -> usize {
+        self.event_count.saturating_sub(self.last_count)
+    }
 }
 
 #[cfg(test)]
@@ -1118,5 +1174,44 @@ mod tests {
         fn reader_system(_: EventReader<EmptyTestEvent>) {}
 
         assert_is_read_only_system(reader_system);
+    }
+
+    #[test]
+    fn test_send_events_ids() {
+        let mut events = Events::<TestEvent>::default();
+        let event_0 = TestEvent { i: 0 };
+        let event_1 = TestEvent { i: 1 };
+        let event_2 = TestEvent { i: 2 };
+
+        let event_0_id = events.send(event_0);
+
+        assert_eq!(
+            events.get_event(event_0_id.id),
+            Some((&event_0, event_0_id)),
+            "Getting a sent event by ID should return the original event"
+        );
+
+        let mut event_ids = events.send_batch([event_1, event_2]);
+
+        let event_id = event_ids.next().expect("Event 1 must have been sent");
+
+        assert_eq!(
+            events.get_event(event_id.id),
+            Some((&event_1, event_id)),
+            "Getting a sent event by ID should return the original event"
+        );
+
+        let event_id = event_ids.next().expect("Event 2 must have been sent");
+
+        assert_eq!(
+            events.get_event(event_id.id),
+            Some((&event_2, event_id)),
+            "Getting a sent event by ID should return the original event"
+        );
+
+        assert!(
+            event_ids.next().is_none(),
+            "Only sent two events; got more than two IDs"
+        );
     }
 }

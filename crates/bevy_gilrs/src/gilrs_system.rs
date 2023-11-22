@@ -51,8 +51,11 @@ pub fn gilrs_event_system(
                     GamepadConnectionEvent::new(gamepad, GamepadConnection::Connected(info)).into(),
                 );
             }
-            EventType::Disconnected => events
-                .send(GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected).into()),
+            EventType::Disconnected => {
+                events.send(
+                    GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected).into(),
+                );
+            }
             EventType::ButtonChanged(gilrs_button, raw_value, _) => {
                 if let Some(button_type) = convert_button(gilrs_button) {
                     let button = GamepadButton::new(gamepad, button_type);

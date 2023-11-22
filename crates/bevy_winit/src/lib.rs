@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
@@ -312,7 +311,15 @@ impl Default for WinitAppRunnerState {
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
 pub fn winit_runner(mut app: App) {
-    let event_loop = app
+    if app.plugins_state() == PluginsState::Ready {
+        // If we're already ready, we finish up now and advance one frame.
+        // This prevents black frames during the launch transition on iOS.
+        app.finish();
+        app.cleanup();
+        app.update();
+    }
+
+    let mut event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()
         .unwrap();
@@ -654,16 +661,22 @@ pub fn winit_runner(mut app: App) {
                                 cursor,
                             });
                         }
-                        event::Ime::Commit(value) => event_writers.ime_input.send(Ime::Commit {
-                            window: window_entity,
-                            value,
-                        }),
-                        event::Ime::Enabled => event_writers.ime_input.send(Ime::Enabled {
-                            window: window_entity,
-                        }),
-                        event::Ime::Disabled => event_writers.ime_input.send(Ime::Disabled {
-                            window: window_entity,
-                        }),
+                        event::Ime::Commit(value) => {
+                            event_writers.ime_input.send(Ime::Commit {
+                                window: window_entity,
+                                value,
+                            });
+                        }
+                        event::Ime::Enabled => {
+                            event_writers.ime_input.send(Ime::Enabled {
+                                window: window_entity,
+                            });
+                        }
+                        event::Ime::Disabled => {
+                            event_writers.ime_input.send(Ime::Disabled {
+                                window: window_entity,
+                            });
+                        }
                     },
                     WindowEvent::ThemeChanged(theme) => {
                         event_writers.window_theme_changed.send(WindowThemeChanged {

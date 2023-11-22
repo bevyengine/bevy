@@ -66,7 +66,7 @@ fn countdown(time: Res<Time>, mut countdown: ResMut<Countdown>) {
             // Print the percent complete the main timer is.
             info!(
                 "Timer is {:0.0}% complete!",
-                countdown.main_timer.percent() * 100.0
+                countdown.main_timer.fraction() * 100.0
             );
         } else {
             // The timer has finished so we pause the percent output timer

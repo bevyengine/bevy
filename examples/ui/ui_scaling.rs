@@ -112,7 +112,7 @@ impl TargetScale {
     }
 
     fn current_scale(&self) -> f64 {
-        let completion = self.target_time.percent();
+        let completion = self.target_time.fraction();
         let multiplier = ease_in_expo(completion as f64);
         self.start_scale + (self.target_scale - self.start_scale) * multiplier
     }

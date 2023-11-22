@@ -859,10 +859,6 @@ impl ScheduleGraph {
             self.dependency.graph.add_node(set);
         }
 
-        if !self.dependency.graph.contains_node(id) {
-            self.dependency.graph.add_node(id);
-        }
-
         for (kind, set) in dependencies
             .into_iter()
             .map(|Dependency { kind, set }| (kind, self.system_set_ids[&set]))

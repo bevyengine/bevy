@@ -24,3 +24,6 @@ wasm-bindgen-futures = "0.4"
 
 [dev-dependencies]
 web-time = { version = "0.2" }
+
+[lints]
+workspace = true

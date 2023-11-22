@@ -35,8 +35,8 @@ raw-window-handle = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.29", default-features = false, features = [
-    "android-native-activity",
-    "rwh_05",
+  "android-native-activity",
+  "rwh_05",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -47,3 +47,6 @@ crossbeam-channel = "0.5"
 
 [package.metadata.docs.rs]
 features = ["x11"]
+
+[lints]
+workspace = true
