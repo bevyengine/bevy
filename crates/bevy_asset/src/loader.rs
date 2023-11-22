@@ -697,15 +697,8 @@ impl<'a> LoadContext<'a> {
                 },
             })?
             .take::<A>()
-            .ok_or_else(|| LoadDirectError {
-                dependency: self.asset_path.clone_owned(),
-                error: AssetLoadError::RequestedHandleTypeMismatch {
-                    path: self.asset_path.clone_owned(),
-                    requested: TypeId::of::<A>(),
-                    actual_asset_name: loader.asset_type_name(),
-                    loader_name: loader.type_name(),
-                },
-            })?;
+            // AssetServer::get_asset_loader_with_asset_type::<A> can only return an `AssetLoader<Asset = A>`
+            .unwrap();
 
         Ok(loaded_asset)
     }
