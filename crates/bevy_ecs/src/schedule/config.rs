@@ -206,6 +206,39 @@ impl<T> NodeConfigs<T> {
 }
 
 /// Types that can convert into a [`SystemConfigs`].
+///
+/// This trait is implemented for "systems" (functions whose arguments all implement
+/// [`SystemParam`](crate::system::SystemParam)), or tuples thereof.
+/// It is a common entry point for system configurations.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # struct AppMock;
+/// # struct Update;
+/// # impl AppMock {
+/// #     pub fn add_systems<M>(
+/// #         &mut self,
+/// #         schedule: Update,
+/// #         systems: impl IntoSystemConfigs<M>,
+/// #    ) -> &mut Self { self }
+/// # }
+/// # let mut app = AppMock;
+///
+/// fn handle_input() {}
+///
+/// fn update_camera() {}
+/// fn update_character() {}
+///
+/// app.add_systems(
+///     Update,
+///     (
+///         handle_input,
+///         (update_camera, update_character).after(handle_input)
+///     )
+/// );
+/// ```
 pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
@@ -221,11 +254,17 @@ where
     }
 
     /// Run before all systems in `set`.
+    ///
+    /// Note: The given set is not implicitly added to the schedule when this system set is added.
+    /// It is safe, but no dependencies will be created.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
 
     /// Run after all systems in `set`.
+    ///
+    /// Note: The given set is not implicitly added to the schedule when this system set is added.
+    /// It is safe, but no dependencies will be created.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
