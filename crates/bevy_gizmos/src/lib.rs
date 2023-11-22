@@ -31,7 +31,7 @@ mod pipeline_3d;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        aabb::{AabbGizmoGroup, ShowAabbGizmo},
+        aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
         AppGizmoBuilder,

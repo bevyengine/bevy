@@ -162,6 +162,6 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::A) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the configuration of AabbGizmoGroup
-        config_store.get_mut::<AabbGizmoGroup>().1.draw_all ^= true;
+        config_store.get_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
     }
 }

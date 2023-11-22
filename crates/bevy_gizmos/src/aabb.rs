@@ -29,14 +29,14 @@ pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<AabbGizmoGroup>()
-            .init_gizmo_group::<AabbGizmoGroup>()
+        app.register_type::<AabbGizmoConfigGroup>()
+            .init_gizmo_group::<AabbGizmoConfigGroup>()
             .add_systems(
                 PostUpdate,
                 (
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
-                        config.get::<AabbGizmoGroup>().1.draw_all
+                        config.get::<AabbGizmoConfigGroup>().1.draw_all
                     }),
                 )
                     .after(TransformSystem::TransformPropagate),
@@ -45,7 +45,7 @@ impl Plugin for AabbGizmoPlugin {
 }
 /// The [`GizmoConfigGroup`] used for debug visualizations of [`Aabb`] components on entities
 #[derive(Clone, Default, Reflect, GizmoConfigGroup)]
-pub struct AabbGizmoGroup {
+pub struct AabbGizmoConfigGroup {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///
     /// To draw a specific entity's bounding box, you can add the [`ShowAabbGizmo`] component.
@@ -72,7 +72,7 @@ pub struct ShowAabbGizmo {
 
 fn draw_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
-    mut gizmos: Gizmos<AabbGizmoGroup>,
+    mut gizmos: Gizmos<AabbGizmoConfigGroup>,
 ) {
     for (entity, &aabb, &transform, gizmo) in &query {
         let color = gizmo
@@ -85,7 +85,7 @@ fn draw_aabbs(
 
 fn draw_all_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
-    mut gizmos: Gizmos<AabbGizmoGroup>,
+    mut gizmos: Gizmos<AabbGizmoConfigGroup>,
 ) {
     for (entity, &aabb, &transform) in &query {
         let color = gizmos

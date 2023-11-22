@@ -80,7 +80,7 @@ impl Plugin for SceneViewerPlugin {
 }
 
 fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
-    config.get_mut::<AabbGizmoGroup>().1.draw_all ^= true;
+    config.get_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
 }
 
 fn scene_load_check(

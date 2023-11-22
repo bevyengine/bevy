@@ -44,60 +44,58 @@ pub struct Gizmos<'w, 's, T: GizmoConfigGroup = DefaultGizmoGroup> {
     pub config_ext: &'w T,
 }
 
-const _: () = {
-    type GizmoState<T> = (
-        Deferred<'static, GizmoBuffer<T>>,
-        Res<'static, GizmoConfigStore>,
-    );
-    #[doc(hidden)]
-    pub struct FetchState<T: GizmoConfigGroup> {
-        state: <GizmoState<T> as SystemParam>::State,
-    }
-    unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
-        type State = FetchState<T>;
-        type Item<'w, 's> = Gizmos<'w, 's, T>;
-        fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-            FetchState {
-                state: GizmoState::<T>::init_state(world, system_meta),
-            }
-        }
-        fn new_archetype(
-            state: &mut Self::State,
-            archetype: &bevy_ecs::archetype::Archetype,
-            system_meta: &mut SystemMeta,
-        ) {
-            GizmoState::<T>::new_archetype(&mut state.state, archetype, system_meta);
-        }
-        fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-            GizmoState::<T>::apply(&mut state.state, system_meta, world);
-        }
-        unsafe fn get_param<'w, 's>(
-            state: &'s mut Self::State,
-            system_meta: &SystemMeta,
-            world: UnsafeWorldCell<'w>,
-            change_tick: Tick,
-        ) -> Self::Item<'w, 's> {
-            let (f0, f1) =
-                GizmoState::<T>::get_param(&mut state.state, system_meta, world, change_tick);
-            // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
-            // Implementing SystemParam manually allows us to do it to here
-            // Having config available allows for early returns when gizmos are disabled
-            let (config, config_ext) = f1.into_inner().get::<T>();
-            Gizmos {
-                buffer: f0,
-                enabled: config.enabled,
-                config,
-                config_ext,
-            }
+type GizmosState<T> = (
+    Deferred<'static, GizmoBuffer<T>>,
+    Res<'static, GizmoConfigStore>,
+);
+#[doc(hidden)]
+pub struct GizmosFetchState<T: GizmoConfigGroup> {
+    state: <GizmosState<T> as SystemParam>::State,
+}
+unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
+    type State = GizmosFetchState<T>;
+    type Item<'w, 's> = Gizmos<'w, 's, T>;
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        GizmosFetchState {
+            state: GizmosState::<T>::init_state(world, system_meta),
         }
     }
-    unsafe impl<'w, 's, T: GizmoConfigGroup> ReadOnlySystemParam for Gizmos<'w, 's, T>
-    where
-        Deferred<'s, GizmoBuffer<T>>: ReadOnlySystemParam,
-        Res<'w, GizmoConfigStore>: ReadOnlySystemParam,
-    {
+    fn new_archetype(
+        state: &mut Self::State,
+        archetype: &bevy_ecs::archetype::Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        GizmosState::<T>::new_archetype(&mut state.state, archetype, system_meta);
     }
-};
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        GizmosState::<T>::apply(&mut state.state, system_meta, world);
+    }
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        let (f0, f1) =
+            GizmosState::<T>::get_param(&mut state.state, system_meta, world, change_tick);
+        // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
+        // Implementing SystemParam manually allows us to do it to here
+        // Having config available allows for early returns when gizmos are disabled
+        let (config, config_ext) = f1.into_inner().get::<T>();
+        Gizmos {
+            buffer: f0,
+            enabled: config.enabled,
+            config,
+            config_ext,
+        }
+    }
+}
+unsafe impl<'w, 's, T: GizmoConfigGroup> ReadOnlySystemParam for Gizmos<'w, 's, T>
+where
+    Deferred<'s, GizmoBuffer<T>>: ReadOnlySystemParam,
+    Res<'w, GizmoConfigStore>: ReadOnlySystemParam,
+{
+}
 
 #[derive(Default)]
 struct GizmoBuffer<T: GizmoConfigGroup> {
