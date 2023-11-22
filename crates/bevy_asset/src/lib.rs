@@ -77,7 +77,7 @@ pub struct AssetPlugin {
     /// The [`AssetMode`] to use for this server.
     pub mode: AssetMode,
     /// How meta files should be accessed. This will be ignored for processed assets, as this mode require meta files.
-    pub meta_mode: AssetMetaMode,
+    pub meta_check: MetaCheck,
 }
 
 #[derive(Debug)]
@@ -104,15 +104,16 @@ pub enum AssetMode {
     Processed,
 }
 
-/// Configures how asset meta will be used.
+/// Configures how / if meta files will be checked. If an asset's meta file is not checked, the default meta for the asset
+/// will be used.
 #[derive(Debug, Default, Clone)]
-pub enum AssetMetaMode {
-    /// Always assume assets have meta files.
+pub enum MetaCheck {
+    /// Always check if assets have meta files. If the meta does not exist, the default meta will be used.
     #[default]
     Always,
     /// Only look up meta files for the provided paths. The default meta will be used for any paths not contained in this set.
     Paths(HashSet<AssetPath<'static>>),
-    /// Never assume assets have meta files. If meta files exist, they will be ignored and the default meta will be used.
+    /// Never check if assets have meta files and always use the default meta. If meta files exist, they will be ignored and the default meta will be used.
     Never,
 }
 
@@ -123,7 +124,7 @@ impl Default for AssetPlugin {
             file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
-            meta_mode: Default::default(),
+            meta_check: Default::default(),
         }
     }
 }
@@ -162,7 +163,7 @@ impl Plugin for AssetPlugin {
                     app.insert_resource(AssetServer::new(
                         sources,
                         AssetServerMode::Unprocessed,
-                        self.meta_mode.clone(),
+                        self.meta_check.clone(),
                         watch,
                     ));
                 }
@@ -178,7 +179,7 @@ impl Plugin for AssetPlugin {
                             sources,
                             processor.server().data.loaders.clone(),
                             AssetServerMode::Processed,
-                            AssetMetaMode::Always,
+                            MetaCheck::Always,
                             watch,
                         ))
                         .insert_resource(processor)
@@ -191,7 +192,7 @@ impl Plugin for AssetPlugin {
                         app.insert_resource(AssetServer::new(
                             sources,
                             AssetServerMode::Processed,
-                            AssetMetaMode::Always,
+                            MetaCheck::Always,
                             watch,
                         ));
                     }

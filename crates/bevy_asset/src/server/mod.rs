@@ -12,8 +12,8 @@ use crate::{
         MetaTransform, Settings,
     },
     path::AssetPath,
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetMetaMode, Assets, DeserializeMetaError,
-    ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId, UntypedHandle,
+    Asset, AssetEvent, AssetHandleProvider, AssetId, Assets, DeserializeMetaError,
+    ErasedLoadedAsset, Handle, LoadedUntypedAsset, MetaCheck, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
@@ -54,7 +54,7 @@ pub(crate) struct AssetServerData {
     asset_event_receiver: Receiver<InternalAssetEvent>,
     sources: AssetSources,
     mode: AssetServerMode,
-    meta_mode: AssetMetaMode,
+    meta_mode: MetaCheck,
 }
 
 /// The "asset mode" the server is currently in.
@@ -72,7 +72,7 @@ impl AssetServer {
     pub fn new(
         sources: AssetSources,
         mode: AssetServerMode,
-        meta_mode: AssetMetaMode,
+        meta_mode: MetaCheck,
         watching_for_changes: bool,
     ) -> Self {
         Self::new_with_loaders(
@@ -88,7 +88,7 @@ impl AssetServer {
         sources: AssetSources,
         loaders: Arc<RwLock<AssetLoaders>>,
         mode: AssetServerMode,
-        meta_mode: AssetMetaMode,
+        meta_mode: MetaCheck,
         watching_for_changes: bool,
     ) -> Self {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
@@ -826,9 +826,9 @@ impl AssetServer {
         };
         let reader = asset_reader.read(asset_path.path()).await?;
         let read_meta = match &self.data.meta_mode {
-            AssetMetaMode::Always => true,
-            AssetMetaMode::Paths(paths) => paths.contains(asset_path),
-            AssetMetaMode::Never => false,
+            MetaCheck::Always => true,
+            MetaCheck::Paths(paths) => paths.contains(asset_path),
+            MetaCheck::Never => false,
         };
 
         if read_meta {
