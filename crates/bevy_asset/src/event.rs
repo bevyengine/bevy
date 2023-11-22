@@ -9,8 +9,10 @@ pub enum AssetEvent<A: Asset> {
     Added { id: AssetId<A> },
     /// Emitted whenever an [`Asset`] value is modified.
     Modified { id: AssetId<A> },
-    /// Emitted whenever an [`Asset`] has no more [`super::Handle::Strong`]s.
+    /// Emitted whenever an [`Asset`] is removed.
     Removed { id: AssetId<A> },
+    /// Emitted when the last [`super::Handle::Strong`] of an [`Asset`] is dropped.
+    NoLongerUsed { id: AssetId<A> },
     /// Emitted whenever an [`Asset`] has been fully loaded (including its dependencies and all "recursive dependencies").
     LoadedWithDependencies { id: AssetId<A> },
 }
@@ -35,6 +37,11 @@ impl<A: Asset> AssetEvent<A> {
     pub fn is_removed(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Removed { id } if *id == asset_id.into())
     }
+
+    /// Returns `true` if this event is [`AssetEvent::NoLongerUsed`] and matches the given `id`.
+    pub fn is_no_longer_used(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+        matches!(self, AssetEvent::NoLongerUsed { id } if *id == asset_id.into())
+    }
 }
 
 impl<A: Asset> Clone for AssetEvent<A> {
@@ -51,6 +58,7 @@ impl<A: Asset> Debug for AssetEvent<A> {
             Self::Added { id } => f.debug_struct("Added").field("id", id).finish(),
             Self::Modified { id } => f.debug_struct("Modified").field("id", id).finish(),
             Self::Removed { id } => f.debug_struct("Removed").field("id", id).finish(),
+            Self::NoLongerUsed { id } => f.debug_struct("NoLongerUsed").field("id", id).finish(),
             Self::LoadedWithDependencies { id } => f
                 .debug_struct("LoadedWithDependencies")
                 .field("id", id)
@@ -65,6 +73,7 @@ impl<A: Asset> PartialEq for AssetEvent<A> {
             (Self::Added { id: l_id }, Self::Added { id: r_id })
             | (Self::Modified { id: l_id }, Self::Modified { id: r_id })
             | (Self::Removed { id: l_id }, Self::Removed { id: r_id })
+            | (Self::NoLongerUsed { id: l_id }, Self::NoLongerUsed { id: r_id })
             | (
                 Self::LoadedWithDependencies { id: l_id },
                 Self::LoadedWithDependencies { id: r_id },

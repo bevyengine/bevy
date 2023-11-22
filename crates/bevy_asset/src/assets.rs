@@ -377,10 +377,20 @@ impl<A: Asset> Assets<A> {
         result
     }
 
-    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists. [`AssetEvent::Removed`] will not be
-    /// emitted until the last [`Handle::Strong`] is dropped.
+    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn unload(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+        let id: AssetId<A> = id.into();
+        let result = self.remove_untracked(id);
+        if result.is_some() {
+            self.queued_events.push(AssetEvent::Removed { id });
+        }
+        result
+    }
+
+    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists. This skips emitting [`AssetEvent::Removed`].
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         match id {
             AssetId::Index { index, .. } => self.dense_storage.remove(index),
@@ -455,27 +465,25 @@ impl<A: Asset> Assets<A> {
         let mut infos = asset_server.data.infos.write();
         let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
-            let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
             let id = drop_event.id.typed();
 
-            // TODO: How to differentiate between the asset having been unloaded,
-            // and the asset in the process of loading?
+            assets.queued_events.push(AssetEvent::NoLongerUsed { id });
+
+            // TODO: Assets that have already been removed will infinitely loop
+            // Instead of this check, check asset status in AssetServer
             if !assets.contains(id) {
                 not_ready.push(drop_event);
                 continue;
             }
 
             if drop_event.asset_server_managed {
-                if infos.process_handle_drop(untyped_id) {
-                    assets.unload(id);
-                    assets.queued_events.push(AssetEvent::Removed { id });
+                if infos.process_handle_drop(drop_event.id.untyped(TypeId::of::<A>())) {
+                    assets.remove(id);
                 }
             } else {
-                assets.unload(untyped_id.typed());
-                assets.queued_events.push(AssetEvent::Removed { id });
+                assets.remove(id);
             }
         }
-
         // TODO: this is _extremely_ inefficient find a better fix
         // This will also loop failed assets indefinitely. Is that ok?
         for event in not_ready {

@@ -37,6 +37,8 @@ pub trait RenderAsset: Asset + Clone {
     /// it's been uploaded to the GPU's VRAM. However, you can no longer modify the asset
     /// once unloaded (without re-loading it), making this a bad choice for frequently modified
     /// assets.
+    ///
+    /// Calls [`Assets::remove`].
     fn unload_after_extract(&self) -> bool;
 
     /// Prepares the asset for the GPU by transforming it into a [`RenderAsset::PreparedAsset`].
@@ -178,7 +180,8 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
             }
-            AssetEvent::Removed { id } => {
+            AssetEvent::Removed { .. } => {}
+            AssetEvent::NoLongerUsed { id } => {
                 changed_assets.remove(id);
                 removed.push(*id);
             }
@@ -192,7 +195,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
             if asset.unload_after_extract() {
-                if let Some(asset) = assets.unload(id) {
+                if let Some(asset) = assets.remove(id) {
                     extracted_assets.push((id, asset));
                 }
             } else {
