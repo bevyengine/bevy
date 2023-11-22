@@ -131,12 +131,12 @@ struct EventInstance<E: Event> {
 /// events.send(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
-/// for event in reader.iter(&events) {
+/// for event in reader.read(&events) {
 ///     assert_eq!(event.value, 1)
 /// }
 ///
 /// // events are only processed once per reader
-/// assert_eq!(reader.iter(&events).count(), 0);
+/// assert_eq!(reader.read(&events).count(), 0);
 /// ```
 ///
 /// # Details
@@ -458,8 +458,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 
     /// Consumes all available events.
     ///
-    /// This means these events will not appear in calls to [`EventReader::iter()`] or
-    /// [`EventReader::iter_with_id()`] and [`EventReader::is_empty()`] will return `true`.
+    /// This means these events will not appear in calls to [`EventReader::read()`] or
+    /// [`EventReader::read_with_id()`] and [`EventReader::is_empty()`] will return `true`.
     ///
     /// For usage, see [`EventReader::is_empty()`].
     pub fn clear(&mut self) {
