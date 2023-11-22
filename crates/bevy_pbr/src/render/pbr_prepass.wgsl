@@ -24,15 +24,19 @@ fn fragment(
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        let double_sided = (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
+
         let world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,
-            (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            double_sided,
             is_front,
         );
 
         let normal = pbr_functions::apply_normal_mapping(
             material.flags,
             world_normal,
+            double_sided,
+            is_front,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
             in.world_tangent,

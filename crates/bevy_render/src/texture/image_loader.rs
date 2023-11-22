@@ -7,7 +7,7 @@ use crate::{
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
 
-use super::CompressedImageFormats;
+use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
 
 /// Loader for images that can be read by the `image` crate.
@@ -45,17 +45,18 @@ pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
     "ppm",
 ];
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
     #[default]
     FromExtension,
     Format(ImageFormat),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
+    pub sampler: ImageSampler,
 }
 
 impl Default for ImageLoaderSettings {
@@ -63,6 +64,7 @@ impl Default for ImageLoaderSettings {
         Self {
             format: ImageFormatSetting::default(),
             is_srgb: true,
+            sampler: ImageSampler::Default,
         }
     }
 }
@@ -101,6 +103,7 @@ impl AssetLoader for ImageLoader {
                 image_type,
                 self.supported_compressed_formats,
                 settings.is_srgb,
+                settings.sampler.clone(),
             )
             .map_err(|err| FileTextureError {
                 error: err,

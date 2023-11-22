@@ -330,3 +330,22 @@ pub struct WindowThemeChanged {
     /// The new system theme.
     pub theme: WindowTheme,
 }
+
+/// Application lifetime events
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum ApplicationLifetime {
+    /// The application just started.
+    Started,
+    /// The application was suspended.
+    ///
+    /// On Android, applications have one frame to react to this event before being paused in the background.
+    Suspended,
+    /// The application was resumed.
+    Resumed,
+}

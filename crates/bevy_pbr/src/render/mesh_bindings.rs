@@ -2,12 +2,7 @@
 
 use bevy_math::Mat4;
 use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS,
-    render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer, TextureView,
-    },
-    renderer::RenderDevice,
-    texture::GpuImage,
+    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice, texture::GpuImage,
 };
 
 use crate::{render::skin::MAX_JOINTS, GpuLightmap, MAX_LIGHTMAPS};
@@ -105,7 +100,7 @@ mod layout_entry {
         }
     }
 }
-/// Individual [`BindGroupEntry`](bevy_render::render_resource::BindGroupEntry)
+/// Individual [`BindGroupEntry`]
 /// for bind groups.
 mod entry {
     use super::{JOINT_BUFFER_SIZE, LIGHTMAP_BUFFER_SIZE, MORPH_BUFFER_SIZE};

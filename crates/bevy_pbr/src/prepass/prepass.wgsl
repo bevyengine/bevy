@@ -39,7 +39,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
-    var vertex = morph::morph_vertex(vertex_no_morph);
+    var vertex = morph_vertex(vertex_no_morph);
 #else
     var vertex = vertex_no_morph;
 #endif

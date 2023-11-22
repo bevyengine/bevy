@@ -22,7 +22,7 @@ fn environment_map_light(
     // Technically we could use textureNumLevels(environment_map_specular) - 1 here, but we use a uniform
     // because textureNumLevels() does not work on WebGL2
     let radiance_level = perceptual_roughness * f32(bindings::lights.environment_map_smallest_specular_mip_level);
-    let irradiance = textureSample(bindings::environment_map_diffuse, bindings::environment_map_sampler, vec3(N.xy, -N.z)).rgb;
+    let irradiance = textureSampleLevel(bindings::environment_map_diffuse, bindings::environment_map_sampler, vec3(N.xy, -N.z), 0.0).rgb;
     let radiance = textureSampleLevel(bindings::environment_map_specular, bindings::environment_map_sampler, vec3(R.xy, -R.z), radiance_level).rgb;
 
     // No real world material has specular values under 0.02, so we use this range as a

@@ -155,8 +155,8 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
 
     /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
     ///
-    /// The second system must have `In<T>` as its first parameter, where `T`
-    /// is the return type of the first system.
+    /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
+    /// where `T` is the return type of the first system.
     fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
     where
         B: IntoSystem<Out, Final, MarkerB>,

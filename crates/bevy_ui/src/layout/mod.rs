@@ -19,6 +19,7 @@ use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::Taffy;
+use thiserror::Error;
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -228,10 +229,12 @@ with UI components as a child of an entity without UI components, results may be
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum LayoutError {
+    #[error("Invalid hierarchy")]
     InvalidHierarchy,
-    TaffyError(taffy::error::TaffyError),
+    #[error("Taffy error: {0}")]
+    TaffyError(#[from] taffy::error::TaffyError),
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.

@@ -139,6 +139,9 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// based on the view-space `Z` value of the corresponding view matrix.
     type SortKey: Ord;
 
+    /// Whether or not this `PhaseItem` should be subjected to automatic batching. (Default: `true`)
+    const AUTOMATIC_BATCHING: bool = true;
+
     /// The corresponding entity that will be drawn.
     ///
     /// This is used to fetch the render data of the entity, required by the draw function,

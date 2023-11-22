@@ -3,6 +3,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
+    schedule::{InternedSystemSet, SystemSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
@@ -528,9 +529,9 @@ where
         );
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
-        vec![Box::new(set)]
+        vec![set.intern()]
     }
 }
 

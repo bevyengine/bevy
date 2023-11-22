@@ -55,6 +55,7 @@ impl AssetSaver for CompressedImageSaver {
             Ok(ImageLoaderSettings {
                 format: ImageFormatSetting::Format(ImageFormat::Basis),
                 is_srgb,
+                sampler: image.sampler.clone(),
             })
         }
         .boxed()

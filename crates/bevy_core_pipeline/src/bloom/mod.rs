@@ -447,12 +447,11 @@ fn prepare_bloom_bind_groups(
 /// actual highest frequency level).
 ///
 /// Parameters:
-/// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
-/// * *max_mip* - the index of the lowest frequency pyramid level.
+/// * `mip` - the index of the lower frequency pyramid level (0 - `max_mip`, where 0 indicates highest frequency mip but not the highest frequency image).
+/// * `max_mip` - the index of the lowest frequency pyramid level.
 ///
 /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
 /// [`BloomSettings`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
-#[allow(clippy::doc_markdown)]
 fn compute_blend_factor(bloom_settings: &BloomSettings, mip: f32, max_mip: f32) -> f32 {
     let mut lf_boost = (1.0
         - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom_settings.low_frequency_boost_curvature)))

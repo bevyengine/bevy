@@ -44,7 +44,6 @@
 @group(0) @binding(16) var dt_lut_sampler: sampler;
 
 #ifdef MULTISAMPLED
-
 #ifdef DEPTH_PREPASS
 @group(0) @binding(17) var depth_prepass_texture: texture_depth_multisampled_2d;
 #endif // DEPTH_PREPASS
@@ -72,3 +71,6 @@
 #ifdef DEFERRED_PREPASS
 @group(0) @binding(20) var deferred_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
+
+@group(0) @binding(21) var view_transmission_texture: texture_2d<f32>;
+@group(0) @binding(22) var view_transmission_sampler: sampler;

@@ -506,7 +506,7 @@ impl AssetProcessor {
                                 .await?
                                 && contains_files;
                     }
-                    if !contains_files {
+                    if !contains_files && path.parent().is_some() {
                         if let Some(writer) = clean_empty_folders_writer {
                             // it is ok for this to fail as it is just a cleanup job.
                             let _ = writer.remove_empty_directory(&path).await;
@@ -660,7 +660,7 @@ impl AssetProcessor {
         source: &AssetSource,
         asset_path: &AssetPath<'static>,
     ) -> Result<ProcessResult, ProcessError> {
-        // TODO: The extension check was removed now tht AssetPath is the input. is that ok?
+        // TODO: The extension check was removed now that AssetPath is the input. is that ok?
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing {:?}", asset_path);
         let server = &self.server;

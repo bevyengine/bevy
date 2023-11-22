@@ -1,6 +1,7 @@
 use std::array;
 
 use bevy_core_pipeline::{
+    core_3d::ViewTransmissionTexture,
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -20,7 +21,7 @@ use bevy_render::{
         TextureFormat, TextureSampleType, TextureViewDimension,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, Image},
+    texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
 
@@ -295,6 +296,7 @@ fn layout_entries(
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries([15, 16]);
     entries.extend_from_slice(&tonemapping_lut_entries);
 
+    // Prepass
     if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
         || (cfg!(all(feature = "webgl", target_arch = "wasm32"))
             && !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED))
@@ -304,6 +306,26 @@ fn layout_entries(
             layout_key,
         ));
     }
+
+    // View Transmission Texture
+    entries.extend_from_slice(&[
+        BindGroupLayoutEntry {
+            binding: 21,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: true },
+                multisampled: false,
+                view_dimension: TextureViewDimension::D2,
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: 22,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
+        },
+    ]);
 
     entries
 }
@@ -356,13 +378,15 @@ pub fn prepare_mesh_view_bind_groups(
         &ViewClusterBindings,
         Option<&ScreenSpaceAmbientOcclusionTextures>,
         Option<&ViewPrepassTextures>,
+        Option<&ViewTransmissionTexture>,
         Option<&EnvironmentMapLight>,
         &Tonemapping,
     )>,
-    (images, mut fallback_images, fallback_cubemap): (
+    (images, mut fallback_images, fallback_cubemap, fallback_image_zero): (
         Res<RenderAssets<Image>>,
         FallbackImageMsaa,
         Res<FallbackImageCubemap>,
+        Res<FallbackImageZero>,
     ),
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
@@ -387,6 +411,7 @@ pub fn prepare_mesh_view_bind_groups(
             cluster_bindings,
             ssao_textures,
             prepass_textures,
+            transmission_texture,
             environment_map,
             tonemapping,
         ) in &views
@@ -443,7 +468,18 @@ pub fn prepare_mesh_view_bind_groups(
                 {
                     entries = entries.extend_with_indices(((index, binding),));
                 }
-            }
+            };
+
+            let transmission_view = transmission_texture
+                .map(|transmission| &transmission.view)
+                .unwrap_or(&fallback_image_zero.texture_view);
+
+            let transmission_sampler = transmission_texture
+                .map(|transmission| &transmission.sampler)
+                .unwrap_or(&fallback_image_zero.sampler);
+
+            entries =
+                entries.extend_with_indices(((21, transmission_view), (22, transmission_sampler)));
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),

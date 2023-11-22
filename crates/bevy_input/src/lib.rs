@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 //! Input functionality for the [Bevy game engine](https://bevyengine.org/).

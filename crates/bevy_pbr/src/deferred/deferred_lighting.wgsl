@@ -2,7 +2,8 @@
     prepass_utils,
     pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
     pbr_functions,
-    pbr_deferred_functions::{pbr_input_from_deferred_gbuffer, unpack_unorm3x4_plus_unorm_20_},
+    pbr_deferred_functions::pbr_input_from_deferred_gbuffer,
+    pbr_deferred_types::unpack_unorm3x4_plus_unorm_20_,
     mesh_view_bindings::deferred_prepass_texture,
 }
 

@@ -516,14 +516,14 @@ impl ButtonSettings {
     /// Returns `true` if the button is pressed.
     ///
     /// A button is considered pressed if the `value` passed is greater than or equal to the press threshold.
-    fn is_pressed(&self, value: f32) -> bool {
+    pub fn is_pressed(&self, value: f32) -> bool {
         value >= self.press_threshold
     }
 
     /// Returns `true` if the button is released.
     ///
     /// A button is considered released if the `value` passed is lower than or equal to the release threshold.
-    fn is_released(&self, value: f32) -> bool {
+    pub fn is_released(&self, value: f32) -> bool {
         value <= self.release_threshold
     }
 
@@ -1263,8 +1263,12 @@ pub fn gamepad_event_system(
             GamepadEvent::Connection(connection_event) => {
                 connection_events.send(connection_event.clone());
             }
-            GamepadEvent::Button(button_event) => button_events.send(button_event.clone()),
-            GamepadEvent::Axis(axis_event) => axis_events.send(axis_event.clone()),
+            GamepadEvent::Button(button_event) => {
+                button_events.send(button_event.clone());
+            }
+            GamepadEvent::Axis(axis_event) => {
+                axis_events.send(axis_event.clone());
+            }
         }
     }
 }
