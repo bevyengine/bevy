@@ -2,32 +2,10 @@
 #![allow(clippy::type_complexity)]
 
 use bevy::{
-    ecs::{indexing::*, query::ReadOnlyWorldQuery},
+    hierarchy::{Index, IndexPlugin},
     prelude::*,
 };
-use std::{hash::Hash, marker::PhantomData};
-
-pub struct IndexPlugin<T, F = (), I = SimpleIndexer<T>>(PhantomData<fn(T, F, I)>);
-
-impl<T, F, I> Default for IndexPlugin<T, F, I> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<T, I, F> Plugin for IndexPlugin<T, F, I>
-where
-    T: Component,
-    I: Indexer<Input = T> + 'static,
-    F: ReadOnlyWorldQuery + 'static,
-{
-    fn build(&self, app: &mut App) {
-        app.init_resource::<IndexBacking<T, F, I>>()
-            .add_systems(Update, Index::<T, F, I>::update_index);
-    }
-}
-
-// Usage
+use std::hash::Hash;
 
 #[derive(Component, Hash, Clone, PartialEq, Eq, Debug)]
 struct Player(usize);
