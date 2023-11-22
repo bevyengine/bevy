@@ -283,7 +283,7 @@ fn layout_entries(
         (22, sampler(SamplerBindingType::Filtering)),
     ));
 
-    (&entries).to_vec()
+    entries.to_vec()
 }
 
 /// Generates all possible view layouts for the mesh pipeline, based on all combinations of

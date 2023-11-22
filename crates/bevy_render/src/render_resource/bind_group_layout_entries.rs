@@ -496,7 +496,7 @@ pub mod binding_types {
     }
 
     #[allow(unused)]
-    pub fn texture_cube_mutlisampled(
+    pub fn texture_cube_multisampled(
         sample_type: TextureSampleType,
     ) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
@@ -518,7 +518,7 @@ pub mod binding_types {
     }
 
     #[allow(unused)]
-    pub fn texture_cube_array_mutlisampled(
+    pub fn texture_cube_array_multisampled(
         sample_type: TextureSampleType,
     ) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
@@ -540,7 +540,7 @@ pub mod binding_types {
     }
 
     #[allow(unused)]
-    pub fn texture_3d_mutlisampled(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
+    pub fn texture_3d_multisampled(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,
             view_dimension: TextureViewDimension::D3,
