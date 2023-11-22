@@ -104,10 +104,10 @@ fn draw(
 
     let r = (*i as f32 * period).sin() * max_radius;
     let xy = Vec2::from_angle(*i as f32 * rot_speed) * r + center;
-    let pos = UVec3::new(xy.x as u32, xy.y as u32, 0);
+    let (x, y) = (xy.x as u32, xy.y as u32);
 
     // Get the old color of that pixel.
-    let old_color = image.get_color_at(pos).unwrap();
+    let old_color = image.get_color_at(x, y).unwrap();
 
     // If the old color is our current color, change our drawing color.
     // (the values are never going to match exactly,
@@ -122,7 +122,7 @@ fn draw(
 
     // Set the new color, but keep old alpha value from image.
     image
-        .set_color_at(pos, draw_color.with_a(old_color.a()))
+        .set_color_at(x, y, draw_color.with_a(old_color.a()))
         .unwrap();
 
     *i += 1;

@@ -871,7 +871,18 @@ impl Image {
             .map(|start| &mut self.data[start..(start + len)])
     }
 
-    /// Read the color of a specific pixel.
+    /// Read the color of a specific pixel (1D texture).
+    ///
+    /// See [`get_color_at`] for more details.
+    #[inline(always)]
+    pub fn get_color_at_1d(&self, x: u32) -> Result<Color, TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D1 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.get_color_at_internal(UVec3::new(x, 0, 0))
+    }
+
+    /// Read the color of a specific pixel (2D texture).
     ///
     /// This function will find the raw byte data of a specific pixel and
     /// decode it into a user-friendly [`Color`] struct for you.
@@ -896,7 +907,84 @@ impl Image {
     ///  - 16-bit float formats
     ///  - signed integer formats
     #[inline(always)]
-    pub fn get_color_at(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
+    pub fn get_color_at(&self, x: u32, y: u32) -> Result<Color, TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.get_color_at_internal(UVec3::new(x, y, 0))
+    }
+
+    /// Read the color of a specific pixel (3D texture).
+    ///
+    /// See [`get_color_at`] for more details.
+    #[inline(always)]
+    pub fn get_color_at_3d(&self, x: u32, y: u32, z: u32) -> Result<Color, TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D3 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.get_color_at_internal(UVec3::new(x, y, z))
+    }
+
+    /// Change the color of a specific pixel (1D texture).
+    ///
+    /// See [`set_color_at`] for more details.
+    #[inline(always)]
+    pub fn set_color_at_1d(&mut self, x: u32, color: Color) -> Result<(), TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D1 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.set_color_at_internal(UVec3::new(x, 0, 0), color)
+    }
+
+    /// Change the color of a specific pixel (2D texture).
+    ///
+    /// This function will find the raw byte data of a specific pixel and
+    /// change it according to a [`Color`] you provide. The [`Color`] struct
+    /// will be encoded into the [`Image`]'s [`TextureFormat`].
+    ///
+    /// Supports many of the common [`TextureFormat`]s:
+    ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
+    ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses `f32`)
+    ///  - 32-bit float
+    ///
+    /// Be careful: writing to non-float [`TextureFormat`]s is lossy! The data has to be converted,
+    /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
+    /// you used when writing it using this function.
+    ///
+    /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    ///
+    /// Other [`TextureFormat`]s are unsupported, such as:
+    ///  - block-compressed formats
+    ///  - non-byte-aligned formats like 10-bit
+    ///  - 16-bit float formats
+    ///  - signed integer formats
+    #[inline(always)]
+    pub fn set_color_at(&mut self, x: u32, y: u32, color: Color) -> Result<(), TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.set_color_at_internal(UVec3::new(x, y, 0), color)
+    }
+
+    /// Change the color of a specific pixel (3D texture).
+    ///
+    /// See [`set_color_at`] for more details.
+    #[inline(always)]
+    pub fn set_color_at_3d(
+        &mut self,
+        x: u32,
+        y: u32,
+        z: u32,
+        color: Color,
+    ) -> Result<(), TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D3 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.set_color_at_internal(UVec3::new(x, y, z), color)
+    }
+
+    #[inline(always)]
+    fn get_color_at_internal(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
         let Some(bytes) = self.pixel_bytes(coords) else {
             return Err(TextureAccessError::OutOfBounds {
                 x: coords.x,
@@ -1020,30 +1108,12 @@ impl Image {
         }
     }
 
-    /// Change the color of a specific pixel.
-    ///
-    /// This function will find the raw byte data of a specific pixel and
-    /// change it according to a [`Color`] you provide. The [`Color`] struct
-    /// will be encoded into the [`Image`]'s [`TextureFormat`].
-    ///
-    /// Supports many of the common [`TextureFormat`]s:
-    ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
-    ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses `f32`)
-    ///  - 32-bit float
-    ///
-    /// Be careful: writing to non-float [`TextureFormat`]s is lossy! The data has to be converted,
-    /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
-    /// you used when writing it using this function.
-    ///
-    /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
-    ///
-    /// Other [`TextureFormat`]s are unsupported, such as:
-    ///  - block-compressed formats
-    ///  - non-byte-aligned formats like 10-bit
-    ///  - 16-bit float formats
-    ///  - signed integer formats
     #[inline(always)]
-    pub fn set_color_at(&mut self, coords: UVec3, color: Color) -> Result<(), TextureAccessError> {
+    fn set_color_at_internal(
+        &mut self,
+        coords: UVec3,
+        color: Color,
+    ) -> Result<(), TextureAccessError> {
         let format = self.texture_descriptor.format;
 
         let Some(bytes) = self.pixel_bytes_mut(coords) else {
@@ -1206,6 +1276,8 @@ pub enum TextureAccessError {
     OutOfBounds { x: u32, y: u32, z: u32 },
     #[error("unsupported texture format: {0:?}")]
     UnsupportedTextureFormat(TextureFormat),
+    #[error("attempt to access texture with different dimension")]
+    WrongDimension,
 }
 
 /// An error that occurs when loading a texture
