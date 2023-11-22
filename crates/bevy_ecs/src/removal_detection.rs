@@ -208,14 +208,6 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .map(RemovedComponentEntity::into)
     }
 
-    /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
-    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
-    /// that happened before now.
-    #[deprecated = "use `.read()` instead."]
-    pub fn iter(&mut self) -> RemovedIter<'_> {
-        self.read()
-    }
-
     /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
     pub fn read_with_id(&mut self) -> RemovedIterWithId<'_> {
         self.reader_mut_with_events()
@@ -223,12 +215,6 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .into_iter()
             .flatten()
             .map(map_id_events)
-    }
-
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    #[deprecated = "use `.read_with_id()` instead."]
-    pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
-        self.read_with_id()
     }
 
     /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
