@@ -26,7 +26,7 @@ pub struct ReflectAsset {
     insert: fn(&mut World, UntypedHandle, &dyn Reflect),
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
-    remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
+    unload: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
 }
 
 impl ReflectAsset {
@@ -102,7 +102,7 @@ impl ReflectAsset {
 
     /// Equivalent of [`Assets::remove`]
     pub fn remove(&self, world: &mut World, handle: UntypedHandle) -> Option<Box<dyn Reflect>> {
-        (self.remove)(world, handle)
+        (self.unload)(world, handle)
     }
 
     /// Equivalent of [`Assets::len`]
@@ -159,9 +159,9 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 let assets = world.resource::<Assets<A>>();
                 Box::new(assets.ids().map(|i| i.untyped()))
             },
-            remove: |world, handle| {
+            unload: |world, handle| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value = assets.remove(handle.typed_debug_checked());
+                let value = assets.unload(handle.typed_debug_checked());
                 value.map(|value| Box::new(value) as Box<dyn Reflect>)
             },
         }

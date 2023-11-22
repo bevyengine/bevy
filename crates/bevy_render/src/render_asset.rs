@@ -192,7 +192,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
             if asset.unload_after_extract() {
-                if let Some(asset) = assets.remove_untracked(id) {
+                if let Some(asset) = assets.unload(id) {
                     extracted_assets.push((id, asset));
                 }
             } else {

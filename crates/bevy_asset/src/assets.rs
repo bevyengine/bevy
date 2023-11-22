@@ -377,34 +377,15 @@ impl<A: Asset> Assets<A> {
         result
     }
 
-    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists.
+    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists. [`AssetEvent::Removed`] will not be
+    /// emitted until the last [`Handle::Strong`] is dropped.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
-        let id: AssetId<A> = id.into();
-        let result = self.remove_untracked(id);
-        if result.is_some() {
-            self.queued_events.push(AssetEvent::Removed { id });
-        }
-        result
-    }
-
-    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists. This skips emitting [`AssetEvent::Removed`].
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn unload(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         match id {
             AssetId::Index { index, .. } => self.dense_storage.remove(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
-    }
-
-    /// Removes the [`Asset`] with the given `id`, if its exists. This always emits [`AssetEvent::Removed`], regardless
-    /// of whether or not the asset exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    fn remove_always_emit_event(&mut self, id: impl Into<AssetId<A>>) {
-        let id = id.into();
-        self.remove_untracked(id);
-        self.queued_events.push(AssetEvent::Removed { id });
     }
 
     /// Returns `true` if there are no assets in this collection.
@@ -474,23 +455,24 @@ impl<A: Asset> Assets<A> {
         let mut infos = asset_server.data.infos.write();
         let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
-            let id = drop_event.id;
+            let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
+            let id = drop_event.id.typed();
 
-            // TODO: How to differentiate between the asset being unloaded with remove_untracked(),
-            // and the asset not being loaded yet?
-            if !assets.contains(id.typed()) {
+            // TODO: How to differentiate between the asset having been unloaded,
+            // and the asset in the process of loading?
+            if !assets.contains(id) {
                 not_ready.push(drop_event);
                 continue;
             }
 
-            // TODO: We don't want to send another asset removal event if the asset was manually removed
-            // by the user (without unloading for the case of RenderAssets)...
             if drop_event.asset_server_managed {
-                if infos.process_handle_drop(id.untyped(TypeId::of::<A>())) {
-                    assets.remove_always_emit_event(id.typed());
+                if infos.process_handle_drop(untyped_id) {
+                    assets.unload(id);
+                    assets.queued_events.push(AssetEvent::Removed { id });
                 }
             } else {
-                assets.remove_always_emit_event(id.typed());
+                assets.unload(untyped_id.typed());
+                assets.queued_events.push(AssetEvent::Removed { id });
             }
         }
 
