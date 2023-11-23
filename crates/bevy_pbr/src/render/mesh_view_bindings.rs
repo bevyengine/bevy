@@ -17,8 +17,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{
-            sampler, storage_buffer, storage_buffer_read_only, texture_2d, texture_2d_array,
-            texture_cube_array, uniform_buffer,
+            sampler, storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer,
+            uniform_buffer_sized,
         },
         BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder, BindingType,
         BufferBindingType, DynamicBindGroupEntries, DynamicBindGroupLayoutEntries,
@@ -28,6 +28,11 @@ use bevy_render::{
     texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
+
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+use bevy_render::render_resource::binding_types::texture_cube;
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
 
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
