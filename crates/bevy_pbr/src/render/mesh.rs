@@ -830,10 +830,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("LIGHTMAP".into());
         }
 
-        if key.contains(MeshPipelineKey::TAA) {
-            shader_defs.push("TAA".into());
-        }
-
         if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
             shader_defs.push("TEMPORAL_JITTER".into());
         }
