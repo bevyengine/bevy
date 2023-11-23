@@ -484,16 +484,16 @@ pub fn winit_runner(mut app: App) {
                             });
                     }
                     WindowEvent::KeyboardInput { ref event, .. } => {
-                        let keyboard_event =
-                            converters::convert_keyboard_input(event, window_entity);
                         if event.state.is_pressed() {
-                            if let winit::keyboard::Key::Character(c) = &event.logical_key {
+                            if let Some(char) = &event.text {
                                 event_writers.character_input.send(ReceivedCharacter {
                                     window: window_entity,
-                                    char: c.clone(),
+                                    char: char.clone(),
                                 });
                             }
                         }
+                        let keyboard_event =
+                            converters::convert_keyboard_input(event, window_entity);
                         event_writers.keyboard_input.send(keyboard_event);
                     }
                     WindowEvent::CursorMoved { position, .. } => {
