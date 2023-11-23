@@ -453,9 +453,7 @@ impl<A: Asset> Assets<A> {
     }
 
     /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
-    /// [`Handle`] drop events and adds queued [`AssetEvent`] values to their [`Events`] resource.
-    ///
-    /// [`Events`]: bevy_ecs::event::Events
+    /// [`Handle`] drop events.
     pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
@@ -484,6 +482,7 @@ impl<A: Asset> Assets<A> {
                 assets.remove(id);
             }
         }
+
         // TODO: this is _extremely_ inefficient find a better fix
         // This will also loop failed assets indefinitely. Is that ok?
         for event in not_ready {
