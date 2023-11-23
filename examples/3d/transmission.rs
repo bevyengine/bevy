@@ -440,9 +440,9 @@ fn example_control_system(
     time: Res<Time>,
     input: Res<Input<KeyCode>>,
 ) {
-    if input.pressed(KeyCode::F2) {
+    if input.pressed(KeyCode::Digit2) {
         state.diffuse_transmission = (state.diffuse_transmission + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::F1) {
+    } else if input.pressed(KeyCode::Digit1) {
         state.diffuse_transmission = (state.diffuse_transmission - time.delta_seconds()).max(0.0);
     }
 

@@ -103,9 +103,9 @@ fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.enabled_buttons)
 /// for more details.
 fn toggle_window_controls(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    let toggle_minimize = input.just_pressed(KeyCode::F1);
-    let toggle_maximize = input.just_pressed(KeyCode::F2);
-    let toggle_close = input.just_pressed(KeyCode::F3);
+    let toggle_minimize = input.just_pressed(KeyCode::Digit1);
+    let toggle_maximize = input.just_pressed(KeyCode::Digit2);
+    let toggle_close = input.just_pressed(KeyCode::Digit3);
 
     if toggle_minimize || toggle_maximize || toggle_close {
         let mut window = windows.single_mut();
