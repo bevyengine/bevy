@@ -159,24 +159,33 @@ impl From<Quad> for Mesh {
         let extent_y = quad.size.y / 2.0;
 
         let (u_left, u_right) = if quad.flip { (1.0, 0.0) } else { (0.0, 1.0) };
-        let vertices = [
-            ([-extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 1.0]),
-            ([-extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 0.0]),
-            ([extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 0.0]),
-            ([extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 1.0]),
-        ];
 
-        let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
+        let mut mesh = SimpleMeshBuilder::default();
 
-        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
-        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
-        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
+        mesh.quad(
+            SimpleVertex {
+                position: Vec3::new(-extent_x, -extent_y, 0.0),
+                normal: Vec3::Z,
+                uv: Vec2::new(u_left, 1.0),
+            },
+            SimpleVertex {
+                position: Vec3::new(extent_x, -extent_y, 0.0),
+                normal: Vec3::Z,
+                uv: Vec2::new(u_right, 1.0),
+            },
+            SimpleVertex {
+                position: Vec3::new(extent_x, extent_y, 0.0),
+                normal: Vec3::Z,
+                uv: Vec2::new(u_right, 0.0),
+            },
+            SimpleVertex {
+                position: Vec3::new(-extent_x, extent_y, 0.0),
+                normal: Vec3::Z,
+                uv: Vec2::new(u_left, 0.0),
+            },
+        );
 
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_indices(Some(indices))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        mesh.build()
     }
 }
 
@@ -268,6 +277,7 @@ mod regular_polygon;
 mod torus;
 mod uvsphere;
 
+use crate::mesh::simple::{SimpleMeshBuilder, SimpleVertex};
 pub use capsule::{Capsule, CapsuleUvProfile};
 pub use cylinder::Cylinder;
 pub use icosphere::Icosphere;
