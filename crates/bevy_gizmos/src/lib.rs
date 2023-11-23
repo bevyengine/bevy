@@ -15,6 +15,7 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+pub mod arcs;
 pub mod arrows;
 pub mod circles;
 pub mod gizmos;
