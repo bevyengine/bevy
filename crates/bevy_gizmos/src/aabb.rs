@@ -36,7 +36,7 @@ impl Plugin for AabbGizmoPlugin {
                 (
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
-                        config.get::<AabbGizmoConfigGroup>().1.draw_all
+                        config.config::<AabbGizmoConfigGroup>().1.draw_all
                     }),
                 )
                     .after(TransformSystem::TransformPropagate),

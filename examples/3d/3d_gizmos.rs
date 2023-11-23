@@ -133,7 +133,7 @@ fn update_config(
         }
     }
 
-    let (config, _) = config_store.get_mut::<DefaultGizmoGroup>();
+    let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::Right) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
@@ -146,7 +146,7 @@ fn update_config(
         config.enabled ^= true;
     }
 
-    let (my_config, _) = config_store.get_mut::<MyRoundGizmos>();
+    let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::Up) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
@@ -162,6 +162,6 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::A) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the configuration of AabbGizmoGroup
-        config_store.get_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+        config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
     }
 }

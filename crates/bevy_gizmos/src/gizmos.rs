@@ -14,7 +14,7 @@ use bevy_transform::TransformPoint;
 
 use crate::{
     config::GizmoConfigGroup,
-    config::{DefaultGizmoGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 
@@ -35,7 +35,7 @@ pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
 /// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are spawned.
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
-pub struct Gizmos<'w, 's, T: GizmoConfigGroup = DefaultGizmoGroup> {
+pub struct Gizmos<'w, 's, T: GizmoConfigGroup = DefaultGizmoConfigGroup> {
     buffer: Deferred<'s, GizmoBuffer<T>>,
     pub(crate) enabled: bool,
     /// The currently used [`GizmoConfig`]
@@ -82,7 +82,7 @@ unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
         // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
         // Implementing SystemParam manually allows us to do it to here
         // Having config available allows for early returns when gizmos are disabled
-        let (config, config_ext) = f1.into_inner().get::<T>();
+        let (config, config_ext) = f1.into_inner().config::<T>();
         Gizmos {
             buffer: f0,
             enabled: config.enabled,

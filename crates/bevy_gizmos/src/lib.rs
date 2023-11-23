@@ -32,7 +32,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
-        config::{DefaultGizmoGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
+        config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
         AppGizmoBuilder,
     };
@@ -66,7 +66,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
-use config::{DefaultGizmoGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig};
+use config::{
+    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
+};
 use gizmos::GizmoStorage;
 use std::{any::TypeId, mem};
 
@@ -85,7 +87,7 @@ impl Plugin for GizmoPlugin {
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfigStore>()
-            .init_gizmo_group::<DefaultGizmoGroup>()
+            .init_gizmo_group::<DefaultGizmoConfigGroup>()
             .add_plugins(AabbGizmoPlugin);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -217,7 +219,7 @@ fn extract_gizmo_data<T: GizmoConfigGroup>(
     handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
-    let (config, _) = config.get::<T>();
+    let (config, _) = config.config::<T>();
 
     if !config.enabled {
         return;
