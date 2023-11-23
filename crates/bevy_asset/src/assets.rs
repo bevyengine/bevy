@@ -1,5 +1,7 @@
 use crate as bevy_asset;
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use crate::{
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, LoadState, UntypedHandle,
+};
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
@@ -464,18 +466,19 @@ impl<A: Asset> Assets<A> {
         let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
+            let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
+
+            if let Some(asset_info) = infos.get(untyped_id) {
+                if asset_info.load_state != LoadState::Loaded {
+                    not_ready.push(drop_event);
+                    continue;
+                }
+            }
 
             assets.queued_events.push(AssetEvent::NoLongerUsed { id });
 
-            // TODO: Assets that have already been removed will infinitely loop
-            // Instead of this check, check asset status in AssetServer
-            if !assets.contains(id) {
-                not_ready.push(drop_event);
-                continue;
-            }
-
             if drop_event.asset_server_managed {
-                if infos.process_handle_drop(drop_event.id.untyped(TypeId::of::<A>())) {
+                if infos.process_handle_drop(untyped_id) {
                     assets.remove(id);
                 }
             } else {
