@@ -317,10 +317,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
 
         match variant_type {
             VariantType::Unit => {
-                let table = self
-                    .enum_value
-                    .get_represented_type_info()
-                    .map(|i| i.type_path_table());
+                let table = type_info.map(|i| i.type_path_table());
 
                 if table.and_then(|t| t.module_path()) == Some("core::option")
                     && table.and_then(|t| t.ident()) == Some("Option")
