@@ -12,6 +12,7 @@ pub mod prelude {
 }
 
 mod assets;
+mod callback;
 mod event;
 mod folder;
 mod handle;
@@ -23,6 +24,7 @@ mod server;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
+pub use callback::*;
 pub use event::*;
 pub use folder::*;
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
@@ -213,6 +215,7 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedFolder>()
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
+            .init_asset::<Callback>()
             .configure_sets(
                 UpdateAssets,
                 TrackAssets.after(handle_internal_asset_events),

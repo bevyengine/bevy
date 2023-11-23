@@ -3,13 +3,39 @@ use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::World;
 use crate::{self as bevy_ecs};
 use bevy_ecs_macros::Component;
+use bevy_reflect::TypePath;
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-struct RegisteredSystem<I, O> {
+struct RegisteredSystem<I, O>(DriveSystem<I, O>);
+
+#[derive(TypePath)]
+pub struct DriveSystem<I, O> {
     initialized: bool,
     system: BoxedSystem<I, O>,
+}
+
+impl<I, O> DriveSystem<I, O> {
+    pub fn new(system: BoxedSystem<I, O>) -> Self {
+        Self {
+            initialized: false,
+            system,
+        }
+    }
+}
+
+impl<I: 'static, O: 'static> DriveSystem<I, O> {
+    pub fn run_with_input(&mut self, world: &mut World, input: I) -> O {
+        if !self.initialized {
+            self.system.initialize(world);
+            self.initialized = true;
+        }
+        let result = self.system.run(input, world);
+        self.system.apply_deferred(world);
+
+        result
+    }
 }
 
 /// A system that has been removed from the registry.
@@ -100,11 +126,7 @@ impl World {
         system: BoxedSystem<I, O>,
     ) -> SystemId<I, O> {
         SystemId(
-            self.spawn(RegisteredSystem {
-                initialized: false,
-                system,
-            })
-            .id(),
+            self.spawn(RegisteredSystem(DriveSystem::new(system))).id(),
             std::marker::PhantomData,
         )
     }
@@ -126,8 +148,8 @@ impl World {
                     .ok_or(RegisteredSystemError::SelfRemove(id))?;
                 entity.despawn();
                 Ok(RemovedSystem {
-                    initialized: registered_system.initialized,
-                    system: registered_system.system,
+                    initialized: registered_system.0.initialized,
+                    system: registered_system.0.system,
                 })
             }
             None => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
@@ -273,27 +295,16 @@ impl World {
             .ok_or(RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // take ownership of system trait object
-        let RegisteredSystem {
-            mut initialized,
-            mut system,
-        } = entity
+        let RegisteredSystem(mut drive_system) = entity
             .take::<RegisteredSystem<I, O>>()
             .ok_or(RegisteredSystemError::Recursive(id))?;
 
         // run the system
-        if !initialized {
-            system.initialize(self);
-            initialized = true;
-        }
-        let result = system.run(input, self);
-        system.apply_deferred(self);
+        let result = drive_system.run_with_input(self, input);
 
         // return ownership of system trait object (if entity still exists)
         if let Some(mut entity) = self.get_entity_mut(id.0) {
-            entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
-                initialized,
-                system,
-            });
+            entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem(drive_system));
         }
         Ok(result)
     }
