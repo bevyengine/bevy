@@ -705,11 +705,14 @@ impl AssetServer {
     /// Returns an active handle for the given path, if the asset at the given path has already started loading,
     /// or is still "alive".
     pub fn get_handle<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Option<Handle<A>> {
-        self.get_handles_untyped(path)
-            .into_iter()
-            .filter(|handle| handle.type_id() == TypeId::of::<A>())
-            .map(|h| h.typed_debug_checked())
-            .next()
+        let handle = self
+            .data
+            .infos
+            .read()
+            .get_path_and_type_id_handle(path.into(), TypeId::of::<A>())?
+            .typed_debug_checked();
+
+        Some(handle)
     }
 
     pub fn get_id_handle<A: Asset>(&self, id: AssetId<A>) -> Option<Handle<A>> {

@@ -269,6 +269,15 @@ impl AssetInfos {
         self.infos.get_mut(&id)
     }
 
+    pub(crate) fn get_path_and_type_id_handle(
+        &self,
+        path: AssetPath<'_>,
+        type_id: TypeId,
+    ) -> Option<UntypedHandle> {
+        let id = self.path_to_id.get(&path)?.get(&type_id)?;
+        self.get_id_handle(*id)
+    }
+
     pub(crate) fn get_path_handles<'a>(
         &'a self,
         path: AssetPath<'a>,
