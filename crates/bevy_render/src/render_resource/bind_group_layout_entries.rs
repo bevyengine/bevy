@@ -164,7 +164,6 @@ pub struct BindGroupLayoutEntries<const N: usize> {
 
 impl<const N: usize> BindGroupLayoutEntries<N> {
     #[inline]
-    #[allow(unused)]
     pub fn sequential(
         default_visibility: ShaderStages,
         entries_ext: impl IntoBindGroupLayoutEntryBuilderArray<N>,
@@ -180,7 +179,6 @@ impl<const N: usize> BindGroupLayoutEntries<N> {
     }
 
     #[inline]
-    #[allow(unused)]
     pub fn with_indices(
         default_visibility: ShaderStages,
         indexed_entries: impl IntoIndexedBindGroupLayoutEntryBuilderArray<N>,
@@ -363,7 +361,6 @@ pub mod binding_types {
 
     use super::*;
 
-    #[allow(unused)]
     pub fn storage_buffer(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZeroU64>,
@@ -376,7 +373,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn storage_buffer_read_only(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZeroU64>,
@@ -389,7 +385,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn uniform_buffer(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZeroU64>,
@@ -402,7 +397,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,
@@ -412,7 +406,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_multisampled(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,
@@ -422,7 +415,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_array(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,
@@ -432,7 +424,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_array_multisampled(
         sample_type: TextureSampleType,
     ) -> BindGroupLayoutEntryBuilder {
@@ -444,48 +435,39 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_f32(filterable: bool) -> BindGroupLayoutEntryBuilder {
         texture_2d(TextureSampleType::Float { filterable }).into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_multisampled_f32(filterable: bool) -> BindGroupLayoutEntryBuilder {
         texture_2d_multisampled(TextureSampleType::Float { filterable })
             .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_i32() -> BindGroupLayoutEntryBuilder {
         texture_2d(TextureSampleType::Sint).into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_multisampled_i32() -> BindGroupLayoutEntryBuilder {
         texture_2d_multisampled(TextureSampleType::Sint).into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_u32() -> BindGroupLayoutEntryBuilder {
         texture_2d(TextureSampleType::Uint).into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_2d_multisampled_u32() -> BindGroupLayoutEntryBuilder {
         texture_2d_multisampled(TextureSampleType::Uint).into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_depth_2d() -> BindGroupLayoutEntryBuilder {
         texture_2d(TextureSampleType::Depth).into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_depth_2d_multisampled() -> BindGroupLayoutEntryBuilder {
         texture_2d_multisampled(TextureSampleType::Depth).into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_cube(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,
@@ -495,7 +477,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_cube_multisampled(
         sample_type: TextureSampleType,
     ) -> BindGroupLayoutEntryBuilder {
@@ -507,7 +488,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_cube_array(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,
@@ -517,7 +497,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_cube_array_multisampled(
         sample_type: TextureSampleType,
     ) -> BindGroupLayoutEntryBuilder {
@@ -529,7 +508,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_3d(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,
@@ -539,7 +517,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_3d_multisampled(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,
@@ -549,12 +526,10 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn sampler(sampler_binding_type: SamplerBindingType) -> BindGroupLayoutEntryBuilder {
         BindingType::Sampler(sampler_binding_type).into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_storage_2d(
         format: TextureFormat,
         access: StorageTextureAccess,
@@ -567,7 +542,6 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    #[allow(unused)]
     pub fn texture_storage_2d_array(
         format: TextureFormat,
         access: StorageTextureAccess,
