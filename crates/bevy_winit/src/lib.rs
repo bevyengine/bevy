@@ -146,7 +146,7 @@ impl Plugin for WinitPlugin {
 
         let event_loop = event_loop_builder
             .build()
-            .expect("Failed creating event loop");
+            .expect("Failed to build event loop");
 
         // iOS, macOS, and Android don't like it if you create windows before the event loop is
         // initialized.
