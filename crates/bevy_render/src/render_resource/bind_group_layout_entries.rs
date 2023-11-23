@@ -450,28 +450,28 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    pub fn texture_2d_f32(filterable: bool) -> BindGroupLayoutEntryBuilder {
+    pub fn texture_2d_float(filterable: bool) -> BindGroupLayoutEntryBuilder {
         texture_2d(TextureSampleType::Float { filterable }).into_bind_group_layout_entry_builder()
     }
 
-    pub fn texture_2d_multisampled_f32(filterable: bool) -> BindGroupLayoutEntryBuilder {
+    pub fn texture_2d_multisampled_float(filterable: bool) -> BindGroupLayoutEntryBuilder {
         texture_2d_multisampled(TextureSampleType::Float { filterable })
             .into_bind_group_layout_entry_builder()
     }
 
-    pub fn texture_2d_i32() -> BindGroupLayoutEntryBuilder {
+    pub fn texture_2d_sint() -> BindGroupLayoutEntryBuilder {
         texture_2d(TextureSampleType::Sint).into_bind_group_layout_entry_builder()
     }
 
-    pub fn texture_2d_multisampled_i32() -> BindGroupLayoutEntryBuilder {
+    pub fn texture_2d_multisampled_sint() -> BindGroupLayoutEntryBuilder {
         texture_2d_multisampled(TextureSampleType::Sint).into_bind_group_layout_entry_builder()
     }
 
-    pub fn texture_2d_u32() -> BindGroupLayoutEntryBuilder {
+    pub fn texture_2d_uint() -> BindGroupLayoutEntryBuilder {
         texture_2d(TextureSampleType::Uint).into_bind_group_layout_entry_builder()
     }
 
-    pub fn texture_2d_multisampled_u32() -> BindGroupLayoutEntryBuilder {
+    pub fn texture_2d_multisampled_uint() -> BindGroupLayoutEntryBuilder {
         texture_2d_multisampled(TextureSampleType::Uint).into_bind_group_layout_entry_builder()
     }
 
