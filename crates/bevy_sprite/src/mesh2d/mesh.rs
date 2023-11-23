@@ -262,8 +262,8 @@ impl FromWorld for Mesh2dPipeline {
                 ShaderStages::VERTEX_FRAGMENT,
                 (
                     // View
-                    uniform_buffer(true, Some(ViewUniform::min_size())),
-                    uniform_buffer(false, Some(GlobalsUniform::min_size())),
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GlobalsUniform>(false),
                 ),
             ),
         );

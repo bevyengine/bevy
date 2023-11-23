@@ -236,11 +236,11 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderStages::VERTEX_FRAGMENT,
                 (
                     // View
-                    uniform_buffer(true, Some(ViewUniform::min_size())),
+                    uniform_buffer::<ViewUniform>(true),
                     // Globals
-                    uniform_buffer(false, Some(GlobalsUniform::min_size())),
+                    uniform_buffer::<GlobalsUniform>(false),
                     // PreviousViewProjection
-                    uniform_buffer(true, Some(PreviousViewProjection::min_size())),
+                    uniform_buffer::<PreviousViewProjection>(true),
                 ),
             ),
         );
@@ -251,9 +251,9 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderStages::VERTEX_FRAGMENT,
                 (
                     // View
-                    uniform_buffer(true, Some(ViewUniform::min_size())),
+                    uniform_buffer::<ViewUniform>(true),
                     // Globals
-                    uniform_buffer(false, Some(GlobalsUniform::min_size())),
+                    uniform_buffer::<GlobalsUniform>(false),
                 ),
             ),
         );

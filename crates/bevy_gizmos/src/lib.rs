@@ -123,7 +123,7 @@ impl Plugin for GizmoPlugin {
             "LineGizmoUniform layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX,
-                uniform_buffer(true, Some(LineGizmoUniform::min_size())),
+                uniform_buffer::<LineGizmoUniform>(true),
             ),
         );
 

@@ -58,7 +58,7 @@ impl FromWorld for BloomDownsamplingPipeline {
                     // Sampler binding
                     sampler(SamplerBindingType::Filtering),
                     // Downsampling settings binding
-                    uniform_buffer(true, Some(BloomUniforms::min_size())),
+                    uniform_buffer::<BloomUniforms>(true),
                 ),
             ),
         );

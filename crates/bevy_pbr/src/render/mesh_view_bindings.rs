@@ -22,7 +22,7 @@ use bevy_render::{
         },
         BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder, BindingType,
         BufferBindingType, DynamicBindGroupEntries, DynamicBindGroupLayoutEntries,
-        SamplerBindingType, ShaderStages, ShaderType, TextureFormat, TextureSampleType,
+        SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, FallbackImageZero, Image},
@@ -159,7 +159,7 @@ fn buffer_layout(
     min_binding_size: Option<NonZeroU64>,
 ) -> BindGroupLayoutEntryBuilder {
     match buffer_binding_type {
-        BufferBindingType::Uniform => uniform_buffer(has_dynamic_offset, min_binding_size),
+        BufferBindingType::Uniform => uniform_buffer_sized(has_dynamic_offset, min_binding_size),
         BufferBindingType::Storage { read_only } => {
             if read_only {
                 storage_buffer_read_only(has_dynamic_offset, min_binding_size)
@@ -181,11 +181,10 @@ fn layout_entries(
             // View
             (
                 0,
-                uniform_buffer(true, Some(ViewUniform::min_size()))
-                    .visibility(ShaderStages::VERTEX_FRAGMENT),
+                uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),
             ),
             // Lights
-            (1, uniform_buffer(true, Some(GpuLights::min_size()))),
+            (1, uniform_buffer::<GpuLights>(true)),
             // Point Shadow Texture Cube Array
             (
                 2,
@@ -240,9 +239,9 @@ fn layout_entries(
                 ),
             ),
             // Globals
-            (9, uniform_buffer(false, Some(GlobalsUniform::min_size()))),
+            (9, uniform_buffer::<GlobalsUniform>(false)),
             // Fog
-            (10, uniform_buffer(true, Some(GpuFog::min_size()))),
+            (10, uniform_buffer::<GpuFog>(true)),
             // Screen space ambient occlusion texture
             (
                 11,

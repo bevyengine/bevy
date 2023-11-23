@@ -48,7 +48,7 @@ impl FromWorld for BloomUpsamplingPipeline {
                     // Sampler
                     sampler(SamplerBindingType::Filtering),
                     // BloomUniforms
-                    uniform_buffer(true, Some(BloomUniforms::min_size())),
+                    uniform_buffer::<BloomUniforms>(true),
                 ),
             ),
         );

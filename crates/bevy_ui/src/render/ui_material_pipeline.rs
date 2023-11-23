@@ -227,7 +227,7 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
             "ui_view_layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX_FRAGMENT,
-                uniform_buffer(true, Some(ViewUniform::min_size())),
+                uniform_buffer::<ViewUniform>(true),
             ),
         );
         UiMaterialPipeline {

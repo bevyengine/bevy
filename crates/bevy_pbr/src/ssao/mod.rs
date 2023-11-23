@@ -357,7 +357,7 @@ impl FromWorld for SsaoPipelines {
                 ShaderStages::COMPUTE,
                 (
                     sampler(SamplerBindingType::NonFiltering),
-                    uniform_buffer(true, Some(ViewUniform::min_size())),
+                    uniform_buffer::<ViewUniform>(true),
                 ),
             ),
         );
@@ -387,7 +387,7 @@ impl FromWorld for SsaoPipelines {
                     texture_2d_u32(),
                     texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
-                    uniform_buffer(false, Some(GlobalsUniform::min_size())),
+                    uniform_buffer::<GlobalsUniform>(false),
                 ),
             ),
         );

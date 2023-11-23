@@ -356,6 +356,7 @@ pub mod binding_types {
     use crate::render_resource::{
         BufferBindingType, SamplerBindingType, TextureSampleType, TextureViewDimension,
     };
+    use encase::ShaderType;
     use std::num::NonZeroU64;
     use wgpu::{BindingType, StorageTextureAccess, TextureFormat};
 
@@ -385,7 +386,11 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    pub fn uniform_buffer(
+    pub fn uniform_buffer<T: ShaderType>(has_dynamic_offset: bool) -> BindGroupLayoutEntryBuilder {
+        uniform_buffer_sized(has_dynamic_offset, Some(T::min_size()))
+    }
+
+    pub fn uniform_buffer_sized(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZeroU64>,
     ) -> BindGroupLayoutEntryBuilder {

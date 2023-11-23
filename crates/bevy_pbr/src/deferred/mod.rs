@@ -382,7 +382,7 @@ impl FromWorld for DeferredLightingLayout {
             "deferred_lighting_layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX_FRAGMENT,
-                uniform_buffer(false, Some(PbrDeferredLightingDepthId::min_size())),
+                uniform_buffer::<PbrDeferredLightingDepthId>(false),
             ),
         );
         Self {

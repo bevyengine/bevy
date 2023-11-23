@@ -254,7 +254,7 @@ impl FromWorld for TonemappingPipeline {
         let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
             ShaderStages::FRAGMENT,
             (
-                (0, uniform_buffer(true, Some(ViewUniform::min_size()))),
+                (0, uniform_buffer::<ViewUniform>(true)),
                 (
                     1,
                     texture_2d(TextureSampleType::Float { filterable: false }),

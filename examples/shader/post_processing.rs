@@ -237,7 +237,7 @@ impl FromWorld for PostProcessPipeline {
                     // The sampler that will be used to sample the screen texture
                     sampler(SamplerBindingType::Filtering),
                     // The settings uniform that will control the effect
-                    uniform_buffer(false, Some(PostProcessSettings::min_size())),
+                    uniform_buffer::<PostProcessSettings>(false),
                 ),
             ),
         );

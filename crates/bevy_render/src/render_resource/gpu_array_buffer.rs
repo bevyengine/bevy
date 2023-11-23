@@ -1,5 +1,5 @@
 use super::{
-    binding_types::{storage_buffer, uniform_buffer},
+    binding_types::{storage_buffer, uniform_buffer_sized},
     BindGroupLayoutEntryBuilder, StorageBuffer,
 };
 use crate::{
@@ -79,7 +79,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
 
     pub fn binding_layout(device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
         if device.limits().max_storage_buffers_per_shader_stage == 0 {
-            uniform_buffer(
+            uniform_buffer_sized(
                 true,
                 // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
                 // None here and let wgpu figure out the size.

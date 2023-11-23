@@ -14,7 +14,7 @@ use bevy_render::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
         DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
+        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
         TextureFormat, TextureSampleType, VertexState,
     },
@@ -88,7 +88,7 @@ impl SkyboxPipeline {
                     (
                         texture_cube(TextureSampleType::Float { filterable: true }),
                         sampler(SamplerBindingType::Filtering),
-                        uniform_buffer(true, Some(ViewUniform::min_size()))
+                        uniform_buffer::<ViewUniform>(true)
                             .visibility(ShaderStages::VERTEX_FRAGMENT),
                     ),
                 ),

@@ -17,14 +17,14 @@ mod layout_entry {
     use crate::MeshUniform;
     use bevy_render::{
         render_resource::{
-            binding_types::uniform_buffer, BindGroupLayoutEntry, BindingType, BufferSize,
+            binding_types::uniform_buffer_sized, BindGroupLayoutEntry, BindingType, BufferSize,
             GpuArrayBuffer, ShaderStages, TextureSampleType, TextureViewDimension,
         },
         renderer::RenderDevice,
     };
 
     fn buffer(binding: u32, size: u64, visibility: ShaderStages) -> BindGroupLayoutEntry {
-        uniform_buffer(true, BufferSize::new(size)).build(binding, visibility)
+        uniform_buffer_sized(true, BufferSize::new(size)).build(binding, visibility)
     }
     pub(super) fn model(render_device: &RenderDevice, binding: u32) -> BindGroupLayoutEntry {
         GpuArrayBuffer::<MeshUniform>::binding_layout(render_device)

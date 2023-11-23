@@ -180,7 +180,7 @@ impl FromWorld for CASPipeline {
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     sampler(SamplerBindingType::Filtering),
                     // CAS Settings
-                    uniform_buffer(true, Some(CASUniform::min_size())),
+                    uniform_buffer::<CASUniform>(true),
                 ),
             ),
         );
