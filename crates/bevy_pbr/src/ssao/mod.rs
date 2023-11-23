@@ -22,8 +22,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{
-            sampler, texture_2d, texture_2d_uint, texture_depth_2d, texture_storage_2d,
-            uniform_buffer,
+            sampler, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
         },
         *,
     },
@@ -384,7 +383,7 @@ impl FromWorld for SsaoPipelines {
                 (
                     texture_2d(TextureSampleType::Float { filterable: false }),
                     texture_2d(TextureSampleType::Float { filterable: false }),
-                    texture_2d_uint(),
+                    texture_2d(TextureSampleType::Uint),
                     texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
                     uniform_buffer::<GlobalsUniform>(false),
@@ -398,7 +397,7 @@ impl FromWorld for SsaoPipelines {
                 ShaderStages::COMPUTE,
                 (
                     texture_2d(TextureSampleType::Float { filterable: false }),
-                    texture_2d_uint(),
+                    texture_2d(TextureSampleType::Uint),
                     texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
                 ),
             ),

@@ -1,8 +1,7 @@
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_render::render_resource::{
     binding_types::{
-        texture_2d, texture_2d_multisampled, texture_2d_uint, texture_depth_2d,
-        texture_depth_2d_multisampled,
+        texture_2d, texture_2d_multisampled, texture_depth_2d, texture_depth_2d_multisampled,
     },
     BindGroupLayoutEntryBuilder, TextureAspect, TextureSampleType, TextureView,
     TextureViewDescriptor,
@@ -55,7 +54,7 @@ pub fn get_bind_group_layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
         result.push(
             // Deferred texture
-            texture_2d_uint(),
+            texture_2d(TextureSampleType::Uint),
         );
     }
 
