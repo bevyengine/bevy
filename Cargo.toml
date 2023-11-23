@@ -34,9 +34,6 @@ type_complexity = "allow"
 doc_markdown = "warn"
 undocumented_unsafe_blocks = "warn"
 
-[workspace.dependencies]
-futures-lite = { version = "2.0.1" }
-
 [lints]
 workspace = true
 
@@ -297,7 +294,7 @@ flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
-futures-lite = { workspace = true }
+futures-lite = { version = "2.0.1" }
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 
