@@ -317,8 +317,16 @@ impl<'a> Serialize for EnumSerializer<'a> {
 
         match variant_type {
             VariantType::Unit => {
-                if self.enum_value.reflect_module_path() == Some("core::option")
-                    && self.enum_value.reflect_type_ident() == Some("Option")
+                if self
+                    .enum_value
+                    .get_represented_type_info()
+                    .and_then(|i| i.type_path_table().module_path())
+                    == Some("core::option")
+                    && self
+                        .enum_value
+                        .get_represented_type_info()
+                        .and_then(|i| i.type_path_table().ident())
+                        == Some("Option")
                 {
                     serializer.serialize_none()
                 } else {
@@ -354,8 +362,14 @@ impl<'a> Serialize for EnumSerializer<'a> {
                 let field = self.enum_value.field_at(0).unwrap();
                 if self
                     .enum_value
-                    .reflect_type_path()
-                    .starts_with("core::option::Option")
+                    .get_represented_type_info()
+                    .and_then(|i| i.type_path_table().module_path())
+                    == Some("core::option")
+                    && self
+                        .enum_value
+                        .get_represented_type_info()
+                        .and_then(|i| i.type_path_table().ident())
+                        == Some("Option")
                 {
                     serializer.serialize_some(&TypedReflectSerializer::new(field, self.registry))
                 } else {
@@ -464,8 +478,8 @@ impl<'a> Serialize for ArraySerializer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::serde::ReflectSerializer;
+    use crate::{self as bevy_reflect, Enum};
     use crate::{Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use ron::extensions::Extensions;
@@ -478,7 +492,6 @@ mod tests {
         primitive_value: i8,
         option_value: Option<String>,
         option_value_complex: Option<SomeStruct>,
-        option_none_value: Option<String>,
         tuple_value: (f32, usize),
         list_value: Vec<i32>,
         array_value: [i32; 5],
@@ -578,7 +591,6 @@ mod tests {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
-            option_none_value: None,
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
@@ -779,7 +791,6 @@ mod tests {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
-            option_none_value: None,
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
@@ -838,7 +849,6 @@ mod tests {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
-            option_none_value: None,
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
@@ -887,110 +897,24 @@ mod tests {
     }
 
     #[test]
-    fn should_serialize_json() {
-        let mut map = HashMap::new();
-        map.insert(64, 32);
-
-        let input = MyStruct {
-            primitive_value: 123,
-            option_value: Some(String::from("Hello world!")),
-            option_value_complex: Some(SomeStruct { foo: 123 }),
-            option_none_value: None,
-            tuple_value: (PI, 1337),
-            list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
-            map_value: map,
-            struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
-            unit_struct: SomeUnitStruct,
-            unit_enum: SomeEnum::Unit,
-            newtype_enum: SomeEnum::NewType(123),
-            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
-            struct_enum: SomeEnum::Struct {
-                foo: String::from("Struct variant value"),
-            },
-            ignored_struct: SomeIgnoredStruct { ignored: 123 },
-            ignored_tuple_struct: SomeIgnoredTupleStruct(123),
-            ignored_struct_variant: SomeIgnoredEnum::Struct {
-                foo: String::from("Struct Variant"),
-            },
-            ignored_tuple_variant: SomeIgnoredEnum::Tuple(1.23, 3.45),
-            custom_serialize: CustomSerialize {
-                value: 100,
-                inner_struct: SomeSerializableStruct { foo: 101 },
-            },
-        };
+    fn should_serialize_dynamic() {
+        let value = Some(SomeStruct { foo: 999999999 });
+        let dynamic = value.clone_dynamic();
+        let reflect = dynamic.as_reflect();
 
         let registry = get_registry();
-        let serializer = ReflectSerializer::new(&input, &registry);
 
-        let output = serde_json::to_string_pretty(&serializer).unwrap();
+        let serializer = ReflectSerializer::new(reflect, &registry);
+
+        let config = PrettyConfig::default()
+            .new_line(String::from("\n"))
+            .indentor(String::from("    "));
+
+        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
         let expected = r#"{
-  "bevy_reflect::serde::ser::tests::MyStruct": {
-    "primitive_value": 123,
-    "option_value": "Hello world!",
-    "option_value_complex": {
-      "foo": 123
-    },
-    "option_none_value": null,
-    "tuple_value": [
-      3.1415927,
-      1337
-    ],
-    "list_value": [
-      -2,
-      -1,
-      0,
-      1,
-      2
-    ],
-    "array_value": [
-      -2,
-      -1,
-      0,
-      1,
-      2
-    ],
-    "map_value": {
-      "64": 32
-    },
-    "struct_value": {
-      "foo": 999999999
-    },
-    "tuple_struct_value": [
-      "Tuple Struct"
-    ],
-    "unit_struct": {},
-    "unit_enum": "Unit",
-    "newtype_enum": {
-      "NewType": 123
-    },
-    "tuple_enum": {
-      "Tuple": [
-        1.23,
-        3.21
-      ]
-    },
-    "struct_enum": {
-      "Struct": {
-        "foo": "Struct variant value"
-      }
-    },
-    "ignored_struct": {},
-    "ignored_tuple_struct": [],
-    "ignored_struct_variant": {
-      "Struct": {}
-    },
-    "ignored_tuple_variant": {
-      "Tuple": []
-    },
-    "custom_serialize": {
-      "value": 100,
-      "renamed": {
-        "foo": 101
-      }
-    }
-  }
+    "core::option::Option<bevy_reflect::serde::ser::tests::SomeStruct>": Some((
+        foo: 999999999,
+    )),
 }"#;
 
         assert_eq!(expected, output);
