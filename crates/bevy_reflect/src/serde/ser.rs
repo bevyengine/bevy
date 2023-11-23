@@ -317,10 +317,8 @@ impl<'a> Serialize for EnumSerializer<'a> {
 
         match variant_type {
             VariantType::Unit => {
-                let table = type_info.map(|i| i.type_path_table());
-
-                if table.and_then(|t| t.module_path()) == Some("core::option")
-                    && table.and_then(|t| t.ident()) == Some("Option")
+                if type_info.type_path_table().module_path() == Some("core::option")
+                    && type_info.type_path_table().ident() == Some("Option")
                 {
                     serializer.serialize_none()
                 } else {
@@ -354,13 +352,9 @@ impl<'a> Serialize for EnumSerializer<'a> {
             }
             VariantType::Tuple if field_len == 1 => {
                 let field = self.enum_value.field_at(0).unwrap();
-                let table = self
-                    .enum_value
-                    .get_represented_type_info()
-                    .map(|i| i.type_path_table());
 
-                if table.and_then(|t| t.module_path()) == Some("core::option")
-                    && table.and_then(|t| t.ident()) == Some("Option")
+                if type_info.type_path_table().module_path() == Some("core::option")
+                    && type_info.type_path_table().ident() == Some("Option")
                 {
                     serializer.serialize_some(&TypedReflectSerializer::new(field, self.registry))
                 } else {
