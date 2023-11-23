@@ -516,7 +516,7 @@ pub fn extract_materials_2d<M: Material2d>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
-
+            AssetEvent::NoLongerUsed { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
             }

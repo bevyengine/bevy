@@ -613,6 +613,7 @@ pub fn prepare_sprites(
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
                 image_bind_groups.values.remove(id);
             }
+            AssetEvent::NoLongerUsed { .. } => {}
         };
     }
 

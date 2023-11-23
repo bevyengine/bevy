@@ -620,6 +620,7 @@ pub fn extract_ui_materials<M: UiMaterial>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
+            AssetEvent::NoLongerUsed { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // not implemented
             }

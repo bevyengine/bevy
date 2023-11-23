@@ -851,6 +851,7 @@ impl PipelineCache {
                     }
                 }
                 AssetEvent::Removed { id } => cache.remove_shader(*id),
+                AssetEvent::NoLongerUsed { .. } => {}
                 AssetEvent::LoadedWithDependencies { .. } => {
                     // TODO: handle this
                 }
