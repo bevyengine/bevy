@@ -10,7 +10,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{sampler, texture_2d, uniform_buffer},
+        binding_types::{sampler, texture_cube, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
         DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
@@ -86,7 +86,7 @@ impl SkyboxPipeline {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
                     (
-                        texture_2d(TextureSampleType::Float { filterable: true }),
+                        texture_cube(TextureSampleType::Float { filterable: true }),
                         sampler(SamplerBindingType::Filtering),
                         uniform_buffer(true, Some(ViewUniform::min_size()))
                             .visibility(ShaderStages::VERTEX_FRAGMENT),
