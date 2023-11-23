@@ -107,6 +107,12 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // See https://github.com/gfx-rs/naga/issues/2416
     out.instance_index = get_instance_index(vertex_no_morph.instance_index);
 #endif
+#ifdef BASE_INSTANCE_WORKAROUND
+    // Hack: this ensures the push constant is always used, which works around this issue:
+    // https://github.com/bevyengine/bevy/issues/10509
+    // This can be removed when wgpu 0.19 is released
+    out.position.x += f32(get_instance_index(0u)) * 0.00001;
+#endif
 
     return out;
 }
