@@ -86,7 +86,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
                 None,
             )
         } else {
-            storage_buffer(false, Some(T::min_size()))
+            storage_buffer::<T>(false)
         }
     }
 

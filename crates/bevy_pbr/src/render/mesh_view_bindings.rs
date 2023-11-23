@@ -17,8 +17,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{
-            sampler, storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer,
-            uniform_buffer_sized,
+            sampler, storage_buffer_read_only_sized, storage_buffer_sized, texture_2d,
+            uniform_buffer, uniform_buffer_sized,
         },
         BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder, BindingType,
         BufferBindingType, DynamicBindGroupEntries, DynamicBindGroupLayoutEntries,
@@ -162,9 +162,9 @@ fn buffer_layout(
         BufferBindingType::Uniform => uniform_buffer_sized(has_dynamic_offset, min_binding_size),
         BufferBindingType::Storage { read_only } => {
             if read_only {
-                storage_buffer_read_only(has_dynamic_offset, min_binding_size)
+                storage_buffer_read_only_sized(has_dynamic_offset, min_binding_size)
             } else {
-                storage_buffer(has_dynamic_offset, min_binding_size)
+                storage_buffer_sized(has_dynamic_offset, min_binding_size)
             }
         }
     }

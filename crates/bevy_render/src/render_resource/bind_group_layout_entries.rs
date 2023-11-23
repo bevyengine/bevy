@@ -362,7 +362,11 @@ pub mod binding_types {
 
     use super::*;
 
-    pub fn storage_buffer(
+    pub fn storage_buffer<T: ShaderType>(has_dynamic_offset: bool) -> BindGroupLayoutEntryBuilder {
+        storage_buffer_sized(has_dynamic_offset, Some(T::min_size()))
+    }
+
+    pub fn storage_buffer_sized(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZeroU64>,
     ) -> BindGroupLayoutEntryBuilder {
@@ -374,7 +378,13 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    pub fn storage_buffer_read_only(
+    pub fn storage_buffer_read_only<T: ShaderType>(
+        has_dynamic_offset: bool,
+    ) -> BindGroupLayoutEntryBuilder {
+        storage_buffer_read_only_sized(has_dynamic_offset, Some(T::min_size()))
+    }
+
+    pub fn storage_buffer_read_only_sized(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZeroU64>,
     ) -> BindGroupLayoutEntryBuilder {
