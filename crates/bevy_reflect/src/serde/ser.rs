@@ -479,7 +479,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
 #[cfg(test)]
 mod tests {
     use crate::serde::ReflectSerializer;
-    use crate::{self as bevy_reflect, Enum};
+    use crate::{self as bevy_reflect, Struct};
     use crate::{Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use ron::extensions::Extensions;
@@ -898,7 +898,16 @@ mod tests {
 
     #[test]
     fn should_serialize_dynamic() {
-        let value = Some(SomeStruct { foo: 999999999 });
+        #[derive(Default, Reflect)]
+        struct OtherStruct {
+            some: Option<SomeStruct>,
+            none: Option<SomeStruct>,
+        }
+
+        let value = OtherStruct {
+            some: Some(SomeStruct { foo: 999999999 }),
+            none: None,
+        };
         let dynamic = value.clone_dynamic();
         let reflect = dynamic.as_reflect();
 
@@ -906,15 +915,21 @@ mod tests {
 
         let serializer = ReflectSerializer::new(reflect, &registry);
 
-        let config = PrettyConfig::default()
-            .new_line(String::from("\n"))
-            .indentor(String::from("    "));
+        let mut buf = Vec::new();
 
-        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
+        let format = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+        let mut ser = serde_json::Serializer::with_formatter(&mut buf, format);
+
+        serializer.serialize(&mut ser).unwrap();
+
+        let output = std::str::from_utf8(&buf).unwrap();
         let expected = r#"{
-    "core::option::Option<bevy_reflect::serde::ser::tests::SomeStruct>": Some((
-        foo: 999999999,
-    )),
+    "bevy_reflect::serde::ser::tests::OtherStruct": {
+        "some": {
+            "foo": 999999999
+        },
+        "none": null
+    }
 }"#;
 
         assert_eq!(expected, output);
