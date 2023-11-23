@@ -897,7 +897,7 @@ mod tests {
     }
 
     #[test]
-    fn should_serialize_dynamic() {
+    fn should_serialize_dynamic_option() {
         #[derive(Default, Reflect)]
         struct OtherStruct {
             some: Option<SomeStruct>,
