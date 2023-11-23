@@ -1,5 +1,5 @@
 use super::{
-    binding_types::{storage_buffer, uniform_buffer_sized},
+    binding_types::{storage_buffer_read_only, uniform_buffer_sized},
     BindGroupLayoutEntryBuilder, StorageBuffer,
 };
 use crate::{
@@ -86,7 +86,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
                 None,
             )
         } else {
-            storage_buffer::<T>(false)
+            storage_buffer_read_only::<T>(false)
         }
     }
 
