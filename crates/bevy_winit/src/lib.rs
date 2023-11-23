@@ -15,16 +15,15 @@ mod winit_config;
 mod winit_windows;
 
 use bevy_a11y::AccessibilityRequested;
-use bevy_ecs::system::{SystemParam, SystemState};
 use bevy_utils::{Duration, Instant};
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
-
 pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::{SystemParam, SystemState};
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
@@ -32,10 +31,8 @@ use bevy_input::{
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_math::{ivec2, DVec2, Vec2};
-
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
