@@ -189,15 +189,18 @@ fn insert_reflect(
     type_registry: &TypeRegistry,
     component: Box<dyn Reflect>,
 ) {
-    let type_info = component.get_represented_type_info().expect("Could not get type information for component type because it doesn't represent any type.").type_path();
+    let type_path = component
+        .get_represented_type_info()
+        .expect("component should represent a type.")
+        .type_path();
     let Some(mut entity) = world.get_entity_mut(entity) else {
-        panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {entity:?} because it doesn't exist in this World.", type_info);
+        panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World.");
     };
-    let Some(type_registration) = type_registry.get_with_type_path(type_info) else {
-        panic!("Could not get type registration (for component type {}) because it doesn't exist in the TypeRegistry.", type_info);
+    let Some(type_registration) = type_registry.get_with_type_path(type_path) else {
+        panic!("Could not get type registration (for component type {type_path}) because it doesn't exist in the TypeRegistry.");
     };
     let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
-        panic!("Could not get ReflectComponent data (for component type {}) because it doesn't exist in this TypeRegistration.", type_info);
+        panic!("Could not get ReflectComponent data (for component type {type_path}) because it doesn't exist in this TypeRegistration.");
     };
     reflect_component.insert(&mut entity, &*component);
 }
