@@ -61,7 +61,7 @@ impl AssetInfo {
 
 #[derive(Default)]
 pub(crate) struct AssetInfos {
-    path_to_id: HashMap<(AssetPath<'static>, TypeId), UntypedAssetId>,
+    path_to_id: HashMap<AssetPath<'static>, HashMap<TypeId, UntypedAssetId>>,
     infos: HashMap<UntypedAssetId, AssetInfo>,
     /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for changes (such as `load_dependants`)
     /// This should only be set at startup.
@@ -194,7 +194,12 @@ impl AssetInfos {
         let type_id =
             type_id.ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
 
-        match self.path_to_id.entry((path.clone(), type_id)) {
+        match self
+            .path_to_id
+            .entry(path.clone())
+            .or_default()
+            .entry(type_id)
+        {
             Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists
@@ -268,10 +273,35 @@ impl AssetInfos {
         &'a self,
         path: AssetPath<'a>,
     ) -> impl Iterator<Item = UntypedHandle> + 'a {
-        self.path_to_id
-            .iter()
-            .filter(move |((key_path, _), _)| key_path == &path)
-            .filter_map(move |((_, _), id)| self.get_id_handle(*id))
+        /// Concrete type to allow returning an `impl Iterator` even if `self.path_to_id.get(&path)` is `None`
+        enum HandlesByPathIterator<T> {
+            None,
+            Some(T),
+        }
+
+        impl<T> Iterator for HandlesByPathIterator<T>
+        where
+            T: Iterator<Item = UntypedHandle>,
+        {
+            type Item = UntypedHandle;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self {
+                    HandlesByPathIterator::None => None,
+                    HandlesByPathIterator::Some(iter) => iter.next(),
+                }
+            }
+        }
+
+        if let Some(type_id_to_id) = self.path_to_id.get(&path) {
+            HandlesByPathIterator::Some(
+                type_id_to_id
+                    .values()
+                    .filter_map(|id| self.get_id_handle(*id)),
+            )
+        } else {
+            HandlesByPathIterator::None
+        }
     }
 
     pub(crate) fn get_id_handle(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
@@ -284,10 +314,13 @@ impl AssetInfos {
     pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
         let path = path.into();
 
-        self.path_to_id
-            .iter()
-            .filter(move |((key_path, _), _)| key_path == &path)
-            .filter_map(move |((_, _), id)| self.infos.get(id))
+        let Some(type_id_to_id) = self.path_to_id.get(&path) else {
+            return false;
+        };
+
+        type_id_to_id
+            .values()
+            .filter_map(|id| self.infos.get(id))
             .any(|info| info.weak_handle.strong_count() > 0)
     }
 
@@ -557,7 +590,7 @@ impl AssetInfos {
 
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
-        path_to_id: &mut HashMap<(AssetPath<'static>, TypeId), UntypedAssetId>,
+        path_to_id: &mut HashMap<AssetPath<'static>, HashMap<TypeId, UntypedAssetId>>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
         watching_for_changes: bool,
@@ -593,7 +626,16 @@ impl AssetInfos {
                             }
                         }
 
-                        path_to_id.remove(&(path, id.type_id()));
+                        if let Some(type_id_to_id) = path_to_id.get_mut(&path) {
+                            type_id_to_id.remove(&id.type_id());
+                        }
+
+                        if path_to_id
+                            .get(&path)
+                            .is_some_and(|type_id_to_id| type_id_to_id.is_empty())
+                        {
+                            path_to_id.remove(&path);
+                        }
                     }
                     true
                 }
