@@ -2178,6 +2178,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "render_ui_to_texture"
+path = "examples/ui/render_ui_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_ui_to_texture]
+name = "Render UI to Texture"
+description = "An example of rendering UI as a part of a 3D world"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "size_constraints"
 path = "examples/ui/size_constraints.rs"
 doc-scrape-examples = true
