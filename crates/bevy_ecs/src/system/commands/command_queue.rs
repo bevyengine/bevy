@@ -135,11 +135,17 @@ impl CommandQueue {
             // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
             cursor = unsafe { cursor.add(size) };
         }
+
+        world.flush_commands();
     }
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
     pub fn append(&mut self, other: &mut CommandQueue) {
         self.bytes.append(&mut other.bytes);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
     }
 }
 

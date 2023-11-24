@@ -3,9 +3,10 @@
 use crate::{
     self as bevy_ecs,
     change_detection::MAX_CHANGE_AGE,
+    entity::Entity,
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource, SystemParam},
-    world::{FromWorld, World},
+    world::{DeferredWorld, FromWorld, World},
     TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
@@ -263,6 +264,25 @@ impl ComponentInfo {
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo { id, descriptor }
     }
+
+    pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
+        self.descriptor.hooks.on_add = Some(hook);
+        self
+    }
+
+    pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
+        self.descriptor.hooks.on_insert = Some(hook);
+        self
+    }
+
+    pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
+        self.descriptor.hooks.on_remove = Some(hook);
+        self
+    }
+
+    pub fn hooks(&self) -> &ComponentHooks {
+        &self.descriptor.hooks
+    }
 }
 
 /// A value which uniquely identifies the type of a [`Component`] within a
@@ -318,6 +338,15 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
+pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity);
+
+#[derive(Clone, Default)]
+pub struct ComponentHooks {
+    pub(crate) on_add: Option<ComponentHook>,
+    pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_remove: Option<ComponentHook>,
+}
+
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
@@ -330,6 +359,7 @@ pub struct ComponentDescriptor {
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
+    hooks: ComponentHooks,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
@@ -363,6 +393,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
+            hooks: ComponentHooks::default(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
@@ -384,6 +415,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: None,
             layout,
+            hooks: ComponentHooks::default(),
             drop,
         }
     }
@@ -400,6 +432,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
+            hooks: ComponentHooks::default(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
@@ -411,6 +444,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
+            hooks: ComponentHooks::default(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
@@ -453,7 +487,7 @@ impl Components {
     /// * [`Components::component_id()`]
     /// * [`Components::init_component_with_descriptor()`]
     #[inline]
-    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> &mut ComponentInfo {
         let type_id = TypeId::of::<T>();
 
         let Components {
@@ -464,7 +498,7 @@ impl Components {
         let index = indices.entry(type_id).or_insert_with(|| {
             Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
         });
-        ComponentId(*index)
+        &mut components[*index]
     }
 
     /// Initializes a component described by `descriptor`.
@@ -482,9 +516,9 @@ impl Components {
         &mut self,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
-    ) -> ComponentId {
+    ) -> &mut ComponentInfo {
         let index = Components::init_component_inner(&mut self.components, storages, descriptor);
-        ComponentId(index)
+        &mut self.components[index]
     }
 
     #[inline]
@@ -563,7 +597,7 @@ impl Components {
     /// #[derive(Component)]
     /// struct ComponentA;
     ///
-    /// let component_a_id = world.init_component::<ComponentA>();
+    /// let component_a_id = world.init_component::<ComponentA>().id();
     ///
     /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
     /// ```
@@ -872,7 +906,7 @@ struct InitComponentId<T: Component> {
 impl<T: Component> FromWorld for InitComponentId<T> {
     fn from_world(world: &mut World) -> Self {
         Self {
-            component_id: world.init_component::<T>(),
+            component_id: world.init_component::<T>().id(),
             marker: PhantomData,
         }
     }

@@ -1,5 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
+mod deferred_world;
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
@@ -7,13 +8,14 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
+pub use deferred_world::DeferredWorld;
 pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut, Entry, OccupiedEntry, VacantEntry};
 pub use spawn_batch::*;
 pub use world_cell::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
-    bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
+    bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
@@ -22,7 +24,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::Resource,
+    system::{CommandQueue, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -71,6 +73,8 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
+    pub(crate) command_queue: CommandQueue,
+    flushing_commands: bool,
 }
 
 impl Default for World {
@@ -89,6 +93,8 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
+            command_queue: CommandQueue::default(),
+            flushing_commands: false,
         }
     }
 }
@@ -178,7 +184,7 @@ impl World {
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
-    pub fn init_component<T: Component>(&mut self) -> ComponentId {
+    pub fn init_component<T: Component>(&mut self) -> &mut ComponentInfo {
         self.components.init_component::<T>(&mut self.storages)
     }
 
@@ -194,7 +200,7 @@ impl World {
     pub fn init_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
-    ) -> ComponentId {
+    ) -> &mut ComponentInfo {
         self.components
             .init_component_with_descriptor(&mut self.storages, descriptor)
     }
@@ -215,7 +221,7 @@ impl World {
     /// #[derive(Component)]
     /// struct ComponentA;
     ///
-    /// let component_a_id = world.init_component::<ComponentA>();
+    /// let component_a_id = world.init_component::<ComponentA>().id();
     ///
     /// assert_eq!(component_a_id, world.component_id::<ComponentA>().unwrap())
     /// ```
@@ -740,19 +746,9 @@ impl World {
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
-            let bundle_info = self
-                .bundles
-                .init_info::<B>(&mut self.components, &mut self.storages);
-            let mut spawner = bundle_info.get_bundle_spawner(
-                &mut self.entities,
-                &mut self.archetypes,
-                &self.components,
-                &mut self.storages,
-                change_tick,
-            );
-
+            let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe { spawner.spawn_non_existent(entity, bundle) }
+            unsafe { bundle_spawner.spawn_non_existent(entity, bundle) }
         };
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -1438,26 +1434,23 @@ impl World {
         let bundle_info = self
             .bundles
             .init_info::<B>(&mut self.components, &mut self.storages);
-        enum SpawnOrInsert<'a, 'b> {
-            Spawn(BundleSpawner<'a, 'b>),
-            Insert(BundleInserter<'a, 'b>, ArchetypeId),
+        enum SpawnOrInsert<'w> {
+            Spawn(BundleSpawner<'w>),
+            Insert(BundleInserter<'w>, ArchetypeId),
         }
 
-        impl<'a, 'b> SpawnOrInsert<'a, 'b> {
+        impl<'w> SpawnOrInsert<'w> {
             fn entities(&mut self) -> &mut Entities {
                 match self {
-                    SpawnOrInsert::Spawn(spawner) => spawner.entities,
-                    SpawnOrInsert::Insert(inserter, _) => inserter.entities,
+                    SpawnOrInsert::Spawn(spawner) => spawner.entities(),
+                    SpawnOrInsert::Insert(inserter, _) => inserter.entities(),
                 }
             }
         }
-        let mut spawn_or_insert = SpawnOrInsert::Spawn(bundle_info.get_bundle_spawner(
-            &mut self.entities,
-            &mut self.archetypes,
-            &self.components,
-            &mut self.storages,
-            change_tick,
-        ));
+        let bundle_info: *const BundleInfo = bundle_info;
+        let mut spawn_or_insert = SpawnOrInsert::Spawn(unsafe {
+            BundleSpawner::new_with_info(self, bundle_info, change_tick)
+        });
 
         let mut invalid_entities = Vec::new();
         for (entity, bundle) in iter {
@@ -1474,14 +1467,14 @@ impl World {
                             unsafe { inserter.insert(entity, location, bundle) };
                         }
                         _ => {
-                            let mut inserter = bundle_info.get_bundle_inserter(
-                                &mut self.entities,
-                                &mut self.archetypes,
-                                &self.components,
-                                &mut self.storages,
-                                location.archetype_id,
-                                change_tick,
-                            );
+                            let mut inserter = unsafe {
+                                BundleInserter::new_with_info(
+                                    self,
+                                    location.archetype_id,
+                                    bundle_info,
+                                    change_tick,
+                                )
+                            };
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                             unsafe { inserter.insert(entity, location, bundle) };
                             spawn_or_insert =
@@ -1494,13 +1487,8 @@ impl World {
                         // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
                     } else {
-                        let mut spawner = bundle_info.get_bundle_spawner(
-                            &mut self.entities,
-                            &mut self.archetypes,
-                            &self.components,
-                            &mut self.storages,
-                            change_tick,
-                        );
+                        let mut spawner =
+                            unsafe { BundleSpawner::new_with_info(self, bundle_info, change_tick) };
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
@@ -1732,6 +1720,18 @@ impl World {
                 // is empty
                 *location = empty_archetype.allocate(entity, table.allocate(entity));
             });
+        }
+    }
+
+    pub fn flush_commands(&mut self) {
+        if !self.flushing_commands {
+            self.flushing_commands = true;
+            while !self.command_queue.is_empty() {
+                let mut commands = CommandQueue::default();
+                std::mem::swap(&mut commands, &mut self.command_queue);
+                commands.apply(self)
+            }
+            self.flushing_commands = false;
         }
     }
 
@@ -2347,7 +2347,7 @@ mod tests {
             )
         };
 
-        let component_id = world.init_component_with_descriptor(descriptor);
+        let component_id = world.init_component_with_descriptor(descriptor).id();
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {

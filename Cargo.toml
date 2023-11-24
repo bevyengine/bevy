@@ -1290,6 +1290,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "component_hooks"
+path = "examples/ecs/component_hooks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.component_hooks]
+name = "Component Hooks"
+description = "Define component hooks to react to ECS events"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
 doc-scrape-examples = true

@@ -157,8 +157,8 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
+                world.init_component::<TableStored>().id(),
+                world.init_component::<SparseStored>().id(),
             ]
         );
 
@@ -211,10 +211,10 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<A>(),
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
-                world.init_component::<B>(),
+                world.init_component::<A>().id(),
+                world.init_component::<TableStored>().id(),
+                world.init_component::<SparseStored>().id(),
+                world.init_component::<B>().id(),
             ]
         );
 
@@ -264,7 +264,7 @@ mod tests {
             },
         );
 
-        assert_eq!(ids, &[world.init_component::<C>(),]);
+        assert_eq!(ids, &[world.init_component::<C>().id(),]);
 
         let e4 = world
             .spawn(BundleWithIgnored {
