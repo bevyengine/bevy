@@ -311,19 +311,9 @@ impl<P: Point> CubicNurbs<P> {
             .map(Into::into)
             .unwrap_or_else(|| vec![1.0; control_points_len]);
 
-        let knot_vector: Vec<f32> = knot_vector.map(Into::into).unwrap_or_else(|| {
-            let start_end_knots_multiplicity = 4;
-            // This iterator chain generates a default knot vector such that the curve passes through end
-            // and start points. It has start and end knots of multiplicity equal to the order of a
-            // curve (cubic curve has order of 4) with a step of 1 for knots inbetween.
-            std::iter::repeat(0.0)
-                .take(start_end_knots_multiplicity)
-                .chain((1..(control_points_len - 1)).map(|int_val| int_val as f32))
-                .chain(
-                    std::iter::repeat(control_points_len as f32).take(start_end_knots_multiplicity),
-                )
-                .collect()
-        });
+        let knot_vector: Vec<f32> = knot_vector
+            .map(Into::into)
+            .unwrap_or_else(|| Self::open_uniform_knot_vector(control_points_len));
 
         let knot_vector_required_length = control_points_len + 4; // Number of control points +
                                                                   // curve order
@@ -368,6 +358,22 @@ impl<P: Point> CubicNurbs<P> {
             weights,
             knot_vector,
         }
+    }
+
+    /// Generates a uniform knot vector that will generate the same curve as [`CubicBSpline`]
+    pub fn uniform_knot_vector(control_points: usize) -> Vec<f32> {
+        let length = control_points + 4;
+        (0..length).map(|v| v as f32).collect()
+    }
+
+    /// Generates an open uniform knot vector, which makes the ends of the curve meet the end and
+    /// start control points
+    pub fn open_uniform_knot_vector(control_points: usize) -> Vec<f32> {
+        std::iter::repeat(0.0)
+            .take(4)
+            .chain((1..(control_points - 1)).map(|v| v as f32))
+            .chain(std::iter::repeat(control_points as f32).take(4))
+            .collect()
     }
 }
 impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
