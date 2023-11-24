@@ -232,13 +232,6 @@ impl Schedule {
         self
     }
 
-    /// Configures a system set in this schedule, adding it if it does not exist.
-    #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
-    #[track_caller]
-    pub fn configure_set(&mut self, set: impl IntoSystemSetConfigs) -> &mut Self {
-        self.configure_sets(set)
-    }
-
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
     #[track_caller]
     pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {

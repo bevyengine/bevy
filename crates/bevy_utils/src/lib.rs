@@ -4,7 +4,6 @@
 //!
 
 #![warn(missing_docs)]
-#![warn(clippy::undocumented_unsafe_blocks)]
 
 #[allow(missing_docs)]
 pub mod prelude {

@@ -1,4 +1,3 @@
-#![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
@@ -29,10 +28,6 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
-    #[allow(deprecated)]
-    pub use crate::system::adapter::{
-        self as system_adapter, dbg, error, ignore, info, unwrap, warn,
-    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -1723,5 +1718,23 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
     }
 }
