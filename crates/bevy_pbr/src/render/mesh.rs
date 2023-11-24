@@ -10,7 +10,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Vec4};
+use bevy_math::{vec4, Affine3, Rect, Vec4};
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
@@ -26,7 +26,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{nonmax::NonMaxU32, tracing::error, EntityHashMap, HashMap, Hashed};
+use bevy_utils::{tracing::error, EntityHashMap, Entry, HashMap, Hashed};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -195,29 +195,30 @@ pub struct MeshUniform {
     // Affine 4x3 matrices transposed to 3x4
     pub transform: [Vec4; 3],
     pub previous_transform: [Vec4; 3],
+    pub lightmap_uv_rect: Vec4,
     // 3x3 matrix packed in mat2x4 and f32 as:
     //   [0].xyz, [1].x,
     //   [1].yz, [2].xy
     //   [2].z
     pub inverse_transpose_model_a: [Vec4; 2],
+    // TODO: This should be u16s.
     pub inverse_transpose_model_b: f32,
-    pub lightmap_index: u32,
     pub flags: u32,
 }
 
 impl MeshUniform {
-    fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_index: Option<NonMaxU32>) -> Self {
+    fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
             transform: mesh_transforms.transform.to_transpose(),
             previous_transform: mesh_transforms.previous_transform.to_transpose(),
+            lightmap_uv_rect: match maybe_lightmap_uv_rect {
+                Some(rect) => vec4(rect.min.x, rect.min.y, rect.max.x, rect.max.y),
+                None => Vec4::ZERO,
+            },
             inverse_transpose_model_a,
             inverse_transpose_model_b,
-            lightmap_index: match maybe_lightmap_index {
-                Some(maybe_lightmap_index) => maybe_lightmap_index.into(),
-                None => u32::MAX,
-            },
             flags: mesh_transforms.flags,
         }
     }
@@ -457,15 +458,15 @@ impl MeshPipeline {
 }
 
 impl GetBatchData for MeshPipeline {
-    type Param = (SRes<RenderMeshInstances>, SRes<LightmapUniform>);
-    type Query = Entity;
+    type Param = SRes<RenderMeshInstances>;
+    type Query = (Entity, Option<Read<Lightmap>>);
     type QueryFilter = With<Mesh3d>;
     type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmap_uniform): &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Query>,
+        mesh_instances: &SystemParamItem<Self::Param>,
+        (entity, maybe_lightmap): &QueryItem<Self::Query>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
@@ -474,7 +475,7 @@ impl GetBatchData for MeshPipeline {
         (
             MeshUniform::new(
                 &mesh_instance.transforms,
-                lightmap_uniform.uniform_indices.get(entity).cloned(),
+                maybe_lightmap.map(|lightmap| lightmap.uv_rect),
             ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
@@ -942,7 +943,8 @@ pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<BindGroup>,
     morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
-    lightmaps: HashMap<AssetId<Mesh>, BindGroup>,
+    lightmaps: HashMap<RenderMeshLightmapKey, BindGroup>,
+    fallback_lightmap: Option<BindGroup>,
 }
 impl MeshBindGroups {
     pub fn reset(&mut self) {
@@ -950,19 +952,28 @@ impl MeshBindGroups {
         self.skinned = None;
         self.morph_targets.clear();
     }
-    /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
+    /// Get the `BindGroup` for `GpuMesh` with given `handle_id` and lightmap
+    /// key `lightmap_exposure`.
     pub fn get(
         &self,
         asset_id: AssetId<Mesh>,
+        lightmap: Option<RenderMeshLightmapKey>,
         is_skinned: bool,
         morph: bool,
-        is_lightmapped: bool,
     ) -> Option<&BindGroup> {
-        match (is_skinned, morph, is_lightmapped) {
+        match (is_skinned, morph, lightmap) {
             (_, true, _) => self.morph_targets.get(&asset_id),
             (true, false, _) => self.skinned.as_ref(),
-            (false, false, true) => self.lightmaps.get(&asset_id),
-            (false, false, false) => self.model_only.as_ref(),
+            (false, false, Some(lightmap)) => {
+                match self.lightmaps.get(&lightmap) {
+                    Some(bind_group) => Some(bind_group),
+                    None => {
+                        // This can happen if the lightmap hasn't loaded yet.
+                        self.fallback_lightmap.as_ref()
+                    }
+                }
+            }
+            (false, false, None) => self.model_only.as_ref(),
         }
     }
 }
@@ -977,7 +988,7 @@ pub fn prepare_mesh_bind_group(
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
     render_lightmaps: Res<RenderLightmaps>,
-    lightmaps_uniform: Res<LightmapUniform>,
+    lightmaps_uniform: Res<LightmapUniforms>,
     fallback_images: Res<FallbackImage>,
 ) {
     groups.reset();
@@ -1006,32 +1017,65 @@ pub fn prepare_mesh_bind_group(
     }
 
     // Create lightmap bindgroups.
-    if let Some(lightmaps) = lightmaps_uniform.buffer.buffer() {
-        for (mesh_id, _) in meshes.iter() {
-            match render_lightmaps.get(&mesh_id) {
-                Some(&RenderLightmap::Loading) => {
-                    // Create a placeholder bindgroup.
+    for (mesh_id, _) in meshes.iter() {
+        let Some(render_lightmaps) = render_lightmaps.get(&mesh_id) else {
+            continue;
+        };
+
+        for (render_mesh_lightmap_key, render_mesh_lightmap_index) in
+            &render_lightmaps.render_mesh_lightmap_to_lightmap_index
+        {
+            let Entry::Vacant(entry) = groups.lightmaps.entry(render_mesh_lightmap_key.clone())
+            else {
+                continue;
+            };
+            let render_mesh_lightmap =
+                &render_lightmaps.render_mesh_lightmaps[render_mesh_lightmap_index.0];
+            entry.insert(layouts.lightmapped(
+                &render_device,
+                &model,
+                render_mesh_lightmap,
+                &lightmaps_uniform,
+            ));
+        }
+
+        /*
+        match render_lightmaps.get(&mesh_id) {
+            Some(&RenderLightmap::Loading) => {
+                // Create a placeholder bindgroup.
+                groups.lightmaps.insert(
+                    LightmapBindGroupKey::new(mesh_id, 1.0),
+                    layouts.lightmapped(
+                        &render_device,
+                        &model,
+                        &fallback_images.d2_array,
+                        lightmaps,
+                    ),
+                );
+            }
+            Some(RenderLightmap::Loaded {
+                image,
+                ref exposures,
+            }) => {
+                // Create the real bindgroups.
+                for &exposure in exposures {
                     groups.lightmaps.insert(
-                        mesh_id,
-                        layouts.lightmapped(
-                            &render_device,
-                            &model,
-                            &fallback_images.d2_array,
-                            lightmaps,
-                        ),
-                    );
-                }
-                Some(RenderLightmap::Loaded { image, .. }) => {
-                    // Create the real bindgroup.
-                    groups.lightmaps.insert(
-                        mesh_id,
+                        LightmapBindGroupKey::new(mesh_id, exposure),
                         layouts.lightmapped(&render_device, &model, image, lightmaps),
                     );
                 }
-                None => {}
             }
+            None => {}
         }
+        */
     }
+
+    groups.fallback_lightmap = Some(layouts.fallback_lightmap(
+        &render_device,
+        &model,
+        &lightmaps_uniform,
+        &fallback_images,
+    ));
 }
 
 pub struct SetMeshViewBindGroup<const I: usize>;
@@ -1104,11 +1148,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();
-        let is_lightmapped = lightmap.is_some();
 
-        let Some(bind_group) =
-            bind_groups.get(mesh.mesh_asset_id, is_skinned, is_morphed, is_lightmapped)
-        else {
+        let Some(bind_group) = bind_groups.get(
+            mesh.mesh_asset_id,
+            lightmap.map(|lightmap| RenderMeshLightmapKey::from_lightmap(lightmap)),
+            is_skinned,
+            is_morphed,
+        ) else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the queue_mesh_bind_group system.\n\

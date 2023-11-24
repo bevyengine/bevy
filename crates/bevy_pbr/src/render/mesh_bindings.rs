@@ -2,10 +2,12 @@
 
 use bevy_math::Mat4;
 use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice, texture::GpuImage,
+    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice,
+    texture::FallbackImage,
 };
+use bevy_utils::FloatOrd;
 
-use crate::{render::skin::MAX_JOINTS, GpuLightmap, MAX_LIGHTMAPS};
+use crate::{render::skin::MAX_JOINTS, GpuLightmap, LightmapUniforms, RenderMeshLightmap};
 
 const MORPH_WEIGHT_SIZE: usize = std::mem::size_of::<f32>();
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
@@ -14,7 +16,7 @@ const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 const LIGHTMAP_SIZE: usize = std::mem::size_of::<GpuLightmap>();
-pub const LIGHTMAP_BUFFER_SIZE: usize = MAX_LIGHTMAPS * LIGHTMAP_SIZE;
+pub const LIGHTMAP_BUFFER_SIZE: usize = LIGHTMAP_SIZE;
 
 /// Individual layout entries.
 mod layout_entry {
@@ -71,7 +73,7 @@ mod layout_entry {
             visibility: ShaderStages::FRAGMENT,
             ty: BindingType::Texture {
                 sample_type: TextureSampleType::Float { filterable: true },
-                view_dimension: TextureViewDimension::D2Array,
+                view_dimension: TextureViewDimension::D2,
                 multisampled: false,
             },
             count: None,
@@ -251,17 +253,53 @@ impl MeshLayouts {
         &self,
         render_device: &RenderDevice,
         model: &BindingResource,
-        lightmap_image: &GpuImage,
-        lightmap_uniform: &Buffer,
+        lightmap: &RenderMeshLightmap,
+        lightmap_uniforms: &LightmapUniforms,
     ) -> BindGroup {
         render_device.create_bind_group(
             "lightmapped_mesh_bind_group",
             &self.lightmapped,
             &[
                 entry::model(0, model.clone()),
-                entry::lightmaps_texture_view(4, &lightmap_image.texture_view),
-                entry::lightmaps_sampler(5, &lightmap_image.sampler),
-                entry::lightmaps(6, lightmap_uniform),
+                entry::lightmaps_texture_view(4, &lightmap.image.texture_view),
+                entry::lightmaps_sampler(5, &lightmap.image.sampler),
+                entry::lightmaps(
+                    6,
+                    lightmap_uniforms
+                        .exposure_to_lightmap_uniform
+                        .get(&FloatOrd(lightmap.exposure))
+                        .expect("Lightmap uniform buffer should have been created by now")
+                        .buffer()
+                        .expect("Lightmap uniform buffer should have been uploaded by now"),
+                ),
+            ],
+        )
+    }
+    pub fn fallback_lightmap(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        lightmap_uniforms: &LightmapUniforms,
+        fallback_images: &FallbackImage,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "fallback_lightmapped_mesh_bind_group",
+            &self.lightmapped,
+            &[
+                entry::model(0, model.clone()),
+                entry::lightmaps_texture_view(4, &fallback_images.d2.texture_view),
+                entry::lightmaps_sampler(5, &fallback_images.d2.sampler),
+                entry::lightmaps(
+                    6,
+                    lightmap_uniforms
+                        .fallback_uniform
+                        .as_ref()
+                        .expect("Fallback lightmap uniform should have been created by now")
+                        .buffer()
+                        .expect(
+                            "Fallback lightmap uniform buffer should have been uploaded by now",
+                        ),
+                ),
             ],
         )
     }

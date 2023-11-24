@@ -13,40 +13,31 @@
 //!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
 
-use std::iter;
-
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::QueryItem,
+    query::{QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{lifetimeless::Read, Query, Res, ResMut, Resource},
 };
-use bevy_math::{vec4, Rect, Vec2, Vec4};
+use bevy_math::Rect;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::Mesh,
     render_asset::RenderAssets,
-    render_resource::{
-        BufferUsages, BufferVec, CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode,
-        ImageCopyTexture, Origin3d, SamplerDescriptor, ShaderType, TextureAspect,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
-        TextureViewDimension,
-    },
+    render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
     texture::{GpuImage, Image},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::{
     hashbrown::{hash_map::Entry, HashMap},
-    nonmax::NonMaxU32,
-    tracing::{info, warn},
-    EntityHashMap,
+    EntityHashMap, FloatOrd,
 };
 use bytemuck::{Pod, Zeroable};
 
@@ -86,34 +77,35 @@ pub struct Lightmap {
 #[derive(ShaderType, Clone, Copy, Zeroable, Pod)]
 #[repr(C)]
 pub struct GpuLightmap {
-    /// The UV rectangle within the lightmap.
-    ///
-    /// This is the same as `uv_rect` in the [Lightmap] component.
-    pub uv_rect: Vec4,
-    /// The texture array index.
-    pub texture_array_index: u32,
     /// The intensity of the lightmap.
     pub exposure: f32,
-    /// Unused GPU padding needed to pad out the structure.
-    pub padding: [u32; 2],
 }
 
 /// A render world resource that stores all lightmaps associated with each mesh.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct RenderLightmaps(HashMap<AssetId<Mesh>, RenderLightmap>);
+pub struct RenderLightmaps(HashMap<AssetId<Mesh>, RenderMeshLightmaps>);
 
-/// A lightmap associated with a mesh.
-pub enum RenderLightmap {
-    /// The lightmap is still loading and can't be rendered yet.
-    Loading,
-    /// The lightmap is loaded.
-    Loaded {
-        /// The [GpuImage] representing the lightmap.
-        image: GpuImage,
-        /// The index of the lightmap in this mesh's lightmap texture array.
-        array_indices: HashMap<AssetId<Image>, LightmapTextureArrayIndex>,
-    },
+/// Lightmaps associated with a mesh.
+pub struct RenderMeshLightmaps {
+    entity_to_lightmap_index: EntityHashMap<Entity, RenderMeshLightmapIndex>,
+    pub(crate) render_mesh_lightmap_to_lightmap_index:
+        HashMap<RenderMeshLightmapKey, RenderMeshLightmapIndex>,
+    pub(crate) render_mesh_lightmaps: Vec<RenderMeshLightmap>,
 }
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct RenderMeshLightmapKey {
+    pub(crate) image: AssetId<Image>,
+    pub(crate) exposure: FloatOrd,
+}
+
+pub struct RenderMeshLightmap {
+    pub(crate) image: GpuImage,
+    pub(crate) exposure: f32,
+}
+
+#[derive(Clone, Copy, Default, Deref)]
+pub(crate) struct RenderMeshLightmapIndex(pub(crate) usize);
 
 /// The index in the texture array of lightmaps for a particular mesh instance.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -130,27 +122,12 @@ pub enum LightmapTextureArrayIndex {
 }
 
 /// Holds the GPU structure containing metadata about each lightmap.
-#[derive(Resource)]
-pub struct LightmapUniform {
-    /// The GPU buffer containing metadata about each lightmap.
-    pub buffer: BufferVec<GpuLightmap>,
-    /// The index within `buffer` of each entity that has a lightmap.
-    pub uniform_indices: EntityHashMap<Entity, NonMaxU32>,
+#[derive(Resource, Default)]
+pub struct LightmapUniforms {
+    /// The GPU buffers containing metadata about each lightmap.
+    pub exposure_to_lightmap_uniform: HashMap<FloatOrd, UniformBuffer<GpuLightmap>>,
+    pub fallback_uniform: Option<UniformBuffer<GpuLightmap>>,
 }
-
-// Information about a lightmap that we need to regenerate.
-struct RenderLightmapDescriptor {
-    // The size of the lightmap.
-    image_size: Vec2,
-    // The texture format of the lightmap.
-    image_format: TextureFormat,
-    /// The index of the lightmap in this mesh's lightmap texture array.
-    array_indices: HashMap<AssetId<Image>, LightmapTextureArrayIndex>,
-}
-
-// Information about lightmaps for meshes that we need to regenerate.
-#[derive(Deref, DerefMut)]
-struct RenderLightmapDescriptors(HashMap<AssetId<Mesh>, RenderLightmapDescriptor>);
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
@@ -163,12 +140,12 @@ impl Plugin for LightmapPlugin {
 
         render_app
             .init_resource::<RenderLightmaps>()
-            .init_resource::<LightmapUniform>()
+            .init_resource::<LightmapUniforms>()
             .add_systems(
                 Render,
                 (
                     build_lightmap_texture_arrays.in_set(RenderSet::PrepareResources),
-                    upload_lightmaps_buffer
+                    upload_lightmaps_buffers
                         .in_set(RenderSet::PrepareResources)
                         .after(build_lightmap_texture_arrays),
                 ),
@@ -181,209 +158,51 @@ impl Plugin for LightmapPlugin {
 /// texture arrays so they can be efficiently rendered.
 pub fn build_lightmap_texture_arrays(
     mut render_lightmaps: ResMut<RenderLightmaps>,
-    lightmaps: Query<(Entity, &Lightmap, &Mesh3d)>,
-    mut gpu_lightmaps: ResMut<LightmapUniform>,
+    lightmaps: Query<(Entity, &Lightmap), With<Mesh3d>>,
+    mut gpu_lightmaps: ResMut<LightmapUniforms>,
     images: Res<RenderAssets<Image>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
 ) {
-    // If there are no lightmaps in the scene, bail out.
-    if lightmaps.is_empty() {
-        return;
+    render_lightmaps.clear();
+
+    for (entity, lightmap) in lightmaps.iter() {
+        let Some(mesh_id) = render_mesh_instances.get(&entity) else {
+            continue;
+        };
+
+        let Some(image) = images.get(&lightmap.image) else {
+            continue;
+        };
+
+        let render_mesh_lightmaps = render_lightmaps
+            .entry(mesh_id.mesh_asset_id)
+            .or_insert_with(|| RenderMeshLightmaps::new());
+
+        let render_mesh_lightmap_key = RenderMeshLightmapKey::from_lightmap(lightmap);
+
+        let render_mesh_lightmap_index = match render_mesh_lightmaps
+            .render_mesh_lightmap_to_lightmap_index
+            .entry(render_mesh_lightmap_key)
+        {
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => {
+                let index =
+                    RenderMeshLightmapIndex(render_mesh_lightmaps.render_mesh_lightmaps.len());
+                render_mesh_lightmaps
+                    .render_mesh_lightmaps
+                    .push(RenderMeshLightmap::new((*image).clone(), lightmap.exposure));
+                entry.insert(index);
+                index
+            }
+        };
+
+        render_mesh_lightmaps
+            .entity_to_lightmap_index
+            .insert(entity, render_mesh_lightmap_index);
     }
-
-    // Invalidate all modified lightmaps.
-    render_lightmaps.invalidate_lightmaps(&lightmaps, &render_mesh_instances, &images);
-
-    // Build up a list of the new lightmaps to upload this frame.
-    let mut new_lightmap_descriptors = RenderLightmapDescriptors::new();
-    new_lightmap_descriptors.update_invalid_lightmaps(
-        &mut render_lightmaps,
-        &lightmaps,
-        &render_mesh_instances,
-        &images,
-    );
 
     // Update the lightmap metadata.
-    gpu_lightmaps.update(
-        &new_lightmap_descriptors,
-        &mut render_lightmaps,
-        &lightmaps,
-        &render_mesh_instances,
-        &images,
-    );
-
-    // Upload new lightmap textures if necessary.
-    new_lightmap_descriptors.create_and_copy_in_lightmaps(
-        &mut render_lightmaps,
-        &images,
-        &render_device,
-        &render_queue,
-    );
-}
-
-impl RenderLightmaps {
-    // Invalidates all out-of-date lightmaps.
-    fn invalidate_lightmaps(
-        &mut self,
-        lightmaps: &Query<(Entity, &Lightmap, &Mesh3d)>,
-        render_mesh_instances: &RenderMeshInstances,
-        images: &RenderAssets<Image>,
-    ) {
-        for (entity, lightmap, _) in lightmaps.iter() {
-            // Skip up-to-date lightmaps.
-            let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
-                continue;
-            };
-            if images.get(&lightmap.image).is_none() {
-                continue;
-            }
-
-            // If we got here, the lightmap has been modified. Invalidate the
-            // entry in `RenderLightmaps`.
-            if let Entry::Occupied(entry) = self.entry(mesh_instance.mesh_asset_id) {
-                if let RenderLightmap::Loaded { array_indices, .. } = entry.get() {
-                    if !array_indices.contains_key(&lightmap.image.id()) {
-                        entry.remove_entry();
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl RenderLightmapDescriptors {
-    // Creates a new empty set of render lightmap descriptors.
-    fn new() -> Self {
-        Self(HashMap::new())
-    }
-
-    // Finds all lightmaps that need updating and update them.
-    fn update_invalid_lightmaps(
-        &mut self,
-        render_lightmaps: &mut RenderLightmaps,
-        lightmaps: &Query<(Entity, &Lightmap, &Mesh3d)>,
-        render_mesh_instances: &RenderMeshInstances,
-        images: &RenderAssets<Image>,
-    ) {
-        for (entity, lightmap, _) in lightmaps.iter() {
-            let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
-                continue;
-            };
-
-            // If the image is still loading, note that fact and continue.
-            let Some(gpu_lightmap_image) = images.get(&lightmap.image) else {
-                render_lightmaps.insert(mesh_instance.mesh_asset_id, RenderLightmap::Loading);
-                continue;
-            };
-
-            // If the image has already loaded, we don't need to do anything.
-            if let Some(&RenderLightmap::Loaded { .. }) =
-                render_lightmaps.get(&mesh_instance.mesh_asset_id)
-            {
-                continue;
-            }
-
-            // Remove any Loading state.
-            render_lightmaps.remove(&mesh_instance.mesh_asset_id);
-
-            // Initialize a new lightmap if necessary.
-            let lightmap_descriptor =
-                self.entry(mesh_instance.mesh_asset_id).or_insert_with(|| {
-                    RenderLightmapDescriptor {
-                        image_size: gpu_lightmap_image.size,
-                        image_format: gpu_lightmap_image.texture_format,
-                        array_indices: HashMap::new(),
-                    }
-                });
-
-            // If we already have an array slice for that lightmap, we're done.
-            if lightmap_descriptor
-                .array_indices
-                .contains_key(&lightmap.image.id())
-            {
-                continue;
-            }
-
-            // Create a new lightmap array slice if necessary.
-            if gpu_lightmap_image.size != lightmap_descriptor.image_size {
-                warn!(
-                    "Ignoring lightmap {:?} because its size, {}, didn't match that of the \
-existing lightmap(s) for that mesh, {}",
-                    gpu_lightmap_image, gpu_lightmap_image.size, lightmap_descriptor.image_size
-                );
-                lightmap_descriptor
-                    .array_indices
-                    .insert(lightmap.image.id(), LightmapTextureArrayIndex::Invalid);
-            } else if gpu_lightmap_image.texture_format != lightmap_descriptor.image_format {
-                warn!(
-                    "Ignoring lightmap {:?} because its texture format, {:?} was incompatible \
-with that of the existing lightmap(s) for that mesh, {:?}",
-                    gpu_lightmap_image,
-                    gpu_lightmap_image.texture_format,
-                    lightmap_descriptor.image_format
-                );
-                lightmap_descriptor
-                    .array_indices
-                    .insert(lightmap.image.id(), LightmapTextureArrayIndex::Invalid);
-            } else {
-                let array_index = LightmapTextureArrayIndex::Valid(
-                    lightmap_descriptor.array_indices.len() as u32,
-                );
-                lightmap_descriptor
-                    .array_indices
-                    .insert(lightmap.image.id(), array_index);
-            }
-        }
-    }
-
-    // Creates a new lightmap array texture and fills it.
-    fn create_and_copy_in_lightmaps(
-        self,
-        render_lightmaps: &mut RenderLightmaps,
-        images: &RenderAssets<Image>,
-        render_device: &RenderDevice,
-        render_queue: &RenderQueue,
-    ) {
-        // Early out if there's nothing to do.
-        if self.is_empty() {
-            return;
-        }
-
-        info!("Uploading {} new lightmap(s)", self.len());
-
-        // Build a command encoder.
-        let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("copy_lightmaps"),
-        });
-
-        // For each mesh, create a texture array consisting of all lightmaps for that mesh.
-        for (mesh_id, lightmap_descriptor) in self.0 {
-            // Create the texture array, and copy in the lightmaps.
-            //
-            // TODO(pcwalton): Skip copying if there's only one lightmap texture?
-            let lightmap_image = lightmap_descriptor.create_lightmap_texture_array(render_device);
-            lightmap_descriptor.copy_lightmaps_to_texture(
-                &mut command_encoder,
-                &lightmap_image,
-                images,
-            );
-
-            // Write the lightmap in.
-            render_lightmaps.insert(
-                mesh_id,
-                RenderLightmap::Loaded {
-                    image: lightmap_image,
-                    array_indices: lightmap_descriptor.array_indices,
-                },
-            );
-        }
-
-        // Submit the buffer.
-        let command_buffer = command_encoder.finish();
-        render_queue.submit(iter::once(command_buffer));
-    }
+    gpu_lightmaps.update(&mut render_lightmaps);
 }
 
 impl ExtractComponent for Lightmap {
@@ -406,200 +225,92 @@ impl Default for Lightmap {
     }
 }
 
-impl Default for LightmapUniform {
-    fn default() -> Self {
-        Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
-            uniform_indices: EntityHashMap::default(),
-        }
-    }
-}
-
-/// Uploads the lightmap metadata uniform to the GPU.
-pub fn upload_lightmaps_buffer(
+/// Uploads the lightmap metadata uniforms to the GPU.
+pub fn upload_lightmaps_buffers(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut uniform: ResMut<LightmapUniform>,
+    mut uniform: ResMut<LightmapUniforms>,
 ) {
-    let length = uniform.buffer.len();
-    uniform.buffer.reserve(length, &render_device);
-    uniform.buffer.write_buffer(&render_device, &render_queue);
+    for buffer in uniform.exposure_to_lightmap_uniform.values_mut() {
+        buffer.write_buffer(&render_device, &render_queue);
+    }
+
+    if let Some(ref mut buffer) = uniform.fallback_uniform {
+        buffer.write_buffer(&render_device, &render_queue);
+    }
 }
 
 impl Default for GpuLightmap {
     fn default() -> Self {
-        Self {
-            uv_rect: vec4(0.0, 0.0, 1.0, 1.0),
-            texture_array_index: u32::MAX,
-            exposure: 1.0,
-            padding: [0; 2],
-        }
+        Self { exposure: 1.0 }
     }
 }
 
-impl LightmapUniform {
+impl LightmapUniforms {
     // Updates the uniform buffer containing the lightmap metadata.
     //
     // This is called even if there are no texture updates because there could
     // be, for example, new mesh instances that are added to the world
     // referencing lightmap textures that are already uploaded to the GPU.
-    fn update(
-        &mut self,
-        new_lightmap_descriptors: &RenderLightmapDescriptors,
-        render_lightmaps: &mut RenderLightmaps,
-        lightmaps: &Query<(Entity, &Lightmap, &Mesh3d)>,
-        render_mesh_instances: &RenderMeshInstances,
-        images: &RenderAssets<Image>,
-    ) {
-        // Reset the buffer.
-        self.buffer.clear();
-        self.uniform_indices.clear();
+    fn update(&mut self, render_lightmaps: &mut RenderLightmaps) {
+        let mut spare_buffers: Vec<_> = self
+            .exposure_to_lightmap_uniform
+            .drain()
+            .map(|(_, buffer)| buffer)
+            .collect();
 
-        // Build the metadata for each lightmap.
-        for (entity, lightmap, _) in lightmaps.iter() {
-            let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
-                continue;
-            };
-            if images.get(&lightmap.image).is_none() {
-                continue;
+        for render_mesh_lightmaps in render_lightmaps.values() {
+            for render_mesh_lightmap in &render_mesh_lightmaps.render_mesh_lightmaps {
+                let Entry::Vacant(entry) = self
+                    .exposure_to_lightmap_uniform
+                    .entry(FloatOrd(render_mesh_lightmap.exposure))
+                else {
+                    continue;
+                };
+
+                let gpu_lightmap = GpuLightmap {
+                    exposure: render_mesh_lightmap.exposure,
+                };
+
+                let buffer = match spare_buffers.pop() {
+                    Some(mut buffer) => {
+                        buffer.set(gpu_lightmap);
+                        buffer
+                    }
+                    None => gpu_lightmap.into(),
+                };
+
+                entry.insert(buffer);
             }
-
-            // Find the texture array index for this lightmap. It'll either be
-            // in our existing `RenderLightmaps` array or else in
-            // `new_lightmap_descriptors` if it's new.
-            let texture_array_index = match render_lightmaps.get(&mesh_instance.mesh_asset_id) {
-                Some(RenderLightmap::Loaded { array_indices, .. }) => {
-                    array_indices[&lightmap.image.id()]
-                }
-                Some(&RenderLightmap::Loading) | None => {
-                    new_lightmap_descriptors[&mesh_instance.mesh_asset_id].array_indices
-                        [&lightmap.image.id()]
-                }
-            };
-
-            // Add the metadata entry.
-            let lightmap_uniform_index = NonMaxU32::try_from(
-                self.buffer.push(GpuLightmap {
-                    texture_array_index: match texture_array_index {
-                        LightmapTextureArrayIndex::Invalid => u32::MAX,
-                        LightmapTextureArrayIndex::Valid(index) => index,
-                    },
-                    uv_rect: lightmap
-                        .uv_rect
-                        .min
-                        .extend(lightmap.uv_rect.max.x)
-                        .extend(lightmap.uv_rect.max.y),
-                    exposure: lightmap.exposure,
-                    padding: [0; 2],
-                }) as u32,
-            )
-            .unwrap();
-
-            // Record the index of the metadata.
-            self.uniform_indices.insert(entity, lightmap_uniform_index);
         }
 
-        // Pad out the array to the right length.
-        let gpu_lightmap_count = self.buffer.len();
-        self.buffer
-            .extend(iter::repeat(GpuLightmap::default()).take(MAX_LIGHTMAPS - gpu_lightmap_count));
+        if self.fallback_uniform.is_none() {
+            self.fallback_uniform = Some(GpuLightmap::default().into());
+        }
     }
 }
 
-impl RenderLightmapDescriptor {
-    // Creates the texture array for the lightmaps associated with a mesh.
-    fn create_lightmap_texture_array(&self, render_device: &RenderDevice) -> GpuImage {
-        let (width, height) = (self.image_size.x as u32, self.image_size.y as u32);
-
-        let texture = render_device.create_texture(&TextureDescriptor {
-            label: Some("mesh_lightmap"),
-            size: Extent3d {
-                width,
-                height,
-                depth_or_array_layers: self.array_indices.len() as u32,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: self.image_format,
-            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        let texture_view = texture.create_view(&TextureViewDescriptor {
-            label: Some("mesh_lightmap"),
-            format: Some(self.image_format),
-            dimension: Some(TextureViewDimension::D2Array),
-            aspect: TextureAspect::All,
-            base_mip_level: 0,
-            mip_level_count: Some(1),
-            base_array_layer: 0,
-            array_layer_count: Some(self.array_indices.len() as u32),
-        });
-
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("mesh_lightmap_sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Linear,
-            ..SamplerDescriptor::default()
-        });
-
-        GpuImage {
-            texture,
-            texture_view,
-            texture_format: self.image_format,
-            sampler,
-            size: self.image_size,
-            mip_level_count: 1,
+impl RenderMeshLightmaps {
+    fn new() -> RenderMeshLightmaps {
+        RenderMeshLightmaps {
+            entity_to_lightmap_index: EntityHashMap::default(),
+            render_mesh_lightmap_to_lightmap_index: HashMap::new(),
+            render_mesh_lightmaps: vec![],
         }
     }
+}
 
-    /// Copies all lightmaps for a mesh into an array texture.
-    fn copy_lightmaps_to_texture(
-        &self,
-        command_encoder: &mut CommandEncoder,
-        lightmap_image: &GpuImage,
-        images: &RenderAssets<Image>,
-    ) {
-        let width = lightmap_image.size.x as u32;
-        let height = lightmap_image.size.y as u32;
+impl RenderMeshLightmap {
+    fn new(image: GpuImage, exposure: f32) -> Self {
+        Self { image, exposure }
+    }
+}
 
-        // Copy each lightmap into each array slot.
-        for (source_image_id, lightmap_array_index) in self.array_indices.iter() {
-            // Make sure the source and destination are ready.
-            let &LightmapTextureArrayIndex::Valid(lightmap_array_index) = lightmap_array_index
-            else {
-                continue;
-            };
-            let Some(source_image) = images.get(*source_image_id) else {
-                continue;
-            };
-
-            // Queue the copy.
-            command_encoder.copy_texture_to_texture(
-                ImageCopyTexture {
-                    texture: &source_image.texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
-                ImageCopyTexture {
-                    texture: &lightmap_image.texture,
-                    mip_level: 0,
-                    origin: Origin3d {
-                        x: 0,
-                        y: 0,
-                        z: lightmap_array_index,
-                    },
-                    aspect: TextureAspect::All,
-                },
-                Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
-            );
+impl RenderMeshLightmapKey {
+    pub(crate) fn from_lightmap(lightmap: &Lightmap) -> RenderMeshLightmapKey {
+        RenderMeshLightmapKey {
+            image: lightmap.image.id(),
+            exposure: FloatOrd(lightmap.exposure),
         }
     }
 }
