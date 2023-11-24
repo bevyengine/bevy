@@ -75,7 +75,7 @@ smallvec = { version = "1.6", features = ["union", "const_generics"] }
 downcast-rs = "1.2.0"
 thread_local = "1.1"
 thiserror = "1.0"
-futures-lite = "1.4.0"
+futures-lite = "2.0.1" 
 hexasphere = "9.0"
 ddsfile = { version = "0.5.0", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
