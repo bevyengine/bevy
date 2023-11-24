@@ -39,7 +39,7 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Node, Primitive, Semantic,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
@@ -93,6 +93,13 @@ pub enum GltfError {
     Io(#[from] std::io::Error),
 }
 
+/// Settings for the `GltfLoader`.
+#[derive(Default, Serialize, Deserialize)]
+pub struct GltfLoaderSettings {
+    /// If true, textures will be loaded relative to the assets root folder (rather than the gLTF file itself).
+    pub root_texture_paths: bool,
+}
+
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
@@ -107,18 +114,18 @@ pub struct GltfLoader {
 
 impl AssetLoader for GltfLoader {
     type Asset = Gltf;
-    type Settings = ();
+    type Settings = GltfLoaderSettings;
     type Error = GltfError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        _settings: &'a (),
+        settings: &'a GltfLoaderSettings,
         load_context: &'a mut LoadContext,
     ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            load_gltf(self, &bytes, load_context).await
+            load_gltf(self, &bytes, load_context, settings).await
         })
     }
 
@@ -132,6 +139,7 @@ async fn load_gltf<'a, 'b, 'c>(
     loader: &GltfLoader,
     bytes: &'a [u8],
     load_context: &'b mut LoadContext<'c>,
+    settings: &GltfLoaderSettings,
 ) -> Result<Gltf, GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let buffer_data = load_buffers(&gltf, load_context).await?;
@@ -287,6 +295,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 &linear_textures,
                 parent_path,
                 loader.supported_compressed_formats,
+                settings,
             )
             .await?;
             process_loaded_texture(load_context, &mut _texture_handles, image);
@@ -306,6 +315,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             linear_textures,
                             parent_path,
                             loader.supported_compressed_formats,
+                            settings,
                         )
                         .await
                     });
@@ -326,7 +336,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut named_materials = HashMap::default();
     // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
     for material in gltf.materials() {
-        let handle = load_material(&material, load_context, false);
+        let handle = load_material(&material, load_context, false, settings);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
@@ -558,6 +568,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
                         &Transform::default(),
+                        settings,
                     );
                     if result.is_err() {
                         err = Some(result);
@@ -671,6 +682,7 @@ async fn load_image<'a, 'b>(
     linear_textures: &HashSet<usize>,
     parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
+    settings: &GltfLoaderSettings,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = texture_sampler(&gltf_texture);
@@ -710,7 +722,11 @@ async fn load_image<'a, 'b>(
                     label: texture_label(&gltf_texture),
                 })
             } else {
-                let image_path = parent_path.join(uri);
+                let image_path = if settings.root_texture_paths {
+                    PathBuf::from(uri)
+                } else {
+                    parent_path.join(uri)
+                };
                 Ok(ImageOrPath::Path {
                     path: image_path,
                     is_srgb,
@@ -726,6 +742,7 @@ fn load_material(
     material: &Material,
     load_context: &mut LoadContext,
     is_scale_inverted: bool,
+    settings: &GltfLoaderSettings,
 ) -> Handle<StandardMaterial> {
     let material_label = material_label(material, is_scale_inverted);
     load_context.labeled_asset_scope(material_label, |load_context| {
@@ -735,32 +752,32 @@ fn load_material(
         let color = pbr.base_color_factor();
         let base_color_texture = pbr.base_color_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            texture_handle(load_context, &info.texture())
+            texture_handle(load_context, &info.texture(), settings)
         });
 
         let normal_map_texture: Option<Handle<Image>> =
             material.normal_texture().map(|normal_texture| {
                 // TODO: handle normal_texture.scale
                 // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
-                texture_handle(load_context, &normal_texture.texture())
+                texture_handle(load_context, &normal_texture.texture(), settings)
             });
 
         let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            texture_handle(load_context, &info.texture())
+            texture_handle(load_context, &info.texture(), settings)
         });
 
         let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            texture_handle(load_context, &occlusion_texture.texture())
+            texture_handle(load_context, &occlusion_texture.texture(), settings)
         });
 
         let emissive = material.emissive_factor();
         let emissive_texture = material.emissive_texture().map(|info| {
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            texture_handle(load_context, &info.texture())
+            texture_handle(load_context, &info.texture(), settings)
         });
 
         #[cfg(feature = "pbr_transmission_textures")]
@@ -770,7 +787,7 @@ fn load_material(
                     .transmission_texture()
                     .map(|transmission_texture| {
                         // TODO: handle transmission_texture.tex_coord() (the *set* index for the right texcoords)
-                        texture_handle(load_context, &transmission_texture.texture())
+                        texture_handle(load_context, &transmission_texture.texture(), settings)
                     });
 
                 (transmission.transmission_factor(), transmission_texture)
@@ -788,7 +805,7 @@ fn load_material(
                 let thickness_texture: Option<Handle<Image>> =
                     volume.thickness_texture().map(|thickness_texture| {
                         // TODO: handle thickness_texture.tex_coord() (the *set* index for the right texcoords)
-                        texture_handle(load_context, &thickness_texture.texture())
+                        texture_handle(load_context, &thickness_texture.texture(), settings)
                     });
 
                 (
@@ -853,6 +870,7 @@ fn load_material(
 }
 
 /// Loads a glTF node.
+#[allow(clippy::too_many_arguments)]
 fn load_node(
     gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
@@ -861,6 +879,7 @@ fn load_node(
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
+    settings: &GltfLoaderSettings,
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
@@ -943,7 +962,7 @@ fn load_node(
                 // not explicitly listed in the gltf).
                 // It also ensures an inverted scale copy is instantiated if required.
                 if !load_context.has_labeled_asset(&material_label) {
-                    load_material(&material, load_context, is_scale_inverted);
+                    load_material(&material, load_context, is_scale_inverted, settings);
                 }
 
                 let primitive_label = primitive_label(&mesh, &primitive);
@@ -1079,6 +1098,7 @@ fn load_node(
                 entity_to_skin_index_map,
                 active_camera_found,
                 &world_transform,
+                settings,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1144,7 +1164,11 @@ fn texture_label(texture: &gltf::Texture) -> String {
     format!("Texture{}", texture.index())
 }
 
-fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Handle<Image> {
+fn texture_handle(
+    load_context: &mut LoadContext,
+    texture: &gltf::Texture,
+    settings: &GltfLoaderSettings,
+) -> Handle<Image> {
     match texture.source().source() {
         gltf::image::Source::View { .. } => {
             let label = texture_label(texture);
@@ -1159,8 +1183,11 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
                 let label = texture_label(texture);
                 load_context.get_label_handle(&label)
             } else {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
+                let image_path = if settings.root_texture_paths {
+                    PathBuf::from(uri)
+                } else {
+                    load_context.path().parent().unwrap().join(uri)
+                };
                 load_context.load(image_path)
             }
         }
