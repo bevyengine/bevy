@@ -121,7 +121,7 @@ impl<'a> TrackedRenderPass<'a> {
         }
     }
 
-    /// Returns the wgpu [`RenderPass`](wgpu::RenderPass).
+    /// Returns the wgpu [`RenderPass`].
     pub fn wgpu_pass(&self) -> &RenderPass<'a> {
         &self.pass
     }
