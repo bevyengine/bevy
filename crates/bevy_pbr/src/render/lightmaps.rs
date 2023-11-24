@@ -60,6 +60,7 @@ pub struct LightmapPlugin;
 pub struct Lightmap {
     /// The lightmap image.
     pub image: Handle<Image>,
+
     /// The rectangle within the lightmap image that the UVs are relative to.
     ///
     /// The rect ranges from (0, 0) to (1, 1).
@@ -67,6 +68,11 @@ pub struct Lightmap {
     /// This field allows lightmaps for a variety of meshes to be packed into a
     /// single atlas.
     pub uv_rect: Rect,
+
+    /// The intensity of the lightmap.
+    ///
+    /// Colors within the lightmap are multiplied by this value when rendering.
+    pub exposure: f32,
 }
 
 /// The on-GPU structure that specifies various metadata about the lightmap.
@@ -79,8 +85,10 @@ pub struct GpuLightmap {
     pub uv_rect: Vec4,
     /// The texture array index.
     pub texture_array_index: u32,
+    /// The intensity of the lightmap.
+    pub exposure: f32,
     /// Unused GPU padding needed to pad out the structure.
-    pub padding: [u32; 3],
+    pub padding: [u32; 2],
 }
 
 /// A render world resource that stores all lightmaps associated with each mesh.
@@ -351,6 +359,7 @@ impl Default for Lightmap {
         Self {
             image: Default::default(),
             uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+            exposure: 1.0,
         }
     }
 }
@@ -380,7 +389,8 @@ impl Default for GpuLightmap {
         Self {
             uv_rect: vec4(0.0, 0.0, 1.0, 1.0),
             texture_array_index: u32::MAX,
-            padding: [0; 3],
+            exposure: 1.0,
+            padding: [0; 2],
         }
     }
 }
@@ -435,7 +445,8 @@ impl LightmapUniform {
                         .min
                         .extend(lightmap.uv_rect.max.x)
                         .extend(lightmap.uv_rect.max.y),
-                    padding: [0; 3],
+                    exposure: lightmap.exposure,
+                    padding: [0; 2],
                 }) as u32,
             )
             .unwrap();

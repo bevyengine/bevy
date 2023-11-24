@@ -5,6 +5,7 @@
 struct Lightmap {
     uv_rect: vec4<f32>,
     texture_array_index: u32,
+    exposure: f32,
 };
 
 struct Lightmaps {
@@ -45,5 +46,10 @@ fn lightmap(uv: vec2<f32>, instance_index: u32) -> vec3<f32> {
     // control flow uniformity problems.
     //
     // TODO(pcwalton): Consider bicubic filtering.
-    return textureSampleLevel(lightmaps_texture, lightmaps_sampler, lightmap_uv, texture_array_index, 0.0).rgb;
+    return textureSampleLevel(
+        lightmaps_texture,
+        lightmaps_sampler,
+        lightmap_uv,
+        texture_array_index,
+        0.0).rgb * lightmaps.data[lightmap_index].exposure;
 }
