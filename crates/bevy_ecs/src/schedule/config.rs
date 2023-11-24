@@ -214,19 +214,14 @@ impl<T> NodeConfigs<T> {
 /// # Examples
 ///
 /// ```
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
-/// # struct AppMock;
-/// # struct Update;
-/// # impl AppMock {
-/// #     pub fn add_systems<M>(
-/// #         &mut self,
-/// #         schedule: Update,
-/// #         systems: impl IntoSystemConfigs<M>,
-/// #    ) -> &mut Self { self }
-/// # }
-/// # let mut app = AppMock;
+/// # use bevy_mocks::app_schedule::Update;
+/// # use bevy_mocks::input::Input;
+/// # use bevy_mocks::keyboard::KeyCode;
+/// # use bevy_mocks::schedule::IntoSystemConfigs;
+/// # use bevy_mocks::system::Res;
+/// # let mut app = bevy_mocks::app::App;
 ///
-/// fn handle_input() {}
+/// fn handle_input(keys: Res<Input<KeyCode>>) {}
 ///
 /// fn update_camera() {}
 /// fn update_character() {}

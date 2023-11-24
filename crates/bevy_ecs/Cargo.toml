@@ -31,6 +31,8 @@ serde = "1"
 thiserror = "1.0"
 
 [dev-dependencies]
+bevy_mocks = { path = "../bevy_mocks", version = "0.12.0" }
+
 rand = "0.8"
 
 [[example]]

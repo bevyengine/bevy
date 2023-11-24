@@ -1,0 +1,17 @@
+[package]
+name = "bevy_mocks"
+version = "0.12.0"
+edition = "2021"
+description = "API mocks for Bevy for doctests"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+# We could add dependency crates like `bevy_ecs` here, it works locally, but according to this,
+# such crates cannot be published:
+# https://github.com/rust-lang/cargo/issues/4242
+
+[lints]
+workspace = true
