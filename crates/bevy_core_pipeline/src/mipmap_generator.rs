@@ -1,7 +1,15 @@
 //! A wrapper that runs a shader repeatedly to populate a series of mipmaps.
 //!
+//! Mipmaps are sequences of images, each of which is half the resolution of the
+//! previous, organized in a conceptual pyramid. *Generating mipmaps* is the
+//! process of creating successively smaller versions of an image by reducing
+//! its size by half, starting from the largest *mip level* down to the
+//! smallest.
+//!
 //! A variety of passes need to or will need to do this, and using this module
 //! helps to reduce boilerplate and code duplication.
+//!
+//! For more information: https://en.wikipedia.org/wiki/Mipmap
 
 use std::{borrow::Cow, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -34,7 +42,14 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
 /// All mipmappers implement this trait.
 ///
-/// The type that implements this trait is used as the pipeline key for the mipmapping shader.
+/// A *mipmapper* is a shader that takes an image and produces another image at
+/// half of the size of the original. This process is repeated until the image
+/// can't be reduced anymore.
+///
+/// The type that implements this trait is used as the pipeline key for the
+/// mipmapping shader.
+///
+/// For more information: https://en.wikipedia.org/wiki/Mipmap
 pub trait Mipmap: Clone + PartialEq + Eq + Hash + Send + Sync + 'static {
     type BindGroup: AsBindGroup;
 
