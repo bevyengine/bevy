@@ -122,8 +122,8 @@ impl<'a> TrackedRenderPass<'a> {
     }
 
     /// Returns the wgpu [`RenderPass`].
-    pub fn wgpu_pass(&self) -> &RenderPass<'a> {
-        &self.pass
+    pub fn wgpu_pass(&mut self) -> &mut RenderPass<'a> {
+        &mut self.pass
     }
 
     /// Sets the active [`RenderPipeline`].
