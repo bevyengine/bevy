@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -37,6 +35,9 @@ pub use server::*;
 
 pub use bevy_utils::BoxedFuture;
 
+/// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
+pub use ron;
+
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
@@ -50,6 +51,13 @@ use bevy_ecs::{
 use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use std::{any::TypeId, sync::Arc};
+
+#[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
+compile_error!(
+    "The \"file_watcher\" feature for hot reloading requires the \
+    \"multi-threaded\" feature to be functional.\n\
+    Consider either disabling the \"file_watcher\" feature or enabling \"multi-threaded\""
+);
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
@@ -1181,4 +1189,35 @@ mod tests {
         // running schedule does not error on ambiguity between the 2 uses_assets systems
         app.world.run_schedule(Update);
     }
+
+    // validate the Asset derive macro for various asset types
+    #[derive(Asset, TypePath)]
+    pub struct TestAsset;
+
+    #[allow(dead_code)]
+    #[derive(Asset, TypePath)]
+    pub enum EnumTestAsset {
+        Unnamed(#[dependency] Handle<TestAsset>),
+        Named {
+            #[dependency]
+            handle: Handle<TestAsset>,
+            #[dependency]
+            vec_handles: Vec<Handle<TestAsset>>,
+            #[dependency]
+            embedded: TestAsset,
+        },
+        StructStyle(#[dependency] TestAsset),
+        Empty,
+    }
+
+    #[derive(Asset, TypePath)]
+    pub struct StructTestAsset {
+        #[dependency]
+        handle: Handle<TestAsset>,
+        #[dependency]
+        embedded: TestAsset,
+    }
+
+    #[derive(Asset, TypePath)]
+    pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

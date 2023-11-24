@@ -309,14 +309,6 @@ impl App {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
-        if app.plugins_state() == PluginsState::Ready {
-            // If we're already ready, we finish up now and advance one frame.
-            // This prevents black frames during the launch transition on iOS.
-            app.finish();
-            app.cleanup();
-            app.update();
-        }
-
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
@@ -427,17 +419,6 @@ impl App {
         }
 
         self
-    }
-
-    /// Configures a system set in the default schedule, adding the set if it does not exist.
-    #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
-    #[track_caller]
-    pub fn configure_set(
-        &mut self,
-        schedule: impl ScheduleLabel,
-        set: impl IntoSystemSetConfigs,
-    ) -> &mut Self {
-        self.configure_sets(schedule, set)
     }
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
@@ -986,20 +967,14 @@ impl App {
 }
 
 fn run_once(mut app: App) {
-    let plugins_state = app.plugins_state();
-    if plugins_state != PluginsState::Cleaned {
-        while app.plugins_state() == PluginsState::Adding {
-            #[cfg(not(target_arch = "wasm32"))]
-            bevy_tasks::tick_global_task_pools_on_main_thread();
-        }
-        app.finish();
-        app.cleanup();
+    while app.plugins_state() == PluginsState::Adding {
+        #[cfg(not(target_arch = "wasm32"))]
+        bevy_tasks::tick_global_task_pools_on_main_thread();
     }
+    app.finish();
+    app.cleanup();
 
-    // if plugins where cleaned before the runner start, an update already ran
-    if plugins_state != PluginsState::Cleaned {
-        app.update();
-    }
+    app.update();
 }
 
 /// An event that indicates the [`App`] should exit. This will fully exit the app process at the
@@ -1217,5 +1192,37 @@ mod tests {
             GenericLabel::<u32>(PhantomData).intern(),
             GenericLabel::<u64>(PhantomData).intern()
         );
+    }
+
+    /// Custom runners should be in charge of when `app::update` gets called as they may need to
+    /// coordinate some state.
+    /// bug: <https://github.com/bevyengine/bevy/issues/10385>
+    /// fix: <https://github.com/bevyengine/bevy/pull/10389>
+    #[test]
+    fn regression_test_10385() {
+        use super::{Res, Resource};
+        use crate::PreUpdate;
+
+        #[derive(Resource)]
+        struct MyState {}
+
+        fn my_runner(mut app: App) {
+            let my_state = MyState {};
+            app.world.insert_resource(my_state);
+
+            for _ in 0..5 {
+                app.update();
+            }
+        }
+
+        fn my_system(_: Res<MyState>) {
+            // access state during app update
+        }
+
+        // Should not panic due to missing resource
+        App::new()
+            .set_runner(my_runner)
+            .add_systems(PreUpdate, my_system)
+            .run();
     }
 }

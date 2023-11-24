@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!

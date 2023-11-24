@@ -2,7 +2,7 @@
 
 use bevy::utils::thiserror;
 use bevy::{
-    asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
+    asset::{io::Reader, ron, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
     reflect::TypePath,
     utils::BoxedFuture,
