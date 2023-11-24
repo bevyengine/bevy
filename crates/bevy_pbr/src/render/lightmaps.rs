@@ -5,6 +5,12 @@
 //! be baked in an external tool like [Blender](http://blender.org), perhaps
 //! with an addon like [The Lightmapper].
 //!
+//! When a mesh is instanced, each instance typically needs a separate lightmap.
+//! In such circumstances, this plugin combines all of the mesh's lightmaps into
+//! a single texture array. To do this, it requires that all lightmaps attached
+//! to a mesh have the same size and texture format. A warning will be reported
+//! and some lightmaps will be ignored if this restriction isn't followed.
+//!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
 
 use std::iter;
@@ -46,6 +52,7 @@ use bytemuck::{Pod, Zeroable};
 
 use crate::{Mesh3d, RenderMeshInstances};
 
+/// The maximum number of lightmaps in a scene.
 pub const MAX_LIGHTMAPS: usize = 1024;
 
 /// A plugin that provides an implementation of lightmaps.
@@ -97,7 +104,9 @@ pub struct RenderLightmaps(HashMap<AssetId<Mesh>, RenderLightmap>);
 
 /// A lightmap associated with a mesh.
 pub enum RenderLightmap {
+    /// The lightmap is still loading and can't be rendered yet.
     Loading,
+    /// The lightmap is loaded.
     Loaded {
         /// The [GpuImage] representing the lightmap.
         image: GpuImage,
@@ -106,15 +115,17 @@ pub enum RenderLightmap {
     },
 }
 
+/// The index in the texture array of lightmaps for a particular mesh instance.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum LightmapTextureArrayIndex {
-    // No array index was assigned because this lightmap was incompatible with
-    // other lightmaps for this mesh.
-    //
-    // We record this fact to avoid detecting such lightmaps as dirty every frame, which would
-    // otherwise cause us to try to reupload them every frame.
+    /// No array index was assigned because this lightmap was incompatible with
+    /// other lightmaps for this mesh.
+    ///
+    /// We record this fact to avoid detecting such lightmaps as dirty every frame, which would
+    /// otherwise cause us to try to reupload them every frame.
     Invalid,
-    // The lightmap has a valid texture array index.
+
+    /// The lightmap has a valid texture array index.
     Valid(u32),
 }
 
@@ -182,7 +193,7 @@ pub fn build_lightmap_texture_arrays(
         return;
     }
 
-    // Invalidate all out-of-date lightmaps.
+    // Invalidate all modified lightmaps.
     render_lightmaps.invalidate_lightmaps(&lightmaps, &render_mesh_instances, &images);
 
     // Build up a list of the new lightmaps to upload this frame.
@@ -221,6 +232,7 @@ impl RenderLightmaps {
         images: &RenderAssets<Image>,
     ) {
         for (entity, lightmap, _) in lightmaps.iter() {
+            // Skip up-to-date lightmaps.
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                 continue;
             };
@@ -228,6 +240,8 @@ impl RenderLightmaps {
                 continue;
             }
 
+            // If we got here, the lightmap has been modified. Invalidate the
+            // entry in `RenderLightmaps`.
             if let Entry::Occupied(entry) = self.entry(mesh_instance.mesh_asset_id) {
                 if let RenderLightmap::Loaded { array_indices, .. } = entry.get() {
                     if !array_indices.contains_key(&lightmap.image.id()) {
@@ -284,6 +298,7 @@ impl RenderLightmapDescriptors {
                     }
                 });
 
+            // If we already have an array slice for that lightmap, we're done.
             if lightmap_descriptor
                 .array_indices
                 .contains_key(&lightmap.image.id())
@@ -292,11 +307,23 @@ impl RenderLightmapDescriptors {
             }
 
             // Create a new lightmap array slice if necessary.
-            if gpu_lightmap_image.size != lightmap_descriptor.image_size
-                || gpu_lightmap_image.texture_format != lightmap_descriptor.image_format
-            {
-                // TODO: Better warning message.
-                warn!("Ignoring lightmap {:?} because it was incompatible with the existing lightmap(s) for that mesh", gpu_lightmap_image);
+            if gpu_lightmap_image.size != lightmap_descriptor.image_size {
+                warn!(
+                    "Ignoring lightmap {:?} because its size, {}, didn't match that of the \
+existing lightmap(s) for that mesh, {}",
+                    gpu_lightmap_image, gpu_lightmap_image.size, lightmap_descriptor.image_size
+                );
+                lightmap_descriptor
+                    .array_indices
+                    .insert(lightmap.image.id(), LightmapTextureArrayIndex::Invalid);
+            } else if gpu_lightmap_image.texture_format != lightmap_descriptor.image_format {
+                warn!(
+                    "Ignoring lightmap {:?} because its texture format, {:?} was incompatible \
+with that of the existing lightmap(s) for that mesh, {:?}",
+                    gpu_lightmap_image,
+                    gpu_lightmap_image.texture_format,
+                    lightmap_descriptor.image_format
+                );
                 lightmap_descriptor
                     .array_indices
                     .insert(lightmap.image.id(), LightmapTextureArrayIndex::Invalid);
@@ -319,6 +346,7 @@ impl RenderLightmapDescriptors {
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
     ) {
+        // Early out if there's nothing to do.
         if self.is_empty() {
             return;
         }
@@ -437,7 +465,7 @@ impl LightmapUniform {
             }
 
             // Find the texture array index for this lightmap. It'll either be
-            // in our existing [RenderLightmaps] array or else in
+            // in our existing `RenderLightmaps` array or else in
             // `new_lightmap_descriptors` if it's new.
             let texture_array_index = match render_lightmaps.get(&mesh_instance.mesh_asset_id) {
                 Some(RenderLightmap::Loaded { array_indices, .. }) => {
@@ -539,6 +567,7 @@ impl RenderLightmapDescriptor {
 
         // Copy each lightmap into each array slot.
         for (source_image_id, lightmap_array_index) in self.array_indices.iter() {
+            // Make sure the source and destination are ready.
             let &LightmapTextureArrayIndex::Valid(lightmap_array_index) = lightmap_array_index
             else {
                 continue;
@@ -547,6 +576,7 @@ impl RenderLightmapDescriptor {
                 continue;
             };
 
+            // Queue the copy.
             command_encoder.copy_texture_to_texture(
                 ImageCopyTexture {
                     texture: &source_image.texture,
