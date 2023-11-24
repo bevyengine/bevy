@@ -160,7 +160,15 @@ pub enum NativeKeyCode {
 /// ## Usage
 ///
 /// It is used as the generic `T` value of an [`Input`] to create a `Res<Input<KeyCode>>`.
-/// The resource values are mapped to the current layout of the keyboard and correlate to a [`NativeKeyCode`].
+///
+/// Code representing the location of a physical key
+/// This mostly conforms to the UI Events Specification's [`KeyboardEvent.code`] with a few
+/// exceptions:
+/// - The keys that the specification calls `MetaLeft` and `MetaRight` are named `SuperLeft` and
+///   `SuperRight` here.
+/// - The key that the specification calls "Super" is reported as `Unidentified` here.
+///
+/// [`KeyboardEvent.code`]: https://w3c.github.io/uievents-code/#code-value-tables
 ///
 /// ## Updating
 ///
