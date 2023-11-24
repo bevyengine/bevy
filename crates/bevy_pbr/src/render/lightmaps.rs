@@ -165,8 +165,8 @@ impl Plugin for LightmapPlugin {
     }
 }
 
-/// A system, part of the [RenderApp], that finds all lightmapped meshes in the
-/// scene, updates the [LightmapUniform], and combines the lightmaps into
+/// A system, part of the [`RenderApp`], that finds all lightmapped meshes in
+/// the scene, updates the [`LightmapUniform`], and combines the lightmaps into
 /// texture arrays so they can be efficiently rendered.
 pub fn build_lightmap_texture_arrays(
     mut render_lightmaps: ResMut<RenderLightmaps>,
@@ -220,7 +220,7 @@ impl RenderLightmaps {
         render_mesh_instances: &RenderMeshInstances,
         images: &RenderAssets<Image>,
     ) {
-        for (entity, ref lightmap, _) in lightmaps.iter() {
+        for (entity, lightmap, _) in lightmaps.iter() {
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                 continue;
             };
@@ -253,7 +253,7 @@ impl RenderLightmapDescriptors {
         render_mesh_instances: &RenderMeshInstances,
         images: &RenderAssets<Image>,
     ) {
-        for (entity, ref lightmap, _) in lightmaps.iter() {
+        for (entity, lightmap, _) in lightmaps.iter() {
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                 continue;
             };
@@ -335,11 +335,11 @@ impl RenderLightmapDescriptors {
             // Create the texture array, and copy in the lightmaps.
             //
             // TODO(pcwalton): Skip copying if there's only one lightmap texture?
-            let lightmap_image = lightmap_descriptor.create_lightmap_texture_array(&render_device);
+            let lightmap_image = lightmap_descriptor.create_lightmap_texture_array(render_device);
             lightmap_descriptor.copy_lightmaps_to_texture(
                 &mut command_encoder,
                 &lightmap_image,
-                &images,
+                images,
             );
 
             // Write the lightmap in.
@@ -428,7 +428,7 @@ impl LightmapUniform {
         self.uniform_indices.clear();
 
         // Build the metadata for each lightmap.
-        for (entity, ref lightmap, _) in lightmaps.iter() {
+        for (entity, lightmap, _) in lightmaps.iter() {
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                 continue;
             };
@@ -440,9 +440,9 @@ impl LightmapUniform {
             // in our existing [RenderLightmaps] array or else in
             // `new_lightmap_descriptors` if it's new.
             let texture_array_index = match render_lightmaps.get(&mesh_instance.mesh_asset_id) {
-                Some(&RenderLightmap::Loaded {
-                    ref array_indices, ..
-                }) => array_indices[&lightmap.image.id()],
+                Some(RenderLightmap::Loaded { array_indices, .. }) => {
+                    array_indices[&lightmap.image.id()]
+                }
                 Some(&RenderLightmap::Loading) | None => {
                     new_lightmap_descriptors[&mesh_instance.mesh_asset_id].array_indices
                         [&lightmap.image.id()]
@@ -560,7 +560,7 @@ impl RenderLightmapDescriptor {
                     origin: Origin3d {
                         x: 0,
                         y: 0,
-                        z: lightmap_array_index as u32,
+                        z: lightmap_array_index,
                     },
                     aspect: TextureAspect::All,
                 },
@@ -569,7 +569,7 @@ impl RenderLightmapDescriptor {
                     height,
                     depth_or_array_layers: 1,
                 },
-            )
+            );
         }
     }
 }

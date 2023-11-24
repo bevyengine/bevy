@@ -967,6 +967,7 @@ impl MeshBindGroups {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
     mut groups: ResMut<MeshBindGroups>,
@@ -1020,7 +1021,7 @@ pub fn prepare_mesh_bind_group(
                         ),
                     );
                 }
-                Some(&RenderLightmap::Loaded { ref image, .. }) => {
+                Some(RenderLightmap::Loaded { image, .. }) => {
                     // Create the real bindgroup.
                     groups.lightmaps.insert(
                         mesh_id,
