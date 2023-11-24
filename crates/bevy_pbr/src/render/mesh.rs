@@ -977,6 +977,7 @@ pub fn prepare_mesh_bind_group(
     weights_uniform: Res<MorphUniform>,
     render_lightmaps: Res<RenderLightmaps>,
     lightmaps_uniform: Res<LightmapUniform>,
+    fallback_images: Res<FallbackImage>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
@@ -1003,16 +1004,30 @@ pub fn prepare_mesh_bind_group(
         }
     }
 
+    // Create lightmap bindgroups.
     if let Some(lightmaps) = lightmaps_uniform.buffer.buffer() {
         for (mesh_id, _) in meshes.iter() {
-            if let Some(lightmap_image) = render_lightmaps
-                .get(&mesh_id)
-                .map(|lightmap| &lightmap.image)
-            {
-                groups.lightmaps.insert(
-                    mesh_id,
-                    layouts.lightmapped(&render_device, &model, lightmap_image, lightmaps),
-                );
+            match render_lightmaps.get(&mesh_id) {
+                Some(&RenderLightmap::Loading) => {
+                    // Create a placeholder bindgroup.
+                    groups.lightmaps.insert(
+                        mesh_id,
+                        layouts.lightmapped(
+                            &render_device,
+                            &model,
+                            &fallback_images.d2_array,
+                            lightmaps,
+                        ),
+                    );
+                }
+                Some(&RenderLightmap::Loaded { ref image, .. }) => {
+                    // Create the real bindgroup.
+                    groups.lightmaps.insert(
+                        mesh_id,
+                        layouts.lightmapped(&render_device, &model, image, lightmaps),
+                    );
+                }
+                None => {}
             }
         }
     }

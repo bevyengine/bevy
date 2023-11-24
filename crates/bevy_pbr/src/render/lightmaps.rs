@@ -37,10 +37,10 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::{
-    hashbrown::hash_map::Entry,
+    hashbrown::{hash_map::Entry, HashMap},
     nonmax::NonMaxU32,
     tracing::{info, warn},
-    EntityHashMap, HashMap,
+    EntityHashMap,
 };
 use bytemuck::{Pod, Zeroable};
 
@@ -96,15 +96,18 @@ pub struct GpuLightmap {
 pub struct RenderLightmaps(HashMap<AssetId<Mesh>, RenderLightmap>);
 
 /// A lightmap associated with a mesh.
-pub struct RenderLightmap {
-    /// The [GpuImage] representing the lightmap.
-    pub image: GpuImage,
-    /// The index of the lightmap in this mesh's lightmap texture array.
-    array_indices: HashMap<AssetId<Image>, LightmapTextureArrayIndex>,
+pub enum RenderLightmap {
+    Loading,
+    Loaded {
+        /// The [GpuImage] representing the lightmap.
+        image: GpuImage,
+        /// The index of the lightmap in this mesh's lightmap texture array.
+        array_indices: HashMap<AssetId<Image>, LightmapTextureArrayIndex>,
+    },
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum LightmapTextureArrayIndex {
+pub enum LightmapTextureArrayIndex {
     // No array index was assigned because this lightmap was incompatible with
     // other lightmaps for this mesh.
     //
@@ -226,8 +229,10 @@ impl RenderLightmaps {
             }
 
             if let Entry::Occupied(entry) = self.entry(mesh_instance.mesh_asset_id) {
-                if !entry.get().array_indices.contains_key(&lightmap.image.id()) {
-                    entry.remove_entry();
+                if let RenderLightmap::Loaded { array_indices, .. } = entry.get() {
+                    if !array_indices.contains_key(&lightmap.image.id()) {
+                        entry.remove_entry();
+                    }
                 }
             }
         }
@@ -249,16 +254,25 @@ impl RenderLightmapDescriptors {
         images: &RenderAssets<Image>,
     ) {
         for (entity, ref lightmap, _) in lightmaps.iter() {
-            let (Some(mesh_instance), Some(gpu_lightmap_image)) = (
-                render_mesh_instances.get(&entity),
-                images.get(&lightmap.image),
-            ) else {
+            let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                 continue;
             };
 
-            if render_lightmaps.contains_key(&mesh_instance.mesh_asset_id) {
+            // If the image is still loading, note that fact and continue.
+            let Some(gpu_lightmap_image) = images.get(&lightmap.image) else {
+                render_lightmaps.insert(mesh_instance.mesh_asset_id, RenderLightmap::Loading);
+                continue;
+            };
+
+            // If the image has already loaded, we don't need to do anything.
+            if let Some(&RenderLightmap::Loaded { .. }) =
+                render_lightmaps.get(&mesh_instance.mesh_asset_id)
+            {
                 continue;
             }
+
+            // Remove any Loading state.
+            render_lightmaps.remove(&mesh_instance.mesh_asset_id);
 
             // Initialize a new lightmap if necessary.
             let lightmap_descriptor =
@@ -297,7 +311,7 @@ impl RenderLightmapDescriptors {
         }
     }
 
-    // Creates a new lightmap array textures and fills it.
+    // Creates a new lightmap array texture and fills it.
     fn create_and_copy_in_lightmaps(
         self,
         render_lightmaps: &mut RenderLightmaps,
@@ -331,7 +345,7 @@ impl RenderLightmapDescriptors {
             // Write the lightmap in.
             render_lightmaps.insert(
                 mesh_id,
-                RenderLightmap {
+                RenderLightmap::Loaded {
                     image: lightmap_image,
                     array_indices: lightmap_descriptor.array_indices,
                 },
@@ -426,8 +440,10 @@ impl LightmapUniform {
             // in our existing [RenderLightmaps] array or else in
             // `new_lightmap_descriptors` if it's new.
             let texture_array_index = match render_lightmaps.get(&mesh_instance.mesh_asset_id) {
-                Some(render_lightmap) => render_lightmap.array_indices[&lightmap.image.id()],
-                None => {
+                Some(&RenderLightmap::Loaded {
+                    ref array_indices, ..
+                }) => array_indices[&lightmap.image.id()],
+                Some(&RenderLightmap::Loading) | None => {
                     new_lightmap_descriptors[&mesh_instance.mesh_asset_id].array_indices
                         [&lightmap.image.id()]
                 }
