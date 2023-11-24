@@ -9,7 +9,7 @@
 //! A variety of passes need to or will need to do this, and using this module
 //! helps to reduce boilerplate and code duplication.
 //!
-//! For more information: https://en.wikipedia.org/wiki/Mipmap
+//! For more information: <https://en.wikipedia.org/wiki/Mipmap>
 
 use std::{borrow::Cow, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -49,7 +49,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 /// The type that implements this trait is used as the pipeline key for the
 /// mipmapping shader.
 ///
-/// For more information: https://en.wikipedia.org/wiki/Mipmap
+/// For more information: <https://en.wikipedia.org/wiki/Mipmap>
 pub trait Mipmap: Clone + PartialEq + Eq + Hash + Send + Sync + 'static {
     type BindGroup: AsBindGroup;
 
