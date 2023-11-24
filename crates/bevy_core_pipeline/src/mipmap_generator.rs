@@ -181,7 +181,7 @@ where
     /// mipmap levels. So we store separate textures for each mip level on that
     /// platform.
     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-    pub texture: Vec<CachedTexture>,
+    pub cached_texture: Vec<CachedTexture>,
 
     /// The number of mip levels.
     pub mip_count: u32,
@@ -411,8 +411,8 @@ where
                     &render_device,
                     TextureDescriptor {
                         size: Extent3d {
-                            width: (texture_descriptor.size.width >> mip).max(1),
-                            height: (texture_descriptor.size.height >> mip).max(1),
+                            width: (texture_descriptor.size.width >> mip_level).max(1),
+                            height: (texture_descriptor.size.height >> mip_level).max(1),
                             depth_or_array_layers: 1,
                         },
                         mip_level_count: 1,
