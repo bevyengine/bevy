@@ -918,7 +918,7 @@ mod tests {
     fn table() {
         let mut components = Components::default();
         let mut storages = Storages::default();
-        let component_id = components.init_component::<W<TableRow>>(&mut storages);
+        let component_id = components.init_component::<W<TableRow>>(&mut storages).id();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
             .add_column(components.get_info(component_id).unwrap())

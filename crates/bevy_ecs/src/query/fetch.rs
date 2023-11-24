@@ -639,7 +639,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.init_component::<T>().id()
     }
 
     fn matches_component_set(
@@ -806,7 +806,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.init_component::<T>().id()
     }
 
     fn matches_component_set(
@@ -973,7 +973,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.init_component::<T>().id()
     }
 
     fn matches_component_set(
@@ -1229,7 +1229,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.init_component::<T>().id()
     }
 
     fn matches_component_set(
