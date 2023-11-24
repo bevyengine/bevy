@@ -28,10 +28,6 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
-    #[allow(deprecated)]
-    pub use crate::system::adapter::{
-        self as system_adapter, dbg, error, ignore, info, unwrap, warn,
-    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
