@@ -698,9 +698,9 @@ impl<'w> EntityWorldMut<'w> {
             unsafe { self.world.into_deferred() }
                 .trigger_on_remove(entity, bundle_info.iter_components());
         }
-        for component_id in bundle_info.iter_components() {
-            self.world.removed_components.send(component_id, entity);
-        }
+        // for component_id in bundle_info.iter_components() {
+        //     self.world.removed_components.send(component_id, entity);
+        // }
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -859,7 +859,7 @@ impl<'w> EntityWorldMut<'w> {
         }
         for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
-                self.world.removed_components.send(component_id, entity);
+                // self.world.removed_components.send(component_id, entity);
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
@@ -894,18 +894,18 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns the current entity.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
-        self.world.flush();
+        self.world.flush_entities();
         let archetype = &self.world.archetypes[self.location.archetype_id];
         if archetype.has_on_remove() {
             unsafe { self.world.into_deferred() }
                 .trigger_on_remove(self.entity, archetype.components());
         }
 
-        for component_id in archetype.components() {
-            self.world
-                .removed_components
-                .send(component_id, self.entity);
-        }
+        // for component_id in archetype.components() {
+        //     self.world
+        //         .removed_components
+        //         .send(component_id, self.entity);
+        // }
 
         let world = self.world;
         let location = world

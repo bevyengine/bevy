@@ -95,8 +95,7 @@ impl CommandQueue {
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
         // flush the previously queued entities
-        world.flush();
-        world.set_flushing(true);
+        world.flush_entities();
 
         // The range of pointers of the filled portion of `self.bytes`.
         let bytes_range = self.bytes.as_mut_ptr_range();
@@ -135,10 +134,9 @@ impl CommandQueue {
             // SAFETY: The address just past the command is either within the buffer,
             // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
             cursor = unsafe { cursor.add(size) };
-        }
 
-        world.set_flushing(false);
-        world.flush_commands();
+            world.flush_commands();
+        }
     }
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
@@ -147,6 +145,7 @@ impl CommandQueue {
     }
 
     /// Returns false if there are any commands in the queue
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.bytes.is_empty()
     }
