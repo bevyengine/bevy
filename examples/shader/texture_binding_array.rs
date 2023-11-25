@@ -5,11 +5,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssets,
-        render_resource::{AsBindGroupError, PreparedBindGroup, *},
-        renderer::RenderDevice,
-        texture::FallbackImage,
-        RenderApp,
+        render_asset::RenderAssets, render_resource::*, renderer::RenderDevice,
+        texture::FallbackImage, RenderApp,
     },
 };
 use std::{num::NonZeroU32, process::exit};
@@ -119,20 +116,11 @@ impl AsBindGroup for BindlessMaterial {
             textures[id] = &*image.texture_view;
         }
 
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: "bindless_material_bind_group".into(),
+        let bind_group = render_device.create_bind_group(
+            "bindless_material_bind_group",
             layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureViewArray(&textures[..]),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&fallback_image.sampler),
-                },
-            ],
-        });
+            &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
+        );
 
         Ok(PreparedBindGroup {
             bindings: vec![],

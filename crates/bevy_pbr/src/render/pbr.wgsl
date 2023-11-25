@@ -1,13 +1,19 @@
-#import bevy_pbr::pbr_functions           alpha_discard
-#import bevy_pbr::pbr_fragment            pbr_input_from_standard_material
+#import bevy_pbr::{
+    pbr_functions::alpha_discard,
+    pbr_fragment::pbr_input_from_standard_material,
+}
 
 #ifdef PREPASS_PIPELINE
-#import bevy_pbr::prepass_io              VertexOutput, FragmentOutput
-#import bevy_pbr::pbr_deferred_functions  deferred_output
+#import bevy_pbr::{
+    prepass_io::{VertexOutput, FragmentOutput},
+    pbr_deferred_functions::deferred_output,
+}
 #else
-#import bevy_pbr::forward_io              VertexOutput, FragmentOutput
-#import bevy_pbr::pbr_functions           apply_pbr_lighting, main_pass_post_lighting_processing
-#import bevy_pbr::pbr_types               STANDARD_MATERIAL_FLAGS_UNLIT_BIT
+#import bevy_pbr::{
+    forward_io::{VertexOutput, FragmentOutput},
+    pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
+    pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
+}
 #endif
 
 @fragment

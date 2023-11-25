@@ -187,6 +187,10 @@ impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
 
 #[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
+    /// If this is not specified, then
+    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
+    ///  `FiraMono-subset.ttf` compiled into the library is used.
+    /// * otherwise no text will be rendered.
     pub font: Handle<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///

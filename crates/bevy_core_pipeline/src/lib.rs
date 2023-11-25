@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 pub mod blit;
 pub mod bloom;
 pub mod clear_color;
@@ -21,7 +19,10 @@ pub use skybox::Skybox;
 /// Experimental features that are not yet finished. Please report any issues you encounter!
 pub mod experimental {
     pub mod taa {
-        pub use crate::taa::*;
+        pub use crate::taa::{
+            TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
+            TemporalAntiAliasSettings,
+        };
     }
 }
 

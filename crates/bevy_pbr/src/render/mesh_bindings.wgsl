@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::mesh_bindings
 
-#import bevy_pbr::mesh_types Mesh
+#import bevy_pbr::mesh_types::Mesh
 
 #ifdef MESH_BINDGROUP_1
 

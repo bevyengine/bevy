@@ -34,7 +34,7 @@ fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
         FogSettings {
-            color: Color::rgba(0.05, 0.05, 0.05, 1.0),
+            color: Color::rgba(0.25, 0.25, 0.25, 1.0),
             falloff: FogFalloff::Linear {
                 start: 5.0,
                 end: 20.0,

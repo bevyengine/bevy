@@ -523,6 +523,12 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// To retain all results without filtering but still check whether they were added after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
 ///
+/// # Deferred
+///
+/// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
+/// are visible only after deferred operations are applied,
+/// typically at the end of the schedule iteration.
+///
 /// # Examples
 ///
 /// ```
@@ -689,6 +695,13 @@ impl<T: Component> WorldQueryFilter for Added<T> {
 ///
 /// To retain all results without filtering but still check whether they were changed after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// # Deferred
+///
+/// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
+/// (like entity creation or entity component addition or removal)
+/// are visible only after deferred operations are applied,
+/// typically at the end of the schedule iteration.
 ///
 /// # Examples
 ///

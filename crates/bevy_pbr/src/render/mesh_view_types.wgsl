@@ -1,8 +1,5 @@
 #define_import_path bevy_pbr::mesh_view_types
 
-#import bevy_render::view
-#import bevy_render::globals
-
 struct PointLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: the direction (x,z), spot_scale and spot_offset

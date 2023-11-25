@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
@@ -8,6 +6,7 @@
 pub mod camera_config;
 pub mod measurement;
 pub mod node_bundles;
+pub mod ui_material;
 pub mod update;
 pub mod widget;
 
@@ -29,6 +28,7 @@ pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
+pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
@@ -36,8 +36,8 @@ use widget::UiImageSize;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
+        widget::Label, Interaction, UiMaterialPlugin, UiScale,
     };
 }
 

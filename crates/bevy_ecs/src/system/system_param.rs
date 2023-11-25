@@ -323,7 +323,7 @@ fn assert_component_access_compatibility(
 ///         &World,
 ///     )>,
 /// ) {
-///     for event in set.p0().iter() {
+///     for event in set.p0().read() {
 ///         // ...
 ///         # let _event = event;
 ///     }
@@ -1737,6 +1737,36 @@ mod tests {
         let mut world = World::new();
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems(non_sync_system);
+        schedule.run(&mut world);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/10207.
+    #[test]
+    fn param_set_non_send_first() {
+        fn non_send_param_set(mut p: ParamSet<(NonSend<*mut u8>, ())>) {
+            let _ = p.p0();
+            p.p1();
+        }
+
+        let mut world = World::new();
+        world.insert_non_send_resource(std::ptr::null_mut::<u8>());
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
+        schedule.run(&mut world);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/10207.
+    #[test]
+    fn param_set_non_send_second() {
+        fn non_send_param_set(mut p: ParamSet<((), NonSendMut<*mut u8>)>) {
+            p.p0();
+            let _ = p.p1();
+        }
+
+        let mut world = World::new();
+        world.insert_non_send_resource(std::ptr::null_mut::<u8>());
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
     }
 }

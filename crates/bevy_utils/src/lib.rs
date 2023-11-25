@@ -2,9 +2,8 @@
 //!
 //! [Bevy]: https://bevyengine.org/
 //!
-#![allow(clippy::type_complexity)]
+
 #![warn(missing_docs)]
-#![warn(clippy::undocumented_unsafe_blocks)]
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -21,6 +20,7 @@ pub mod syncunsafecell;
 mod cow_arc;
 mod default;
 mod float_ord;
+pub mod intern;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;

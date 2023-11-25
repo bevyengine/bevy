@@ -14,7 +14,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
     let field_idents = reflect_struct
         .active_fields()
-        .map(|field| Member::Unnamed(Index::from(field.index)))
+        .map(|field| Member::Unnamed(Index::from(field.declaration_index)))
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();

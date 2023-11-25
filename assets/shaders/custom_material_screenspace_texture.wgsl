@@ -1,6 +1,8 @@
-#import bevy_pbr::mesh_view_bindings  view
-#import bevy_pbr::forward_io  VertexOutput
-#import bevy_pbr::utils               coords_to_viewport_uv
+#import bevy_pbr::{
+    mesh_view_bindings::view,
+    forward_io::VertexOutput,
+    utils::coords_to_viewport_uv,
+}
 
 @group(1) @binding(0) var texture: texture_2d<f32>;
 @group(1) @binding(1) var texture_sampler: sampler;

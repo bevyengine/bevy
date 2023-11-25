@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::skinning
 
-#import bevy_pbr::mesh_types  SkinnedMesh
+#import bevy_pbr::mesh_types::SkinnedMesh
 
 #ifdef SKINNED
 
