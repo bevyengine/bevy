@@ -156,19 +156,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
         }
     }
 
-    /// Runs `func` on each query result in parallel.
-    ///
-    /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
-    ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[inline]
-    #[deprecated = "use `.for_each(...)` instead."]
-    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
-        self.for_each(func);
-    }
-
     #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         if self.batching_strategy.batch_size_limits.is_empty() {
