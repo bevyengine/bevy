@@ -461,7 +461,11 @@ impl GetBatchData for MeshPipeline {
     type Param = SRes<RenderMeshInstances>;
     type Query = (Entity, Option<Read<Lightmap>>);
     type QueryFilter = With<Mesh3d>;
-    type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
+    type CompareData = (
+        MaterialBindGroupId,
+        AssetId<Mesh>,
+        Option<RenderMeshLightmapKey>,
+    );
     type BufferData = MeshUniform;
 
     fn get_batch_data(
@@ -480,6 +484,7 @@ impl GetBatchData for MeshPipeline {
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
+                maybe_lightmap.map(|lightmap| lightmap.into()),
             )),
         )
     }
@@ -1151,7 +1156,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         let Some(bind_group) = bind_groups.get(
             mesh.mesh_asset_id,
-            lightmap.map(|lightmap| RenderMeshLightmapKey::from_lightmap(lightmap)),
+            lightmap.map(|lightmap| RenderMeshLightmapKey::from(lightmap)),
             is_skinned,
             is_morphed,
         ) else {

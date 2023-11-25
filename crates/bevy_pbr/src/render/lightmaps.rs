@@ -178,7 +178,7 @@ pub fn build_lightmap_texture_arrays(
             .entry(mesh_id.mesh_asset_id)
             .or_insert_with(|| RenderMeshLightmaps::new());
 
-        let render_mesh_lightmap_key = RenderMeshLightmapKey::from_lightmap(lightmap);
+        let render_mesh_lightmap_key = RenderMeshLightmapKey::from(lightmap);
 
         let render_mesh_lightmap_index = match render_mesh_lightmaps
             .render_mesh_lightmap_to_lightmap_index
@@ -306,8 +306,8 @@ impl RenderMeshLightmap {
     }
 }
 
-impl RenderMeshLightmapKey {
-    pub(crate) fn from_lightmap(lightmap: &Lightmap) -> RenderMeshLightmapKey {
+impl<'a> From<&'a Lightmap> for RenderMeshLightmapKey {
+    fn from(lightmap: &'a Lightmap) -> Self {
         RenderMeshLightmapKey {
             image: lightmap.image.id(),
             exposure: FloatOrd(lightmap.exposure),
