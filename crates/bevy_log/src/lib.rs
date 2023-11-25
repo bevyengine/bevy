@@ -294,7 +294,7 @@ impl<S: Subscriber> Layer<S> for LogEventLayer {
     }
 }
 
-/// A [`Visit`]or that records log messages that are transfered to [`LogEventHandler`].
+/// A [`Visit`]or that records log messages that are transfered to [`LogEventLayer`].
 struct LogEventVisitor<'a>(&'a mut Option<String>);
 impl<'a> Visit for LogEventVisitor<'a> {
     fn record_debug(
