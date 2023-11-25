@@ -31,7 +31,6 @@ fn lightmap(uv: vec2<f32>, instance_index: u32) -> vec3<f32> {
     // control flow uniformity problems.
     //
     // TODO(pcwalton): Consider bicubic filtering.
-    // TODO(pcwalton): Exposure.
     return textureSampleLevel(
         lightmaps_texture,
         lightmaps_sampler,

@@ -956,6 +956,8 @@ impl MeshBindGroups {
         self.model_only = None;
         self.skinned = None;
         self.morph_targets.clear();
+        self.lightmaps.clear();
+        self.fallback_lightmap = None;
     }
     /// Get the `BindGroup` for `GpuMesh` with given `handle_id` and lightmap
     /// key `lightmap_exposure`.
@@ -1023,6 +1025,7 @@ pub fn prepare_mesh_bind_group(
 
     // Create lightmap bindgroups.
     for (mesh_id, _) in meshes.iter() {
+        // Skip meshes with no lightmaps.
         let Some(render_lightmaps) = render_lightmaps.get(&mesh_id) else {
             continue;
         };
@@ -1030,10 +1033,14 @@ pub fn prepare_mesh_bind_group(
         for (render_mesh_lightmap_key, render_mesh_lightmap_index) in
             &render_lightmaps.render_mesh_lightmap_to_lightmap_index
         {
+            // We can reuse layouts between meshes that share the same lightmap
+            // texture and exposure value.
             let Entry::Vacant(entry) = groups.lightmaps.entry(render_mesh_lightmap_key.clone())
             else {
                 continue;
             };
+
+            // If we got here, we need to make a new layout.
             let render_mesh_lightmap =
                 &render_lightmaps.render_mesh_lightmaps[render_mesh_lightmap_index.0];
             entry.insert(layouts.lightmapped(
@@ -1043,38 +1050,9 @@ pub fn prepare_mesh_bind_group(
                 &lightmaps_uniform,
             ));
         }
-
-        /*
-        match render_lightmaps.get(&mesh_id) {
-            Some(&RenderLightmap::Loading) => {
-                // Create a placeholder bindgroup.
-                groups.lightmaps.insert(
-                    LightmapBindGroupKey::new(mesh_id, 1.0),
-                    layouts.lightmapped(
-                        &render_device,
-                        &model,
-                        &fallback_images.d2_array,
-                        lightmaps,
-                    ),
-                );
-            }
-            Some(RenderLightmap::Loaded {
-                image,
-                ref exposures,
-            }) => {
-                // Create the real bindgroups.
-                for &exposure in exposures {
-                    groups.lightmaps.insert(
-                        LightmapBindGroupKey::new(mesh_id, exposure),
-                        layouts.lightmapped(&render_device, &model, image, lightmaps),
-                    );
-                }
-            }
-            None => {}
-        }
-        */
     }
 
+    // Create a group to handle lightmaps that haven't loaded yet.
     groups.fallback_lightmap = Some(layouts.fallback_lightmap(
         &render_device,
         &model,
