@@ -2,6 +2,8 @@
 //!
 //! It creates a in-game console for viewing logs.
 
+use std::time::SystemTime;
+
 use bevy::log::{Level, LogMessage};
 use bevy::prelude::*;
 
@@ -47,6 +49,7 @@ fn log_system(
         module_path,
         file,
         line,
+        time,
     } in log_messages.read()
     {
         // This part is just pushing a bunch of `TextSection`s to the UI.
@@ -80,6 +83,23 @@ fn log_system(
             style: TextStyle {
                 font_size: 16.0,
                 color: Color::rgb(0.9, 0.7, 0.7),
+                ..default()
+            },
+        });
+
+        text.sections.push(TextSection {
+            // It is recommended to use a crate like `chrono` for
+            // formatting the `time`, but for this example we will just
+            // output the amount of seconds since the unix epoch.
+            value: format!(
+                "{}sec ",
+                time.duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+            ),
+            style: TextStyle {
+                font_size: 16.0,
+                color: Color::WHITE,
                 ..default()
             },
         });

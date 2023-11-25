@@ -13,7 +13,10 @@
 
 #[cfg(feature = "trace")]
 use std::panic;
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::SystemTime,
+};
 
 #[cfg(target_os = "android")]
 mod android_tracing;
@@ -252,6 +255,11 @@ pub struct LogMessage {
     /// The line number in the source code file where the span occurred, or
     /// `None` if this could not be determined.
     pub line: Option<u32>,
+
+    /// The time the log occurred.
+    /// It is recommended to use a third-party crate like
+    /// [chrono](https://crates.io/crates/chrono) to format the [`SystemTime`].
+    pub time: SystemTime,
 }
 
 /// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](bevy_ecs::event::Events<LogEvent>).
@@ -289,6 +297,7 @@ impl<S: Subscriber> Layer<S> for LogEventLayer {
                 module_path: metadata.module_path(),
                 file: metadata.file(),
                 line: metadata.line(),
+                time: SystemTime::now(),
             });
         }
     }
