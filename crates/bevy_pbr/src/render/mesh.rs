@@ -975,7 +975,7 @@ impl MeshBindGroups {
         self.lightmaps.clear();
     }
     /// Get the `BindGroup` for `GpuMesh` with given `handle_id` and lightmap
-    /// key `lightmap_exposure`.
+    /// key `lightmap`.
     pub fn get(
         &self,
         asset_id: AssetId<Mesh>,
