@@ -627,11 +627,19 @@ impl<'w> BundleInserter<'w> {
         match self.result {
             InsertBundleResult::SameArchetype => {
                 let archetype = &mut *self.archetype;
-                archetype.trigger_on_insert(
-                    world.as_unsafe_world_cell_readonly(),
-                    entity,
-                    bundle_info.components().iter().cloned(),
-                );
+                if archetype.has_on_add() {
+                    world.into_deferred().trigger_on_add(
+                        entity,
+                        bundle_info.iter_components().filter(|id| {
+                            add_bundle.get_status(id.index()) == ComponentStatus::Added
+                        }),
+                    );
+                }
+                if archetype.has_on_insert() {
+                    world
+                        .into_deferred()
+                        .trigger_on_insert(entity, bundle_info.iter_components())
+                }
                 bundle_info.write_components(
                     &mut *self.table,
                     &mut world.storages.sparse_sets,
@@ -647,20 +655,19 @@ impl<'w> BundleInserter<'w> {
                 let table = &mut *self.table;
                 let archetype = &mut *self.archetype;
                 let new_archetype = &mut *new_archetype;
-                new_archetype.trigger_on_add(
-                    world.as_unsafe_world_cell_readonly(),
-                    entity,
-                    bundle_info
-                        .components()
-                        .iter()
-                        .cloned()
-                        .filter(|id| add_bundle.get_status(id.index()) == ComponentStatus::Added),
-                );
-                new_archetype.trigger_on_insert(
-                    world.as_unsafe_world_cell_readonly(),
-                    entity,
-                    bundle_info.components().iter().cloned(),
-                );
+                if new_archetype.has_on_add() {
+                    world.into_deferred().trigger_on_add(
+                        entity,
+                        bundle_info.iter_components().filter(|id| {
+                            add_bundle.get_status(id.index()) == ComponentStatus::Added
+                        }),
+                    );
+                }
+                if new_archetype.has_on_insert() {
+                    world
+                        .into_deferred()
+                        .trigger_on_insert(entity, bundle_info.iter_components())
+                }
                 let result = archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
@@ -697,20 +704,19 @@ impl<'w> BundleInserter<'w> {
                 let new_table = &mut *new_table;
                 let archetype = &mut *self.archetype;
                 let new_archetype = &mut *new_archetype;
-                new_archetype.trigger_on_add(
-                    world.as_unsafe_world_cell_readonly(),
-                    entity,
-                    bundle_info
-                        .components()
-                        .iter()
-                        .cloned()
-                        .filter(|id| add_bundle.get_status(id.index()) == ComponentStatus::Added),
-                );
-                new_archetype.trigger_on_insert(
-                    world.as_unsafe_world_cell_readonly(),
-                    entity,
-                    bundle_info.components().iter().cloned(),
-                );
+                if new_archetype.has_on_add() {
+                    world.into_deferred().trigger_on_add(
+                        entity,
+                        bundle_info.iter_components().filter(|id| {
+                            add_bundle.get_status(id.index()) == ComponentStatus::Added
+                        }),
+                    );
+                }
+                if new_archetype.has_on_insert() {
+                    world
+                        .into_deferred()
+                        .trigger_on_insert(entity, bundle_info.iter_components())
+                }
                 let result = archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
@@ -836,16 +842,16 @@ impl<'w> BundleSpawner<'w> {
     ) -> EntityLocation {
         let bundle_info = &*self.bundle_info;
         let archetype = &*self.archetype;
-        archetype.trigger_on_add(
-            self.world.as_unsafe_world_cell_readonly(),
-            entity,
-            bundle_info.iter_components(),
-        );
-        archetype.trigger_on_insert(
-            self.world.as_unsafe_world_cell_readonly(),
-            entity,
-            bundle_info.iter_components(),
-        );
+        if archetype.has_on_add() {
+            self.world
+                .into_deferred()
+                .trigger_on_add(entity, bundle_info.iter_components());
+        }
+        if archetype.has_on_insert() {
+            self.world
+                .into_deferred()
+                .trigger_on_insert(entity, bundle_info.iter_components())
+        }
 
         let archetype = &mut *self.archetype;
         let table = &mut *self.table;

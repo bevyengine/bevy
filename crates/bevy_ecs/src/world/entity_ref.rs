@@ -693,14 +693,10 @@ impl<'w> EntityWorldMut<'w> {
 
         // Reborrow so world is not mutably borrowed
         let entity = self.entity;
-        let new_archetype = &self.world.archetypes[new_archetype_id];
-        unsafe {
-            new_archetype.trigger_on_remove(
-                // SAFETY: the only outstanding borrow of the world is to an Archetype which cannot be modified through a deferred world
-                self.world.as_unsafe_world_cell_readonly(),
-                entity,
-                bundle_info.iter_components(),
-            );
+        let old_archetype = &self.world.archetypes[old_location.archetype_id];
+        if old_archetype.has_on_remove() {
+            unsafe { self.world.into_deferred() }
+                .trigger_on_remove(entity, bundle_info.iter_components());
         }
         for component_id in bundle_info.iter_components() {
             self.world.removed_components.send(component_id, entity);
@@ -857,14 +853,9 @@ impl<'w> EntityWorldMut<'w> {
         // Reborrow so world is not mutably borrowed
         let entity: Entity = self.entity;
         let old_archetype = &self.world.archetypes[old_location.archetype_id];
-        unsafe {
-            old_archetype.trigger_on_remove(
-                self.world.as_unsafe_world_cell_readonly(),
-                entity,
-                bundle_info
-                    .iter_components()
-                    .filter(|id| old_archetype.contains(*id)),
-            );
+        if old_archetype.has_on_remove() {
+            unsafe { self.world.into_deferred() }
+                .trigger_on_remove(entity, bundle_info.iter_components())
         }
         for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
@@ -905,13 +896,11 @@ impl<'w> EntityWorldMut<'w> {
         debug!("Despawning entity {:?}", self.entity);
         self.world.flush();
         let archetype = &self.world.archetypes[self.location.archetype_id];
-        unsafe {
-            archetype.trigger_on_remove(
-                self.world.as_unsafe_world_cell_readonly(),
-                self.entity,
-                archetype.components(),
-            );
+        if archetype.has_on_remove() {
+            unsafe { self.world.into_deferred() }
+                .trigger_on_remove(self.entity, archetype.components());
         }
+
         for component_id in archetype.components() {
             self.world
                 .removed_components
