@@ -1,5 +1,5 @@
+use bevy::pbr::Lightmap;
 use bevy::prelude::*;
-use bevy_internal::pbr::Lightmap;
 
 fn main() {
     App::new()
