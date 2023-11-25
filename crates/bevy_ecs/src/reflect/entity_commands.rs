@@ -127,7 +127,7 @@ pub trait ReflectCommandExt {
     ///     // ComponentA or ComponentB. No matter which component is in the resource though,
     ///     // we can attempt to remove any component of that same type from an entity.
     ///     commands.entity(prefab.entity)
-    ///         .remove_reflect(prefab.component.type_name().to_owned());
+    ///         .remove_reflect(prefab.component.reflect_type_path().to_owned());
     /// }
     ///
     /// ```
