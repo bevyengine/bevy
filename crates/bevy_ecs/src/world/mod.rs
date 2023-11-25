@@ -74,7 +74,6 @@ pub struct World {
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
     pub(crate) command_queue: CommandQueue,
-    flushing_commands: bool,
 }
 
 impl Default for World {
@@ -94,7 +93,6 @@ impl Default for World {
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
             command_queue: CommandQueue::default(),
-            flushing_commands: false,
         }
     }
 }
@@ -447,7 +445,7 @@ impl World {
     /// scheme worked out to share an ID space (which doesn't happen by default).
     #[inline]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
-        self.flush();
+        self.flush_entities();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
                 // SAFETY: `entity` exists and `location` is that entity's location
@@ -701,7 +699,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush();
+        self.flush_entities();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
         unsafe { self.spawn_at_empty_internal(entity) }
@@ -767,7 +765,7 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
-        self.flush();
+        self.flush_entities();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
@@ -1452,7 +1450,7 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.flush();
+        self.flush_entities();
 
         let change_tick = self.change_tick();
 
@@ -1734,7 +1732,7 @@ impl World {
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [`Component`].
-    pub(crate) fn flush(&mut self) {
+    pub(crate) fn flush_entities(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
         // PERF: consider pre-allocating space for flushed entities
@@ -1752,15 +1750,10 @@ impl World {
     /// Will do nothing if already flushing commands.
     #[inline]
     pub fn flush_commands(&mut self) {
-        if !self.flushing_commands && !self.command_queue.is_empty() {
+        if !self.command_queue.is_empty() {
             let mut commands = std::mem::take(&mut self.command_queue);
             commands.apply(self);
         }
-    }
-
-    #[inline]
-    pub(crate) fn set_flushing(&mut self, state: bool) {
-        self.flushing_commands = state;
     }
 
     /// Increments the world's current change tick and returns the old value.
