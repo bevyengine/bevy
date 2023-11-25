@@ -13,9 +13,17 @@ use serde::{Deserialize, Deserializer};
 /// want to handle parts of the deserialization process, but temporarily pass control
 /// to the standard reflection deserializer for other parts.
 ///
+/// For the serialization equivalent of this trait, see [`SerializeReflect`].
+///
+/// # Rationale
+///
 /// Without this trait and its associated [type data], such a deserializer would have to
 /// write out all of the deserialization logic itself, possibly including
 /// unnecessary code duplication and trivial implementations.
+///
+/// This is because a normal [`Deserialize`] implementation has no knowledge of the
+/// [`TypeRegistry`] and therefore cannot create a reflection-based deserializer for
+/// nested items.
 ///
 /// # Implementors
 ///
@@ -26,8 +34,9 @@ use serde::{Deserialize, Deserializer};
 /// the type definition.
 ///
 /// Note that this trait has a blanket implementation for all types that implement
-/// [`PartialReflect`] and [`Deserialize`].
+/// [`Reflect`] and [`Deserialize`] which just calls the normal [`Deserialize`] implementation.
 ///
+/// [`SerializeReflect`]: crate::serde::SerializeReflect
 /// [type data]: ReflectDeserializeReflect
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
