@@ -1009,6 +1009,17 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "log_events"
+path = "examples/app/log_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.log_events]
+name = "Log Events"
+description = "Illustrate how to use log events"
+category = "Application"
+wasm = true
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
