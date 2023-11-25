@@ -181,7 +181,9 @@ fn update_text(
     mut text: Query<&mut Text>,
     morphs: Query<&MorphWeights>,
 ) {
-    let Some(mut controls) = controls else { return; };
+    let Some(mut controls) = controls else {
+        return;
+    };
     for (i, target) in controls.weights.iter_mut().enumerate() {
         let Ok(weights) = morphs.get(target.entity) else {
             continue;
@@ -203,7 +205,9 @@ fn update_morphs(
     input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let Some(mut controls) = controls else { return; };
+    let Some(mut controls) = controls else {
+        return;
+    };
     for (i, target) in controls.weights.iter_mut().enumerate() {
         if !AVAILABLE_KEYS[i].active(&input) {
             continue;
@@ -253,7 +257,7 @@ fn detect_morphs(
     let style = TextStyle {
         font: asset_server.load("assets/fonts/FiraMono-Medium.ttf"),
         font_size: 13.0,
-        color: Color::WHITE,
+        ..default()
     };
     let mut sections = vec![
         TextSection::new("Morph Target Controls\n", style.clone()),

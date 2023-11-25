@@ -1,7 +1,7 @@
-use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::{extend_where_clause, ident_or_index};
 use crate::ReflectStruct;
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
@@ -19,12 +19,12 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 .ident
                 .as_ref()
                 .map(|i| i.to_string())
-                .unwrap_or_else(|| field.index.to_string())
+                .unwrap_or_else(|| field.declaration_index.to_string())
         })
         .collect::<Vec<String>>();
     let field_idents = reflect_struct
         .active_fields()
-        .map(|field| ident_or_index(field.data.ident.as_ref(), field.index))
+        .map(|field| ident_or_index(field.data.ident.as_ref(), field.declaration_index))
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
@@ -63,20 +63,18 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         }
     };
 
-    let string_name = struct_path.get_ident().unwrap().to_string();
-
     #[cfg(feature = "documentation")]
     let info_generator = {
         let doc = reflect_struct.meta().doc();
         quote! {
-            #bevy_reflect_path::StructInfo::new::<Self>(#string_name, &fields).with_docs(#doc)
+            #bevy_reflect_path::StructInfo::new::<Self>(&fields).with_docs(#doc)
         }
     };
 
     #[cfg(not(feature = "documentation"))]
     let info_generator = {
         quote! {
-            #bevy_reflect_path::StructInfo::new::<Self>(#string_name, &fields)
+            #bevy_reflect_path::StructInfo::new::<Self>(&fields)
         }
     };
 
@@ -163,11 +161,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         }
 
         impl #impl_generics #bevy_reflect_path::Reflect for #struct_path #ty_generics #where_reflect_clause {
-            #[inline]
-            fn type_name(&self) -> &str {
-                ::core::any::type_name::<Self>()
-            }
-
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())

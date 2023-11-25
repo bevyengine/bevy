@@ -1,4 +1,10 @@
-# bevy_tasks
+# Bevy Tasks
+
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
+[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy_tasks)
+[![Downloads](https://img.shields.io/crates/d/bevy_tasks.svg)](https://crates.io/crates/bevy_tasks)
+[![Docs](https://docs.rs/bevy_tasks/badge.svg)](https://docs.rs/bevy_tasks/latest/bevy_tasks/)
+[![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 A refreshingly simple task executor for bevy. :)
 
@@ -31,19 +37,3 @@ The determining factor for what kind of work should go in each pool is latency r
 [bevy]: https://bevyengine.org
 [rayon]: https://github.com/rayon-rs/rayon
 [async-executor]: https://github.com/stjepang/async-executor
-
-## Dependencies
-
-A very small dependency list is a key feature of this module
-
-```text
-├── async-executor
-│   ├── async-task
-│   ├── concurrent-queue
-│   │   └── cache-padded
-│   └── fastrand
-├── num_cpus
-│   └── libc
-├── parking
-└── futures-lite
-```

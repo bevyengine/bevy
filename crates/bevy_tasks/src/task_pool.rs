@@ -9,9 +9,10 @@ use std::{
 
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, FutureExt};
+use futures_lite::FutureExt;
 
 use crate::{
+    block_on,
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
     Task,
 };
@@ -176,7 +177,7 @@ impl TaskPool {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                    block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
                                 });
                                 if let Ok(value) = res {
                                     // Use unwrap_err because we expect a Closed error
@@ -352,12 +353,16 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
         let executor: &async_executor::Executor = &self.executor;
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let external_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(external_executor) };
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let spawned: &'env ConcurrentQueue<
             FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>,
         > = unsafe { mem::transmute(&spawned) };
@@ -372,6 +377,7 @@ impl TaskPool {
         };
 
         // shadow the variable so that the owned value cannot be used for the rest of the function
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
         f(scope);
@@ -379,7 +385,7 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
-            future::block_on(async move {
+            block_on(async move {
                 let get_results = async {
                     let mut results = Vec::with_capacity(spawned.len());
                     while let Ok(task) = spawned.pop() {
@@ -661,7 +667,7 @@ where
     T: 'scope,
 {
     fn drop(&mut self) {
-        future::block_on(async {
+        block_on(async {
             while let Ok(task) = self.spawned.pop() {
                 task.cancel().await;
             }
@@ -916,5 +922,24 @@ mod tests {
         barrier.wait();
         assert!(!thread_check_failed.load(Ordering::Acquire));
         assert_eq!(count.load(Ordering::Acquire), 200);
+    }
+
+    // This test will often freeze on other executors.
+    #[test]
+    fn test_nested_scopes() {
+        let pool = TaskPool::new();
+        let count = Arc::new(AtomicI32::new(0));
+
+        pool.scope(|scope| {
+            scope.spawn(async {
+                pool.scope(|scope| {
+                    scope.spawn(async {
+                        count.fetch_add(1, Ordering::Relaxed);
+                    });
+                });
+            });
+        });
+
+        assert_eq!(count.load(Ordering::Acquire), 1);
     }
 }

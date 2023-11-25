@@ -1,3 +1,6 @@
+use crate::renderer::{
+    RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
+};
 use std::borrow::Cow;
 
 pub use wgpu::{
@@ -16,7 +19,7 @@ pub enum WgpuSettingsPriority {
 }
 
 /// Provides configuration for renderer initialization. Use [`RenderDevice::features`](crate::renderer::RenderDevice::features),
-/// [`RenderDevice::limits`](crate::renderer::RenderDevice::limits), and the [`RenderAdapterInfo`](crate::renderer::RenderAdapterInfo)
+/// [`RenderDevice::limits`](crate::renderer::RenderDevice::limits), and the [`RenderAdapterInfo`]
 /// resource to get runtime information about the actual adapter, backend, features, and limits.
 /// NOTE: [`Backends::DX12`](Backends::DX12), [`Backends::METAL`](Backends::METAL), and
 /// [`Backends::VULKAN`](Backends::VULKAN) are enabled by default for non-web and the best choice
@@ -90,6 +93,45 @@ impl Default for WgpuSettings {
             constrained_limits: None,
             dx12_shader_compiler: dx12_compiler,
         }
+    }
+}
+
+/// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
+pub enum RenderCreation {
+    /// Allows renderer resource initialization to happen outside of the rendering plugin.
+    Manual(
+        RenderDevice,
+        RenderQueue,
+        RenderAdapterInfo,
+        RenderAdapter,
+        RenderInstance,
+    ),
+    /// Lets the rendering plugin create resources itself.
+    Automatic(WgpuSettings),
+}
+
+impl RenderCreation {
+    /// Function to create a [`RenderCreation::Manual`] variant.
+    pub fn manual(
+        device: RenderDevice,
+        queue: RenderQueue,
+        adapter_info: RenderAdapterInfo,
+        adapter: RenderAdapter,
+        instance: RenderInstance,
+    ) -> Self {
+        Self::Manual(device, queue, adapter_info, adapter, instance)
+    }
+}
+
+impl Default for RenderCreation {
+    fn default() -> Self {
+        Self::Automatic(Default::default())
+    }
+}
+
+impl From<WgpuSettings> for RenderCreation {
+    fn from(value: WgpuSettings) -> Self {
+        Self::Automatic(value)
     }
 }
 

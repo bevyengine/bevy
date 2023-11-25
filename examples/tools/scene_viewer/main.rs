@@ -4,13 +4,13 @@
 //! replacing the path as appropriate.
 //! In case of multiple scenes, you can select which to display by adapting the file path: `/path/to/model.gltf#Scene1`.
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
+//!
+//! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
 use bevy::{
-    asset::ChangeWatcher,
     math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
-    utils::Duration,
     window::WindowPlugin,
 };
 
@@ -40,9 +40,8 @@ fn main() {
                 ..default()
             })
             .set(AssetPlugin {
-                asset_folder: std::env::var("CARGO_MANIFEST_DIR")
-                    .unwrap_or_else(|_| ".".to_string()),
-                watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
+                file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+                ..default()
             }),
         CameraControllerPlugin,
         SceneViewerPlugin,

@@ -1,3 +1,5 @@
+//! The generic input type.
+
 use bevy_ecs::system::Resource;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
@@ -22,7 +24,7 @@ use bevy_ecs::schedule::State;
 ///
 /// In case multiple systems are checking for [`Input::just_pressed`] or [`Input::just_released`]
 /// but only one should react, for example in the case of triggering
-/// [`State`](bevy_ecs::schedule::State) change, you should consider clearing the input state, either by:
+/// [`State`] change, you should consider clearing the input state, either by:
 ///
 /// * Using [`Input::clear_just_pressed`] or [`Input::clear_just_released`] instead.
 /// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.

@@ -130,7 +130,7 @@ impl URect {
     /// assert_eq!(r.width(), 5);
     /// ```
     #[inline]
-    pub fn width(&self) -> u32 {
+    pub const fn width(&self) -> u32 {
         self.max.x - self.min.x
     }
 
@@ -144,7 +144,7 @@ impl URect {
     /// assert_eq!(r.height(), 1);
     /// ```
     #[inline]
-    pub fn height(&self) -> u32 {
+    pub const fn height(&self) -> u32 {
         self.max.y - self.min.y
     }
 

@@ -27,6 +27,7 @@ impl<'w> Benchmark<'w> {
         Self(world, query)
     }
 
+    #[inline(never)]
     pub fn run(&mut self) {
         self.1.for_each_mut(&mut self.0, |mut data| {
             data.0 *= 2.0;

@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -46,6 +46,7 @@ jobs:
           touch target/doc/.nojekyll
 
       - name: Deploy
+        if: github.repository == 'bevyengine/bevy'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages

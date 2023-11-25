@@ -3,7 +3,7 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayout, PrimitiveTopology},
         render_resource::{
@@ -61,8 +61,7 @@ fn setup(
     });
 }
 
-#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "050ce6ac-080a-4d8c-b6b5-b5bab7560d8f"]
+#[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
 struct LineMaterial {
     #[uniform(0)]
     color: Color,
@@ -93,13 +92,13 @@ pub struct LineList {
 
 impl From<LineList> for Mesh {
     fn from(line: LineList) -> Self {
+        let vertices: Vec<_> = line.lines.into_iter().flat_map(|(a, b)| [a, b]).collect();
+
         // This tells wgpu that the positions are list of lines
         // where every pair is a start and end point
-        let mut mesh = Mesh::new(PrimitiveTopology::LineList);
-
-        let vertices: Vec<_> = line.lines.into_iter().flat_map(|(a, b)| [a, b]).collect();
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-        mesh
+        Mesh::new(PrimitiveTopology::LineList)
+            // Add the vertices positions as an attribute
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
     }
 }
 
@@ -113,9 +112,8 @@ impl From<LineStrip> for Mesh {
     fn from(line: LineStrip) -> Self {
         // This tells wgpu that the positions are a list of points
         // where a line will be drawn between each consecutive point
-        let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
-
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, line.points);
-        mesh
+        Mesh::new(PrimitiveTopology::LineStrip)
+            // Add the point positions as an attribute
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
     }
 }

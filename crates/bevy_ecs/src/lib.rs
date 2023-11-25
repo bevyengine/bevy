@@ -1,6 +1,4 @@
-#![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -41,16 +39,14 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
-            OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
+            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
+            OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
-            adapter as system_adapter,
-            adapter::{dbg, error, ignore, info, unwrap, warn},
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{EntityRef, FromWorld, World},
+        world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
 }
 
@@ -398,7 +394,7 @@ mod tests {
 
     #[test]
     fn par_for_each_dense() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         let e1 = world.spawn(A(1)).id();
         let e2 = world.spawn(A(2)).id();
@@ -421,7 +417,7 @@ mod tests {
 
     #[test]
     fn par_for_each_sparse() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         let e1 = world.spawn(SparseStored(1)).id();
         let e2 = world.spawn(SparseStored(2)).id();
@@ -1527,19 +1523,19 @@ mod tests {
         world.spawn((B(1), C));
         world.spawn(A(1));
         world.spawn(C);
-        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)],);
-        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>],);
-        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)],);
-        assert_eq!(1, query_min_size![(&A, &B), With<C>],);
+        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)]);
+        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>]);
+        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)]);
+        assert_eq!(1, query_min_size![(&A, &B), With<C>]);
         assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
-        assert_eq!(4, query_min_size![Ref<A>, ()],);
+        assert_eq!(4, query_min_size![Ref<A>, ()]);
         // All the following should set minimum size to 0, as it's impossible to predict
         // how many entities the filters will trim.
         assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
         assert_eq!(0, query_min_size![(), Changed<A>], "Simple Changed");
-        assert_eq!(0, query_min_size![(&A, &B), Changed<A>],);
-        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)],);
-        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>],);
+        assert_eq!(0, query_min_size![(&A, &B), Changed<A>]);
+        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)]);
+        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>]);
     }
 
     #[test]
@@ -1722,5 +1718,23 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
     }
 }

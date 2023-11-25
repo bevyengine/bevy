@@ -1,4 +1,8 @@
-use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
+use bevy::{
+    input::touch::TouchPhase,
+    prelude::*,
+    window::{ApplicationLifetime, WindowMode},
+};
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
 #[bevy_main]
@@ -13,7 +17,7 @@ fn main() {
         ..default()
     }))
     .add_systems(Startup, (setup_scene, setup_music))
-    .add_systems(Update, (touch_camera, button_handler));
+    .add_systems(Update, (touch_camera, button_handler, handle_lifetime));
 
     // MSAA makes some Android devices panic, this is under investigation
     // https://github.com/bevyengine/bevy/issues/8229
@@ -31,7 +35,7 @@ fn touch_camera(
 ) {
     let window = windows.single();
 
-    for touch in touches.iter() {
+    for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }
@@ -110,7 +114,6 @@ fn setup_scene(
                 position_type: PositionType::Absolute,
                 left: Val::Px(50.0),
                 right: Val::Px(50.0),
-                top: Val::Auto,
                 bottom: Val::Px(50.0),
                 ..default()
             },
@@ -157,4 +160,19 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
         source: asset_server.load("sounds/Windless Slopes.ogg"),
         settings: PlaybackSettings::LOOP,
     });
+}
+
+// Pause audio when app goes into background and resume when it returns.
+// This is handled by the OS on iOS, but not on Android.
+fn handle_lifetime(
+    mut lifetime_events: EventReader<ApplicationLifetime>,
+    music_controller: Query<&AudioSink>,
+) {
+    for event in lifetime_events.read() {
+        match event {
+            ApplicationLifetime::Suspended => music_controller.single().pause(),
+            ApplicationLifetime::Resumed => music_controller.single().play(),
+            ApplicationLifetime::Started => (),
+        }
+    }
 }

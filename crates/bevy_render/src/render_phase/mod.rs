@@ -29,6 +29,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
+use bevy_utils::nonmax::NonMaxU32;
 pub use draw::*;
 pub use draw_state::*;
 pub use rangefinder::*;
@@ -38,7 +39,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use std::ops::Range;
+use std::{ops::Range, slice::SliceIndex};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -73,6 +74,12 @@ impl<I: PhaseItem> RenderPhase<I> {
         I::sort(&mut self.items);
     }
 
+    /// An [`Iterator`] through the associated [`Entity`] for each [`PhaseItem`] in order.
+    #[inline]
+    pub fn iter_entities(&'_ self) -> impl Iterator<Item = Entity> + '_ {
+        self.items.iter().map(|item| item.entity())
+    }
+
     /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
     pub fn render<'w>(
         &self,
@@ -80,14 +87,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         world: &'w World,
         view: Entity,
     ) {
-        let draw_functions = world.resource::<DrawFunctions<I>>();
-        let mut draw_functions = draw_functions.write();
-        draw_functions.prepare(world);
-
-        for item in &self.items {
-            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-            draw_function.draw(world, render_pass, view, item);
-        }
+        self.render_range(render_pass, world, view, ..);
     }
 
     /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
@@ -96,47 +96,28 @@ impl<I: PhaseItem> RenderPhase<I> {
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-        range: Range<usize>,
+        range: impl SliceIndex<[I], Output = [I]>,
     ) {
+        let items = self
+            .items
+            .get(range)
+            .expect("`Range` provided to `render_range()` is out of bounds");
+
         let draw_functions = world.resource::<DrawFunctions<I>>();
         let mut draw_functions = draw_functions.write();
         draw_functions.prepare(world);
 
-        for item in self
-            .items
-            .get(range)
-            .expect("`Range` provided to `render_range()` is out of bounds")
-            .iter()
-        {
-            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-            draw_function.draw(world, render_pass, view, item);
-        }
-    }
-}
-
-impl<I: BatchedPhaseItem> RenderPhase<I> {
-    /// Batches the compatible [`BatchedPhaseItem`]s of this render phase
-    pub fn batch(&mut self) {
-        // TODO: this could be done in-place
-        let mut items = std::mem::take(&mut self.items).into_iter();
-
-        self.items.reserve(items.len());
-
-        // Start the first batch from the first item
-        if let Some(mut current_batch) = items.next() {
-            // Batch following items until we find an incompatible item
-            for next_item in items {
-                if matches!(
-                    current_batch.add_to_batch(&next_item),
-                    BatchResult::IncompatibleItems
-                ) {
-                    // Store the completed batch, and start a new one from the incompatible item
-                    self.items.push(current_batch);
-                    current_batch = next_item;
-                }
+        let mut index = 0;
+        while index < items.len() {
+            let item = &items[index];
+            let batch_range = item.batch_range();
+            if batch_range.is_empty() {
+                index += 1;
+            } else {
+                let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
+                draw_function.draw(world, render_pass, view, item);
+                index += batch_range.len();
             }
-            // Store the last batch
-            self.items.push(current_batch);
         }
     }
 }
@@ -158,6 +139,9 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// based on the view-space `Z` value of the corresponding view matrix.
     type SortKey: Ord;
 
+    /// Whether or not this `PhaseItem` should be subjected to automatic batching. (Default: `true`)
+    const AUTOMATIC_BATCHING: bool = true;
+
     /// The corresponding entity that will be drawn.
     ///
     /// This is used to fetch the render data of the entity, required by the draw function,
@@ -171,7 +155,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     fn draw_function(&self) -> DrawFunctionId;
 
     /// Sorts a slice of phase items into render order. Generally if the same type
-    /// implements [`BatchedPhaseItem`], this should use a stable sort like [`slice::sort_by_key`].
+    /// is batched this should use a stable sort like [`slice::sort_by_key`].
     /// In almost all other cases, this should not be altered from the default,
     /// which uses a unstable sort, as this provides the best balance of CPU and GPU
     /// performance.
@@ -186,6 +170,15 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     fn sort(items: &mut [Self]) {
         items.sort_unstable_by_key(|item| item.sort_key());
     }
+
+    /// The range of instances that the batch covers. After doing a batched draw, batch range
+    /// length phase items will be skipped. This design is to avoid having to restructure the
+    /// render phase unnecessarily.
+    fn batch_range(&self) -> &Range<u32>;
+    fn batch_range_mut(&mut self) -> &mut Range<u32>;
+
+    fn dynamic_offset(&self) -> Option<NonMaxU32>;
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32>;
 }
 
 /// A [`PhaseItem`] item, that automatically sets the appropriate render pipeline,
@@ -225,182 +218,9 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     }
 }
 
-/// A [`PhaseItem`] that can be batched dynamically.
-///
-/// Batching is an optimization that regroups multiple items in the same vertex buffer
-/// to render them in a single draw call.
-///
-/// If this is implemented on a type, the implementation of [`PhaseItem::sort`] should
-/// be changed to implement a stable sort, or incorrect/suboptimal batching may result.
-pub trait BatchedPhaseItem: PhaseItem {
-    /// Range in the vertex buffer of this item.
-    fn batch_range(&self) -> &Option<Range<u32>>;
-
-    /// Range in the vertex buffer of this item.
-    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>>;
-
-    /// Batches another item within this item if they are compatible.
-    /// Items can be batched together if they have the same entity, and consecutive ranges.
-    /// If batching is successful, the `other` item should be discarded from the render pass.
-    #[inline]
-    fn add_to_batch(&mut self, other: &Self) -> BatchResult {
-        let self_entity = self.entity();
-        if let (Some(self_batch_range), Some(other_batch_range)) = (
-            self.batch_range_mut().as_mut(),
-            other.batch_range().as_ref(),
-        ) {
-            // If the items are compatible, join their range into `self`
-            if self_entity == other.entity() {
-                if self_batch_range.end == other_batch_range.start {
-                    self_batch_range.end = other_batch_range.end;
-                    return BatchResult::Success;
-                } else if self_batch_range.start == other_batch_range.end {
-                    self_batch_range.start = other_batch_range.start;
-                    return BatchResult::Success;
-                }
-            }
-        }
-        BatchResult::IncompatibleItems
-    }
-}
-
-/// The result of a batching operation.
-pub enum BatchResult {
-    /// The `other` item was batched into `self`
-    Success,
-    /// `self` and `other` cannot be batched together
-    IncompatibleItems,
-}
-
 /// This system sorts the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
 pub fn sort_phase_system<I: PhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
     for mut phase in &mut render_phases {
         phase.sort();
-    }
-}
-
-/// This system batches the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
-pub fn batch_phase_system<I: BatchedPhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
-    for mut phase in &mut render_phases {
-        phase.batch();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use bevy_ecs::entity::Entity;
-    use std::ops::Range;
-
-    #[test]
-    fn batching() {
-        #[derive(Debug, PartialEq)]
-        struct TestPhaseItem {
-            entity: Entity,
-            batch_range: Option<Range<u32>>,
-        }
-        impl PhaseItem for TestPhaseItem {
-            type SortKey = ();
-
-            fn entity(&self) -> Entity {
-                self.entity
-            }
-
-            fn sort_key(&self) -> Self::SortKey {}
-
-            fn draw_function(&self) -> DrawFunctionId {
-                unimplemented!();
-            }
-        }
-        impl BatchedPhaseItem for TestPhaseItem {
-            fn batch_range(&self) -> &Option<Range<u32>> {
-                &self.batch_range
-            }
-
-            fn batch_range_mut(&mut self) -> &mut Option<Range<u32>> {
-                &mut self.batch_range
-            }
-        }
-        let mut render_phase = RenderPhase::<TestPhaseItem>::default();
-        let items = [
-            TestPhaseItem {
-                entity: Entity::from_raw(0),
-                batch_range: Some(0..5),
-            },
-            // This item should be batched
-            TestPhaseItem {
-                entity: Entity::from_raw(0),
-                batch_range: Some(5..10),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(0..5),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(0),
-                batch_range: Some(10..15),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(5..10),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: None,
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(10..15),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(20..25),
-            },
-            // This item should be batched
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(25..30),
-            },
-            // This item should be batched
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(30..35),
-            },
-        ];
-        for item in items {
-            render_phase.add(item);
-        }
-        render_phase.batch();
-        let items_batched = [
-            TestPhaseItem {
-                entity: Entity::from_raw(0),
-                batch_range: Some(0..10),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(0..5),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(0),
-                batch_range: Some(10..15),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(5..10),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: None,
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(10..15),
-            },
-            TestPhaseItem {
-                entity: Entity::from_raw(1),
-                batch_range: Some(20..35),
-            },
-        ];
-        assert_eq!(&*render_phase.items, items_batched);
     }
 }

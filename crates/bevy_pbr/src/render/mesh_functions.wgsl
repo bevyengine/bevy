@@ -1,28 +1,14 @@
 #define_import_path bevy_pbr::mesh_functions
 
-#import bevy_pbr::mesh_view_bindings  view
-#import bevy_pbr::mesh_bindings       mesh
-#import bevy_pbr::mesh_types          MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
-#import bevy_render::instance_index   get_instance_index
-
-fn affine_to_square(affine: mat3x4<f32>) -> mat4x4<f32> {
-    return transpose(mat4x4<f32>(
-        affine[0],
-        affine[1],
-        affine[2],
-        vec4<f32>(0.0, 0.0, 0.0, 1.0),
-    ));
+#import bevy_pbr::{
+    mesh_view_bindings::view,
+    mesh_bindings::mesh,
+    mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
+    view_transformations::position_world_to_clip,
 }
-
-fn mat2x4_f32_to_mat3x3_unpack(
-    a: mat2x4<f32>,
-    b: f32,
-) -> mat3x3<f32> {
-    return mat3x3<f32>(
-        a[0].xyz,
-        vec3<f32>(a[0].w, a[1].xy),
-        vec3<f32>(a[1].zw, b),
-    );
+#import bevy_render::{
+    instance_index::get_instance_index,
+    maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack},
 }
 
 fn get_model_matrix(instance_index: u32) -> mat4x4<f32> {
@@ -37,16 +23,12 @@ fn mesh_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) 
     return model * vertex_position;
 }
 
-fn mesh_position_world_to_clip(world_position: vec4<f32>) -> vec4<f32> {
-    return view.view_proj * world_position;
-}
-
 // NOTE: The intermediate world_position assignment is important
 // for precision purposes when using the 'equals' depth comparison
 // function.
 fn mesh_position_local_to_clip(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     let world_position = mesh_position_local_to_world(model, vertex_position);
-    return mesh_position_world_to_clip(world_position);
+    return position_world_to_clip(world_position.xyz);
 }
 
 fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> vec3<f32> {

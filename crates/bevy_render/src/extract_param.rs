@@ -19,7 +19,7 @@ use std::ops::{Deref, DerefMut};
 /// ## Context
 ///
 /// [`ExtractSchedule`] is used to extract (move) data from the simulation world ([`MainWorld`]) to the
-/// render world. The render world drives rendering each frame (generally to a [Window]).
+/// render world. The render world drives rendering each frame (generally to a `Window`).
 /// This design is used to allow performing calculations related to rendering a prior frame at the same
 /// time as the next frame is simulated, which increases throughput (FPS).
 ///

@@ -74,8 +74,11 @@ impl MorphTargetImage {
             return Err(MorphBuildError::TooManyTargets { target_count });
         }
         let component_count = (vertex_count * MorphAttributes::COMPONENT_COUNT) as u32;
-        let Some((Rect(width, height), padding)) = lowest_2d(component_count , max) else {
-            return Err(MorphBuildError::TooManyAttributes { vertex_count, component_count });
+        let Some((Rect(width, height), padding)) = lowest_2d(component_count, max) else {
+            return Err(MorphBuildError::TooManyAttributes {
+                vertex_count,
+                component_count,
+            });
         };
         let data = targets
             .flat_map(|mut attributes| {

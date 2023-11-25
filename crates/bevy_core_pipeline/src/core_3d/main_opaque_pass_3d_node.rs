@@ -1,7 +1,7 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Opaque3d},
-    prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
@@ -34,6 +34,7 @@ impl ViewNode for MainOpaquePass3dNode {
         Option<&'static DepthPrepass>,
         Option<&'static NormalPrepass>,
         Option<&'static MotionVectorPrepass>,
+        Option<&'static DeferredPrepass>,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
@@ -53,12 +54,24 @@ impl ViewNode for MainOpaquePass3dNode {
             depth_prepass,
             normal_prepass,
             motion_vector_prepass,
+            deferred_prepass,
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        let load = if deferred_prepass.is_none() {
+            match camera_3d.clear_color {
+                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
+                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                ClearColorConfig::None => LoadOp::Load,
+            }
+        } else {
+            // If the deferred lighting pass has run, don't clear again in this pass.
+            LoadOp::Load
+        };
+
         // Run the opaque pass, sorted front-to-back
         // NOTE: Scoped to drop the mutable borrow of render_context
         #[cfg(feature = "trace")]
@@ -69,16 +82,9 @@ impl ViewNode for MainOpaquePass3dNode {
             label: Some("main_opaque_pass_3d"),
             // NOTE: The opaque pass loads the color
             // buffer as well as writing to it.
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: true,
-            }))],
+            color_attachments: &[Some(
+                target.get_color_attachment(Operations { load, store: true }),
+            )],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &depth.view,
                 // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
@@ -86,6 +92,7 @@ impl ViewNode for MainOpaquePass3dNode {
                     load: if depth_prepass.is_some()
                         || normal_prepass.is_some()
                         || motion_vector_prepass.is_some()
+                        || deferred_prepass.is_some()
                     {
                         // if any prepass runs, it will generate a depth buffer so we should use it,
                         // even if only the normal_prepass is used.

@@ -1,0 +1,19 @@
+error: No `#[uuid = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"]` attribute found.
+ --> tests/type_uuid_derive/derive_type_uuid.rs:6:10
+  |
+6 | #[derive(TypeUuid)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `TypeUuid` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: `uuid` attribute must take the form `#[uuid = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"]`.
+  --> tests/type_uuid_derive/derive_type_uuid.rs:11:1
+   |
+11 | #[uuid = 42]
+   | ^^^^^^^^^^^^
+
+error: Invalid UUID: invalid length: expected length 32 for simple format, found 3
+  --> tests/type_uuid_derive/derive_type_uuid.rs:16:10
+   |
+16 | #[uuid = "000"]
+   |          ^^^^^

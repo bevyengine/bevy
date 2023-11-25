@@ -21,8 +21,8 @@
 //! |Spawn an entity with components|[`Commands::spawn`]|[`World::spawn`]|
 //! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
 //! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
-//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
-//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
+//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityWorldMut::insert`]|
+//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityWorldMut::remove`]|
 //!
 //! [`World`]: crate::world::World
 //! [`Commands::spawn`]: crate::system::Commands::spawn
@@ -33,8 +33,8 @@
 //! [`World::spawn`]: crate::world::World::spawn
 //! [`World::spawn_empty`]: crate::world::World::spawn_empty
 //! [`World::despawn`]: crate::world::World::despawn
-//! [`EntityMut::insert`]: crate::world::EntityMut::insert
-//! [`EntityMut::remove`]: crate::world::EntityMut::remove
+//! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
+//! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
 
 pub use map_entities::*;
@@ -44,7 +44,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
+use std::{convert::TryFrom, fmt, hash::Hash, mem, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -72,7 +72,7 @@ type IdCursor = isize;
 /// # Usage
 ///
 /// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
-/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
+/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityWorldMut::id`].
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -84,7 +84,7 @@ type IdCursor = isize;
 /// }
 ///
 /// fn exclusive_system(world: &mut World) {
-///     // Calling `spawn` returns `EntityMut`.
+///     // Calling `spawn` returns `EntityWorldMut`.
 ///     let entity = world.spawn(SomeComponent).id();
 /// }
 /// #
@@ -111,14 +111,73 @@ type IdCursor = isize;
 ///
 /// [learn more]: crate::system::Query#entity-id-access
 /// [`EntityCommands::id`]: crate::system::EntityCommands::id
-/// [`EntityMut::id`]: crate::world::EntityMut::id
+/// [`EntityWorldMut::id`]: crate::world::EntityWorldMut::id
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy)]
+// Alignment repr necessary to allow LLVM to better output
+// optimised codegen for `to_bits`, `PartialEq` and `Ord`.
+#[repr(C, align(8))]
 pub struct Entity {
-    generation: u32,
+    // Do not reorder the fields here. The ordering is explicitly used by repr(C)
+    // to make this struct equivalent to a u64.
+    #[cfg(target_endian = "little")]
     index: u32,
+    generation: u32,
+    #[cfg(target_endian = "big")]
+    index: u32,
+}
+
+// By not short-circuiting in comparisons, we get better codegen.
+// See <https://github.com/rust-lang/rust/issues/117800>
+impl PartialEq for Entity {
+    #[inline]
+    fn eq(&self, other: &Entity) -> bool {
+        // By using `to_bits`, the codegen can be optimised out even
+        // further potentially. Relies on the correct alignment/field
+        // order of `Entity`.
+        self.to_bits() == other.to_bits()
+    }
+}
+
+impl Eq for Entity {}
+
+// The derive macro codegen output is not optimal and can't be optimised as well
+// by the compiler. This impl resolves the issue of non-optimal codegen by relying
+// on comparing against the bit representation of `Entity` instead of comparing
+// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// far beyond what the derive macro can.
+// See <https://github.com/rust-lang/rust/issues/106107>
+impl PartialOrd for Entity {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        // Make use of our `Ord` impl to ensure optimal codegen output
+        Some(self.cmp(other))
+    }
+}
+
+// The derive macro codegen output is not optimal and can't be optimised as well
+// by the compiler. This impl resolves the issue of non-optimal codegen by relying
+// on comparing against the bit representation of `Entity` instead of comparing
+// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// far beyond what the derive macro can.
+// See <https://github.com/rust-lang/rust/issues/106107>
+impl Ord for Entity {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // This will result in better codegen for ordering comparisons, plus
+        // avoids pitfalls with regards to macro codegen relying on property
+        // position when we want to compare against the bit representation.
+        self.to_bits().cmp(&other.to_bits())
+    }
+}
+
+impl Hash for Entity {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.to_bits().hash(state);
+    }
 }
 
 pub(crate) enum AllocAtWithoutReplacement {
@@ -181,6 +240,7 @@ impl Entity {
     /// In general, one should not try to synchronize the ECS by attempting to ensure that
     /// `Entity` lines up between instances, but instead insert a secondary identifier as
     /// a component.
+    #[inline]
     pub const fn from_raw(index: u32) -> Entity {
         Entity {
             index,
@@ -194,6 +254,7 @@ impl Entity {
     /// for serialization between runs.
     ///
     /// No particular structure is guaranteed for the returned bits.
+    #[inline(always)]
     pub const fn to_bits(self) -> u64 {
         (self.generation as u64) << 32 | self.index as u64
     }
@@ -201,6 +262,7 @@ impl Entity {
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    #[inline(always)]
     pub const fn from_bits(bits: u64) -> Self {
         Self {
             generation: (bits >> 32) as u32,
@@ -909,5 +971,31 @@ mod tests {
         let next_entity = entities.alloc();
         assert_eq!(next_entity.index(), entity.index());
         assert!(next_entity.generation > entity.generation + GENERATIONS);
+    }
+
+    #[test]
+    fn entity_comparison() {
+        // This is intentionally testing `lt` and `ge` as separate functions.
+        #![allow(clippy::nonminimal_bool)]
+
+        assert!(Entity::new(123, 456) == Entity::new(123, 456));
+        assert!(Entity::new(123, 789) != Entity::new(123, 456));
+        assert!(Entity::new(123, 456) != Entity::new(123, 789));
+        assert!(Entity::new(123, 456) != Entity::new(456, 123));
+
+        // ordering is by generation then by index
+
+        assert!(Entity::new(123, 456) >= Entity::new(123, 456));
+        assert!(Entity::new(123, 456) <= Entity::new(123, 456));
+        assert!(!(Entity::new(123, 456) < Entity::new(123, 456)));
+        assert!(!(Entity::new(123, 456) > Entity::new(123, 456)));
+
+        assert!(Entity::new(9, 1) < Entity::new(1, 9));
+        assert!(Entity::new(1, 9) > Entity::new(9, 1));
+
+        assert!(Entity::new(1, 1) < Entity::new(2, 1));
+        assert!(Entity::new(1, 1) <= Entity::new(2, 1));
+        assert!(Entity::new(2, 2) > Entity::new(1, 2));
+        assert!(Entity::new(2, 2) >= Entity::new(1, 2));
     }
 }

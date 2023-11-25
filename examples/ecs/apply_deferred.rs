@@ -2,9 +2,9 @@
 //! to flush commands added by systems that have already run,
 //! but have not had their buffers applied yet.
 //!
-//! This is useful when you don't want to wait until the next flush set
-//! automatically added by Bevy (usually `CoreSet::UpdateFlush`, for systems
-//! added to `CoreSet::Update`) but want to flush commands immediately.
+//! This is useful when you don't want to wait until the next time Bevy
+//! automatically flushes commands (by default, after all systems have run in any
+//! particular schedule) but want to flush commands immediately.
 //!
 //! It is important that systems are ordered correctly with respect to
 //! `apply_deferred`, to avoid surprising non-deterministic system execution order.
@@ -70,6 +70,7 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,
@@ -108,7 +109,7 @@ fn setup(mut commands: Commands) {
 // has finished during this tick, we spawn a new Apple and a new Orange.
 //
 // The commands that we have added here will normally be flushed by Bevy
-// as part of the `CoreSet::UpdateFlush` set, but because we have ordered
+// after all systems in the schedule have run, but because we have ordered
 // this system to run before `apply_deferred.in_set(CustomFlush)`,
 // these commands added here will be flushed during our custom flush.
 fn despawn_old_and_spawn_new_fruits(

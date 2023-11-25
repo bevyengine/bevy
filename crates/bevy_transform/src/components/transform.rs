@@ -396,6 +396,15 @@ impl Transform {
         point += self.translation;
         point
     }
+
+    /// Returns `true` if, and only if, translation, rotation and scale all are
+    /// finite. If any of them contains a `NaN`, positive or negative infinity,
+    /// this will return `false`.
+    #[inline]
+    #[must_use]
+    pub fn is_finite(&self) -> bool {
+        self.translation.is_finite() && self.rotation.is_finite() && self.scale.is_finite()
+    }
 }
 
 impl Default for Transform {
@@ -417,6 +426,15 @@ impl Mul<Transform> for Transform {
 
     fn mul(self, transform: Transform) -> Self::Output {
         self.mul_transform(transform)
+    }
+}
+
+impl Mul<GlobalTransform> for Transform {
+    type Output = GlobalTransform;
+
+    #[inline]
+    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
+        GlobalTransform::from(self) * global_transform
     }
 }
 

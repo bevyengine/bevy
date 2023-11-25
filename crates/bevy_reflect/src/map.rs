@@ -5,7 +5,10 @@ use std::hash::Hash;
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::{self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
+use crate::{
+    self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypePathTable,
+};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -93,11 +96,11 @@ pub trait Map: Reflect {
 /// A container for compile-time map info.
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
-    key_type_name: &'static str,
+    key_type_path: TypePathTable,
     key_type_id: TypeId,
-    value_type_name: &'static str,
+    value_type_path: TypePathTable,
     value_type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -105,13 +108,17 @@ pub struct MapInfo {
 
 impl MapInfo {
     /// Create a new [`MapInfo`].
-    pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
+    pub fn new<
+        TMap: Map + TypePath,
+        TKey: Hash + Reflect + TypePath,
+        TValue: Reflect + TypePath,
+    >() -> Self {
         Self {
-            type_name: std::any::type_name::<TMap>(),
+            type_path: TypePathTable::of::<TMap>(),
             type_id: TypeId::of::<TMap>(),
-            key_type_name: std::any::type_name::<TKey>(),
+            key_type_path: TypePathTable::of::<TKey>(),
             key_type_id: TypeId::of::<TKey>(),
-            value_type_name: std::any::type_name::<TValue>(),
+            value_type_path: TypePathTable::of::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -124,11 +131,21 @@ impl MapInfo {
         Self { docs, ..self }
     }
 
-    /// The [type name] of the map.
+    /// A representation of the type path of the map.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the map.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the map.
@@ -141,11 +158,11 @@ impl MapInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The [type name] of the key.
+    /// A representation of the type path of the key type.
     ///
-    /// [type name]: std::any::type_name
-    pub fn key_type_name(&self) -> &'static str {
-        self.key_type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn key_type_path_table(&self) -> &TypePathTable {
+        &self.key_type_path
     }
 
     /// The [`TypeId`] of the key.
@@ -158,11 +175,11 @@ impl MapInfo {
         TypeId::of::<T>() == self.key_type_id
     }
 
-    /// The [type name] of the value.
+    /// A representation of the type path of the value type.
     ///
-    /// [type name]: std::any::type_name
-    pub fn value_type_name(&self) -> &'static str {
-        self.value_type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn value_type_path_table(&self) -> &TypePathTable {
+        &self.value_type_path
     }
 
     /// The [`TypeId`] of the value.
@@ -297,12 +314,6 @@ impl Map for DynamicMap {
 }
 
 impl Reflect for DynamicMap {
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_else(|| std::any::type_name::<Self>())
-    }
-
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
@@ -513,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_into_iter() {
-        let expected = vec!["foo", "bar", "baz"];
+        let expected = ["foo", "bar", "baz"];
 
         let mut map = DynamicMap::default();
         map.insert(0usize, expected[0].to_string());

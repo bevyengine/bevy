@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
@@ -14,26 +13,40 @@
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
-//! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+//! See the documentation on [`Gizmos`] for more examples.
 
-use std::mem;
+pub mod arcs;
+pub mod arrows;
+pub mod circles;
+pub mod gizmos;
+
+#[cfg(feature = "bevy_sprite")]
+mod pipeline_2d;
+#[cfg(feature = "bevy_pbr")]
+mod pipeline_3d;
+
+/// The `bevy_gizmos` prelude.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
+}
 
 use bevy_app::{Last, Plugin, PostUpdate};
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_core::cast_slice;
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     query::{ROQueryItem, Without},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -41,7 +54,7 @@ use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
         BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
         VertexFormat, VertexStepMode,
@@ -54,24 +67,10 @@ use bevy_transform::{
     components::{GlobalTransform, Transform},
     TransformSystem,
 };
-
-pub mod gizmos;
-
-#[cfg(feature = "bevy_sprite")]
-mod pipeline_2d;
-#[cfg(feature = "bevy_pbr")]
-mod pipeline_3d;
-
 use gizmos::{GizmoStorage, Gizmos};
+use std::mem;
 
-/// The `bevy_gizmos` prelude.
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
-}
-
-const LINE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
+const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;
@@ -80,8 +79,10 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .add_asset::<LineGizmo>()
+        app.register_type::<GizmoConfig>()
+            .register_type::<AabbGizmoConfig>()
+            .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
+            .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
@@ -96,11 +97,16 @@ impl Plugin for GizmoPlugin {
                     .after(TransformSystem::TransformPropagate),
             );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_systems(ExtractSchedule, extract_gizmo_data)
-            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+            );
 
         #[cfg(feature = "bevy_sprite")]
         app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
@@ -109,7 +115,9 @@ impl Plugin for GizmoPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         let render_device = render_app.world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -131,7 +139,8 @@ impl Plugin for GizmoPlugin {
 }
 
 /// A [`Resource`] that stores configuration for gizmos.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
@@ -145,11 +154,13 @@ pub struct GizmoConfig {
     pub line_width: f32,
     /// Apply perspective to gizmo lines.
     ///
-    /// This setting only affects 3D, non-orhographic cameras.
+    /// This setting only affects 3D, non-orthographic cameras.
     ///
     /// Defaults to `false`.
     pub line_perspective: bool,
     /// How closer to the camera than real geometry the line should be.
+    ///
+    /// In 2D this setting has no effect and is effectively always -1.
     ///
     /// Value between -1 and 1 (inclusive).
     /// * 0 means that there is no change to the line position when rendering
@@ -158,7 +169,7 @@ pub struct GizmoConfig {
     ///
     /// This is typically useful if you are drawing wireframes on top of polygons
     /// and your wireframe is z-fighting (flickering on/off) with your main model.
-    /// You would set this value to a negative number close to 0.0.
+    /// You would set this value to a negative number close to 0.
     pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
@@ -182,7 +193,7 @@ impl Default for GizmoConfig {
 }
 
 /// Configuration for drawing the [`Aabb`] component on entities.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Reflect)]
 pub struct AabbGizmoConfig {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///
@@ -344,8 +355,7 @@ struct LineGizmoUniform {
     _padding: bevy_math::Vec2,
 }
 
-#[derive(Debug, Default, Clone, TypeUuid, TypePath)]
-#[uuid = "02b99cbf-bb26-4713-829a-aee8e08dedc0"]
+#[derive(Asset, Debug, Default, Clone, TypePath)]
 struct LineGizmo {
     positions: Vec<[f32; 3]>,
     colors: Vec<[f32; 4]>,
@@ -409,7 +419,7 @@ struct LineGizmoUniformBindgroup {
     bindgroup: BindGroup,
 }
 
-fn queue_line_gizmo_bind_group(
+fn prepare_line_gizmo_bind_group(
     mut commands: Commands,
     line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,
@@ -417,14 +427,11 @@ fn queue_line_gizmo_bind_group(
 ) {
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
-            bindgroup: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("LineGizmoUniform bindgroup"),
-                layout: &line_gizmo_uniform_layout.layout,
-            }),
+            bindgroup: render_device.create_bind_group(
+                "LineGizmoUniform bindgroup",
+                &line_gizmo_uniform_layout.layout,
+                &BindGroupEntries::single(binding),
+            ),
         });
     }
 }

@@ -1,3 +1,5 @@
+//! The gamepad input functionality.
+
 use crate::{Axis, ButtonState, Input};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
@@ -514,14 +516,14 @@ impl ButtonSettings {
     /// Returns `true` if the button is pressed.
     ///
     /// A button is considered pressed if the `value` passed is greater than or equal to the press threshold.
-    fn is_pressed(&self, value: f32) -> bool {
+    pub fn is_pressed(&self, value: f32) -> bool {
         value >= self.press_threshold
     }
 
     /// Returns `true` if the button is released.
     ///
     /// A button is considered released if the `value` passed is lower than or equal to the release threshold.
-    fn is_released(&self, value: f32) -> bool {
+    pub fn is_released(&self, value: f32) -> bool {
         value <= self.release_threshold
     }
 
@@ -629,10 +631,10 @@ pub struct AxisSettings {
 impl Default for AxisSettings {
     fn default() -> Self {
         AxisSettings {
-            livezone_upperbound: 0.95,
+            livezone_upperbound: 1.0,
             deadzone_upperbound: 0.05,
             deadzone_lowerbound: -0.05,
-            livezone_lowerbound: -0.95,
+            livezone_lowerbound: -1.0,
             threshold: 0.01,
         }
     }
@@ -1021,7 +1023,7 @@ pub fn gamepad_connection_system(
     mut button_axis: ResMut<Axis<GamepadButton>>,
     mut button_input: ResMut<Input<GamepadButton>>,
 ) {
-    for connection_event in connection_events.iter() {
+    for connection_event in connection_events.read() {
         let gamepad = connection_event.gamepad;
 
         if let GamepadConnection::Connected(info) = &connection_event.connection {
@@ -1166,7 +1168,7 @@ pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
 ) {
-    for axis_event in axis_events.iter() {
+    for axis_event in axis_events.read() {
         let axis = GamepadAxis::new(axis_event.gamepad, axis_event.axis_type);
         gamepad_axis.set(axis, axis_event.value);
     }
@@ -1179,7 +1181,7 @@ pub fn gamepad_button_event_system(
     mut button_input_events: EventWriter<GamepadButtonInput>,
     settings: Res<GamepadSettings>,
 ) {
-    for button_event in button_changed_events.iter() {
+    for button_event in button_changed_events.read() {
         let button = GamepadButton::new(button_event.gamepad, button_event.button_type);
         let value = button_event.value;
         let button_property = settings.get_button_settings(button);
@@ -1256,13 +1258,17 @@ pub fn gamepad_event_system(
     mut button_input: ResMut<Input<GamepadButton>>,
 ) {
     button_input.bypass_change_detection().clear();
-    for gamepad_event in gamepad_events.iter() {
+    for gamepad_event in gamepad_events.read() {
         match gamepad_event {
             GamepadEvent::Connection(connection_event) => {
                 connection_events.send(connection_event.clone());
             }
-            GamepadEvent::Button(button_event) => button_events.send(button_event.clone()),
-            GamepadEvent::Axis(axis_event) => axis_events.send(axis_event.clone()),
+            GamepadEvent::Button(button_event) => {
+                button_events.send(button_event.clone());
+            }
+            GamepadEvent::Axis(axis_event) => {
+                axis_events.send(axis_event.clone());
+            }
         }
     }
 }
@@ -1527,7 +1533,7 @@ mod tests {
         ];
 
         for (new_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, None, expected);
         }
     }
@@ -1554,7 +1560,7 @@ mod tests {
         ];
 
         for (new_value, old_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, old_value, expected);
         }
     }

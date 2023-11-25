@@ -27,6 +27,7 @@ pub enum ClearColorConfig {
 #[reflect(Resource)]
 pub struct ClearColor(pub Color);
 
+/// Use black by default to optimize rendering.
 impl Default for ClearColor {
     fn default() -> Self {
         Self(Color::BLACK)

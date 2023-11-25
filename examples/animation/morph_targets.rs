@@ -3,9 +3,9 @@
 //! Illustrates:
 //!
 //! - How to access and modify individual morph target weights.
-//!   See the [`update_weights`] system for details.
-//! - How to read morph target names in [`name_morphs`].
-//! - How to play morph target animations in [`setup_animations`].
+//!   See the `update_weights` system for details.
+//! - How to read morph target names in `name_morphs`.
+//! - How to play morph target animations in `setup_animations`.
 
 use bevy::prelude::*;
 use std::f32::consts::PI;
@@ -88,8 +88,12 @@ fn name_morphs(
         return;
     }
 
-    let Some(mesh) = meshes.get(&morph_data.mesh) else { return };
-    let Some(names) = mesh.morph_target_names() else { return };
+    let Some(mesh) = meshes.get(&morph_data.mesh) else {
+        return;
+    };
+    let Some(names) = mesh.morph_target_names() else {
+        return;
+    };
     for name in names {
         println!("  {name}");
     }

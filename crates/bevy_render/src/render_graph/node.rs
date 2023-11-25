@@ -398,10 +398,9 @@ where
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let Ok(view) = self
-            .view_query
-            .get_manual(world, graph.view_entity())
-        else { return Ok(()); };
+        let Ok(view) = self.view_query.get_manual(world, graph.view_entity()) else {
+            return Ok(());
+        };
 
         ViewNode::run(&self.node, graph, render_context, view, world)?;
         Ok(())

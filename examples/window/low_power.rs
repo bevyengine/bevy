@@ -177,7 +177,6 @@ pub(crate) mod test_setup {
                     "Press spacebar to cycle modes\n",
                     TextStyle {
                         font_size: 50.0,
-                        color: Color::WHITE,
                         ..default()
                     },
                 ),

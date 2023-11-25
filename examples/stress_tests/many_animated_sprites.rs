@@ -10,7 +10,7 @@ use bevy::{
     math::Quat,
     prelude::*,
     render::camera::Camera,
-    window::PresentMode,
+    window::{PresentMode, WindowResolution},
 };
 
 use rand::Rng;
@@ -26,6 +26,8 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
@@ -144,6 +146,6 @@ fn print_sprite_count(
     timer.tick(time.delta());
 
     if timer.just_finished() {
-        info!("Sprites: {}", sprites.iter().count(),);
+        info!("Sprites: {}", sprites.iter().count());
     }
 }

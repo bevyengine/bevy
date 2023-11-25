@@ -14,15 +14,16 @@ fn setup(mut commands: Commands) {
     let root = commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.0),
                 margin: UiRect::all(Val::Px(25.0)),
+                align_self: AlignSelf::Stretch,
+                justify_self: JustifySelf::Stretch,
                 flex_wrap: FlexWrap::Wrap,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
                 align_content: AlignContent::FlexStart,
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: BackgroundColor(Color::DARK_GRAY),
             ..Default::default()
         })
         .id();
@@ -96,20 +97,27 @@ fn setup(mut commands: Commands) {
             })
             .id();
         let bordered_node = commands
-            .spawn(NodeBundle {
-                style: Style {
-                    width: Val::Px(50.),
-                    height: Val::Px(50.),
-                    border: borders[i % borders.len()],
-                    margin: UiRect::all(Val::Px(2.)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        width: Val::Px(50.),
+                        height: Val::Px(50.),
+                        border: borders[i % borders.len()],
+                        margin: UiRect::all(Val::Px(20.)),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        ..Default::default()
+                    },
+                    background_color: Color::MAROON.into(),
+                    border_color: Color::RED.into(),
                     ..Default::default()
                 },
-                background_color: Color::BLUE.into(),
-                border_color: Color::WHITE.with_a(0.5).into(),
-                ..Default::default()
-            })
+                Outline {
+                    width: Val::Px(6.),
+                    offset: Val::Px(6.),
+                    color: Color::WHITE,
+                },
+            ))
             .add_child(inner_spot)
             .id();
         commands.entity(root).add_child(bordered_node);

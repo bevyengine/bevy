@@ -82,7 +82,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.),
-                height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -102,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     parent.spawn(TextBundle::from_section(
-                        vec![
+                        [
                             "Toggle Overflow (O)",
                             "Next Container Size (S)",
                             "Toggle Animation (space)",
@@ -111,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 18.0,
-                            color: Color::WHITE,
+                            ..default()
                         },
                     ));
                 });
@@ -186,7 +185,7 @@ fn spawn_text(
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 120.0,
-                color: Color::WHITE,
+                ..default()
             },
         ));
     });

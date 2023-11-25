@@ -2,7 +2,7 @@ use crate::{Diagnostic, DiagnosticId, Diagnostics, RegisterDiagnostic};
 use bevy_app::prelude::*;
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
-use bevy_time::Time;
+use bevy_time::{Real, Time};
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
 #[derive(Default)]
@@ -30,12 +30,12 @@ impl FrameTimeDiagnosticsPlugin {
 
     pub fn diagnostic_system(
         mut diagnostics: Diagnostics,
-        time: Res<Time>,
+        time: Res<Time<Real>>,
         frame_count: Res<FrameCount>,
     ) {
         diagnostics.add_measurement(Self::FRAME_COUNT, || frame_count.0 as f64);
 
-        let delta_seconds = time.raw_delta_seconds_f64();
+        let delta_seconds = time.delta_seconds_f64();
         if delta_seconds == 0.0 {
             return;
         }

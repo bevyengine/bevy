@@ -14,7 +14,6 @@ use std::{
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_scene)
         .add_systems(Update, (update_bloom_settings, bounce_spheres))
@@ -75,7 +74,7 @@ fn setup_scene(
                 0 => material_emissive1.clone(),
                 1 => material_emissive2.clone(),
                 2 => material_emissive3.clone(),
-                3 | 4 | 5 => material_non_emissive.clone(),
+                3..=5 => material_non_emissive.clone(),
                 _ => unreachable!(),
             };
 

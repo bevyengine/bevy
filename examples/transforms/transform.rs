@@ -31,7 +31,8 @@ fn main() {
                 move_cube,
                 rotate_cube,
                 scale_down_sphere_proportional_to_cube_travel_distance,
-            ),
+            )
+                .chain(),
         )
         .run();
 }

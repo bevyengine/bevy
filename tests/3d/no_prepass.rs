@@ -6,6 +6,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(PbrPlugin {
             prepass_enabled: false,
+            ..default()
         }))
         .run();
 }

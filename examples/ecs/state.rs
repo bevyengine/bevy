@@ -54,6 +54,7 @@ fn setup_menu(mut commands: Commands) {
             style: Style {
                 // center button
                 width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
