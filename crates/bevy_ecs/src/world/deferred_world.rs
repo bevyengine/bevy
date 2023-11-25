@@ -10,7 +10,7 @@ use crate::{
     system::{Commands, Query, Resource},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
+use super::{Mut, World};
 
 pub struct DeferredWorld<'w> {
     world: &'w mut World,
@@ -208,13 +208,56 @@ impl<'w> DeferredWorld<'w> {
                 .get_mut_by_id(component_id)
         }
     }
+
+    #[inline]
+    pub(crate) fn trigger_on_add(
+        &mut self,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        for component_id in targets {
+            let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+            if let Some(hook) = hooks.on_add {
+                hook(DeferredWorld { world: self.world }, entity, component_id)
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn trigger_on_insert(
+        &mut self,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        for component_id in targets {
+            let hooks = unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
+            if let Some(hook) = hooks.on_insert {
+                hook(DeferredWorld { world: self.world }, entity, component_id)
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn trigger_on_remove(
+        &mut self,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        for component_id in targets {
+            let hooks = unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
+            if let Some(hook) = hooks.on_remove {
+                hook(DeferredWorld { world: self.world }, entity, component_id)
+            }
+        }
+    }
 }
 
-impl<'w> UnsafeWorldCell<'w> {
-    pub unsafe fn into_deferred(&self) -> DeferredWorld<'w> {
+impl World {
+    #[inline]
+    pub unsafe fn into_deferred(&self) -> DeferredWorld {
         DeferredWorld {
             // SAFETY: Not
-            world: self.world_mut(),
+            world: self.as_unsafe_world_cell_readonly().world_mut(),
         }
     }
 }

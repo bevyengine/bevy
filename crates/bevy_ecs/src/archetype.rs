@@ -24,7 +24,6 @@ use crate::{
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
-    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::{
     hash::Hash,
@@ -563,54 +562,18 @@ impl Archetype {
     }
 
     #[inline]
-    pub(crate) unsafe fn trigger_on_add(
-        &self,
-        world: UnsafeWorldCell,
-        entity: Entity,
-        targets: impl Iterator<Item = ComponentId>,
-    ) {
-        if self.flags().contains(ArchetypeFlags::ON_ADD_HOOK) {
-            for component_id in targets {
-                let hooks = unsafe { world.components().get_info_unchecked(component_id) }.hooks();
-                if let Some(hook) = hooks.on_add {
-                    hook(world.into_deferred(), entity, component_id)
-                }
-            }
-        }
+    pub fn has_on_add(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_ADD_HOOK)
     }
 
     #[inline]
-    pub(crate) unsafe fn trigger_on_insert(
-        &self,
-        world: UnsafeWorldCell,
-        entity: Entity,
-        targets: impl Iterator<Item = ComponentId>,
-    ) {
-        if self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK) {
-            for component_id in targets {
-                let hooks = unsafe { world.components().get_info_unchecked(component_id) }.hooks();
-                if let Some(hook) = hooks.on_insert {
-                    hook(world.into_deferred(), entity, component_id)
-                }
-            }
-        }
+    pub fn has_on_insert(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
     }
 
     #[inline]
-    pub(crate) unsafe fn trigger_on_remove(
-        &self,
-        world: UnsafeWorldCell,
-        entity: Entity,
-        targets: impl Iterator<Item = ComponentId>,
-    ) {
-        if self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK) {
-            for component_id in targets {
-                let hooks = unsafe { world.components().get_info_unchecked(component_id) }.hooks();
-                if let Some(hook) = hooks.on_remove {
-                    hook(world.into_deferred(), entity, component_id);
-                }
-            }
-        }
+    pub fn has_on_remove(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK)
     }
 }
 
