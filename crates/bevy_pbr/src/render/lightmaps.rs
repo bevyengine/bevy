@@ -294,7 +294,7 @@ impl RenderLightmaps {
 
             let render_mesh_lightmaps = self
                 .entry(mesh_id.mesh_asset_id)
-                .or_insert_with(|| RenderMeshLightmaps::new());
+                .or_insert_with(RenderMeshLightmaps::new);
 
             let render_mesh_lightmap_key = RenderMeshLightmapKey::from(lightmap);
 
