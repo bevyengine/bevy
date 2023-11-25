@@ -133,7 +133,7 @@ impl Plugin for LogPlugin {
 
         let log_events = LogEvents(Arc::new(Mutex::new(Vec::new())));
 
-        let log_event_handler = LogEventHandler {
+        let log_event_handler = LogEventLayer {
             events: log_events.0.clone(),
         };
 
@@ -268,10 +268,10 @@ fn transfer_log_events(handler: Res<LogEvents>, mut log_events: EventWriter<LogE
 struct LogEvents(Arc<Mutex<Vec<LogEvent>>>);
 
 /// A [`Layer`] that captures log events and saves them to [`LogEvents`].
-struct LogEventHandler {
+struct LogEventLayer {
     events: Arc<Mutex<Vec<LogEvent>>>,
 }
-impl<S: Subscriber> Layer<S> for LogEventHandler {
+impl<S: Subscriber> Layer<S> for LogEventLayer {
     fn on_event(
         &self,
         event: &bevy_utils::tracing::Event<'_>,
