@@ -183,9 +183,26 @@ impl World {
         WorldCell::new(self)
     }
 
+    pub fn register_component<T: Component>(&mut self) -> &mut ComponentInfo {
+        let type_id = TypeId::of::<T>();
+        assert!(self.components.get_id(type_id).is_none(), "Components cannot be registered twice, use init_component instead if this component may already exist in the world.");
+        let index = self.init_component::<T>();
+        // SAFETY: We just created this component
+        unsafe { self.components.get_info_mut(index) }
+    }
+
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
-    pub fn init_component<T: Component>(&mut self) -> &mut ComponentInfo {
+    pub fn init_component<T: Component>(&mut self) -> ComponentId {
         self.components.init_component::<T>(&mut self.storages)
+    }
+
+    pub fn register_component_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> &mut ComponentInfo {
+        let index = self.init_component_with_descriptor(descriptor);
+        // SAFETY: We just created this component
+        unsafe { self.components.get_info_mut(index) }
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -200,7 +217,7 @@ impl World {
     pub fn init_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
-    ) -> &mut ComponentInfo {
+    ) -> ComponentId {
         self.components
             .init_component_with_descriptor(&mut self.storages, descriptor)
     }
@@ -2347,7 +2364,7 @@ mod tests {
             )
         };
 
-        let component_id = world.init_component_with_descriptor(descriptor).id();
+        let component_id = world.init_component_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {

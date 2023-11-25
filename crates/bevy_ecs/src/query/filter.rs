@@ -102,7 +102,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>().id()
+        world.init_component::<T>()
     }
 
     fn matches_component_set(
@@ -203,7 +203,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>().id()
+        world.init_component::<T>()
     }
 
     fn matches_component_set(
@@ -530,7 +530,7 @@ macro_rules! impl_tick_filter {
             }
 
             fn init_state(world: &mut World) -> ComponentId {
-                world.init_component::<T>().id()
+                world.init_component::<T>()
             }
 
             fn matches_component_set(&id: &ComponentId, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {

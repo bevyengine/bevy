@@ -7,27 +7,27 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     prelude::{Component, QueryState},
     query::{ReadOnlyWorldQuery, WorldQuery},
-    system::{CommandQueue, Commands, Query, Resource},
+    system::{Commands, Query, Resource},
 };
 
 use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
 
 pub struct DeferredWorld<'w> {
-    world: UnsafeWorldCell<'w>,
-    command_queue: CommandQueue,
+    world: &'w mut World,
 }
 
 impl<'w> Deref for DeferredWorld<'w> {
-    type Target = World;
+    type Target = &'w mut World;
 
-    fn deref(&self) -> &'w Self::Target {
-        unsafe { self.world.world() }
+    fn deref(&self) -> &Self::Target {
+        &self.world
     }
 }
 
 impl<'w> DeferredWorld<'w> {
     pub fn commands(&mut self) -> Commands {
-        Commands::new(&mut self.command_queue, unsafe { self.world.world() })
+        let world = self.world.as_unsafe_world_cell();
+        unsafe { Commands::new(world.get_command_queue(), world.world()) }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -38,23 +38,29 @@ impl<'w> DeferredWorld<'w> {
         // - `as_unsafe_world_cell` is the only thing that is borrowing world
         // - `as_unsafe_world_cell` provides mutable permission to everything
         // - `&mut self` ensures no other borrows on world data
-        unsafe { self.world.get_entity(entity)?.get_mut() }
+        unsafe {
+            self.world
+                .as_unsafe_world_cell()
+                .get_entity(entity)?
+                .get_mut()
+        }
     }
 
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     #[inline]
     pub fn query<'s, Q: WorldQuery, F: ReadOnlyWorldQuery>(
-        &mut self,
+        &'w mut self,
         state: &'s mut QueryState<Q, F>,
-    ) -> Query<'_, 's, Q, F> {
+    ) -> Query<'w, 's, Q, F> {
         unsafe {
-            state.update_archetypes(self.world.world());
+            state.update_archetypes(self.world);
+            let world = self.world.as_unsafe_world_cell();
             Query::new(
-                self.world,
+                world,
                 state,
-                self.world.last_change_tick(),
-                self.world.change_tick(),
+                world.last_change_tick(),
+                world.change_tick(),
                 false,
             )
         }
@@ -87,10 +93,7 @@ impl<'w> DeferredWorld<'w> {
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` gives permission to access everything mutably
-        // - `&mut self` ensures nothing in world is borrowed
-        unsafe { self.world.get_resource_mut() }
+        self.world.get_resource_mut()
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
@@ -122,10 +125,7 @@ impl<'w> DeferredWorld<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` gives permission to access the entire world mutably
-        // - `&mut self` ensures that there are no borrows of world data
-        unsafe { self.world.get_non_send_resource_mut() }
+        self.world.get_non_send_resource_mut()
     }
 
     /// Sends an [`Event`].
@@ -170,10 +170,7 @@ impl<'w> DeferredWorld<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY:
-        // - `&mut self` ensures that all accessed data is unaliased
-        // - `as_unsafe_world_cell` provides mutable permission to the whole world
-        unsafe { self.world.get_resource_mut_by_id(component_id) }
+        self.world.get_resource_mut_by_id(component_id)
     }
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
@@ -187,10 +184,7 @@ impl<'w> DeferredWorld<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY:
-        // - `&mut self` ensures that all accessed data is unaliased
-        // - `as_unsafe_world_cell` provides mutable permission to the whole world
-        unsafe { self.world.get_non_send_resource_mut_by_id(component_id) }
+        self.world.get_non_send_mut_by_id(component_id)
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
@@ -207,35 +201,26 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY:
         // - `&mut self` ensures that all accessed data is unaliased
         // - `as_unsafe_world_cell` provides mutable permission to the whole world
-        unsafe { self.world.get_entity(entity)?.get_mut_by_id(component_id) }
+        unsafe {
+            self.world
+                .as_unsafe_world_cell()
+                .get_entity(entity)?
+                .get_mut_by_id(component_id)
+        }
     }
 }
 
-impl World {
-    pub unsafe fn into_deferred(&self) -> DeferredWorld<'_> {
+impl<'w> UnsafeWorldCell<'w> {
+    pub unsafe fn into_deferred(&self) -> DeferredWorld<'w> {
         DeferredWorld {
-            world: self.as_unsafe_world_cell_readonly(),
-            command_queue: CommandQueue::default(),
+            // SAFETY: Not
+            world: self.world_mut(),
         }
     }
 }
 
 impl<'w> Into<DeferredWorld<'w>> for &'w mut World {
     fn into(self) -> DeferredWorld<'w> {
-        DeferredWorld {
-            world: self.as_unsafe_world_cell(),
-            command_queue: CommandQueue::default(),
-        }
-    }
-}
-
-impl<'w> Drop for DeferredWorld<'w> {
-    fn drop(&mut self) {
-        unsafe {
-            self.world
-                .world_mut()
-                .command_queue
-                .append(&mut self.command_queue)
-        }
+        DeferredWorld { world: self }
     }
 }

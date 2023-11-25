@@ -14,7 +14,7 @@ use crate::{
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::Resource,
+    system::{CommandQueue, Resource},
 };
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
@@ -565,6 +565,12 @@ impl<'w> UnsafeWorldCell<'w> {
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()
+    }
+
+    #[inline]
+    pub(crate) unsafe fn get_command_queue(self) -> &'w mut CommandQueue {
+        let world = unsafe { &mut *self.0 };
+        &mut world.command_queue
     }
 }
 
