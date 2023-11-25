@@ -139,9 +139,9 @@ impl Plugin for MeshRenderPlugin {
                             batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
                         )
-                            .in_set(RenderSet::PrepareBatches),
+                            .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareBatchesFlush),
+                            .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -1107,7 +1107,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     fn render<'w>(
         item: &P,
         _view: (),
-        _query: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _item_query: (),
         (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
             'w,
             '_,

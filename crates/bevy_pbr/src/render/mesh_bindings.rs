@@ -85,8 +85,6 @@ mod layout_entry {
         }
     }
     pub(super) fn lightmaps(binding: u32) -> BindGroupLayoutEntry {
-        // This one doesn't use a dynamic offset, because the offset is in the
-        // Mesh structure.
         BindGroupLayoutEntry {
             binding,
             visibility: ShaderStages::FRAGMENT,
