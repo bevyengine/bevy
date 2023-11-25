@@ -72,7 +72,7 @@ use bevy_render::{
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
 
-use crate::{deferred::DeferredPbrLightingPlugin, meshlet::MeshletShaderPlugin};
+use crate::{deferred::DeferredPbrLightingPlugin, meshlet::MeshletDummyShaderPlugin};
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
@@ -249,7 +249,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin,
-                MeshletShaderPlugin,
+                MeshletDummyShaderPlugin,
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
                     ..Default::default()

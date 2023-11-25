@@ -166,12 +166,11 @@ fn pbr_input_from_standard_material(
 #endif
         }
 #endif
-#ifndef MESHLET_MESH_MATERIAL_PASS // TODO
+        // TODO: Need access to instance model (and account for skinning/morph targets?)
         // scale thickness, accounting for non-uniform scaling (e.g. a “squished” mesh)
-        thickness *= length(
-            (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
-        );
-#endif
+        // thickness *= length(
+        //     (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
+        // );
         pbr_input.material.thickness = thickness;
 
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
