@@ -609,8 +609,10 @@ pub fn queue_material_meshes<M: Material>(
             }
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
 
-            if lightmaps.contains(*visible_entity) {
-                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            if let Ok(lightmap) = lightmaps.get(*visible_entity) {
+                if images.get(lightmap.image.id()).is_some() {
+                    mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+                }
             }
 
             let pipeline_id = pipelines.specialize(

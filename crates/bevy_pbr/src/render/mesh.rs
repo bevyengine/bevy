@@ -949,7 +949,6 @@ pub struct MeshBindGroups {
     skinned: Option<BindGroup>,
     morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
     lightmaps: HashMap<RenderMeshLightmapKey, BindGroup>,
-    fallback_lightmap: Option<BindGroup>,
 }
 impl MeshBindGroups {
     pub fn reset(&mut self) {
@@ -957,7 +956,6 @@ impl MeshBindGroups {
         self.skinned = None;
         self.morph_targets.clear();
         self.lightmaps.clear();
-        self.fallback_lightmap = None;
     }
     /// Get the `BindGroup` for `GpuMesh` with given `handle_id` and lightmap
     /// key `lightmap_exposure`.
@@ -971,15 +969,7 @@ impl MeshBindGroups {
         match (is_skinned, morph, lightmap) {
             (_, true, _) => self.morph_targets.get(&asset_id),
             (true, false, _) => self.skinned.as_ref(),
-            (false, false, Some(lightmap)) => {
-                match self.lightmaps.get(&lightmap) {
-                    Some(bind_group) => Some(bind_group),
-                    None => {
-                        // This can happen if the lightmap hasn't loaded yet.
-                        self.fallback_lightmap.as_ref()
-                    }
-                }
-            }
+            (false, false, Some(lightmap)) => self.lightmaps.get(&lightmap),
             (false, false, None) => self.model_only.as_ref(),
         }
     }
@@ -996,7 +986,6 @@ pub fn prepare_mesh_bind_group(
     weights_uniform: Res<MorphUniform>,
     render_lightmaps: Res<RenderLightmaps>,
     lightmaps_uniform: Res<LightmapUniforms>,
-    fallback_images: Res<FallbackImage>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
@@ -1051,14 +1040,6 @@ pub fn prepare_mesh_bind_group(
             ));
         }
     }
-
-    // Create a group to handle lightmaps that haven't loaded yet.
-    groups.fallback_lightmap = Some(layouts.fallback_lightmap(
-        &render_device,
-        &model,
-        &lightmaps_uniform,
-        &fallback_images,
-    ));
 }
 
 pub struct SetMeshViewBindGroup<const I: usize>;
@@ -1100,16 +1081,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<RenderMeshInstances>,
         SRes<SkinIndices>,
         SRes<MorphIndices>,
+        SRes<RenderLightmaps>,
     );
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Option<Read<Lightmap>>;
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        lightmap: ROQueryItem<'w, Self::ItemWorldQuery>,
-        (bind_groups, mesh_instances, skin_indices, morph_indices): SystemParamItem<
+        _query: ROQueryItem<'w, Self::ItemWorldQuery>,
+        (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
             'w,
             '_,
             Self::Param,
@@ -1131,13 +1113,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();
+        let lightmap = lightmaps.lightmap_key_for_entity(mesh.mesh_asset_id, *entity);
 
-        let Some(bind_group) = bind_groups.get(
-            mesh.mesh_asset_id,
-            lightmap.map(|lightmap| RenderMeshLightmapKey::from(lightmap)),
-            is_skinned,
-            is_morphed,
-        ) else {
+        let Some(bind_group) =
+            bind_groups.get(mesh.mesh_asset_id, lightmap, is_skinned, is_morphed)
+        else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the queue_mesh_bind_group system.\n\

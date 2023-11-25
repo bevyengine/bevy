@@ -1,10 +1,7 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
-use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice,
-    texture::FallbackImage,
-};
+use bevy_render::{mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice};
 use bevy_utils::FloatOrd;
 
 use crate::{render::skin::MAX_JOINTS, GpuLightmap, LightmapUniforms, RenderMeshLightmap};
@@ -271,34 +268,6 @@ impl MeshLayouts {
                         .expect("Lightmap uniform buffer should have been created by now")
                         .buffer()
                         .expect("Lightmap uniform buffer should have been uploaded by now"),
-                ),
-            ],
-        )
-    }
-    pub fn fallback_lightmap(
-        &self,
-        render_device: &RenderDevice,
-        model: &BindingResource,
-        lightmap_uniforms: &LightmapUniforms,
-        fallback_images: &FallbackImage,
-    ) -> BindGroup {
-        render_device.create_bind_group(
-            "fallback_lightmapped_mesh_bind_group",
-            &self.lightmapped,
-            &[
-                entry::model(0, model.clone()),
-                entry::lightmaps_texture_view(4, &fallback_images.d2.texture_view),
-                entry::lightmaps_sampler(5, &fallback_images.d2.sampler),
-                entry::lightmaps(
-                    6,
-                    lightmap_uniforms
-                        .fallback_uniform
-                        .as_ref()
-                        .expect("Fallback lightmap uniform should have been created by now")
-                        .buffer()
-                        .expect(
-                            "Fallback lightmap uniform buffer should have been uploaded by now",
-                        ),
                 ),
             ],
         )

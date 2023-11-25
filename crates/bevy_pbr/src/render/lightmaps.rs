@@ -93,7 +93,7 @@ pub struct RenderLightmaps(pub HashMap<AssetId<Mesh>, RenderMeshLightmaps>);
 pub struct RenderMeshLightmaps {
     /// Maps an entity to lightmap index of the lightmap within
     /// `render_mesh_lightmaps`.
-    entity_to_lightmap_index: EntityHashMap<Entity, RenderMeshLightmapIndex>,
+    pub(crate) entity_to_lightmap_index: EntityHashMap<Entity, RenderMeshLightmapIndex>,
 
     /// Maps a lightmap key to the index of the lightmap inside
     /// `render_mesh_lightmaps`.
@@ -121,6 +121,8 @@ pub struct RenderMeshLightmapKey {
 pub struct RenderMeshLightmap {
     /// The lightmap texture.
     pub(crate) image: GpuImage,
+    /// The ID of the lightmap's image asset.
+    pub(crate) image_id: AssetId<Image>,
     /// The exposure (brightness) value.
     pub(crate) exposure: f32,
 }
@@ -138,9 +140,6 @@ pub(crate) struct RenderMeshLightmapIndex(pub(crate) usize);
 pub struct LightmapUniforms {
     /// The GPU buffers containing metadata about each lightmap.
     pub exposure_to_lightmap_uniform: HashMap<FloatOrd, UniformBuffer<GpuLightmap>>,
-
-    /// A fallback buffer used when the lightmap hasn't loaded yet.
-    pub fallback_uniform: Option<UniformBuffer<GpuLightmap>>,
 }
 
 impl Plugin for LightmapPlugin {
@@ -216,10 +215,6 @@ pub fn upload_lightmaps_buffers(
     for buffer in uniform.exposure_to_lightmap_uniform.values_mut() {
         buffer.write_buffer(&render_device, &render_queue);
     }
-
-    if let Some(ref mut buffer) = uniform.fallback_uniform {
-        buffer.write_buffer(&render_device, &render_queue);
-    }
 }
 
 impl Default for GpuLightmap {
@@ -267,11 +262,6 @@ impl LightmapUniforms {
 
                 entry.insert(buffer);
             }
-        }
-
-        // Build a fallback uniform, for use when lightmaps haven't loaded yet.
-        if self.fallback_uniform.is_none() {
-            self.fallback_uniform = Some(GpuLightmap::default().into());
         }
     }
 }
@@ -327,7 +317,11 @@ impl RenderLightmaps {
                         RenderMeshLightmapIndex(render_mesh_lightmaps.render_mesh_lightmaps.len());
                     render_mesh_lightmaps
                         .render_mesh_lightmaps
-                        .push(RenderMeshLightmap::new((*image).clone(), lightmap.exposure));
+                        .push(RenderMeshLightmap::new(
+                            (*image).clone(),
+                            lightmap.image.id(),
+                            lightmap.exposure,
+                        ));
                     entry.insert(index);
                     index
                 }
@@ -338,11 +332,27 @@ impl RenderLightmaps {
                 .insert(entity, render_mesh_lightmap_index);
         }
     }
+
+    pub(crate) fn lightmap_key_for_entity(
+        &self,
+        mesh_asset_id: AssetId<Mesh>,
+        entity: Entity,
+    ) -> Option<RenderMeshLightmapKey> {
+        let render_mesh_lightmaps = self.get(&mesh_asset_id)?;
+        let lightmap_index = render_mesh_lightmaps
+            .entity_to_lightmap_index
+            .get(&entity)?;
+        Some((&render_mesh_lightmaps.render_mesh_lightmaps[lightmap_index.0]).into())
+    }
 }
 
 impl RenderMeshLightmap {
-    fn new(image: GpuImage, exposure: f32) -> Self {
-        Self { image, exposure }
+    fn new(image: GpuImage, image_id: AssetId<Image>, exposure: f32) -> Self {
+        Self {
+            image,
+            image_id,
+            exposure,
+        }
     }
 }
 
@@ -350,6 +360,15 @@ impl<'a> From<&'a Lightmap> for RenderMeshLightmapKey {
     fn from(lightmap: &'a Lightmap) -> Self {
         RenderMeshLightmapKey {
             image: lightmap.image.id(),
+            exposure: FloatOrd(lightmap.exposure),
+        }
+    }
+}
+
+impl<'a> From<&'a RenderMeshLightmap> for RenderMeshLightmapKey {
+    fn from(lightmap: &'a RenderMeshLightmap) -> Self {
+        RenderMeshLightmapKey {
+            image: lightmap.image_id,
             exposure: FloatOrd(lightmap.exposure),
         }
     }
