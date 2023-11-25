@@ -17,12 +17,12 @@ fn main() {
 
 fn setup(world: &mut World) {
     world
-        .init_component::<MyComponent>()
-        .on_add(|mut world, entity| {
+        .register_component::<MyComponent>()
+        .on_add(|mut world, entity, _| {
             println!("Added MyComponent to: {:?}", entity);
             world.resource_mut::<MyComponentIndex>().insert(entity);
         })
-        .on_remove(|mut world, entity| {
+        .on_remove(|mut world, entity, _| {
             println!(
                 "Removed MyComponent from: {:?} {:?}",
                 entity,

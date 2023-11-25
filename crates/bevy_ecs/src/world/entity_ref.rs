@@ -693,14 +693,17 @@ impl<'w> EntityWorldMut<'w> {
 
         // Reborrow so world is not mutably borrowed
         let entity = self.entity;
-        for component_id in bundle_info.components().iter().cloned() {
+        let new_archetype = &self.world.archetypes[new_archetype_id];
+        unsafe {
+            new_archetype.trigger_on_remove(
+                // SAFETY: the only outstanding borrow of the world is to an Archetype which cannot be modified through a deferred world
+                self.world.as_unsafe_world_cell_readonly(),
+                entity,
+                bundle_info.iter_components(),
+            );
+        }
+        for component_id in bundle_info.iter_components() {
             self.world.removed_components.send(component_id, entity);
-            unsafe {
-                let info = self.world.components.get_info_unchecked(component_id);
-                if let Some(hook) = info.hooks().on_remove {
-                    hook(self.world.into_deferred(), self.entity)
-                }
-            }
         }
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
@@ -708,7 +711,7 @@ impl<'w> EntityWorldMut<'w> {
         let entities = &mut self.world.entities;
 
         let entity = self.entity;
-        let mut bundle_components = bundle_info.components().iter().cloned();
+        let mut bundle_components = bundle_info.iter_components();
         // SAFETY: bundle components are iterated in order, which guarantees that the component type
         // matches
         let result = unsafe {
@@ -735,6 +738,7 @@ impl<'w> EntityWorldMut<'w> {
                 new_archetype_id,
             );
         }
+        drop(bundle_components);
         self.world.flush_commands();
         Some(result)
     }
@@ -850,18 +854,21 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         }
 
-        let old_archetype = &self.world.archetypes[old_location.archetype_id];
         // Reborrow so world is not mutably borrowed
-        let entity = self.entity;
-        for component_id in bundle_info.components().iter().cloned() {
+        let entity: Entity = self.entity;
+        let old_archetype = &self.world.archetypes[old_location.archetype_id];
+        unsafe {
+            old_archetype.trigger_on_remove(
+                self.world.as_unsafe_world_cell_readonly(),
+                entity,
+                bundle_info
+                    .iter_components()
+                    .filter(|id| old_archetype.contains(*id)),
+            );
+        }
+        for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
                 self.world.removed_components.send(component_id, entity);
-                unsafe {
-                    let info = self.world.components.get_info_unchecked(component_id);
-                    if let Some(hook) = info.hooks().on_remove {
-                        hook(self.world.into_deferred(), self.entity)
-                    }
-                }
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
@@ -896,19 +903,22 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns the current entity.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
-        let world = self.world;
-        world.flush();
-        let archetype = &world.archetypes[self.location.archetype_id];
+        self.world.flush();
+        let archetype = &self.world.archetypes[self.location.archetype_id];
+        unsafe {
+            archetype.trigger_on_remove(
+                self.world.as_unsafe_world_cell_readonly(),
+                self.entity,
+                archetype.components(),
+            );
+        }
         for component_id in archetype.components() {
-            world.removed_components.send(component_id, self.entity);
-            unsafe {
-                let info = world.components().get_info_unchecked(component_id);
-                if let Some(hook) = info.hooks().on_remove {
-                    hook(world.into_deferred(), self.entity)
-                }
-            }
+            self.world
+                .removed_components
+                .send(component_id, self.entity);
         }
 
+        let world = self.world;
         let location = world
             .entities
             .free(self.entity)
@@ -1549,6 +1559,7 @@ unsafe fn remove_bundle_from_archetype(
         }
 
         let new_archetype_id = archetypes.get_id_or_insert(
+            components,
             next_table_id,
             next_table_components,
             next_sparse_set_components,
@@ -1907,7 +1918,7 @@ mod tests {
     #[test]
     fn entity_mut_insert_by_id() {
         let mut world = World::new();
-        let test_component_id = world.init_component::<TestComponent>().id();
+        let test_component_id = world.init_component::<TestComponent>();
 
         let mut entity = world.spawn_empty();
         OwningPtr::make(TestComponent(42), |ptr| {
@@ -1935,8 +1946,8 @@ mod tests {
     #[test]
     fn entity_mut_insert_bundle_by_id() {
         let mut world = World::new();
-        let test_component_id = world.init_component::<TestComponent>().id();
-        let test_component_2_id = world.init_component::<TestComponent2>().id();
+        let test_component_id = world.init_component::<TestComponent>();
+        let test_component_2_id = world.init_component::<TestComponent2>();
 
         let component_ids = [test_component_id, test_component_2_id];
         let test_component_value = TestComponent(42);

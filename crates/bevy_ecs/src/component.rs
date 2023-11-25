@@ -2,6 +2,7 @@
 
 use crate::{
     self as bevy_ecs,
+    archetype::ArchetypeFlags,
     change_detection::MAX_CHANGE_AGE,
     entity::Entity,
     storage::{SparseSetIndex, Storages},
@@ -280,6 +281,19 @@ impl ComponentInfo {
         self
     }
 
+    #[inline]
+    pub fn update_archetype_flags(&self, flags: &mut ArchetypeFlags) {
+        if self.hooks().on_add.is_some() {
+            flags.insert(ArchetypeFlags::ON_ADD_HOOK);
+        }
+        if self.hooks().on_insert.is_some() {
+            flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
+        }
+        if self.hooks().on_remove.is_some() {
+            flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
+        }
+    }
+
     pub fn hooks(&self) -> &ComponentHooks {
         &self.descriptor.hooks
     }
@@ -338,7 +352,7 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
-pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity);
+pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 
 #[derive(Clone, Default)]
 pub struct ComponentHooks {
@@ -487,7 +501,7 @@ impl Components {
     /// * [`Components::component_id()`]
     /// * [`Components::init_component_with_descriptor()`]
     #[inline]
-    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> &mut ComponentInfo {
+    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
 
         let Components {
@@ -498,7 +512,7 @@ impl Components {
         let index = indices.entry(type_id).or_insert_with(|| {
             Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
         });
-        &mut components[*index]
+        ComponentId(*index)
     }
 
     /// Initializes a component described by `descriptor`.
@@ -516,9 +530,9 @@ impl Components {
         &mut self,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
-    ) -> &mut ComponentInfo {
+    ) -> ComponentId {
         let index = Components::init_component_inner(&mut self.components, storages, descriptor);
-        &mut self.components[index]
+        ComponentId(index)
     }
 
     #[inline]
@@ -572,6 +586,11 @@ impl Components {
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
         self.components.get_unchecked(id.0)
+    }
+
+    #[inline]
+    pub(crate) unsafe fn get_info_mut(&mut self, id: ComponentId) -> &mut ComponentInfo {
+        self.components.get_unchecked_mut(id.0)
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -906,7 +925,7 @@ struct InitComponentId<T: Component> {
 impl<T: Component> FromWorld for InitComponentId<T> {
     fn from_world(world: &mut World) -> Self {
         Self {
-            component_id: world.init_component::<T>().id(),
+            component_id: world.init_component::<T>(),
             marker: PhantomData,
         }
     }

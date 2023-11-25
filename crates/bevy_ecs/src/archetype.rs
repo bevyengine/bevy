@@ -21,9 +21,10 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, StorageType},
+    component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::{
     hash::Hash,
@@ -107,7 +108,7 @@ impl ArchetypeId {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum ComponentStatus {
     Added,
     Mutated,
@@ -298,6 +299,15 @@ struct ArchetypeComponentInfo {
     archetype_component_id: ArchetypeComponentId,
 }
 
+bitflags::bitflags! {
+    #[derive(Clone, Copy)]
+    pub struct ArchetypeFlags: u32 {
+        const ON_ADD_HOOK    = (1 << 0);
+        const ON_INSERT_HOOK = (1 << 1);
+        const ON_REMOVE_HOOK = (1 << 2);
+    }
+}
+
 /// Metadata for a single archetype within a [`World`].
 ///
 /// For more information, see the *[module level documentation]*.
@@ -310,10 +320,12 @@ pub struct Archetype {
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
     components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
+    flags: ArchetypeFlags,
 }
 
 impl Archetype {
     pub(crate) fn new(
+        components: &Components,
         id: ArchetypeId,
         table_id: TableId,
         table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
@@ -321,9 +333,13 @@ impl Archetype {
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
-        let mut components = SparseSet::with_capacity(min_table + min_sparse);
+        let mut flags = ArchetypeFlags::empty();
+        let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
         for (component_id, archetype_component_id) in table_components {
-            components.insert(
+            // SAFETY: We are creating an archetype that includes this component so it must exist
+            let info = unsafe { components.get_info_unchecked(component_id) };
+            info.update_archetype_flags(&mut flags);
+            archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
@@ -333,7 +349,10 @@ impl Archetype {
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
-            components.insert(
+            // SAFETY: We are creating an archetype that includes this component so it must exist
+            let info = unsafe { components.get_info_unchecked(component_id) };
+            info.update_archetype_flags(&mut flags);
+            archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
@@ -345,8 +364,9 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
-            components: components.into_immutable(),
+            components: archetype_components.into_immutable(),
             edges: Default::default(),
+            flags,
         }
     }
 
@@ -354,6 +374,11 @@ impl Archetype {
     #[inline]
     pub fn id(&self) -> ArchetypeId {
         self.id
+    }
+
+    #[inline]
+    pub fn flags(&self) -> ArchetypeFlags {
+        self.flags
     }
 
     /// Fetches the archetype's [`Table`] ID.
@@ -536,6 +561,57 @@ impl Archetype {
     pub(crate) fn clear_entities(&mut self) {
         self.entities.clear();
     }
+
+    #[inline]
+    pub(crate) unsafe fn trigger_on_add(
+        &self,
+        world: UnsafeWorldCell,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        if self.flags().contains(ArchetypeFlags::ON_ADD_HOOK) {
+            for component_id in targets {
+                let hooks = unsafe { world.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_add {
+                    hook(world.into_deferred(), entity, component_id)
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) unsafe fn trigger_on_insert(
+        &self,
+        world: UnsafeWorldCell,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        if self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK) {
+            for component_id in targets {
+                let hooks = unsafe { world.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_insert {
+                    hook(world.into_deferred(), entity, component_id)
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) unsafe fn trigger_on_remove(
+        &self,
+        world: UnsafeWorldCell,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        if self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK) {
+            for component_id in targets {
+                let hooks = unsafe { world.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_remove {
+                    hook(world.into_deferred(), entity, component_id);
+                }
+            }
+        }
+    }
 }
 
 /// The next [`ArchetypeId`] in an [`Archetypes`] collection.
@@ -625,7 +701,12 @@ impl Archetypes {
             by_components: Default::default(),
             archetype_component_count: 0,
         };
-        archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
+        archetypes.get_id_or_insert(
+            &Components::default(),
+            TableId::empty(),
+            Vec::new(),
+            Vec::new(),
+        );
         archetypes
     }
 
@@ -704,6 +785,7 @@ impl Archetypes {
     /// [`TableId`] must exist in tables
     pub(crate) fn get_id_or_insert(
         &mut self,
+        components: &Components,
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
@@ -729,6 +811,7 @@ impl Archetypes {
                 let sparse_set_archetype_components =
                     (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
                 archetypes.push(Archetype::new(
+                    components,
                     id,
                     table_id,
                     table_components.into_iter().zip(table_archetype_components),

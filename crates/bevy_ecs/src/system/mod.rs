@@ -1442,7 +1442,7 @@ mod tests {
         let mut world = World::default();
         let mut system = IntoSystem::into_system(a_not_b_system);
         let mut expected_ids = HashSet::<ArchetypeComponentId>::new();
-        let a_id = world.init_component::<A>().id();
+        let a_id = world.init_component::<A>();
 
         // set up system and verify its access is empty
         system.initialize(&mut world);
