@@ -383,6 +383,36 @@ impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
     }
 }
 
+/// A spline interpolated linearly across nearest 2 points.
+pub struct LinearSpline<P: Point> {
+    points: Vec<P>,
+}
+impl<P: Point> LinearSpline<P> {
+    /// Create a new linear spline
+    pub fn new(points: impl Into<Vec<P>>) -> Self {
+        Self {
+            points: points.into(),
+        }
+    }
+}
+impl<P: Point> CubicGenerator<P> for LinearSpline<P> {
+    #[inline]
+    fn to_curve(&self) -> CubicCurve<P> {
+        let segments = self
+            .points
+            .windows(2)
+            .map(|points| {
+                let a = points[0];
+                let b = points[1];
+                CubicSegment {
+                    coeff: [a, b - a, P::default(), P::default()],
+                }
+            })
+            .collect();
+        CubicCurve { segments }
+    }
+}
+
 /// Implement this on cubic splines that can generate a curve from their spline parameters.
 pub trait CubicGenerator<P: Point> {
     /// Build a [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
