@@ -643,6 +643,22 @@ impl<P: Point> CubicCurve<P> {
     }
 }
 
+impl<P: Point> Extend<CubicSegment<P>> for CubicCurve<P> {
+    fn extend<T: IntoIterator<Item = CubicSegment<P>>>(&mut self, iter: T) {
+        self.segments.extend(iter)
+    }
+}
+
+impl<P: Point> IntoIterator for CubicCurve<P> {
+    type IntoIter = <Vec<CubicSegment<P>> as IntoIterator>::IntoIter;
+
+    type Item = CubicSegment<P>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments.into_iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use glam::{vec2, Vec2};
