@@ -6,7 +6,6 @@ use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
     render::{
-        camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -103,7 +102,7 @@ fn setup(
             camera: Camera {
                 // render before the "main pass" camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone()),
+                target: image_handle.clone().into(),
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
