@@ -104,6 +104,7 @@ impl CommandQueue {
     pub fn apply(&mut self, world: &mut World) {
         // flush the previously queued entities
         world.flush();
+        world.set_flushing(true);
 
         self.apply_or_drop_queued(Some(world));
     }
@@ -152,6 +153,7 @@ impl CommandQueue {
             cursor = unsafe { cursor.add(size) };
         }
 
+        world.set_flushing(false);
         world.flush_commands();
     }
 
@@ -160,6 +162,7 @@ impl CommandQueue {
         self.bytes.append(&mut other.bytes);
     }
 
+    /// Returns false if there are any commands in the queue
     pub fn is_empty(&self) -> bool {
         self.bytes.is_empty()
     }

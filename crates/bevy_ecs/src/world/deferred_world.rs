@@ -12,6 +12,8 @@ use crate::{
 
 use super::{Mut, World};
 
+/// An [`World`] reference that prevents structural ECS changes.
+/// This includes creating tables, registering components or spawning entities.
 pub struct DeferredWorld<'w> {
     world: &'w mut World,
 }
@@ -25,6 +27,7 @@ impl<'w> Deref for DeferredWorld<'w> {
 }
 
 impl<'w> DeferredWorld<'w> {
+    /// Creates a [`Commands`] instance that pushes to the world's command queue
     pub fn commands(&mut self) -> Commands {
         let world = self.world.as_unsafe_world_cell();
         unsafe { Commands::new(world.get_command_queue(), world.world()) }
@@ -253,6 +256,9 @@ impl<'w> DeferredWorld<'w> {
 }
 
 impl World {
+    /// Turn a [`World`] reference into a [`DeferredWorld`]
+    ///
+    /// Caller must ensure there are no outstanding references to the world's command queue, resource or component data
     #[inline]
     pub unsafe fn into_deferred(&self) -> DeferredWorld {
         DeferredWorld {

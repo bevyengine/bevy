@@ -183,24 +183,19 @@ impl World {
         WorldCell::new(self)
     }
 
-    pub fn register_component<T: Component>(&mut self) -> &mut ComponentInfo {
-        let type_id = TypeId::of::<T>();
-        assert!(self.components.get_id(type_id).is_none(), "Components cannot be registered twice, use init_component instead if this component may already exist in the world.");
-        let index = self.init_component::<T>();
-        // SAFETY: We just created this component
-        unsafe { self.components.get_info_mut(index) }
-    }
-
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn init_component<T: Component>(&mut self) -> ComponentId {
         self.components.init_component::<T>(&mut self.storages)
     }
 
-    pub fn register_component_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> &mut ComponentInfo {
-        let index = self.init_component_with_descriptor(descriptor);
+    /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
+    /// Primarily used for registering hooks.
+    ///
+    /// Will panic if a component for `T`` already exists.
+    pub fn register_component<T: Component>(&mut self) -> &mut ComponentInfo {
+        let type_id = TypeId::of::<T>();
+        assert!(self.components.get_id(type_id).is_none(), "Components cannot be registered twice, use init_component instead if this component may already exist in the world.");
+        let index = self.init_component::<T>();
         // SAFETY: We just created this component
         unsafe { self.components.get_info_mut(index) }
     }
@@ -220,6 +215,19 @@ impl World {
     ) -> ComponentId {
         self.components
             .init_component_with_descriptor(&mut self.storages, descriptor)
+    }
+
+    /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
+    /// Primarily used for registering hooks.
+    ///
+    /// Will panic if a component for `T`` already exists.
+    pub fn register_component_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> &mut ComponentInfo {
+        let index = self.init_component_with_descriptor(descriptor);
+        // SAFETY: We just created this component
+        unsafe { self.components.get_info_mut(index) }
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -1740,16 +1748,19 @@ impl World {
         }
     }
 
+    /// Attempts to apply the internal [`CommandQueue`] to self
+    /// Will do nothing if already flushing commands.
+    #[inline]
     pub fn flush_commands(&mut self) {
-        if !self.flushing_commands {
-            self.flushing_commands = true;
-            while !self.command_queue.is_empty() {
-                let mut commands = CommandQueue::default();
-                std::mem::swap(&mut commands, &mut self.command_queue);
-                commands.apply(self)
-            }
-            self.flushing_commands = false;
+        if !self.flushing_commands && !self.command_queue.is_empty() {
+            let mut commands = std::mem::take(&mut self.command_queue);
+            commands.apply(self);
         }
+    }
+
+    #[inline]
+    pub(crate) fn set_flushing(&mut self, state: bool) {
+        self.flushing_commands = state;
     }
 
     /// Increments the world's current change tick and returns the old value.
