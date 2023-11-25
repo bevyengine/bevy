@@ -616,6 +616,12 @@ impl<P: Point> CubicCurve<P> {
         self.iter_samples(subdivisions, Self::acceleration)
     }
 
+    #[inline]
+    /// Adds a segment to the curve
+    pub fn push_segment(&mut self, segment: CubicSegment<P>) {
+        self.segments.push(segment)
+    }
+
     /// Returns the [`CubicSegment`] and local `t` value given a spline's global `t` value.
     #[inline]
     fn segment(&self, t: f32) -> (&CubicSegment<P>, f32) {
