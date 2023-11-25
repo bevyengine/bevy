@@ -2,7 +2,7 @@
 //!
 //! It creates a in-game console for viewing logs.
 
-use bevy::log::{Level, LogEvent};
+use bevy::log::{Level, LogMessage};
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -36,10 +36,10 @@ fn setup(mut commands: Commands) {
 // This system reads all incoming logs and then outputs them to the `ConsoleText` entity
 fn log_system(
     mut query: Query<&mut Text, With<ConsoleText>>,
-    mut log_events: EventReader<LogEvent>,
+    mut log_messages: EventReader<LogMessage>,
 ) {
     let mut text = query.single_mut();
-    for LogEvent {
+    for LogMessage {
         message,
         name,
         target,
@@ -47,7 +47,7 @@ fn log_system(
         module_path,
         file,
         line,
-    } in log_events.read()
+    } in log_messages.read()
     {
         // This part is just pushing a bunch of `TextSection`s to the UI.
 

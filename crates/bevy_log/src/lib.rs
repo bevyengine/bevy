@@ -138,7 +138,7 @@ impl Plugin for LogPlugin {
         };
 
         app.insert_resource(log_events);
-        app.add_event::<LogEvent>();
+        app.add_event::<LogMessage>();
         app.add_systems(Update, transfer_log_events);
 
         let subscriber = Registry::default()
@@ -225,12 +225,12 @@ impl Plugin for LogPlugin {
     }
 }
 
-/// A [`tracing`](bevy_utils::tracing) log event.
+/// A [`tracing`](bevy_utils::tracing) log message event.
 ///
 /// This event is helpful for creating custom log viewing systems such as consoles and terminals.
-#[derive(Event, Debug)]
-pub struct LogEvent {
-    /// The message
+#[derive(Event, Debug, Clone)]
+pub struct LogMessage {
+    /// The message contents.
     pub message: String,
     /// The name of the span described by this metadata.
     pub name: &'static str,
@@ -255,21 +255,21 @@ pub struct LogEvent {
 }
 
 /// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](bevy_ecs::event::Events<LogEvent>).
-fn transfer_log_events(handler: Res<LogEvents>, mut log_events: EventWriter<LogEvent>) {
+fn transfer_log_events(handler: Res<LogEvents>, mut log_events: EventWriter<LogMessage>) {
     let events = &mut *handler.0.lock().unwrap();
     if !events.is_empty() {
         log_events.send_batch(std::mem::take(events));
     }
 }
 
-/// This struct temporarily stores [`LogEvent`]s before they are
-/// written to [`EventWriter<LogEvent>`] by [`transfer_log_events`].
+/// This struct temporarily stores [`LogMessage`]s before they are
+/// written to [`EventWriter<LogMessage>`] by [`transfer_log_events`].
 #[derive(Resource)]
-struct LogEvents(Arc<Mutex<Vec<LogEvent>>>);
+struct LogEvents(Arc<Mutex<Vec<LogMessage>>>);
 
 /// A [`Layer`] that captures log events and saves them to [`LogEvents`].
 struct LogEventLayer {
-    events: Arc<Mutex<Vec<LogEvent>>>,
+    events: Arc<Mutex<Vec<LogMessage>>>,
 }
 impl<S: Subscriber> Layer<S> for LogEventLayer {
     fn on_event(
@@ -281,7 +281,7 @@ impl<S: Subscriber> Layer<S> for LogEventLayer {
         event.record(&mut LogEventVisitor(&mut message));
         if let Some(message) = message {
             let metadata = event.metadata();
-            self.events.lock().unwrap().push(LogEvent {
+            self.events.lock().unwrap().push(LogMessage {
                 message,
                 name: metadata.name(),
                 target: metadata.target(),
