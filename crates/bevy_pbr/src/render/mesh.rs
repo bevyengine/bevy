@@ -10,7 +10,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{vec4, Affine3, Rect, Vec4};
+use bevy_math::{uvec2, vec4, Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
@@ -195,13 +195,21 @@ pub struct MeshUniform {
     // Affine 4x3 matrices transposed to 3x4
     pub transform: [Vec4; 3],
     pub previous_transform: [Vec4; 3],
-    pub lightmap_uv_rect: Vec4,
+    // Four 16-bit unsigned normalized UV values packed into a `UVec2`:
+    //
+    //                         <--- MSB                   LSB --->
+    //                         +---- min v ----+ +---- min u ----+
+    //     lightmap_uv_rect.x: vvvvvvvv vvvvvvvv uuuuuuuu uuuuuuuu,
+    //                         +---- max v ----+ +---- max u ----+
+    //     lightmap_uv_rect.y: VVVVVVVV VVVVVVVV UUUUUUUU UUUUUUUU,
+    //
+    // (MSB: most significant bit; LSB: least significant bit.)
+    pub lightmap_uv_rect: UVec2,
     // 3x3 matrix packed in mat2x4 and f32 as:
     //   [0].xyz, [1].x,
     //   [1].yz, [2].xy
     //   [2].z
     pub inverse_transpose_model_a: [Vec4; 2],
-    // TODO: This should be u16s.
     pub inverse_transpose_model_b: f32,
     pub flags: u32,
 }
@@ -214,8 +222,17 @@ impl MeshUniform {
             transform: mesh_transforms.transform.to_transpose(),
             previous_transform: mesh_transforms.previous_transform.to_transpose(),
             lightmap_uv_rect: match maybe_lightmap_uv_rect {
-                Some(rect) => vec4(rect.min.x, rect.min.y, rect.max.x, rect.max.y),
-                None => Vec4::ZERO,
+                Some(rect) => {
+                    let rect_uvec4 = (vec4(rect.min.x, rect.min.y, rect.max.x, rect.max.y)
+                        * 65535.0)
+                        .round()
+                        .as_uvec4();
+                    uvec2(
+                        rect_uvec4.x | (rect_uvec4.y << 16),
+                        rect_uvec4.z | (rect_uvec4.w << 16),
+                    )
+                }
+                None => UVec2::ZERO,
             },
             inverse_transpose_model_a,
             inverse_transpose_model_b,

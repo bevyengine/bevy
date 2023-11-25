@@ -3,15 +3,12 @@
 //!
 //! Bevy doesn't currently have any way to actually bake lightmaps, but they can
 //! be baked in an external tool like [Blender](http://blender.org), perhaps
-//! with an addon like [The Lightmapper].
-//!
-//! When a mesh is instanced, each instance typically needs a separate lightmap.
-//! In such circumstances, this plugin combines all of the mesh's lightmaps into
-//! a single texture array. To do this, it requires that all lightmaps attached
-//! to a mesh have the same size and texture format. A warning will be reported
-//! and some lightmaps will be ignored if this restriction isn't followed.
+//! with an addon like [The Lightmapper]. The tools in the [`bevy-baked-gi`]
+//! project support other lightmap baking methods.
 //!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
+//!
+//! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetId, Handle};
