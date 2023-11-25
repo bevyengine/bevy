@@ -50,7 +50,7 @@ fn log_system(
     } in log_events.read()
     {
         // This part is just pushing a bunch of `TextSection`s to the UI.
-        
+
         text.sections.push(TextSection {
             value: format!("file: `{file:?}`, line: {line:?} "),
             style: TextStyle {
