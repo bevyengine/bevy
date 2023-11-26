@@ -1149,7 +1149,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 .debug_checked_unwrap();
                             let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_table(&mut func, table, batch);
+                                .for_each_in_table_range(&mut func, table, batch);
                         });
                         offset += batch_size;
                     }
@@ -1173,7 +1173,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 world.archetypes().get(*archetype_id).debug_checked_unwrap();
                             let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_archetype(&mut func, archetype, batch);
+                                .for_each_in_archetype_range(&mut func, archetype, batch);
                         });
                         offset += batch_size;
                     }

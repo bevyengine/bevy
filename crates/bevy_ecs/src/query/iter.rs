@@ -40,15 +40,59 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         }
     }
 
-    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
+    /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
+    /// from an table.
+    ///
+    /// # Safety
+    ///  - all `rows` must be in `[0, table.entity_count)`.
+    ///  - `table` must match Q and F
+    ///  - Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    pub(super) unsafe fn for_each_in_table_range<Func>(
+        &mut self,
+        func: &mut Func,
+        table: &'w Table,
+        rows: Range<usize>,
+    ) where
+        Func: FnMut(Q::Item<'w>),
+    {
+        // Caller assures that Q::IS_DENSE and F::IS_DENSE are true, that table matches Q and F
+        // and all indicies in rows are in range.
+        unsafe {
+            self.fold_over_table_range((), &mut |_, item| func(item), table, rows);
+        }
+    }
+
+    /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
     /// from an archetype.
     ///
     /// # Safety
-    ///  - all `rows` must be in `[0, tables.entity_count)`.
+    ///  - all `indices` must be in `[0, archetype.len())`.
+    ///  - `archetype` must match Q and F
+    ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    pub(super) unsafe fn for_each_in_archetype_range<Func>(
+        &mut self,
+        func: &mut Func,
+        archetype: &'w Archetype,
+        rows: Range<usize>,
+    ) where
+        Func: FnMut(Q::Item<'w>),
+    {
+        // Caller assures that either Q::IS_DENSE or F::IS_DENSE are falsae, that archetype matches Q and F
+        // and all indicies in rows are in range.
+        unsafe {
+            self.fold_over_archetype_range((), &mut |_, item| func(item), archetype, rows);
+        }
+    }
+
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
+    /// from an table.
+    ///
+    /// # Safety
+    ///  - all `rows` must be in `[0, table.entity_count)`.
     ///  - `table` must match Q and F
     ///  - Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
     #[inline]
-    pub(super) unsafe fn fold_table<B, Func>(
+    pub(super) unsafe fn fold_over_table_range<B, Func>(
         &mut self,
         mut accum: B,
         func: &mut Func,
@@ -93,7 +137,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     ///  - `archetype` must match Q and F
     ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
-    pub(super) unsafe fn fold_archetype<B, Func>(
+    pub(super) unsafe fn fold_over_archetype_range<B, Func>(
         &mut self,
         mut accum: B,
         func: &mut Func,
@@ -182,8 +226,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(*table_id).debug_checked_unwrap() };
                 accum =
-                    // SAFETY: The fetched table matches the query
-                    unsafe { self.fold_table(accum, &mut func, table, 0..table.entity_count()) };
+                    // SAFETY: 
+                    // - The fetched table matches both Q and F
+                    // - The provided range is equivalent to [0, table.entity_count)
+                    // - The if block ensures that Q::IS_DENSE and F::IS_DENSE are both true
+                    unsafe { self.fold_over_table_range(accum, &mut func, table, 0..table.entity_count()) };
             }
         } else {
             for archetype_id in self.cursor.archetype_id_iter.clone() {
@@ -191,8 +238,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
                     // SAFETY: Matched archetype IDs are guaranteed to still exist.
                     unsafe { self.archetypes.get(*archetype_id).debug_checked_unwrap() };
                 accum =
-                    // SAFETY: The fetched archetype and table matches the query
-                    unsafe { self.fold_archetype(accum, &mut func, archetype, 0..archetype.len()) };
+                    // SAFETY:
+                    // - The fetched archetype matches both Q and F
+                    // - The provided range is equivalent to [0, archetype.len)
+                    // - The if block ensures that ether Q::IS_DENSE or F::IS_DENSE are false
+                    unsafe { self.fold_over_archetype_range(accum, &mut func, archetype, 0..archetype.len()) };
             }
         }
         accum
