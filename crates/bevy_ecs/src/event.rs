@@ -749,8 +749,30 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
-/// A system that calls [`Events::update`] once per frame.
-pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
+#[doc(hidden)]
+#[derive(Resource, Default)]
+pub struct EventUpdateSignal(bool);
+
+/// A system that queues a call to [`Events::update`].
+pub fn event_queue_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
+    if let Some(mut s) = signal {
+        s.0 = true;
+    }
+}
+
+/// A system that calls [`Events::update`].
+pub fn event_update_system<T: Event>(
+    signal: Option<ResMut<EventUpdateSignal>>,
+    mut events: ResMut<Events<T>>,
+) {
+    if let Some(mut s) = signal {
+        // If we haven't got a signal to update the events, but we *could* get such a signal
+        // return early and update the events later.
+        if !std::mem::replace(&mut s.0, false) {
+            return;
+        }
+    }
+
     events.update();
 }
 
