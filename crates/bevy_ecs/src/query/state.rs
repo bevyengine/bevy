@@ -1032,7 +1032,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[inline]
     #[deprecated(
         since = "0.13.0",
-        note = "QueryState::for_each_mut was not idiomatic Rust and has been moved to query.iter().for_each_mut()"
+        note = "QueryState::for_each_mut was not idiomatic Rust and has been moved to query.iter_mut().for_each()"
     )]
     pub fn for_each_mut<'w, FN: FnMut(Q::Item<'w>)>(&mut self, world: &'w mut World, func: FN) {
         self.iter_mut(world).for_each(func);
