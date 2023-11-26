@@ -57,7 +57,7 @@ impl CommandQueue {
 
         let meta = CommandMeta {
             consume_command_and_get_size: |command, world| {
-                // SAFETY: According to the invariants of `CommandMeta.apply_command_and_get_size`,
+                // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
                 match world {
@@ -98,15 +98,20 @@ impl CommandQueue {
         }
     }
 
+    /// Execute the queued [`Command`]s in the world.
+    /// This clears the queue.
+    #[inline]
+    pub fn apply(&mut self, world: &mut World) {
+        // flush the previously queued entities
+        world.flush();
+
+        self.apply_maybe_world(Some(world));
+    }
+
     /// Execute or discard the queued [commands](`Command`).
     /// This clears the queue.
     #[inline]
-    fn apply_maybe_world(&mut self, world: &mut Option<&mut World>) {
-        // flush the previously queued entities
-        if let Some(world) = world {
-            world.flush();
-        }
-
+    fn apply_maybe_world(&mut self, mut world: Option<&mut World>) {
         // The range of pointers of the filled portion of `self.bytes`.
         let bytes_range = self.bytes.as_mut_ptr_range();
 
@@ -137,7 +142,7 @@ impl CommandQueue {
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
             // since they were stored next to each other by `.push()`.
             // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-            let size = unsafe { (meta.consume_command_and_get_size)(cmd, world) };
+            let size = unsafe { (meta.consume_command_and_get_size)(cmd, &mut world) };
             // Advance the cursor past the command. For ZSTs, the cursor will not move.
             // At this point, it will either point to the next `CommandMeta`,
             // or the cursor will be out of bounds and the loop will end.
@@ -151,18 +156,11 @@ impl CommandQueue {
     pub fn append(&mut self, other: &mut CommandQueue) {
         self.bytes.append(&mut other.bytes);
     }
-
-    /// Execute the queued [`Command`]s in the world.
-    /// This clears the queue.
-    #[inline]
-    pub fn apply(&mut self, world: &mut World) {
-        self.apply_maybe_world(&mut Some(world));
-    }
 }
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
-        self.apply_maybe_world(&mut None);
+        self.apply_maybe_world(None);
     }
 }
 
