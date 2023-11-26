@@ -567,8 +567,12 @@ impl<'w> UnsafeWorldCell<'w> {
             .get_with_ticks()
     }
 
+    // Returns a mutable reference to worlds internal [`CommandQueue`]
+    /// # Safety
+    /// It is the callers responsibility to ensure that no mutable references exist to the command queue at the same time
     #[inline]
     pub(crate) unsafe fn get_command_queue(self) -> &'w mut CommandQueue {
+        // SAFETY: caller ensures there is no `&mut World`
         let world = unsafe { &mut *self.0 };
         &mut world.command_queue
     }

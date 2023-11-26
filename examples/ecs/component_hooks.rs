@@ -30,7 +30,7 @@ fn setup(world: &mut World) {
             );
             let mut index = world.resource_mut::<MyComponentIndex>();
             index.remove(&entity);
-            println!("Current index: {:?}", *index)
+            println!("Current index: {:?}", *index);
         });
 }
 
