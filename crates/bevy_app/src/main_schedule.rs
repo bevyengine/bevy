@@ -27,22 +27,26 @@ use bevy_ecs::{
 pub struct Main;
 
 /// The schedule that runs before [`Startup`].
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PreStartup;
 
 /// The schedule that runs once when the app starts.
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Startup;
 
 /// The schedule that runs once after [`Startup`].
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PostStartup;
 
 /// Runs first in the schedule.
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct First;
 
@@ -53,17 +57,19 @@ pub struct First;
 /// [`PreUpdate`] exists to do "engine/plugin preparation work" that ensures the APIs consumed in [`Update`] are "ready".
 /// [`PreUpdate`] abstracts out "pre work implementation details".
 ///
-/// This is run by the [`Main`] schedule.
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PreUpdate;
 
 /// Runs [state transitions](bevy_ecs::schedule::States).
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
 /// Runs the [`FixedUpdate`] schedule in a loop according until all relevant elapsed time has been "consumed".
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RunFixedUpdateLoop;
 
@@ -74,16 +80,20 @@ pub struct RunFixedUpdateLoop;
 ///
 /// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdate;
 
 /// The schedule that contains app logic.
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Update;
 
 /// The schedule that contains scene spawning.
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SpawnScene;
 
@@ -94,12 +104,13 @@ pub struct SpawnScene;
 /// [`PostUpdate`] exists to do "engine/plugin response work" to things that happened in [`Update`].
 /// [`PostUpdate`] abstracts out "implementation details" from users defining systems in [`Update`].
 ///
-/// This is run by the [`Main`] schedule.
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PostUpdate;
 
 /// Runs last in the schedule.
-/// This is run by the [`Main`] schedule.
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
 

@@ -598,10 +598,6 @@ impl Typed for AssetPath<'static> {
 }
 impl Reflect for AssetPath<'static> {
     #[inline]
-    fn type_name(&self) -> &str {
-        ::core::any::type_name::<Self>()
-    }
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
     }

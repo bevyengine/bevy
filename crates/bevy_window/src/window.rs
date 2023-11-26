@@ -95,8 +95,29 @@ impl NormalizedWindowRef {
 /// When the [`Window`] component is added to an entity, a new window will be opened.
 /// When it is removed or the entity is despawned, the window will close.
 ///
+/// The primary window entity (and the corresponding window) is spawned by default
+/// by [`WindowPlugin`](crate::WindowPlugin) and is marked with the [`PrimaryWindow`] component.
+///
 /// This component is synchronized with `winit` through `bevy_winit`:
 /// it will reflect the current state of the window and can be modified to change this state.
+///
+/// # Example
+///
+/// Because this component is synchronized with `winit`, it can be used to perform
+/// OS-integrated windowing operations. For example, here's a simple system
+/// to change the cursor type:
+///
+/// ```
+/// # use bevy_ecs::query::With;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_window::{CursorIcon, PrimaryWindow, Window};
+/// fn change_cursor(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+///     // Query returns one window typically.
+///     for mut window in windows.iter_mut() {
+///         window.cursor.icon = CursorIcon::Wait;
+///     }
+/// }
+/// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
