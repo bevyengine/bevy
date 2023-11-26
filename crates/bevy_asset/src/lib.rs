@@ -78,6 +78,12 @@ pub struct AssetPlugin {
     /// Most use cases should leave this set to [`None`] and enable a specific watcher feature such as `file_watcher` to enable
     /// watching for dev-scenarios.
     pub watch_for_changes_override: Option<bool>,
+    /// If set, will override the default "start asset processor" setting. By default "start asset processor" will be `false` unless
+    /// the `asset_processor` cargo feature is set in which case it will be true by default.
+    ///
+    /// Most use cases should leave this set to [`None`] and enable the `asset_processor` cargo feature to enable on a per-build basis
+    /// unless the capability is needed to be toggleable at runtime.
+    pub start_asset_processor_override: Option<bool>,
     /// The [`AssetMode`] to use for this server.
     pub mode: AssetMode,
 }
@@ -98,7 +104,7 @@ pub enum AssetMode {
     ///
     /// When developing an app, you should enable the `asset_processor` cargo feature, which will run the asset processor at startup. This should generally
     /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
-    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.  
+    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.
     ///
     /// [`AssetMeta`]: crate::meta::AssetMeta
     /// [`AssetSource`]: crate::io::AssetSource
@@ -113,6 +119,7 @@ impl Default for AssetPlugin {
             file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
+            start_asset_processor_override: None,
         }
     }
 }
@@ -157,22 +164,34 @@ impl Plugin for AssetPlugin {
                 AssetMode::Processed => {
                     #[cfg(feature = "asset_processor")]
                     {
-                        let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
-                        let processor = AssetProcessor::new(&mut builders);
-                        let mut sources = builders.build_sources(false, watch);
-                        sources.gate_on_processor(processor.data.clone());
-                        // the main asset server shares loaders with the processor asset server
-                        app.insert_resource(AssetServer::new_with_loaders(
-                            sources,
-                            processor.server().data.loaders.clone(),
-                            AssetServerMode::Processed,
-                            watch,
-                        ))
-                        .insert_resource(processor)
-                        .add_systems(bevy_app::Startup, AssetProcessor::start);
+                        if self.start_asset_processor_override.unwrap_or(true) {
+                            let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                            let processor = AssetProcessor::new(&mut builders);
+                            let mut sources = builders.build_sources(false, watch);
+                            sources.gate_on_processor(processor.data.clone());
+                            // the main asset server shares loaders with the processor asset server
+                            app.insert_resource(AssetServer::new_with_loaders(
+                                sources,
+                                processor.server().data.loaders.clone(),
+                                AssetServerMode::Processed,
+                                watch,
+                            ))
+                            .insert_resource(processor)
+                            .add_systems(bevy_app::Startup, AssetProcessor::start);
+                        } else {
+                            let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                            let sources = builders.build_sources(false, watch);
+                            app.insert_resource(AssetServer::new(
+                                sources,
+                                AssetServerMode::Processed,
+                                watch,
+                            ));
+                        }
                     }
                     #[cfg(not(feature = "asset_processor"))]
                     {
+                        // avoid unused warning as this configuration is unused when the `asset`processor is not compiled in
+                        let _ = self.start_asset_processor_override;
                         let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new(
