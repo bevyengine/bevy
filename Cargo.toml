@@ -2137,6 +2137,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "color_picker"
+path = "examples/ui/color_picker.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_picker]
+name = "Color Picker"
+description = "Illustrates color picking"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 doc-scrape-examples = true

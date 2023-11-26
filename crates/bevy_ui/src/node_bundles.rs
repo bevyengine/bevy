@@ -3,9 +3,9 @@
 #[cfg(feature = "bevy_text")]
 use crate::widget::TextFlags;
 use crate::{
-    widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiMaterial, UiTextureAtlasImage, ZIndex,
+    widget::{self, Button, UiImageSize},
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node,
+    RelativeCursorPosition, Style, UiImage, UiMaterial, UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -391,6 +391,114 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
             z_index: Default::default(),
+        }
+    }
+}
+
+/// A UI node that is rendered using a [`widget::HueWheelMaterial`].
+///
+/// Normal use is to add this bundle to a common parent alongside [`SaturationValueBoxBundle`].
+///
+/// NOTE: If a material handle is not given, nothing will render.
+#[derive(Bundle, Clone, Debug, Default)]
+pub struct HueWheelBundle {
+    /// Marks the entity as a hue wheel
+    pub marker: widget::HueWheel,
+    /// Describes the logical size of the node
+    pub node: Node,
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
+    pub style: Style,
+    /// Describes whether and how the button has been interacted with by the input
+    pub interaction: Interaction,
+    /// Allows getting a relative cursor position within this node
+    pub relative_cursor_position: RelativeCursorPosition,
+    /// The [`widget::HueWheelMaterial`] used to render the node.
+    pub material: Handle<widget::HueWheelMaterial>,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
+}
+
+/// A UI node that is rendered using a [`widget::SaturationValueBoxMaterial`].
+///
+/// Normal use is to add this bundle to a common parent alongside [`HueWheelBundle`].
+///
+/// NOTE: If a material handle is not given, nothing will render.
+#[derive(Bundle, Clone, Debug)]
+pub struct SaturationValueBoxBundle {
+    /// Marks the entity as a hue wheel
+    pub marker: widget::SaturationValueBox,
+    /// Describes the logical size of the node
+    pub node: Node,
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
+    pub style: Style,
+    /// Describes whether and how the button has been interacted with by the input
+    pub interaction: Interaction,
+    /// Allows getting a relative cursor position within this node
+    pub relative_cursor_position: RelativeCursorPosition,
+    /// The [`widget::SaturationValueBoxMaterial`] used to render the node.
+    pub material: Handle<widget::SaturationValueBoxMaterial>,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
+}
+
+impl Default for SaturationValueBoxBundle {
+    fn default() -> Self {
+        Self {
+            node: Default::default(),
+            style: Default::default(),
+            interaction: Default::default(),
+            relative_cursor_position: Default::default(),
+            material: Default::default(),
+
+            // By default it's expected that the box is in front of the hue wheel,
+            // and passing events through creates extra wasted work.
+            focus_policy: FocusPolicy::Block,
+
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
+            z_index: Default::default(),
+            marker: Default::default(),
         }
     }
 }

@@ -192,6 +192,8 @@ impl Plugin for UiPlugin {
         );
 
         build_ui_render(app);
+
+        app.add_plugins(widget::ColorPickerPlugin);
     }
 
     fn finish(&self, app: &mut App) {
