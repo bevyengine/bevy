@@ -545,7 +545,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut world = World::default();
         let mut node_index_to_entity_map = HashMap::new();
         let mut entity_to_skin_index_map = HashMap::new();
-
+        let mut scene_load_context = load_context.begin_labeled_asset();
         world
             .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
@@ -554,6 +554,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         &node,
                         parent,
                         load_context,
+                        &mut scene_load_context,
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
@@ -606,8 +607,8 @@ async fn load_gltf<'a, 'b, 'c>(
                 joints: joint_entities,
             });
         }
-
-        let scene_handle = load_context.add_labeled_asset(scene_label(&scene), Scene::new(world));
+        let loaded_scene = scene_load_context.finish(Scene::new(world), None);
+        let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.to_string(), scene_handle.clone());
@@ -856,6 +857,7 @@ fn load_material(
 fn load_node(
     gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
+    root_load_context: &LoadContext,
     load_context: &mut LoadContext,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
@@ -942,7 +944,9 @@ fn load_node(
                 // added when iterating over all the gltf materials (since the default material is
                 // not explicitly listed in the gltf).
                 // It also ensures an inverted scale copy is instantiated if required.
-                if !load_context.has_labeled_asset(&material_label) {
+                if !root_load_context.has_labeled_asset(&material_label)
+                    && !load_context.has_labeled_asset(&material_label)
+                {
                     load_material(&material, load_context, is_scale_inverted);
                 }
 
@@ -1074,6 +1078,7 @@ fn load_node(
             if let Err(err) = load_node(
                 &child,
                 parent,
+                root_load_context,
                 load_context,
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
