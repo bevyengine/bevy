@@ -167,7 +167,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::Keyframes;
+        use bevy_animation::{Interpolation, Keyframes};
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
         let mut named_animations = HashMap::default();
@@ -175,12 +175,10 @@ async fn load_gltf<'a, 'b, 'c>(
         for animation in gltf.animations() {
             let mut animation_clip = bevy_animation::AnimationClip::default();
             for channel in animation.channels() {
-                match channel.sampler().interpolation() {
-                    gltf::animation::Interpolation::Linear => (),
-                    other => warn!(
-                        "Animation interpolation {:?} is not supported, will use linear",
-                        other
-                    ),
+                let interpolation = match channel.sampler().interpolation() {
+                    gltf::animation::Interpolation::Linear => Interpolation::Linear,
+                    gltf::animation::Interpolation::Step => Interpolation::Step,
+                    gltf::animation::Interpolation::CubicSpline => Interpolation::CubicSpline,
                 };
                 let node = channel.target().node();
                 let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
@@ -226,6 +224,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         bevy_animation::VariableCurve {
                             keyframe_timestamps,
                             keyframes,
+                            interpolation,
                         },
                     );
                 } else {
