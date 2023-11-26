@@ -754,7 +754,7 @@ fn apply_animation(
                             lerp,
                             ts_end - ts_start,
                         );
-                        transform.rotation = transform.rotation.lerp(result.normalize(), weight);
+                        transform.rotation = transform.rotation.slerp(result.normalize(), weight);
                     }
                     (Interpolation::Step, Keyframes::Translation(keyframes)) => {
                         transform.translation =
