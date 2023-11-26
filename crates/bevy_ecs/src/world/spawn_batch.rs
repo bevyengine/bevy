@@ -51,7 +51,9 @@ where
     I::Item: Bundle,
 {
     fn drop(&mut self) {
-        for _ in self {}
+        for _ in &mut *self {}
+        // SAFETY: `self.spawner` will be dropped immediately after this call.
+        unsafe { self.spawner.flush_commands() };
     }
 }
 

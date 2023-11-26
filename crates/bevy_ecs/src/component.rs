@@ -203,11 +203,23 @@ pub enum StorageType {
     SparseSet,
 }
 
+/// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
+pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
+
+/// Lifecycle hooks for a given [`Component`], stored in it's [`ComponentInfo`]
+#[derive(Debug, Clone, Default)]
+pub struct ComponentHooks {
+    pub(crate) on_add: Option<ComponentHook>,
+    pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_remove: Option<ComponentHook>,
+}
+
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
+    hooks: ComponentHooks,
 }
 
 impl ComponentInfo {
@@ -263,26 +275,34 @@ impl ComponentInfo {
 
     /// Create a new [`ComponentInfo`].
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo { id, descriptor }
+        ComponentInfo {
+            id,
+            descriptor,
+            hooks: ComponentHooks::default(),
+        }
     }
 
+    /// Register a [`ComponentHook`] that will be run when this component is added to an entity
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
-        self.descriptor.hooks.on_add = Some(hook);
+        self.hooks.on_add = Some(hook);
         self
     }
 
+    /// Register a [`ComponentHook`] that will be run when this component is added or set by `.insert`
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
-        self.descriptor.hooks.on_insert = Some(hook);
+        self.hooks.on_insert = Some(hook);
         self
     }
 
+    /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
-        self.descriptor.hooks.on_remove = Some(hook);
+        self.hooks.on_remove = Some(hook);
         self
     }
 
+    /// Update the given flags to include any [`ComponentHook`] registered to self
     #[inline]
-    pub fn update_archetype_flags(&self, flags: &mut ArchetypeFlags) {
+    pub(crate) fn update_archetype_flags(&self, flags: &mut ArchetypeFlags) {
         if self.hooks().on_add.is_some() {
             flags.insert(ArchetypeFlags::ON_ADD_HOOK);
         }
@@ -294,8 +314,9 @@ impl ComponentInfo {
         }
     }
 
+    /// Provides a reference to the collection of hooks associated with this [`Component`]
     pub fn hooks(&self) -> &ComponentHooks {
-        &self.descriptor.hooks
+        &self.hooks
     }
 }
 
@@ -352,15 +373,6 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
-pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
-
-#[derive(Clone, Default)]
-pub struct ComponentHooks {
-    pub(crate) on_add: Option<ComponentHook>,
-    pub(crate) on_insert: Option<ComponentHook>,
-    pub(crate) on_remove: Option<ComponentHook>,
-}
-
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
@@ -373,7 +385,6 @@ pub struct ComponentDescriptor {
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
-    hooks: ComponentHooks,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
@@ -407,7 +418,6 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            hooks: ComponentHooks::default(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
@@ -429,7 +439,6 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: None,
             layout,
-            hooks: ComponentHooks::default(),
             drop,
         }
     }
@@ -446,7 +455,6 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            hooks: ComponentHooks::default(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
@@ -458,7 +466,6 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            hooks: ComponentHooks::default(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }

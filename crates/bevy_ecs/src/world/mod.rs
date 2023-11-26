@@ -15,7 +15,7 @@ pub use world_cell::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
-    bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles},
+    bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
@@ -189,7 +189,7 @@ impl World {
     /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
     /// Primarily used for registering hooks.
     ///
-    /// Will panic if a component for `T`` already exists.
+    /// Will panic if a component for `T` already exists.
     pub fn register_component<T: Component>(&mut self) -> &mut ComponentInfo {
         let type_id = TypeId::of::<T>();
         assert!(self.components.get_id(type_id).is_none(), "Components cannot be registered twice, use init_component instead if this component may already exist in the world.");
@@ -218,7 +218,7 @@ impl World {
     /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
     /// Primarily used for registering hooks.
     ///
-    /// Will panic if a component for `T`` already exists.
+    /// Will panic if a component for `T` already exists.
     pub fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -1454,9 +1454,11 @@ impl World {
 
         let change_tick = self.change_tick();
 
-        let bundle_info = self
+        let bundle_id = self
             .bundles
             .init_info::<B>(&mut self.components, &mut self.storages);
+        // SAFETY: We just ensured this bundle exists
+        let bundle_info = unsafe { self.bundles.get_unchecked(bundle_id) };
         enum SpawnOrInsert<'w> {
             Spawn(BundleSpawner<'w>),
             Insert(BundleInserter<'w>, ArchetypeId),
@@ -1470,10 +1472,11 @@ impl World {
                 }
             }
         }
-        let bundle_info: *const BundleInfo = bundle_info;
-        let mut spawn_or_insert = SpawnOrInsert::Spawn(unsafe {
-            BundleSpawner::new_with_info(self, bundle_info, change_tick)
-        });
+        let mut spawn_or_insert = SpawnOrInsert::Spawn(BundleSpawner::new_with_info(
+            self.as_unsafe_world_cell_readonly(),
+            bundle_info,
+            change_tick,
+        ));
 
         let mut invalid_entities = Vec::new();
         for (entity, bundle) in iter {
@@ -1490,14 +1493,12 @@ impl World {
                             unsafe { inserter.insert(entity, location, bundle) };
                         }
                         _ => {
-                            let mut inserter = unsafe {
-                                BundleInserter::new_with_info(
-                                    self,
-                                    location.archetype_id,
-                                    bundle_info,
-                                    change_tick,
-                                )
-                            };
+                            let mut inserter = BundleInserter::new_with_info(
+                                self.as_unsafe_world_cell_readonly(),
+                                location.archetype_id,
+                                bundle_info,
+                                change_tick,
+                            );
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                             unsafe { inserter.insert(entity, location, bundle) };
                             spawn_or_insert =
@@ -1510,8 +1511,11 @@ impl World {
                         // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
                     } else {
-                        let mut spawner =
-                            unsafe { BundleSpawner::new_with_info(self, bundle_info, change_tick) };
+                        let mut spawner = BundleSpawner::new_with_info(
+                            self.as_unsafe_world_cell_readonly(),
+                            bundle_info,
+                            change_tick,
+                        );
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);

@@ -299,8 +299,11 @@ struct ArchetypeComponentInfo {
 }
 
 bitflags::bitflags! {
+    /// Flags used to keep track of metadata about the component in this [`Archetype`]
+    ///
+    /// Used primarily to early-out when there are no [`ComponentHook`] registered for any contained components.
     #[derive(Clone, Copy)]
-    pub struct ArchetypeFlags: u32 {
+    pub(crate) struct ArchetypeFlags: u32 {
         const ON_ADD_HOOK    = (1 << 0);
         const ON_INSERT_HOOK = (1 << 1);
         const ON_REMOVE_HOOK = (1 << 2);
@@ -375,8 +378,9 @@ impl Archetype {
         self.id
     }
 
+    /// Fetches the flags for the archetype.
     #[inline]
-    pub fn flags(&self) -> ArchetypeFlags {
+    pub(crate) fn flags(&self) -> ArchetypeFlags {
         self.flags
     }
 
@@ -561,16 +565,19 @@ impl Archetype {
         self.entities.clear();
     }
 
+    /// Returns true if any of the components in this archetype have `on_add` hooks
     #[inline]
     pub fn has_on_add(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_HOOK)
     }
 
+    /// Returns true if any of the components in this archetype have `on_insert` hooks
     #[inline]
     pub fn has_on_insert(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
     }
 
+    /// Returns true if any of the components in this archetype have `on_remove` hooks
     #[inline]
     pub fn has_on_remove(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK)
