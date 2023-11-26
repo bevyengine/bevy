@@ -55,7 +55,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     ) where
         Func: FnMut(Q::Item<'w>),
     {
-        // Caller assures that Q::IS_DENSE and F::IS_DENSE are true, that table matches Q and F
+        // SAFETY: Caller assures that Q::IS_DENSE and F::IS_DENSE are true, that table matches Q and F
         // and all indicies in rows are in range.
         unsafe {
             self.fold_over_table_range((), &mut |_, item| func(item), table, rows);
@@ -77,7 +77,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     ) where
         Func: FnMut(Q::Item<'w>),
     {
-        // Caller assures that either Q::IS_DENSE or F::IS_DENSE are falsae, that archetype matches Q and F
+        // SAFETY: Caller assures that either Q::IS_DENSE or F::IS_DENSE are falsae, that archetype matches Q and F
         // and all indicies in rows are in range.
         unsafe {
             self.fold_over_archetype_range((), &mut |_, item| func(item), archetype, rows);
