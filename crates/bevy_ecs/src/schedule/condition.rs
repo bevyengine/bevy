@@ -13,6 +13,22 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// Implemented for functions and closures that convert into [`System<Out=bool>`](crate::system::System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
 ///
+/// # Marker type parameter
+///
+/// `Condition` trait has `Marker` type parameter, which has no special meaning,
+/// but exists to work around the limitation of Rust's trait system.
+///
+/// Type parameter in return type can be omitted by calling [`IntoSystem::into_system`],
+/// but usually have to be specified when passing a condition to a function.
+///
+/// ```
+/// # use bevy_ecs::schedule::Condition;
+/// # use bevy_ecs::system::IntoSystem;
+/// fn not_condition<Marker>(a: impl Condition<Marker>) -> impl Condition {
+///    IntoSystem::into_system(a.map(|x| !x))
+/// }
+/// ```
+///
 /// # Examples
 /// A condition that returns true every other time it's called.
 /// ```
