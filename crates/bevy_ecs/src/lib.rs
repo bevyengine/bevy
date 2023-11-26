@@ -29,6 +29,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
     #[doc(hidden)]
+    #[allow(deprecated)] // Remove after `apply_state_transition` removed.
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -38,9 +39,10 @@ pub mod prelude {
         query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_deferred, apply_state_transition, common_conditions::*, Condition,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
-            OnTransition, Schedule, Schedules, State, States, SystemSet,
+            apply_deferred, apply_state_transition, apply_state_transition_systems,
+            common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
+            IntoSystemSetConfigs, NextState, OnEnter, OnExit, OnTransition, Schedule, Schedules,
+            State, StateTransitionSet, States, SystemSet,
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,

@@ -1,11 +1,13 @@
 use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
+use bevy_ecs::schedule::{
+    apply_state_transition_systems, common_conditions, run_enter_schedule, StateTransitionSet,
+};
 use bevy_ecs::{
     prelude::*,
     schedule::{
-        apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel,
+        InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, ScheduleBuildSettings,
+        ScheduleLabel,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -14,6 +16,7 @@ use std::{
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
 
+use bevy_ecs::schedule::PrevState;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -355,28 +358,39 @@ impl App {
         self.plugins_state = PluginsState::Cleaned;
     }
 
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
-    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
-    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
-    /// initial state.
+    /// Set up resources, schedules and systems supporting state transitions.
+    ///
+    /// Adds [`State<S>`], [`NextState<S>`], [`PrevState<S>`] resources,
+    /// [`OnEnter`], [`OnTransition`], [`OnExit`] schedules,
+    /// and [`apply_state_transition_systems`] systems
+    /// so that transitions happen before [`Update`](crate::Update).
     ///
     /// If you would like to control how other systems run based on the current state,
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by adding the [`apply_state_transition`] system manually.
     pub fn add_state<S: States>(&mut self) -> &mut Self {
         self.init_resource::<State<S>>()
             .init_resource::<NextState<S>>()
+            .init_resource::<PrevState<S>>()
+            .configure_sets(
+                StateTransition,
+                (
+                    StateTransitionSet::RunEnterOnce,
+                    StateTransitionSet::BeforeTransition,
+                    StateTransitionSet::OnExit,
+                    StateTransitionSet::OnTransition,
+                    StateTransitionSet::OnEnter,
+                    StateTransitionSet::AfterTransition,
+                )
+                    .chain(),
+            )
             .add_systems(
                 StateTransition,
                 (
-                    run_enter_schedule::<S>.run_if(run_once_condition()),
-                    apply_state_transition::<S>,
-                )
-                    .chain(),
+                    run_enter_schedule::<S>
+                        .run_if(common_conditions::run_once())
+                        .in_set(StateTransitionSet::RunEnterOnce),
+                    apply_state_transition_systems::<S>(),
+                ),
             );
 
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
@@ -992,15 +1006,19 @@ fn run_once(mut app: App) {
 pub struct AppExit;
 
 #[cfg(test)]
+#[allow(deprecated)] // apply_state_transition
 mod tests {
     use std::marker::PhantomData;
 
+    use bevy_ecs::prelude::{apply_state_transition, NextState, OnExit};
+    use bevy_ecs::schedule::{PrevState, State};
+    use bevy_ecs::system::{Res, ResMut, Resource, SystemParam, SystemState};
     use bevy_ecs::{
         schedule::{OnEnter, States},
         system::Commands,
     };
 
-    use crate::{App, Plugin};
+    use crate::{App, Plugin, StateTransition};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1225,5 +1243,167 @@ mod tests {
             .set_runner(my_runner)
             .add_systems(PreUpdate, my_system)
             .run();
+    }
+
+    #[test]
+    fn test_all_on_exit_executed_before_all_on_enter() {
+        #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+        enum State1 {
+            #[default]
+            A,
+            B,
+        }
+        #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+        enum State2 {
+            #[default]
+            C,
+            D,
+        }
+
+        #[derive(Resource, Default)]
+        struct TestRes {
+            a_exit_ran: bool,
+            b_enter_ran: bool,
+            c_exit_ran: bool,
+            d_enter_ran: bool,
+        }
+
+        #[derive(SystemParam)]
+        struct AllStates<'w> {
+            state1: Res<'w, State<State1>>,
+            state1_prev: Res<'w, PrevState<State1>>,
+            state1_next: Res<'w, NextState<State1>>,
+            state2: Res<'w, State<State2>>,
+            state2_prev: Res<'w, PrevState<State2>>,
+            state2_next: Res<'w, NextState<State2>>,
+        }
+
+        impl<'w> AllStates<'w> {
+            /// For each system for each state, all resources should be the same.
+            fn assert_all_states(&self) {
+                assert_eq!(State1::B, *self.state1.get());
+                assert_eq!(Some(State1::A), self.state1_prev.0);
+                assert_eq!(None, self.state1_next.0);
+                assert_eq!(State2::D, *self.state2.get());
+                assert_eq!(Some(State2::C), self.state2_prev.0);
+                assert_eq!(None, self.state2_next.0);
+            }
+        }
+
+        let mut app = App::new();
+        app.init_resource::<TestRes>();
+        assert!(!app.world.get_resource::<TestRes>().unwrap().a_exit_ran);
+
+        app.add_state::<State1>();
+        app.add_state::<State2>();
+
+        assert!(!app.world.get_resource::<TestRes>().unwrap().a_exit_ran);
+        app.add_systems(
+            OnExit(State1::A),
+            |mut res: ResMut<TestRes>, all_states: AllStates| {
+                assert!(!res.b_enter_ran);
+                assert!(!res.d_enter_ran);
+                assert!(!res.a_exit_ran);
+                res.a_exit_ran = true;
+
+                all_states.assert_all_states();
+            },
+        );
+        app.add_systems(
+            OnExit(State2::C),
+            |mut res: ResMut<TestRes>, all_states: AllStates| {
+                assert!(!res.b_enter_ran);
+                assert!(!res.d_enter_ran);
+                assert!(!res.c_exit_ran);
+                res.c_exit_ran = true;
+
+                all_states.assert_all_states();
+            },
+        );
+        app.add_systems(
+            OnEnter(State1::B),
+            |mut res: ResMut<TestRes>, all_states: AllStates| {
+                assert!(res.a_exit_ran);
+                assert!(res.c_exit_ran);
+                assert!(!res.b_enter_ran);
+                res.b_enter_ran = true;
+
+                all_states.assert_all_states();
+            },
+        );
+        app.add_systems(
+            OnEnter(State2::D),
+            |mut res: ResMut<TestRes>, all_states: AllStates| {
+                assert!(res.a_exit_ran);
+                assert!(res.c_exit_ran);
+                assert!(!res.d_enter_ran);
+                res.d_enter_ran = true;
+
+                all_states.assert_all_states();
+            },
+        );
+
+        app.world.run_schedule(StateTransition);
+        assert!(!app.world.get_resource::<TestRes>().unwrap().a_exit_ran);
+        assert!(!app.world.get_resource::<TestRes>().unwrap().b_enter_ran);
+        assert!(!app.world.get_resource::<TestRes>().unwrap().c_exit_ran);
+        assert!(!app.world.get_resource::<TestRes>().unwrap().d_enter_ran);
+
+        app.world.resource_mut::<NextState<State1>>().set(State1::B);
+        app.world.resource_mut::<NextState<State2>>().set(State2::D);
+
+        app.world.run_schedule(StateTransition);
+        assert!(app.world.get_resource::<TestRes>().unwrap().a_exit_ran);
+        assert!(app.world.get_resource::<TestRes>().unwrap().b_enter_ran);
+        assert!(app.world.get_resource::<TestRes>().unwrap().c_exit_ran);
+        assert!(app.world.get_resource::<TestRes>().unwrap().d_enter_ran);
+
+        let states = SystemState::<AllStates>::new(&mut app.world).get(&app.world);
+        assert_eq!(State1::B, *states.state1.get());
+        assert_eq!(None, states.state1_prev.0);
+        assert_eq!(None, states.state1_next.0);
+        assert_eq!(State2::D, *states.state2.get());
+        assert_eq!(None, states.state2_prev.0);
+        assert_eq!(None, states.state2_next.0);
+    }
+
+    // Smoke test.
+    #[test]
+    fn test_deprecated_apply_state_transition() {
+        #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+        enum TestState {
+            #[default]
+            A,
+            B,
+        }
+
+        #[derive(Resource, Default)]
+        struct TestRes {
+            run: bool,
+        }
+
+        let mut app = App::new();
+
+        app.init_resource::<TestRes>();
+
+        app.init_resource::<State<TestState>>();
+        app.init_resource::<NextState<TestState>>();
+        app.init_resource::<PrevState<TestState>>();
+        app.add_systems(StateTransition, apply_state_transition::<TestState>);
+
+        app.add_systems(OnEnter(TestState::B), |mut res: ResMut<TestRes>| {
+            assert!(!res.run);
+            res.run = true;
+        });
+
+        app.world.run_schedule(StateTransition);
+        assert!(!app.world.get_resource::<TestRes>().unwrap().run);
+
+        app.world
+            .resource_mut::<NextState<TestState>>()
+            .set(TestState::B);
+
+        app.world.run_schedule(StateTransition);
+        assert!(app.world.get_resource::<TestRes>().unwrap().run);
     }
 }
