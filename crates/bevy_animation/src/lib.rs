@@ -811,7 +811,7 @@ fn apply_animation(
                             let morph_start = get_keyframe(target_count, keyframes, step_start);
                             lerp_morph_weights(
                                 morphs.weights_mut(),
-                                morph_start.into_iter().map(|&v| v),
+                                morph_start.iter().copied(),
                                 weight,
                             );
                         }
