@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use super::{ReadOnlySystem, System};
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
+use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCell};
 
 /// Customizes the behavior of an [`AdapterSystem`]
 ///
@@ -143,7 +143,7 @@ where
         self.system.set_last_run(last_run);
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         self.system.default_system_sets()
     }
 }

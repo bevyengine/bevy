@@ -17,11 +17,10 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType,
-        CommandEncoderDescriptor, Extent3d, FilterMode, ImageCopyTexture, Origin3d,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, Texture, TextureAspect,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        TextureViewDescriptor, TextureViewDimension,
+        BindGroupLayoutEntry, BindingType, CommandEncoderDescriptor, Extent3d, FilterMode,
+        ImageCopyTexture, IntoBinding, Origin3d, SamplerBindingType, SamplerDescriptor, Shader,
+        ShaderStages, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImage, GpuImage, Image},
@@ -91,7 +90,8 @@ impl Plugin for EnvironmentMapPlugin {
 /// Note that all environment maps and reflection probes in the scene currently must have the same
 /// size, number of mipmap levels, and texture format. This is because they're packed into a
 /// texture array at runtime. A warning is emitted if this restriction isn't followed.
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, Clone, ExtractComponent)]
+#[extract_component_filter(Or<(With<Camera3d>, With<LightProbe>)>)]
 pub struct EnvironmentMapLight {
     /// The blurry, often-low-resolution cubemap representing diffuse light.
     pub diffuse_map: Handle<Image>,
@@ -159,16 +159,6 @@ impl EnvironmentMapLight {
             diffuse: self.diffuse_map.id(),
             specular: self.specular_map.id(),
         }
-    }
-}
-
-impl ExtractComponent for EnvironmentMapLight {
-    type Query = &'static Self;
-    type Filter = Or<(With<Camera3d>, With<LightProbe>)>;
-    type Out = Self;
-
-    fn extract_component(item: bevy_ecs::query::QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        Some(item.clone())
     }
 }
 
@@ -542,26 +532,20 @@ impl RenderEnvironmentMaps {
     pub fn get_bindings<'r>(
         &'r self,
         fallback_image: &'r FallbackImage,
-        bindings: &[u32; 3],
-    ) -> [BindGroupEntry<'r>; 3] {
+    ) -> (
+        impl IntoBinding<'r>,
+        impl IntoBinding<'r>,
+        impl IntoBinding<'r>,
+    ) {
         let (diffuse_map, specular_map) = match self.images {
             None => (&fallback_image.cube_array, &fallback_image.cube_array),
             Some(ref images) => (&images.diffuse, &images.specular),
         };
 
-        [
-            BindGroupEntry {
-                binding: bindings[0],
-                resource: BindingResource::TextureView(&diffuse_map.texture_view),
-            },
-            BindGroupEntry {
-                binding: bindings[1],
-                resource: BindingResource::TextureView(&specular_map.texture_view),
-            },
-            BindGroupEntry {
-                binding: bindings[2],
-                resource: BindingResource::Sampler(&diffuse_map.sampler),
-            },
-        ]
+        (
+            &diffuse_map.texture_view,
+            &specular_map.texture_view,
+            &diffuse_map.sampler,
+        )
     }
 }

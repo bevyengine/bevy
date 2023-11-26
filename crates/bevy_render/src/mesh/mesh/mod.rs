@@ -385,7 +385,13 @@ impl Mesh {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 if previous_vertex_count != attribute_len {
-                    warn!("{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
+                    let name = self
+                        .attributes
+                        .get(attribute_id)
+                        .map(|data| data.attribute.name.to_string())
+                        .unwrap_or_else(|| format!("{attribute_id:?}"));
+
+                    warn!("{name} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
                         all attributes will be truncated to match the smallest.");
                     vertex_count = Some(std::cmp::min(previous_vertex_count, attribute_len));
                 }
@@ -414,11 +420,13 @@ impl Mesh {
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_data in self.attributes.values().take(vertex_count) {
+        for attribute_data in self.attributes.values() {
             let attribute_size = attribute_data.attribute.format.get_size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
-            for (vertex_index, attribute_bytes) in
-                attributes_bytes.chunks_exact(attribute_size).enumerate()
+            for (vertex_index, attribute_bytes) in attributes_bytes
+                .chunks_exact(attribute_size)
+                .take(vertex_count)
+                .enumerate()
             {
                 let offset = vertex_index * vertex_size + attribute_offset;
                 attributes_interleaved_buffer[offset..offset + attribute_size]

@@ -1,5 +1,5 @@
-#import bevy_render::view View
-#import bevy_pbr::utils coords_to_viewport_uv
+#import bevy_render::view::View
+#import bevy_pbr::utils::coords_to_viewport_uv
 
 @group(0) @binding(0) var skybox: texture_cube<f32>;
 @group(0) @binding(1) var skybox_sampler: sampler;

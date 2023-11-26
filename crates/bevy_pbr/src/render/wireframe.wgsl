@@ -1,4 +1,5 @@
-#import bevy_pbr::forward_io VertexOutput
+#import bevy_pbr::forward_io::VertexOutput
+
 struct WireframeMaterial {
     color: vec4<f32>,
 };

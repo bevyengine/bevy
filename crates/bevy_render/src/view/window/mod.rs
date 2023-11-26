@@ -1,5 +1,7 @@
 use crate::{
-    render_resource::{PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView},
+    render_resource::{
+        BindGroupEntries, PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -250,12 +252,15 @@ pub fn prepare_windows(
         let surface_data = window_surfaces
             .surfaces
             .entry(window.entity)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
-                    .expect("Failed to create wgpu surface");
+            .or_insert_with(|| {
+                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
+                let surface = unsafe {
+                    // NOTE: On some OSes this MUST be called from the main thread.
+                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                    render_instance
+                        .create_surface(&window.handle.get_handle())
+                        .expect("Failed to create wgpu surface")
+                };
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,
@@ -413,14 +418,11 @@ pub fn prepare_windows(
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("screenshot-to-screen-bind-group"),
-                layout: &screenshot_pipeline.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                }],
-            });
+            let bind_group = render_device.create_bind_group(
+                "screenshot-to-screen-bind-group",
+                &screenshot_pipeline.bind_group_layout,
+                &BindGroupEntries::single(&texture_view),
+            );
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,

@@ -2,6 +2,7 @@ use crate::{
     camera::CameraProjection,
     camera::{ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
+    primitives::Frustum,
     render_asset::RenderAssets,
     render_resource::TextureView,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
@@ -27,7 +28,9 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
 };
 use std::{borrow::Cow, ops::Range};
-use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
+use wgpu::{BlendState, LoadOp, TextureFormat};
+
+use super::Projection;
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -509,9 +512,8 @@ impl NormalizedRenderTarget {
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
-                let Extent3d { width, height, .. } = image.texture_descriptor.size;
                 Some(RenderTargetInfo {
-                    physical_size: UVec2::new(width, height),
+                    physical_size: image.size(),
                     scale_factor: 1.0,
                 })
             }
@@ -580,12 +582,9 @@ pub fn camera_system<T: CameraProjection + Component>(
 
     let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
         .read()
-        .filter_map(|event| {
-            if let AssetEvent::Modified { id } = event {
-                Some(id)
-            } else {
-                None
-            }
+        .filter_map(|event| match event {
+            AssetEvent::Modified { id } | AssetEvent::Added { id } => Some(id),
+            _ => None,
         })
         .collect();
 
@@ -641,9 +640,11 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
+            &Frustum,
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
+            Option<&Projection>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -655,9 +656,11 @@ pub fn extract_cameras(
         camera_render_graph,
         transform,
         visible_entities,
+        frustum,
         color_grading,
         temporal_jitter,
         render_layers,
+        projection,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -711,6 +714,7 @@ pub fn extract_cameras(
                     color_grading,
                 },
                 visible_entities.clone(),
+                *frustum,
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {
@@ -719,6 +723,10 @@ pub fn extract_cameras(
 
             if let Some(render_layers) = render_layers {
                 commands.insert(*render_layers);
+            }
+
+            if let Some(perspective) = projection {
+                commands.insert(perspective.clone());
             }
         }
     }

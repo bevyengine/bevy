@@ -1,9 +1,10 @@
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle};
+use crate as bevy_asset;
+use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
 };
-use bevy_reflect::{Reflect, Uuid};
+use bevy_reflect::{Reflect, TypePath, Uuid};
 use bevy_utils::HashMap;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -72,6 +73,15 @@ impl AssetIndexAllocator {
     pub fn recycle(&self, index: AssetIndex) {
         self.recycled_queue_sender.send(index).unwrap();
     }
+}
+
+/// A "loaded asset" containing the untyped handle for an asset stored in a given [`AssetPath`].
+///
+/// [`AssetPath`]: crate::AssetPath
+#[derive(Asset, TypePath)]
+pub struct LoadedUntypedAsset {
+    #[dependency]
+    pub handle: UntypedHandle,
 }
 
 // PERF: do we actually need this to be an enum? Can we just use an "invalid" generation instead

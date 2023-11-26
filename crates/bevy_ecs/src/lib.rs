@@ -1,6 +1,4 @@
-#![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -30,10 +28,6 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
-    #[allow(deprecated)]
-    pub use crate::system::adapter::{
-        self as system_adapter, dbg, error, ignore, info, unwrap, warn,
-    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -400,7 +394,7 @@ mod tests {
 
     #[test]
     fn par_for_each_dense() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         let e1 = world.spawn(A(1)).id();
         let e2 = world.spawn(A(2)).id();
@@ -423,7 +417,7 @@ mod tests {
 
     #[test]
     fn par_for_each_sparse() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         let e1 = world.spawn(SparseStored(1)).id();
         let e2 = world.spawn(SparseStored(2)).id();
@@ -1724,5 +1718,23 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
     }
 }

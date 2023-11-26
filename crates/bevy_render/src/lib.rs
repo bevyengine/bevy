@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
@@ -253,6 +251,7 @@ impl Plugin for RenderPlugin {
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
                 ));
+                // SAFETY: Plugins should be set up on the main thread.
                 unsafe { initialize_render_app(app) };
             }
             RenderCreation::Automatic(render_creation) => {
@@ -273,8 +272,8 @@ impl Plugin for RenderPlugin {
                             backends,
                             dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
                         });
+                        // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
-                            // SAFETY: Plugins should be set up on the main thread.
                             let handle = wrapper.get_handle();
                             instance
                                 .create_surface(&handle)
@@ -315,6 +314,7 @@ impl Plugin for RenderPlugin {
                     #[cfg(not(target_arch = "wasm32"))]
                     futures_lite::future::block_on(async_renderer);
 
+                    // SAFETY: Plugins should be set up on the main thread.
                     unsafe { initialize_render_app(app) };
                 }
             }
@@ -406,7 +406,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = App::empty();
-    render_app.main_schedule_label = Box::new(Render);
+    render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     extract_schedule.set_apply_final_deferred(false);
@@ -455,7 +455,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                 "An entity was spawned after the entity list was cleared last frame and before the extract schedule began. This is not supported",
             );
 
-            // This is safe given the clear_entities call in the past frame and the assert above
+            // SAFETY: This is safe given the clear_entities call in the past frame and the assert above
             unsafe {
                 render_app
                     .world
@@ -475,7 +475,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 fn apply_extract_commands(render_world: &mut World) {
     render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
         schedules
-            .get_mut(&ExtractSchedule)
+            .get_mut(ExtractSchedule)
             .unwrap()
             .apply_deferred(render_world);
     });

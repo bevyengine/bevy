@@ -107,14 +107,11 @@ fn prepare_bind_group(
     render_device: Res<RenderDevice>,
 ) {
     let view = gpu_images.get(&game_of_life_image.0).unwrap();
-    let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-        label: None,
-        layout: &pipeline.texture_bind_group_layout,
-        entries: &[BindGroupEntry {
-            binding: 0,
-            resource: BindingResource::TextureView(&view.texture_view),
-        }],
-    });
+    let bind_group = render_device.create_bind_group(
+        None,
+        &pipeline.texture_bind_group_layout,
+        &BindGroupEntries::single(&view.texture_view),
+    );
     commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
 }
 

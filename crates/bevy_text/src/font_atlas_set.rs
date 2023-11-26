@@ -107,7 +107,7 @@ impl FontAtlasSet {
                 .texture_descriptor
                 .size
                 .height
-                .max(glyph_texture.texture_descriptor.size.width);
+                .max(glyph_texture.width());
             // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
             let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
             font_atlases.push(FontAtlas::new(
