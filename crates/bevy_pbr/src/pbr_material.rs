@@ -302,8 +302,8 @@ pub struct StandardMaterial {
     /// If your material has a normal map, but still renders as a flat surface,
     /// make sure your meshes have their tangents set.
     ///
-    /// [`Mesh::generate_tangents`]: mesh::Mesh::generate_tangents
-    /// [`Mesh::with_generated_tangents`]: mesh::Mesh::with_generated_tangents
+    /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
+    /// [`Mesh::with_generated_tangents`]: bevy_render::mesh::Mesh::with_generated_tangents
     #[texture(9)]
     #[sampler(10)]
     #[dependency]
@@ -352,7 +352,7 @@ pub struct StandardMaterial {
     ///
     /// Your 3D editing software should manage all of that.
     ///
-    /// [`Mesh`]: mesh::Mesh
+    /// [`Mesh`]: bevy_render::mesh::Mesh
     // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
     #[reflect(ignore)]
     pub cull_mode: Option<Face>,
