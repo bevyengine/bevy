@@ -6,10 +6,7 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
-    core_pipeline::{
-        clear_color::ClearColorConfig, core_3d,
-        fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    },
+    core_pipeline::{core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state},
     ecs::query::QueryItem,
     prelude::*,
     render::{
@@ -330,7 +327,7 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 5.0))
                 .looking_at(Vec3::default(), Vec3::Y),
             camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::WHITE),
+                clear_color: Color::WHITE.into(),
                 ..default()
             },
             ..default()
