@@ -1,9 +1,9 @@
-use std::sync::atomic::Ordering;
+#![warn(missing_docs)]
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{NodeBuilder, NodeClassSet, Role, Tree, TreeUpdate},
-    AccessKitEntityExt, AccessibilityRequested,
+    accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
+    AccessibilityRequested,
 };
 use bevy_ecs::entity::Entity;
 
@@ -17,21 +17,27 @@ use winit::{
 
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
-    converters::convert_window_level,
+    converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
 
+/// A resource mapping window entities to their `winit`-backend [`Window`](winit::window::Window)
+/// states.
 #[derive(Debug, Default)]
 pub struct WinitWindows {
+    /// Stores [`winit`] windows by window identifier.
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+    /// Maps entities to `winit` window identifiers.
     pub entity_to_winit: HashMap<Entity, winit::window::WindowId>,
+    /// Maps `winit` window identifiers to entities.
     pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
-    // Some winit functions, such as `set_window_icon` can only be used from the main thread. If
-    // they are used in another thread, the app will hang. This marker ensures `WinitWindows` is
-    // only ever accessed with bevy's non-send functions and in NonSend systems.
+    // Many `winit` window functions (e.g. `set_window_icon`) can only be called on the main thread.
+    // If they're called on other threads, the program might hang. This marker indicates that this
+    // type is not thread-safe and will be `!Send` and `!Sync`.
     _not_send_sync: core::marker::PhantomData<*const ()>,
 }
 
 impl WinitWindows {
+    /// Creates a `winit` window and associates it with our entity.
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
@@ -39,7 +45,7 @@ impl WinitWindows {
         window: &Window,
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionHandlers,
-        accessibility_requested: &mut AccessibilityRequested,
+        accessibility_requested: &AccessibilityRequested,
     ) -> &winit::window::Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
@@ -85,9 +91,12 @@ impl WinitWindows {
 
         winit_window_builder = winit_window_builder
             .with_window_level(convert_window_level(window.window_level))
+            .with_theme(window.window_theme.map(convert_window_theme))
             .with_resizable(window.resizable)
+            .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
-            .with_transparent(window.transparent);
+            .with_transparent(window.transparent)
+            .with_visible(window.visible);
 
         let constraints = window.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
@@ -141,31 +150,41 @@ impl WinitWindows {
         root_builder.set_name(name.into_boxed_str());
         let root = root_builder.build(&mut NodeClassSet::lock_global());
 
-        let accesskit_window_id = entity.to_node_id();
+        let accesskit_window_id = NodeId(entity.to_bits());
         let handler = WinitActionHandler::default();
-        let accessibility_requested = (*accessibility_requested).clone();
+        let accessibility_requested = accessibility_requested.clone();
         let adapter = Adapter::with_action_handler(
             &winit_window,
             move || {
-                accessibility_requested.store(true, Ordering::SeqCst);
+                accessibility_requested.set(true);
                 TreeUpdate {
                     nodes: vec![(accesskit_window_id, root)],
                     tree: Some(Tree::new(accesskit_window_id)),
-                    focus: None,
+                    focus: accesskit_window_id,
                 }
             },
             Box::new(handler.clone()),
         );
         adapters.insert(entity, adapter);
         handlers.insert(entity, handler);
-        winit_window.set_visible(true);
 
-        // Do not set the grab mode on window creation if it's none, this can fail on mobile
+        // Do not set the grab mode on window creation if it's none. It can fail on mobile.
         if window.cursor.grab_mode != CursorGrabMode::None {
             attempt_grab(&winit_window, window.cursor.grab_mode);
         }
 
         winit_window.set_cursor_visible(window.cursor.visible);
+
+        // Do not set the cursor hittest on window creation if it's false, as it will always fail on
+        // some platforms and log an unfixable warning.
+        if !window.cursor.hit_test {
+            if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
+                warn!(
+                    "Could not set cursor hit test for window {:?}: {:?}",
+                    window.title, err
+                );
+            }
+        }
 
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
@@ -211,11 +230,14 @@ impl WinitWindows {
     /// This should mostly just be called when the window is closing.
     pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
-        // Don't remove from winit_to_window_id, to track that we used to know about this winit window
+        // Don't remove from `winit_to_window_id` so we know the window used to exist.
         self.windows.remove(&winit_id)
     }
 }
 
+/// Gets the "best" video mode which fits the given dimensions.
+///
+/// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
     width: u32,
@@ -248,6 +270,9 @@ pub fn get_fitting_videomode(
     modes.first().unwrap().clone()
 }
 
+/// Gets the "best" videomode from a monitor.
+///
+/// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
@@ -289,6 +314,7 @@ pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: Curs
     }
 }
 
+/// Compute the physical window position for a given [`WindowPosition`].
 // Ideally we could generify this across window backends, but we only really have winit atm
 // so whatever.
 pub fn winit_window_position(
@@ -319,7 +345,9 @@ pub fn winit_window_position(
             if let Some(monitor) = maybe_monitor {
                 let screen_size = monitor.size();
 
-                let scale_factor = resolution.base_scale_factor();
+                // We use the monitors scale factor here since `WindowResolution.scale_factor` is
+                // not yet populated when windows are created during plugin setup.
+                let scale_factor = monitor.scale_factor();
 
                 // Logical to physical window size
                 let (width, height): (u32, u32) =

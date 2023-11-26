@@ -4,9 +4,14 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_startup_system(setup)
-        .add_system(sprite_movement)
+        .add_plugins(DefaultPlugins.set(
+            // This sets image filtering to nearest
+            // This is done to prevent textures with low resolution (e.g. pixel art) from being blurred
+            // by linear filtering.
+            ImagePlugin::default_nearest(),
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, sprite_movement)
         .run();
 }
 
@@ -20,7 +25,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("pixel/bevy_pixel_light.png"),
+            texture: asset_server.load("pixel/bevy_pixel_dark.png"),
             transform: Transform::from_xyz(100., 0., 0.),
             ..default()
         },

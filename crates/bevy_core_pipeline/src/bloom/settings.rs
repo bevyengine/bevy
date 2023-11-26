@@ -1,7 +1,7 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_ecs::{prelude::Component, query::QueryItem};
-use bevy_math::{UVec4, Vec4};
-use bevy_reflect::Reflect;
+use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
+use bevy_math::{URect, UVec4, Vec4};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
@@ -15,8 +15,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 ///
 /// **Bloom is currently not compatible with WebGL2.**
 ///
-/// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive`
-/// for 3d meshes or [`bevy_render::color::Color::Hsla`]`::lightness` for 2d sprites.
+/// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive` for 3d meshes.
 ///
 /// Bloom is best used alongside a tonemapping function that desaturates bright colors,
 /// such as [`crate::tonemapping::Tonemapping::TonyMcMapface`].
@@ -25,10 +24,17 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// blurred (lower frequency) images generated from the camera's view.
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
-#[allow(clippy::doc_markdown)]
 #[derive(Component, Reflect, Clone)]
+#[reflect(Component, Default)]
 pub struct BloomSettings {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
+    ///
+    /// This parameter should be used only to control the strength of the bloom
+    /// for the scene as a whole. Increasing it too much will make the scene appear
+    /// blurry and over-exposed.
+    ///
+    /// To make a mesh glow brighter, rather than increase the bloom intensity,
+    /// you should increase the mesh's `emissive` value.
     ///
     /// # In energy-conserving mode
     /// The value represents how likely the light is to scatter.
@@ -43,7 +49,7 @@ pub struct BloomSettings {
     ///
     /// In this configuration:
     /// * 0.0 means no bloom
-    /// * > 0.0 means a proportionate amount of scattered light is added
+    /// * Greater than 0.0 means a proportionate amount of scattered light is added
     pub intensity: f32,
 
     /// Low frequency contribution boost.
@@ -63,7 +69,7 @@ pub struct BloomSettings {
     ///
     /// In this configuration:
     /// * 0.0 means no bloom
-    /// * > 0.0 means a proportionate amount of scattered light is added
+    /// * Greater than 0.0 means a proportionate amount of scattered light is added
     pub low_frequency_boost: f32,
 
     /// Low frequency contribution boost curve.
@@ -112,7 +118,7 @@ impl BloomSettings {
         composite_mode: BloomCompositeMode::EnergyConserving,
     };
 
-    /// A preset that's similiar to how older games did bloom.
+    /// A preset that's similar to how older games did bloom.
     pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,
         low_frequency_boost: 0.7,
@@ -152,7 +158,7 @@ impl Default for BloomSettings {
 /// # Considerations
 /// * Changing these settings creates a physically inaccurate image
 /// * Changing these settings makes it easy to make the final result look worse
-/// * Non-default prefilter settings should be used in conjuction with [`BloomCompositeMode::Additive`]
+/// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
 pub struct BloomPrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
@@ -189,7 +195,7 @@ impl ExtractComponent for BloomSettings {
             camera.is_active,
             camera.hdr,
         ) {
-            (Some((origin, _)), Some(size), Some(target_size), true, true) => {
+            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true) => {
                 let threshold = settings.prefilter_settings.threshold;
                 let threshold_softness = settings.prefilter_settings.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);

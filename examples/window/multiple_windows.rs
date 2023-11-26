@@ -6,15 +6,15 @@ fn main() {
     App::new()
         // By default, a primary window gets spawned by `WindowPlugin`, contained in `DefaultPlugins`
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene)
-        .add_system(bevy::window::close_on_esc)
+        .add_systems(Startup, setup_scene)
+        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // add entities to the world
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/monkey/Monkey.gltf#Scene0"),
+        scene: asset_server.load("models/torus/torus.gltf#Scene0"),
         ..default()
     });
     // light

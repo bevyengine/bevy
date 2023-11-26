@@ -4,7 +4,9 @@ use wgpu::PrimitiveTopology;
 /// A regular polygon in the `XY` plane
 #[derive(Debug, Copy, Clone)]
 pub struct RegularPolygon {
-    /// Inscribed radius in the `XY` plane.
+    /// Circumscribed radius in the `XY` plane.
+    ///
+    /// In other words, the vertices of this polygon will all touch a circle of this radius.
     pub radius: f32,
     /// Number of sides.
     pub sides: usize,
@@ -51,12 +53,11 @@ impl From<RegularPolygon> for Mesh {
             indices.extend_from_slice(&[0, i + 1, i]);
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.set_indices(Some(Indices::U32(indices)));
-        mesh
+        Mesh::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            .with_indices(Some(Indices::U32(indices)))
     }
 }
 

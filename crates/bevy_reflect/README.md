@@ -1,5 +1,11 @@
 # Bevy Reflect
 
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
+[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy_reflect)
+[![Downloads](https://img.shields.io/crates/d/bevy_reflect.svg)](https://crates.io/crates/bevy_reflect)
+[![Docs](https://docs.rs/bevy_reflect/badge.svg)](https://docs.rs/bevy_reflect/latest/bevy_reflect/)
+[![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
+
 This crate enables you to dynamically interact with Rust types:
 
 * Derive the Reflect traits
@@ -28,7 +34,7 @@ struct Foo {
 #[derive(Reflect)]
 struct Bar(String);
 
-#[derive(Reflect, FromReflect)]
+#[derive(Reflect)]
 struct Baz {
     value: f32,
 }
@@ -153,8 +159,8 @@ let my_trait: &dyn DoThing = reflect_do_thing.get(&*reflect_value).unwrap();
 println!("{}", my_trait.do_thing());
 
 // This works because the #[reflect(MyTrait)] we put on MyType informed the Reflect derive to insert a new instance
-// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn MyType, because it
-// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn MyType
+// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn DoThing, because it
+// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn DoThing
 ```
 
 ## Why make this?

@@ -1,12 +1,17 @@
-use crate::blit::{BlitPipeline, BlitPipelineKey};
+use crate::{
+    blit::{BlitPipeline, BlitPipelineKey},
+    core_2d::{self, CORE_2D},
+    core_3d::{self, CORE_3D},
+};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_resource::BindGroupEntries,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    RenderSet,
+    Render, RenderSet,
 };
 use bevy_render::{render_resource::*, RenderApp};
 
@@ -17,47 +22,24 @@ pub struct MsaaWritebackPlugin;
 impl Plugin for MsaaWritebackPlugin {
     fn build(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return
+            return;
         };
 
-        render_app.add_system(queue_msaa_writeback_pipelines.in_set(RenderSet::Queue));
-        let msaa_writeback_2d = MsaaWritebackNode::new(&mut render_app.world);
-        let msaa_writeback_3d = MsaaWritebackNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        if let Some(core_2d) = graph.get_sub_graph_mut(crate::core_2d::graph::NAME) {
-            let input_node = core_2d.input_node().id;
-            core_2d.add_node(
-                crate::core_2d::graph::node::MSAA_WRITEBACK,
-                msaa_writeback_2d,
-            );
-            core_2d.add_node_edge(
-                crate::core_2d::graph::node::MSAA_WRITEBACK,
-                crate::core_2d::graph::node::MAIN_PASS,
-            );
-            core_2d.add_slot_edge(
-                input_node,
-                crate::core_2d::graph::input::VIEW_ENTITY,
-                crate::core_2d::graph::node::MSAA_WRITEBACK,
-                MsaaWritebackNode::IN_VIEW,
-            );
+        render_app.add_systems(
+            Render,
+            prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
+        );
+        {
+            use core_2d::graph::node::*;
+            render_app
+                .add_render_graph_node::<MsaaWritebackNode>(CORE_2D, MSAA_WRITEBACK)
+                .add_render_graph_edge(CORE_2D, MSAA_WRITEBACK, MAIN_PASS);
         }
-
-        if let Some(core_3d) = graph.get_sub_graph_mut(crate::core_3d::graph::NAME) {
-            let input_node = core_3d.input_node().id;
-            core_3d.add_node(
-                crate::core_3d::graph::node::MSAA_WRITEBACK,
-                msaa_writeback_3d,
-            );
-            core_3d.add_node_edge(
-                crate::core_3d::graph::node::MSAA_WRITEBACK,
-                crate::core_3d::graph::node::MAIN_PASS,
-            );
-            core_3d.add_slot_edge(
-                input_node,
-                crate::core_3d::graph::input::VIEW_ENTITY,
-                crate::core_3d::graph::node::MSAA_WRITEBACK,
-                MsaaWritebackNode::IN_VIEW,
-            );
+        {
+            use core_3d::graph::node::*;
+            render_app
+                .add_render_graph_node::<MsaaWritebackNode>(CORE_3D, MSAA_WRITEBACK)
+                .add_render_graph_edge(CORE_3D, MSAA_WRITEBACK, START_MAIN_PASS);
         }
     }
 }
@@ -66,10 +48,8 @@ pub struct MsaaWritebackNode {
     cameras: QueryState<(&'static ViewTarget, &'static MsaaWritebackBlitPipeline)>,
 }
 
-impl MsaaWritebackNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for MsaaWritebackNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             cameras: world.query(),
         }
@@ -77,9 +57,6 @@ impl MsaaWritebackNode {
 }
 
 impl Node for MsaaWritebackNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
     fn update(&mut self, world: &mut World) {
         self.cameras.update_archetypes(world);
     }
@@ -89,7 +66,7 @@ impl Node for MsaaWritebackNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         if let Ok((target, blit_pipeline_id)) = self.cameras.get_manual(world, view_entity) {
             let blit_pipeline = world.resource::<BlitPipeline>();
             let pipeline_cache = world.resource::<PipelineCache>();
@@ -114,23 +91,11 @@ impl Node for MsaaWritebackNode {
                 depth_stencil_attachment: None,
             };
 
-            let bind_group =
-                render_context
-                    .render_device()
-                    .create_bind_group(&BindGroupDescriptor {
-                        label: None,
-                        layout: &blit_pipeline.texture_bind_group,
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                resource: BindingResource::TextureView(post_process.source),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::Sampler(&blit_pipeline.sampler),
-                            },
-                        ],
-                    });
+            let bind_group = render_context.render_device().create_bind_group(
+                None,
+                &blit_pipeline.texture_bind_group,
+                &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),
+            );
 
             let mut render_pass = render_context
                 .command_encoder()
@@ -147,7 +112,7 @@ impl Node for MsaaWritebackNode {
 #[derive(Component)]
 pub struct MsaaWritebackBlitPipeline(CachedRenderPipelineId);
 
-fn queue_msaa_writeback_pipelines(
+fn prepare_msaa_writeback_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,

@@ -57,7 +57,7 @@ impl CommandQueue {
                 // SAFETY: According to the invariants of `CommandMeta.apply_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
-                command.write(world);
+                command.apply(world);
                 std::mem::size_of::<C>()
             },
         };
@@ -97,18 +97,18 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
-        // Pointer that will iterate over the entries of the buffer.
-        let mut cursor = self.bytes.as_mut_ptr();
+        // The range of pointers of the filled portion of `self.bytes`.
+        let bytes_range = self.bytes.as_mut_ptr_range();
 
-        // The address of the end of the buffer.
-        let end_addr = cursor as usize + self.bytes.len();
+        // Pointer that will iterate over the entries of the buffer.
+        let mut cursor = bytes_range.start;
 
         // Reset the buffer, so it can be reused after this function ends.
         // In the loop below, ownership of each command will be transferred into user code.
         // SAFETY: `set_len(0)` is always valid.
         unsafe { self.bytes.set_len(0) };
 
-        while (cursor as usize) < end_addr {
+        while cursor < bytes_range.end {
             // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
             // Since we know that the cursor is in bounds, it must point to the start of a new command.
             let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
@@ -135,6 +135,11 @@ impl CommandQueue {
             // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
             cursor = unsafe { cursor.add(size) };
         }
+    }
+
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.bytes.append(&mut other.bytes);
     }
 }
 
@@ -165,7 +170,7 @@ mod test {
     }
 
     impl Command for DropCheck {
-        fn write(self, _: &mut World) {}
+        fn apply(self, _: &mut World) {}
     }
 
     #[test]
@@ -191,7 +196,7 @@ mod test {
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
-        fn write(self, world: &mut World) {
+        fn apply(self, world: &mut World) {
             world.spawn_empty();
         }
     }
@@ -219,7 +224,7 @@ mod test {
     // some data added to it.
     struct PanicCommand(String);
     impl Command for PanicCommand {
-        fn write(self, _: &mut World) {
+        fn apply(self, _: &mut World) {
             panic!("command is panicking");
         }
     }
@@ -267,7 +272,7 @@ mod test {
 
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
-        fn write(self, _: &mut World) {}
+        fn apply(self, _: &mut World) {}
     }
 
     #[cfg(miri)]

@@ -1,5 +1,5 @@
+use bevy_ecs::component::Component;
 use bevy_math::Vec3;
-use bevy_reflect::TypeUuid;
 use bevy_transform::prelude::Transform;
 use rodio::{Sink, SpatialSink};
 
@@ -15,6 +15,14 @@ pub trait AudioSinkPlayback {
     ///
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
     /// will multiply each sample by this value.
+    ///
+    /// # Note on Audio Volume
+    ///
+    /// An increase of 10 decibels (dB) roughly corresponds to the perceived volume doubling in intensity.
+    /// As this function scales not the volume but the amplitude, a conversion might be necessary.
+    /// For example, to halve the perceived volume you need to decrease the volume by 10 dB.
+    /// This corresponds to 20log(x) = -10dB, solving x = 10^(-10/20) = 0.316.
+    /// Multiply the current volume by 0.316 to halve the perceived volume.
     fn set_volume(&self, volume: f32);
 
     /// Gets the speed of the sound.
@@ -60,151 +68,122 @@ pub trait AudioSinkPlayback {
     ///
     /// It won't be possible to restart it afterwards.
     fn stop(&self);
+
+    /// Returns true if this sink has no more sounds to play.
+    fn empty(&self) -> bool;
 }
 
-/// Asset controlling the playback of a sound
+/// Used to control audio during playback.
 ///
-/// ```
-/// # use bevy_ecs::system::{Local, Res};
-/// # use bevy_asset::{Assets, Handle};
-/// # use bevy_audio::{AudioSink, AudioSinkPlayback};
-/// // Execution of this system should be controlled by a state or input,
-/// // otherwise it would just toggle between play and pause every frame.
-/// fn pause(
-///     audio_sinks: Res<Assets<AudioSink>>,
-///     music_controller: Local<Handle<AudioSink>>,
-/// ) {
-///     if let Some(sink) = audio_sinks.get(&*music_controller) {
-///         if sink.is_paused() {
-///             sink.play()
-///         } else {
-///             sink.pause()
-///         }
-///     }
-/// }
-/// ```
+/// Bevy inserts this component onto your entities when it begins playing an audio source.
+/// Use [`AudioBundle`][crate::AudioBundle] to trigger that to happen.
 ///
-#[derive(TypeUuid)]
-#[uuid = "8BEE570C-57C2-4FC0-8CFB-983A22F7D981"]
+/// You can use this component to modify the playback settings while the audio is playing.
+///
+/// If this component is removed from an entity, and an [`AudioSource`][crate::AudioSource] is
+/// attached to that entity, that [`AudioSource`][crate::AudioSource] will start playing. If
+/// that source is unchanged, that translates to the audio restarting.
+#[derive(Component)]
 pub struct AudioSink {
-    // This field is an Option in order to allow us to have a safe drop that will detach the sink.
-    // It will never be None during its life
-    pub(crate) sink: Option<Sink>,
-}
-
-impl Drop for AudioSink {
-    fn drop(&mut self) {
-        self.sink.take().unwrap().detach();
-    }
+    pub(crate) sink: Sink,
 }
 
 impl AudioSinkPlayback for AudioSink {
     fn volume(&self) -> f32 {
-        self.sink.as_ref().unwrap().volume()
+        self.sink.volume()
     }
 
     fn set_volume(&self, volume: f32) {
-        self.sink.as_ref().unwrap().set_volume(volume);
+        self.sink.set_volume(volume);
     }
 
     fn speed(&self) -> f32 {
-        self.sink.as_ref().unwrap().speed()
+        self.sink.speed()
     }
 
     fn set_speed(&self, speed: f32) {
-        self.sink.as_ref().unwrap().set_speed(speed);
+        self.sink.set_speed(speed);
     }
 
     fn play(&self) {
-        self.sink.as_ref().unwrap().play();
+        self.sink.play();
     }
 
     fn pause(&self) {
-        self.sink.as_ref().unwrap().pause();
+        self.sink.pause();
     }
 
     fn is_paused(&self) -> bool {
-        self.sink.as_ref().unwrap().is_paused()
+        self.sink.is_paused()
     }
 
     fn stop(&self) {
-        self.sink.as_ref().unwrap().stop();
+        self.sink.stop();
+    }
+
+    fn empty(&self) -> bool {
+        self.sink.empty()
     }
 }
 
-/// Asset controlling the playback of a sound, or the locations of its listener and emitter.
+/// Used to control spatial audio during playback.
 ///
-/// ```
-/// # use bevy_ecs::system::{Local, Res};
-/// # use bevy_asset::{Assets, Handle};
-/// # use bevy_audio::SpatialAudioSink;
-/// # use bevy_math::Vec3;
-/// // Execution of this system should be controlled by a state or input,
-/// // otherwise it would just trigger every frame.
-/// fn pause(
-///     spatial_audio_sinks: Res<Assets<SpatialAudioSink>>,
-///     audio_controller: Local<Handle<SpatialAudioSink>>,
-/// ) {
-///     if let Some(spatial_sink) = spatial_audio_sinks.get(&*audio_controller) {
-///         spatial_sink.set_emitter_position(Vec3::new(1.0, 0.5, 1.0));
-///     }
-/// }
-/// ```
+/// Bevy inserts this component onto your entities when it begins playing an audio source
+/// that's configured to use spatial audio.
 ///
-#[derive(TypeUuid)]
-#[uuid = "F3CA4C47-595E-453B-96A7-31C3DDF2A177"]
+/// You can use this component to modify the playback settings while the audio is playing.
+///
+/// If this component is removed from an entity, and a [`AudioSource`][crate::AudioSource] is
+/// attached to that entity, that [`AudioSource`][crate::AudioSource] will start playing. If
+/// that source is unchanged, that translates to the audio restarting.
+#[derive(Component)]
 pub struct SpatialAudioSink {
-    // This field is an Option in order to allow us to have a safe drop that will detach the sink.
-    // It will never be None during its life
-    pub(crate) sink: Option<SpatialSink>,
-}
-
-impl Drop for SpatialAudioSink {
-    fn drop(&mut self) {
-        self.sink.take().unwrap().detach();
-    }
+    pub(crate) sink: SpatialSink,
 }
 
 impl AudioSinkPlayback for SpatialAudioSink {
     fn volume(&self) -> f32 {
-        self.sink.as_ref().unwrap().volume()
+        self.sink.volume()
     }
 
     fn set_volume(&self, volume: f32) {
-        self.sink.as_ref().unwrap().set_volume(volume);
+        self.sink.set_volume(volume);
     }
 
     fn speed(&self) -> f32 {
-        self.sink.as_ref().unwrap().speed()
+        self.sink.speed()
     }
 
     fn set_speed(&self, speed: f32) {
-        self.sink.as_ref().unwrap().set_speed(speed);
+        self.sink.set_speed(speed);
     }
 
     fn play(&self) {
-        self.sink.as_ref().unwrap().play();
+        self.sink.play();
     }
 
     fn pause(&self) {
-        self.sink.as_ref().unwrap().pause();
+        self.sink.pause();
     }
 
     fn is_paused(&self) -> bool {
-        self.sink.as_ref().unwrap().is_paused()
+        self.sink.is_paused()
     }
 
     fn stop(&self) {
-        self.sink.as_ref().unwrap().stop();
+        self.sink.stop();
+    }
+
+    fn empty(&self) -> bool {
+        self.sink.empty()
     }
 }
 
 impl SpatialAudioSink {
     /// Set the two ears position.
     pub fn set_ears_position(&self, left_position: Vec3, right_position: Vec3) {
-        let sink = self.sink.as_ref().unwrap();
-        sink.set_left_ear_position(left_position.to_array());
-        sink.set_right_ear_position(right_position.to_array());
+        self.sink.set_left_ear_position(left_position.to_array());
+        self.sink.set_right_ear_position(right_position.to_array());
     }
 
     /// Set the listener position, with an ear on each side separated by `gap`.
@@ -217,9 +196,6 @@ impl SpatialAudioSink {
 
     /// Set the emitter position.
     pub fn set_emitter_position(&self, position: Vec3) {
-        self.sink
-            .as_ref()
-            .unwrap()
-            .set_emitter_position(position.to_array());
+        self.sink.set_emitter_position(position.to_array());
     }
 }

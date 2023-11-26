@@ -61,7 +61,7 @@ pub fn ktx2_buffer_to_image(
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(_level_data);
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
-                        .map_err(TextureError::SuperDecompressionError)?;
+                        .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
@@ -139,7 +139,7 @@ pub fn ktx2_buffer_to_image(
                                     rgba[i * 4 + 2] = level_data[offset + 2];
                                     offset += 3;
                                 }
-                                transcoded[level].extend_from_slice(&rgba[0..n_pixels]);
+                                transcoded[level].extend_from_slice(&rgba[0..n_pixels * 4]);
                             }
                         }
                     }
@@ -154,12 +154,13 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Uastc(data_format) => {
                     let (transcode_block_format, texture_format) =
                         get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
-                    let texture_format_info = texture_format.describe();
+                    let texture_format_info = texture_format;
                     let (block_width_pixels, block_height_pixels) = (
-                        texture_format_info.block_dimensions.0 as u32,
-                        texture_format_info.block_dimensions.1 as u32,
+                        texture_format_info.block_dimensions().0,
+                        texture_format_info.block_dimensions().1,
                     );
-                    let block_bytes = texture_format_info.block_size as u32;
+                    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+                    let block_bytes = texture_format_info.block_size(None).unwrap();
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
@@ -233,12 +234,13 @@ pub fn ktx2_buffer_to_image(
     }
 
     // Reorder data from KTX2 MipXLayerYFaceZ to wgpu LayerYFaceZMipX
-    let texture_format_info = texture_format.describe();
+    let texture_format_info = texture_format;
     let (block_width_pixels, block_height_pixels) = (
-        texture_format_info.block_dimensions.0 as usize,
-        texture_format_info.block_dimensions.1 as usize,
+        texture_format_info.block_dimensions().0 as usize,
+        texture_format_info.block_dimensions().1 as usize,
     );
-    let block_bytes = texture_format_info.block_size as usize;
+    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+    let block_bytes = texture_format_info.block_size(None).unwrap() as usize;
 
     let mut wgpu_data = vec![Vec::default(); (layer_count * face_count) as usize];
     for (level, level_data) in levels.iter().enumerate() {
@@ -1037,7 +1039,7 @@ pub fn ktx2_dfd_to_texture_format(
             if sample_information[0].lower == 0 {
                 TextureFormat::Bc6hRgbUfloat
             } else {
-                TextureFormat::Bc6hRgbSfloat
+                TextureFormat::Bc6hRgbFloat
             }
         }
         Some(ColorModel::BC7) => {
@@ -1311,7 +1313,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::BC5_UNORM_BLOCK => TextureFormat::Bc5RgUnorm,
         ktx2::Format::BC5_SNORM_BLOCK => TextureFormat::Bc5RgSnorm,
         ktx2::Format::BC6H_UFLOAT_BLOCK => TextureFormat::Bc6hRgbUfloat,
-        ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbSfloat,
+        ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbFloat,
         ktx2::Format::BC7_UNORM_BLOCK | ktx2::Format::BC7_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Bc7RgbaUnormSrgb

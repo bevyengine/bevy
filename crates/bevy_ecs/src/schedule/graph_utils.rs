@@ -8,10 +8,14 @@ use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
 
-/// Unique identifier for a system or system set.
+/// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
+///
+/// [`ScheduleGraph`]: super::ScheduleGraph
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NodeId {
+    /// Identifier for a system.
     System(usize),
+    /// Identifier for a system set.
     Set(usize),
 }
 
@@ -47,11 +51,11 @@ pub(crate) enum DependencyKind {
 #[derive(Clone)]
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
-    pub(crate) set: BoxedSystemSet,
+    pub(crate) set: InternedSystemSet,
 }
 
 impl Dependency {
-    pub fn new(kind: DependencyKind, set: BoxedSystemSet) -> Self {
+    pub fn new(kind: DependencyKind, set: InternedSystemSet) -> Self {
         Self { kind, set }
     }
 }
@@ -62,59 +66,16 @@ pub(crate) enum Ambiguity {
     #[default]
     Check,
     /// Ignore warnings with systems in any of these system sets. May contain duplicates.
-    IgnoreWithSet(Vec<BoxedSystemSet>),
+    IgnoreWithSet(Vec<InternedSystemSet>),
     /// Ignore all warnings.
     IgnoreAll,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: Vec<BoxedSystemSet>,
+    pub(crate) sets: Vec<InternedSystemSet>,
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
-    pub(crate) add_default_base_set: bool,
-    pub(crate) base_set: Option<BoxedSystemSet>,
-}
-
-impl Default for GraphInfo {
-    fn default() -> Self {
-        GraphInfo {
-            sets: Vec::new(),
-            base_set: None,
-            dependencies: Vec::new(),
-            ambiguous_with: Ambiguity::default(),
-            add_default_base_set: true,
-        }
-    }
-}
-
-impl GraphInfo {
-    pub(crate) fn system() -> GraphInfo {
-        GraphInfo {
-            // systems get the default base set automatically
-            add_default_base_set: true,
-            ..Default::default()
-        }
-    }
-
-    pub(crate) fn system_set() -> GraphInfo {
-        GraphInfo {
-            // sets do not get the default base set automatically
-            add_default_base_set: false,
-            ..Default::default()
-        }
-    }
-
-    #[track_caller]
-    pub(crate) fn set_base_set(&mut self, set: BoxedSystemSet) {
-        if let Some(current) = &self.base_set {
-            panic!(
-                "Cannot set the base set because base set {current:?} has already been configured."
-            );
-        } else {
-            self.base_set = Some(set);
-        }
-    }
 }
 
 /// Converts 2D row-major pair of indices into a 1D array index.

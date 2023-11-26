@@ -6,21 +6,16 @@
 // * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
 // * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
-
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
     aspect: f32,
 };
 
-@group(0) @binding(0)
-var input_texture: texture_2d<f32>;
-@group(0) @binding(1)
-var s: sampler;
+@group(0) @binding(0) var input_texture: texture_2d<f32>;
+@group(0) @binding(1) var s: sampler;
 
-@group(0) @binding(2)
-var<uniform> uniforms: BloomUniforms;
+@group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
 
 #ifdef FIRST_DOWNSAMPLE
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
@@ -130,7 +125,8 @@ fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32>
     // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
     // downscaling and upscaling which would result in black boxes.
     // The upper bound is to prevent NaNs.
-    sample = clamp(sample, vec3<f32>(0.0001), vec3<f32>(3.40282347E+38));
+    // with f32::MAX (E+38) Chrome fails with ":value 340282346999999984391321947108527833088.0 cannot be represented as 'f32'"
+    sample = clamp(sample, vec3<f32>(0.0001), vec3<f32>(3.40282347E+37));
 
 #ifdef USE_THRESHOLD
     sample = soft_threshold(sample);

@@ -21,8 +21,8 @@
 //! |Spawn an entity with components|[`Commands::spawn`]|[`World::spawn`]|
 //! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
 //! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
-//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
-//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
+//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityWorldMut::insert`]|
+//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityWorldMut::remove`]|
 //!
 //! [`World`]: crate::world::World
 //! [`Commands::spawn`]: crate::system::Commands::spawn
@@ -33,8 +33,8 @@
 //! [`World::spawn`]: crate::world::World::spawn
 //! [`World::spawn_empty`]: crate::world::World::spawn_empty
 //! [`World::despawn`]: crate::world::World::despawn
-//! [`EntityMut::insert`]: crate::world::EntityMut::insert
-//! [`EntityMut::remove`]: crate::world::EntityMut::remove
+//! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
+//! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
 
 pub use map_entities::*;
@@ -44,7 +44,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
+use std::{convert::TryFrom, fmt, hash::Hash, mem, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -72,7 +72,7 @@ type IdCursor = isize;
 /// # Usage
 ///
 /// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
-/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
+/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityWorldMut::id`].
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -84,7 +84,7 @@ type IdCursor = isize;
 /// }
 ///
 /// fn exclusive_system(world: &mut World) {
-///     // Calling `spawn` returns `EntityMut`.
+///     // Calling `spawn` returns `EntityWorldMut`.
 ///     let entity = world.spawn(SomeComponent).id();
 /// }
 /// #
@@ -111,14 +111,73 @@ type IdCursor = isize;
 ///
 /// [learn more]: crate::system::Query#entity-id-access
 /// [`EntityCommands::id`]: crate::system::EntityCommands::id
-/// [`EntityMut::id`]: crate::world::EntityMut::id
+/// [`EntityWorldMut::id`]: crate::world::EntityWorldMut::id
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy)]
+// Alignment repr necessary to allow LLVM to better output
+// optimised codegen for `to_bits`, `PartialEq` and `Ord`.
+#[repr(C, align(8))]
 pub struct Entity {
-    generation: u32,
+    // Do not reorder the fields here. The ordering is explicitly used by repr(C)
+    // to make this struct equivalent to a u64.
+    #[cfg(target_endian = "little")]
     index: u32,
+    generation: u32,
+    #[cfg(target_endian = "big")]
+    index: u32,
+}
+
+// By not short-circuiting in comparisons, we get better codegen.
+// See <https://github.com/rust-lang/rust/issues/117800>
+impl PartialEq for Entity {
+    #[inline]
+    fn eq(&self, other: &Entity) -> bool {
+        // By using `to_bits`, the codegen can be optimised out even
+        // further potentially. Relies on the correct alignment/field
+        // order of `Entity`.
+        self.to_bits() == other.to_bits()
+    }
+}
+
+impl Eq for Entity {}
+
+// The derive macro codegen output is not optimal and can't be optimised as well
+// by the compiler. This impl resolves the issue of non-optimal codegen by relying
+// on comparing against the bit representation of `Entity` instead of comparing
+// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// far beyond what the derive macro can.
+// See <https://github.com/rust-lang/rust/issues/106107>
+impl PartialOrd for Entity {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        // Make use of our `Ord` impl to ensure optimal codegen output
+        Some(self.cmp(other))
+    }
+}
+
+// The derive macro codegen output is not optimal and can't be optimised as well
+// by the compiler. This impl resolves the issue of non-optimal codegen by relying
+// on comparing against the bit representation of `Entity` instead of comparing
+// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// far beyond what the derive macro can.
+// See <https://github.com/rust-lang/rust/issues/106107>
+impl Ord for Entity {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // This will result in better codegen for ordering comparisons, plus
+        // avoids pitfalls with regards to macro codegen relying on property
+        // position when we want to compare against the bit representation.
+        self.to_bits().cmp(&other.to_bits())
+    }
+}
+
+impl Hash for Entity {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.to_bits().hash(state);
+    }
 }
 
 pub(crate) enum AllocAtWithoutReplacement {
@@ -148,7 +207,7 @@ impl Entity {
     /// // ... replace the entities with valid ones.
     /// ```
     ///
-    /// Deriving `Reflect` for a component that has an `Entity` field:
+    /// Deriving [`Reflect`](bevy_reflect::Reflect) for a component that has an `Entity` field:
     ///
     /// ```no_run
     /// # use bevy_ecs::{prelude::*, component::*};
@@ -181,6 +240,7 @@ impl Entity {
     /// In general, one should not try to synchronize the ECS by attempting to ensure that
     /// `Entity` lines up between instances, but instead insert a secondary identifier as
     /// a component.
+    #[inline]
     pub const fn from_raw(index: u32) -> Entity {
         Entity {
             index,
@@ -194,6 +254,7 @@ impl Entity {
     /// for serialization between runs.
     ///
     /// No particular structure is guaranteed for the returned bits.
+    #[inline(always)]
     pub const fn to_bits(self) -> u64 {
         (self.generation as u64) << 32 | self.index as u64
     }
@@ -201,6 +262,7 @@ impl Entity {
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    #[inline(always)]
     pub const fn from_bits(bits: u64) -> Self {
         Self {
             generation: (bits >> 32) as u32,
@@ -227,6 +289,25 @@ impl Entity {
     }
 }
 
+impl Serialize for Entity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u64(self.to_bits())
+    }
+}
+
+impl<'de> Deserialize<'de> for Entity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
+        Ok(Entity::from_bits(id))
+    }
+}
+
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}v{}", self.index, self.generation)
@@ -234,10 +315,12 @@ impl fmt::Debug for Entity {
 }
 
 impl SparseSetIndex for Entity {
+    #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index() as usize
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Entity::from_raw(value as u32)
     }
@@ -299,15 +382,15 @@ pub struct Entities {
     /// that have been freed or are in the process of being allocated:
     ///
     /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
-    ///   `alloc()`, `reserve_entity()` or `reserve_entities()`. Allocation will always prefer
+    ///   [`alloc`], [`reserve_entity`] or [`reserve_entities`]. Allocation will always prefer
     ///   these over brand new IDs.
     ///
     /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   `reserve_entities` or `reserve_entity()`. They are now waiting for `flush()` to make them
+    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
     ///   fully allocated.
     ///
     /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
-    ///   and reserved. `flush()` will allocate room for them in `self.meta`.
+    ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
     ///
     /// The contents of `pending` look like this:
     ///
@@ -329,7 +412,12 @@ pub struct Entities {
     /// This formulation allows us to reserve any number of IDs first from the freelist
     /// and then from the new IDs, using only a single atomic subtract.
     ///
-    /// Once `flush()` is done, `free_cursor` will equal `pending.len()`.
+    /// Once [`flush`] is done, `free_cursor` will equal `pending.len()`.
+    ///
+    /// [`alloc`]: Entities::alloc
+    /// [`reserve_entity`]: Entities::reserve_entity
+    /// [`reserve_entities`]: Entities::reserve_entities
+    /// [`flush`]: Entities::flush
     pending: Vec<u32>,
     free_cursor: AtomicIdCursor,
     /// Stores the number of free entities for [`len`](Entities::len)
@@ -348,7 +436,7 @@ impl Entities {
 
     /// Reserve entity IDs concurrently.
     ///
-    /// Storage for entity generation and location is lazily allocated by calling `flush`.
+    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
@@ -570,9 +658,9 @@ impl Entities {
 
     /// Returns the location of an [`Entity`].
     /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
+    #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if (entity.index as usize) < self.meta.len() {
-            let meta = &self.meta[entity.index as usize];
+        if let Some(meta) = self.meta.get(entity.index as usize) {
             if meta.generation != entity.generation
                 || meta.location.archetype_id == ArchetypeId::INVALID
             {
@@ -591,9 +679,29 @@ impl Entities {
     ///  - `index` must be a valid entity index.
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
+    #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         self.meta.get_unchecked_mut(index as usize).location = location;
+    }
+
+    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
+    /// `index` will count `generation` starting from the prior `generation` + the specified
+    /// value + 1.
+    ///
+    /// Does nothing if no entity with this `index` has been allocated yet.
+    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
+        if (index as usize) >= self.meta.len() {
+            return false;
+        }
+
+        let meta = &mut self.meta[index as usize];
+        if meta.location.archetype_id == ArchetypeId::INVALID {
+            meta.generation += generations;
+            true
+        } else {
+            false
+        }
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
@@ -623,8 +731,8 @@ impl Entities {
         *self.free_cursor.get_mut() != self.pending.len() as IdCursor
     }
 
-    /// Allocates space for entities previously reserved with `reserve_entity` or
-    /// `reserve_entities`, then initializes each one using the supplied function.
+    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
+    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
@@ -671,8 +779,8 @@ impl Entities {
         }
     }
 
-    // Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return None
-    // unless they are later populated with a valid archetype.
+    /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
+    /// unless they are later populated with a valid archetype.
     pub fn flush_as_invalid(&mut self) {
         // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
         // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
@@ -838,5 +946,56 @@ mod tests {
 
         const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
         assert_eq!(0x00dd_00ff, C4);
+    }
+
+    #[test]
+    fn reserve_generations() {
+        let mut entities = Entities::new();
+        let entity = entities.alloc();
+        entities.free(entity);
+
+        assert!(entities.reserve_generations(entity.index, 1));
+    }
+
+    #[test]
+    fn reserve_generations_and_alloc() {
+        const GENERATIONS: u32 = 10;
+
+        let mut entities = Entities::new();
+        let entity = entities.alloc();
+        entities.free(entity);
+
+        assert!(entities.reserve_generations(entity.index, GENERATIONS));
+
+        // The very next entity allocated should be a further generation on the same index
+        let next_entity = entities.alloc();
+        assert_eq!(next_entity.index(), entity.index());
+        assert!(next_entity.generation > entity.generation + GENERATIONS);
+    }
+
+    #[test]
+    fn entity_comparison() {
+        // This is intentionally testing `lt` and `ge` as separate functions.
+        #![allow(clippy::nonminimal_bool)]
+
+        assert!(Entity::new(123, 456) == Entity::new(123, 456));
+        assert!(Entity::new(123, 789) != Entity::new(123, 456));
+        assert!(Entity::new(123, 456) != Entity::new(123, 789));
+        assert!(Entity::new(123, 456) != Entity::new(456, 123));
+
+        // ordering is by generation then by index
+
+        assert!(Entity::new(123, 456) >= Entity::new(123, 456));
+        assert!(Entity::new(123, 456) <= Entity::new(123, 456));
+        assert!(!(Entity::new(123, 456) < Entity::new(123, 456)));
+        assert!(!(Entity::new(123, 456) > Entity::new(123, 456)));
+
+        assert!(Entity::new(9, 1) < Entity::new(1, 9));
+        assert!(Entity::new(1, 9) > Entity::new(9, 1));
+
+        assert!(Entity::new(1, 1) < Entity::new(2, 1));
+        assert!(Entity::new(1, 1) <= Entity::new(2, 1));
+        assert!(Entity::new(2, 2) > Entity::new(1, 2));
+        assert!(Entity::new(2, 2) >= Entity::new(1, 2));
     }
 }

@@ -2,7 +2,7 @@
 
 use bevy_math::{Vec2, Vec3};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Collision {
     Left,
     Right,
@@ -14,13 +14,13 @@ pub enum Collision {
 // TODO: ideally we can remove this once bevy gets a physics system
 /// Axis-aligned bounding box collision with "side" detection
 /// * `a_pos` and `b_pos` are the center positions of the rectangles, typically obtained by
-/// extracting the `translation` field from a `Transform` component
+/// extracting the `translation` field from a [`Transform`](bevy_transform::components::Transform) component
 /// * `a_size` and `b_size` are the dimensions (width and height) of the rectangles.
 ///
-/// The return value is the side of `B` that `A` has collided with. `Left` means that
-/// `A` collided with `B`'s left side. `Top` means that `A` collided with `B`'s top side.
-/// If the collision occurs on multiple sides, the side with the deepest penetration is returned.
-/// If all sides are involved, `Inside` is returned.
+/// The return value is the side of `B` that `A` has collided with. [`Collision::Left`] means that
+/// `A` collided with `B`'s left side. [`Collision::Top`] means that `A` collided with `B`'s top side.
+/// If the collision occurs on multiple sides, the side with the shallowest penetration is returned.
+/// If all sides are involved, [`Collision::Inside`] is returned.
 pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<Collision> {
     let a_min = a_pos.truncate() - a_size / 2.0;
     let a_max = a_pos.truncate() + a_size / 2.0;

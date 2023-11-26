@@ -7,8 +7,12 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{all_tuples, HashMap};
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::{any::TypeId, fmt::Debug, hash::Hash};
+use std::{
+    any::TypeId,
+    fmt::Debug,
+    hash::Hash,
+    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -18,7 +22,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash};
 /// [`RenderCommand`]s. For more details and an example see the [`RenderCommand`] documentation.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Prepares the draw function to be used. This is called once and only once before the phase
-    /// begins. There may be zero or more `draw` calls following a call to this function.
+    /// begins. There may be zero or more [`draw`](Draw::draw) calls following a call to this function.
     /// Implementing this is optional.
     #[allow(unused_variables)]
     fn prepare(&mut self, world: &'_ World) {}
@@ -116,12 +120,14 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
 impl<P: PhaseItem> DrawFunctions<P> {
     /// Accesses the draw functions in read mode.
     pub fn read(&self) -> RwLockReadGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal.read()
+        self.internal.read().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Accesses the draw functions in write mode.
     pub fn write(&self) -> RwLockWriteGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal.write()
+        self.internal
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -249,7 +255,7 @@ where
     C::Param: ReadOnlySystemParam,
 {
     /// Prepares the render command to be used. This is called once and only once before the phase
-    /// begins. There may be zero or more `draw` calls following a call to this function.
+    /// begins. There may be zero or more [`draw`](RenderCommandState::draw) calls following a call to this function.
     fn prepare(&mut self, world: &'_ World) {
         self.state.update_archetypes(world);
         self.view.update_archetypes(world);

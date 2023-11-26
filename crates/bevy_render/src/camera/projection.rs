@@ -1,11 +1,10 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, CoreSchedule, CoreSet, Plugin, StartupSet};
+use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_math::{Mat4, Rect, Vec2};
+use bevy_math::{Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectSerialize,
+    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
 use serde::{Deserialize, Serialize};
 
@@ -27,11 +26,8 @@ pub struct CameraUpdateSystem;
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
-            .edit_schedule(CoreSchedule::Startup, |schedule| {
-                schedule.configure_set(CameraUpdateSystem.in_base_set(StartupSet::PostStartup));
-            })
-            .configure_set(CameraUpdateSystem.in_base_set(CoreSet::PostUpdate))
-            .add_startup_system(
+            .add_systems(
+                PostStartup,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
@@ -39,7 +35,8 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             )
-            .add_system(
+            .add_systems(
+                PostUpdate,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
@@ -61,6 +58,7 @@ pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
@@ -104,6 +102,13 @@ impl CameraProjection for Projection {
             Projection::Orthographic(projection) => projection.far(),
         }
     }
+
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+        match self {
+            Projection::Perspective(projection) => projection.get_frustum_corners(z_near, z_far),
+            Projection::Orthographic(projection) => projection.get_frustum_corners(z_near, z_far),
+        }
+    }
 }
 
 impl Default for Projection {
@@ -113,7 +118,7 @@ impl Default for Projection {
 }
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
@@ -156,6 +161,24 @@ impl CameraProjection for PerspectiveProjection {
     fn far(&self) -> f32 {
         self.far
     }
+
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+        let tan_half_fov = (self.fov / 2.).tan();
+        let a = z_near.abs() * tan_half_fov;
+        let b = z_far.abs() * tan_half_fov;
+        let aspect_ratio = self.aspect_ratio;
+        // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+        [
+            Vec3A::new(a * aspect_ratio, -a, z_near),  // bottom right
+            Vec3A::new(a * aspect_ratio, a, z_near),   // top right
+            Vec3A::new(-a * aspect_ratio, a, z_near),  // top left
+            Vec3A::new(-a * aspect_ratio, -a, z_near), // bottom left
+            Vec3A::new(b * aspect_ratio, -b, z_far),   // bottom right
+            Vec3A::new(b * aspect_ratio, b, z_far),    // top right
+            Vec3A::new(-b * aspect_ratio, b, z_far),   // top left
+            Vec3A::new(-b * aspect_ratio, -b, z_far),  // bottom left
+        ]
+    }
 }
 
 impl Default for PerspectiveProjection {
@@ -169,7 +192,7 @@ impl Default for PerspectiveProjection {
     }
 }
 
-#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
     /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
@@ -200,7 +223,7 @@ pub enum ScalingMode {
 ///
 /// Note that the scale of the projection and the apparent size of objects are inversely proportional.
 /// As the size of the projection increases, the size of objects decreases.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
@@ -230,7 +253,7 @@ pub struct OrthographicProjection {
     pub viewport_origin: Vec2,
     /// How the projection will scale when the viewport is resized.
     ///
-    /// Defaults to `ScalingMode::WindowScale(1.0)`
+    /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
     /// Scales the projection in world units.
     ///
@@ -311,6 +334,21 @@ impl CameraProjection for OrthographicProjection {
 
     fn far(&self) -> f32 {
         self.far
+    }
+
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+        let area = self.area;
+        // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+        [
+            Vec3A::new(area.max.x, area.min.y, z_near), // bottom right
+            Vec3A::new(area.max.x, area.max.y, z_near), // top right
+            Vec3A::new(area.min.x, area.max.y, z_near), // top left
+            Vec3A::new(area.min.x, area.min.y, z_near), // bottom left
+            Vec3A::new(area.max.x, area.min.y, z_far),  // bottom right
+            Vec3A::new(area.max.x, area.max.y, z_far),  // top right
+            Vec3A::new(area.min.x, area.max.y, z_far),  // top left
+            Vec3A::new(area.min.x, area.min.y, z_far),  // bottom left
+        ]
     }
 }
 

@@ -14,8 +14,8 @@ use bevy_app::prelude::*;
 pub struct SystemInformationDiagnosticsPlugin;
 impl Plugin for SystemInformationDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(internal::setup_system)
-            .add_system(internal::diagnostic_system);
+        app.add_systems(Startup, internal::setup_system)
+            .add_systems(Update, internal::diagnostic_system);
     }
 }
 
@@ -41,11 +41,11 @@ pub mod internal {
     use bevy_log::info;
     use sysinfo::{CpuExt, CpuRefreshKind, RefreshKind, System, SystemExt};
 
-    use crate::{Diagnostic, Diagnostics};
+    use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
-    pub(crate) fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
+    pub(crate) fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
         diagnostics.add(
             Diagnostic::new(
                 super::SystemInformationDiagnosticsPlugin::CPU_USAGE,
@@ -65,7 +65,7 @@ pub mod internal {
     }
 
     pub(crate) fn diagnostic_system(
-        mut diagnostics: ResMut<Diagnostics>,
+        mut diagnostics: Diagnostics,
         mut sysinfo: Local<Option<System>>,
     ) {
         if sysinfo.is_none() {

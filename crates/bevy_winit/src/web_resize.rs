@@ -1,5 +1,5 @@
 use crate::WinitWindows;
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
 use crossbeam_channel::{Receiver, Sender};
 use wasm_bindgen::JsCast;
@@ -10,7 +10,7 @@ pub(crate) struct CanvasParentResizePlugin;
 impl Plugin for CanvasParentResizePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CanvasParentResizeEventChannel>()
-            .add_system(canvas_parent_resize_event_handler);
+            .add_systems(Update, canvas_parent_resize_event_handler);
     }
 }
 

@@ -20,7 +20,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let filter = if let Some(attr) = ast
         .attrs
         .iter()
-        .find(|a| a.path.is_ident("extract_component_filter"))
+        .find(|a| a.path().is_ident("extract_component_filter"))
     {
         let filter = match attr.parse_args::<syn::Type>() {
             Ok(filter) => filter,

@@ -4,6 +4,7 @@ mod examples;
 mod features;
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Command: u32 {
         const CHECK_MISSING = 0b00000001;
         const UPDATE = 0b00000010;
@@ -11,6 +12,7 @@ bitflags! {
 }
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Target: u32 {
         const EXAMPLES = 0b00000001;
         const FEATURES = 0b00000010;

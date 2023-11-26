@@ -7,15 +7,26 @@ use crate::{
 use bevy_utils::all_tuples;
 use bevy_utils::synccell::SyncCell;
 
+/// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
+/// Any parameters implementing this trait must come after the `&mut World` parameter.
 pub trait ExclusiveSystemParam: Sized {
+    /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
+    /// The item type returned when constructing this system param.
+    /// See [`SystemParam::Item`].
     type Item<'s>: ExclusiveSystemParam<State = Self::State>;
 
+    /// Creates a new instance of this param's [`State`](Self::State).
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
+    /// Creates a parameter to be passed into an [`ExclusiveSystemParamFunction`].
+    ///
+    /// [`ExclusiveSystemParamFunction`]: super::ExclusiveSystemParamFunction
     fn get_param<'s>(state: &'s mut Self::State, system_meta: &SystemMeta) -> Self::Item<'s>;
 }
 
+/// Shorthand way of accessing the associated type [`ExclusiveSystemParam::Item`]
+/// for a given [`ExclusiveSystemParam`].
 pub type ExclusiveSystemParamItem<'s, P> = <P as ExclusiveSystemParam>::Item<'s>;
 
 impl<'a, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemParam
