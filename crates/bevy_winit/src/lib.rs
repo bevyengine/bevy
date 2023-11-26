@@ -40,7 +40,8 @@ use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
-    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
+    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
+    WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
@@ -275,6 +276,7 @@ struct WindowAndInputEventWriters<'w> {
     window_scale_factor_changed: EventWriter<'w, WindowScaleFactorChanged>,
     window_backend_scale_factor_changed: EventWriter<'w, WindowBackendScaleFactorChanged>,
     window_focused: EventWriter<'w, WindowFocused>,
+    window_occluded: EventWriter<'w, WindowOccluded>,
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
     window_destroyed: EventWriter<'w, WindowDestroyed>,
@@ -656,6 +658,12 @@ pub fn winit_runner(mut app: App) {
                         event_writers.window_focused.send(WindowFocused {
                             window: window_entity,
                             focused,
+                        });
+                    }
+                    WindowEvent::Occluded(occluded) => {
+                        event_writers.window_occluded.send(WindowOccluded {
+                            window: window_entity,
+                            occluded,
                         });
                     }
                     WindowEvent::DroppedFile(path_buf) => {
