@@ -75,7 +75,7 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 impl Plugin for MeshRenderPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -151,7 +151,7 @@ impl Plugin for MeshRenderPlugin {
         }
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finish(&self, app: &mut App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {

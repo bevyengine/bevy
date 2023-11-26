@@ -10,7 +10,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
-/// Implemented for functions and closures that convert into [`System<Out=bool>`](crate::system::System)
+/// Implemented for functions and closures that convert into [`System<Out=bool>`](System)
 /// with [read-only](crate::system::ReadOnlySystemParam) parameters.
 ///
 /// # Marker type parameter

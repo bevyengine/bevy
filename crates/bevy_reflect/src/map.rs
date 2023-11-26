@@ -41,7 +41,7 @@ use crate::{
 ///
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
-/// [`HashMap`]: bevy_utils::HashMap
+/// [`HashMap`]: HashMap
 pub trait Map: Reflect {
     /// Returns a reference to the value associated with the given key.
     ///
@@ -486,7 +486,7 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn map_debug(dyn_map: &dyn Map, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut debug = f.debug_map();
     for (key, value) in dyn_map.iter() {
         debug.entry(&key as &dyn Debug, &value as &dyn Debug);

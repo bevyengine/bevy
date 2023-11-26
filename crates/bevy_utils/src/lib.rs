@@ -67,7 +67,7 @@ pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, BuildHasherDefau
 #[derive(Debug, Clone, Default)]
 pub struct FixedState;
 
-impl std::hash::BuildHasher for FixedState {
+impl BuildHasher for FixedState {
     type Hasher = AHasher;
 
     #[inline]

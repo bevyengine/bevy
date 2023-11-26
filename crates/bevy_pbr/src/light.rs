@@ -85,7 +85,7 @@ impl Default for PointLightShadowMap {
 /// A light that emits light in a given direction from a central point.
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
-/// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
+/// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct SpotLight {
@@ -172,7 +172,7 @@ impl Default for SpotLight {
 /// Shadows are produced via [cascaded shadow maps](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf).
 ///
 /// To modify the cascade set up, such as the number of cascades or the maximum shadow distance,
-/// change the [`CascadeShadowConfig`] component of the [`crate::bundle::DirectionalLightBundle`].
+/// change the [`CascadeShadowConfig`] component of the [`DirectionalLightBundle`].
 ///
 /// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
 ///
@@ -575,11 +575,11 @@ impl Default for AmbientLight {
     }
 }
 
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
+/// Add this component to make a [`Mesh`](mesh::Mesh) not cast shadows.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
+/// Add this component to make a [`Mesh`](mesh::Mesh) not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
@@ -587,7 +587,7 @@ pub struct NotShadowCaster;
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh`](mesh::Mesh) using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
 /// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)

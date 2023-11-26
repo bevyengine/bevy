@@ -67,15 +67,11 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// ```
 ///
 /// [`fetch`]: Self::fetch
-/// [`Changed`]: crate::query::Changed
 /// [`matches_component_set`]: Self::matches_component_set
-/// [`Or`]: crate::query::Or
 /// [`Query`]: crate::system::Query
 /// [`State`]: Self::State
 /// [`update_archetype_component_access`]: Self::update_archetype_component_access
 /// [`update_component_access`]: Self::update_component_access
-/// [`With`]: crate::query::With
-/// [`Without`]: crate::query::Without
 
 pub trait WorldQueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which

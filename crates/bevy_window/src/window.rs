@@ -750,14 +750,14 @@ where
     }
 }
 
-impl From<bevy_math::Vec2> for WindowResolution {
-    fn from(res: bevy_math::Vec2) -> WindowResolution {
+impl From<Vec2> for WindowResolution {
+    fn from(res: Vec2) -> WindowResolution {
         WindowResolution::new(res.x, res.y)
     }
 }
 
-impl From<bevy_math::DVec2> for WindowResolution {
-    fn from(res: bevy_math::DVec2) -> WindowResolution {
+impl From<DVec2> for WindowResolution {
+    fn from(res: DVec2) -> WindowResolution {
         WindowResolution::new(res.x as f32, res.y as f32)
     }
 }

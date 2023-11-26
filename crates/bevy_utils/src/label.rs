@@ -42,7 +42,7 @@ pub trait DynHash: DynEq {
 
     /// Feeds this value into the given [`Hasher`].
     ///
-    /// [`Hasher`]: std::hash::Hasher
+    /// [`Hasher`]: Hasher
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
 
@@ -126,7 +126,7 @@ macro_rules! define_label {
 
             /// Feeds this value into the given [`Hasher`].
             ///
-            /// [`Hasher`]: std::hash::Hasher
+            /// [`Hasher`]: Hasher
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
 
             /// Returns an [`Interned`](bevy_utils::intern::Interned) value corresponding to `self`.

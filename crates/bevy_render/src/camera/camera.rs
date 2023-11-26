@@ -368,7 +368,7 @@ pub enum CameraOutputMode {
         blend_state: Option<BlendState>,
         /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
         /// target texture.
-        color_attachment_load_op: wgpu::LoadOp<wgpu::Color>,
+        color_attachment_load_op: LoadOp<wgpu::Color>,
     },
     /// Skips writing the camera output to the configured render target. The output will remain in the
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
@@ -562,7 +562,7 @@ impl NormalizedRenderTarget {
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
-/// [`Projection`]: crate::camera::Projection
+/// [`Projection`]: Projection
 #[allow(clippy::too_many_arguments)]
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,

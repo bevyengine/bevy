@@ -186,8 +186,8 @@ async fn load_gltf<'a, 'b, 'c>(
                 let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
                 let keyframe_timestamps: Vec<f32> = if let Some(inputs) = reader.read_inputs() {
                     match inputs {
-                        gltf::accessor::Iter::Standard(times) => times.collect(),
-                        gltf::accessor::Iter::Sparse(_) => {
+                        Iter::Standard(times) => times.collect(),
+                        Iter::Sparse(_) => {
                             warn!("Sparse accessor not supported for animation sampler input");
                             continue;
                         }
@@ -439,7 +439,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     "Missing vertex tangents, computing them using the mikktspace algorithm"
                 );
                 if let Err(err) = mesh.generate_tangents() {
-                    bevy_log::warn!(
+                    warn!(
                         "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
                         err
                     );
@@ -485,7 +485,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     .and_then(|i| meshes.get(i).cloned()),
                 transform: match node.transform() {
                     gltf::scene::Transform::Matrix { matrix } => {
-                        Transform::from_matrix(bevy_math::Mat4::from_cols_array_2d(&matrix))
+                        Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
                     }
                     gltf::scene::Transform::Decomposed {
                         translation,
@@ -510,7 +510,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
         .map(|(label, node)| load_context.add_labeled_asset(label, node))
-        .collect::<Vec<bevy_asset::Handle<GltfNode>>>();
+        .collect::<Vec<Handle<GltfNode>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()
         .filter_map(|(name, index)| {
@@ -637,7 +637,7 @@ async fn load_gltf<'a, 'b, 'c>(
 }
 
 fn get_gltf_extras(extras: &gltf::json::Extras) -> Option<GltfExtras> {
-    extras.as_ref().map(|extras| super::GltfExtras {
+    extras.as_ref().map(|extras| GltfExtras {
         value: extras.get().to_string(),
     })
 }
@@ -856,7 +856,7 @@ fn load_material(
 /// Loads a glTF node.
 #[allow(clippy::too_many_arguments)]
 fn load_node(
-    gltf_node: &gltf::Node,
+    gltf_node: &Node,
     world_builder: &mut WorldChildBuilder,
     root_load_context: &LoadContext,
     load_context: &mut LoadContext,
@@ -881,7 +881,7 @@ fn load_node(
     node.insert(node_name(gltf_node));
 
     if let Some(extras) = gltf_node.extras() {
-        node.insert(super::GltfExtras {
+        node.insert(GltfExtras {
             value: extras.get().to_string(),
         });
     }
@@ -985,7 +985,7 @@ fn load_node(
                 ));
 
                 if let Some(extras) = primitive.extras() {
-                    mesh_entity.insert(super::GltfExtras {
+                    mesh_entity.insert(GltfExtras {
                         value: extras.get().to_string(),
                     });
                 }
@@ -1015,7 +1015,7 @@ fn load_node(
                         entity.insert(Name::new(name.to_string()));
                     }
                     if let Some(extras) = light.extras() {
-                        entity.insert(super::GltfExtras {
+                        entity.insert(GltfExtras {
                             value: extras.get().to_string(),
                         });
                     }
@@ -1038,7 +1038,7 @@ fn load_node(
                         entity.insert(Name::new(name.to_string()));
                     }
                     if let Some(extras) = light.extras() {
-                        entity.insert(super::GltfExtras {
+                        entity.insert(GltfExtras {
                             value: extras.get().to_string(),
                         });
                     }
@@ -1066,7 +1066,7 @@ fn load_node(
                         entity.insert(Name::new(name.to_string()));
                     }
                     if let Some(extras) = light.extras() {
-                        entity.insert(super::GltfExtras {
+                        entity.insert(GltfExtras {
                             value: extras.get().to_string(),
                         });
                     }
@@ -1134,7 +1134,7 @@ fn morph_targets_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 }
 
 /// Returns the label for the `material`.
-fn material_label(material: &gltf::Material, is_scale_inverted: bool) -> String {
+fn material_label(material: &Material, is_scale_inverted: bool) -> String {
     if let Some(index) = material.index() {
         format!(
             "Material{index}{}",
@@ -1174,7 +1174,7 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 }
 
 /// Returns the label for the `node`.
-fn node_label(node: &gltf::Node) -> String {
+fn node_label(node: &Node) -> String {
     format!("Node{}", node.index())
 }
 
@@ -1233,7 +1233,7 @@ fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
 }
 
 /// Maps the texture address mode form glTF to wgpu.
-fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> ImageAddressMode {
+fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     match gltf_address_mode {
         WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
         WrappingMode::Repeat => ImageAddressMode::Repeat,

@@ -527,7 +527,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
     ///
-    /// Calls [`World::run_system`](crate::system::World::run_system).
+    /// Calls [`World::run_system`](World::run_system).
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
@@ -540,7 +540,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
     ///
-    /// Calls [`World::run_system_with_input`](crate::system::World::run_system_with_input).
+    /// Calls [`World::run_system_with_input`](World::run_system_with_input).
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
@@ -812,7 +812,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityWorldMut::remove`](crate::world::EntityWorldMut::remove) for more
+    /// See [`EntityWorldMut::remove`](EntityWorldMut::remove) for more
     /// details.
     ///
     /// # Example

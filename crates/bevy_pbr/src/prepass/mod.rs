@@ -58,7 +58,7 @@ impl<M: Material> Plugin for PrepassPipelinePlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
             PREPASS_SHADER_HANDLE,
@@ -101,7 +101,7 @@ where
             .init_resource::<PreviousViewProjectionUniforms>();
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -125,7 +125,7 @@ impl<M: Material> Plugin for PrepassPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         let no_prepass_plugin_loaded = app.world.get_resource::<AnyPrepassPluginLoaded>().is_none();
 
         if no_prepass_plugin_loaded {

@@ -284,7 +284,7 @@ pub fn prepare_windows(
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
                 PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
