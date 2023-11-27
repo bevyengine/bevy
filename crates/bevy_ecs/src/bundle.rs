@@ -1209,8 +1209,8 @@ mod tests {
 
         let entity = world.spawn(A).flush();
         let entity = world.get_entity(entity).unwrap();
-        assert_eq!(false, entity.contains::<A>());
-        assert_eq!(false, entity.contains::<B>());
+        assert!(!entity.contains::<A>());
+        assert!(!entity.contains::<B>());
         assert_eq!(4, world.resource::<R>().0);
     }
 
