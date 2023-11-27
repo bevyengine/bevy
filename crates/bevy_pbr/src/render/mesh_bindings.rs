@@ -2,9 +2,8 @@
 
 use bevy_math::Mat4;
 use bevy_render::{mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice};
-use bevy_utils::FloatOrd;
 
-use crate::{render::skin::MAX_JOINTS, GpuLightmap, LightmapUniforms, RenderMeshLightmap};
+use crate::{render::skin::MAX_JOINTS, RenderMeshLightmap};
 
 const MORPH_WEIGHT_SIZE: usize = std::mem::size_of::<f32>();
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
@@ -12,12 +11,9 @@ pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
-const LIGHTMAP_SIZE: usize = std::mem::size_of::<GpuLightmap>();
-pub const LIGHTMAP_BUFFER_SIZE: usize = LIGHTMAP_SIZE;
-
 /// Individual layout entries.
 mod layout_entry {
-    use super::{JOINT_BUFFER_SIZE, LIGHTMAP_BUFFER_SIZE, MORPH_BUFFER_SIZE};
+    use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
     use crate::MeshUniform;
     use bevy_render::{
         render_resource::{
@@ -84,23 +80,11 @@ mod layout_entry {
             count: None,
         }
     }
-    pub(super) fn lightmaps(binding: u32) -> BindGroupLayoutEntry {
-        BindGroupLayoutEntry {
-            binding,
-            visibility: ShaderStages::FRAGMENT,
-            count: None,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: BufferSize::new(LIGHTMAP_BUFFER_SIZE as u64),
-            },
-        }
-    }
 }
 /// Individual [`BindGroupEntry`]
 /// for bind groups.
 mod entry {
-    use super::{JOINT_BUFFER_SIZE, LIGHTMAP_BUFFER_SIZE, MORPH_BUFFER_SIZE};
+    use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
     use bevy_render::render_resource::{
         BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler, TextureView,
     };
@@ -141,9 +125,6 @@ mod entry {
             binding,
             resource: BindingResource::Sampler(sampler),
         }
-    }
-    pub(super) fn lightmaps(binding: u32, buffer: &Buffer) -> BindGroupEntry {
-        entry(binding, LIGHTMAP_BUFFER_SIZE as u64, buffer)
     }
 }
 
@@ -199,7 +180,6 @@ impl MeshLayouts {
                 layout_entry::model(render_device, 0),
                 layout_entry::lightmaps_texture_view(4),
                 layout_entry::lightmaps_sampler(5),
-                layout_entry::lightmaps(6),
             ],
             label: Some("lightmapped_mesh_layout"),
         })
@@ -249,7 +229,6 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         model: &BindingResource,
         lightmap: &RenderMeshLightmap,
-        lightmap_uniforms: &LightmapUniforms,
     ) -> BindGroup {
         render_device.create_bind_group(
             "lightmapped_mesh_bind_group",
@@ -258,15 +237,6 @@ impl MeshLayouts {
                 entry::model(0, model.clone()),
                 entry::lightmaps_texture_view(4, &lightmap.image.texture_view),
                 entry::lightmaps_sampler(5, &lightmap.image.sampler),
-                entry::lightmaps(
-                    6,
-                    lightmap_uniforms
-                        .exposure_to_lightmap_uniform
-                        .get(&FloatOrd(lightmap.exposure))
-                        .expect("Lightmap uniform buffer should have been created by now")
-                        .buffer()
-                        .expect("Lightmap uniform buffer should have been uploaded by now"),
-                ),
             ],
         )
     }

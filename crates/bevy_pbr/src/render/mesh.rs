@@ -1002,7 +1002,6 @@ pub fn prepare_mesh_bind_group(
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
     render_lightmaps: Res<RenderLightmaps>,
-    lightmaps_uniform: Res<LightmapUniforms>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
@@ -1049,12 +1048,7 @@ pub fn prepare_mesh_bind_group(
             // If we got here, we need to make a new layout.
             let render_mesh_lightmap =
                 &render_lightmaps.render_mesh_lightmaps[render_mesh_lightmap_index.0];
-            entry.insert(layouts.lightmapped(
-                &render_device,
-                &model,
-                render_mesh_lightmap,
-                &lightmaps_uniform,
-            ));
+            entry.insert(layouts.lightmapped(&render_device, &model, render_mesh_lightmap));
         }
     }
 }

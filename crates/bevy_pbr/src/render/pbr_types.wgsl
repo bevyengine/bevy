@@ -17,6 +17,7 @@ struct StandardMaterial {
     alpha_cutoff: f32,
     parallax_depth_scale: f32,
     max_parallax_layer_count: f32,
+    lightmap_exposure: f32,
     max_relief_mapping_search_steps: u32,
     /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
     deferred_lighting_pass_id: u32,

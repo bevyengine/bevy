@@ -27,16 +27,13 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::Mesh,
     render_asset::RenderAssets,
-    render_resource::{ShaderType, UniformBuffer},
-    renderer::{RenderDevice, RenderQueue},
     texture::{GpuImage, Image},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::{
     hashbrown::{hash_map::Entry, HashMap},
-    EntityHashMap, FloatOrd,
+    EntityHashMap,
 };
-use bytemuck::{Pod, Zeroable};
 
 use crate::{Mesh3d, RenderMeshInstances};
 
@@ -63,23 +60,6 @@ pub struct Lightmap {
     /// This field allows lightmaps for a variety of meshes to be packed into a
     /// single atlas.
     pub uv_rect: Rect,
-
-    /// The intensity or brightness of the lightmap.
-    ///
-    /// Colors within the lightmap are multiplied by this value when rendering.
-    pub exposure: f32,
-}
-
-/// The on-GPU structure that specifies metadata about the lightmap.
-///
-/// Currently, the only such metadata is the exposure
-#[derive(ShaderType, Clone, Copy, Zeroable, Pod)]
-#[repr(C)]
-pub struct GpuLightmap {
-    /// The intensity or brightness of the lightmap.
-    ///
-    /// Colors within the lightmap are multiplied by this value when rendering.
-    pub exposure: f32,
 }
 
 /// A render world resource that stores all lightmaps associated with each mesh.
@@ -107,8 +87,6 @@ pub struct RenderMeshLightmaps {
 pub struct RenderMeshLightmapKey {
     /// The ID of the lightmap texture.
     pub(crate) image: AssetId<Image>,
-    /// The exposure (brightness) value.
-    pub(crate) exposure: FloatOrd,
 }
 
 /// Per-mesh data needed to render a lightmap.
@@ -120,24 +98,12 @@ pub struct RenderMeshLightmap {
     pub(crate) image: GpuImage,
     /// The ID of the lightmap's image asset.
     pub(crate) image_id: AssetId<Image>,
-    /// The exposure (brightness) value.
-    pub(crate) exposure: f32,
 }
 
 /// The index of a lightmap within the `render_mesh_lightmaps` array in
 /// [`RenderMeshLightmaps`].
 #[derive(Clone, Copy, Default, Deref)]
 pub(crate) struct RenderMeshLightmapIndex(pub(crate) usize);
-
-/// GPU data that contains metadata about each lightmap.
-///
-/// Currently, the only metadata stored per lightmap is the exposure
-/// (brightness) value.
-#[derive(Resource, Default)]
-pub struct LightmapUniforms {
-    /// The GPU buffers containing metadata about each lightmap.
-    pub exposure_to_lightmap_uniform: HashMap<FloatOrd, UniformBuffer<GpuLightmap>>,
-}
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
@@ -148,39 +114,26 @@ impl Plugin for LightmapPlugin {
             return;
         };
 
-        render_app
-            .init_resource::<RenderLightmaps>()
-            .init_resource::<LightmapUniforms>()
-            .add_systems(
-                Render,
-                (
-                    build_lightmap_texture_arrays.in_set(RenderSet::PrepareResources),
-                    upload_lightmaps_buffers
-                        .in_set(RenderSet::PrepareResources)
-                        .after(build_lightmap_texture_arrays),
-                ),
-            );
+        render_app.init_resource::<RenderLightmaps>().add_systems(
+            Render,
+            build_lightmap_texture_arrays.in_set(RenderSet::PrepareResources),
+        );
     }
 }
 
 /// A system, part of the [`RenderApp`], that finds all lightmapped meshes in
-/// the scene and updates the [`RenderMeshLightmaps`] and [`LightmapUniforms`]
-/// resources.
+/// the scene and updates the [`RenderMeshLightmaps`] resource.
 ///
 /// This runs before batch building.
 pub fn build_lightmap_texture_arrays(
     mut render_lightmaps: ResMut<RenderLightmaps>,
     lightmaps: Query<(Entity, &Lightmap), With<Mesh3d>>,
-    mut gpu_lightmaps: ResMut<LightmapUniforms>,
     images: Res<RenderAssets<Image>>,
     render_mesh_instances: Res<RenderMeshInstances>,
 ) {
     // Rebuild all lightmaps for this frame.
     render_lightmaps.clear();
     render_lightmaps.update(lightmaps, &render_mesh_instances, &images);
-
-    // Update the lightmap metadata.
-    gpu_lightmaps.update(&mut render_lightmaps);
 }
 
 impl ExtractComponent for Lightmap {
@@ -198,67 +151,6 @@ impl Default for Lightmap {
         Self {
             image: Default::default(),
             uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
-            exposure: 1.0,
-        }
-    }
-}
-
-/// Uploads the lightmap metadata uniforms to the GPU.
-pub fn upload_lightmaps_buffers(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut uniform: ResMut<LightmapUniforms>,
-) {
-    for buffer in uniform.exposure_to_lightmap_uniform.values_mut() {
-        buffer.write_buffer(&render_device, &render_queue);
-    }
-}
-
-impl Default for GpuLightmap {
-    fn default() -> Self {
-        Self { exposure: 1.0 }
-    }
-}
-
-impl LightmapUniforms {
-    // Prepares the uniform buffers containing lightmap metadata for this frame.
-    //
-    // Currently, the uniform buffers only contain exposure (brightness)
-    // information.
-    fn update(&mut self, render_lightmaps: &mut RenderLightmaps) {
-        // Prefer to reuse buffers from a previous frame if possible.
-        let mut spare_buffers: Vec<_> = self
-            .exposure_to_lightmap_uniform
-            .drain()
-            .map(|(_, buffer)| buffer)
-            .collect();
-
-        for render_mesh_lightmaps in render_lightmaps.values() {
-            for render_mesh_lightmap in &render_mesh_lightmaps.render_mesh_lightmaps {
-                // If we already have an entry for that exposure value, skip it.
-                let Entry::Vacant(entry) = self
-                    .exposure_to_lightmap_uniform
-                    .entry(FloatOrd(render_mesh_lightmap.exposure))
-                else {
-                    continue;
-                };
-
-                // Create a new buffer containing this exposure value.
-
-                let gpu_lightmap = GpuLightmap {
-                    exposure: render_mesh_lightmap.exposure,
-                };
-
-                let buffer = match spare_buffers.pop() {
-                    Some(mut buffer) => {
-                        buffer.set(gpu_lightmap);
-                        buffer
-                    }
-                    None => gpu_lightmap.into(),
-                };
-
-                entry.insert(buffer);
-            }
         }
     }
 }
@@ -317,7 +209,6 @@ impl RenderLightmaps {
                         .push(RenderMeshLightmap::new(
                             (*image).clone(),
                             lightmap.image.id(),
-                            lightmap.exposure,
                         ));
                     entry.insert(index);
                     index
@@ -344,12 +235,8 @@ impl RenderLightmaps {
 }
 
 impl RenderMeshLightmap {
-    fn new(image: GpuImage, image_id: AssetId<Image>, exposure: f32) -> Self {
-        Self {
-            image,
-            image_id,
-            exposure,
-        }
+    fn new(image: GpuImage, image_id: AssetId<Image>) -> Self {
+        Self { image, image_id }
     }
 }
 
@@ -357,7 +244,6 @@ impl<'a> From<&'a Lightmap> for RenderMeshLightmapKey {
     fn from(lightmap: &'a Lightmap) -> Self {
         RenderMeshLightmapKey {
             image: lightmap.image.id(),
-            exposure: FloatOrd(lightmap.exposure),
         }
     }
 }
@@ -366,7 +252,6 @@ impl<'a> From<&'a RenderMeshLightmap> for RenderMeshLightmapKey {
     fn from(lightmap: &'a RenderMeshLightmap) -> Self {
         RenderMeshLightmapKey {
             image: lightmap.image_id,
-            exposure: FloatOrd(lightmap.exposure),
         }
     }
 }

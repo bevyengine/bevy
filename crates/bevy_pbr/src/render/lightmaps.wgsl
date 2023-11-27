@@ -2,22 +2,16 @@
 
 #import bevy_pbr::mesh_bindings mesh
 
-struct Lightmap {
-    exposure: f32,
-};
-
 #ifdef MESH_BINDGROUP_1
 @group(1) @binding(4) var lightmaps_texture: texture_2d<f32>;
 @group(1) @binding(5) var lightmaps_sampler: sampler;
-@group(1) @binding(6) var<uniform> lightmap_uniform: Lightmap;
 #else
 @group(2) @binding(4) var lightmaps_texture: texture_2d<f32>;
 @group(2) @binding(5) var lightmaps_sampler: sampler;
-@group(2) @binding(6) var<uniform> lightmap_uniform: Lightmap;
 #endif  // MESH_BINDGROUP_1
 
 // Samples the lightmap, if any, and returns indirect illumination from it.
-fn lightmap(uv: vec2<f32>, instance_index: u32) -> vec3<f32> {
+fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     let packed_uv_rect = mesh[instance_index].lightmap_uv_rect;
     let uv_rect = vec4<f32>(vec4<u32>(
         packed_uv_rect.x & 0xffffu,
@@ -36,5 +30,5 @@ fn lightmap(uv: vec2<f32>, instance_index: u32) -> vec3<f32> {
         lightmaps_texture,
         lightmaps_sampler,
         lightmap_uv,
-        0.0).rgb * lightmap_uniform.exposure;
+        0.0).rgb * exposure;
 }
