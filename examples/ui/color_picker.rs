@@ -3,9 +3,9 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy::ui::widget;
-use bevy::ui::widget::{HueWheelMaterial, SaturationValueBoxEvent};
-use bevy_internal::ui::widget::HueWheelSibling;
+use bevy::ui::widget::{
+    HueWheelMaterial, HueWheelSibling, SaturationValueBoxEvent, SaturationValueBoxMaterial,
+};
 
 fn main() {
     App::new()
@@ -101,8 +101,8 @@ fn setup_3d(
 
 fn setup_ui(
     mut commands: Commands,
-    mut hue_materials: ResMut<Assets<widget::HueWheelMaterial>>,
-    mut satval_materials: ResMut<Assets<widget::SaturationValueBoxMaterial>>,
+    mut hue_materials: ResMut<Assets<HueWheelMaterial>>,
+    mut satval_materials: ResMut<Assets<SaturationValueBoxMaterial>>,
 ) {
     let hue_wheel_material = HueWheelMaterial::default();
 
