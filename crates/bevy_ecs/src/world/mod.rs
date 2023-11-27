@@ -1748,8 +1748,7 @@ impl World {
         }
     }
 
-    /// Attempts to apply the internal [`CommandQueue`] to self
-    /// Will do nothing if already flushing commands.
+    /// Applies the internal [`CommandQueue`] to self
     #[inline]
     pub fn flush_commands(&mut self) {
         if !self.command_queue.is_empty() {

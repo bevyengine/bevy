@@ -1301,7 +1301,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.component_hooks]
 name = "Component Hooks"
-description = "Define component hooks to react to ECS events"
+description = "Define component hooks to manage component lifecycle events"
 category = "ECS (Entity Component System)"
 wasm = false
 
