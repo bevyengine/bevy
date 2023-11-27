@@ -105,13 +105,14 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
-        self.apply_maybe_world(Some(world));
+        self.apply_or_drop(Some(world));
     }
 
-    /// Execute or discard the queued [commands](`Command`).
+    /// If `world` is [`Some`], this will apply the queued [commands](`Command`).
+    /// If `world` is [`None`], this will drop the queued [commands](`Command`) (without applying them).
     /// This clears the queue.
     #[inline]
-    fn apply_maybe_world(&mut self, mut world: Option<&mut World>) {
+    fn apply_or_drop(&mut self, mut world: Option<&mut World>) {
         // The range of pointers of the filled portion of `self.bytes`.
         let bytes_range = self.bytes.as_mut_ptr_range();
 
@@ -160,7 +161,7 @@ impl CommandQueue {
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
-        self.apply_maybe_world(None);
+        self.apply_or_drop(None);
     }
 }
 
