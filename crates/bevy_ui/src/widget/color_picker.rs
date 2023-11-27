@@ -5,22 +5,23 @@ use crate::{UiMaterial, UiMaterialPlugin};
 use bevy_app::{Plugin, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_derive::Deref;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{Event, EventReader, EventWriter};
-use bevy_ecs::prelude::Component;
-use bevy_ecs::query::{Added, Changed, With};
-use bevy_ecs::reflect::ReflectComponent;
-use bevy_ecs::schedule::IntoSystemConfigs;
-use bevy_ecs::system::{Commands, Query};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_hierarchy::Parent;
+use bevy_ecs::{
+    entity::Entity,
+    event::{Event, EventReader, EventWriter},
+    prelude::Component,
+    query::{Changed, With},
+    reflect::ReflectComponent,
+    schedule::IntoSystemConfigs,
+    system::{Query, Res, ResMut},
+};
 use bevy_log::warn;
-use bevy_math::Vec3;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
-use bevy_reflect::TypePath;
-use bevy_render::color::Color;
-use bevy_render::render_resource::{AsBindGroup, Shader, ShaderRef};
+use bevy_math::{Vec2, Vec3};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_render::render_resource::ShaderType;
+use bevy_render::{
+    color::Color,
+    render_resource::{AsBindGroup, Shader, ShaderRef},
+};
 
 pub const COLOR_PICKER_HUE_WHEEL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(864139486189741938413);
@@ -50,7 +51,6 @@ impl Plugin for ColorPickerPlugin {
             .add_systems(
                 Update,
                 (
-                    add_sibling_component,
                     hue_wheel_events,
                     update_saturation_value_box_hue,
                     saturation_value_box_events,
@@ -87,10 +87,11 @@ pub struct SaturationValueBoxEvent {
     pub color: Color,
 }
 
-/// The entity which has this component is a sibling to the wrapped hue wheel entity.
-/// A [`SaturationValueBox`] can have this component in order to store which hue wheel it is related to.
+/// Marks an entity as a sibling to the wrapped hue wheel entity.
+/// A [`SaturationValueBox`] with this component will automatically update its
+/// colors when the [`HueWheel`] changes its hue.
 #[derive(Debug, Component, Deref)]
-struct HueWheelSibling(Entity);
+pub struct HueWheelSibling(pub Entity);
 
 fn hue_wheel_events(
     interaction_query: Query<
@@ -135,26 +136,6 @@ fn hue_wheel_events(
     }
 }
 
-/// It's expected that a [`crate::node_bundles::SaturationValueBoxBundle`] and [`crate::node_bundles::HueWheelBundle`] is added to a common parent.
-/// To help other systems, add the hue wheel as a sibling to the saturation value box.
-fn add_sibling_component(
-    sat_val_boxes: Query<(Entity, &Parent), Added<SaturationValueBox>>,
-    hue_wheels: Query<(Entity, &Parent), Added<HueWheel>>,
-    mut commands: Commands,
-) {
-    for (sv_e, sv_parent) in &sat_val_boxes {
-        if let Some(hue_e) =
-            hue_wheels
-                .iter()
-                .find_map(|(e, parent)| if sv_parent == parent { Some(e) } else { None })
-        {
-            commands.entity(sv_e).insert(HueWheelSibling(hue_e));
-        } else {
-            warn!("Found no box wheel sibling");
-        }
-    }
-}
-
 /// When hue wheels produce events the selected hue has changed.
 /// The box UI is updated to match here.
 fn update_saturation_value_box_hue(
@@ -181,7 +162,7 @@ fn update_saturation_value_box_hue(
                 continue;
             };
 
-            material.hue = *hue;
+            material.uniform.hue = *hue;
         } else {
             continue;
         }
@@ -198,19 +179,22 @@ fn saturation_value_box_events(
         ),
         (Changed<Interaction>, With<SaturationValueBox>),
     >,
-    boxes: Res<Assets<SaturationValueBoxMaterial>>,
+    mut boxes: ResMut<Assets<SaturationValueBoxMaterial>>,
     mut event_writer: EventWriter<SaturationValueBoxEvent>,
 ) {
     for (entity, interaction, relative_position, material_handle) in &interaction_query {
         if *interaction == Interaction::Pressed {
             if let Some(uv) = relative_position.normalized {
-                let Some(SaturationValueBoxMaterial { hue }) = boxes.get(material_handle) else {
+                let Some(SaturationValueBoxMaterial { uniform }) = boxes.get_mut(material_handle)
+                else {
                     warn!("unexpected: a saturation-value box was pressed but found no asset containing its material");
                     continue;
                 };
 
+                uniform.marker = Vec2::new(uv.x * 2. - 1., (uv.y * 2. - 1.) * -1.);
+
                 // NOTE: We want "value" to increase vertically which looks most natural hence the flip
-                let color = hsv_to_rgb(*hue, uv.x, 1.0 - uv.y);
+                let color = hsv_to_rgb(uniform.hue, uv.x, 1.0 - uv.y);
                 event_writer.send(SaturationValueBoxEvent { entity, color });
             }
         }
@@ -268,10 +252,16 @@ impl Default for HueWheelMaterial {
 #[reflect(Component, Default)]
 pub struct SaturationValueBox;
 
+#[derive(Debug, ShaderType, Clone, Default)]
+struct SaturationValueUniform {
+    hue: f32,
+    marker: Vec2,
+}
+
 #[derive(AsBindGroup, Asset, TypePath, Debug, Clone, Default)]
 pub struct SaturationValueBoxMaterial {
     #[uniform(0)]
-    hue: f32,
+    uniform: SaturationValueUniform,
 }
 
 impl UiMaterial for HueWheelMaterial {

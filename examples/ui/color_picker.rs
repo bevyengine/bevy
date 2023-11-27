@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy::ui::widget;
 use bevy::ui::widget::{HueWheelMaterial, SaturationValueBoxEvent};
+use bevy_internal::ui::widget::HueWheelSibling;
 
 fn main() {
     App::new()
@@ -117,40 +118,38 @@ fn setup_ui(
     commands
         .spawn(NodeBundle {
             style: Style {
-                display: Display::Grid,
-                width: Val::Percent(100.0),
-                height: Val::Percent(50.0),
-                grid_template_columns: vec![
-                    GridTrack::auto(),
-                    GridTrack::percent(50.0),
-                    GridTrack::auto(),
-                ],
-                grid_template_rows: vec![GridTrack::auto()],
+                display: Display::Flex,
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
             ..default()
         })
-        .with_children(|grid: &mut ChildBuilder<'_, '_, '_>| {
+        .with_children(|flex: &mut ChildBuilder<'_, '_, '_>| {
             // picker 1
-            grid.spawn(NodeBundle {
+            flex.spawn(NodeBundle {
                 style: Style {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    width: Val::Px(wheel_diameter),
+                    height: Val::Px(wheel_diameter),
                     ..default()
                 },
                 ..default()
             })
             .with_children(|picker1| {
-                picker1.spawn(HueWheelBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        width: Val::Px(wheel_diameter),
-                        height: Val::Px(wheel_diameter),
+                let hue_wheel = picker1
+                    .spawn(HueWheelBundle {
+                        style: Style {
+                            position_type: PositionType::Absolute,
+                            width: Val::Percent(100.),
+                            height: Val::Percent(100.),
+                            ..default()
+                        },
+                        material: hue_materials.add(hue_wheel_material.clone()),
                         ..default()
-                    },
-                    material: hue_materials.add(hue_wheel_material.clone()),
-                    ..default()
-                });
+                    })
+                    .id();
                 picker1.spawn((
                     SaturationValueBoxBundle {
                         style: Style {
@@ -163,32 +162,35 @@ fn setup_ui(
                         ..default()
                     },
                     SaturationValueBox1,
+                    // added to make the saturation-value box update automatically
+                    HueWheelSibling(hue_wheel),
                 ));
             });
 
-            // empty space to separate the pickers
-            grid.spawn(NodeBundle { ..default() });
-
             // picker 2
-            grid.spawn(NodeBundle {
+            flex.spawn(NodeBundle {
                 style: Style {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    width: Val::Px(wheel_diameter),
+                    height: Val::Px(wheel_diameter),
                     ..default()
                 },
                 ..default()
             })
             .with_children(|picker2| {
-                picker2.spawn(HueWheelBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        width: Val::Px(wheel_diameter),
-                        height: Val::Px(wheel_diameter),
+                let hue_wheel = picker2
+                    .spawn(HueWheelBundle {
+                        style: Style {
+                            position_type: PositionType::Absolute,
+                            width: Val::Percent(100.),
+                            height: Val::Percent(100.),
+                            ..default()
+                        },
+                        material: hue_materials.add(hue_wheel_material.clone()),
                         ..default()
-                    },
-                    material: hue_materials.add(hue_wheel_material),
-                    ..default()
-                });
+                    })
+                    .id();
                 picker2.spawn((
                     SaturationValueBoxBundle {
                         style: Style {
@@ -201,6 +203,8 @@ fn setup_ui(
                         ..default()
                     },
                     SaturationValueBox2,
+                    // added to make the saturation-value box update automatically
+                    HueWheelSibling(hue_wheel),
                 ));
             });
         });
