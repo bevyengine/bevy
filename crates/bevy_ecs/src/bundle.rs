@@ -1112,6 +1112,7 @@ fn initialize_dynamic_bundle(
     (id, storage_types)
 }
 
+#[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::*;
