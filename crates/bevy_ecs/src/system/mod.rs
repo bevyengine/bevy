@@ -91,7 +91,6 @@
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
-//! - [`&World`](World)
 //! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]

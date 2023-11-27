@@ -41,7 +41,6 @@ use crate::{
 ///
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
-/// [`HashMap`]: HashMap
 pub trait Map: Reflect {
     /// Returns a reference to the value associated with the given key.
     ///

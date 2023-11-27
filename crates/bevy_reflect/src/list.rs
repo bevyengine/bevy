@@ -46,7 +46,6 @@ use crate::{
 ///
 /// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 /// [reflection]: crate
-/// [`Vec`]: Vec
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 pub trait List: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.

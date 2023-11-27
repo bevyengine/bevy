@@ -118,7 +118,6 @@ impl ReflectBundle {
     /// and copy the subset of function pointers you care about.
     ///
     /// [`TypeRegistration::data::<ReflectBundle>`]: bevy_reflect::TypeRegistration::data
-    /// [`TypeRegistry::get`]: TypeRegistry::get
     pub fn fn_pointers(&self) -> &ReflectBundleFns {
         &self.0
     }

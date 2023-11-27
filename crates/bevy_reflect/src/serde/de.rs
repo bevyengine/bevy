@@ -312,8 +312,6 @@ impl<'de> Visitor<'de> for U32Visitor {
 /// [`TypedReflectDeserializer`] may be used instead to avoid requiring these entries.
 ///
 /// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`DynamicStruct`]: DynamicStruct
-/// [`DynamicList`]: DynamicList
 /// [`FromReflect`]: crate::FromReflect
 /// [type path]: crate::TypePath::type_path
 pub struct UntypedReflectDeserializer<'a> {
@@ -345,7 +343,6 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
 /// This deserializer expects a string containing the _full_ [type path] of the
 /// type to find the `TypeRegistration` of.
 ///
-/// [`&TypeRegistration`]: TypeRegistration
 /// [type path]: crate::TypePath::type_path
 pub struct TypeRegistrationDeserializer<'a> {
     registry: &'a TypeRegistry,
@@ -432,10 +429,7 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
 ///
 /// If the type is not known ahead of time, use [`UntypedReflectDeserializer`] instead.
 ///
-/// [`TypeInfo`]: TypeInfo
 /// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`DynamicStruct`]: DynamicStruct
-/// [`DynamicList`]: DynamicList
 /// [`FromReflect`]: crate::FromReflect
 pub struct TypedReflectDeserializer<'a> {
     registration: &'a TypeRegistration,

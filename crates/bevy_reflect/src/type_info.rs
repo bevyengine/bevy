@@ -97,7 +97,6 @@ pub trait Typed: Reflect + TypePath {
 ///
 /// [`Reflect::get_represented_type_info`]: Reflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-/// [`TypeId`]: TypeId
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {

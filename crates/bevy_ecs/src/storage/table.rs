@@ -72,7 +72,6 @@ impl TableId {
 /// [`Archetype`]: crate::archetype::Archetype
 /// [`Archetype::entity_table_row`]: crate::archetype::Archetype::entity_table_row
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
-/// [`Entity`]: Entity
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 // SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
@@ -192,7 +191,6 @@ impl Column {
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
     ///
-    /// [`Drop`]: Drop
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
         self.data.swap_remove_and_drop_unchecked(row.index());
@@ -311,8 +309,6 @@ impl Column {
     ///
     /// # Safety
     /// The type `T` must be the type of the items in this column.
-    ///
-    /// [`UnsafeCell`]: UnsafeCell
     pub unsafe fn get_data_slice<T>(&self) -> &[UnsafeCell<T>] {
         self.data.get_slice()
     }
@@ -322,8 +318,6 @@ impl Column {
     /// Note: The values stored within are [`UnsafeCell`].
     /// Users of this API must ensure that accesses to each individual element
     /// adhere to the safety invariants of [`UnsafeCell`].
-    ///
-    /// [`UnsafeCell`]: UnsafeCell
     #[inline]
     pub fn get_added_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
         &self.added_ticks
@@ -334,8 +328,6 @@ impl Column {
     /// Note: The values stored within are [`UnsafeCell`].
     /// Users of this API must ensure that accesses to each individual element
     /// adhere to the safety invariants of [`UnsafeCell`].
-    ///
-    /// [`UnsafeCell`]: UnsafeCell
     #[inline]
     pub fn get_changed_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
         &self.changed_ticks
@@ -411,8 +403,6 @@ impl Column {
     /// Note: The values stored within are [`UnsafeCell`].
     /// Users of this API must ensure that accesses to each individual element
     /// adhere to the safety invariants of [`UnsafeCell`].
-    ///
-    /// [`UnsafeCell`]: UnsafeCell
     #[inline]
     pub fn get_added_tick(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
         self.added_ticks.get(row.index())
@@ -425,8 +415,6 @@ impl Column {
     /// Note: The values stored within are [`UnsafeCell`].
     /// Users of this API must ensure that accesses to each individual element
     /// adhere to the safety invariants of [`UnsafeCell`].
-    ///
-    /// [`UnsafeCell`]: UnsafeCell
     #[inline]
     pub fn get_changed_tick(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
         self.changed_ticks.get(row.index())

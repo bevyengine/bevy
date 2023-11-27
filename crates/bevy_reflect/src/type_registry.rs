@@ -167,7 +167,6 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
-    /// [`TypeId`]: TypeId
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
     }
@@ -177,7 +176,6 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
-    /// [`TypeId`]: TypeId
     pub fn get_mut(&mut self, type_id: TypeId) -> Option<&mut TypeRegistration> {
         self.registrations.get_mut(&type_id)
     }
@@ -335,7 +333,6 @@ impl Debug for TypeRegistration {
 impl TypeRegistration {
     /// Returns the [`TypeId`] of the type.
     ///
-    /// [`TypeId`]: TypeId
     #[inline]
     pub fn type_id(&self) -> TypeId {
         self.type_info.type_id()

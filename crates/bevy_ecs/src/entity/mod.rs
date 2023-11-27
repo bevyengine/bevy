@@ -327,7 +327,6 @@ impl SparseSetIndex for Entity {
 }
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from
-/// [`Entities::reserve_entities`](Entities::reserve_entities).
 pub struct ReserveEntitiesIterator<'a> {
     // Metas, so we can recover the current generation for anything in the freelist.
     meta: &'a [EntityMeta],

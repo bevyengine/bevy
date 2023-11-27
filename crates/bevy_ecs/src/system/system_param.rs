@@ -403,7 +403,6 @@ impl_param_set!();
 /// }
 /// ```
 ///
-/// [`SyncCell`]: SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 

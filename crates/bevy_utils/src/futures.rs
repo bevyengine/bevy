@@ -1,6 +1,4 @@
 //! Utilities for working with [`Future`]s.
-//!
-//! [`Future`]: Future
 use std::{
     future::Future,
     pin::Pin,
