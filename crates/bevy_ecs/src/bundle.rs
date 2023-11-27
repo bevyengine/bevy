@@ -541,7 +541,7 @@ impl<'w> BundleInserter<'w> {
     /// Creates a new [`BundleInserter`].
     ///
     /// # Safety
-    /// Caller must ensure that BundleId exists in `world.bundles`
+    /// Caller must ensure that `bundle_id` exists in `world.bundles`
     #[inline]
     pub(crate) unsafe fn new_with_id(
         world: &'w mut World,
@@ -855,7 +855,7 @@ impl<'w> BundleSpawner<'w> {
     /// Creates a new [`BundleSpawner`].
     ///
     /// # Safety
-    /// Caller must ensure that BundleId exists in `world.bundles`
+    /// Caller must ensure that `bundle_id` exists in `world.bundles`
     #[inline]
     pub(crate) unsafe fn new_with_id(
         world: &'w mut World,

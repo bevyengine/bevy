@@ -31,6 +31,7 @@ impl<'w> DeferredWorld<'w> {
     /// Creates a [`Commands`] instance that pushes to the world's command queue
     #[inline]
     pub fn with_commands(&mut self, f: impl Fn(Commands)) {
+        // SAFETY: We have exclusive access to the world's command queue
         let world = unsafe { self.world.world_mut() };
         let mut queue = std::mem::take(&mut world.command_queue);
         f(Commands::new(&mut queue, world));
