@@ -1,21 +1,22 @@
 //! Environment maps and reflection probes.
 
-use std::iter;
+use std::{iter, sync::Arc};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, Asset, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_derive::Deref;
 use bevy_ecs::{
     prelude::Component,
     query::{Or, With},
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource, SystemParamItem},
 };
 use bevy_math::vec2;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_asset::RenderAssets,
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{
         BindGroupLayoutEntry, BindingType, CommandEncoderDescriptor, Extent3d, FilterMode,
         ImageCopyTexture, IntoBinding, Origin3d, SamplerBindingType, SamplerDescriptor, Shader,
@@ -31,7 +32,7 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 
-use crate::LightProbe;
+use crate::{render, LightProbe};
 
 // The type of binding for environment maps. This is needed because cubemap arrays aren't supported
 // in WebGL.
@@ -94,33 +95,31 @@ impl Plugin for EnvironmentMapPlugin {
 #[extract_component_filter(Or<(With<Camera3d>, With<LightProbe>)>)]
 pub struct EnvironmentMapLight {
     /// The blurry, often-low-resolution cubemap representing diffuse light.
-    pub diffuse_map: Handle<Image>,
+    pub diffuse_map: Handle<EnvironmentMapImage>,
     /// The sharp, high-resolution cubemap representing specular light.
-    pub specular_map: Handle<Image>,
+    pub specular_map: Handle<EnvironmentMapImage>,
 }
 
 /// The IDs of the various cubemaps that an environment map or reflection probe consists of.
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub struct EnvironmentMapLightId {
     /// The blurry, often-low-resolution cubemap representing diffuse light.
-    pub diffuse: AssetId<Image>,
+    pub diffuse: AssetId<EnvironmentMapImage>,
     /// The sharp, high-resolution cubemap representing specular light.
-    pub specular: AssetId<Image>,
+    pub specular: AssetId<EnvironmentMapImage>,
 }
+
+#[derive(Clone, Asset, TypePath, Deref)]
+pub struct EnvironmentMapImage(pub Image);
 
 /// A resource, part of the render world, that tracks all cubemap reflections in the scene.
 ///
 /// Internally, all cubemap reflections in the scene are batched and grouped into a render array.
 #[derive(Resource, Default)]
 pub struct RenderEnvironmentMaps {
-    /// The currently-built array of environment maps.
     images: Option<RenderEnvironmentMapImages>,
-
-    /// A list of references to each cubemap.
-    cubemaps: Vec<RenderEnvironmentCubemap>,
-
-    /// Maps from asset ID to index in the cubemap.
-    pub(crate) light_id_indices: HashMap<EnvironmentMapLightId, i32>,
+    pending: Vec<RenderPendingEnvironmentMap>,
+    count: u32,
 }
 
 /// The currently-built array of environment map images.
@@ -129,6 +128,12 @@ struct RenderEnvironmentMapImages {
     diffuse: GpuImage,
     /// The array of specular cubemaps.
     specular: GpuImage,
+}
+
+// FIXME: We should be able to delete environment maps.
+struct RenderPendingEnvironmentMap {
+    image: EnvironmentMapImage,
+    index: u32,
 }
 
 /// Textures corresponding to the cubemaps on each environment map or reflection probe.
@@ -145,6 +150,8 @@ enum EnvironmentMapKind {
     /// The environment map represents the specular contribution.
     Specular,
 }
+
+pub struct EnvironmentMapImageIndex(pub u32);
 
 impl EnvironmentMapLight {
     /// Whether or not all textures necessary to use the environment map
@@ -172,6 +179,29 @@ pub fn prepare_environment_maps(
     render_queue: Res<RenderQueue>,
     images: Res<RenderAssets<Image>>,
 ) {
+    let Some(first_pending_environment_map) = render_environment_maps.pending.get(0) else {
+        return;
+    };
+
+    let [diffuse_cubemap_texture, specular_cubemap_texture] = [
+        "diffuse_environment_map_texture",
+        "specular_environment_map_texture",
+    ]
+    .map(|name| {
+        first_pending_environment_map.create_cubemap_texture(
+            &render_device,
+            &render_queue,
+            render_environment_maps.count,
+            name,
+        )
+    });
+
+    //first_pending_environment_map.image
+
+    for pending_environment_map in render_environment_maps.pending {}
+
+    /*
+
     // See if there are any changes we need to make. If not, bail.
     // We have to use a separate HashSet like this because we need to rebuild
     // the array if environment maps are removed, not just when they're added.
@@ -241,6 +271,8 @@ pub fn prepare_environment_maps(
         &render_queue,
         EnvironmentMapKind::Specular,
     );
+
+    */
 }
 
 impl RenderEnvironmentMaps {
@@ -547,5 +579,58 @@ impl RenderEnvironmentMaps {
             &specular_map.texture_view,
             &diffuse_map.sampler,
         )
+    }
+}
+
+impl RenderAsset for EnvironmentMapImage {
+    type ExtractedAsset = EnvironmentMapImage;
+
+    type PreparedAsset = EnvironmentMapImageIndex;
+
+    type Param = ResMut<'static, RenderEnvironmentMaps>;
+
+    fn extract_asset(&self) -> Self::ExtractedAsset {
+        (*self).clone()
+    }
+
+    fn prepare_asset(
+        extracted_asset: Self::ExtractedAsset,
+        mut render_environment_maps: &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let index = render_environment_maps.count;
+        render_environment_maps.count += 1;
+        render_environment_maps
+            .pending
+            .push(RenderPendingEnvironmentMap {
+                image: extracted_asset,
+                index,
+            });
+
+        Ok(EnvironmentMapImageIndex(index))
+    }
+}
+
+impl RenderPendingEnvironmentMap {
+    fn create_cubemap_texture(
+        &self,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+        slice_count: u32,
+        label: &str,
+    ) -> Texture {
+        render_device.create_texture(&TextureDescriptor {
+            label: Some(label),
+            size: Extent3d {
+                width: self.image.width(),
+                height: self.image.height(),
+                depth_or_array_layers: slice_count,
+            },
+            mip_level_count: self.image.texture_descriptor.mip_level_count,
+            sample_count: self.image.texture_descriptor.sample_count,
+            dimension: TextureDimension::D2,
+            format: self.image.texture_descriptor.format,
+            usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        })
     }
 }
