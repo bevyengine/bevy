@@ -189,11 +189,10 @@ impl World {
     /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
     /// Primarily used for registering hooks.
     ///
-    /// Will panic if a component for `T` already exists.
+    /// Will panic if `T` exists in any archetypes.
     pub fn register_component<T: Component>(&mut self) -> &mut ComponentInfo {
-        let type_id = TypeId::of::<T>();
-        assert!(self.components.get_id(type_id).is_none(), "Components cannot be registered twice, use init_component instead if this component may already exist in the world.");
         let index = self.init_component::<T>();
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components cannot be registered if they already exist in an archetype, use init_component if {} may already be in use", std::any::type_name::<T>());
         // SAFETY: We just created this component
         unsafe { self.components.get_info_mut(index) }
     }
@@ -217,8 +216,6 @@ impl World {
 
     /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
     /// Primarily used for registering hooks.
-    ///
-    /// Will panic if a component for `T` already exists.
     pub fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
