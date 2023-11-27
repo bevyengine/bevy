@@ -547,7 +547,7 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt:
         dyn_struct
             .get_represented_type_info()
             .map(|s| s.type_path())
-            .unwrap_or("Uknown"),
+            .unwrap_or("Unknown"),
     );
     for field_index in 0..dyn_struct.field_len() {
         let field = dyn_struct.field_at(field_index).unwrap();
