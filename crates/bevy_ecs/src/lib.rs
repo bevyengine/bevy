@@ -50,6 +50,11 @@ pub mod prelude {
     };
 }
 
+#[doc(hidden)]
+pub mod __macro_export {
+    pub use smallvec::SmallVec;
+}
+
 pub use bevy_utils::all_tuples;
 
 /// A specialized hashmap type with Key of [`TypeId`]

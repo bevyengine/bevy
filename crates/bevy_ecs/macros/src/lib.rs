@@ -1,6 +1,7 @@
 extern crate proc_macro;
 
 mod component;
+mod event;
 mod fetch;
 mod states;
 
@@ -485,9 +486,9 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
 }
 
-#[proc_macro_derive(Event)]
+#[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    component::derive_event(input)
+    event::derive_event(input)
 }
 
 #[proc_macro_derive(Resource)]

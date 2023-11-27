@@ -17,7 +17,67 @@ use std::{
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events must be thread-safe.
-pub trait Event: Send + Sync + 'static {}
+pub trait Event: Sized + Send + Sync + 'static {
+    /// The collection used to store the events.
+    type Storage: for<'a> EventStorage<'a, Item = EventInstance<Self>> + Send + Sync + 'static;
+}
+
+/// Types used to specify the storage strategy for an event.
+pub trait EventStorage<'a>:
+    std::ops::DerefMut<Target = [Self::Item]> + Extend<Self::Item> + Default
+{
+    /// The type stored. This will always be an [`EventInstance`].
+    type Item: 'a;
+    /// See [`Self::drain`].
+    type DrainIter: DoubleEndedIterator<Item = Self::Item> + 'a;
+    /// Adds an item to the end of the collection.
+    fn push(&mut self, v: Self::Item);
+    /// Removes the specified range from the collection, returning an iterator over the removed
+    /// elements.
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>;
+    /// Empties the collection.
+    fn clear(&mut self);
+}
+
+impl<'a, T: 'a> EventStorage<'a> for Vec<T> {
+    type Item = T;
+    type DrainIter = std::vec::Drain<'a, T>;
+
+    fn push(&mut self, v: T) {
+        self.push(v);
+    }
+
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        self.drain(range)
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+}
+impl<'a, T: 'a, const N: usize> EventStorage<'a> for smallvec::SmallVec<[T; N]> {
+    type Item = T;
+    type DrainIter = smallvec::Drain<'a, [T; N]>;
+
+    fn push(&mut self, v: T) {
+        self.push(v);
+    }
+
+    fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        self.drain(range)
+    }
+    fn clear(&mut self) {
+        self.clear();
+    }
+}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
@@ -82,10 +142,11 @@ impl<E: Event> Hash for EventId<E> {
     }
 }
 
+/// Internal type stored in [`EventStorage`]s.
 #[derive(Debug)]
-struct EventInstance<E: Event> {
-    pub event_id: EventId<E>,
-    pub event: E,
+pub struct EventInstance<E: Event> {
+    pub(crate) event_id: EventId<E>,
+    pub(crate) event: E,
 }
 
 /// An event collection that represents the events that occurred within the last two
@@ -160,7 +221,28 @@ struct EventInstance<E: Event> {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
-#[derive(Debug, Resource)]
+/// # Storage types
+///
+/// Events can be stored in different types of buffers, which have different performance
+/// implications. By default, events are stored in [`Vec`]s, which are entirely
+/// heap-allocated.
+///
+/// Alternatively, events can be stored in `SmallVecs` with an additional attribute.
+/// `SmallVecs` are stack-allocated up to a specified length before being moved onto the
+/// heap. Generally, these will perform better for events with a smaller memory footprint that
+/// also come in lesser quantities.
+///
+/// ```
+/// # use bevy_ecs::event::Event;
+/// #
+/// // Allow for 10 events per buffer before moving to the heap
+/// #[derive(Event)]
+/// #[event(storage = "SmallVec(10)")]
+/// struct EventA;
+/// ```
+///
+/// [`Vec`]: std::vec::Vec
+#[derive(Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that a.start_event_count + a.len() should always === events_b.start_event_count.
@@ -168,6 +250,19 @@ pub struct Events<E: Event> {
     /// Holds the newer events.
     events_b: EventSequence<E>,
     event_count: usize,
+}
+
+impl<E: Event> fmt::Debug for Events<E>
+where
+    <E as Event>::Storage: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Events")
+            .field("events_a", &self.events_a)
+            .field("events_b", &self.events_b)
+            .field("event_count", &self.event_count)
+            .finish()
+    }
 }
 
 // Derived Default impl would incorrectly require E: Default
@@ -188,7 +283,50 @@ impl<E: Event> Events<E> {
             .start_event_count
             .min(self.events_b.start_event_count)
     }
+}
 
+struct EventSequence<E: Event> {
+    events: E::Storage,
+    start_event_count: usize,
+}
+
+impl<E: Event> fmt::Debug for EventSequence<E>
+where
+    <E as Event>::Storage: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EventSequence")
+            .field("events", &self.events)
+            .field("start_event_count", &self.start_event_count)
+            .finish()
+    }
+}
+
+// Derived Default impl would incorrectly require E: Default
+impl<E: Event> Default for EventSequence<E> {
+    fn default() -> Self {
+        Self {
+            events: Default::default(),
+            start_event_count: Default::default(),
+        }
+    }
+}
+
+impl<E: Event> Deref for EventSequence<E> {
+    type Target = E::Storage;
+
+    fn deref(&self) -> &Self::Target {
+        &self.events
+    }
+}
+
+impl<E: Event> DerefMut for EventSequence<E> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.events
+    }
+}
+
+impl<E: Event> Events<E> {
     /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
     /// This method returns the [ID](`EventId`) of the sent `event`.
@@ -376,41 +514,24 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
     }
 }
 
-#[derive(Debug)]
-struct EventSequence<E: Event> {
-    events: Vec<EventInstance<E>>,
-    start_event_count: usize,
-}
-
-// Derived Default impl would incorrectly require E: Default
-impl<E: Event> Default for EventSequence<E> {
-    fn default() -> Self {
-        Self {
-            events: Default::default(),
-            start_event_count: Default::default(),
-        }
-    }
-}
-
-impl<E: Event> Deref for EventSequence<E> {
-    type Target = Vec<EventInstance<E>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.events
-    }
-}
-
-impl<E: Event> DerefMut for EventSequence<E> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.events
-    }
-}
-
 /// Reads events of type `T` in order and tracks which events have already been read.
-#[derive(SystemParam, Debug)]
+#[derive(SystemParam)]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
     events: Res<'w, Events<E>>,
+}
+
+impl<'w, 's, E: Event> fmt::Debug for EventReader<'w, 's, E>
+where
+    <E as Event>::Storage: fmt::Debug,
+    E: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Events")
+            .field("reader", &self.reader)
+            .field("events", &self.events)
+            .finish()
+    }
 }
 
 impl<'w, 's, E: Event> EventReader<'w, 's, E> {
