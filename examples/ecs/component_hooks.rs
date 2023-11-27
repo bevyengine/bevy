@@ -23,8 +23,10 @@ fn main() {
 }
 
 fn setup(world: &mut World) {
-    // In order to register component hooks it must be the first time you register the component
-    // This is to prevent users from overwriting hooks that may be used internally in foreign crates
+    // In order to register component hooks the component must:
+    // - not belong to any created archetypes
+    // - not already have a hook of that kind registered
+    // This is to prevent overriding hooks defined in plugins and other crates as well as keeping things fast
     world
         .register_component::<MyComponent>()
         // There are 3 component lifecyle hooks: `on_add`, `on_insert` and `on_remove`
