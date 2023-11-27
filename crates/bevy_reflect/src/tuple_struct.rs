@@ -453,7 +453,12 @@ pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
     f: &mut Formatter<'_>,
 ) -> std::fmt::Result {
-    let mut debug = f.debug_tuple(dyn_tuple_struct.reflect_type_path());
+    let mut debug = f.debug_tuple(
+        dyn_tuple_struct
+            .get_represented_type_info()
+            .map(|s| s.type_path())
+            .unwrap_or("Uknown"),
+    );
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }
