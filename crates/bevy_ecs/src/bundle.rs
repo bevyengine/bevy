@@ -658,11 +658,9 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         bundle_info
                             .iter_components()
-                            .enumerate()
-                            .filter(|(index, _)| {
-                                add_bundle.get_status(*index) == ComponentStatus::Added
-                            })
-                            .map(|(_, id)| id),
+                            .zip(add_bundle.bundle_status.iter())
+                            .filter(|(_, &status)| status == ComponentStatus::Added)
+                            .map(|(id, _)| id),
                     );
                 }
                 if archetype.has_on_insert() {
@@ -718,11 +716,9 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         bundle_info
                             .iter_components()
-                            .enumerate()
-                            .filter(|(index, _)| {
-                                add_bundle.get_status(*index) == ComponentStatus::Added
-                            })
-                            .map(|(_, id)| id),
+                            .zip(add_bundle.bundle_status.iter())
+                            .filter(|(_, &status)| status == ComponentStatus::Added)
+                            .map(|(id, _)| id),
                     );
                 }
                 if new_archetype.has_on_insert() {
@@ -817,11 +813,9 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         bundle_info
                             .iter_components()
-                            .enumerate()
-                            .filter(|(index, _)| {
-                                add_bundle.get_status(*index) == ComponentStatus::Added
-                            })
-                            .map(|(_, id)| id),
+                            .zip(add_bundle.bundle_status.iter())
+                            .filter(|(_, &status)| status == ComponentStatus::Added)
+                            .map(|(id, _)| id),
                     );
                 }
                 if new_archetype.has_on_insert() {
