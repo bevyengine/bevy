@@ -2,6 +2,8 @@ use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::sync::atomic;
+use std::sync::atomic::AtomicU64;
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_label;
@@ -118,11 +120,16 @@ impl<T> SystemSet for SystemTypeSet<T> {
 /// [`Schedule::add_systems`](super::Schedule::add_systems) or
 /// [`Schedule::configure_sets`](super::Schedule::configure_sets).
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct AnonymousSet(usize);
+pub struct AnonymousSet(u64);
 
 impl AnonymousSet {
-    pub(crate) fn new(id: usize) -> Self {
-        Self(id)
+    /// New unique anonymous set.
+    #[allow(clippy::new_without_default)] // Because `new` returns a value with identity.
+    pub fn new() -> Self {
+        static LAST_ID: AtomicU64 = AtomicU64::new(0);
+        let id = LAST_ID.fetch_add(1, atomic::Ordering::Relaxed);
+        assert!(id != (i64::MAX as u64), "This cannot practically happen");
+        AnonymousSet(id + 1)
     }
 }
 
