@@ -854,6 +854,7 @@ fn load_material(
 }
 
 /// Loads a glTF node.
+#[allow(clippy::too_many_arguments)]
 fn load_node(
     gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
