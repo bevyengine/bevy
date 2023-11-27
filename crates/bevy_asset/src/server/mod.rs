@@ -482,7 +482,7 @@ impl AssetServer {
             .load_with_meta_loader_and_reader(&base_path, meta, &*loader, &mut *reader, true, false)
             .await
         {
-            Ok(mut loaded_asset) => {
+            Ok(loaded_asset) => {
                 let final_handle = if let Some(label) = path.label_cow() {
                     match loaded_asset.labeled_assets.get(&label) {
                         Some(labeled_asset) => labeled_asset.handle.clone(),
@@ -498,17 +498,7 @@ impl AssetServer {
                     handle.unwrap()
                 };
 
-                for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
-                    self.send_asset_event(InternalAssetEvent::Loaded {
-                        id: labeled_asset.handle.id(),
-                        loaded_asset: labeled_asset.asset,
-                    });
-                }
-
-                self.send_asset_event(InternalAssetEvent::Loaded {
-                    id: base_handle.id(),
-                    loaded_asset,
-                });
+                self.send_loaded_asset(base_handle.id(), loaded_asset);
                 Ok(final_handle)
             }
             Err(err) => {
@@ -518,6 +508,16 @@ impl AssetServer {
                 Err(err)
             }
         }
+    }
+
+    /// Sends a load event for the given `loaded_asset` and does the same recursively for all
+    /// labeled assets.
+    fn send_loaded_asset(&self, id: UntypedAssetId, mut loaded_asset: ErasedLoadedAsset) {
+        for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
+            self.send_loaded_asset(labeled_asset.handle.id(), labeled_asset.asset);
+        }
+
+        self.send_asset_event(InternalAssetEvent::Loaded { id, loaded_asset });
     }
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
@@ -707,6 +707,9 @@ impl AssetServer {
     }
 
     /// Retrieves the main [`LoadState`] of a given asset `id`.
+    ///
+    /// Note that this is "just" the root asset load state. To check if an asset _and_ its recursive
+    /// dependencies have loaded, see [`AssetServer::is_loaded_with_dependencies`].
     pub fn get_load_state(&self, id: impl Into<UntypedAssetId>) -> Option<LoadState> {
         self.data.infos.read().get(id.into()).map(|i| i.load_state)
     }
@@ -737,6 +740,13 @@ impl AssetServer {
             .unwrap_or(RecursiveDependencyLoadState::NotLoaded)
     }
 
+    /// Returns true if the asset and all of its dependencies (recursive) have been loaded.
+    pub fn is_loaded_with_dependencies(&self, id: impl Into<UntypedAssetId>) -> bool {
+        let id = id.into();
+        self.load_state(id) == LoadState::Loaded
+            && self.recursive_dependency_load_state(id) == RecursiveDependencyLoadState::Loaded
+    }
+
     /// Returns an active handle for the given path, if the asset at the given path has already started loading,
     /// or is still "alive".
     pub fn get_handle<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Option<Handle<A>> {
@@ -750,6 +760,12 @@ impl AssetServer {
 
     pub fn get_id_handle_untyped(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
         self.data.infos.read().get_id_handle(id)
+    }
+
+    /// Returns `true` if the given `id` corresponds to an asset that is managed by this [`AssetServer`].
+    /// Otherwise, returns false.
+    pub fn is_managed(&self, id: impl Into<UntypedAssetId>) -> bool {
+        self.data.infos.read().contains_key(id.into())
     }
 
     /// Returns an active untyped handle for the given path, if the asset at the given path has already started loading,
