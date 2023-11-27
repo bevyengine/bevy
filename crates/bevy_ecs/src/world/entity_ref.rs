@@ -691,9 +691,9 @@ impl<'w> EntityWorldMut<'w> {
         let old_archetype = &world.archetypes[old_location.archetype_id];
 
         // Drop borrow on world so it can be turned into DeferredWorld
-        // SAFETY: Changes to Bundles cannot happen through DeferredWorld
         let bundle_info = {
             let bundle_info: *const BundleInfo = bundle_info;
+            // SAFETY: Changes to Bundles cannot happen through DeferredWorld
             unsafe { &*bundle_info }
         };
         if old_archetype.has_on_remove() {
@@ -869,9 +869,9 @@ impl<'w> EntityWorldMut<'w> {
         let old_archetype = &world.archetypes[old_location.archetype_id];
 
         // Drop borrow on world so it can be turned into DeferredWorld
-        // SAFETY: Changes to Bundles cannot happen through DeferredWorld
         let bundle_info = {
             let bundle_info: *const BundleInfo = bundle_info;
+            // SAFETY: Changes to Bundles cannot happen through DeferredWorld
             unsafe { &*bundle_info }
         };
         if old_archetype.has_on_remove() {

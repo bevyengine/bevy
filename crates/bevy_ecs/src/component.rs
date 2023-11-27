@@ -623,7 +623,7 @@ impl Components {
     /// #[derive(Component)]
     /// struct ComponentA;
     ///
-    /// let component_a_id = world.init_component::<ComponentA>().id();
+    /// let component_a_id = world.init_component::<ComponentA>();
     ///
     /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
     /// ```
