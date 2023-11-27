@@ -679,7 +679,7 @@ fn apply_animation(
                 continue;
             };
             // SAFETY: As above, there can't be other AnimationPlayers with this target so this fetch can't alias
-            let mut morphs = unsafe { morphs.get_unchecked(target) };
+            let mut morphs = unsafe { morphs.get_unchecked(target) }.ok();
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform
                 if curve.keyframe_timestamps.len() == 1 {
@@ -695,7 +695,7 @@ fn apply_animation(
                             transform.scale = transform.scale.lerp(keyframes[0], weight);
                         }
                         Keyframes::Weights(keyframes) => {
-                            if let Ok(morphs) = &mut morphs {
+                            if let Some(morphs) = &mut morphs {
                                 let target_count = morphs.weights().len();
                                 lerp_morph_weights(
                                     morphs.weights_mut(),
@@ -724,150 +724,157 @@ fn apply_animation(
                 let ts_end = curve.keyframe_timestamps[step_start + 1];
                 let lerp = (animation.seek_time - ts_start) / (ts_end - ts_start);
 
-                // Apply the keyframe
-                match (&curve.interpolation, &curve.keyframes) {
-                    (Interpolation::Step, Keyframes::Rotation(keyframes)) => {
-                        transform.rotation =
-                            transform.rotation.slerp(keyframes[step_start], weight);
-                    }
-                    (Interpolation::Linear, Keyframes::Rotation(keyframes)) => {
-                        let rot_start = keyframes[step_start];
-                        let mut rot_end = keyframes[step_start + 1];
-                        // Choose the smallest angle for the rotation
-                        if rot_end.dot(rot_start) < 0.0 {
-                            rot_end = -rot_end;
-                        }
-                        // Rotations are using a spherical linear interpolation
-                        let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
-                        transform.rotation = transform.rotation.slerp(rot, weight);
-                    }
-                    (Interpolation::CubicSpline, Keyframes::Rotation(keyframes)) => {
-                        let value_start = keyframes[step_start * 3 + 1];
-                        let tangent_out_start = keyframes[step_start * 3 + 2];
-                        let tangent_in_end = keyframes[(step_start + 1) * 3];
-                        let value_end = keyframes[(step_start + 1) * 3 + 1];
-                        let result = cubic_spline_interpolation!(
-                            value_start,
-                            tangent_out_start,
-                            tangent_in_end,
-                            value_end,
-                            lerp,
-                            ts_end - ts_start,
-                        );
-                        transform.rotation = transform.rotation.slerp(result.normalize(), weight);
-                    }
-                    (Interpolation::Step, Keyframes::Translation(keyframes)) => {
-                        transform.translation =
-                            transform.translation.lerp(keyframes[step_start], weight);
-                    }
-                    (Interpolation::Linear, Keyframes::Translation(keyframes)) => {
-                        let translation_start = keyframes[step_start];
-                        let translation_end = keyframes[step_start + 1];
-                        let result = translation_start.lerp(translation_end, lerp);
-                        transform.translation = transform.translation.lerp(result, weight);
-                    }
-                    (Interpolation::CubicSpline, Keyframes::Translation(keyframes)) => {
-                        let value_start = keyframes[step_start * 3 + 1];
-                        let tangent_out_start = keyframes[step_start * 3 + 2];
-                        let tangent_in_end = keyframes[(step_start + 1) * 3];
-                        let value_end = keyframes[(step_start + 1) * 3 + 1];
-                        let result = cubic_spline_interpolation!(
-                            value_start,
-                            tangent_out_start,
-                            tangent_in_end,
-                            value_end,
-                            lerp,
-                            ts_end - ts_start,
-                        );
-                        transform.translation = transform.translation.lerp(result, weight);
-                    }
-                    (Interpolation::Step, Keyframes::Scale(keyframes)) => {
-                        transform.scale = transform.scale.lerp(keyframes[step_start], weight);
-                    }
-                    (Interpolation::Linear, Keyframes::Scale(keyframes)) => {
-                        let scale_start = keyframes[step_start];
-                        let scale_end = keyframes[step_start + 1];
-                        let result = scale_start.lerp(scale_end, lerp);
-                        transform.scale = transform.scale.lerp(result, weight);
-                    }
-                    (Interpolation::CubicSpline, Keyframes::Scale(keyframes)) => {
-                        let value_start = keyframes[step_start * 3 + 1];
-                        let tangent_out_start = keyframes[step_start * 3 + 2];
-                        let tangent_in_end = keyframes[(step_start + 1) * 3];
-                        let value_end = keyframes[(step_start + 1) * 3 + 1];
-                        let result = cubic_spline_interpolation!(
-                            value_start,
-                            tangent_out_start,
-                            tangent_in_end,
-                            value_end,
-                            lerp,
-                            ts_end - ts_start,
-                        );
-                        transform.scale = transform.scale.lerp(result, weight);
-                    }
-                    (Interpolation::Step, Keyframes::Weights(keyframes)) => {
-                        if let Ok(morphs) = &mut morphs {
-                            let target_count = morphs.weights().len();
-                            let morph_start = get_keyframe(target_count, keyframes, step_start);
-                            lerp_morph_weights(
-                                morphs.weights_mut(),
-                                morph_start.iter().copied(),
-                                weight,
-                            );
-                        }
-                    }
-                    (Interpolation::Linear, Keyframes::Weights(keyframes)) => {
-                        if let Ok(morphs) = &mut morphs {
-                            let target_count = morphs.weights().len();
-                            let morph_start = get_keyframe(target_count, keyframes, step_start);
-                            let morph_end = get_keyframe(target_count, keyframes, step_start + 1);
-                            let result = morph_start
-                                .iter()
-                                .zip(morph_end)
-                                .map(|(a, b)| *a + lerp * (*b - *a));
-                            lerp_morph_weights(morphs.weights_mut(), result, weight);
-                        }
-                    }
-                    (Interpolation::CubicSpline, Keyframes::Weights(keyframes)) => {
-                        if let Ok(morphs) = &mut morphs {
-                            let target_count = morphs.weights().len();
-                            let morph_start =
-                                get_keyframe(target_count, keyframes, step_start * 3 + 1);
-                            let tangents_out_start =
-                                get_keyframe(target_count, keyframes, step_start * 3 + 2);
-                            let tangents_in_end =
-                                get_keyframe(target_count, keyframes, (step_start + 1) * 3);
-                            let morph_end =
-                                get_keyframe(target_count, keyframes, (step_start + 1) * 3 + 1);
-                            let result = morph_start
-                                .iter()
-                                .zip(tangents_out_start)
-                                .zip(tangents_in_end)
-                                .zip(morph_end)
-                                .map(
-                                    |(
-                                        ((value_start, tangent_out_start), tangent_in_end),
-                                        value_end,
-                                    )| {
-                                        cubic_spline_interpolation!(
-                                            value_start,
-                                            tangent_out_start,
-                                            tangent_in_end,
-                                            value_end,
-                                            lerp,
-                                            ts_end - ts_start,
-                                        )
-                                    },
-                                );
-                            lerp_morph_weights(morphs.weights_mut(), result, weight);
-                        }
-                    }
-                }
+                apply_keyframe(
+                    curve,
+                    step_start,
+                    weight,
+                    lerp,
+                    ts_end - ts_start,
+                    &mut transform,
+                    &mut morphs,
+                );
             }
         }
 
         if !any_path_found {
             warn!("Animation player on {root:?} did not match any entity paths.");
+        }
+    }
+}
+
+#[inline(always)]
+fn apply_keyframe(
+    curve: &VariableCurve,
+    step_start: usize,
+    weight: f32,
+    lerp: f32,
+    duration: f32,
+    transform: &mut Mut<Transform>,
+    morphs: &mut Option<Mut<MorphWeights>>,
+) {
+    match (&curve.interpolation, &curve.keyframes) {
+        (Interpolation::Step, Keyframes::Rotation(keyframes)) => {
+            transform.rotation = transform.rotation.slerp(keyframes[step_start], weight);
+        }
+        (Interpolation::Linear, Keyframes::Rotation(keyframes)) => {
+            let rot_start = keyframes[step_start];
+            let mut rot_end = keyframes[step_start + 1];
+            // Choose the smallest angle for the rotation
+            if rot_end.dot(rot_start) < 0.0 {
+                rot_end = -rot_end;
+            }
+            // Rotations are using a spherical linear interpolation
+            let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
+            transform.rotation = transform.rotation.slerp(rot, weight);
+        }
+        (Interpolation::CubicSpline, Keyframes::Rotation(keyframes)) => {
+            let value_start = keyframes[step_start * 3 + 1];
+            let tangent_out_start = keyframes[step_start * 3 + 2];
+            let tangent_in_end = keyframes[(step_start + 1) * 3];
+            let value_end = keyframes[(step_start + 1) * 3 + 1];
+            let result = cubic_spline_interpolation!(
+                value_start,
+                tangent_out_start,
+                tangent_in_end,
+                value_end,
+                lerp,
+                duration,
+            );
+            transform.rotation = transform.rotation.slerp(result.normalize(), weight);
+        }
+        (Interpolation::Step, Keyframes::Translation(keyframes)) => {
+            transform.translation = transform.translation.lerp(keyframes[step_start], weight);
+        }
+        (Interpolation::Linear, Keyframes::Translation(keyframes)) => {
+            let translation_start = keyframes[step_start];
+            let translation_end = keyframes[step_start + 1];
+            let result = translation_start.lerp(translation_end, lerp);
+            transform.translation = transform.translation.lerp(result, weight);
+        }
+        (Interpolation::CubicSpline, Keyframes::Translation(keyframes)) => {
+            let value_start = keyframes[step_start * 3 + 1];
+            let tangent_out_start = keyframes[step_start * 3 + 2];
+            let tangent_in_end = keyframes[(step_start + 1) * 3];
+            let value_end = keyframes[(step_start + 1) * 3 + 1];
+            let result = cubic_spline_interpolation!(
+                value_start,
+                tangent_out_start,
+                tangent_in_end,
+                value_end,
+                lerp,
+                duration,
+            );
+            transform.translation = transform.translation.lerp(result, weight);
+        }
+        (Interpolation::Step, Keyframes::Scale(keyframes)) => {
+            transform.scale = transform.scale.lerp(keyframes[step_start], weight);
+        }
+        (Interpolation::Linear, Keyframes::Scale(keyframes)) => {
+            let scale_start = keyframes[step_start];
+            let scale_end = keyframes[step_start + 1];
+            let result = scale_start.lerp(scale_end, lerp);
+            transform.scale = transform.scale.lerp(result, weight);
+        }
+        (Interpolation::CubicSpline, Keyframes::Scale(keyframes)) => {
+            let value_start = keyframes[step_start * 3 + 1];
+            let tangent_out_start = keyframes[step_start * 3 + 2];
+            let tangent_in_end = keyframes[(step_start + 1) * 3];
+            let value_end = keyframes[(step_start + 1) * 3 + 1];
+            let result = cubic_spline_interpolation!(
+                value_start,
+                tangent_out_start,
+                tangent_in_end,
+                value_end,
+                lerp,
+                duration,
+            );
+            transform.scale = transform.scale.lerp(result, weight);
+        }
+        (Interpolation::Step, Keyframes::Weights(keyframes)) => {
+            if let Some(morphs) = morphs {
+                let target_count = morphs.weights().len();
+                let morph_start = get_keyframe(target_count, keyframes, step_start);
+                lerp_morph_weights(morphs.weights_mut(), morph_start.iter().copied(), weight);
+            }
+        }
+        (Interpolation::Linear, Keyframes::Weights(keyframes)) => {
+            if let Some(morphs) = morphs {
+                let target_count = morphs.weights().len();
+                let morph_start = get_keyframe(target_count, keyframes, step_start);
+                let morph_end = get_keyframe(target_count, keyframes, step_start + 1);
+                let result = morph_start
+                    .iter()
+                    .zip(morph_end)
+                    .map(|(a, b)| *a + lerp * (*b - *a));
+                lerp_morph_weights(morphs.weights_mut(), result, weight);
+            }
+        }
+        (Interpolation::CubicSpline, Keyframes::Weights(keyframes)) => {
+            if let Some(morphs) = morphs {
+                let target_count = morphs.weights().len();
+                let morph_start = get_keyframe(target_count, keyframes, step_start * 3 + 1);
+                let tangents_out_start = get_keyframe(target_count, keyframes, step_start * 3 + 2);
+                let tangents_in_end = get_keyframe(target_count, keyframes, (step_start + 1) * 3);
+                let morph_end = get_keyframe(target_count, keyframes, (step_start + 1) * 3 + 1);
+                let result = morph_start
+                    .iter()
+                    .zip(tangents_out_start)
+                    .zip(tangents_in_end)
+                    .zip(morph_end)
+                    .map(
+                        |(((value_start, tangent_out_start), tangent_in_end), value_end)| {
+                            cubic_spline_interpolation!(
+                                value_start,
+                                tangent_out_start,
+                                tangent_in_end,
+                                value_end,
+                                lerp,
+                                duration,
+                            )
+                        },
+                    );
+                lerp_morph_weights(morphs.weights_mut(), result, weight);
+            }
         }
     }
 }
