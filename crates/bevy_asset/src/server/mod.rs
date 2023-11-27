@@ -681,6 +681,9 @@ impl AssetServer {
     }
 
     /// Retrieves the main [`LoadState`] of a given asset `id`.
+    ///
+    /// Note that this is "just" the root asset load state. To check if an asset _and_ its recursive
+    /// dependencies have loaded, see [`AssetServer::is_loaded_with_dependencies`].
     pub fn get_load_state(&self, id: impl Into<UntypedAssetId>) -> Option<LoadState> {
         self.data.infos.read().get(id.into()).map(|i| i.load_state)
     }
