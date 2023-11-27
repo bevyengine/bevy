@@ -246,11 +246,11 @@ pub fn prepare_assets<A: RenderAsset>(
         }
     }
 
-    for removed in std::mem::take(&mut extracted_assets.removed) {
+    for removed in extracted_assets.removed.drain(..) {
         render_assets.remove(removed);
     }
 
-    for (id, extracted_asset) in std::mem::take(&mut extracted_assets.extracted) {
+    for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
         match extracted_asset.prepare_asset(&mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
