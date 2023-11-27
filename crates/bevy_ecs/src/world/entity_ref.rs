@@ -925,9 +925,9 @@ impl<'w> EntityWorldMut<'w> {
         let archetype = &world.archetypes[self.location.archetype_id];
         if archetype.has_on_remove() {
             // Drop borrow on world so it can be turned into DeferredWorld
-            // SAFETY: Changes to Archetypes cannot happpen through DeferredWorld
             let archetype = {
                 let archetype: *const Archetype = archetype;
+                // SAFETY: Changes to Archetypes cannot happpen through DeferredWorld
                 unsafe { &*archetype }
             };
             // SAFETY: All components in the archetype exist in world
@@ -1000,7 +1000,7 @@ impl<'w> EntityWorldMut<'w> {
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
-        world.flush_commands()
+        world.flush_commands();
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush_commands`]
