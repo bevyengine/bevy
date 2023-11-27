@@ -15,7 +15,9 @@ mod winit_config;
 mod winit_windows;
 
 use bevy_a11y::AccessibilityRequested;
+use bevy_utils::HashMap;
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
+use winit::event::DeviceId;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -28,6 +30,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
     touchpad::{TouchpadMagnify, TouchpadRotate},
+    InputSource, InputSources,
 };
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
@@ -225,6 +228,9 @@ impl Plugin for WinitPlugin {
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
         // be inserted as a resource here to pass it onto the runner.
         app.insert_non_send_resource(event_loop);
+
+        // Maps Winit DeviceIds and Bevy InputSources
+        app.init_resource::<WinitInputSources>();
     }
 }
 
@@ -268,6 +274,11 @@ where
     panic!("Run return is not supported on this platform!")
 }
 
+#[derive(Resource, Default)]
+struct WinitInputSources {
+    mapping: HashMap<DeviceId, InputSource>,
+}
+
 #[derive(SystemParam)]
 struct WindowAndInputEventWriters<'w> {
     // `winit` `WindowEvent`s
@@ -295,6 +306,9 @@ struct WindowAndInputEventWriters<'w> {
     cursor_left: EventWriter<'w, CursorLeft>,
     // `winit` `DeviceEvent`s
     mouse_motion: EventWriter<'w, MouseMotion>,
+    // input source registry
+    input_source_registry: ResMut<'w, InputSources>,
+    device_id_mappings: ResMut<'w, WinitInputSources>,
 }
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -535,66 +549,147 @@ pub fn winit_runner(mut app: App) {
                                 window: window_entity,
                             });
                     }
-                    WindowEvent::KeyboardInput { ref input, .. } => {
+                    WindowEvent::KeyboardInput {
+                        device_id,
+                        ref input,
+                        ..
+                    } => {
+                        let source = *event_writers
+                            .device_id_mappings
+                            .mapping
+                            .entry(device_id)
+                            .or_insert_with(|| event_writers.input_source_registry.register());
+
                         event_writers
                             .keyboard_input
-                            .send(converters::convert_keyboard_input(input, window_entity));
+                            .send(converters::convert_keyboard_input(
+                                input,
+                                window_entity,
+                                source,
+                            ));
                     }
-                    WindowEvent::CursorMoved { position, .. } => {
+                    WindowEvent::CursorMoved {
+                        device_id,
+                        position,
+                        ..
+                    } => {
+                        let source = *event_writers
+                            .device_id_mappings
+                            .mapping
+                            .entry(device_id)
+                            .or_insert_with(|| event_writers.input_source_registry.register());
+
                         let physical_position = DVec2::new(position.x, position.y);
                         window.set_physical_cursor_position(Some(physical_position));
                         event_writers.cursor_moved.send(CursorMoved {
                             window: window_entity,
                             position: (physical_position / window.resolution.scale_factor())
                                 .as_vec2(),
+                            source,
                         });
                     }
-                    WindowEvent::CursorEntered { .. } => {
+                    WindowEvent::CursorEntered { device_id } => {
+                        let source = *event_writers
+                            .device_id_mappings
+                            .mapping
+                            .entry(device_id)
+                            .or_insert_with(|| event_writers.input_source_registry.register());
+
                         event_writers.cursor_entered.send(CursorEntered {
                             window: window_entity,
+                            source,
                         });
                     }
-                    WindowEvent::CursorLeft { .. } => {
+                    WindowEvent::CursorLeft { device_id } => {
+                        let source = *event_writers
+                            .device_id_mappings
+                            .mapping
+                            .entry(device_id)
+                            .or_insert_with(|| event_writers.input_source_registry.register());
+
                         window.set_physical_cursor_position(None);
                         event_writers.cursor_left.send(CursorLeft {
                             window: window_entity,
+                            source,
                         });
                     }
-                    WindowEvent::MouseInput { state, button, .. } => {
+                    WindowEvent::MouseInput {
+                        state,
+                        button,
+                        device_id,
+                        ..
+                    } => {
+                        let source = *event_writers
+                            .device_id_mappings
+                            .mapping
+                            .entry(device_id)
+                            .or_insert_with(|| event_writers.input_source_registry.register());
+
                         event_writers.mouse_button_input.send(MouseButtonInput {
                             button: converters::convert_mouse_button(button),
                             state: converters::convert_element_state(state),
                             window: window_entity,
+                            source,
                         });
                     }
-                    WindowEvent::TouchpadMagnify { delta, .. } => {
+                    WindowEvent::TouchpadMagnify {
+                        device_id, delta, ..
+                    } => {
+                        let source = *event_writers
+                            .device_id_mappings
+                            .mapping
+                            .entry(device_id)
+                            .or_insert_with(|| event_writers.input_source_registry.register());
+
+                        let delta = delta as f32;
+
                         event_writers
                             .touchpad_magnify_input
-                            .send(TouchpadMagnify(delta as f32));
+                            .send(TouchpadMagnify { delta, source });
                     }
-                    WindowEvent::TouchpadRotate { delta, .. } => {
+                    WindowEvent::TouchpadRotate {
+                        device_id, delta, ..
+                    } => {
+                        let source = *event_writers
+                            .device_id_mappings
+                            .mapping
+                            .entry(device_id)
+                            .or_insert_with(|| event_writers.input_source_registry.register());
+
                         event_writers
                             .touchpad_rotate_input
-                            .send(TouchpadRotate(delta));
+                            .send(TouchpadRotate { delta, source });
                     }
-                    WindowEvent::MouseWheel { delta, .. } => match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
-                            event_writers.mouse_wheel_input.send(MouseWheel {
-                                unit: MouseScrollUnit::Line,
-                                x,
-                                y,
-                                window: window_entity,
-                            });
+                    WindowEvent::MouseWheel {
+                        device_id, delta, ..
+                    } => {
+                        let source = *event_writers
+                            .device_id_mappings
+                            .mapping
+                            .entry(device_id)
+                            .or_insert_with(|| event_writers.input_source_registry.register());
+
+                        match delta {
+                            event::MouseScrollDelta::LineDelta(x, y) => {
+                                event_writers.mouse_wheel_input.send(MouseWheel {
+                                    unit: MouseScrollUnit::Line,
+                                    x,
+                                    y,
+                                    window: window_entity,
+                                    source,
+                                });
+                            }
+                            event::MouseScrollDelta::PixelDelta(p) => {
+                                event_writers.mouse_wheel_input.send(MouseWheel {
+                                    unit: MouseScrollUnit::Pixel,
+                                    x: p.x as f32,
+                                    y: p.y as f32,
+                                    window: window_entity,
+                                    source,
+                                });
+                            }
                         }
-                        event::MouseScrollDelta::PixelDelta(p) => {
-                            event_writers.mouse_wheel_input.send(MouseWheel {
-                                unit: MouseScrollUnit::Pixel,
-                                x: p.x as f32,
-                                y: p.y as f32,
-                                window: window_entity,
-                            });
-                        }
-                    },
+                    }
                     WindowEvent::Touch(touch) => {
                         let location = touch.location.to_logical(window.resolution.scale_factor());
                         event_writers
@@ -742,11 +837,19 @@ pub fn winit_runner(mut app: App) {
             }
             event::Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
-                ..
+                device_id,
             } => {
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
+
+                let source = *event_writers
+                    .device_id_mappings
+                    .mapping
+                    .entry(device_id)
+                    .or_insert_with(|| event_writers.input_source_registry.register());
+
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
+                    source,
                 });
             }
             event::Event::Suspended => {

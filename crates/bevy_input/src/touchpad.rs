@@ -6,6 +6,8 @@ use bevy_reflect::Reflect;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+use crate::InputSource;
+
 /// Touchpad magnification event with two-finger pinch gesture.
 ///
 /// Positive delta values indicate magnification (zooming in) and
@@ -21,7 +23,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct TouchpadMagnify(pub f32);
+pub struct TouchpadMagnify {
+    /// The amount of magnification.
+    pub delta: f32,
+    /// The source of this input event.
+    pub source: InputSource,
+}
 
 /// Touchpad rotation event with two-finger rotation gesture.
 ///
@@ -38,4 +45,9 @@ pub struct TouchpadMagnify(pub f32);
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct TouchpadRotate(pub f32);
+pub struct TouchpadRotate {
+    /// The amount of rotation.
+    pub delta: f32,
+    /// The source of this input event.
+    pub source: InputSource,
+}

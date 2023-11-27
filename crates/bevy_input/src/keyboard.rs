@@ -1,6 +1,6 @@
 //! The keyboard input functionality.
 
-use crate::{ButtonState, Input};
+use crate::{ButtonState, Input, InputSource};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -37,6 +37,8 @@ pub struct KeyboardInput {
     pub state: ButtonState,
     /// Window that received the input.
     pub window: Entity,
+    /// The source of this input event.
+    pub source: InputSource,
 }
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.

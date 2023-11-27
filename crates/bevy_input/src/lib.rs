@@ -13,11 +13,13 @@ pub mod gamepad;
 mod input;
 pub mod keyboard;
 pub mod mouse;
+mod source;
 pub mod touch;
 pub mod touchpad;
 
 pub use axis::*;
 pub use input::*;
+pub use source::*;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
@@ -66,6 +68,8 @@ pub struct InputSystem;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app
+            // sources
+            .init_resource::<InputSources>()
             // keyboard
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
@@ -109,6 +113,9 @@ impl Plugin for InputPlugin {
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
+
+        // Register input source types
+        app.register_type::<InputSource>();
 
         // Register common types
         app.register_type::<ButtonState>();

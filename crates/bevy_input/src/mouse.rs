@@ -1,6 +1,6 @@
 //! The mouse input functionality.
 
-use crate::{ButtonState, Input};
+use crate::{ButtonState, Input, InputSource};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -35,6 +35,8 @@ pub struct MouseButtonInput {
     pub state: ButtonState,
     /// Window that received the input.
     pub window: Entity,
+    /// The source of this input event.
+    pub source: InputSource,
 }
 
 /// A button on a mouse device.
@@ -84,6 +86,8 @@ pub enum MouseButton {
 pub struct MouseMotion {
     /// The change in the position of the pointing device since the last event was sent.
     pub delta: Vec2,
+    /// The source of this input event.
+    pub source: InputSource,
 }
 
 /// The scroll unit.
@@ -131,6 +135,8 @@ pub struct MouseWheel {
     pub y: f32,
     /// Window that received the input.
     pub window: Entity,
+    /// The source of this input event.
+    pub source: InputSource,
 }
 
 /// Updates the [`Input<MouseButton>`] resource with the latest [`MouseButtonInput`] events.

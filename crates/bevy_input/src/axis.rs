@@ -80,7 +80,7 @@ where
 mod tests {
     use crate::{
         gamepad::{Gamepad, GamepadButton, GamepadButtonType},
-        Axis,
+        Axis, InputSources,
     };
 
     #[test]
@@ -99,9 +99,11 @@ mod tests {
             (1.6, Some(1.0)),
         ];
 
+        let mut input_sources = InputSources::default();
+        let gamepad = Gamepad::new(input_sources.register());
+
         for (value, expected) in cases {
-            let gamepad_button =
-                GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger);
+            let gamepad_button = GamepadButton::new(gamepad, GamepadButtonType::RightTrigger);
             let mut axis = Axis::<GamepadButton>::default();
 
             axis.set(gamepad_button, value);
@@ -115,9 +117,11 @@ mod tests {
     fn test_axis_remove() {
         let cases = [-1.0, -0.9, -0.1, 0.0, 0.1, 0.9, 1.0];
 
+        let mut input_sources = InputSources::default();
+        let gamepad = Gamepad::new(input_sources.register());
+
         for value in cases {
-            let gamepad_button =
-                GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger);
+            let gamepad_button = GamepadButton::new(gamepad, GamepadButtonType::RightTrigger);
             let mut axis = Axis::<GamepadButton>::default();
 
             axis.set(gamepad_button, value);
@@ -133,31 +137,31 @@ mod tests {
 
     #[test]
     fn test_axis_devices() {
+        let mut input_sources = InputSources::default();
+        let gamepad = Gamepad::new(input_sources.register());
+
         let mut axis = Axis::<GamepadButton>::default();
         assert_eq!(axis.devices().count(), 0);
 
         axis.set(
-            GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger),
+            GamepadButton::new(gamepad, GamepadButtonType::RightTrigger),
             0.1,
         );
         assert_eq!(axis.devices().count(), 1);
 
         axis.set(
-            GamepadButton::new(Gamepad::new(1), GamepadButtonType::LeftTrigger),
+            GamepadButton::new(gamepad, GamepadButtonType::LeftTrigger),
             0.5,
         );
         assert_eq!(axis.devices().count(), 2);
 
         axis.set(
-            GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger),
+            GamepadButton::new(gamepad, GamepadButtonType::RightTrigger),
             -0.1,
         );
         assert_eq!(axis.devices().count(), 2);
 
-        axis.remove(GamepadButton::new(
-            Gamepad::new(1),
-            GamepadButtonType::RightTrigger,
-        ));
+        axis.remove(GamepadButton::new(gamepad, GamepadButtonType::RightTrigger));
         assert_eq!(axis.devices().count(), 1);
     }
 }

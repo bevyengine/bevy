@@ -1,26 +1,34 @@
-use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
+use crate::converter::{convert_axis, convert_button};
+use crate::GilrsGamepads;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSend, NonSendMut, Res, ResMut};
 use bevy_input::gamepad::{
-    GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
-    GamepadSettings,
+    Gamepad, GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection,
+    GamepadConnectionEvent, GamepadSettings,
 };
 use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
 use bevy_input::prelude::{GamepadAxis, GamepadButton};
-use bevy_input::Axis;
+use bevy_input::{Axis, InputSources};
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
 
 pub fn gilrs_event_startup_system(
     gilrs: NonSend<Gilrs>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
+    mut gamepads: ResMut<GilrsGamepads>,
+    mut input_sources_registry: ResMut<InputSources>,
 ) {
     for (id, gamepad) in gilrs.gamepads() {
+        let source = *gamepads
+            .mapping
+            .entry(id)
+            .or_insert_with(|| input_sources_registry.register());
+
         let info = GamepadInfo {
             name: gamepad.name().into(),
         };
 
         connection_events.send(GamepadConnectionEvent {
-            gamepad: convert_gamepad_id(id),
+            gamepad: Gamepad { id: source },
             connection: GamepadConnection::Connected(info),
         });
     }
@@ -32,6 +40,8 @@ pub fn gilrs_event_system(
     mut gamepad_buttons: ResMut<Axis<GamepadButton>>,
     gamepad_axis: Res<Axis<GamepadAxis>>,
     gamepad_settings: Res<GamepadSettings>,
+    mut gamepads: ResMut<GilrsGamepads>,
+    mut input_sources_registry: ResMut<InputSources>,
 ) {
     while let Some(gilrs_event) = gilrs
         .next_event()
@@ -39,7 +49,13 @@ pub fn gilrs_event_system(
     {
         gilrs.update(&gilrs_event);
 
-        let gamepad = convert_gamepad_id(gilrs_event.id);
+        let source = *gamepads
+            .mapping
+            .entry(gilrs_event.id)
+            .or_insert_with(|| input_sources_registry.register());
+
+        let gamepad = Gamepad { id: source };
+
         match gilrs_event.event {
             EventType::Connected => {
                 let pad = gilrs.gamepad(gilrs_event.id);

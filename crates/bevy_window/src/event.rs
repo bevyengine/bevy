@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::Event;
+use bevy_input::InputSource;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
 
@@ -132,6 +133,8 @@ pub struct CursorMoved {
     pub window: Entity,
     /// The cursor position in logical pixels.
     pub position: Vec2,
+    /// The source of this input event.
+    pub source: InputSource,
 }
 
 /// An event that is sent whenever the user's cursor enters a window.
@@ -145,6 +148,8 @@ pub struct CursorMoved {
 pub struct CursorEntered {
     /// Window that the cursor entered.
     pub window: Entity,
+    /// The source of this input event.
+    pub source: InputSource,
 }
 
 /// An event that is sent whenever the user's cursor leaves a window.
@@ -158,6 +163,8 @@ pub struct CursorEntered {
 pub struct CursorLeft {
     /// Window that the cursor left.
     pub window: Entity,
+    /// The source of this input event.
+    pub source: InputSource,
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
