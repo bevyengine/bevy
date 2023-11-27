@@ -8,7 +8,6 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::tracing::debug;
 use std::{any::TypeId, marker::PhantomData};
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
@@ -572,7 +571,6 @@ impl<'w> EntityWorldMut<'w> {
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         self.location = unsafe { bundle_inserter.insert(self.entity, self.location, bundle) };
-        self.world.flush_commands();
         self
     }
 
@@ -596,13 +594,12 @@ impl<'w> EntityWorldMut<'w> {
             .world
             .bundles
             .init_component_info(&self.world.components, component_id);
-        let (bundle_info, storage_type) = self.world.bundles.get_with_storage_unchecked(bundle_id);
+        let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
 
-        let bundle_inserter = BundleInserter::new_with_info(
-            // SAFETY: The only outstanding reference to world is bundle_info
-            self.world.as_unsafe_world_cell_readonly(),
+        let bundle_inserter = BundleInserter::new_with_id(
+            self.world,
             self.location.archetype_id,
-            bundle_info,
+            bundle_id,
             change_tick,
         );
 
@@ -611,9 +608,8 @@ impl<'w> EntityWorldMut<'w> {
             self.entity,
             self.location,
             Some(component).into_iter(),
-            Some(*storage_type).iter().cloned(),
+            Some(storage_type).iter().cloned(),
         );
-        self.world.flush_commands();
         self
     }
 
@@ -639,14 +635,12 @@ impl<'w> EntityWorldMut<'w> {
             .world
             .bundles
             .init_dynamic_info(&self.world.components, component_ids);
-        let (bundle_info, storage_types) =
-            self.world.bundles.get_with_storages_unchecked(bundle_id);
-
-        let bundle_inserter = BundleInserter::new_with_info(
-            // SAFETY: The only outstanding reference to world is bundle_info
-            self.world.as_unsafe_world_cell_readonly(),
+        let mut storage_types =
+            std::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
+        let bundle_inserter = BundleInserter::new_with_id(
+            self.world,
             self.location.archetype_id,
-            bundle_info,
+            bundle_id,
             change_tick,
         );
 
@@ -657,7 +651,7 @@ impl<'w> EntityWorldMut<'w> {
             iter_components,
             (*storage_types).iter().cloned(),
         );
-        self.world.flush_commands();
+        *self.world.bundles.get_storages_unchecked(bundle_id) = std::mem::take(&mut storage_types);
         self
     }
 
@@ -668,17 +662,18 @@ impl<'w> EntityWorldMut<'w> {
     // TODO: BundleRemover?
     #[must_use]
     pub fn take<T: Bundle>(&mut self) -> Option<T> {
-        let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
-        let bundle_id = self.world.bundles.init_info::<T>(components, storages);
+        let world = &mut self.world;
+        let storages = &mut world.storages;
+        let components = &mut world.components;
+        let bundle_id = world.bundles.init_info::<T>(components, storages);
         // SAFETY: We just ensured this bundle exists
-        let bundle_info = unsafe { self.world.bundles.get_unchecked(bundle_id) };
+        let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         let old_location = self.location;
         // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
         // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
         let new_archetype_id = unsafe {
             remove_bundle_from_archetype(
-                &mut self.world.archetypes,
+                &mut world.archetypes,
                 storages,
                 components,
                 old_location.archetype_id,
@@ -691,25 +686,32 @@ impl<'w> EntityWorldMut<'w> {
             return None;
         }
 
-        // Reborrow so world is not mutably borrowed
         let entity = self.entity;
-        let old_archetype = &self.world.archetypes[old_location.archetype_id];
+        let old_archetype = &world.archetypes[old_location.archetype_id];
+
+        // Drop borrow on world so it can be turned into DeferredWorld
+        // SAFETY: Changes to Bundles cannot happen through DeferredWorld
+        let bundle_info = {
+            let bundle_info: *const BundleInfo = bundle_info;
+            unsafe { &*bundle_info }
+        };
         if old_archetype.has_on_remove() {
-            // SAFETY: None of our oustanding references can be modified through DeferredWorld
+            // SAFETY: All components in the archetype exist in world
             unsafe {
-                self.world
-                    .as_unsafe_world_cell_readonly()
+                world
+                    .as_unsafe_world_cell()
                     .into_deferred()
                     .trigger_on_remove(entity, bundle_info.iter_components());
-            };
+            }
         }
+
         for component_id in bundle_info.iter_components() {
-            self.world.removed_components.send(component_id, entity);
+            world.removed_components.send(component_id, entity);
         }
-        let archetypes = &mut self.world.archetypes;
-        let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
-        let entities = &mut self.world.entities;
+        let archetypes = &mut world.archetypes;
+        let storages = &mut world.storages;
+        let components = &mut world.components;
+        let entities = &mut world.entities;
 
         let entity = self.entity;
         let mut bundle_components = bundle_info.iter_components();
@@ -739,8 +741,6 @@ impl<'w> EntityWorldMut<'w> {
                 new_archetype_id,
             );
         }
-        drop(bundle_components);
-        self.world.flush_commands();
         Some(result)
     }
 
@@ -828,13 +828,14 @@ impl<'w> EntityWorldMut<'w> {
     /// Removes any components in the [`Bundle`] from the entity.
     // TODO: BundleRemover?
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
-        let archetypes = &mut self.world.archetypes;
-        let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
+        let world = &mut self.world;
+        let archetypes = &mut world.archetypes;
+        let storages = &mut world.storages;
+        let components = &mut world.components;
 
-        let bundle_id = self.world.bundles.init_info::<T>(components, storages);
+        let bundle_id = world.bundles.init_info::<T>(components, storages);
         // SAFETY: We just ensured this bundle exists
-        let bundle_info = unsafe { self.world.bundles.get_unchecked(bundle_id) };
+        let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         let old_location = self.location;
 
         // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
@@ -855,26 +856,34 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         }
 
-        // Reborrow so world is not mutably borrowed
         let entity: Entity = self.entity;
-        let old_archetype = &self.world.archetypes[old_location.archetype_id];
+        let old_archetype = &world.archetypes[old_location.archetype_id];
+
+        // Drop borrow on world so it can be turned into DeferredWorld
+        // SAFETY: Changes to Bundles cannot happen through DeferredWorld
+        let bundle_info = {
+            let bundle_info: *const BundleInfo = bundle_info;
+            unsafe { &*bundle_info }
+        };
         if old_archetype.has_on_remove() {
-            // SAFETY: None of our oustanding references can be modified through DeferredWorld
+            // SAFETY: All components in the archetype exist in world
             unsafe {
-                self.world
-                    .as_unsafe_world_cell_readonly()
+                world
+                    .as_unsafe_world_cell()
                     .into_deferred()
                     .trigger_on_remove(entity, bundle_info.iter_components());
-            };
+            }
         }
+
+        let old_archetype = &world.archetypes[old_location.archetype_id];
         for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
-                self.world.removed_components.send(component_id, entity);
+                world.removed_components.send(component_id, entity);
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
                 if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
-                    self.world
+                    world
                         .storages
                         .sparse_sets
                         .get_mut(component_id)
@@ -891,38 +900,41 @@ impl<'w> EntityWorldMut<'w> {
                 &mut self.location,
                 old_location.archetype_id,
                 old_location,
-                &mut self.world.entities,
-                &mut self.world.archetypes,
-                &mut self.world.storages,
+                &mut world.entities,
+                &mut world.archetypes,
+                &mut world.storages,
                 new_archetype_id,
             );
         }
-        self.world.flush_commands();
         self
     }
 
     /// Despawns the current entity.
     pub fn despawn(self) {
-        debug!("Despawning entity {:?}", self.entity);
-        self.world.flush_entities();
-        let archetype = &self.world.archetypes[self.location.archetype_id];
+        let world = self.world;
+        world.flush_entities();
+        let archetype = &world.archetypes[self.location.archetype_id];
         if archetype.has_on_remove() {
-            // SAFETY: None of our oustanding references can be modified through DeferredWorld
+            // Drop borrow on world so it can be turned into DeferredWorld
+            // SAFETY: Changes to Archetypes cannot happpen through DeferredWorld
+            let archetype = {
+                let archetype: *const Archetype = archetype;
+                unsafe { &*archetype }
+            };
+            // SAFETY: All components in the archetype exist in world
             unsafe {
-                self.world
-                    .as_unsafe_world_cell_readonly()
+                world
+                    .as_unsafe_world_cell()
                     .into_deferred()
                     .trigger_on_remove(self.entity, archetype.components());
-            };
+            }
         }
 
+        let archetype = &world.archetypes[self.location.archetype_id];
         for component_id in archetype.components() {
-            self.world
-                .removed_components
-                .send(component_id, self.entity);
+            world.removed_components.send(component_id, self.entity);
         }
 
-        let world = self.world;
         let location = world
             .entities
             .free(self.entity)
@@ -979,7 +991,13 @@ impl<'w> EntityWorldMut<'w> {
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
-        world.flush_commands();
+        world.flush_commands()
+    }
+
+    /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush_commands`]
+    pub fn flush(self) -> Entity {
+        self.world.flush_commands();
+        self.entity
     }
 
     /// Gets read-only access to the world that the current entity belongs to.

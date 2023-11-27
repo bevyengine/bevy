@@ -280,6 +280,10 @@ impl World {
             .take::<RegisteredSystem<I, O>>()
             .ok_or(RegisteredSystemError::Recursive(id))?;
 
+        // Flush commands from removing component
+        // TODO: Consider refactoring to an RegisteredSystem to an Option to avoid removal
+        drop(entity);
+
         // run the system
         if !initialized {
             system.initialize(self);

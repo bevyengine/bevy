@@ -29,9 +29,12 @@ impl<'w> Deref for DeferredWorld<'w> {
 
 impl<'w> DeferredWorld<'w> {
     /// Creates a [`Commands`] instance that pushes to the world's command queue
-    pub fn commands(&mut self) -> Commands {
-        // SAFETY: Commands::new only take &World which has no way to access the command queue
-        unsafe { Commands::new(self.world.get_command_queue(), self.world.world()) }
+    #[inline]
+    pub fn with_commands(&mut self, f: impl Fn(Commands)) {
+        let world = unsafe { self.world.world_mut() };
+        let mut queue = std::mem::take(&mut world.command_queue);
+        f(Commands::new(&mut queue, world));
+        world.command_queue = std::mem::take(&mut queue);
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -275,14 +278,6 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub unsafe fn into_deferred(self) -> DeferredWorld<'w> {
         DeferredWorld { world: self }
-    }
-
-    /// Turn self into a mutable world reference and a [`DeferredWorld`]
-    ///
-    /// # Safety
-    /// Caller must ensure that the world reference is not used to construct any references to the world's command queue, resource or component data
-    pub unsafe fn split_deferred(self) -> (&'w mut World, DeferredWorld<'w>) {
-        (self.world_mut(), self.into_deferred())
     }
 }
 
