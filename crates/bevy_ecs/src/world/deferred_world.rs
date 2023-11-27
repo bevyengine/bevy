@@ -12,8 +12,8 @@ use crate::{
 
 use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
 
-/// An [`World`] reference that prevents structural ECS changes.
-/// This includes creating tables, registering components or spawning entities.
+/// A [`World`] reference that disallows structural ECS changes.
+/// This includes initializing resources, registering components or spawning entities.
 pub struct DeferredWorld<'w> {
     world: UnsafeWorldCell<'w>,
 }
@@ -22,7 +22,7 @@ impl<'w> Deref for DeferredWorld<'w> {
     type Target = World;
 
     fn deref(&self) -> &Self::Target {
-        // SAFETY: &self ensures ther are no active mutable borrows
+        // SAFETY: &self ensures there are no active mutable borrows
         unsafe { self.world.world() }
     }
 }

@@ -619,7 +619,7 @@ impl<'w> BundleInserter<'w> {
         }
     }
     /// # Safety
-    /// `entity` must currently exist in the source archetype for this inserter. `archetype_row`
+    /// `entity` must currently exist in the source archetype for this inserter. `location`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
     pub(crate) unsafe fn insert<T: DynamicBundle>(

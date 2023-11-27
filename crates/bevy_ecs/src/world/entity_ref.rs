@@ -4,6 +4,7 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
+    removal_detection::RemovedComponentEvents,
     storage::Storages,
     world::{Mut, World},
 };
@@ -712,6 +713,7 @@ impl<'w> EntityWorldMut<'w> {
         let storages = &mut world.storages;
         let components = &mut world.components;
         let entities = &mut world.entities;
+        let removed_components = &mut world.removed_components;
 
         let entity = self.entity;
         let mut bundle_components = bundle_info.iter_components();
@@ -724,7 +726,14 @@ impl<'w> EntityWorldMut<'w> {
                 // - entity location is valid
                 // - table row is removed below, without dropping the contents
                 // - `components` comes from the same world as `storages`
-                take_component(storages, components, component_id, entity, old_location)
+                take_component(
+                    storages,
+                    components,
+                    removed_components,
+                    component_id,
+                    entity,
+                    old_location,
+                )
             })
         };
 
@@ -1632,12 +1641,14 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 pub(crate) unsafe fn take_component<'a>(
     storages: &'a mut Storages,
     components: &Components,
+    removed_components: &mut RemovedComponentEvents,
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
 ) -> OwningPtr<'a> {
     // SAFETY: caller promises component_id to be valid
     let component_info = components.get_info_unchecked(component_id);
+    removed_components.send(component_id, entity);
     match component_info.storage_type() {
         StorageType::Table => {
             let table = &mut storages.tables[location.table_id];
