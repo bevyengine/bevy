@@ -111,7 +111,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // Hack: this ensures the push constant is always used, which works around this issue:
     // https://github.com/bevyengine/bevy/issues/10509
     // This can be removed when wgpu 0.19 is released
-    out.position.x += f32(get_instance_index(0u)) * 0.00001;
+    out.position.x += min(f32(get_instance_index(0u)), 0.0);
 #endif
 
     return out;
