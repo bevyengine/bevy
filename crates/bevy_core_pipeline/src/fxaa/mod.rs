@@ -13,7 +13,10 @@ use bevy_render::{
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_graph::ViewNodeRunner,
-    render_resource::*,
+    render_resource::{
+        binding_types::{sampler, texture_2d},
+        *,
+    },
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
@@ -131,27 +134,16 @@ impl FromWorld for FxaaPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let texture_bind_group = render_world
             .resource::<RenderDevice>()
-            .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("fxaa_texture_bind_group_layout"),
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
+            .create_bind_group_layout(
+                "fxaa_texture_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT,
+                    (
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
+                    ),
+                ),
+            );
 
         FxaaPipeline { texture_bind_group }
     }
