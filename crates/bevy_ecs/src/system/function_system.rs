@@ -9,7 +9,7 @@ use crate::{
 };
 
 use bevy_utils::all_tuples;
-use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
@@ -437,11 +437,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<F>()
     }
 
     #[inline]
