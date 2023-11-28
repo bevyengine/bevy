@@ -17,7 +17,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::*,
+    render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice},
     texture::{GpuImage, Image, ImageFilterMode, ImageSampler, ImageSamplerDescriptor, Volume},
 };
@@ -111,9 +111,8 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
 }
 
 struct GenerateEnvironmentMapLightResourcesSpecialized {
-    downsample_layout: BindGroupLayout,
+    downsample_and_diffuse_convolution_layout: BindGroupLayout,
     filter_layout: BindGroupLayout,
-    diffuse_convolution_layout: BindGroupLayout,
     downsample_pipeline: CachedComputePipelineId,
     filter_pipeline: CachedComputePipelineId,
     diffuse_convolution_pipeline: CachedComputePipelineId,
@@ -125,49 +124,36 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
     ) -> Self {
-        let read_texture = BindingType::Texture {
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::Cube,
-            multisampled: false,
-        };
-        let write_texture = BindingType::StorageTexture {
-            access: StorageTextureAccess::WriteOnly,
-            format: texture_format,
-            view_dimension: TextureViewDimension::D2Array,
-        };
-
-        let downsample_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("generate_environment_map_light_downsample_bind_group_layout"),
-                entries: &[
-                    bgl_entry(0, read_texture),
-                    bgl_entry(1, write_texture),
-                    bgl_entry(2, BindingType::Sampler(SamplerBindingType::Filtering)),
-                ],
-            });
-
-        let filter_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("generate_environment_map_light_filter_bind_group_layout"),
-            entries: &[
-                bgl_entry(0, read_texture),
-                bgl_entry(1, write_texture),
-                bgl_entry(2, write_texture),
-                bgl_entry(3, write_texture),
-                bgl_entry(4, write_texture),
-                bgl_entry(5, write_texture),
-                bgl_entry(6, write_texture),
-                bgl_entry(7, write_texture),
-                bgl_entry(8, BindingType::Sampler(SamplerBindingType::Filtering)),
-                bgl_entry(
-                    9,
-                    BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: NonZeroU64::new(40320),
-                    },
+        let downsample_and_diffuse_convolution_layout = render_device.create_bind_group_layout(
+            "generate_environment_map_light_downsample_and_diffuse_convolution_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    texture_cube(TextureSampleType::Float { filterable: true }),
+                    texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
+                    sampler(SamplerBindingType::Filtering),
                 ),
-            ],
-        });
+            ),
+        );
+
+        let filter_layout = render_device.create_bind_group_layout(
+            "generate_environment_map_light_filter_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    texture_cube(TextureSampleType::Float { filterable: true }),
+                    texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
+                    sampler(SamplerBindingType::Filtering),
+                    uniform_buffer_sized(false, NonZeroU64::new(40320)),
+                ),
+            ),
+        );
 
         let shader_defs = match texture_format {
             TextureFormat::Rg11b10Float => vec!["RG11B10FLOAT".into()],
@@ -175,20 +161,10 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
             _ => unreachable!(),
         };
 
-        let diffuse_convolution_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("generate_environment_map_light_filter_bind_group_layout"),
-                entries: &[
-                    bgl_entry(0, read_texture),
-                    bgl_entry(1, write_texture),
-                    bgl_entry(2, BindingType::Sampler(SamplerBindingType::Filtering)),
-                ],
-            });
-
         let downsample_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("generate_environment_map_light_downsample_pipeline".into()),
-                layout: vec![downsample_layout.clone()],
+                layout: vec![downsample_and_diffuse_convolution_layout.clone()],
                 push_constant_ranges: vec![],
                 shader: DOWNSAMPLE_SHADER_HANDLE,
                 shader_defs: shader_defs.clone(),
@@ -207,7 +183,7 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
         let diffuse_convolution_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("generate_environment_map_light_diffuse_convolution_pipeline".into()),
-                layout: vec![diffuse_convolution_layout.clone()],
+                layout: vec![downsample_and_diffuse_convolution_layout.clone()],
                 push_constant_ranges: vec![],
                 shader: DIFFUSE_CONVOLUTION_SHADER_HANDLE,
                 shader_defs,
@@ -215,9 +191,8 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
             });
 
         Self {
-            downsample_layout,
+            downsample_and_diffuse_convolution_layout,
             filter_layout,
-            diffuse_convolution_layout,
             downsample_pipeline,
             filter_pipeline,
             diffuse_convolution_pipeline,
@@ -384,7 +359,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
 
         let downsample1 = render_device.create_bind_group(
             "generate_environment_map_light_downsample1_bind_group",
-            &resources.downsample_layout,
+            &resources.downsample_and_diffuse_convolution_layout,
             &BindGroupEntries::sequential((
                 &skybox.texture_view,
                 &d2array_view(0, downsampled_cubemap),
@@ -393,7 +368,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
         );
         let downsample2 = render_device.create_bind_group(
             "generate_environment_map_light_downsample2_bind_group",
-            &resources.downsample_layout,
+            &resources.downsample_and_diffuse_convolution_layout,
             &BindGroupEntries::sequential((
                 &cube_view(0, downsampled_cubemap),
                 &d2array_view(1, downsampled_cubemap),
@@ -402,7 +377,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
         );
         let downsample3 = render_device.create_bind_group(
             "generate_environment_map_light_downsample3_bind_group",
-            &resources.downsample_layout,
+            &resources.downsample_and_diffuse_convolution_layout,
             &BindGroupEntries::sequential((
                 &cube_view(1, downsampled_cubemap),
                 &d2array_view(2, downsampled_cubemap),
@@ -411,7 +386,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
         );
         let downsample4 = render_device.create_bind_group(
             "generate_environment_map_light_downsample4_bind_group",
-            &resources.downsample_layout,
+            &resources.downsample_and_diffuse_convolution_layout,
             &BindGroupEntries::sequential((
                 &cube_view(2, downsampled_cubemap),
                 &d2array_view(3, downsampled_cubemap),
@@ -420,7 +395,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
         );
         let downsample5 = render_device.create_bind_group(
             "generate_environment_map_light_downsample5_bind_group",
-            &resources.downsample_layout,
+            &resources.downsample_and_diffuse_convolution_layout,
             &BindGroupEntries::sequential((
                 &cube_view(3, downsampled_cubemap),
                 &d2array_view(4, downsampled_cubemap),
@@ -429,7 +404,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
         );
         let downsample6 = render_device.create_bind_group(
             "generate_environment_map_light_downsample6_bind_group",
-            &resources.downsample_layout,
+            &resources.downsample_and_diffuse_convolution_layout,
             &BindGroupEntries::sequential((
                 &cube_view(4, downsampled_cubemap),
                 &d2array_view(5, downsampled_cubemap),
@@ -456,7 +431,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
 
         let diffuse_convolution = render_device.create_bind_group(
             "generate_environment_map_light_diffuse_convolution_bind_group",
-            &resources.diffuse_convolution_layout,
+            &resources.downsample_and_diffuse_convolution_layout,
             &BindGroupEntries::sequential((
                 &skybox.texture_view,
                 &d2array_view(0, diffuse_map),
@@ -548,15 +523,6 @@ fn texture_byte_count(mut size: Extent3d, mip_count: u32, texture_format: Textur
         size.height /= 2;
     }
     total_size
-}
-
-fn bgl_entry(binding: u32, ty: BindingType) -> BindGroupLayoutEntry {
-    BindGroupLayoutEntry {
-        binding,
-        visibility: ShaderStages::COMPUTE,
-        ty,
-        count: None,
-    }
 }
 
 fn cube_view(mip_level: u32, cubemap: &GpuImage) -> TextureView {
