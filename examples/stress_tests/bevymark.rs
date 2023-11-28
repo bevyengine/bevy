@@ -542,6 +542,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             TextureDimension::D2,
             &pixel,
             TextureFormat::Rgba8UnormSrgb,
+            false,
         )));
     }
 }
