@@ -82,7 +82,7 @@ impl GenerateEnvironmentMapLightTextureFormat {
 pub struct GenerateEnvironmentMapLightResources {
     rg11b10float: GenerateEnvironmentMapLightResourcesSpecialized,
     rgba16float: GenerateEnvironmentMapLightResourcesSpecialized,
-    filter_coefficents: Buffer,
+    filter_coefficients: Buffer,
 }
 
 impl FromWorld for GenerateEnvironmentMapLightResources {
@@ -101,9 +101,10 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
                 render_device,
                 pipeline_cache,
             ),
-            filter_coefficents: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("generate_environment_map_light_filter_coefficents"),
-                contents: include_bytes!("filter_coefficents.bin"),
+            // Original source: https://www.activision.com/cdn/research/coeffs_quad_32.txt
+            filter_coefficients: render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("generate_environment_map_light_filter_coefficients"),
+                contents: include_bytes!("filter_coefficients.bin"),
                 usage: BufferUsages::UNIFORM,
             }),
         }
@@ -351,7 +352,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             continue;
         };
 
-        let filter_coefficents = &resources.filter_coefficents;
+        let filter_coefficients = &resources.filter_coefficients;
         let resources = match gen_env_map.texture_format {
             GenerateEnvironmentMapLightTextureFormat::Rg11b10Float => &resources.rg11b10float,
             GenerateEnvironmentMapLightTextureFormat::Rgba16Float => &resources.rgba16float,
@@ -425,7 +426,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                 &d2array_view(5, specular_map),
                 &d2array_view(6, specular_map),
                 &specular_map.sampler,
-                filter_coefficents.as_entire_binding(),
+                filter_coefficients.as_entire_binding(),
             )),
         );
 
