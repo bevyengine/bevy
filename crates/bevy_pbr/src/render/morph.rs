@@ -1,5 +1,6 @@
 use std::{iter, mem};
 
+use bevy_core_pipeline::prepass::MotionVectorPrepass;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -10,8 +11,9 @@ use bevy_render::{
     view::ViewVisibility,
     Extract,
 };
-use bevy_utils::EntityHashMap;
 use bytemuck::Pod;
+
+use super::double_buffer::{DoubleBufferVec, DoubleEntityMap};
 
 #[derive(Component)]
 pub struct MorphIndex {
@@ -19,17 +21,17 @@ pub struct MorphIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct MorphIndices(EntityHashMap<Entity, MorphIndex>);
+pub struct MorphIndices(DoubleEntityMap<MorphIndex>);
 
 #[derive(Resource)]
 pub struct MorphUniform {
-    pub buffer: BufferVec<f32>,
+    pub buffer: DoubleBufferVec<f32>,
 }
 
 impl Default for MorphUniform {
     fn default() -> Self {
         Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
+            buffer: DoubleBufferVec::new(BufferUsages::UNIFORM),
         }
     }
 }
@@ -39,12 +41,12 @@ pub fn prepare_morphs(
     render_queue: Res<RenderQueue>,
     mut uniform: ResMut<MorphUniform>,
 ) {
-    if uniform.buffer.is_empty() {
+    if uniform.buffer.current.is_empty() {
         return;
     }
-    let len = uniform.buffer.len();
-    uniform.buffer.reserve(len, &render_device);
-    uniform.buffer.write_buffer(&render_device, &render_queue);
+    let current = &mut uniform.buffer.current;
+    current.reserve(current.len(), &render_device);
+    current.write_buffer(&render_device, &render_queue);
 }
 
 const fn can_align(step: usize, target: usize) -> bool {
@@ -83,19 +85,21 @@ pub fn extract_morphs(
     mut morph_indices: ResMut<MorphIndices>,
     mut uniform: ResMut<MorphUniform>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
+    has_motion_vectors: Extract<Query<(), With<MotionVectorPrepass>>>,
 ) {
-    morph_indices.clear();
-    uniform.buffer.clear();
+    let swap_buffer = !has_motion_vectors.is_empty();
+    morph_indices.clear(swap_buffer);
+    uniform.buffer.clear(swap_buffer);
 
     for (entity, view_visibility, morph_weights) in &query {
         if !view_visibility.get() {
             continue;
         }
-        let start = uniform.buffer.len();
+        let start = uniform.buffer.current.len();
         let weights = morph_weights.weights();
         let legal_weights = weights.iter().take(MAX_MORPH_WEIGHTS).copied();
-        uniform.buffer.extend(legal_weights);
-        add_to_alignment::<f32>(&mut uniform.buffer);
+        uniform.buffer.current.extend(legal_weights);
+        add_to_alignment::<f32>(&mut uniform.buffer.current);
 
         let index = (start * mem::size_of::<f32>()) as u32;
         morph_indices.insert(entity, MorphIndex { index });
