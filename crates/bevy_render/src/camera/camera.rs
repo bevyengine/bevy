@@ -459,7 +459,7 @@ impl RenderTarget {
     }
 
     /// Get a handle to the render target's image,
-    /// or `None` if it does not exist.
+    /// or `None` if the render target is another variant.
     pub fn as_image(&self) -> Option<&Handle<Image>> {
         if let Self::Image(handle) = self {
             Some(handle)
