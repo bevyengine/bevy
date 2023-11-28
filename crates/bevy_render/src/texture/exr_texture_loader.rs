@@ -63,6 +63,7 @@ impl AssetLoader for ExrTextureLoader {
                 TextureDimension::D2,
                 buf,
                 format,
+                false,
             ))
         })
     }
