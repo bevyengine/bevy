@@ -13,8 +13,8 @@ use crate::MeshPipelineViewLayoutKey;
 
 pub fn get_bind_group_layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
-) -> SmallVec<[BindGroupLayoutEntryBuilder; 4]> {
-    let mut result = SmallVec::<[BindGroupLayoutEntryBuilder; 4]>::new();
+) -> SmallVec<[Option<BindGroupLayoutEntryBuilder>; 4]> {
+    let mut result = SmallVec::<[Option<BindGroupLayoutEntryBuilder>; 4]>::new();
 
     let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
 
@@ -22,40 +22,52 @@ pub fn get_bind_group_layout_entries(
         result.push(
             // Depth texture
             if multisampled {
-                texture_depth_2d_multisampled()
+                Some(texture_depth_2d_multisampled())
             } else {
-                texture_depth_2d()
+                Some(texture_depth_2d())
             },
         );
+    } else {
+        result.push(None);
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS) {
         result.push(
             // Normal texture
             if multisampled {
-                texture_2d_multisampled(TextureSampleType::Float { filterable: false })
+                Some(texture_2d_multisampled(TextureSampleType::Float {
+                    filterable: false,
+                }))
             } else {
-                texture_2d(TextureSampleType::Float { filterable: false })
+                Some(texture_2d(TextureSampleType::Float { filterable: false }))
             },
         );
+    } else {
+        result.push(None);
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS) {
         result.push(
             // Motion Vectors texture
             if multisampled {
-                texture_2d_multisampled(TextureSampleType::Float { filterable: false })
+                Some(texture_2d_multisampled(TextureSampleType::Float {
+                    filterable: false,
+                }))
             } else {
-                texture_2d(TextureSampleType::Float { filterable: false })
+                Some(texture_2d(TextureSampleType::Float { filterable: false }))
             },
         );
+    } else {
+        result.push(None);
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
         result.push(
             // Deferred texture
-            texture_2d(TextureSampleType::Uint),
+            Some(texture_2d(TextureSampleType::Uint)),
         );
+    } else {
+        result.push(None);
     }
 
     result
