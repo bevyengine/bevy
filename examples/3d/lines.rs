@@ -96,7 +96,7 @@ impl From<LineList> for Mesh {
 
         // This tells wgpu that the positions are list of lines
         // where every pair is a start and end point
-        Mesh::new(PrimitiveTopology::LineList)
+        Mesh::new(PrimitiveTopology::LineList, false)
             // Add the vertices positions as an attribute
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
     }
@@ -112,7 +112,7 @@ impl From<LineStrip> for Mesh {
     fn from(line: LineStrip) -> Self {
         // This tells wgpu that the positions are a list of points
         // where a line will be drawn between each consecutive point
-        Mesh::new(PrimitiveTopology::LineStrip)
+        Mesh::new(PrimitiveTopology::LineStrip, false)
             // Add the point positions as an attribute
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
     }

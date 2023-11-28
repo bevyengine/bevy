@@ -120,7 +120,8 @@ fn input_handler(
 
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
-    Mesh::new(PrimitiveTopology::TriangleList)
+    // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
+    Mesh::new(PrimitiveTopology::TriangleList, true)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.
