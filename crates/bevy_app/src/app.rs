@@ -190,6 +190,7 @@ impl Default for App {
         app.init_resource::<AppTypeRegistry>();
 
         app.add_plugins(MainSchedulePlugin);
+
         app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]

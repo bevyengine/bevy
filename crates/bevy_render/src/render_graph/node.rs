@@ -7,7 +7,7 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::{
-    query::{QueryItem, QueryState, ReadOnlyWorldQuery},
+    query::{QueryItem, QueryState, ReadOnlyWorldQueryData},
     world::{FromWorld, World},
 };
 use downcast_rs::{impl_downcast, Downcast};
@@ -342,7 +342,7 @@ impl Node for RunGraphOnViewNode {
 pub trait ViewNode {
     /// The query that will be used on the view entity.
     /// It is guaranteed to run on the view entity, so there's no need for a filter
-    type ViewQuery: ReadOnlyWorldQuery;
+    type ViewQuery: ReadOnlyWorldQueryData;
 
     /// Updates internal node state using the current render [`World`] prior to the run method.
     fn update(&mut self, _world: &mut World) {}

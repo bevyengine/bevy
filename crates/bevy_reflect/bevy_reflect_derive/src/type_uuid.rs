@@ -8,6 +8,8 @@ use uuid::Uuid;
 
 pub(crate) fn type_uuid_derive(input: DeriveInput) -> syn::Result<TokenStream> {
     let mut uuid = None;
+
+    #[allow(clippy::manual_let_else)]
     for attribute in input
         .attrs
         .iter()
