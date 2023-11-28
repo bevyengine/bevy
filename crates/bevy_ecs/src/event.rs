@@ -1,7 +1,9 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::system::{Local, Res, ResMut, Resource, SystemParam};
+use crate::resource::Resource;
+use crate::resource::{Res, ResMut};
+use crate::system::{Local, SystemParam};
 pub use bevy_ecs_macros::Event;
 use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
@@ -13,6 +15,7 @@ use std::{
     marker::PhantomData,
     slice::Iter,
 };
+
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///

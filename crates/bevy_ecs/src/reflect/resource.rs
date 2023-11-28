@@ -4,9 +4,9 @@
 //!
 //! See the module doc for [`crate::reflect::component`].
 
+use crate::resource::Resource;
 use crate::{
     change_detection::Mut,
-    system::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_reflect::{FromType, Reflect};

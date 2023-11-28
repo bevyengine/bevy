@@ -16,12 +16,13 @@ use bevy_utils::{
 
 use fixedbitset::FixedBitSet;
 
+use crate::resource::Resource;
 use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
-    system::{BoxedSystem, Resource, System},
+    system::{BoxedSystem, System},
     world::World,
 };
 

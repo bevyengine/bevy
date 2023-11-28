@@ -4,7 +4,8 @@ use std::iter;
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
 use bevy_ecs::{
-    system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
+    resource::Resource,
+    system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
     world::World,
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};

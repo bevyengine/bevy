@@ -192,10 +192,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        schedule::{tests::ResMut, Schedule},
-        system::Resource,
-    };
+    use crate::resource::{ResMut, Resource};
+    use crate::schedule::Schedule;
 
     use super::*;
 

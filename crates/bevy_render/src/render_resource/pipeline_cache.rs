@@ -8,8 +8,8 @@ use crate::{
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_ecs::event::EventReader;
+use bevy_ecs::resource::{Res, ResMut, Resource};
 use bevy_utils::{
     default,
     tracing::{debug, error},

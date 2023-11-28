@@ -1,4 +1,4 @@
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::resource::{Res, ResMut};
 use bevy_reflect::Reflect;
 use bevy_utils::{tracing::debug, Duration};
 

@@ -1,4 +1,4 @@
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_utils::Duration;
 
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).

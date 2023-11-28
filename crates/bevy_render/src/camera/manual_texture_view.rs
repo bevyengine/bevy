@@ -1,7 +1,7 @@
 use crate::extract_resource::ExtractResource;
 use crate::render_resource::TextureView;
 use crate::texture::BevyDefault;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::UVec2;
 use bevy_reflect::prelude::*;

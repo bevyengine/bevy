@@ -17,7 +17,8 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::{Res, ResMut, Resource},
+    system::{Commands, Query},
 };
 use bevy_log::warn;
 use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};

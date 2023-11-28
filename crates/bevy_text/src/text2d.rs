@@ -11,7 +11,8 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, Local, Query, Res, ResMut},
+    resource::{Res, ResMut},
+    system::{Commands, Local, Query},
 };
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;

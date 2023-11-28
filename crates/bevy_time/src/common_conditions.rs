@@ -1,5 +1,5 @@
 use crate::{Real, Time, Timer, TimerMode};
-use bevy_ecs::system::Res;
+use bevy_ecs::resource::Res;
 use bevy_utils::Duration;
 
 /// Run condition that is active on a regular time interval, using [`Time`] to advance

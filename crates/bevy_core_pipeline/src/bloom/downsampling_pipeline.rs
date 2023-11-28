@@ -2,7 +2,8 @@ use super::{BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::{Res, ResMut, Resource},
+    system::{Commands, Query},
     world::{FromWorld, World},
 };
 use bevy_math::Vec4;

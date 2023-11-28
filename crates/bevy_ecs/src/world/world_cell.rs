@@ -1,10 +1,10 @@
 use bevy_utils::tracing::error;
 
+use crate::resource::Resource;
 use crate::{
     archetype::ArchetypeComponentId,
     event::{Event, Events},
     storage::SparseSet,
-    system::Resource,
     world::{Mut, World},
 };
 use std::{
@@ -365,7 +365,8 @@ impl<'w> WorldCell<'w> {
 mod tests {
     use super::BASE_ACCESS;
     use crate as bevy_ecs;
-    use crate::{system::Resource, world::World};
+    use crate::resource::Resource;
+    use crate::world::World;
     use std::any::TypeId;
 
     #[derive(Resource)]

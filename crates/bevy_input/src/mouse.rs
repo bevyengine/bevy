@@ -5,7 +5,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     event::{Event, EventReader},
-    system::ResMut,
+    resource::ResMut,
 };
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;

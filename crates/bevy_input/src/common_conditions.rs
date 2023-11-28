@@ -1,5 +1,5 @@
 use crate::Input;
-use bevy_ecs::system::Res;
+use bevy_ecs::resource::Res;
 use std::hash::Hash;
 
 /// Stateful run condition that can be toggled via a input press using [`Input::just_pressed`].

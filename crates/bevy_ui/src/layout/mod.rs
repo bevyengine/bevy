@@ -8,7 +8,8 @@ use bevy_ecs::{
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource},
+    resource::{Res, ResMut, Resource},
+    system::Query,
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};

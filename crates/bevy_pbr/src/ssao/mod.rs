@@ -9,8 +9,9 @@ use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryItem, With},
     reflect::ReflectComponent,
+    resource::{Res, ResMut, Resource},
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query},
     world::{FromWorld, World},
 };
 use bevy_reflect::Reflect;

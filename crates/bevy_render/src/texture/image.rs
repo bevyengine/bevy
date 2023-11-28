@@ -13,7 +13,8 @@ use crate::{
 };
 use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};

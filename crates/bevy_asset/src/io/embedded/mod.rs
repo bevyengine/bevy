@@ -8,7 +8,7 @@ use crate::io::{
     memory::{Dir, MemoryAssetReader, Value},
     AssetSource, AssetSourceBuilders,
 };
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use std::path::{Path, PathBuf};
 
 pub const EMBEDDED: &str = "embedded";

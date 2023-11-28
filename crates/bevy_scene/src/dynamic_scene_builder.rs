@@ -1,6 +1,6 @@
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use bevy_ecs::component::{Component, ComponentId};
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::{
     prelude::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},

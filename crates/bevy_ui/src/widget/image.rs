@@ -9,7 +9,8 @@ use bevy_ecs::{
     prelude::Component,
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res},
+    resource::Res,
+    system::{Local, Query},
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};

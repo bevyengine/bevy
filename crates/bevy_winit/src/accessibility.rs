@@ -15,11 +15,14 @@ use bevy_a11y::{
 use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::resource::NonSend;
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
+    resource::NonSendMut,
+    resource::{Res, ResMut, Resource},
     schedule::IntoSystemConfigs,
-    system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
+    system::Query,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_utils::HashMap;

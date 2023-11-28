@@ -1,8 +1,8 @@
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::resource::ResMut;
 use bevy_ecs::{
     bundle::Bundle,
-    change_detection::ResMut,
     entity::Entity,
     prelude::{Changed, Component, Without},
     system::{Commands, Query},

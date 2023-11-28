@@ -14,7 +14,8 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Deferred, Resource, SystemBuffer, SystemMeta};
+use super::{Deferred, SystemBuffer, SystemMeta};
+use crate::resource::Resource;
 
 /// A [`World`] mutation.
 ///
@@ -1169,10 +1170,11 @@ impl Command for LogComponents {
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
+    use crate::resource::Resource;
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource},
+        system::{CommandQueue, Commands},
         world::World,
     };
     use std::sync::{

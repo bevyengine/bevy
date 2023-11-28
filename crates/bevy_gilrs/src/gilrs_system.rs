@@ -1,6 +1,7 @@
 use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::system::{NonSend, NonSendMut, Res, ResMut};
+use bevy_ecs::resource::NonSend;
+use bevy_ecs::resource::{NonSendMut, Res, ResMut};
 use bevy_input::gamepad::{
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
     GamepadSettings,

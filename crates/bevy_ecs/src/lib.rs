@@ -10,10 +10,12 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub(crate) mod impl_macros;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod removal_detection;
+pub mod resource;
 pub mod schedule;
 pub mod storage;
 pub mod system;
@@ -37,14 +39,15 @@ pub mod prelude {
         event::{Event, EventReader, EventWriter, Events},
         query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
+        resource::{NonSend, NonSendMut, Res, ResMut, Resource},
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
             OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
-            Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoSystem, Local, ParallelCommands, ParamSet, Query,
+            ReadOnlySystem, System, SystemParamFunction,
         },
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
@@ -59,13 +62,13 @@ type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::resource::Resource;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
         query::{Added, Changed, FilteredAccess, With, Without, WorldQueryFilter},
-        system::Resource,
         world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
@@ -1089,8 +1092,6 @@ mod tests {
 
     #[test]
     fn resource() {
-        use crate::system::Resource;
-
         #[derive(Resource, PartialEq, Debug)]
         struct Num(i32);
 

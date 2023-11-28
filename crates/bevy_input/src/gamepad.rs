@@ -4,7 +4,7 @@ use crate::{Axis, ButtonState, Input};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    system::{Res, ResMut, Resource},
+    resource::{Res, ResMut, Resource},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;

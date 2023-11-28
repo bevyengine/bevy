@@ -1,7 +1,8 @@
 use crate::{App, Plugin};
+use bevy_ecs::resource::Resource;
 use bevy_ecs::{
     schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel},
-    system::{Local, Resource},
+    system::Local,
     world::{Mut, World},
 };
 

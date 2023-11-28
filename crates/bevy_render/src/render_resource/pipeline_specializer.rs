@@ -6,7 +6,7 @@ use crate::{
         VertexBufferLayout,
     },
 };
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_utils::{
     default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap,
     PreHashMapExt,

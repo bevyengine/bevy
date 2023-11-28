@@ -8,8 +8,9 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 
 use bevy_ecs::{
     prelude::Entity,
+    resource::{Res, ResMut, Resource},
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::Query,
     world::{FromWorld, World},
 };
 use bevy_render::{

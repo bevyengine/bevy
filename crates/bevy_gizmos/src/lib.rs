@@ -40,10 +40,11 @@ use bevy_ecs::{
     entity::Entity,
     query::{ROQueryItem, Without},
     reflect::{ReflectComponent, ReflectResource},
+    resource::{Res, ResMut, Resource},
     schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Query, Res, ResMut, Resource, SystemParamItem,
+        Commands, Query, SystemParamItem,
     },
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};

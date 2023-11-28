@@ -45,8 +45,8 @@ use crate::{
 use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
+    resource::Resource,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
-    system::Resource,
     world::FromWorld,
 };
 use bevy_log::error;
