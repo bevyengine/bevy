@@ -1,7 +1,7 @@
 //! The touch input functionality.
 
 use bevy_ecs::event::{Event, EventReader};
-use bevy_ecs::system::{ResMut, Resource};
+use bevy_ecs::resource::{ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_utils::HashMap;

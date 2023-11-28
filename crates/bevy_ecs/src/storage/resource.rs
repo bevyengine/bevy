@@ -207,7 +207,7 @@ impl<const SEND: bool> ResourceData<SEND> {
 
 /// The backing store for all [`Resource`]s stored in the [`World`].
 ///
-/// [`Resource`]: crate::system::Resource
+/// [`Resource`]: crate::resource::Resource
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Resources<const SEND: bool> {

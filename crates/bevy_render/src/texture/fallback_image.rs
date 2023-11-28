@@ -2,7 +2,8 @@ use crate::{render_resource::*, texture::DefaultImageSampler};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
-    system::{Resource, SystemParam},
+    resource::Resource,
+    system::SystemParam,
 };
 use bevy_utils::HashMap;
 use wgpu::{Extent3d, TextureFormat};

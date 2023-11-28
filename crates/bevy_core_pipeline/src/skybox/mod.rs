@@ -3,8 +3,9 @@ use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
+    resource::{Res, ResMut, Resource},
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query},
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},

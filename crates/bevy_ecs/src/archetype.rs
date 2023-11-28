@@ -583,7 +583,7 @@ struct ArchetypeComponents {
 ///
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
-/// [`Resource`]: crate::system::Resource
+/// [`Resource`]: crate::resource::Resource
 /// [many-to-many relationship]: https://en.wikipedia.org/wiki/Many-to-many_(data_model)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);

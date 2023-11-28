@@ -288,6 +288,7 @@ mod tests {
     use super::*;
     use crate as bevy_ecs;
     use crate::prelude::*;
+    use crate::resource::NonSendMut;
 
     #[test]
     fn run_system_once() {

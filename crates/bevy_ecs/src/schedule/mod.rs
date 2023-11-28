@@ -22,12 +22,13 @@ pub use self::graph_utils::NodeId;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::resource::Resource;
     use std::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
+    pub use crate::prelude::World;
+    use crate::resource::{Res, ResMut};
     pub use crate::schedule::{IntoSystemSetConfigs, Schedule, SystemSet};
-    pub use crate::system::{Res, ResMut};
-    pub use crate::{prelude::World, system::Resource};
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
     enum TestSet {
@@ -725,6 +726,7 @@ mod tests {
         use crate as bevy_ecs;
         use crate::event::Events;
         use crate::prelude::*;
+        use crate::resource::{NonSend, NonSendMut};
 
         #[derive(Resource)]
         struct R;

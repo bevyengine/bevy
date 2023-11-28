@@ -5,7 +5,7 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::{prelude::World, system::Resource};
+use bevy_ecs::{prelude::World, resource::Resource};
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 

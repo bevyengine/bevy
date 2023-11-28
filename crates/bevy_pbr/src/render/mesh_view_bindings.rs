@@ -10,7 +10,8 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Commands, Query, Res},
+    resource::Res,
+    system::{Commands, Query},
 };
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},

@@ -1,10 +1,11 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_ecs::resource::Resource;
 use bevy_ecs::{
     entity::Entity,
     event::{Event, Events, ManualEventReader},
     reflect::AppTypeRegistry,
-    system::{Command, Resource},
+    system::Command,
     world::{Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};

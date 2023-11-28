@@ -7,8 +7,8 @@ use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
+use crate::resource::Resource;
 use crate::schedule::ScheduleLabel;
-use crate::system::Resource;
 use crate::world::World;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;

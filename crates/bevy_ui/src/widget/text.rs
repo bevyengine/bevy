@@ -4,7 +4,8 @@ use bevy_ecs::{
     prelude::{Component, DetectChanges},
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
+    resource::{Res, ResMut},
+    system::{Local, Query},
     world::{Mut, Ref},
 };
 use bevy_math::Vec2;

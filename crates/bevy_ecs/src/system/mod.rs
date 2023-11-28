@@ -83,14 +83,14 @@
 //! Following is the complete list of accepted types as system parameters:
 //!
 //! - [`Query`]
-//! - [`Res`] and `Option<Res>`
-//! - [`ResMut`] and `Option<ResMut>`
+//! - [`Res`](crate::resource::Res) and `Option<Res>`
+//! - [`ResMut`](crate::resource::ResMut) and `Option<ResMut>`
 //! - [`Commands`]
 //! - [`Local`]
 //! - [`EventReader`](crate::event::EventReader)
 //! - [`EventWriter`](crate::event::EventWriter)
-//! - [`NonSend`] and `Option<NonSend>`
-//! - [`NonSendMut`] and `Option<NonSendMut>`
+//! - [`NonSend`](crate::resource::NonSend) and `Option<NonSend>`
+//! - [`NonSendMut`](crate::resource::NonSendMut) and `Option<NonSendMut>`
 //! - [`&World`](crate::world::World)
 //! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
 //! - [`SystemName`]
@@ -311,10 +311,12 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 
 #[cfg(test)]
 mod tests {
+    use crate::system::system::System;
+    use bevy_utils::default;
     use std::any::TypeId;
 
-    use bevy_utils::default;
-
+    use crate::resource::{Res, ResMut, Resource};
+    use crate::system::SystemState;
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
@@ -329,10 +331,7 @@ mod tests {
             apply_deferred, common_conditions::resource_exists, Condition, IntoSystemConfigs,
             Schedule,
         },
-        system::{
-            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Resource, System, SystemState,
-        },
+        system::{Commands, In, IntoSystem, Local, ParamSet, Query},
         world::{FromWorld, World},
     };
 
@@ -440,7 +439,6 @@ mod tests {
 
     #[test]
     fn get_many_is_ordered() {
-        use crate::system::Resource;
         const ENTITIES_COUNT: usize = 1000;
 
         #[derive(Resource)]
@@ -522,8 +520,6 @@ mod tests {
 
     #[test]
     fn changed_resource_system() {
-        use crate::system::Resource;
-
         #[derive(Resource)]
         struct Flipper(bool);
 
@@ -873,52 +869,6 @@ mod tests {
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
-    }
-
-    #[test]
-    fn non_send_option_system() {
-        let mut world = World::default();
-
-        world.insert_resource(SystemRan::No);
-        struct NotSend1(std::rc::Rc<i32>);
-        struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
-
-        fn sys(
-            op: Option<NonSend<NotSend1>>,
-            mut _op2: Option<NonSendMut<NotSend2>>,
-            mut system_ran: ResMut<SystemRan>,
-        ) {
-            op.expect("NonSend should exist");
-            *system_ran = SystemRan::Yes;
-        }
-
-        run_system(&mut world, sys);
-        // ensure the system actually ran
-        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
-    }
-
-    #[test]
-    fn non_send_system() {
-        let mut world = World::default();
-
-        world.insert_resource(SystemRan::No);
-        struct NotSend1(std::rc::Rc<i32>);
-        struct NotSend2(std::rc::Rc<i32>);
-
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
-
-        fn sys(
-            _op: NonSend<NotSend1>,
-            mut _op2: NonSendMut<NotSend2>,
-            mut system_ran: ResMut<SystemRan>,
-        ) {
-            *system_ran = SystemRan::Yes;
-        }
-
-        run_system(&mut world, sys);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 

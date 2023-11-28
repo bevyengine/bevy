@@ -5,7 +5,8 @@ use bevy_ecs::{
     prelude::{Component, With},
     query::WorldQueryData,
     reflect::ReflectComponent,
-    system::{Local, Query, Res},
+    resource::Res,
+    system::{Local, Query},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::{Rect, Vec2};

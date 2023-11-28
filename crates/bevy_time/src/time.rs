@@ -1,4 +1,4 @@
-use bevy_ecs::{reflect::ReflectResource, system::Resource};
+use bevy_ecs::{reflect::ReflectResource, resource::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;
 

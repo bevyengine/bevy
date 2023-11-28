@@ -4,7 +4,8 @@ use bevy_ecs::{
     event::EventWriter,
     prelude::{Changed, Component, Resource},
     removal_detection::RemovedComponents,
-    system::{Commands, NonSendMut, Query, ResMut},
+    resource::NonSendMut,
+    system::{Commands, Query},
     world::Mut,
 };
 use bevy_utils::{
@@ -14,6 +15,7 @@ use bevy_utils::{
 use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
+use bevy_ecs::resource::ResMut;
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,

@@ -14,8 +14,8 @@ use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{Component, Entity, Event},
+    resource::Resource,
     schedule::SystemSet,
-    system::Resource,
 };
 
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.

@@ -1,8 +1,9 @@
+use bevy_ecs::resource::ResMut;
 use bevy_ecs::{
     component::Component,
     prelude::Res,
     query::{QueryItem, ReadOnlyWorldQueryData, WorldQueryFilter},
-    system::{Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
+    system::{Query, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::nonmax::NonMaxU32;
 

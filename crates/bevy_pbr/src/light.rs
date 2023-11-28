@@ -552,7 +552,7 @@ fn calculate_cascade(
 /// Make ambient light slightly brighter:
 ///
 /// ```
-/// # use bevy_ecs::system::ResMut;
+/// # use bevy_ecs::resource::ResMut;
 /// # use bevy_pbr::AmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
 ///    ambient_light.brightness = 0.3;

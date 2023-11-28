@@ -195,13 +195,14 @@ mod sealed {
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
     use super::NotSystem;
+    use crate::resource::{Res, Resource};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
         schedule::{State, States},
-        system::{IntoSystem, Res, Resource, System},
+        system::{IntoSystem, System},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -1077,10 +1078,11 @@ mod tests {
     use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
     use crate::component::Component;
+    use crate::resource::ResMut;
     use crate::schedule::IntoSystemConfigs;
     use crate::schedule::{common_conditions::not, State, States};
     use crate::system::Local;
-    use crate::{change_detection::ResMut, schedule::Schedule, world::World};
+    use crate::{schedule::Schedule, world::World};
     use bevy_ecs_macros::Event;
     use bevy_ecs_macros::Resource;
 

@@ -3,6 +3,7 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
 use super::{Mut, Ref, World, WorldId};
+use crate::resource::Resource;
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
@@ -14,7 +15,6 @@ use crate::{
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::Resource,
 };
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
@@ -47,7 +47,7 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 /// ```
 /// use bevy_ecs::world::World;
 /// use bevy_ecs::change_detection::Mut;
-/// use bevy_ecs::system::Resource;
+/// use bevy_ecs::resource::Resource;
 /// use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 ///
 /// // INVARIANT: existence of this struct means that users of it are the only ones being able to access resources in the world

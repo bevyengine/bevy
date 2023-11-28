@@ -2,7 +2,7 @@ use crate as bevy_asset;
 use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
 use bevy_ecs::{
     prelude::EventWriter,
-    system::{Res, ResMut, Resource},
+    resource::{Res, ResMut, Resource},
 };
 use bevy_reflect::{Reflect, TypePath, Uuid};
 use bevy_utils::HashMap;

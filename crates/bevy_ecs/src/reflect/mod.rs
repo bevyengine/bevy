@@ -3,7 +3,7 @@
 use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
-use crate::{entity::Entity, system::Resource};
+use crate::{entity::Entity, resource::Resource};
 use bevy_reflect::{impl_reflect_value, ReflectDeserialize, ReflectSerialize, TypeRegistryArc};
 
 mod bundle;

@@ -1,6 +1,6 @@
 //! The generic input type.
 
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
@@ -41,7 +41,7 @@ use bevy_ecs::schedule::State;
 /// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
 /// to avoid causing the resource to always be marked as changed.
 ///
-///[`ResMut`]: bevy_ecs::system::ResMut
+///[`ResMut`]: bevy_ecs::resource::ResMut
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource, Reflect)]
 #[reflect(Default)]

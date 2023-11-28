@@ -1,6 +1,6 @@
 //! The generic axis type.
 
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_utils::HashMap;
 use std::hash::Hash;
 

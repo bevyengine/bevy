@@ -3,7 +3,8 @@ use bevy_app::App;
 use bevy_ecs::{
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyWorldQueryData},
-    system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
+    resource::Resource,
+    system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
 use bevy_utils::{all_tuples, HashMap};

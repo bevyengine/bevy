@@ -10,8 +10,9 @@ use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryItem, With},
+    resource::{Res, ResMut, Resource},
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query},
     world::{FromWorld, World},
 };
 use bevy_math::vec2;

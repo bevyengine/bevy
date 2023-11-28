@@ -12,8 +12,9 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
+    resource::{Res, ResMut, Resource},
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::Query,
     world::{FromWorld, World},
 };
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};

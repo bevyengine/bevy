@@ -12,7 +12,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
     query::{QueryItem, ReadOnlyWorldQueryData, WorldQueryFilter},
-    system::{lifetimeless::Read, Query, ResMut, Resource},
+    resource::{ResMut, Resource},
+    system::{lifetimeless::Read, Query},
 };
 use bevy_utils::EntityHashMap;
 

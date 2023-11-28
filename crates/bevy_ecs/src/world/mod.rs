@@ -20,9 +20,9 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     query::{DebugCheckedUnwrap, QueryEntityError, QueryState, WorldQueryData, WorldQueryFilter},
     removal_detection::RemovedComponentEvents,
+    resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::Resource,
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -1807,7 +1807,7 @@ impl World {
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
-    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::resource::Res), [`ResMut`](crate::resource::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
         self.clear_resources();
@@ -2150,11 +2150,11 @@ impl<T: Default> FromWorld for T {
 #[cfg(test)]
 mod tests {
     use super::{FromWorld, World};
+    use crate::resource::Resource;
     use crate::{
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         ptr::OwningPtr,
-        system::Resource,
     };
     use bevy_ecs_macros::Component;
     use bevy_utils::{HashMap, HashSet};

@@ -1,7 +1,7 @@
 //! Handle user specified rumble request events.
 use bevy_ecs::{
     prelude::{EventReader, Res},
-    system::NonSendMut,
+    resource::NonSendMut,
 };
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_log::{debug, warn};

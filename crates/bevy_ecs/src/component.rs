@@ -1,10 +1,11 @@
 //! Types for declaring and storing [`Component`]s.
 
+use crate::resource::Resource;
 use crate::{
     self as bevy_ecs,
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
-    system::{Local, Resource, SystemParam},
+    system::{Local, SystemParam},
     world::{FromWorld, World},
     TypeIdMap,
 };
@@ -634,7 +635,7 @@ impl Components {
         }
     }
 
-    /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// Initializes a [non-send resource](crate::resource::NonSend) of type `T` with this instance.
     /// If a resource of this type has already been initialized, this will return
     /// the ID of the pre-existing resource.
     #[inline]
@@ -809,7 +810,7 @@ impl ComponentTicks {
     /// Manually sets the change tick.
     ///
     /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
-    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
+    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::resource::ResMut), etc.
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
