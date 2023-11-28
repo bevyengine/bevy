@@ -176,6 +176,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
