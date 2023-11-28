@@ -794,12 +794,12 @@ pub fn prepare_uinodes(
     for event in &events.images {
         match event {
             AssetEvent::Added { .. } |
+            AssetEvent::NoLongerUsed { .. } |
             // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
                 image_bind_groups.values.remove(id);
             }
-            AssetEvent::NoLongerUsed { .. } => {}
         };
     }
 
