@@ -55,8 +55,8 @@ fn get_dir(u: f32, v: f32, face: u32) -> vec3<f32> {
 
 @compute
 @workgroup_size(64, 1, 1)
-fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    var id = id;
+fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    var id = global_id;
     var level = 0u;
     if id.x < 128u * 128u {
         level = 0u;

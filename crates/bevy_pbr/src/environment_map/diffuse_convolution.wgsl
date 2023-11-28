@@ -1,7 +1,7 @@
 // Importance samples (Lambertian distribution) a skybox to produce a diffuse lighting cubemap
 // Based on https://github.com/KhronosGroup/glTF-IBL-Sampler/blob/master/lib/source/shaders/filter.frag
 
-#import bevy_pbr::utils PI
+#import bevy_pbr::utils::PI
 
 @group(0) @binding(0) var skybox: texture_cube<f32>;
 #ifdef RG11B10FLOAT
