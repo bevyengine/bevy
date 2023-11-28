@@ -1,5 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
+use crate::storage::non_unique_resource::NonUniqueResourceEntry;
 use crate::{
     self as bevy_ecs,
     change_detection::MAX_CHANGE_AGE,
@@ -415,6 +416,18 @@ impl ComponentDescriptor {
         }
     }
 
+    fn new_non_unique_resource<T: Any>() -> Self {
+        Self {
+            name: Cow::Borrowed(std::any::type_name::<NonUniqueResourceEntry<T>>()),
+            storage_type: StorageType::Table,
+            is_send_and_sync: true,
+            type_id: Some(TypeId::of::<NonUniqueResourceEntry<T>>()),
+            layout: Layout::new::<NonUniqueResourceEntry<T>>(),
+            drop: needs_drop::<NonUniqueResourceEntry<T>>()
+                .then_some(Self::drop_ptr::<NonUniqueResourceEntry<T>>),
+        }
+    }
+
     /// Returns a value indicating the storage strategy for the current component.
     #[inline]
     pub fn storage_type(&self) -> StorageType {
@@ -643,6 +656,16 @@ impl Components {
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())
+            })
+        }
+    }
+
+    #[inline]
+    pub(crate) fn init_non_unique_resource<T: Any>(&mut self) -> ComponentId {
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_insert_resource_with(TypeId::of::<NonUniqueResourceEntry<T>>(), || {
+                ComponentDescriptor::new_non_unique_resource::<T>()
             })
         }
     }

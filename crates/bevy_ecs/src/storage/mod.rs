@@ -21,10 +21,12 @@
 //! [`World::storages`]: crate::world::World::storages
 
 mod blob_vec;
+pub(crate) mod non_unique_resource;
 mod resource;
 mod sparse_set;
 mod table;
 
+use crate::storage::non_unique_resource::NonUniqueResources;
 pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
@@ -40,4 +42,6 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
+    /// Backing storage for non-unique resources.
+    pub(crate) non_unique_resources: NonUniqueResources,
 }
