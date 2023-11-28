@@ -8,22 +8,69 @@ use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
 
+/// Unique identifier for a system set stored in a [`ScheduleGraph`].
+///
+/// [`ScheduleGraph`]: super::ScheduleGraph
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SystemNodeId(
+    /// Index in various arrays storing systems.
+    usize,
+);
+
+impl SystemNodeId {
+    pub(crate) fn new(index: usize) -> Self {
+        Self(index)
+    }
+
+    pub(crate) fn index(&self) -> usize {
+        self.0
+    }
+}
+
+/// Unique identifier for a system set stored in a [`ScheduleGraph`].
+///
+/// [`ScheduleGraph`]: super::ScheduleGraph
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SystemSetNodeId(
+    /// Index in various arrays storing system sets.
+    usize,
+);
+
+impl SystemSetNodeId {
+    pub(crate) fn new(index: usize) -> Self {
+        Self(index)
+    }
+
+    pub(crate) fn index(&self) -> usize {
+        self.0
+    }
+}
+
 /// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
 ///
 /// [`ScheduleGraph`]: super::ScheduleGraph
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NodeId {
     /// Identifier for a system.
-    System(usize),
+    System(SystemNodeId),
     /// Identifier for a system set.
-    Set(usize),
+    Set(SystemSetNodeId),
 }
 
 impl NodeId {
-    /// Returns the internal integer value.
-    pub(crate) fn index(&self) -> usize {
+    /// Unpack [`SystemNodeId`] variant.
+    pub fn system(&self) -> Option<SystemNodeId> {
         match self {
-            NodeId::System(index) | NodeId::Set(index) => *index,
+            NodeId::System(node) => Some(*node),
+            NodeId::Set(_) => None,
+        }
+    }
+
+    /// Unpack [`SystemSetNodeId`] variant.
+    pub fn set(&self) -> Option<SystemSetNodeId> {
+        match self {
+            NodeId::System(_) => None,
+            NodeId::Set(node) => Some(*node),
         }
     }
 

@@ -8,11 +8,8 @@ pub use self::single_threaded::SingleThreadedExecutor;
 
 use fixedbitset::FixedBitSet;
 
-use crate::{
-    schedule::{BoxedCondition, NodeId},
-    system::BoxedSystem,
-    world::World,
-};
+use crate::schedule::graph_utils::{SystemNodeId, SystemSetNodeId};
+use crate::{schedule::BoxedCondition, system::BoxedSystem, world::World};
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
 pub(super) trait SystemExecutor: Send + Sync {
@@ -53,8 +50,8 @@ pub struct SystemSchedule {
     pub(super) systems: Vec<BoxedSystem>,
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
-    pub(super) system_ids: Vec<NodeId>,
-    pub(super) set_ids: Vec<NodeId>,
+    pub(super) system_ids: Vec<SystemNodeId>,
+    pub(super) set_ids: Vec<SystemSetNodeId>,
     pub(super) system_dependencies: Vec<usize>,
     pub(super) system_dependents: Vec<Vec<usize>>,
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,

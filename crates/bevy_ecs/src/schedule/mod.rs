@@ -18,6 +18,8 @@ pub use self::set::*;
 pub use self::state::*;
 
 pub use self::graph_utils::NodeId;
+pub use self::graph_utils::SystemNodeId;
+pub use self::graph_utils::SystemSetNodeId;
 
 #[cfg(test)]
 mod tests {
