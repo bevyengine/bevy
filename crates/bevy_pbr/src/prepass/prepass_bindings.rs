@@ -1,7 +1,10 @@
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_render::render_resource::{
-    BindGroupLayoutEntry, BindingType, ShaderStages, TextureAspect, TextureSampleType, TextureView,
-    TextureViewDescriptor, TextureViewDimension,
+    binding_types::{
+        texture_2d, texture_2d_multisampled, texture_depth_2d, texture_depth_2d_multisampled,
+    },
+    BindGroupLayoutEntryBuilder, TextureAspect, TextureSampleType, TextureView,
+    TextureViewDescriptor,
 };
 use bevy_utils::default;
 use smallvec::SmallVec;
@@ -9,25 +12,19 @@ use smallvec::SmallVec;
 use crate::MeshPipelineViewLayoutKey;
 
 pub fn get_bind_group_layout_entries(
-    bindings: [u32; 4],
     layout_key: MeshPipelineViewLayoutKey,
-) -> SmallVec<[BindGroupLayoutEntry; 4]> {
-    let mut result = SmallVec::<[BindGroupLayoutEntry; 4]>::new();
+) -> SmallVec<[BindGroupLayoutEntryBuilder; 4]> {
+    let mut result = SmallVec::<[BindGroupLayoutEntryBuilder; 4]>::new();
 
     let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
 
     if layout_key.contains(MeshPipelineViewLayoutKey::DEPTH_PREPASS) {
         result.push(
             // Depth texture
-            BindGroupLayoutEntry {
-                binding: bindings[0],
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    multisampled,
-                    sample_type: TextureSampleType::Depth,
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
+            if multisampled {
+                texture_depth_2d_multisampled()
+            } else {
+                texture_depth_2d()
             },
         );
     }
@@ -35,15 +32,10 @@ pub fn get_bind_group_layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS) {
         result.push(
             // Normal texture
-            BindGroupLayoutEntry {
-                binding: bindings[1],
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    multisampled,
-                    sample_type: TextureSampleType::Float { filterable: false },
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
+            if multisampled {
+                texture_2d_multisampled(TextureSampleType::Float { filterable: false })
+            } else {
+                texture_2d(TextureSampleType::Float { filterable: false })
             },
         );
     }
@@ -51,15 +43,10 @@ pub fn get_bind_group_layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS) {
         result.push(
             // Motion Vectors texture
-            BindGroupLayoutEntry {
-                binding: bindings[2],
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    multisampled,
-                    sample_type: TextureSampleType::Float { filterable: false },
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
+            if multisampled {
+                texture_2d_multisampled(TextureSampleType::Float { filterable: false })
+            } else {
+                texture_2d(TextureSampleType::Float { filterable: false })
             },
         );
     }
@@ -67,16 +54,7 @@ pub fn get_bind_group_layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
         result.push(
             // Deferred texture
-            BindGroupLayoutEntry {
-                binding: bindings[3],
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    multisampled: false,
-                    sample_type: TextureSampleType::Uint,
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
-            },
+            texture_2d(TextureSampleType::Uint),
         );
     }
 

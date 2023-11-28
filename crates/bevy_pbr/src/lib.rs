@@ -331,9 +331,8 @@ impl Plugin for PbrPlugin {
             },
         );
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         // Extract the required data from the main world
@@ -367,9 +366,8 @@ impl Plugin for PbrPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         // Extract the required data from the main world

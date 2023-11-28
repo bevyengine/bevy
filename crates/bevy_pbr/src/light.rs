@@ -1203,9 +1203,8 @@ pub(crate) fn assign_lights_to_clusters(
     mut max_point_lights_warning_emitted: Local<bool>,
     render_device: Option<Res<RenderDevice>>,
 ) {
-    let render_device = match render_device {
-        Some(render_device) => render_device,
-        None => return,
+    let Some(render_device) = render_device else {
+        return;
     };
 
     global_lights.entities.clear();

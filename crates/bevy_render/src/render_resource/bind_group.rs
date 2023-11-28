@@ -10,7 +10,7 @@ pub use bevy_render_macros::AsBindGroup;
 use bevy_utils::thiserror::Error;
 use encase::ShaderType;
 use std::ops::Deref;
-use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource};
+use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);
 render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
@@ -313,10 +313,10 @@ pub trait AsBindGroup {
     where
         Self: Sized,
     {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Self::label(),
-            entries: &Self::bind_group_layout_entries(render_device),
-        })
+        render_device.create_bind_group_layout(
+            Self::label(),
+            &Self::bind_group_layout_entries(render_device),
+        )
     }
 
     /// Returns a vec of bind group layout entries

@@ -15,9 +15,9 @@ use wgpu::{
 use crate::{
     prelude::{Image, Shader},
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines, Texture,
-        VertexState,
+        binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
+        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
     },
     renderer::RenderDevice,
     texture::TextureFormatPixelInfo,
@@ -201,19 +201,13 @@ impl FromWorld for ScreenshotToScreenPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let device = render_world.resource::<RenderDevice>();
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("screenshot-to-screen-bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout = device.create_bind_group_layout(
+            "screenshot-to-screen-bgl",
+            &BindGroupLayoutEntries::single(
+                wgpu::ShaderStages::FRAGMENT,
+                texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+            ),
+        );
 
         Self { bind_group_layout }
     }

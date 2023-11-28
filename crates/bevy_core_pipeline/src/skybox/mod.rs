@@ -10,13 +10,13 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BufferBindingType, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
-        SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
-        TextureSampleType, TextureViewDimension, VertexState,
+        binding_types::{sampler, texture_cube, uniform_buffer},
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
+        DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
+        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
+        TextureFormat, TextureSampleType, VertexState,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
@@ -36,9 +36,8 @@ impl Plugin for SkyboxPlugin {
 
         app.add_plugins(ExtractComponentPlugin::<Skybox>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app
@@ -53,9 +52,8 @@ impl Plugin for SkyboxPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         let render_device = render_app.world.resource::<RenderDevice>().clone();
@@ -81,41 +79,19 @@ struct SkyboxPipeline {
 
 impl SkyboxPipeline {
     fn new(render_device: &RenderDevice) -> Self {
-        let bind_group_layout_descriptor = BindGroupLayoutDescriptor {
-            label: Some("skybox_bind_group_layout"),
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::Cube,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-        };
-
         Self {
-            bind_group_layout: render_device
-                .create_bind_group_layout(&bind_group_layout_descriptor),
+            bind_group_layout: render_device.create_bind_group_layout(
+                "skybox_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT,
+                    (
+                        texture_cube(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
+                        uniform_buffer::<ViewUniform>(true)
+                            .visibility(ShaderStages::VERTEX_FRAGMENT),
+                    ),
+                ),
+            ),
         }
     }
 }

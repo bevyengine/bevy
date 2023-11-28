@@ -17,12 +17,8 @@ use bevy::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
         render_resource::{
-            BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-            BindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState,
-            MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
-            RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-            SamplerDescriptor, ShaderStages, ShaderType, TextureFormat, TextureSampleType,
-            TextureViewDimension,
+            binding_types::{sampler, texture_2d, uniform_buffer},
+            *,
         },
         renderer::{RenderContext, RenderDevice},
         texture::BevyDefault,
@@ -227,40 +223,21 @@ impl FromWorld for PostProcessPipeline {
         let render_device = world.resource::<RenderDevice>();
 
         // We need to define the bind group layout used for our pipeline
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("post_process_bind_group_layout"),
-            entries: &[
-                // The screen texture
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                // The sampler that will be used to sample the screen texture
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // The settings uniform that will control the effect
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: bevy::render::render_resource::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(PostProcessSettings::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-        });
+        let layout = render_device.create_bind_group_layout(
+            "post_process_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                // The layout entries will only be visible in the fragment stage
+                ShaderStages::FRAGMENT,
+                (
+                    // The screen texture
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    // The sampler that will be used to sample the screen texture
+                    sampler(SamplerBindingType::Filtering),
+                    // The settings uniform that will control the effect
+                    uniform_buffer::<PostProcessSettings>(false),
+                ),
+            ),
+        );
 
         // We can create the sampler here since it won't change at runtime and doesn't depend on the view
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());

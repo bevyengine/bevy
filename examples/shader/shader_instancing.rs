@@ -259,9 +259,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         let Some(mesh_instance) = render_mesh_instances.get(&item.entity()) else {
             return RenderCommandResult::Failure;
         };
-        let gpu_mesh = match meshes.into_inner().get(mesh_instance.mesh_asset_id) {
-            Some(gpu_mesh) => gpu_mesh,
-            None => return RenderCommandResult::Failure,
+        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
+            return RenderCommandResult::Failure;
         };
 
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
