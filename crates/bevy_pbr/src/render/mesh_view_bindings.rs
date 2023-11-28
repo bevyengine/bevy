@@ -20,7 +20,7 @@ use bevy_render::{
             sampler, storage_buffer_read_only_sized, storage_buffer_sized, texture_2d,
             uniform_buffer, uniform_buffer_sized,
         },
-        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder, BindingType,
+        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder,
         BufferBindingType, DynamicBindGroupEntries, DynamicBindGroupLayoutEntries,
         SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType,
     },
