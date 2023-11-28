@@ -27,9 +27,9 @@ impl DynamicTextureAtlasBuilder {
         }
     }
 
-    /// Add a new texture to [TextureAtlas].
-    /// It is user's responsibility to pass in the correct [TextureAtlas],
-    /// and that the [TextureAtlas::texture] has [`Image::cpu_persistent_access`] as `true`
+    /// Add a new texture to [`TextureAtlas`].
+    /// It is user's responsibility to pass in the correct [`TextureAtlas`],
+    /// and that the [`TextureAtlas::texture`] has [`Image::cpu_persistent_access`] as `true`
     pub fn add_texture(
         &mut self,
         texture_atlas: &mut TextureAtlas,
