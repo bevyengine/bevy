@@ -11,7 +11,7 @@ use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
-    query::{QueryItem, ReadOnlyQueryData, WorldQueryFilter},
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::{lifetimeless::Read, Query, ResMut, Resource},
 };
 use bevy_utils::EntityHashMap;
@@ -31,7 +31,7 @@ pub trait ExtractInstance: Send + Sync + Sized + 'static {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type Query: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
-    type Filter: WorldQueryFilter;
+    type Filter: QueryFilter;
 
     /// Defines how the component is transferred into the "render world".
     fn extract(item: QueryItem<'_, Self::Query>) -> Option<Self>;

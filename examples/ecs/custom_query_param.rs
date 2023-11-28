@@ -13,7 +13,7 @@
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
 use bevy::{
-    ecs::query::{QueryData, WorldQueryFilter},
+    ecs::query::{QueryData, QueryFilter},
     prelude::*,
 };
 use std::fmt::Debug;
@@ -59,7 +59,10 @@ struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
 }
 
 fn print_components_read_only(
-    query: Query<ReadOnlyCustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    query: Query<
+        ReadOnlyCustomQuery<ComponentC, ComponentD>,
+        CustomQueryFilter<ComponentC, ComponentD>,
+    >,
 ) {
     println!("Print components (read_only):");
     for e in &query {
@@ -112,8 +115,8 @@ struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }
 
-#[derive(WorldQueryFilter)]
-struct QueryFilter<T: Component, P: Component> {
+#[derive(QueryFilter)]
+struct CustomQueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,
     _or: Or<(Added<ComponentC>, Changed<ComponentD>, Without<ComponentZ>)>,
@@ -125,7 +128,10 @@ fn spawn(mut commands: Commands) {
 }
 
 fn print_components_iter_mut(
-    mut query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    mut query: Query<
+        CustomQuery<ComponentC, ComponentD>,
+        CustomQueryFilter<ComponentC, ComponentD>,
+    >,
 ) {
     println!("Print components (iter_mut):");
     for e in &mut query {
@@ -143,7 +149,7 @@ fn print_components_iter_mut(
 }
 
 fn print_components_iter(
-    query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    query: Query<CustomQuery<ComponentC, ComponentD>, CustomQueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (iter):");
     for e in &query {

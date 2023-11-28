@@ -64,7 +64,7 @@ mod tests {
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, Changed, FilteredAccess, With, Without, WorldQueryFilter},
+        query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
         world::{EntityRef, Mut, World},
     };
@@ -903,7 +903,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQueryFilter>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
@@ -986,7 +986,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQueryFilter>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)

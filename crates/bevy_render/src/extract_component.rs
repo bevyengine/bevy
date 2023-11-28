@@ -9,7 +9,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{QueryItem, ReadOnlyQueryData, WorldQueryFilter},
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::lifetimeless::Read,
 };
 use std::{marker::PhantomData, ops::Deref};
@@ -38,7 +38,7 @@ pub trait ExtractComponent: Component {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type Query: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
-    type Filter: WorldQueryFilter;
+    type Filter: QueryFilter;
 
     /// The output from extraction.
     ///

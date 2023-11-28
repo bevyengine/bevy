@@ -3,8 +3,8 @@ use crate::{
     entity::Entity,
     query::{
         BatchingStrategy, QueryCombinationIter, QueryComponentError, QueryData, QueryEntityError,
-        QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
-        ReadOnlyQueryData, WorldQueryFilter,
+        QueryFilter, QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState,
+        ROQueryItem, ReadOnlyQueryData,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
@@ -24,7 +24,7 @@ use std::{any::TypeId, borrow::Borrow};
 ///   Must implement the [`QueryData`] trait.
 /// - **`F` (query filter).**
 ///   A set of conditions that determines whether query items should be kept or discarded.
-///   Must implement the [`WorldQueryFilter`] trait.
+///   Must implement the [`QueryFilter`] trait.
 ///   This type parameter is optional.
 ///
 /// [`World`]: crate::world::World
@@ -73,7 +73,7 @@ use std::{any::TypeId, borrow::Borrow};
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
-/// ## `QueryData` or `WorldQueryFilter` tuples
+/// ## `QueryData` or `QueryFilter` tuples
 ///
 /// Using tuples, each `Query` type parameter can contain multiple elements.
 ///
@@ -325,7 +325,7 @@ use std::{any::TypeId, borrow::Borrow};
 /// [`Table`]: crate::storage::Table
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
-pub struct Query<'world, 'state, Q: QueryData, F: WorldQueryFilter = ()> {
+pub struct Query<'world, 'state, Q: QueryData, F: QueryFilter = ()> {
     // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,
     state: &'state QueryState<Q, F>,
@@ -339,7 +339,7 @@ pub struct Query<'world, 'state, Q: QueryData, F: WorldQueryFilter = ()> {
     force_read_only_component_access: bool,
 }
 
-impl<Q: QueryData, F: WorldQueryFilter> std::fmt::Debug for Query<'_, '_, Q, F> {
+impl<Q: QueryData, F: QueryFilter> std::fmt::Debug for Query<'_, '_, Q, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
@@ -351,7 +351,7 @@ impl<Q: QueryData, F: WorldQueryFilter> std::fmt::Debug for Query<'_, '_, Q, F> 
     }
 }
 
-impl<'w, 's, Q: QueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
+impl<'w, 's, Q: QueryData, F: QueryFilter> Query<'w, 's, Q, F> {
     /// Creates a new query.
     ///
     /// # Panics
@@ -1422,7 +1422,7 @@ impl<'w, 's, Q: QueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: QueryData, F: WorldQueryFilter> IntoIterator for &'w Query<'_, 's, Q, F> {
+impl<'w, 's, Q: QueryData, F: QueryFilter> IntoIterator for &'w Query<'_, 's, Q, F> {
     type Item = ROQueryItem<'w, Q>;
     type IntoIter = QueryIter<'w, 's, Q::ReadOnly, F>;
 
@@ -1431,7 +1431,7 @@ impl<'w, 's, Q: QueryData, F: WorldQueryFilter> IntoIterator for &'w Query<'_, '
     }
 }
 
-impl<'w, 's, Q: QueryData, F: WorldQueryFilter> IntoIterator for &'w mut Query<'_, 's, Q, F> {
+impl<'w, 's, Q: QueryData, F: QueryFilter> IntoIterator for &'w mut Query<'_, 's, Q, F> {
     type Item = Q::Item<'w>;
     type IntoIter = QueryIter<'w, 's, Q, F>;
 
@@ -1440,7 +1440,7 @@ impl<'w, 's, Q: QueryData, F: WorldQueryFilter> IntoIterator for &'w mut Query<'
     }
 }
 
-impl<'w, 's, Q: ReadOnlyQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
+impl<'w, 's, Q: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, Q, F> {
     /// Returns the query item for the given [`Entity`], with the actual "inner" world lifetime.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is

@@ -18,7 +18,7 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
-    query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryState, WorldQueryFilter},
+    query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -1009,7 +1009,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: QueryData, F: WorldQueryFilter>(&mut self) -> QueryState<Q, F> {
+    pub fn query_filtered<Q: QueryData, F: QueryFilter>(&mut self) -> QueryState<Q, F> {
         QueryState::new(self)
     }
 

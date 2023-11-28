@@ -456,8 +456,8 @@ pub fn derive_world_query_data(input: TokenStream) -> TokenStream {
     derive_world_query_data_impl(input)
 }
 
-/// Implement `WorldQueryFilter` to use a struct as a filter parameter in a query
-#[proc_macro_derive(WorldQueryFilter, attributes(world_query_filter))]
+/// Implement `QueryFilter` to use a struct as a filter parameter in a query
+#[proc_macro_derive(QueryFilter, attributes(query_filter))]
 pub fn derive_world_query_filter(input: TokenStream) -> TokenStream {
     derive_world_query_filter_impl(input)
 }
