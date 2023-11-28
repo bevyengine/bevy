@@ -44,6 +44,7 @@ impl Font {
                 .flat_map(|a| vec![255, 255, 255, (*a * 255.0) as u8])
                 .collect::<Vec<u8>>(),
             TextureFormat::Rgba8UnormSrgb,
+            false,
         )
     }
 }

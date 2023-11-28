@@ -76,7 +76,7 @@ fn fallback_image_new(
     let image_dimension = dimension.compatible_texture_dimension();
     let mut image = if create_texture_with_data {
         let data = vec![value; format.pixel_size()];
-        Image::new_fill(extents, image_dimension, &data, format)
+        Image::new_fill(extents, image_dimension, &data, format, false)
     } else {
         let mut image = Image::default();
         image.texture_descriptor.dimension = TextureDimension::D2;

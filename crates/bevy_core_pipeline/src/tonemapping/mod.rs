@@ -358,6 +358,7 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         CompressedImageFormats::NONE,
         false,
         image_sampler,
+        false,
     )
     .unwrap()
 }

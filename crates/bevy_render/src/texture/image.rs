@@ -491,6 +491,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
+        cpu_persistent_access: bool,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -504,6 +505,7 @@ impl Image {
         image.texture_descriptor.dimension = dimension;
         image.texture_descriptor.size = size;
         image.texture_descriptor.format = format;
+        image.cpu_persistent_access = cpu_persistent_access;
         image
     }
 
@@ -517,10 +519,12 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
+        cpu_persistent_access: bool,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
+        value.cpu_persistent_access = cpu_persistent_access;
         value.resize(size);
 
         debug_assert_eq!(
@@ -640,7 +644,9 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
+            .map(|(dyn_img, is_srgb)| {
+                Self::from_dynamic(dyn_img, is_srgb, self.cpu_persistent_access)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -651,6 +657,7 @@ impl Image {
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
+        cpu_persistent_access: bool,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -679,7 +686,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb)
+                Self::from_dynamic(dyn_img, is_srgb, cpu_persistent_access)
             }
         };
         image.sampler = image_sampler;
@@ -937,6 +944,7 @@ mod test {
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
+            false,
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),

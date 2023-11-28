@@ -64,9 +64,13 @@ impl MorphTargetImage {
     /// Each pixel of the texture is a component of morph target animated
     /// attributes. So a set of 9 pixels is this morph's displacement for
     /// position, normal and tangents of a single vertex (each taking 3 pixels).
+    ///
+    /// Parameters:
+    /// * `cpu_persistent_access` - See [Image::cpu_persistent_access].
     pub fn new(
         targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
         vertex_count: usize,
+        cpu_persistent_access: bool,
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
         let target_count = targets.len();
@@ -101,7 +105,13 @@ impl MorphTargetImage {
             height,
             depth_or_array_layers: target_count as u32,
         };
-        let image = Image::new(extents, TextureDimension::D3, data, TextureFormat::R32Float);
+        let image = Image::new(
+            extents,
+            TextureDimension::D3,
+            data,
+            TextureFormat::R32Float,
+            cpu_persistent_access,
+        );
         Ok(MorphTargetImage(image))
     }
 }
@@ -114,7 +124,7 @@ impl MorphTargetImage {
 /// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
 /// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
 /// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).   
+/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
 ///
 /// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Handle<Mesh>`] with a [`MeshMorphWeights`].
 ///

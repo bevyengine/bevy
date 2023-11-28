@@ -59,6 +59,7 @@ impl AssetLoader for HdrTextureLoader {
                 TextureDimension::D2,
                 rgba_data,
                 format,
+                false,
             ))
         })
     }

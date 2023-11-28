@@ -104,6 +104,7 @@ impl AssetLoader for ImageLoader {
                 self.supported_compressed_formats,
                 settings.is_srgb,
                 settings.sampler.clone(),
+                false,
             )
             .map_err(|err| FileTextureError {
                 error: err,
