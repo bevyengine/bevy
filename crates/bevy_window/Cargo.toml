@@ -19,7 +19,7 @@ bevy_app = { path = "../bevy_app", version = "0.12.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
 bevy_math = { path = "../bevy_math", version = "0.12.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
-    "glam",
+  "glam",
 ] }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 # Used for close_on_esc
@@ -28,3 +28,6 @@ raw-window-handle = "0.5"
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
+
+[lints]
+workspace = true

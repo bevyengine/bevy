@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -37,6 +35,9 @@ pub use server::*;
 
 pub use bevy_utils::BoxedFuture;
 
+/// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
+pub use ron;
+
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
@@ -45,11 +46,20 @@ use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    system::Resource,
     world::FromWorld,
 };
 use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
+use bevy_utils::HashSet;
 use std::{any::TypeId, sync::Arc};
+
+#[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
+compile_error!(
+    "The \"file_watcher\" feature for hot reloading requires the \
+    \"multi-threaded\" feature to be functional.\n\
+    Consider either disabling the \"file_watcher\" feature or enabling \"multi-threaded\""
+);
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
@@ -74,6 +84,7 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
 }
 
+#[derive(Debug)]
 pub enum AssetMode {
     /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
     ///
@@ -95,6 +106,20 @@ pub enum AssetMode {
     /// [`AssetSource`]: crate::io::AssetSource
     /// [`AssetReader`]: crate::io::AssetReader
     Processed,
+}
+
+/// Configures how / if meta files will be checked. If an asset's meta file is not checked, the default meta for the asset
+/// will be used.
+// TODO: To avoid breaking Bevy 0.12 users in 0.12.1, this is a Resource. In Bevy 0.13 this should be changed to a field on AssetPlugin (if it is still needed).
+#[derive(Debug, Default, Clone, Resource)]
+pub enum AssetMetaCheck {
+    /// Always check if assets have meta files. If the meta does not exist, the default meta will be used.
+    #[default]
+    Always,
+    /// Only look up meta files for the provided paths. The default meta will be used for any paths not contained in this set.
+    Paths(HashSet<AssetPath<'static>>),
+    /// Never check if assets have meta files and always use the default meta. If meta files exist, they will be ignored and the default meta will be used.
+    Never,
 }
 
 impl Default for AssetPlugin {
@@ -139,9 +164,16 @@ impl Plugin for AssetPlugin {
                 AssetMode::Unprocessed => {
                     let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
                     let sources = builders.build_sources(watch, false);
-                    app.insert_resource(AssetServer::new(
+                    let meta_check = app
+                        .world
+                        .get_resource::<AssetMetaCheck>()
+                        .cloned()
+                        .unwrap_or_else(AssetMetaCheck::default);
+
+                    app.insert_resource(AssetServer::new_with_meta_check(
                         sources,
                         AssetServerMode::Unprocessed,
+                        meta_check,
                         watch,
                     ));
                 }
@@ -157,6 +189,7 @@ impl Plugin for AssetPlugin {
                             sources,
                             processor.server().data.loaders.clone(),
                             AssetServerMode::Processed,
+                            AssetMetaCheck::Always,
                             watch,
                         ))
                         .insert_resource(processor)
@@ -166,9 +199,10 @@ impl Plugin for AssetPlugin {
                     {
                         let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
-                        app.insert_resource(AssetServer::new(
+                        app.insert_resource(AssetServer::new_with_meta_check(
                             sources,
                             AssetServerMode::Processed,
+                            AssetMetaCheck::Always,
                             watch,
                         ));
                     }
@@ -1180,4 +1214,35 @@ mod tests {
         // running schedule does not error on ambiguity between the 2 uses_assets systems
         app.world.run_schedule(Update);
     }
+
+    // validate the Asset derive macro for various asset types
+    #[derive(Asset, TypePath)]
+    pub struct TestAsset;
+
+    #[allow(dead_code)]
+    #[derive(Asset, TypePath)]
+    pub enum EnumTestAsset {
+        Unnamed(#[dependency] Handle<TestAsset>),
+        Named {
+            #[dependency]
+            handle: Handle<TestAsset>,
+            #[dependency]
+            vec_handles: Vec<Handle<TestAsset>>,
+            #[dependency]
+            embedded: TestAsset,
+        },
+        StructStyle(#[dependency] TestAsset),
+        Empty,
+    }
+
+    #[derive(Asset, TypePath)]
+    pub struct StructTestAsset {
+        #[dependency]
+        handle: Handle<TestAsset>,
+        #[dependency]
+        embedded: TestAsset,
+    }
+
+    #[derive(Asset, TypePath)]
+    pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

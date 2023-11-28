@@ -6,10 +6,7 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
-    core_pipeline::{
-        clear_color::ClearColorConfig, core_3d,
-        fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    },
+    core_pipeline::{core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state},
     ecs::query::QueryItem,
     prelude::*,
     render::{
@@ -123,7 +120,11 @@ impl ViewNode for PostProcessNode {
     // but it's not a normal system so we need to define it manually.
     //
     // This query will only run on the view entity
-    type ViewQuery = &'static ViewTarget;
+    type ViewQuery = (
+        &'static ViewTarget,
+        // This makes sure the node only runs on cameras with the PostProcessSettings component
+        &'static PostProcessSettings,
+    );
 
     // Runs the node logic
     // This is where you encode draw commands.
@@ -136,7 +137,7 @@ impl ViewNode for PostProcessNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        view_target: QueryItem<Self::ViewQuery>,
+        (view_target, _post_process_settings): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
@@ -326,7 +327,7 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 5.0))
                 .looking_at(Vec3::default(), Vec3::Y),
             camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::WHITE),
+                clear_color: Color::WHITE.into(),
                 ..default()
             },
             ..default()

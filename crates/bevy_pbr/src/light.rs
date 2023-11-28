@@ -544,6 +544,20 @@ fn calculate_cascade(
 }
 
 /// An ambient light, which lights the entire scene equally.
+///
+/// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
+///
+/// # Examples
+///
+/// Make ambient light slightly brighter:
+///
+/// ```
+/// # use bevy_ecs::system::ResMut;
+/// # use bevy_pbr::AmbientLight;
+/// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+///    ambient_light.brightness = 0.3;
+/// }
+/// ```
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
@@ -828,9 +842,13 @@ fn clip_to_view(inverse_projection: Mat4, clip: Vec4) -> Vec4 {
 
 pub fn add_clusters(
     mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>), (With<Camera>, Without<Clusters>)>,
+    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), Without<Clusters>>,
 ) {
-    for (entity, config) in &cameras {
+    for (entity, config, camera) in &cameras {
+        if !camera.is_active {
+            continue;
+        }
+
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
         commands

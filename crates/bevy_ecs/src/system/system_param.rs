@@ -322,7 +322,7 @@ fn assert_component_access_compatibility(
 ///         &World,
 ///     )>,
 /// ) {
-///     for event in set.p0().iter() {
+///     for event in set.p0().read() {
 ///         // ...
 ///         # let _event = event;
 ///     }
