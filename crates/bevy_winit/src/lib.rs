@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!

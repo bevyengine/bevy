@@ -136,6 +136,11 @@ impl CommandQueue {
             cursor = unsafe { cursor.add(size) };
         }
     }
+
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.bytes.append(&mut other.bytes);
+    }
 }
 
 #[cfg(test)]

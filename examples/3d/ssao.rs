@@ -1,9 +1,5 @@
 //! A scene showcasing screen space ambient occlusion.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
     pbr::{

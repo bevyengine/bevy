@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 mod slice;
@@ -35,6 +34,8 @@ pub use futures_lite::future::block_on;
 
 mod iter;
 pub use iter::ParallelIterator;
+
+pub use futures_lite;
 
 #[allow(missing_docs)]
 pub mod prelude {

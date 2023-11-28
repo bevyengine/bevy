@@ -1204,4 +1204,36 @@ mod tests {
             GenericLabel::<u64>(PhantomData).intern()
         );
     }
+
+    /// Custom runners should be in charge of when `app::update` gets called as they may need to
+    /// coordinate some state.
+    /// bug: <https://github.com/bevyengine/bevy/issues/10385>
+    /// fix: <https://github.com/bevyengine/bevy/pull/10389>
+    #[test]
+    fn regression_test_10385() {
+        use super::{Res, Resource};
+        use crate::PreUpdate;
+
+        #[derive(Resource)]
+        struct MyState {}
+
+        fn my_runner(mut app: App) {
+            let my_state = MyState {};
+            app.world.insert_resource(my_state);
+
+            for _ in 0..5 {
+                app.update();
+            }
+        }
+
+        fn my_system(_: Res<MyState>) {
+            // access state during app update
+        }
+
+        // Should not panic due to missing resource
+        App::new()
+            .set_runner(my_runner)
+            .add_systems(PreUpdate, my_system)
+            .run();
+    }
 }

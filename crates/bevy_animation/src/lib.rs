@@ -1,7 +1,6 @@
 //! Animation for the game engine Bevy
 
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 
 use std::ops::Deref;
 use std::time::Duration;
@@ -647,6 +646,7 @@ fn apply_animation(
             let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
                 continue;
             };
+            // SAFETY: As above, there can't be other AnimationPlayers with this target so this fetch can't alias
             let mut morphs = unsafe { morphs.get_unchecked(target) };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform

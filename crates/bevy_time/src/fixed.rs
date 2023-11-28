@@ -175,6 +175,15 @@ impl Time<Fixed> {
         self.context().overstep
     }
 
+    /// Discard a part of the overstep amount.
+    ///
+    /// If `discard` is higher than overstep, the overstep becomes zero.
+    #[inline]
+    pub fn discard_overstep(&mut self, discard: Duration) {
+        let context = self.context_mut();
+        context.overstep = context.overstep.saturating_sub(discard);
+    }
+
     /// Returns the amount of overstep time accumulated toward new steps, as an
     /// [`f32`] fraction of the timestep.
     #[inline]

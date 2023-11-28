@@ -1,7 +1,6 @@
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 
 mod app;
 mod main_schedule;

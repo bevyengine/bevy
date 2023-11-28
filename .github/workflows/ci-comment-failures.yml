@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: 'Download artifact'
         id: find-artifact
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           result-encoding: string
           script: |
@@ -50,7 +50,7 @@ jobs:
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
       - name: 'Comment on PR'
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -81,7 +81,7 @@ jobs:
     steps:
       - name: 'Download artifact'
         id: find-artifact
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           result-encoding: string
           script: |
@@ -108,7 +108,7 @@ jobs:
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
       - name: 'Comment on PR'
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -139,7 +139,7 @@ jobs:
     steps:
       - name: 'Download artifact'
         id: find-artifact
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           result-encoding: string
           script: |
@@ -166,7 +166,7 @@ jobs:
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
       - name: 'Comment on PR'
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
