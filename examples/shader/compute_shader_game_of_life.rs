@@ -48,6 +48,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         TextureDimension::D2,
         &[0, 0, 0, 255],
         TextureFormat::Rgba8Unorm,
+        false,
     );
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
