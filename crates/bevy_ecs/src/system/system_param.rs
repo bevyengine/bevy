@@ -6,7 +6,8 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
+        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQueryData,
+        WorldQueryData, WorldQueryFilter,
     },
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
@@ -152,14 +153,14 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>
+unsafe impl<'w, 's, Q: ReadOnlyWorldQueryData + 'static, F: WorldQueryFilter + 'static>
     ReadOnlySystemParam for Query<'w, 's, Q, F>
 {
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
+unsafe impl<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static> SystemParam
     for Query<'_, '_, Q, F>
 {
     type State = QueryState<Q, F>;
@@ -1557,7 +1558,6 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        query::{ReadOnlyWorldQuery, WorldQuery},
         system::{assert_is_system, Query},
     };
     use std::{cell::RefCell, marker::PhantomData};
@@ -1569,8 +1569,8 @@ mod tests {
         pub struct SpecialQuery<
             'w,
             's,
-            Q: WorldQuery + Send + Sync + 'static,
-            F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
+            Q: WorldQueryData + Send + Sync + 'static,
+            F: WorldQueryFilter + Send + Sync + 'static = (),
         > {
             _query: Query<'w, 's, Q, F>,
         }
@@ -1691,7 +1691,7 @@ mod tests {
         #[derive(SystemParam)]
         pub struct WhereParam<'w, 's, Q>
         where
-            Q: 'static + WorldQuery,
+            Q: 'static + WorldQueryData,
         {
             _q: Query<'w, 's, Q, ()>,
         }
