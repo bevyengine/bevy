@@ -79,7 +79,7 @@ impl Plane3d {
 
         debug_assert!(
             normal.is_normalized(),
-            "plane must be defined by 3 finite points that don't lie on the same line"
+            "plane must be defined by three finite points that don't lie on the same line"
         );
 
         (Self { normal }, translation)
