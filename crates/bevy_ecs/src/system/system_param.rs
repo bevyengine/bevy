@@ -6,8 +6,8 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQueryData,
-        WorldQueryData, WorldQueryFilter,
+        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryState, ReadOnlyQueryData,
+        WorldQueryFilter,
     },
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
@@ -153,14 +153,14 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'w, 's, Q: ReadOnlyWorldQueryData + 'static, F: WorldQueryFilter + 'static>
+unsafe impl<'w, 's, Q: ReadOnlyQueryData + 'static, F: WorldQueryFilter + 'static>
     ReadOnlySystemParam for Query<'w, 's, Q, F>
 {
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static> SystemParam
+unsafe impl<Q: QueryData + 'static, F: WorldQueryFilter + 'static> SystemParam
     for Query<'_, '_, Q, F>
 {
     type State = QueryState<Q, F>;
@@ -1568,7 +1568,7 @@ mod tests {
         pub struct SpecialQuery<
             'w,
             's,
-            Q: WorldQueryData + Send + Sync + 'static,
+            Q: QueryData + Send + Sync + 'static,
             F: WorldQueryFilter + Send + Sync + 'static = (),
         > {
             _query: Query<'w, 's, Q, F>,
@@ -1690,7 +1690,7 @@ mod tests {
         #[derive(SystemParam)]
         pub struct WhereParam<'w, 's, Q>
         where
-            Q: 'static + WorldQueryData,
+            Q: 'static + QueryData,
         {
             _q: Query<'w, 's, Q, ()>,
         }

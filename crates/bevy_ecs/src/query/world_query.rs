@@ -9,7 +9,7 @@ use crate::{
 use bevy_utils::all_tuples;
 
 /// Types that can be used as parameters in a [`Query`].
-/// Types that implement this should also implement either [`WorldQueryData`] or [`WorldQueryFilter`]
+/// Types that implement this should also implement either [`QueryData`] or [`WorldQueryFilter`]
 ///
 /// # Safety
 ///
@@ -36,11 +36,11 @@ use bevy_utils::all_tuples;
 /// [`Query`]: crate::system::Query
 /// [`update_archetype_component_access`]: Self::update_archetype_component_access
 /// [`update_component_access`]: Self::update_component_access
-/// [`WorldQueryData`]: crate::query::WorldQueryData
+/// [`QueryData`]: crate::query::QueryData
 /// [`WorldQueryFilter`]: crate::query::WorldQueryFilter
 pub unsafe trait WorldQuery {
     /// The item returned by this [`WorldQuery`]
-    /// For `WorldQueryData` this will be the item returned by the query.
+    /// For `QueryData` this will be the item returned by the query.
     /// For `WorldQueryFilter` this will be either `()`, or a `bool` indicating whether the entity should be included
     /// or a tuple of such things.
     type Item<'a>;

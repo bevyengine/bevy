@@ -11,7 +11,7 @@ use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
-    query::{QueryItem, ReadOnlyWorldQueryData, WorldQueryFilter},
+    query::{QueryItem, ReadOnlyQueryData, WorldQueryFilter},
     system::{lifetimeless::Read, Query, ResMut, Resource},
 };
 use bevy_utils::EntityHashMap;
@@ -28,8 +28,8 @@ use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 /// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
 /// higher-performance because it avoids the ECS overhead.
 pub trait ExtractInstance: Send + Sync + Sized + 'static {
-    /// ECS [`ReadOnlyWorldQueryData`] to fetch the components to extract.
-    type Query: ReadOnlyWorldQueryData;
+    /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
+    type Query: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
     type Filter: WorldQueryFilter;
 

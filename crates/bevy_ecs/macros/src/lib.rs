@@ -450,8 +450,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement `WorldQueryData` to use a struct as a data parameter in a query
-#[proc_macro_derive(WorldQueryData, attributes(world_query_data))]
+/// Implement `QueryData` to use a struct as a data parameter in a query
+#[proc_macro_derive(QueryData, attributes(query_data))]
 pub fn derive_world_query_data(input: TokenStream) -> TokenStream {
     derive_world_query_data_impl(input)
 }

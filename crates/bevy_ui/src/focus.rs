@@ -3,7 +3,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     prelude::{Component, With},
-    query::WorldQueryData,
+    query::QueryData,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -105,8 +105,8 @@ pub struct State {
 }
 
 /// Main query for [`ui_focus_system`]
-#[derive(WorldQueryData)]
-#[world_query_data(mutable)]
+#[derive(QueryData)]
+#[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,

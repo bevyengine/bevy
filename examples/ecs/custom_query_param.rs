@@ -13,7 +13,7 @@
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
 use bevy::{
-    ecs::query::{WorldQueryData, WorldQueryFilter},
+    ecs::query::{QueryData, WorldQueryFilter},
     prelude::*,
 };
 use std::fmt::Debug;
@@ -45,8 +45,8 @@ struct ComponentD;
 #[derive(Component, Debug)]
 struct ComponentZ;
 
-#[derive(WorldQueryData)]
-#[world_query_data(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static ComponentA,
@@ -79,8 +79,8 @@ fn print_components_read_only(
 // suffix.
 // Note: if you want to use derive macros with read-only query variants, you need to pass them with
 // using the `derive` attribute.
-#[derive(WorldQueryData)]
-#[world_query_data(mutable, derive(Debug))]
+#[derive(QueryData)]
+#[query_data(mutable, derive(Debug))]
 struct CustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static mut ComponentA,
@@ -93,21 +93,21 @@ struct CustomQuery<T: Component + Debug, P: Component + Debug> {
 }
 
 // This is a valid query as well, which would iterate over every entity.
-#[derive(WorldQueryData)]
-#[world_query_data(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct EmptyQuery {
     empty: (),
 }
 
-#[derive(WorldQueryData)]
-#[world_query_data(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct NestedQuery {
     c: &'static ComponentC,
     d: Option<&'static ComponentD>,
 }
 
-#[derive(WorldQueryData)]
-#[world_query_data(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }

@@ -17,16 +17,16 @@ use fixedbitset::FixedBitSet;
 use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{
-    NopWorldQuery, QueryComponentError, QueryEntityError, QueryManyIter, QuerySingleError,
-    ROQueryItem, WorldQueryData, WorldQueryFilter,
+    NopWorldQuery, QueryComponentError, QueryData, QueryEntityError, QueryManyIter,
+    QuerySingleError, ROQueryItem, WorldQueryFilter,
 };
 
-/// Provides scoped access to a [`World`] state according to a given [`WorldQueryData`] and [`WorldQueryFilter`].
+/// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`WorldQueryFilter`].
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `Q` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
-pub struct QueryState<Q: WorldQueryData, F: WorldQueryFilter = ()> {
+pub struct QueryState<Q: QueryData, F: WorldQueryFilter = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
@@ -43,7 +43,7 @@ pub struct QueryState<Q: WorldQueryData, F: WorldQueryFilter = ()> {
     par_iter_span: Span,
 }
 
-impl<Q: WorldQueryData, F: WorldQueryFilter> fmt::Debug for QueryState<Q, F> {
+impl<Q: QueryData, F: WorldQueryFilter> fmt::Debug for QueryState<Q, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
             .field("world_id", &self.world_id)
@@ -53,13 +53,13 @@ impl<Q: WorldQueryData, F: WorldQueryFilter> fmt::Debug for QueryState<Q, F> {
     }
 }
 
-impl<Q: WorldQueryData, F: WorldQueryFilter> FromWorld for QueryState<Q, F> {
+impl<Q: QueryData, F: WorldQueryFilter> FromWorld for QueryState<Q, F> {
     fn from_world(world: &mut World) -> Self {
         world.query_filtered()
     }
 }
 
-impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
+impl<Q: QueryData, F: WorldQueryFilter> QueryState<Q, F> {
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<Q::ReadOnly, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `Q::ReadOnly` and `F::ReadOnly`
@@ -88,7 +88,7 @@ impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
     /// `NewQ` must have a subset of the access that `Q` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
     pub(crate) unsafe fn as_transmuted_state<
-        NewQ: WorldQueryData<State = Q::State>,
+        NewQ: QueryData<State = Q::State>,
         NewF: WorldQueryFilter<State = F::State>,
     >(
         &self,
@@ -97,7 +97,7 @@ impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
     }
 }
 
-impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
+impl<Q: QueryData, F: WorldQueryFilter> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let fetch_state = Q::init_state(world);
