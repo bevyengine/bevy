@@ -458,26 +458,14 @@ impl RenderTarget {
         }
     }
 
-    /// Get a handle to the render target's image or `None` if the variant is not an image handle.
-    ///
-    /// Use [`RenderTarget::as_image`] for an infallible version.
-    pub fn try_as_image(&self) -> Option<&Handle<Image>> {
+    /// Get a handle to the render target's image,
+    /// or `None` if it does not exist.
+    pub fn as_image(&self) -> Option<&Handle<Image>> {
         if let Self::Image(handle) = self {
             Some(handle)
         } else {
             None
         }
-    }
-
-    /// Get a handle to the render target's image.
-    ///
-    /// Use [`RenderTarget::try_as_image`] for a fallible version.
-    ///
-    /// # Panics
-    ///
-    /// If self is not the image variant.
-    pub fn as_image(&self) -> &Handle<Image> {
-        self.try_as_image().expect("RenderTarget should be an image when using `as_image`- for a fallible method use `try_as_image` instead")
     }
 }
 
