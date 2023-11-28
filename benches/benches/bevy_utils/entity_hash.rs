@@ -33,42 +33,43 @@ fn entity_set_build_and_lookup(c: &mut Criterion) {
     for size in SIZES {
         // Get some random-but-consistent entities to use for all the benches below.
         let mut rng = ChaCha8Rng::seed_from_u64(size as u64);
-        let entities = Vec::from_iter(
-            std::iter::repeat_with(|| make_entity(&mut rng, size)).take(size),
-        );
+        let entities =
+            Vec::from_iter(std::iter::repeat_with(|| make_entity(&mut rng, size)).take(size));
 
         group.throughput(Throughput::Elements(size as u64));
-        group.bench_function(
-            BenchmarkId::new("entity_set_build", size),
-            |bencher| {
-                bencher.iter_with_large_drop(|| EntityHashSet::from_iter(entities.iter().copied()));
-            },
-        );
-        group.bench_function(
-            BenchmarkId::new("entity_set_lookup_hit", size),
-            |bencher| {
-                let set = EntityHashSet::from_iter(entities.iter().copied());
-                bencher.iter(|| entities.iter().copied().filter(|e| set.contains(e)).count());
-            },
-        );
+        group.bench_function(BenchmarkId::new("entity_set_build", size), |bencher| {
+            bencher.iter_with_large_drop(|| EntityHashSet::from_iter(entities.iter().copied()));
+        });
+        group.bench_function(BenchmarkId::new("entity_set_lookup_hit", size), |bencher| {
+            let set = EntityHashSet::from_iter(entities.iter().copied());
+            bencher.iter(|| entities.iter().copied().filter(|e| set.contains(e)).count());
+        });
         group.bench_function(
             BenchmarkId::new("entity_set_lookup_miss_id", size),
             |bencher| {
                 let set = EntityHashSet::from_iter(entities.iter().copied());
-                bencher.iter(|| entities.iter()
-                    .copied()
-                    .map(|e| Entity::from_bits(e.to_bits() + 1))
-                    .filter(|e| set.contains(e)).count());
+                bencher.iter(|| {
+                    entities
+                        .iter()
+                        .copied()
+                        .map(|e| Entity::from_bits(e.to_bits() + 1))
+                        .filter(|e| set.contains(e))
+                        .count()
+                });
             },
         );
         group.bench_function(
             BenchmarkId::new("entity_set_lookup_miss_gen", size),
             |bencher| {
                 let set = EntityHashSet::from_iter(entities.iter().copied());
-                bencher.iter(|| entities.iter()
-                    .copied()
-                    .map(|e| Entity::from_bits(e.to_bits() + (1 << 32)))
-                    .filter(|e| set.contains(e)).count());
+                bencher.iter(|| {
+                    entities
+                        .iter()
+                        .copied()
+                        .map(|e| Entity::from_bits(e.to_bits() + (1 << 32)))
+                        .filter(|e| set.contains(e))
+                        .count()
+                });
             },
         );
     }

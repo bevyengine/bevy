@@ -377,12 +377,7 @@ impl FromWorld for MeshPipeline {
 
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
+                texture.as_image_copy(),
                 &image.data,
                 ImageDataLayout {
                     offset: 0,

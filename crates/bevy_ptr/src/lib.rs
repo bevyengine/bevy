@@ -244,14 +244,14 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// Gets a [`PtrMut`] from this with a smaller lifetime.
     #[inline]
     pub fn reborrow(&mut self) -> PtrMut<'_, A> {
-        // SAFE: the ptrmut we're borrowing from is assumed to be valid
+        // SAFETY: the ptrmut we're borrowing from is assumed to be valid
         unsafe { PtrMut::new(self.0) }
     }
 
     /// Gets an immutable reference from this mutable reference
     #[inline]
     pub fn as_ref(&self) -> Ptr<'_, A> {
-        // SAFE: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
 }
@@ -327,14 +327,14 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// Gets an immutable pointer from this owned pointer.
     #[inline]
     pub fn as_ref(&self) -> Ptr<'_, A> {
-        // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
 
     /// Gets a mutable pointer from this owned pointer.
     #[inline]
     pub fn as_mut(&mut self) -> PtrMut<'_, A> {
-        // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { PtrMut::new(self.0) }
     }
 }
