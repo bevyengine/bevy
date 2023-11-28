@@ -28,10 +28,6 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
-    #[allow(deprecated)]
-    pub use crate::system::adapter::{
-        self as system_adapter, dbg, error, ignore, info, unwrap, warn,
-    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -68,7 +64,7 @@ mod tests {
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
+        query::{Added, Changed, FilteredAccess, With, Without, WorldQueryFilter},
         system::Resource,
         world::{EntityRef, Mut, World},
     };
@@ -907,7 +903,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: WorldQueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
@@ -990,7 +986,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: WorldQueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)

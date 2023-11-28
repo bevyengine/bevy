@@ -223,7 +223,6 @@ impl<A: Asset> Hash for Handle<A> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id().hash(state);
-        TypeId::of::<A>().hash(state);
     }
 }
 
@@ -393,7 +392,6 @@ impl Hash for UntypedHandle {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id().hash(state);
-        self.type_id().hash(state);
     }
 }
 

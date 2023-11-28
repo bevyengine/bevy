@@ -544,6 +544,20 @@ fn calculate_cascade(
 }
 
 /// An ambient light, which lights the entire scene equally.
+///
+/// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
+///
+/// # Examples
+///
+/// Make ambient light slightly brighter:
+///
+/// ```
+/// # use bevy_ecs::system::ResMut;
+/// # use bevy_pbr::AmbientLight;
+/// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+///    ambient_light.brightness = 0.3;
+/// }
+/// ```
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
@@ -1189,9 +1203,8 @@ pub(crate) fn assign_lights_to_clusters(
     mut max_point_lights_warning_emitted: Local<bool>,
     render_device: Option<Res<RenderDevice>>,
 ) {
-    let render_device = match render_device {
-        Some(render_device) => render_device,
-        None => return,
+    let Some(render_device) = render_device else {
+        return;
     };
 
     global_lights.entities.clear();

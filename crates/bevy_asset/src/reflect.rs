@@ -268,13 +268,12 @@ mod tests {
         };
 
         let handle = reflect_asset.add(&mut app.world, &value);
-        let strukt = match reflect_asset
+        let ReflectMut::Struct(strukt) = reflect_asset
             .get_mut(&mut app.world, handle)
             .unwrap()
             .reflect_mut()
-        {
-            ReflectMut::Struct(s) => s,
-            _ => unreachable!(),
+        else {
+            unreachable!();
         };
         strukt
             .field_mut("field")

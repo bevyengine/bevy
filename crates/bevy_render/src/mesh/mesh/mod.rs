@@ -459,9 +459,8 @@ impl Mesh {
             indices.map(|i| values[i]).collect()
         }
 
-        let indices = match self.indices.take() {
-            Some(indices) => indices,
-            None => return,
+        let Some(indices) = self.indices.take() else {
+            return;
         };
 
         for attributes in self.attributes.values_mut() {
@@ -1181,38 +1180,32 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
         other => return Err(GenerateTangentsError::UnsupportedTopology(other)),
     };
 
-    let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION).ok_or(
+    let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION.name),
-    )? {
-        VertexAttributeValues::Float32x3(vertices) => vertices,
-        _ => {
-            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-                Mesh::ATTRIBUTE_POSITION.name,
-                VertexFormat::Float32x3,
-            ))
-        }
+    )?;
+    let VertexAttributeValues::Float32x3(positions) = positions else {
+        return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+            Mesh::ATTRIBUTE_POSITION.name,
+            VertexFormat::Float32x3,
+        ));
     };
-    let normals = match mesh.attribute(Mesh::ATTRIBUTE_NORMAL).ok_or(
+    let normals = mesh.attribute(Mesh::ATTRIBUTE_NORMAL).ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL.name),
-    )? {
-        VertexAttributeValues::Float32x3(vertices) => vertices,
-        _ => {
-            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-                Mesh::ATTRIBUTE_NORMAL.name,
-                VertexFormat::Float32x3,
-            ))
-        }
+    )?;
+    let VertexAttributeValues::Float32x3(normals) = normals else {
+        return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+            Mesh::ATTRIBUTE_NORMAL.name,
+            VertexFormat::Float32x3,
+        ));
     };
-    let uvs = match mesh.attribute(Mesh::ATTRIBUTE_UV_0).ok_or(
+    let uvs = mesh.attribute(Mesh::ATTRIBUTE_UV_0).ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0.name),
-    )? {
-        VertexAttributeValues::Float32x2(vertices) => vertices,
-        _ => {
-            return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-                Mesh::ATTRIBUTE_UV_0.name,
-                VertexFormat::Float32x2,
-            ))
-        }
+    )?;
+    let VertexAttributeValues::Float32x2(uvs) = uvs else {
+        return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
+            Mesh::ATTRIBUTE_UV_0.name,
+            VertexFormat::Float32x2,
+        ));
     };
 
     let len = positions.len();
