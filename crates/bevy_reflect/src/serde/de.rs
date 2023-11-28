@@ -343,6 +343,7 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
 /// This deserializer expects a string containing the _full_ [type path] of the
 /// type to find the `TypeRegistration` of.
 ///
+/// [`&TypeRegistration`]: TypeRegistration
 /// [type path]: crate::TypePath::type_path
 pub struct TypeRegistrationDeserializer<'a> {
     registry: &'a TypeRegistry,
