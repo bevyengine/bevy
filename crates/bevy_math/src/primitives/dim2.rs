@@ -112,7 +112,7 @@ pub struct Segment2d {
 impl Primitive2d for Segment2d {}
 
 impl Segment2d {
-    /// Create a line segment from a direction and full length of the segment
+    /// Create a new `Segment2d` from a direction and full length of the segment
     pub fn new(direction: Direction2d, length: f32) -> Self {
         Self {
             direction,
@@ -120,9 +120,11 @@ impl Segment2d {
         }
     }
 
-    /// Get a line segment and translation from two points at each end of a line segment
+    /// Create a new `Segment2d` from its endpoints and compute its geometric center
     ///
-    /// Panics if point1 == point2
+    /// # Panics
+    ///
+    /// Panics if `point1 == point2`
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
         let diff = point2 - point1;
         let length = diff.length();

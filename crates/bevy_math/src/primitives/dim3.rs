@@ -63,9 +63,11 @@ pub struct Plane3d {
 impl Primitive3d for Plane3d {}
 
 impl Plane3d {
-    /// Create a new `Plane3d` and get its translation from the origin based on three points.
+    /// Create a new `Plane3d` based on three points and compute the geometric center
+    /// of those points.
+    ///
     /// The direction of the plane normal is determined by the winding order
-    /// of the triangle formed by the points.
+    /// of the triangular shape formed by the points.
     ///
     /// # Panics
     ///
@@ -107,7 +109,7 @@ pub struct Segment3d {
 impl Primitive3d for Segment3d {}
 
 impl Segment3d {
-    /// Create a line segment from a direction and full length of the segment
+    /// Create a new `Segment3d` from a direction and full length of the segment
     pub fn new(direction: Direction3d, length: f32) -> Self {
         Self {
             direction,
@@ -115,7 +117,7 @@ impl Segment3d {
         }
     }
 
-    /// Get a line segment and translation from two points at each end of a line segment
+    /// Create a new `Segment3d` from its endpoints and compute its geometric center
     ///
     /// # Panics
     ///
