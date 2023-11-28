@@ -252,12 +252,15 @@ pub fn prepare_windows(
         let surface_data = window_surfaces
             .surfaces
             .entry(window.entity)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
-                    .expect("Failed to create wgpu surface");
+            .or_insert_with(|| {
+                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
+                let surface = unsafe {
+                    // NOTE: On some OSes this MUST be called from the main thread.
+                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                    render_instance
+                        .create_surface(&window.handle.get_handle())
+                        .expect("Failed to create wgpu surface")
+                };
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,

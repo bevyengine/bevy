@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
@@ -41,7 +40,8 @@ use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
-    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
+    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
+    WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
@@ -276,6 +276,7 @@ struct WindowAndInputEventWriters<'w> {
     window_scale_factor_changed: EventWriter<'w, WindowScaleFactorChanged>,
     window_backend_scale_factor_changed: EventWriter<'w, WindowBackendScaleFactorChanged>,
     window_focused: EventWriter<'w, WindowFocused>,
+    window_occluded: EventWriter<'w, WindowOccluded>,
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
     window_destroyed: EventWriter<'w, WindowDestroyed>,
@@ -349,6 +350,11 @@ impl Default for WinitAppRunnerState {
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
 pub fn winit_runner(mut app: App) {
+    if app.plugins_state() == PluginsState::Ready {
+        app.finish();
+        app.cleanup();
+    }
+
     let mut event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()
@@ -654,6 +660,12 @@ pub fn winit_runner(mut app: App) {
                             focused,
                         });
                     }
+                    WindowEvent::Occluded(occluded) => {
+                        event_writers.window_occluded.send(WindowOccluded {
+                            window: window_entity,
+                            occluded,
+                        });
+                    }
                     WindowEvent::DroppedFile(path_buf) => {
                         event_writers
                             .file_drag_and_drop
@@ -693,16 +705,22 @@ pub fn winit_runner(mut app: App) {
                                 cursor,
                             });
                         }
-                        event::Ime::Commit(value) => event_writers.ime_input.send(Ime::Commit {
-                            window: window_entity,
-                            value,
-                        }),
-                        event::Ime::Enabled => event_writers.ime_input.send(Ime::Enabled {
-                            window: window_entity,
-                        }),
-                        event::Ime::Disabled => event_writers.ime_input.send(Ime::Disabled {
-                            window: window_entity,
-                        }),
+                        event::Ime::Commit(value) => {
+                            event_writers.ime_input.send(Ime::Commit {
+                                window: window_entity,
+                                value,
+                            });
+                        }
+                        event::Ime::Enabled => {
+                            event_writers.ime_input.send(Ime::Enabled {
+                                window: window_entity,
+                            });
+                        }
+                        event::Ime::Disabled => {
+                            event_writers.ime_input.send(Ime::Disabled {
+                                window: window_entity,
+                            });
+                        }
                     },
                     WindowEvent::ThemeChanged(theme) => {
                         event_writers.window_theme_changed.send(WindowThemeChanged {

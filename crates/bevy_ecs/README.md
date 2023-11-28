@@ -300,7 +300,7 @@ fn writer(mut writer: EventWriter<MyEvent>) {
 }
 
 fn reader(mut reader: EventReader<MyEvent>) {
-    for event in reader.iter() {
+    for event in reader.read() {
     }
 }
 ```

@@ -833,8 +833,8 @@ impl Bundles {
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
-                // SAFETY: T::component_id ensures its: 
-                // - info was created 
+                // SAFETY: T::component_id ensures its:
+                // - info was created
                 // - appropriate storage for it has been initialized.
                 // - was created in the same order as the components in T
                 unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };

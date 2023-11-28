@@ -17,7 +17,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
     render_phase::*,
-    render_resource::*,
+    render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
     view::*,
@@ -223,19 +223,13 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
         let render_device = world.resource::<RenderDevice>();
         let ui_layout = M::bind_group_layout(render_device);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(ViewUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("ui_view_layout"),
-        });
+        let view_layout = render_device.create_bind_group_layout(
+            "ui_view_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                uniform_buffer::<ViewUniform>(true),
+            ),
+        );
         UiMaterialPipeline {
             ui_layout,
             view_layout,
@@ -298,10 +292,9 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials
-            .into_inner()
-            .get(&material_handle.material)
-            .unwrap();
+        let Some(material) = materials.into_inner().get(&material_handle.material) else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
     }
@@ -732,7 +725,9 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let material = render_materials.get(&extracted_uinode.material).unwrap();
+        let Some(material) = render_materials.get(&extracted_uinode.material) else {
+            continue;
+        };
         for (view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
                 &pipeline_cache,

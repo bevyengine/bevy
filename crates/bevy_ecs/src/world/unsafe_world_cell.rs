@@ -656,9 +656,8 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(self, type_id: TypeId) -> bool {
-        let id = match self.world.components().get_id(type_id) {
-            Some(id) => id,
-            None => return false,
+        let Some(id) = self.world.components().get_id(type_id) else {
+            return false;
         };
         self.contains_id(id)
     }
