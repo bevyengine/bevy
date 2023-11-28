@@ -144,12 +144,8 @@ impl BindGroupLayoutEntryBuilder {
         self
     }
 
-    pub fn build(
-        &self,
-        binding: u32,
-        default_visibility: ShaderStages,
-    ) -> wgpu::BindGroupLayoutEntry {
-        wgpu::BindGroupLayoutEntry {
+    pub fn build(&self, binding: u32, default_visibility: ShaderStages) -> BindGroupLayoutEntry {
+        BindGroupLayoutEntry {
             binding,
             ty: self.ty,
             visibility: self.visibility.unwrap_or(default_visibility),
@@ -159,7 +155,7 @@ impl BindGroupLayoutEntryBuilder {
 }
 
 pub struct BindGroupLayoutEntries<const N: usize> {
-    entries: [wgpu::BindGroupLayoutEntry; N],
+    entries: [BindGroupLayoutEntry; N],
 }
 
 impl<const N: usize> BindGroupLayoutEntries<N> {
@@ -203,8 +199,8 @@ impl BindGroupLayoutEntries<1> {
 }
 
 impl<const N: usize> std::ops::Deref for BindGroupLayoutEntries<N> {
-    type Target = [wgpu::BindGroupLayoutEntry];
-    fn deref(&self) -> &[wgpu::BindGroupLayoutEntry] {
+    type Target = [BindGroupLayoutEntry];
+    fn deref(&self) -> &[BindGroupLayoutEntry] {
         &self.entries
     }
 }
@@ -223,7 +219,7 @@ impl IntoBindGroupLayoutEntryBuilder for BindingType {
     }
 }
 
-impl IntoBindGroupLayoutEntryBuilder for wgpu::BindGroupLayoutEntry {
+impl IntoBindGroupLayoutEntryBuilder for BindGroupLayoutEntry {
     fn into_bind_group_layout_entry_builder(self) -> BindGroupLayoutEntryBuilder {
         if self.binding != u32::MAX {
             bevy_log::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");

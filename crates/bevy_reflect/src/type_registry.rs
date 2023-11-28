@@ -167,7 +167,6 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
-    /// [`TypeId`]: std::any::TypeId
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
     }
@@ -177,7 +176,6 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
-    /// [`TypeId`]: std::any::TypeId
     pub fn get_mut(&mut self, type_id: TypeId) -> Option<&mut TypeRegistration> {
         self.registrations.get_mut(&type_id)
     }
@@ -335,7 +333,6 @@ impl Debug for TypeRegistration {
 impl TypeRegistration {
     /// Returns the [`TypeId`] of the type.
     ///
-    /// [`TypeId`]: std::any::TypeId
     #[inline]
     pub fn type_id(&self) -> TypeId {
         self.type_info.type_id()
@@ -582,7 +579,7 @@ impl ReflectFromPtr {
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
-            type_id: std::any::TypeId::of::<T>(),
+            type_id: TypeId::of::<T>(),
             from_ptr: |ptr| {
                 // SAFETY: `from_ptr_mut` is either called in `ReflectFromPtr::as_reflect`
                 // or returned by `ReflectFromPtr::from_ptr`, both lay out the invariants

@@ -27,14 +27,14 @@ pub(crate) fn item_struct(
     );
 
     match fields {
-        syn::Fields::Named(_) => quote! {
+        Fields::Named(_) => quote! {
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQuery>::Item<'__w>,)*
             }
         },
-        syn::Fields::Unnamed(_) => quote! {
+        Fields::Unnamed(_) => quote! {
             #derive_macro_call
             #item_attrs
             #[automatically_derived]
@@ -42,7 +42,7 @@ pub(crate) fn item_struct(
                 #( #field_visibilities <#field_types as #path::query::WorldQuery>::Item<'__w>, )*
             );
         },
-        syn::Fields::Unit => quote! {
+        Fields::Unit => quote! {
             #item_attrs
             #visibility type #item_struct_name #user_ty_generics_with_world = #struct_name #user_ty_generics;
         },

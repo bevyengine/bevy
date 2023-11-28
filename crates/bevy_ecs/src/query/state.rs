@@ -43,7 +43,7 @@ pub struct QueryState<Q: WorldQueryData, F: WorldQueryFilter = ()> {
     par_iter_span: Span,
 }
 
-impl<Q: WorldQueryData, F: WorldQueryFilter> std::fmt::Debug for QueryState<Q, F> {
+impl<Q: WorldQueryData, F: WorldQueryFilter> fmt::Debug for QueryState<Q, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
             .field("world_id", &self.world_id)

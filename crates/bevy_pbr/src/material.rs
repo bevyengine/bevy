@@ -229,7 +229,7 @@ where
                         prepare_materials::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<Image>),
-                        render::queue_shadows::<M>
+                        queue_shadows::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
                         queue_material_meshes::<M>

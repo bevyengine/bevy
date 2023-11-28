@@ -45,12 +45,12 @@ pub unsafe trait WorldQuery {
     /// or a tuple of such things.
     type Item<'a>;
 
-    /// Per archetype/table state used by this [`WorldQuery`] to fetch [`Self::Item`](crate::query::WorldQuery::Item)
+    /// Per archetype/table state used by this [`WorldQuery`] to fetch [`Self::Item`](WorldQuery::Item)
     type Fetch<'a>: Clone;
 
-    /// State used to construct a [`Self::Fetch`](crate::query::WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
+    /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
     /// so it is best to move as much data / computation here as possible to reduce the cost of
-    /// constructing [`Self::Fetch`](crate::query::WorldQuery::Fetch).
+    /// constructing [`Self::Fetch`](WorldQuery::Fetch).
     type State: Send + Sync + Sized;
 
     /// This function manually implements subtyping for the query items.

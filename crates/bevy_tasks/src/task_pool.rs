@@ -823,17 +823,17 @@ mod tests {
             let count_clone = count.clone();
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
-            std::thread::spawn(move || {
+            thread::spawn(move || {
                 inner_pool.scope(|scope| {
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                     });
-                    let spawner = std::thread::current().id();
+                    let spawner = thread::current().id();
                     let inner_count_clone = count_clone.clone();
                     scope.spawn_on_scope(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
-                        if std::thread::current().id() != spawner {
+                        if thread::current().id() != spawner {
                             // NOTE: This check is using an atomic rather than simply panicking the
                             // thread to avoid deadlocking the barrier on failure
                             inner_thread_check_failed.store(true, Ordering::Release);
@@ -898,9 +898,9 @@ mod tests {
             let count_clone = count.clone();
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
-            std::thread::spawn(move || {
+            thread::spawn(move || {
                 inner_pool.scope(|scope| {
-                    let spawner = std::thread::current().id();
+                    let spawner = thread::current().id();
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
@@ -908,7 +908,7 @@ mod tests {
                         // spawning on the scope from another thread runs the futures on the scope's thread
                         scope.spawn_on_scope(async move {
                             inner_count_clone.fetch_add(1, Ordering::Release);
-                            if std::thread::current().id() != spawner {
+                            if thread::current().id() != spawner {
                                 // NOTE: This check is using an atomic rather than simply panicking the
                                 // thread to avoid deadlocking the barrier on failure
                                 inner_thread_check_failed.store(true, Ordering::Release);

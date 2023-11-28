@@ -19,7 +19,7 @@ use crate::{
 struct WorldQueryDataAttributes {
     pub is_mutable: bool,
 
-    pub derive_args: Punctuated<syn::Meta, syn::token::Comma>,
+    pub derive_args: Punctuated<Meta, syn::token::Comma>,
 }
 
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
@@ -57,7 +57,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
                     )
                 });
                 if ident == MUTABLE_ATTRIBUTE_NAME {
-                    if let syn::Meta::Path(_) = meta {
+                    if let Meta::Path(_) = meta {
                         attributes.is_mutable = true;
                     } else {
                         panic!(
@@ -66,7 +66,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
                     }
                 }
                 else if ident == DERIVE_ATTRIBUTE_NAME {
-                    if let syn::Meta::List(meta_list) = meta {
+                    if let Meta::List(meta_list) = meta {
                         meta_list.parse_nested_meta(|meta| {
                             attributes.derive_args.push(Meta::Path(meta.path));
                             Ok(())

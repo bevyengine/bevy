@@ -1799,7 +1799,7 @@ impl World {
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
 
-        if let Some(mut schedules) = self.get_resource_mut::<crate::schedule::Schedules>() {
+        if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);
         }
 
@@ -2293,7 +2293,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .get_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -2309,7 +2309,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .get_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         {
@@ -2342,7 +2342,7 @@ mod tests {
                 Some(|ptr| {
                     let data = ptr.read::<[u8; 8]>();
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
-                    DROP_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
             )
         };
@@ -2368,7 +2368,7 @@ mod tests {
 
         assert!(world.remove_resource_by_id(component_id).is_some());
 
-        assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 1);
     }
 
     #[derive(Resource)]

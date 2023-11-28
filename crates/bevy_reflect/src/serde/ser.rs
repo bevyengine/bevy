@@ -28,14 +28,14 @@ impl<'a> Serializable<'a> {
     }
 }
 
-fn get_serializable<'a, E: serde::ser::Error>(
+fn get_serializable<'a, E: Error>(
     reflect_value: &'a dyn Reflect,
     type_registry: &TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
     let reflect_serialize = type_registry
         .get_type_data::<ReflectSerialize>(reflect_value.type_id())
         .ok_or_else(|| {
-            serde::ser::Error::custom(format_args!(
+            Error::custom(format_args!(
                 "Type '{}' did not register ReflectSerialize",
                 reflect_value.reflect_type_path()
             ))

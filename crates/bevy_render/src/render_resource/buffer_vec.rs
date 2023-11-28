@@ -15,9 +15,9 @@ use wgpu::BufferUsages;
 /// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
 /// so this helper type is a good choice for them.
 ///
-/// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
+/// The contained data is stored in system RAM. Calling [`reserve`](BufferVec::reserve)
 /// allocates VRAM from the [`RenderDevice`].
-/// [`write_buffer`](crate::render_resource::BufferVec::write_buffer) queues copying of the data
+/// [`write_buffer`](BufferVec::write_buffer) queues copying of the data
 /// from system RAM to VRAM.
 ///
 /// Other options for storing GPU-accessible data are:
@@ -105,7 +105,7 @@ impl<T: Pod> BufferVec<T> {
     ///
     /// In addition to any [`BufferUsages`] provided when
     /// the `BufferVec` was created, the buffer on the [`RenderDevice`]
-    /// is marked as [`BufferUsages::COPY_DST`](crate::render_resource::BufferUsages).
+    /// is marked as [`BufferUsages::COPY_DST`](BufferUsages).
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
         if capacity > self.capacity || self.label_changed {
             self.capacity = capacity;
@@ -123,7 +123,7 @@ impl<T: Pod> BufferVec<T> {
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
     /// and the provided [`RenderQueue`].
     ///
-    /// Before queuing the write, a [`reserve`](crate::render_resource::BufferVec::reserve) operation
+    /// Before queuing the write, a [`reserve`](BufferVec::reserve) operation
     /// is executed.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         if self.values.is_empty() {

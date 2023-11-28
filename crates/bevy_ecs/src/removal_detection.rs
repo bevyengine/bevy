@@ -110,10 +110,10 @@ impl RemovedComponentEvents {
 ///
 /// If you are using `bevy_ecs` as a standalone crate,
 /// note that the `RemovedComponents` list will not be automatically cleared for you,
-/// and will need to be manually flushed using [`World::clear_trackers`](crate::world::World::clear_trackers)
+/// and will need to be manually flushed using [`World::clear_trackers`](World::clear_trackers)
 ///
 /// For users of `bevy` and `bevy_app`, this is automatically done in `bevy_app::App::update`.
-/// For the main world, [`World::clear_trackers`](crate::world::World::clear_trackers) is run after the main schedule is run and after
+/// For the main world, [`World::clear_trackers`](World::clear_trackers) is run after the main schedule is run and after
 /// `SubApp`'s have run.
 ///
 /// # Examples

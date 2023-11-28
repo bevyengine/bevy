@@ -346,7 +346,7 @@ impl<E: Event> Events<E> {
     }
 }
 
-impl<E: Event> std::iter::Extend<E> for Events<E> {
+impl<E: Event> Extend<E> for Events<E> {
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = E>,
