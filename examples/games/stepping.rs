@@ -104,9 +104,8 @@ fn build_ui(
     let mut text_sections = Vec::new();
     let mut always_run = Vec::new();
 
-    let schedule_order = match stepping.schedules() {
-        Ok(s) => s,
-        Err(_) => return,
+    let Ok(schedule_order) = stepping.schedules() else {
+        return;
     };
 
     // go through the stepping schedules and construct a list of systems for
@@ -124,9 +123,8 @@ fn build_ui(
 
         // grab the list of systems in the schedule, in the order the
         // single-threaded executor would run them.
-        let systems = match schedule.systems() {
-            Ok(iter) => iter,
-            Err(_) => return,
+        let Ok(systems) = schedule.systems() else {
+            return;
         };
 
         for (node_id, system) in systems {
