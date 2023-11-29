@@ -15,7 +15,7 @@ use std::{
 /// The hash is eagerly re-computed upon each update to the name.
 ///
 /// [`Name`] should not be treated as a globally unique identifier for entities,
-/// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
+/// as multiple entities can have the same name.  [`Entity`] should be
 /// used instead as the default unique identifier.
 #[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Debug)]

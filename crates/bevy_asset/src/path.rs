@@ -581,10 +581,10 @@ impl TypePath for AssetPath<'static> {
         Some("AssetPath<'static>")
     }
     fn crate_name() -> Option<&'static str> {
-        Option::None
+        None
     }
     fn module_path() -> Option<&'static str> {
-        Option::None
+        None
     }
 }
 impl Typed for AssetPath<'static> {
@@ -602,15 +602,15 @@ impl Reflect for AssetPath<'static> {
         Some(<Self as Typed>::type_info())
     }
     #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
+    fn into_any(self: Box<Self>) -> Box<dyn core::any::Any> {
         self
     }
     #[inline]
-    fn as_any(&self) -> &dyn ::core::any::Any {
+    fn as_any(&self) -> &dyn core::any::Any {
         self
     }
     #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn ::core::any::Any {
+    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
         self
     }
     #[inline]
@@ -663,19 +663,19 @@ impl Reflect for AssetPath<'static> {
     }
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         let value = <dyn Reflect>::as_any(value);
-        if let Some(value) = <dyn ::core::any::Any>::downcast_ref::<Self>(value) {
-            Some(::core::cmp::PartialEq::eq(self, value))
+        if let Some(value) = <dyn core::any::Any>::downcast_ref::<Self>(value) {
+            Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
-    fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         ::core::fmt::Debug::fmt(self, f)
     }
 }
 impl FromReflect for AssetPath<'static> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        Some(Clone::clone(<dyn ::core::any::Any>::downcast_ref::<
+        Some(Clone::clone(<dyn core::any::Any>::downcast_ref::<
             AssetPath<'static>,
         >(<dyn Reflect>::as_any(reflect))?))
     }

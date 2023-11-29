@@ -105,7 +105,7 @@ pub fn render_system(world: &mut World) {
 pub struct RenderQueue(pub Arc<Queue>);
 
 /// The handle to the physical device being used for rendering.
-/// See [`wgpu::Adapter`] for more info.
+/// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
 pub struct RenderAdapter(pub Arc<Adapter>);
 

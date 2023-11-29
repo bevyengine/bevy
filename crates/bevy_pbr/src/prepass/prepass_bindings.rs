@@ -7,58 +7,53 @@ use bevy_render::render_resource::{
     TextureViewDescriptor,
 };
 use bevy_utils::default;
-use smallvec::SmallVec;
 
 use crate::MeshPipelineViewLayoutKey;
 
 pub fn get_bind_group_layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
-) -> SmallVec<[BindGroupLayoutEntryBuilder; 4]> {
-    let mut result = SmallVec::<[BindGroupLayoutEntryBuilder; 4]>::new();
+) -> [Option<BindGroupLayoutEntryBuilder>; 4] {
+    let mut entries: [Option<BindGroupLayoutEntryBuilder>; 4] = [None; 4];
 
     let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
 
     if layout_key.contains(MeshPipelineViewLayoutKey::DEPTH_PREPASS) {
-        result.push(
-            // Depth texture
-            if multisampled {
-                texture_depth_2d_multisampled()
-            } else {
-                texture_depth_2d()
-            },
-        );
+        // Depth texture
+        entries[0] = if multisampled {
+            Some(texture_depth_2d_multisampled())
+        } else {
+            Some(texture_depth_2d())
+        };
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS) {
-        result.push(
-            // Normal texture
-            if multisampled {
-                texture_2d_multisampled(TextureSampleType::Float { filterable: false })
-            } else {
-                texture_2d(TextureSampleType::Float { filterable: false })
-            },
-        );
+        // Normal texture
+        entries[1] = if multisampled {
+            Some(texture_2d_multisampled(TextureSampleType::Float {
+                filterable: false,
+            }))
+        } else {
+            Some(texture_2d(TextureSampleType::Float { filterable: false }))
+        };
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS) {
-        result.push(
-            // Motion Vectors texture
-            if multisampled {
-                texture_2d_multisampled(TextureSampleType::Float { filterable: false })
-            } else {
-                texture_2d(TextureSampleType::Float { filterable: false })
-            },
-        );
+        // Motion Vectors texture
+        entries[2] = if multisampled {
+            Some(texture_2d_multisampled(TextureSampleType::Float {
+                filterable: false,
+            }))
+        } else {
+            Some(texture_2d(TextureSampleType::Float { filterable: false }))
+        };
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
-        result.push(
-            // Deferred texture
-            texture_2d(TextureSampleType::Uint),
-        );
+        // Deferred texture
+        entries[3] = Some(texture_2d(TextureSampleType::Uint));
     }
 
-    result
+    entries
 }
 
 pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<TextureView>; 4] {

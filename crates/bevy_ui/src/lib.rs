@@ -191,7 +191,7 @@ impl Plugin for UiPlugin {
             ),
         );
 
-        crate::render::build_ui_render(app);
+        build_ui_render(app);
     }
 
     fn finish(&self, app: &mut App) {

@@ -144,7 +144,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { &mut *self.0 }
     }
 
-    /// Gets a reference to the [`&World`](crate::world::World) this [`UnsafeWorldCell`] belongs to.
+    /// Gets a reference to the [`&World`](World) this [`UnsafeWorldCell`] belongs to.
     /// This can be used for arbitrary shared/readonly access.
     ///
     /// # Safety

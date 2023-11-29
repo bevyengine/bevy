@@ -99,7 +99,7 @@ impl Plugin for TextPlugin {
                         // will only ever observe its own render target, and `update_text2d_layout`
                         // will never modify a pre-existing `Image` asset.
                         .ambiguous_with(CameraUpdateSystem),
-                    font_atlas_set::remove_dropped_font_atlas_sets,
+                    remove_dropped_font_atlas_sets,
                 ),
             );
 
