@@ -1,6 +1,8 @@
 /// Call `trace!(...)` once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
+///
+/// Returns true the first time this is called
 #[macro_export]
 macro_rules! trace_once {
     ($($arg:tt)+) => ({
@@ -8,7 +10,10 @@ macro_rules! trace_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            trace!("{}", format!($($arg)+));
+            trace!($($arg)+);
+            true
+        } else {
+            false
         }
     });
 }
@@ -16,6 +21,8 @@ macro_rules! trace_once {
 /// Call `debug!(...)` once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
+///
+/// Returns true the first time this is called
 #[macro_export]
 macro_rules! debug_once {
     ($($arg:tt)+) => ({
@@ -23,7 +30,10 @@ macro_rules! debug_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            debug!("{}", format!($($arg)+));
+            debug!($($arg)+);
+            true
+        } else {
+            false
         }
     });
 }
@@ -31,6 +41,8 @@ macro_rules! debug_once {
 /// Call `info!(...)` once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
+///
+/// Returns true the first time this is called
 #[macro_export]
 macro_rules! info_once {
     ($($arg:tt)+) => ({
@@ -38,7 +50,10 @@ macro_rules! info_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            info!("{}", format!($($arg)+));
+            info!($($arg)+);
+            true
+        } else {
+            false
         }
     });
 }
@@ -46,6 +61,8 @@ macro_rules! info_once {
 /// Call `warn!(...)` once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
+///
+/// Returns true the first time this is called
 #[macro_export]
 macro_rules! warn_once {
     ($($arg:tt)+) => ({
@@ -53,7 +70,10 @@ macro_rules! warn_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            warn!("{}", format!($($arg)+));
+            warn!($($arg)+);
+            true
+        } else {
+            false
         }
     });
 }
@@ -61,6 +81,8 @@ macro_rules! warn_once {
 /// Call `error!(...)` once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
+///
+/// Returns true the first time this is called
 #[macro_export]
 macro_rules! error_once {
     ($($arg:tt)+) => ({
@@ -68,7 +90,10 @@ macro_rules! error_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            error!("{}", format!($($arg)+));
+            info!($($arg)+);
+            true
+        } else {
+            false
         }
     });
 }

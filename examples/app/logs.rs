@@ -43,6 +43,10 @@ fn log_once_system() {
     error_once!("some error we wish to report only once");
 
     for i in 0..10 {
-        error_once!("logs once per call site, so this works just fine: {}", i);
+        info_once!("logs once per call site, so this works just fine: {}", i);
+    }
+
+    if info_once!("some more info") {
+        info!("this is the first and only time 'some more info' was printed");
     }
 }
