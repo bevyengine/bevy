@@ -119,14 +119,6 @@ where
         true
     }
 
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
-    }
-
     #[inline]
     fn apply_deferred(&mut self, _world: &mut World) {
         // "pure" exclusive systems do not have any buffers to apply.
