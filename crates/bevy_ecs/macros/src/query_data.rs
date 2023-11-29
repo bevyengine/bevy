@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Default)]
-struct WorldQueryDataAttributes {
+struct QueryDataAttributes {
     pub is_mutable: bool,
 
     pub derive_args: Punctuated<Meta, syn::token::Comma>,
@@ -29,20 +29,20 @@ mod field_attr_keywords {
     syn::custom_keyword!(ignore);
 }
 
-pub static WORLD_QUERY_DATA_ATTRIBUTE_NAME: &str = "query_data";
+pub static QUERY_DATA_ATTRIBUTE_NAME: &str = "query_data";
 
-pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
+pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
 
     let ast = parse_macro_input!(input as DeriveInput);
     let visibility = ast.vis;
 
-    let mut attributes = WorldQueryDataAttributes::default();
+    let mut attributes = QueryDataAttributes::default();
     for attr in &ast.attrs {
         if !attr
             .path()
             .get_ident()
-            .map_or(false, |ident| ident == WORLD_QUERY_DATA_ATTRIBUTE_NAME)
+            .map_or(false, |ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
         {
             continue;
         }
@@ -85,7 +85,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
             }
             Ok(())
         })
-        .unwrap_or_else(|_| panic!("Invalid `{WORLD_QUERY_DATA_ATTRIBUTE_NAME}` attribute format"));
+        .unwrap_or_else(|_| panic!("Invalid `{QUERY_DATA_ATTRIBUTE_NAME}` attribute format"));
     }
 
     let path = bevy_ecs_path();
@@ -151,7 +151,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
     let mut read_only_field_types = Vec::new();
     for (i, field) in fields.iter().enumerate() {
         let attrs = match read_world_query_field_info(field) {
-            Ok(WorldQueryDataFieldInfo { attrs }) => attrs,
+            Ok(QueryDataFieldInfo { attrs }) => attrs,
             Err(e) => return e.into_compile_error().into(),
         };
 
@@ -385,18 +385,18 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
     })
 }
 
-struct WorldQueryDataFieldInfo {
+struct QueryDataFieldInfo {
     /// All field attributes except for `query_data` ones.
     attrs: Vec<Attribute>,
 }
 
-fn read_world_query_field_info(field: &Field) -> syn::Result<WorldQueryDataFieldInfo> {
+fn read_world_query_field_info(field: &Field) -> syn::Result<QueryDataFieldInfo> {
     let mut attrs = Vec::new();
     for attr in &field.attrs {
         if attr
             .path()
             .get_ident()
-            .map_or(false, |ident| ident == WORLD_QUERY_DATA_ATTRIBUTE_NAME)
+            .map_or(false, |ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
         {
             return Err(syn::Error::new_spanned(
                 attr,
@@ -406,5 +406,5 @@ fn read_world_query_field_info(field: &Field) -> syn::Result<WorldQueryDataField
         attrs.push(attr.clone());
     }
 
-    Ok(WorldQueryDataFieldInfo { attrs })
+    Ok(QueryDataFieldInfo { attrs })
 }

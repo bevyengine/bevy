@@ -1256,7 +1256,7 @@ unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 /// Entities are guaranteed to have at least one of the components in `T`.
 pub struct AnyOf<T>(PhantomData<T>);
 
-macro_rules! impl_tuple_world_query_data {
+macro_rules! impl_tuple_query_data {
     ($(($name: ident, $state: ident)),*) => {
 
         #[allow(non_snake_case)]
@@ -1396,7 +1396,7 @@ macro_rules! impl_anytuple_fetch {
     };
 }
 
-all_tuples!(impl_tuple_world_query_data, 0, 15, F, S);
+all_tuples!(impl_tuple_query_data, 0, 15, F, S);
 all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 
 /// [`WorldQuery`] used to nullify queries by turning `Query<Q>` into `Query<NopWorldQuery<Q>>`

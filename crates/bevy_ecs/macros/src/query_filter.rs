@@ -13,7 +13,7 @@ mod field_attr_keywords {
     syn::custom_keyword!(ignore);
 }
 
-pub fn derive_world_query_filter_impl(input: TokenStream) -> TokenStream {
+pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
 
     let ast = parse_macro_input!(input as DeriveInput);

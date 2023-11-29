@@ -486,7 +486,7 @@ macro_rules! impl_query_filter_tuple {
     };
 }
 
-macro_rules! impl_tuple_world_query_filter {
+macro_rules! impl_tuple_query_filter {
     ($($name: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
@@ -509,7 +509,7 @@ macro_rules! impl_tuple_world_query_filter {
     };
 }
 
-all_tuples!(impl_tuple_world_query_filter, 0, 15, F);
+all_tuples!(impl_tuple_query_filter, 0, 15, F);
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
 /// A filter on a component that only retains results added after the system last ran.

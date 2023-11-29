@@ -20,7 +20,7 @@ pub struct FxaaNode {
 }
 
 impl ViewNode for FxaaNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ViewTarget,
         &'static CameraFxaaPipeline,
         &'static Fxaa,
@@ -30,7 +30,7 @@ impl ViewNode for FxaaNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (target, pipeline, fxaa): QueryItem<Self::ViewQuery>,
+        (target, pipeline, fxaa): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
