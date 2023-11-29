@@ -2,6 +2,7 @@ mod batched_uniform_buffer;
 mod bind_group;
 mod bind_group_entries;
 mod bind_group_layout;
+mod bind_group_layout_entries;
 mod buffer;
 mod buffer_vec;
 mod gpu_array_buffer;
@@ -17,6 +18,7 @@ mod uniform_buffer;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;
+pub use bind_group_layout_entries::*;
 pub use buffer::*;
 pub use buffer_vec::*;
 pub use gpu_array_buffer::*;
@@ -33,9 +35,9 @@ pub use wgpu::{
     util::{BufferInitDescriptor, DrawIndexedIndirect, DrawIndirect},
     AdapterInfo as WgpuAdapterInfo, AddressMode, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent,
-    BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBinding, BufferBindingType,
-    BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites, CommandEncoder,
-    CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePassDescriptor,
+    BlendFactor, BlendOperation, BlendState, BufferAddress, BufferAsyncError, BufferBinding,
+    BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites,
+    CommandEncoder, CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePassDescriptor,
     ComputePipelineDescriptor as RawComputePipelineDescriptor, DepthBiasState, DepthStencilState,
     Extent3d, Face, Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState,
     FrontFace, ImageCopyBuffer, ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase,

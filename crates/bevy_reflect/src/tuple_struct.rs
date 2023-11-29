@@ -451,7 +451,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 #[inline]
 pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
-    f: &mut std::fmt::Formatter<'_>,
+    f: &mut Formatter<'_>,
 ) -> std::fmt::Result {
     let mut debug = f.debug_tuple(dyn_tuple_struct.reflect_type_path());
     for field in dyn_tuple_struct.iter_fields() {

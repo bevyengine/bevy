@@ -146,6 +146,11 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.queue.append(other);
+    }
+
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
     /// and returns its corresponding [`EntityCommands`].
     ///
@@ -522,7 +527,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
     ///
-    /// Calls [`World::run_system`](crate::system::World::run_system).
+    /// Calls [`World::run_system`](World::run_system).
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
@@ -535,7 +540,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
     ///
-    /// Calls [`World::run_system_with_input`](crate::system::World::run_system_with_input).
+    /// Calls [`World::run_system_with_input`](World::run_system_with_input).
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
@@ -807,7 +812,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityWorldMut::remove`](crate::world::EntityWorldMut::remove) for more
+    /// See [`EntityWorldMut::remove`](EntityWorldMut::remove) for more
     /// details.
     ///
     /// # Example
@@ -1319,6 +1324,25 @@ mod tests {
         }
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
+        assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn append() {
+        let mut world = World::default();
+        let mut queue_1 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_1, &world);
+            commands.insert_resource(W(123i32));
+        }
+        let mut queue_2 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_2, &world);
+            commands.insert_resource(W(456.0f64));
+        }
+        queue_1.append(&mut queue_2);
+        queue_1.apply(&mut world);
+        assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
     }
 }

@@ -1,9 +1,13 @@
-//! Additional Gizmo Functions -- Arrows
+//! Additional [`Gizmos`] Functions -- Arrows
+//!
+//! Includes the implementation of [`Gizmos::arrow`] and [`Gizmos::arrow_2d`],
+//! and assorted support items.
 
 use crate::prelude::Gizmos;
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 
+/// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
 pub struct ArrowBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     start: Vec3,
@@ -12,7 +16,6 @@ pub struct ArrowBuilder<'a, 's> {
     tip_length: f32,
 }
 
-/// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
 impl ArrowBuilder<'_, '_> {
     /// Change the length of the tips to be `length`.
     /// The default tip length is [length of the arrow]/10.

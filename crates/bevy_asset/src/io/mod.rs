@@ -238,10 +238,10 @@ impl VecReader {
 
 impl AsyncRead for VecReader {
     fn poll_read(
-        mut self: std::pin::Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
-    ) -> std::task::Poll<futures_io::Result<usize>> {
+    ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.bytes.len() {
             Poll::Ready(Ok(0))
         } else {

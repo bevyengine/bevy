@@ -12,3 +12,16 @@ pub trait Primitive2d {}
 
 /// A marker trait for 3D primitives
 pub trait Primitive3d {}
+
+/// The winding order for a set of points
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WindingOrder {
+    /// A clockwise winding order
+    Clockwise,
+    /// A counterclockwise winding order
+    CounterClockwise,
+    /// An invalid winding order indicating that it could not be computed reliably.
+    /// This often happens in *degenerate cases* where the points lie on the same line
+    #[doc(alias = "Degenerate")]
+    Invalid,
+}

@@ -90,9 +90,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.color = vertex.color;
 #endif
 
-#ifdef MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
     out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-#endif // MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
@@ -107,6 +105,12 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
     out.mesh_flags = mesh[get_instance_index(vertex_no_morph.instance_index)].flags;
+#endif
+#ifdef BASE_INSTANCE_WORKAROUND
+    // Hack: this ensures the push constant is always used, which works around this issue:
+    // https://github.com/bevyengine/bevy/issues/10509
+    // This can be removed when wgpu 0.19 is released
+    out.position.x += min(f32(get_instance_index(0u)), 0.0);
 #endif
 
     return out;

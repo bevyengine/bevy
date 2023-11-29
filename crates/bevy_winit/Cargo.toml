@@ -35,7 +35,7 @@ raw-window-handle = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.28.7", default-features = false, features = [
-    "android-native-activity",
+  "android-native-activity",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
