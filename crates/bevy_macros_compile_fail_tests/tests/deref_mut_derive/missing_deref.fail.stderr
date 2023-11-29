@@ -6,9 +6,6 @@ error[E0277]: the trait bound `TupleStruct: Deref` is not satisfied
   |
 note: required by a bound in `DerefMut`
  --> $RUST/core/src/ops/deref.rs
-  |
-  | pub trait DerefMut: Deref {
-  |                     ^^^^^ required by this bound in `DerefMut`
 
 error[E0277]: the trait bound `Struct: Deref` is not satisfied
  --> tests/deref_mut_derive/missing_deref.fail.rs:7:8
@@ -18,9 +15,6 @@ error[E0277]: the trait bound `Struct: Deref` is not satisfied
   |
 note: required by a bound in `DerefMut`
  --> $RUST/core/src/ops/deref.rs
-  |
-  | pub trait DerefMut: Deref {
-  |                     ^^^^^ required by this bound in `DerefMut`
 
 error[E0277]: the trait bound `TupleStruct: Deref` is not satisfied
  --> tests/deref_mut_derive/missing_deref.fail.rs:3:10
