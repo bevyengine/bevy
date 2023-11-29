@@ -39,7 +39,7 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
     Material, Node, Primitive, Semantic,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
@@ -105,20 +105,33 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
+/// Specifies optional settings for processing gltfs at load time
+#[derive(Serialize, Deserialize)]
+pub struct GltfLoaderSettings {
+    /// Whether to spawn cameras for gltf camera nodes
+    pub load_cameras: bool,
+}
+
+impl Default for GltfLoaderSettings {
+    fn default() -> Self {
+        Self { load_cameras: true }
+    }
+}
+
 impl AssetLoader for GltfLoader {
     type Asset = Gltf;
-    type Settings = ();
+    type Settings = GltfLoaderSettings;
     type Error = GltfError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        _settings: &'a (),
+        settings: &'a GltfLoaderSettings,
         load_context: &'a mut LoadContext,
     ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            load_gltf(self, &bytes, load_context).await
+            load_gltf(self, &bytes, load_context, settings).await
         })
     }
 
@@ -132,6 +145,7 @@ async fn load_gltf<'a, 'b, 'c>(
     loader: &GltfLoader,
     bytes: &'a [u8],
     load_context: &'b mut LoadContext<'c>,
+    settings: &'b GltfLoaderSettings,
 ) -> Result<Gltf, GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let buffer_data = load_buffers(&gltf, load_context).await?;
@@ -555,6 +569,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         parent,
                         load_context,
                         &mut scene_load_context,
+                        settings,
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
@@ -860,6 +875,7 @@ fn load_node(
     world_builder: &mut WorldChildBuilder,
     root_load_context: &LoadContext,
     load_context: &mut LoadContext,
+    settings: &GltfLoaderSettings,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
     active_camera_found: &mut bool,
@@ -887,46 +903,46 @@ fn load_node(
     }
 
     // create camera node
-    if let Some(camera) = gltf_node.camera() {
-        let projection = match camera.projection() {
-            gltf::camera::Projection::Orthographic(orthographic) => {
-                let xmag = orthographic.xmag();
-                let orthographic_projection = OrthographicProjection {
-                    near: orthographic.znear(),
-                    far: orthographic.zfar(),
-                    scaling_mode: ScalingMode::FixedHorizontal(1.0),
-                    scale: xmag,
-                    ..Default::default()
-                };
-
-                Projection::Orthographic(orthographic_projection)
-            }
-            gltf::camera::Projection::Perspective(perspective) => {
-                let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
-                    fov: perspective.yfov(),
-                    near: perspective.znear(),
-                    ..Default::default()
-                };
-                if let Some(zfar) = perspective.zfar() {
-                    perspective_projection.far = zfar;
+    if settings.load_cameras {
+        if let Some(camera) = gltf_node.camera() {
+            let projection = match camera.projection() {
+                gltf::camera::Projection::Orthographic(orthographic) => {
+                    let xmag = orthographic.xmag();
+                    let orthographic_projection = OrthographicProjection {
+                        near: orthographic.znear(),
+                        far: orthographic.zfar(),
+                        scaling_mode: ScalingMode::FixedHorizontal(1.0),
+                        scale: xmag,
+                        ..Default::default()
+                    };
+                    Projection::Orthographic(orthographic_projection)
                 }
-                if let Some(aspect_ratio) = perspective.aspect_ratio() {
-                    perspective_projection.aspect_ratio = aspect_ratio;
+                gltf::camera::Projection::Perspective(perspective) => {
+                    let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
+                        fov: perspective.yfov(),
+                        near: perspective.znear(),
+                        ..Default::default()
+                    };
+                    if let Some(zfar) = perspective.zfar() {
+                        perspective_projection.far = zfar;
+                    }
+                    if let Some(aspect_ratio) = perspective.aspect_ratio() {
+                        perspective_projection.aspect_ratio = aspect_ratio;
+                    }
+                    Projection::Perspective(perspective_projection)
                 }
-                Projection::Perspective(perspective_projection)
-            }
-        };
-        node.insert(Camera3dBundle {
-            projection,
-            transform,
-            camera: Camera {
-                is_active: !*active_camera_found,
+            };
+            node.insert(Camera3dBundle {
+                projection,
+                transform,
+                camera: Camera {
+                    is_active: !*active_camera_found,
+                    ..Default::default()
+                },
                 ..Default::default()
-            },
-            ..Default::default()
-        });
-
-        *active_camera_found = true;
+            });
+            *active_camera_found = true;
+        }
     }
 
     // Map node index to entity
@@ -1081,6 +1097,7 @@ fn load_node(
                 parent,
                 root_load_context,
                 load_context,
+                settings,
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
                 active_camera_found,
