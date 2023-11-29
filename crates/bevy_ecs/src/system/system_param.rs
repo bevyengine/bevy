@@ -260,7 +260,7 @@ fn assert_component_access_compatibility(
 ///     // ...
 /// }
 /// #
-/// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
+/// # let mut bad_system_system = IntoSystem::into_system(bad_system);
 /// # let mut world = World::new();
 /// # bad_system_system.initialize(&mut world);
 /// # bad_system_system.run((), &mut world);
@@ -403,7 +403,6 @@ impl_param_set!();
 /// }
 /// ```
 ///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
@@ -1245,7 +1244,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 ///
 /// Component change ticks that are more recent than `last_run` will be detected by the system.
 /// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
-/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](crate::change_detection::ResMut).
+/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
     last_run: Tick,

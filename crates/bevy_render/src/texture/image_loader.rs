@@ -138,7 +138,7 @@ pub struct FileTextureError {
     path: String,
 }
 impl std::fmt::Display for FileTextureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(
             f,
             "Error reading image file {}: {}, this is an error in `bevy_render`.",

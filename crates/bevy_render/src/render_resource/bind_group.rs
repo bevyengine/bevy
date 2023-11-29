@@ -20,7 +20,7 @@ render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 /// This makes them accessible in the pipeline (shaders) as uniforms.
 ///
 /// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
-/// Can be created via [`RenderDevice::create_bind_group`](crate::renderer::RenderDevice::create_bind_group).
+/// Can be created via [`RenderDevice::create_bind_group`](RenderDevice::create_bind_group).
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
@@ -93,13 +93,13 @@ impl Deref for BindGroup {
 /// In WGSL shaders, the binding would look like this:
 ///
 /// ```wgsl
-/// @group(1) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2) var color_sampler: sampler;
-/// @group(1) @binding(3) var<storage> values: array<f32>;
+/// @group(2) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
+/// @group(2) @binding(3) var<storage> values: array<f32>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
-/// are generally bound to group 1.
+/// are generally bound to group 2.
 ///
 /// The following field-level attributes are supported:
 ///
@@ -191,7 +191,7 @@ impl Deref for BindGroup {
 ///     roughness: f32,
 /// };
 ///
-/// @group(1) @binding(0) var<uniform> material: CoolMaterial;
+/// @group(2) @binding(0) var<uniform> material: CoolMaterial;
 /// ```
 ///
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:

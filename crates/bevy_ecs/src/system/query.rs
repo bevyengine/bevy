@@ -155,7 +155,7 @@ use std::{any::TypeId, borrow::Borrow};
 ///     enemy_query: Query<&mut Health, With<Enemy>>,
 /// )
 /// # {}
-/// # let mut randomize_health_system = bevy_ecs::system::IntoSystem::into_system(randomize_health);
+/// # let mut randomize_health_system = IntoSystem::into_system(randomize_health);
 /// # let mut world = World::new();
 /// # randomize_health_system.initialize(&mut world);
 /// # randomize_health_system.run((), &mut world);
@@ -178,7 +178,7 @@ use std::{any::TypeId, borrow::Borrow};
 ///     enemy_query: Query<&mut Health, (With<Enemy>, Without<Player>)>,
 /// )
 /// # {}
-/// # let mut randomize_health_system = bevy_ecs::system::IntoSystem::into_system(randomize_health);
+/// # let mut randomize_health_system = IntoSystem::into_system(randomize_health);
 /// # let mut world = World::new();
 /// # randomize_health_system.initialize(&mut world);
 /// # randomize_health_system.run((), &mut world);
@@ -296,7 +296,7 @@ use std::{any::TypeId, borrow::Borrow};
 /// [binomial coefficient]: https://en.wikipedia.org/wiki/Binomial_coefficient
 /// [`Changed`]: crate::query::Changed
 /// [components]: crate::component::Component
-/// [entity identifiers]: crate::entity::Entity
+/// [entity identifiers]: Entity
 /// [`EntityRef`]: crate::world::EntityRef
 /// [`for_each`]: Self::for_each
 /// [`for_each_mut`]: Self::for_each_mut

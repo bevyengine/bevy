@@ -67,7 +67,7 @@ compile_error!(
 /// Supports flexible "modes", such as [`AssetMode::Processed`] and
 /// [`AssetMode::Unprocessed`] that enable using the asset workflow that best suits your project.
 ///
-/// [`AssetSource`]: crate::io::AssetSource
+/// [`AssetSource`]: io::AssetSource
 pub struct AssetPlugin {
     /// The default file path to use (relative to the project root) for unprocessed assets.
     pub file_path: String,
@@ -88,8 +88,8 @@ pub struct AssetPlugin {
 pub enum AssetMode {
     /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
     ///
-    /// [`AssetReader`]: crate::io::AssetReader
-    /// [`AssetSource`]: crate::io::AssetSource
+    /// [`AssetReader`]: io::AssetReader
+    /// [`AssetSource`]: io::AssetSource
     Unprocessed,
     /// Assets will be "pre-processed". This enables assets to be imported / converted / optimized ahead of time.
     ///
@@ -102,9 +102,9 @@ pub enum AssetMode {
     /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
     /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.
     ///
-    /// [`AssetMeta`]: crate::meta::AssetMeta
-    /// [`AssetSource`]: crate::io::AssetSource
-    /// [`AssetReader`]: crate::io::AssetReader
+    /// [`AssetMeta`]: meta::AssetMeta
+    /// [`AssetSource`]: io::AssetSource
+    /// [`AssetReader`]: io::AssetReader
     Processed,
 }
 
@@ -215,9 +215,9 @@ impl Plugin for AssetPlugin {
             .init_asset::<()>()
             .configure_sets(
                 UpdateAssets,
-                TrackAssets.after(server::handle_internal_asset_events),
+                TrackAssets.after(handle_internal_asset_events),
             )
-            .add_systems(UpdateAssets, server::handle_internal_asset_events);
+            .add_systems(UpdateAssets, handle_internal_asset_events);
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(First, UpdateAssets);
