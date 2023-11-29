@@ -2,8 +2,10 @@ use crate::*;
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
-    experimental::taa::TemporalAntiAliasSettings,
+    core_3d::{
+        AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
+        Transparent3d,
+    },
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -15,6 +17,7 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::Projection,
+    camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -84,9 +87,9 @@ use std::marker::PhantomData;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(1) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2) var color_sampler: sampler;
+/// @group(2) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -122,6 +125,15 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
     fn depth_bias(&self) -> f32 {
         0.0
+    }
+
+    #[inline]
+    /// Returns whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
+    ///
+    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
+    /// rendering to take place in a separate [`Transmissive3d`] pass.
+    fn reads_view_transmission_texture(&self) -> bool {
+        false
     }
 
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
@@ -203,6 +215,7 @@ where
             render_app
                 .init_resource::<DrawFunctions<Shadow>>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
+                .add_render_command::<Transmissive3d, DrawMaterial<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
@@ -216,7 +229,7 @@ where
                         prepare_materials::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<Image>),
-                        render::queue_shadows::<M>
+                        queue_shadows::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
@@ -322,7 +335,7 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        descriptor.layout.insert(1, self.material_layout.clone());
+        descriptor.layout.insert(2, self.material_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
         Ok(descriptor)
@@ -355,8 +368,8 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
 type DrawMaterial<M> = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
+    SetMeshBindGroup<1>,
+    SetMaterialBindGroup<M, 2>,
     DrawMesh,
 );
 
@@ -418,10 +431,30 @@ const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     }
 }
 
+const fn screen_space_specular_transmission_pipeline_key(
+    screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
+) -> MeshPipelineKey {
+    match screen_space_transmissive_blur_quality {
+        ScreenSpaceTransmissionQuality::Low => {
+            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW
+        }
+        ScreenSpaceTransmissionQuality::Medium => {
+            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM
+        }
+        ScreenSpaceTransmissionQuality::High => {
+            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH
+        }
+        ScreenSpaceTransmissionQuality::Ultra => {
+            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
+    transmissive_draw_functions: Res<DrawFunctions<Transmissive3d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
@@ -446,10 +479,12 @@ pub fn queue_material_meshes<M: Material>(
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
         ),
-        Option<&TemporalAntiAliasSettings>,
+        Option<&Camera3d>,
+        Option<&TemporalJitter>,
         Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
+        &mut RenderPhase<Transmissive3d>,
         &mut RenderPhase<Transparent3d>,
     )>,
 ) where
@@ -464,15 +499,18 @@ pub fn queue_material_meshes<M: Material>(
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-        taa_settings,
+        camera_3d,
+        temporal_jitter,
         projection,
         mut opaque_phase,
         mut alpha_mask_phase,
+        mut transmissive_phase,
         mut transparent_phase,
     ) in &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
+        let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -494,9 +532,10 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        if taa_settings.is_some() {
-            view_key |= MeshPipelineKey::TAA;
+        if temporal_jitter.is_some() {
+            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
+
         let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
 
         if environment_map_loaded {
@@ -533,6 +572,11 @@ pub fn queue_material_meshes<M: Material>(
         }
         if ssao.is_some() {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if let Some(camera_3d) = camera_3d {
+            view_key |= screen_space_specular_transmission_pipeline_key(
+                camera_3d.screen_space_specular_transmission_quality,
+            );
         }
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
@@ -588,7 +632,16 @@ pub fn queue_material_meshes<M: Material>(
                 + material.properties.depth_bias;
             match material.properties.alpha_mode {
                 AlphaMode::Opaque => {
-                    if forward {
+                    if material.properties.reads_view_transmission_texture {
+                        transmissive_phase.add(Transmissive3d {
+                            entity: *visible_entity,
+                            draw_function: draw_transmissive_pbr,
+                            pipeline: pipeline_id,
+                            distance,
+                            batch_range: 0..1,
+                            dynamic_offset: None,
+                        });
+                    } else if forward {
                         opaque_phase.add(Opaque3d {
                             entity: *visible_entity,
                             draw_function: draw_opaque_pbr,
@@ -600,7 +653,16 @@ pub fn queue_material_meshes<M: Material>(
                     }
                 }
                 AlphaMode::Mask(_) => {
-                    if forward {
+                    if material.properties.reads_view_transmission_texture {
+                        transmissive_phase.add(Transmissive3d {
+                            entity: *visible_entity,
+                            draw_function: draw_transmissive_pbr,
+                            pipeline: pipeline_id,
+                            distance,
+                            batch_range: 0..1,
+                            dynamic_offset: None,
+                        });
+                    } else if forward {
                         alpha_mask_phase.add(AlphaMask3d {
                             entity: *visible_entity,
                             draw_function: draw_alpha_mask_pbr,
@@ -688,6 +750,11 @@ pub struct MaterialProperties {
     /// for meshes with equal depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
     pub depth_bias: f32,
+    /// Whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
+    ///
+    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
+    /// rendering to take place in a separate [`Transmissive3d`] pass.
+    pub reads_view_transmission_texture: bool,
 }
 
 /// Data prepared for a [`Material`] instance.
@@ -863,6 +930,7 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
+            reads_view_transmission_texture: material.reads_view_transmission_texture(),
             render_method: method,
         },
     })

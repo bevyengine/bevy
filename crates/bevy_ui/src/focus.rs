@@ -1,15 +1,14 @@
 use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiScale, UiStack};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     prelude::{Component, With},
-    query::WorldQuery,
+    query::WorldQueryData,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
@@ -57,25 +56,16 @@ impl Default for Interaction {
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
-/// A None value means that the cursor position is unknown.
+
 ///
 /// It can be used alongside interaction to get the position of the press.
-#[derive(
-    Component,
-    Deref,
-    DerefMut,
-    Copy,
-    Clone,
-    Default,
-    PartialEq,
-    Debug,
-    Reflect,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub struct RelativeCursorPosition {
-    /// Cursor position relative to size and position of the Node.
+    /// Visible area of the Node relative to the size of the entire Node.
+    pub normalized_visible_node_rect: Rect,
+    /// Cursor position relative to the size and position of the Node.
+    /// A None value indicates that the cursor position is unknown.
     pub normalized: Option<Vec2>,
 }
 
@@ -83,7 +73,7 @@ impl RelativeCursorPosition {
     /// A helper function to check if the mouse is over the node
     pub fn mouse_over(&self) -> bool {
         self.normalized
-            .map(|position| (0.0..1.).contains(&position.x) && (0.0..1.).contains(&position.y))
+            .map(|position| self.normalized_visible_node_rect.contains(position))
             .unwrap_or(false)
     }
 }
@@ -115,8 +105,8 @@ pub struct State {
 }
 
 /// Main query for [`ui_focus_system`]
-#[derive(WorldQuery)]
-#[world_query(mutable)]
+#[derive(WorldQueryData)]
+#[world_query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,
@@ -216,22 +206,24 @@ pub fn ui_focus_system(
                     }
                 }
 
-                let position = node.global_transform.translation();
-                let ui_position = position.truncate();
-                let extents = node.node.size() / 2.0;
-                let mut min = ui_position - extents;
-                if let Some(clip) = node.calculated_clip {
-                    min = Vec2::max(min, clip.clip.min);
-                }
+                let node_rect = node.node.logical_rect(node.global_transform);
+
+                // Intersect with the calculated clip rect to find the bounds of the visible region of the node
+                let visible_rect = node
+                    .calculated_clip
+                    .map(|clip| node_rect.intersect(clip.clip))
+                    .unwrap_or(node_rect);
 
                 // The mouse position relative to the node
                 // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+                // Coordinates are relative to the entire node, not just the visible region.
                 let relative_cursor_position = cursor_position
-                    .map(|cursor_position| (cursor_position - min) / node.node.size());
+                    .map(|cursor_position| (cursor_position - node_rect.min) / node_rect.size());
 
-                // If the current cursor position is within the bounds of the node, consider it for
+                // If the current cursor position is within the bounds of the node's visible area, consider it for
                 // clicking
                 let relative_cursor_position_component = RelativeCursorPosition {
+                    normalized_visible_node_rect: visible_rect.normalize(node_rect),
                     normalized: relative_cursor_position,
                 };
 

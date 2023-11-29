@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
@@ -41,7 +40,8 @@ use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
-    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
+    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
+    WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
@@ -276,6 +276,7 @@ struct WindowAndInputEventWriters<'w> {
     window_scale_factor_changed: EventWriter<'w, WindowScaleFactorChanged>,
     window_backend_scale_factor_changed: EventWriter<'w, WindowBackendScaleFactorChanged>,
     window_focused: EventWriter<'w, WindowFocused>,
+    window_occluded: EventWriter<'w, WindowOccluded>,
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
     window_destroyed: EventWriter<'w, WindowDestroyed>,
@@ -349,6 +350,11 @@ impl Default for WinitAppRunnerState {
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
 pub fn winit_runner(mut app: App) {
+    if app.plugins_state() == PluginsState::Ready {
+        app.finish();
+        app.cleanup();
+    }
+
     let mut event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()
@@ -372,6 +378,7 @@ pub fn winit_runner(mut app: App) {
         WindowAndInputEventWriters,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
+        NonSend<AccessKitAdapters>,
     )> = SystemState::new(&mut app.world);
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -422,7 +429,7 @@ pub fn winit_runner(mut app: App) {
         }
 
         match event {
-            event::Event::NewEvents(start_cause) => match start_cause {
+            Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
                     #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
@@ -473,10 +480,10 @@ pub fn winit_runner(mut app: App) {
                     }
                 }
             },
-            event::Event::WindowEvent {
+            Event::WindowEvent {
                 event, window_id, ..
             } => {
-                let (mut event_writers, winit_windows, mut windows) =
+                let (mut event_writers, winit_windows, mut windows, access_kit_adapters) =
                     event_writer_system_state.get_mut(&mut app.world);
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
@@ -494,6 +501,18 @@ pub fn winit_runner(mut app: App) {
                     );
                     return;
                 };
+
+                // Allow AccessKit to respond to `WindowEvent`s before they reach
+                // the engine.
+                if let Some(adapter) = access_kit_adapters.get(&window_entity) {
+                    if let Some(window) = winit_windows.get_window(window_entity) {
+                        // Somewhat surprisingly, this call has meaningful side effects
+                        // See https://github.com/AccessKit/accesskit/issues/300
+                        // AccessKit might later need to filter events based on this, but we currently do not.
+                        // See https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
+                        let _ = adapter.on_event(window, &event);
+                    }
+                }
 
                 runner_state.window_event_received = true;
 
@@ -641,6 +660,12 @@ pub fn winit_runner(mut app: App) {
                             focused,
                         });
                     }
+                    WindowEvent::Occluded(occluded) => {
+                        event_writers.window_occluded.send(WindowOccluded {
+                            window: window_entity,
+                            occluded,
+                        });
+                    }
                     WindowEvent::DroppedFile(path_buf) => {
                         event_writers
                             .file_drag_and_drop
@@ -680,16 +705,22 @@ pub fn winit_runner(mut app: App) {
                                 cursor,
                             });
                         }
-                        event::Ime::Commit(value) => event_writers.ime_input.send(Ime::Commit {
-                            window: window_entity,
-                            value,
-                        }),
-                        event::Ime::Enabled => event_writers.ime_input.send(Ime::Enabled {
-                            window: window_entity,
-                        }),
-                        event::Ime::Disabled => event_writers.ime_input.send(Ime::Disabled {
-                            window: window_entity,
-                        }),
+                        event::Ime::Commit(value) => {
+                            event_writers.ime_input.send(Ime::Commit {
+                                window: window_entity,
+                                value,
+                            });
+                        }
+                        event::Ime::Enabled => {
+                            event_writers.ime_input.send(Ime::Enabled {
+                                window: window_entity,
+                            });
+                        }
+                        event::Ime::Disabled => {
+                            event_writers.ime_input.send(Ime::Disabled {
+                                window: window_entity,
+                            });
+                        }
                     },
                     WindowEvent::ThemeChanged(theme) => {
                         event_writers.window_theme_changed.send(WindowThemeChanged {
@@ -709,24 +740,24 @@ pub fn winit_runner(mut app: App) {
                     cache.window = window.clone();
                 }
             }
-            event::Event::DeviceEvent {
+            Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
                 });
             }
-            event::Event::Suspended => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+            Event::Suspended => {
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.lifetime.send(ApplicationLifetime::Suspended);
                 // Mark the state as `WillSuspend`. This will let the schedule run one last time
                 // before actually suspending to let the application react
                 runner_state.active = ActiveState::WillSuspend;
             }
-            event::Event::Resumed => {
-                let (mut event_writers, _, _) = event_writer_system_state.get_mut(&mut app.world);
+            Event::Resumed => {
+                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 match runner_state.active {
                     ActiveState::NotYetStarted => {
                         event_writers.lifetime.send(ApplicationLifetime::Started);
@@ -776,7 +807,7 @@ pub fn winit_runner(mut app: App) {
                     *control_flow = ControlFlow::Poll;
                 }
             }
-            event::Event::MainEventsCleared => {
+            Event::MainEventsCleared => {
                 if runner_state.active.should_run() {
                     if runner_state.active == ActiveState::WillSuspend {
                         runner_state.active = ActiveState::Suspended;

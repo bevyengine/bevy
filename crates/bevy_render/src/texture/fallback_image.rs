@@ -100,9 +100,11 @@ fn fallback_image_new(
         array_layer_count: Some(extents.depth_or_array_layers),
         ..TextureViewDescriptor::default()
     });
-    let sampler = match image.sampler_descriptor {
+    let sampler = match image.sampler {
         ImageSampler::Default => (**default_sampler).clone(),
-        ImageSampler::Descriptor(ref descriptor) => render_device.create_sampler(descriptor),
+        ImageSampler::Descriptor(ref descriptor) => {
+            render_device.create_sampler(&descriptor.as_wgpu())
+        }
     };
     GpuImage {
         texture,

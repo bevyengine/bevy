@@ -55,6 +55,7 @@ pub struct NormalPrepass;
 pub struct MotionVectorPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
+/// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
 #[derive(Component, Default, Reflect)]
 pub struct DeferredPrepass;
 

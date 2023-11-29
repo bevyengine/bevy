@@ -239,13 +239,6 @@ impl Schedule {
         self
     }
 
-    /// Configures a system set in this schedule, adding it if it does not exist.
-    #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
-    #[track_caller]
-    pub fn configure_set(&mut self, set: impl IntoSystemSetConfigs) -> &mut Self {
-        self.configure_sets(set)
-    }
-
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
     #[track_caller]
     pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
@@ -290,7 +283,7 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?self.name).entered();
+        let _span = info_span!("schedule", name = ?self.name).entered();
 
         world.check_change_ticks();
         self.initialize(world)
@@ -911,10 +904,6 @@ impl ScheduleGraph {
             self.dependency.graph.add_node(set);
         }
 
-        if !self.dependency.graph.contains_node(id) {
-            self.dependency.graph.add_node(id);
-        }
-
         for (kind, set) in dependencies
             .into_iter()
             .map(|Dependency { kind, set }| (kind, self.system_set_ids[&set]))
@@ -1052,7 +1041,7 @@ impl ScheduleGraph {
             let mut systems = Vec::new();
             let mut system_bitset = FixedBitSet::with_capacity(self.systems.len());
 
-            for child in hierarchy_graph.neighbors_directed(id, Direction::Outgoing) {
+            for child in hierarchy_graph.neighbors_directed(id, Outgoing) {
                 match child {
                     NodeId::System(_) => {
                         systems.push(child);
@@ -1083,19 +1072,19 @@ impl ScheduleGraph {
         let mut temp = Vec::new();
         for (&set, systems) in set_systems {
             if systems.is_empty() {
-                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
-                    for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
+                for a in dependency_flattened.neighbors_directed(set, Incoming) {
+                    for b in dependency_flattened.neighbors_directed(set, Outgoing) {
                         temp.push((a, b));
                     }
                 }
             } else {
-                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
+                for a in dependency_flattened.neighbors_directed(set, Incoming) {
                     for &sys in systems {
                         temp.push((a, sys));
                     }
                 }
 
-                for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
+                for b in dependency_flattened.neighbors_directed(set, Outgoing) {
                     for &sys in systems {
                         temp.push((sys, b));
                     }
@@ -1229,12 +1218,12 @@ impl ScheduleGraph {
         for &sys_id in &dg_system_ids {
             let num_dependencies = dependency_flattened_dag
                 .graph
-                .neighbors_directed(sys_id, Direction::Incoming)
+                .neighbors_directed(sys_id, Incoming)
                 .count();
 
             let dependents = dependency_flattened_dag
                 .graph
-                .neighbors_directed(sys_id, Direction::Outgoing)
+                .neighbors_directed(sys_id, Outgoing)
                 .map(|dep_id| dg_system_idx_map[&dep_id])
                 .collect::<Vec<_>>();
 
@@ -1411,7 +1400,7 @@ impl ScheduleGraph {
             "({})",
             self.hierarchy
                 .graph
-                .edges_directed(*id, Direction::Outgoing)
+                .edges_directed(*id, Outgoing)
                 // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
                 .map(|(_, member_id, _)| self.get_node_name_inner(&member_id, false))
                 .reduce(|a, b| format!("{a}, {b}"))
@@ -1619,14 +1608,8 @@ impl ScheduleGraph {
             if set.is_system_type() {
                 let instances = systems.len();
                 let ambiguous_with = self.ambiguous_with.edges(id);
-                let before = self
-                    .dependency
-                    .graph
-                    .edges_directed(id, Direction::Incoming);
-                let after = self
-                    .dependency
-                    .graph
-                    .edges_directed(id, Direction::Outgoing);
+                let before = self.dependency.graph.edges_directed(id, Incoming);
+                let after = self.dependency.graph.edges_directed(id, Outgoing);
                 let relations = before.count() + after.count() + ambiguous_with.count();
                 if instances > 1 && relations > 0 {
                     return Err(ScheduleBuildError::SystemTypeSetAmbiguity(
@@ -1712,7 +1695,7 @@ impl ScheduleGraph {
     }
 
     fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
-        for (set_id, _, _) in self.hierarchy.graph.edges_directed(id, Direction::Incoming) {
+        for (set_id, _, _) in self.hierarchy.graph.edges_directed(id, Incoming) {
             if f(set_id) {
                 self.traverse_sets_containing_node(set_id, f);
             }

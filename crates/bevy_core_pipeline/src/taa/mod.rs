@@ -21,13 +21,13 @@ use bevy_render::{
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-        BindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode,
-        FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
-        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages, TextureViewDimension,
+        binding_types::{sampler, texture_2d, texture_depth_2d},
+        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
+        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
+        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
@@ -35,7 +35,7 @@ use bevy_render::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
-mod draw_3d_graph {
+pub mod draw_3d_graph {
     pub mod node {
         /// Label for the TAA render node.
         pub const TAA: &str = "taa";
@@ -61,7 +61,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
                 Render,
@@ -71,7 +71,10 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)
+            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(
+                CORE_3D,
+                draw_3d_graph::node::TAA,
+            )
             .add_render_graph_edges(
                 CORE_3D,
                 &[
@@ -88,7 +91,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             return;
         };
 
-        render_app.init_resource::<TAAPipeline>();
+        render_app.init_resource::<TaaPipeline>();
     }
 }
 
@@ -110,14 +113,13 @@ pub struct TemporalAntiAliasBundle {
 /// # Tradeoffs
 ///
 /// Pros:
+/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels (specular aliasing)
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
-/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
-/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, shadow mapping, etc
+/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, certain shadow map sampling methods, etc
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
-/// * Thin geometry, lighting detail, or texture lines may flicker or disappear
-/// * Slightly blurs the image, leading to a softer look (using an additional sharpening pass can reduce this)
+/// * Thin geometry, lighting detail, or texture lines may flicker noisily or disappear
 ///
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
@@ -130,7 +132,7 @@ pub struct TemporalAntiAliasBundle {
 /// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
-/// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// [Currently](https://github.com/bevyengine/bevy/issues/8423) cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
 /// Currently does not support skinned meshes and morph targets.
 /// There will probably be ghosting artifacts if used with them.
@@ -151,7 +153,7 @@ pub struct TemporalAntiAliasSettings {
     /// representative of the current frame, such as in sudden camera cuts.
     ///
     /// After setting this to true, it will automatically be toggled
-    /// back to false after one frame.
+    /// back to false at the end of the frame.
     pub reset: bool,
 }
 
@@ -161,16 +163,17 @@ impl Default for TemporalAntiAliasSettings {
     }
 }
 
+/// Render [`bevy_render::render_graph::Node`] used by temporal anti-aliasing.
 #[derive(Default)]
-struct TAANode;
+pub struct TemporalAntiAliasNode;
 
-impl ViewNode for TAANode {
+impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
-        &'static TAAHistoryTextures,
+        &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
-        &'static TAAPipelineId,
+        &'static TemporalAntiAliasPipelineId,
     );
 
     fn run(
@@ -183,7 +186,7 @@ impl ViewNode for TAANode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let (Some(pipelines), Some(pipeline_cache)) = (
-            world.get_resource::<TAAPipeline>(),
+            world.get_resource::<TaaPipeline>(),
             world.get_resource::<PipelineCache>(),
         ) else {
             return Ok(());
@@ -240,13 +243,13 @@ impl ViewNode for TAANode {
 }
 
 #[derive(Resource)]
-struct TAAPipeline {
+struct TaaPipeline {
     taa_bind_group_layout: BindGroupLayout,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
 }
 
-impl FromWorld for TAAPipeline {
+impl FromWorld for TaaPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
@@ -263,72 +266,28 @@ impl FromWorld for TAAPipeline {
             ..SamplerDescriptor::default()
         });
 
-        let taa_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("taa_bind_group_layout"),
-                entries: &[
+        let taa_bind_group_layout = render_device.create_bind_group_layout(
+            "taa_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
                     // View target (read)
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
+                    texture_2d(TextureSampleType::Float { filterable: true }),
                     // TAA History (read)
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
+                    texture_2d(TextureSampleType::Float { filterable: true }),
                     // Motion Vectors
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
+                    texture_2d(TextureSampleType::Float { filterable: true }),
                     // Depth
-                    BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Depth,
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
+                    texture_depth_2d(),
                     // Nearest sampler
-                    BindGroupLayoutEntry {
-                        binding: 4,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                        count: None,
-                    },
+                    sampler(SamplerBindingType::NonFiltering),
                     // Linear sampler
-                    BindGroupLayoutEntry {
-                        binding: 5,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
+                    sampler(SamplerBindingType::Filtering),
+                ),
+            ),
+        );
 
-        TAAPipeline {
+        TaaPipeline {
             taa_bind_group_layout,
             nearest_sampler,
             linear_sampler,
@@ -337,13 +296,13 @@ impl FromWorld for TAAPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct TAAPipelineKey {
+struct TaaPipelineKey {
     hdr: bool,
     reset: bool,
 }
 
-impl SpecializedRenderPipeline for TAAPipeline {
-    type Key = TAAPipelineKey;
+impl SpecializedRenderPipeline for TaaPipeline {
+    type Key = TaaPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
@@ -440,7 +399,7 @@ fn prepare_taa_jitter_and_mip_bias(
 }
 
 #[derive(Component)]
-struct TAAHistoryTextures {
+pub struct TemporalAntiAliasHistoryTextures {
     write: CachedTexture,
     read: CachedTexture,
 }
@@ -480,12 +439,12 @@ fn prepare_taa_history_textures(
             let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
             let textures = if frame_count.0 % 2 == 0 {
-                TAAHistoryTextures {
+                TemporalAntiAliasHistoryTextures {
                     write: history_1_texture,
                     read: history_2_texture,
                 }
             } else {
-                TAAHistoryTextures {
+                TemporalAntiAliasHistoryTextures {
                     write: history_2_texture,
                     read: history_1_texture,
                 }
@@ -497,17 +456,17 @@ fn prepare_taa_history_textures(
 }
 
 #[derive(Component)]
-struct TAAPipelineId(CachedRenderPipelineId);
+pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 
 fn prepare_taa_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
-    pipeline: Res<TAAPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
+    pipeline: Res<TaaPipeline>,
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
 ) {
     for (entity, view, taa_settings) in &views {
-        let mut pipeline_key = TAAPipelineKey {
+        let mut pipeline_key = TaaPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
         };
@@ -519,6 +478,8 @@ fn prepare_taa_pipelines(
             pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
         }
 
-        commands.entity(entity).insert(TAAPipelineId(pipeline_id));
+        commands
+            .entity(entity)
+            .insert(TemporalAntiAliasPipelineId(pipeline_id));
     }
 }

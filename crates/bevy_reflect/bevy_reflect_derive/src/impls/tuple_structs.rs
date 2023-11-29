@@ -44,7 +44,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     let field_generator = {
         let docs = reflect_struct
             .active_fields()
-            .map(|field| quote::ToTokens::to_token_stream(&field.doc));
+            .map(|field| ToTokens::to_token_stream(&field.doc));
         quote! {
             #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents).with_docs(#docs) ,)*
         }
