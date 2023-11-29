@@ -111,7 +111,7 @@ pub struct GltfLoader {
 /// # Example
 ///
 /// To load a gltf but exclude the cameras, replace a call to `asset_server.load("my.gltf")` with
-/// ```no_run
+/// ```ignore
 /// asset_server.load_with_settings(
 ///     "my.gltf",
 ///     |s: &mut GltfLoaderSettings| {
