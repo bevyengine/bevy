@@ -105,16 +105,34 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
-/// Specifies optional settings for processing gltfs at load time
+/// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
+/// the gltf will be loaded.
+/// Example usage: to load a gltf but exclude the cameras, replace a call to `asset_server.load("my.gltf")` with
+/// ```
+/// asset_server.load_with_settings(
+///     "my.gltf",
+///     |s: &mut GltfLoaderSettings| {
+///         s.load_cameras = false;
+///     }
+/// );
+/// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
-    /// Whether to spawn cameras for gltf camera nodes
+    /// If true, the loader will load mesh nodes and the associated materials.
+    pub load_meshes: bool,
+    /// If true, the loader will spawn cameras for gltf camera nodes.
     pub load_cameras: bool,
+    /// If true, the loader will spawn lights for gltf light nodes.
+    pub load_lights: bool,
 }
 
 impl Default for GltfLoaderSettings {
     fn default() -> Self {
-        Self { load_cameras: true }
+        Self {
+            load_meshes: true,
+            load_cameras: true,
+            load_lights: true,
+        }
     }
 }
 
@@ -953,140 +971,144 @@ fn load_node(
     let mut morph_weights = None;
 
     node.with_children(|parent| {
-        if let Some(mesh) = gltf_node.mesh() {
-            // append primitives
-            for primitive in mesh.primitives() {
-                let material = primitive.material();
-                let material_label = material_label(&material, is_scale_inverted);
+        if settings.load_meshes {
+            if let Some(mesh) = gltf_node.mesh() {
+                // append primitives
+                for primitive in mesh.primitives() {
+                    let material = primitive.material();
+                    let material_label = material_label(&material, is_scale_inverted);
 
-                // This will make sure we load the default material now since it would not have been
-                // added when iterating over all the gltf materials (since the default material is
-                // not explicitly listed in the gltf).
-                // It also ensures an inverted scale copy is instantiated if required.
-                if !root_load_context.has_labeled_asset(&material_label)
-                    && !load_context.has_labeled_asset(&material_label)
-                {
-                    load_material(&material, load_context, is_scale_inverted);
-                }
-
-                let primitive_label = primitive_label(&mesh, &primitive);
-                let bounds = primitive.bounding_box();
-
-                let mut mesh_entity = parent.spawn(PbrBundle {
-                    // TODO: handle missing label handle errors here?
-                    mesh: load_context.get_label_handle(&primitive_label),
-                    material: load_context.get_label_handle(&material_label),
-                    ..Default::default()
-                });
-                let target_count = primitive.morph_targets().len();
-                if target_count != 0 {
-                    let weights = match mesh.weights() {
-                        Some(weights) => weights.to_vec(),
-                        None => vec![0.0; target_count],
-                    };
-
-                    if morph_weights.is_none() {
-                        morph_weights = Some(weights.clone());
+                    // This will make sure we load the default material now since it would not have been
+                    // added when iterating over all the gltf materials (since the default material is
+                    // not explicitly listed in the gltf).
+                    // It also ensures an inverted scale copy is instantiated if required.
+                    if !root_load_context.has_labeled_asset(&material_label)
+                        && !load_context.has_labeled_asset(&material_label)
+                    {
+                        load_material(&material, load_context, is_scale_inverted);
                     }
 
-                    // unwrap: the parent's call to `MeshMorphWeights::new`
-                    // means this code doesn't run if it returns an `Err`.
-                    // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
-                    // they should all have the same length.
-                    // > All morph target accessors MUST have the same count as
-                    // > the accessors of the original primitive.
-                    mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
-                }
-                mesh_entity.insert(Aabb::from_min_max(
-                    Vec3::from_slice(&bounds.min),
-                    Vec3::from_slice(&bounds.max),
-                ));
+                    let primitive_label = primitive_label(&mesh, &primitive);
+                    let bounds = primitive.bounding_box();
 
-                if let Some(extras) = primitive.extras() {
-                    mesh_entity.insert(super::GltfExtras {
-                        value: extras.get().to_string(),
+                    let mut mesh_entity = parent.spawn(PbrBundle {
+                        // TODO: handle missing label handle errors here?
+                        mesh: load_context.get_label_handle(&primitive_label),
+                        material: load_context.get_label_handle(&material_label),
+                        ..Default::default()
                     });
-                }
+                    let target_count = primitive.morph_targets().len();
+                    if target_count != 0 {
+                        let weights = match mesh.weights() {
+                            Some(weights) => weights.to_vec(),
+                            None => vec![0.0; target_count],
+                        };
 
-                mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
-                // Mark for adding skinned mesh
-                if let Some(skin) = gltf_node.skin() {
-                    entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
+                        if morph_weights.is_none() {
+                            morph_weights = Some(weights.clone());
+                        }
+
+                        // unwrap: the parent's call to `MeshMorphWeights::new`
+                        // means this code doesn't run if it returns an `Err`.
+                        // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
+                        // they should all have the same length.
+                        // > All morph target accessors MUST have the same count as
+                        // > the accessors of the original primitive.
+                        mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
+                    }
+                    mesh_entity.insert(Aabb::from_min_max(
+                        Vec3::from_slice(&bounds.min),
+                        Vec3::from_slice(&bounds.max),
+                    ));
+
+                    if let Some(extras) = primitive.extras() {
+                        mesh_entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
+
+                    mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
+                    // Mark for adding skinned mesh
+                    if let Some(skin) = gltf_node.skin() {
+                        entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
+                    }
                 }
             }
         }
 
-        if let Some(light) = gltf_node.light() {
-            match light.kind() {
-                gltf::khr_lights_punctual::Kind::Directional => {
-                    let mut entity = parent.spawn(DirectionalLightBundle {
-                        directional_light: DirectionalLight {
-                            color: Color::rgb_from_array(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for directional
-                            // lights in lux (lm/m^2) which is what we need.
-                            illuminance: light.intensity(),
+        if settings.load_lights {
+            if let Some(light) = gltf_node.light() {
+                match light.kind() {
+                    gltf::khr_lights_punctual::Kind::Directional => {
+                        let mut entity = parent.spawn(DirectionalLightBundle {
+                            directional_light: DirectionalLight {
+                                color: Color::rgb_from_array(light.color()),
+                                // NOTE: KHR_punctual_lights defines the intensity units for directional
+                                // lights in lux (lm/m^2) which is what we need.
+                                illuminance: light.intensity(),
+                                ..Default::default()
+                            },
                             ..Default::default()
-                        },
-                        ..Default::default()
-                    });
-                    if let Some(name) = light.name() {
-                        entity.insert(Name::new(name.to_string()));
-                    }
-                    if let Some(extras) = light.extras() {
-                        entity.insert(super::GltfExtras {
-                            value: extras.get().to_string(),
                         });
+                        if let Some(name) = light.name() {
+                            entity.insert(Name::new(name.to_string()));
+                        }
+                        if let Some(extras) = light.extras() {
+                            entity.insert(super::GltfExtras {
+                                value: extras.get().to_string(),
+                            });
+                        }
                     }
-                }
-                gltf::khr_lights_punctual::Kind::Point => {
-                    let mut entity = parent.spawn(PointLightBundle {
-                        point_light: PointLight {
-                            color: Color::rgb_from_array(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for point lights in
-                            // candela (lm/sr) which is luminous intensity and we need luminous power.
-                            // For a point light, luminous power = 4 * pi * luminous intensity
-                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
-                            range: light.range().unwrap_or(20.0),
-                            radius: 0.0,
+                    gltf::khr_lights_punctual::Kind::Point => {
+                        let mut entity = parent.spawn(PointLightBundle {
+                            point_light: PointLight {
+                                color: Color::rgb_from_array(light.color()),
+                                // NOTE: KHR_punctual_lights defines the intensity units for point lights in
+                                // candela (lm/sr) which is luminous intensity and we need luminous power.
+                                // For a point light, luminous power = 4 * pi * luminous intensity
+                                intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                                range: light.range().unwrap_or(20.0),
+                                radius: 0.0,
+                                ..Default::default()
+                            },
                             ..Default::default()
-                        },
-                        ..Default::default()
-                    });
-                    if let Some(name) = light.name() {
-                        entity.insert(Name::new(name.to_string()));
-                    }
-                    if let Some(extras) = light.extras() {
-                        entity.insert(super::GltfExtras {
-                            value: extras.get().to_string(),
                         });
+                        if let Some(name) = light.name() {
+                            entity.insert(Name::new(name.to_string()));
+                        }
+                        if let Some(extras) = light.extras() {
+                            entity.insert(super::GltfExtras {
+                                value: extras.get().to_string(),
+                            });
+                        }
                     }
-                }
-                gltf::khr_lights_punctual::Kind::Spot {
-                    inner_cone_angle,
-                    outer_cone_angle,
-                } => {
-                    let mut entity = parent.spawn(SpotLightBundle {
-                        spot_light: SpotLight {
-                            color: Color::rgb_from_array(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
-                            // candela (lm/sr) which is luminous intensity and we need luminous power.
-                            // For a spot light, we map luminous power = 4 * pi * luminous intensity
-                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
-                            range: light.range().unwrap_or(20.0),
-                            radius: light.range().unwrap_or(0.0),
-                            inner_angle: inner_cone_angle,
-                            outer_angle: outer_cone_angle,
+                    gltf::khr_lights_punctual::Kind::Spot {
+                        inner_cone_angle,
+                        outer_cone_angle,
+                    } => {
+                        let mut entity = parent.spawn(SpotLightBundle {
+                            spot_light: SpotLight {
+                                color: Color::rgb_from_array(light.color()),
+                                // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
+                                // candela (lm/sr) which is luminous intensity and we need luminous power.
+                                // For a spot light, we map luminous power = 4 * pi * luminous intensity
+                                intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                                range: light.range().unwrap_or(20.0),
+                                radius: light.range().unwrap_or(0.0),
+                                inner_angle: inner_cone_angle,
+                                outer_angle: outer_cone_angle,
+                                ..Default::default()
+                            },
                             ..Default::default()
-                        },
-                        ..Default::default()
-                    });
-                    if let Some(name) = light.name() {
-                        entity.insert(Name::new(name.to_string()));
-                    }
-                    if let Some(extras) = light.extras() {
-                        entity.insert(super::GltfExtras {
-                            value: extras.get().to_string(),
                         });
+                        if let Some(name) = light.name() {
+                            entity.insert(Name::new(name.to_string()));
+                        }
+                        if let Some(extras) = light.extras() {
+                            entity.insert(super::GltfExtras {
+                                value: extras.get().to_string(),
+                            });
+                        }
                     }
                 }
             }
@@ -1111,10 +1133,12 @@ fn load_node(
         }
     });
 
-    if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
-        let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
-        let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
-        node.insert(MorphWeights::new(weights, first_mesh)?);
+    if settings.load_meshes {
+        if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
+            let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
+            let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
+            node.insert(MorphWeights::new(weights, first_mesh)?);
+        }
     }
 
     if let Some(err) = gltf_error {
