@@ -117,6 +117,7 @@ impl Plugin for UiPlugin {
             .register_type::<RelativeCursorPosition>()
             .register_type::<RepeatedGridTrack>()
             .register_type::<Style>()
+            .register_type::<UiCamera>()
             .register_type::<UiCameraConfig>()
             .register_type::<UiImage>()
             .register_type::<UiImageSize>()
@@ -177,10 +178,14 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                widget::update_atlas_content_size_system.before(UiSystem::Layout),
-                update_ui_camera_system
-                    .in_set(UiSystem::Layout)
-                    .before(ui_layout_system),
+                (
+                    widget::update_atlas_content_size_system,
+                    update_ui_camera_system,
+                )
+                    .before(UiSystem::Layout),
+                apply_deferred
+                    .after(update_ui_camera_system)
+                    .before(UiSystem::Layout),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
