@@ -90,7 +90,7 @@ macro_rules! error_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            info!($($arg)+);
+            error!($($arg)+);
             true
         } else {
             false
