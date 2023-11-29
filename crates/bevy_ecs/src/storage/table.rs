@@ -41,7 +41,7 @@ impl TableId {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn new(index: usize) -> Self {
-        TableId(index as u32)
+        TableId(index.try_into().expect("TableId index out of range"))
     }
 
     /// Gets the underlying table index from the ID.
@@ -83,7 +83,11 @@ impl TableRow {
     /// Creates a `TableRow`.
     #[inline]
     pub const fn new(index: usize) -> Self {
-        Self(index as u32)
+        let index_u32 = index as u32;
+        if index_u32 as usize != index {
+            panic!("TableRow index out of range");
+        }
+        Self(index_u32)
     }
 
     /// Gets the index of the row.
