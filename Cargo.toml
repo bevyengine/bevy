@@ -67,6 +67,7 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "wayland"
 ]
 
 # Force dynamic linking, which improves iterative compile times
