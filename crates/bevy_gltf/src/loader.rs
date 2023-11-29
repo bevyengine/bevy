@@ -915,6 +915,7 @@ fn load_node(
                         scale: xmag,
                         ..Default::default()
                     };
+
                     Projection::Orthographic(orthographic_projection)
                 }
                 gltf::camera::Projection::Perspective(perspective) => {
@@ -941,6 +942,7 @@ fn load_node(
                 },
                 ..Default::default()
             });
+
             *active_camera_found = true;
         }
     }
