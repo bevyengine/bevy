@@ -15,30 +15,35 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
-            viewport: Some(Viewport {
-                physical_position: [200, 100].into(),
-                physical_size: [600, 600].into(),
-                ..default()
-            }),
-            ..default()
-        },
-        ..default()
-    });
-
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_direction: FlexDirection::Column,
+    let camera = commands
+        .spawn(Camera2dBundle {
+            camera: Camera {
+                viewport: Some(Viewport {
+                    physical_position: [200, 100].into(),
+                    physical_size: [600, 600].into(),
+                    ..default()
+                }),
                 ..default()
             },
             ..default()
         })
+        .id();
+
+    commands
+        .spawn((
+            UiCamera(camera),
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                ..default()
+            },
+        ))
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {
