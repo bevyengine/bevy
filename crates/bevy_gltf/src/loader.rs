@@ -107,6 +107,7 @@ pub struct GltfLoader {
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
 /// the gltf will be loaded.
+///
 /// # Example
 ///
 /// To load a gltf but exclude the cameras, replace a call to `asset_server.load("my.gltf")` with
