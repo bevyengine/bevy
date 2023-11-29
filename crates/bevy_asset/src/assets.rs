@@ -1,4 +1,4 @@
-use crate as bevy_asset;
+use crate::{self as bevy_asset, LoadState};
 use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
 use bevy_ecs::{
     prelude::EventWriter,
@@ -497,12 +497,17 @@ impl<A: Asset> Assets<A> {
         let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id;
-            if !assets.contains(id.typed()) {
-                not_ready.push(drop_event);
-                continue;
-            }
             if drop_event.asset_server_managed {
-                if infos.process_handle_drop(id.untyped(TypeId::of::<A>())) {
+                let untyped = id.untyped(TypeId::of::<A>());
+                if let Some(info) = infos.get(untyped) {
+                    if info.load_state == LoadState::Loading
+                        || info.load_state == LoadState::NotLoaded
+                    {
+                        not_ready.push(drop_event);
+                        continue;
+                    }
+                }
+                if infos.process_handle_drop(untyped) {
                     assets.remove_dropped(id.typed());
                 }
             } else {
