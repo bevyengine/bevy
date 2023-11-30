@@ -12,10 +12,11 @@ use crate::{
     },
     component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
+    observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT},
     TypeIdMap,
 };
 use bevy_ptr::OwningPtr;
@@ -422,6 +423,7 @@ impl BundleInfo {
         archetypes: &mut Archetypes,
         storages: &mut Storages,
         components: &Components,
+        observers: &Observers,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
@@ -430,6 +432,7 @@ impl BundleInfo {
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.component_ids.len());
+        let mut added = Vec::new();
 
         let current_archetype = &mut archetypes[archetype_id];
         for component_id in self.component_ids.iter().cloned() {
@@ -437,6 +440,7 @@ impl BundleInfo {
                 bundle_status.push(ComponentStatus::Mutated);
             } else {
                 bundle_status.push(ComponentStatus::Added);
+                added.push(component_id);
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
@@ -449,7 +453,7 @@ impl BundleInfo {
         if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
             let edges = current_archetype.edges_mut();
             // the archetype does not change when we add this bundle
-            edges.insert_add_bundle(self.id, archetype_id, bundle_status);
+            edges.insert_add_bundle(self.id, archetype_id, bundle_status, added);
             archetype_id
         } else {
             let table_id;
@@ -487,6 +491,7 @@ impl BundleInfo {
             };
             let new_archetype_id = archetypes.get_id_or_insert(
                 components,
+                observers,
                 table_id,
                 table_components,
                 sparse_set_components,
@@ -496,6 +501,7 @@ impl BundleInfo {
                 self.id,
                 new_archetype_id,
                 bundle_status,
+                added,
             );
             new_archetype_id
         }
@@ -556,6 +562,7 @@ impl<'w> BundleInserter<'w> {
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
+            &world.observers,
             archetype_id,
         );
         if new_archetype_id == archetype_id {
@@ -653,19 +660,15 @@ impl<'w> BundleInserter<'w> {
                 }
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
                 let mut world = self.world.into_deferred();
-                if archetype.has_on_add() {
-                    world.trigger_on_add(
-                        entity,
-                        bundle_info
-                            .iter_components()
-                            .zip(add_bundle.bundle_status.iter())
-                            .filter(|(_, &status)| status == ComponentStatus::Added)
-                            .map(|(id, _)| id),
-                    );
+                world.trigger_on_add(archetype, entity, add_bundle.added.iter().cloned());
+                if archetype.has_add_observer() {
+                    world.trigger_observers(ON_ADD, entity, add_bundle.added.iter().cloned());
                 }
-                if archetype.has_on_insert() {
-                    world.trigger_on_insert(entity, bundle_info.iter_components());
+                world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
+                if archetype.has_insert_observer() {
+                    world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components());
                 }
+
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
@@ -711,18 +714,13 @@ impl<'w> BundleInserter<'w> {
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
                 let new_archetype = &**new_archetype;
                 let mut world = self.world.into_deferred();
-                if new_archetype.has_on_add() {
-                    world.trigger_on_add(
-                        entity,
-                        bundle_info
-                            .iter_components()
-                            .zip(add_bundle.bundle_status.iter())
-                            .filter(|(_, &status)| status == ComponentStatus::Added)
-                            .map(|(id, _)| id),
-                    );
+                world.trigger_on_add(archetype, entity, add_bundle.added.iter().cloned());
+                if archetype.has_add_observer() {
+                    world.trigger_observers(ON_ADD, entity, add_bundle.added.iter().cloned());
                 }
-                if new_archetype.has_on_insert() {
-                    world.trigger_on_insert(entity, bundle_info.iter_components());
+                world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
+                if archetype.has_insert_observer() {
+                    world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components());
                 }
                 new_location
             }
@@ -808,18 +806,13 @@ impl<'w> BundleInserter<'w> {
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
                 let new_archetype = &**new_archetype;
                 let mut world = self.world.into_deferred();
-                if new_archetype.has_on_add() {
-                    world.trigger_on_add(
-                        entity,
-                        bundle_info
-                            .iter_components()
-                            .zip(add_bundle.bundle_status.iter())
-                            .filter(|(_, &status)| status == ComponentStatus::Added)
-                            .map(|(id, _)| id),
-                    );
+                world.trigger_on_add(new_archetype, entity, add_bundle.added.iter().cloned());
+                if new_archetype.has_add_observer() {
+                    world.trigger_observers(ON_ADD, entity, add_bundle.added.iter().cloned())
                 }
-                if new_archetype.has_on_insert() {
-                    world.trigger_on_insert(entity, bundle_info.iter_components());
+                world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
+                if new_archetype.has_insert_observer() {
+                    world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components())
                 }
                 new_location
             }
@@ -867,6 +860,7 @@ impl<'w> BundleSpawner<'w> {
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
+            &world.observers,
             ArchetypeId::EMPTY,
         );
         let archetype = &mut world.archetypes[new_archetype_id];
@@ -924,13 +918,14 @@ impl<'w> BundleSpawner<'w> {
         // SAFETY: We have no oustanding mutable references to world as they were dropped
         let archetype = &*self.archetype;
         let mut world = self.world.into_deferred();
-        if archetype.has_on_add() {
-            world.trigger_on_add(entity, bundle_info.iter_components());
+        world.trigger_on_add(archetype, entity, bundle_info.iter_components());
+        if archetype.has_add_observer() {
+            world.trigger_observers(ON_ADD, entity, bundle_info.iter_components())
         }
-        if archetype.has_on_insert() {
-            world.trigger_on_insert(entity, bundle_info.iter_components());
+        world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
+        if archetype.has_insert_observer() {
+            world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components())
         }
-
         location
     }
 

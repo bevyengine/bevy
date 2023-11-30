@@ -1,6 +1,7 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 mod deferred_world;
+mod entity_constants;
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
@@ -9,6 +10,7 @@ mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
 pub use deferred_world::DeferredWorld;
+pub use entity_constants::*;
 pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut, Entry, OccupiedEntry, VacantEntry};
 pub use spawn_batch::*;
 pub use world_cell::*;
@@ -20,6 +22,7 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
+    observer::Observers,
     query::{DebugCheckedUnwrap, QueryEntityError, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -67,24 +70,27 @@ pub struct World {
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
+    pub(crate) observers: Observers,
     pub(crate) removed_components: RemovedComponentEvents,
     /// Access cache used by [`WorldCell`]. Is only accessed in the `Drop` impl of `WorldCell`.
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
+    pub(crate) last_event_id: u32,
     pub(crate) command_queue: CommandQueue,
 }
 
 impl Default for World {
     fn default() -> Self {
-        Self {
+        let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
+            observers: Observers::default(),
             removed_components: Default::default(),
             archetype_component_access: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
@@ -92,12 +98,20 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
+            last_event_id: 0,
             command_queue: CommandQueue::default(),
-        }
+        };
+        world.bootstrap();
+        world
     }
 }
 
 impl World {
+    #[inline]
+    fn bootstrap(&mut self) {
+        self.bootstrap_observers();
+        self.entities.set_constant();
+    }
     /// Creates a new empty [`World`].
     ///
     /// # Panics

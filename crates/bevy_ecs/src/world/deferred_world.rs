@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use crate::{
+    archetype::Archetype,
     change_detection::MutUntyped,
     component::ComponentId,
     entity::Entity,
@@ -10,7 +11,10 @@ use crate::{
     system::{Commands, Query, Resource},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
+use super::{
+    unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell},
+    EntityMut, Mut, World,
+};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
@@ -28,6 +32,11 @@ impl<'w> Deref for DeferredWorld<'w> {
 }
 
 impl<'w> DeferredWorld<'w> {
+    #[inline]
+    pub fn clone(&mut self) -> DeferredWorld {
+        DeferredWorld { world: self.world }
+    }
+
     /// Creates a [`Commands`] instance that pushes to the world's command queue
     #[inline]
     pub fn with_commands(&mut self, f: impl Fn(Commands)) {
@@ -47,6 +56,31 @@ impl<'w> DeferredWorld<'w> {
         // - `as_unsafe_world_cell` provides mutable permission to everything
         // - `&mut self` ensures no other borrows on world data
         unsafe { self.world.get_entity(entity)?.get_mut() }
+    }
+
+    #[inline]
+    pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
+        let location = self.entities.get(entity)?;
+        // SAFETY: if the Entity is invalid, the function returns early.
+        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
+        let entity_cell = UnsafeEntityCell::new(self.as_unsafe_world_cell(), entity, location);
+        // SAFETY: The UnsafeEntityCell has read access to the entire world.
+        let entity_ref = unsafe { EntityMut::new(entity_cell) };
+        Some(entity_ref)
+    }
+
+    #[inline]
+    pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
+        #[inline(never)]
+        #[cold]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_entity_mut(entity) {
+            Some(entity) => entity,
+            None => panic_no_entity(entity),
+        }
     }
 
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
@@ -213,61 +247,115 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_entity(entity)?.get_mut_by_id(component_id) }
     }
 
-    /// Triggers all `on_add` hooks for [`ComponentId`] in target.
+    /// Triggers all `OnAdd` hooks and observers for [`ComponentId`] in target.
     ///
     /// # Safety
     /// Caller must ensure [`ComponentId`] in target exist in self.
     #[inline]
     pub(crate) unsafe fn trigger_on_add(
         &mut self,
+        archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
     ) {
-        for component_id in targets {
-            // SAFETY: Caller ensures that these components exist
-            let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_add {
-                hook(DeferredWorld { world: self.world }, entity, component_id);
+        if archetype.has_add_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_add {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
             }
         }
     }
 
-    /// Triggers all `on_insert` hooks for [`ComponentId`] in target.
+    /// Triggers all `OnInsert` hooks and observers for [`ComponentId`] in target.
     ///
     /// # Safety
     /// Caller must ensure [`ComponentId`] in target exist in self.
     #[inline]
     pub(crate) unsafe fn trigger_on_insert(
         &mut self,
+        archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
     ) {
-        for component_id in targets {
-            // SAFETY: Caller ensures that these components exist
-            let hooks = unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_insert {
-                hook(DeferredWorld { world: self.world }, entity, component_id);
+        if archetype.has_insert_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_insert {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
             }
         }
     }
 
-    /// Triggers all `on_remove` hooks for [`ComponentId`] in target.
+    /// Triggers all `OnRemove` hooks  for [`ComponentId`] in target.
     ///
     /// # Safety
     /// Caller must ensure [`ComponentId`] in target exist in self.
     #[inline]
     pub(crate) unsafe fn trigger_on_remove(
         &mut self,
+        archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
     ) {
-        for component_id in targets {
-            // SAFETY: Caller ensures that these components exist
-            let hooks = unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_remove {
-                hook(DeferredWorld { world: self.world }, entity, component_id);
+        if archetype.has_remove_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks =
+                    unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_remove {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
             }
         }
+    }
+
+    /// Triggers all event observers for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_observers(
+        &mut self,
+        event: ComponentId,
+        target: Entity,
+        components: impl Iterator<Item = ComponentId>,
+    ) {
+        let (world, observers) = unsafe {
+            let world = self.as_unsafe_world_cell();
+            world.world_mut().last_event_id += 1;
+            (world.into_deferred(), &world.world().observers)
+        };
+        observers.invoke(event, target, components, world, &mut ());
+    }
+
+    /// Triggers all event observers for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_observers_with_data<E>(
+        &mut self,
+        event: ComponentId,
+        target: Entity,
+        components: impl Iterator<Item = ComponentId>,
+        data: &mut E,
+    ) {
+        let (world, observers) = unsafe {
+            let world = self.as_unsafe_world_cell();
+            world.world_mut().last_event_id += 1;
+            (world.into_deferred(), &world.world().observers)
+        };
+        observers.invoke(event, target, components, world, data);
+    }
+
+    #[inline]
+    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
+        self.world
     }
 }
 

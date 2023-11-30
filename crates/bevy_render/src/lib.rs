@@ -451,7 +451,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 
             assert_eq!(
                 render_app.world.entities().len(),
-                0,
+                render_app.world.entities().constant_count(),
                 "An entity was spawned after the entity list was cleared last frame and before the extract schedule began. This is not supported",
             );
 

@@ -11,6 +11,7 @@ use crate::{
         ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, Tick, TickCells,
     },
     entity::{Entities, Entity, EntityLocation},
+    observer::Observers,
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
@@ -565,6 +566,14 @@ impl<'w> UnsafeWorldCell<'w> {
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()
+    }
+
+    pub(crate) unsafe fn archetypes_mut(self) -> &'w mut Archetypes {
+        unsafe { &mut self.world_mut().archetypes }
+    }
+
+    pub(crate) unsafe fn observers_mut(self) -> &'w mut Observers {
+        unsafe { &mut self.world_mut().observers }
     }
 }
 

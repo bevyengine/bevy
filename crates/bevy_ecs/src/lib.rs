@@ -10,6 +10,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -35,6 +36,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
+        observer::{Observer, OnAdd, OnInsert, OnRemove},
         query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{

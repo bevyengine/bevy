@@ -4,6 +4,9 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
+    observer::{AttachObserver, EcsEvent, ObserverBuilder, Observers},
+    prelude::Observer,
+    query::{ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     world::{Mut, World},
@@ -11,7 +14,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr};
 use std::{any::TypeId, marker::PhantomData};
 
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -677,6 +680,7 @@ impl<'w> EntityWorldMut<'w> {
                 &mut world.archetypes,
                 storages,
                 components,
+                &world.observers,
                 old_location.archetype_id,
                 bundle_info,
                 false,
@@ -688,7 +692,6 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let entity = self.entity;
-        let old_archetype = &world.archetypes[old_location.archetype_id];
 
         // Drop borrow on world so it can be turned into DeferredWorld
         let bundle_info = {
@@ -696,13 +699,23 @@ impl<'w> EntityWorldMut<'w> {
             // SAFETY: Changes to Bundles cannot happen through DeferredWorld
             unsafe { &*bundle_info }
         };
-        if old_archetype.has_on_remove() {
-            // SAFETY: All components in the archetype exist in world
-            unsafe {
-                world
-                    .as_unsafe_world_cell()
-                    .into_deferred()
-                    .trigger_on_remove(entity, bundle_info.iter_components());
+        // SAFETY: archetypes cannot be modified through DeferredWorld
+        let (old_archetype, mut deferred_world) = unsafe {
+            let world = world.as_unsafe_world_cell();
+            (
+                &world.world().archetypes[old_location.archetype_id],
+                world.into_deferred(),
+            )
+        };
+        // SAFETY: All components in the archetype exist in world
+        unsafe {
+            deferred_world.trigger_on_remove(old_archetype, entity, bundle_info.iter_components());
+            if old_archetype.has_remove_observer() {
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    self.entity,
+                    bundle_info.iter_components(),
+                )
             }
         }
 
@@ -854,6 +867,7 @@ impl<'w> EntityWorldMut<'w> {
                 archetypes,
                 storages,
                 components,
+                &world.observers,
                 old_location.archetype_id,
                 bundle_info,
                 true,
@@ -866,21 +880,26 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let entity: Entity = self.entity;
-        let old_archetype = &world.archetypes[old_location.archetype_id];
-
         // Drop borrow on world so it can be turned into DeferredWorld
         let bundle_info = {
             let bundle_info: *const BundleInfo = bundle_info;
             // SAFETY: Changes to Bundles cannot happen through DeferredWorld
             unsafe { &*bundle_info }
         };
-        if old_archetype.has_on_remove() {
-            // SAFETY: All components in the archetype exist in world
-            unsafe {
-                world
-                    .as_unsafe_world_cell()
-                    .into_deferred()
-                    .trigger_on_remove(entity, bundle_info.iter_components());
+        // SAFETY: archetypes cannot be modified through DeferredWorld
+        let (old_archetype, mut deferred_world) = unsafe {
+            let world = world.as_unsafe_world_cell();
+            (
+                &world.world().archetypes[old_location.archetype_id],
+                world.into_deferred(),
+            )
+        };
+
+        // SAFETY: All components in the archetype exist in world
+        unsafe {
+            deferred_world.trigger_on_remove(old_archetype, entity, bundle_info.iter_components());
+            if old_archetype.has_remove_observer() {
+                deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_components())
             }
         }
 
@@ -922,20 +941,20 @@ impl<'w> EntityWorldMut<'w> {
     pub fn despawn(self) {
         let world = self.world;
         world.flush_entities();
-        let archetype = &world.archetypes[self.location.archetype_id];
-        if archetype.has_on_remove() {
-            // Drop borrow on world so it can be turned into DeferredWorld
-            let archetype = {
-                let archetype: *const Archetype = archetype;
-                // SAFETY: Changes to Archetypes cannot happpen through DeferredWorld
-                unsafe { &*archetype }
-            };
-            // SAFETY: All components in the archetype exist in world
-            unsafe {
-                world
-                    .as_unsafe_world_cell()
-                    .into_deferred()
-                    .trigger_on_remove(self.entity, archetype.components());
+        // SAFETY: You cannot modify archetypes through DeferredWorld
+        let (archetype, mut deferred_world) = unsafe {
+            let world = world.as_unsafe_world_cell();
+            (
+                &world.world().archetypes[self.location.archetype_id],
+                world.into_deferred(),
+            )
+        };
+
+        // SAFETY: All components in the archetype exist in world
+        unsafe {
+            deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
+            if archetype.has_remove_observer() {
+                deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components())
             }
         }
 
@@ -1004,7 +1023,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush_commands`]
-    pub fn flush(self) -> Entity {
+    pub fn flush(&mut self) -> Entity {
         self.world.flush_commands();
         self.entity
     }
@@ -1120,6 +1139,17 @@ impl<'w> EntityWorldMut<'w> {
                 _marker: PhantomData,
             })
         }
+    }
+
+    pub fn observe<E: EcsEvent, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>(
+        &mut self,
+        callback: fn(Observer<E, Q, F>),
+    ) -> &mut Self {
+        let observer = ObserverBuilder::new(self.world)
+            .source(self.entity)
+            .enqueue(callback);
+        self.insert(AttachObserver(observer));
+        self
     }
 }
 
@@ -1523,6 +1553,7 @@ unsafe fn remove_bundle_from_archetype(
     archetypes: &mut Archetypes,
     storages: &mut Storages,
     components: &Components,
+    observers: &Observers,
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
     intersection: bool,
@@ -1591,6 +1622,7 @@ unsafe fn remove_bundle_from_archetype(
 
         let new_archetype_id = archetypes.get_id_or_insert(
             components,
+            observers,
             next_table_id,
             next_table_components,
             next_sparse_set_components,
