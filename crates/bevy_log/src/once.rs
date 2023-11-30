@@ -1,4 +1,6 @@
-/// Call some expression only once
+/// Call some expression only once per call site.
+///
+/// Returns `Some(<result-of-expression>)` on first-time call, and `None` all other times.
 #[macro_export]
 macro_rules! once {
     ($expression:expr) => {{
@@ -6,19 +8,18 @@ macro_rules! once {
 
         static SHOULD_FIRE: AtomicBool = AtomicBool::new(true);
         if SHOULD_FIRE.swap(false, Ordering::Relaxed) {
-            $expression;
-            true
+            Some($expression)
         } else {
-            false
+            None
         }
     }};
 }
 
-/// Call [`trace!`] once per call site.
+/// Call [`trace!`](crate::trace) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
-/// Returns true the first time this is called
+/// Returns `Some(())`` the first time its called
 #[macro_export]
 macro_rules! trace_once {
     ($($arg:tt)+) => ({
@@ -26,11 +27,11 @@ macro_rules! trace_once {
     });
 }
 
-/// Call [`debug!`] once per call site.
+/// Call [`debug!`](crate::debug) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
-/// Returns true the first time this is called
+/// Returns `Some(())`` the first time its called
 #[macro_export]
 macro_rules! debug_once {
     ($($arg:tt)+) => ({
@@ -38,11 +39,11 @@ macro_rules! debug_once {
     });
 }
 
-/// Call [`info!`] once per call site.
+/// Call [`info!`](crate::info) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
-/// Returns true the first time this is called
+/// Returns `Some(())`` the first time its called
 #[macro_export]
 macro_rules! info_once {
     ($($arg:tt)+) => ({
@@ -50,11 +51,11 @@ macro_rules! info_once {
     });
 }
 
-/// Call [`warn!`] once per call site.
+/// Call [`warn!`](crate::warn) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
-/// Returns true the first time this is called
+/// Returns `Some(())`` the first time its called
 #[macro_export]
 macro_rules! warn_once {
     ($($arg:tt)+) => ({
@@ -62,11 +63,11 @@ macro_rules! warn_once {
     });
 }
 
-/// Call [`error!`] once per call site.
+/// Call [`error!`](crate::error) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
-/// Returns true the first time this is called
+/// Returns `Some(())`` the first time its called
 #[macro_export]
 macro_rules! error_once {
     ($($arg:tt)+) => ({

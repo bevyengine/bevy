@@ -1,6 +1,7 @@
 //! This example illustrates how to use logs in bevy.
 
 use bevy::prelude::*;
+use bevy_internal::log::once;
 
 fn main() {
     App::new()
@@ -46,7 +47,21 @@ fn log_once_system() {
         info_once!("logs once per call site, so this works just fine: {}", i);
     }
 
-    if info_once!("some more info") {
+    if info_once!("some more info").is_some() {
         info!("this is the first and only time 'some more info' was printed");
+    }
+
+    // you can also use the 'once!' macro directly, in situations you want do do
+    // something expensive only once within the context of a continous system.
+    if let Some(result) = once!({
+        info!("doing expensive things");
+        let mut a: u64 = 0;
+        for i in 0..100000000 {
+            // ... doing expensive things
+            a += i;
+        }
+        a
+    }) {
+        info!("result of some expensive one time calculation: {}", result);
     }
 }
