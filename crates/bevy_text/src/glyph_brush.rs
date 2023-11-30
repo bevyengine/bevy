@@ -208,7 +208,7 @@ impl GlyphPlacementAdjuster {
 pub(crate) fn compute_text_bounds<T>(
     section_glyphs: &[SectionGlyph],
     get_scaled_font: impl Fn(usize) -> PxScaleFont<T>,
-) -> bevy_math::Rect
+) -> Rect
 where
     T: ab_glyph::Font,
 {

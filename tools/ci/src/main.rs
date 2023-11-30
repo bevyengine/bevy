@@ -17,15 +17,6 @@ bitflags! {
     }
 }
 
-const CLIPPY_FLAGS: [&str; 6] = [
-    "-Wclippy::doc_markdown",
-    "-Wclippy::redundant_else",
-    "-Wclippy::match_same_arms",
-    "-Wclippy::semicolon_if_nothing_returned",
-    "-Wclippy::map_flatten",
-    "-Dwarnings",
-];
-
 fn main() {
     // When run locally, results may differ from actual CI runs triggered by
     // .github/workflows/ci.yml
@@ -80,7 +71,7 @@ fn main() {
         // - Type complexity must be ignored because we use huge templates for queries
         cmd!(
             sh,
-            "cargo clippy --workspace --all-targets --all-features -- {CLIPPY_FLAGS...}"
+            "cargo clippy --workspace --all-targets --all-features -- -Dwarnings"
         )
         .run()
         .expect("Please fix clippy errors in output above.");

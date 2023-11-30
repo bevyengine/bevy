@@ -46,7 +46,7 @@ pub enum Visibility {
 }
 
 // Allows `&Visibility == Visibility`
-impl std::cmp::PartialEq<Visibility> for &Visibility {
+impl PartialEq<Visibility> for &Visibility {
     #[inline]
     fn eq(&self, other: &Visibility) -> bool {
         **self == *other
@@ -54,7 +54,7 @@ impl std::cmp::PartialEq<Visibility> for &Visibility {
 }
 
 // Allows `Visibility == &Visibility`
-impl std::cmp::PartialEq<&Visibility> for Visibility {
+impl PartialEq<&Visibility> for Visibility {
     #[inline]
     fn eq(&self, other: &&Visibility) -> bool {
         *self == **other
@@ -269,7 +269,7 @@ pub fn calculate_bounds(
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).insert(aabb);
+                commands.entity(entity).try_insert(aabb);
             }
         }
     }
@@ -384,7 +384,12 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// for that view.
 pub fn check_visibility(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
-    mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
+    mut view_query: Query<(
+        &mut VisibleEntities,
+        &Frustum,
+        Option<&RenderLayers>,
+        &Camera,
+    )>,
     mut visible_aabb_query: Query<(
         Entity,
         &InheritedVisibility,
@@ -395,7 +400,11 @@ pub fn check_visibility(
         Has<NoFrustumCulling>,
     )>,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
+    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+        if !camera.is_active {
+            continue;
+        }
+
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();

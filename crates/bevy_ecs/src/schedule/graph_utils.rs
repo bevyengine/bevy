@@ -152,7 +152,7 @@ where
         map.insert(node, i);
         topsorted.add_node(node);
         // insert nodes as successors to their predecessors
-        for pred in graph.neighbors_directed(node, Direction::Incoming) {
+        for pred in graph.neighbors_directed(node, Incoming) {
             topsorted.add_edge(pred, node, ());
         }
     }
@@ -177,7 +177,7 @@ where
     for a in topsorted.nodes().rev() {
         let index_a = *map.get(&a).unwrap();
         // iterate their successors in topological order
-        for b in topsorted.neighbors_directed(a, Direction::Outgoing) {
+        for b in topsorted.neighbors_directed(a, Outgoing) {
             let index_b = *map.get(&b).unwrap();
             debug_assert!(index_a < index_b);
             if !visited[index_b] {
@@ -187,7 +187,7 @@ where
                 reachable.insert(index(index_a, index_b, n));
 
                 let successors = transitive_closure
-                    .neighbors_directed(b, Direction::Outgoing)
+                    .neighbors_directed(b, Outgoing)
                     .collect::<Vec<_>>();
                 for c in successors {
                     let index_c = *map.get(&c).unwrap();

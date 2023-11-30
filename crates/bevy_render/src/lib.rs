@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
@@ -89,7 +87,7 @@ pub enum RenderSet {
     ManageViews,
     /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
     ManageViewsFlush,
-    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
+    /// Queue drawable entities as phase items in [`RenderPhase`](render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
@@ -98,7 +96,7 @@ pub enum RenderSet {
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
-    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
+    /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
@@ -160,11 +158,7 @@ impl Render {
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_sets(
-            QueueMeshes
-                .in_set(RenderSet::Queue)
-                .after(prepare_assets::<Mesh>),
-        );
+        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));
         schedule.configure_sets(
             (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
@@ -181,7 +175,7 @@ impl Render {
 /// running the next frame while rendering the current frame.
 ///
 /// This schedule is run on the main world, but its buffers are not applied
-/// via [`Schedule::apply_deferred`](bevy_ecs::schedule::Schedule) until it is returned to the render world.
+/// via [`Schedule::apply_deferred`](Schedule) until it is returned to the render world.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
 pub struct ExtractSchedule;
 
@@ -253,6 +247,7 @@ impl Plugin for RenderPlugin {
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
                 ));
+                // SAFETY: Plugins should be set up on the main thread.
                 unsafe { initialize_render_app(app) };
             }
             RenderCreation::Automatic(render_creation) => {
@@ -273,8 +268,8 @@ impl Plugin for RenderPlugin {
                             backends,
                             dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
                         });
+                        // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
-                            // SAFETY: Plugins should be set up on the main thread.
                             let handle = wrapper.get_handle();
                             instance
                                 .create_surface(&handle)
@@ -315,6 +310,7 @@ impl Plugin for RenderPlugin {
                     #[cfg(not(target_arch = "wasm32"))]
                     futures_lite::future::block_on(async_renderer);
 
+                    // SAFETY: Plugins should be set up on the main thread.
                     unsafe { initialize_render_app(app) };
                 }
             }
@@ -455,7 +451,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                 "An entity was spawned after the entity list was cleared last frame and before the extract schedule began. This is not supported",
             );
 
-            // This is safe given the clear_entities call in the past frame and the assert above
+            // SAFETY: This is safe given the clear_entities call in the past frame and the assert above
             unsafe {
                 render_app
                     .world
