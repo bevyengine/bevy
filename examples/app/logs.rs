@@ -1,7 +1,7 @@
 //! This example illustrates how to use logs in bevy.
 
+use bevy::log::once;
 use bevy::prelude::*;
-use bevy_internal::log::once;
 
 fn main() {
     App::new()
@@ -53,7 +53,6 @@ fn log_once_system() {
         info!("doing expensive things");
         let mut a: u64 = 0;
         for i in 0..100000000 {
-            // ... doing expensive things
             a += i;
         }
         info!("result of some expensive one time calculation: {}", a);
