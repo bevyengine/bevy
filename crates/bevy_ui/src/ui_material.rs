@@ -113,8 +113,8 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 
     /// Returns the ID of the registered draw function that will be used for this material.
     ///
-    /// The default draw function for UI is [DrawUiMaterial]. If you use a custom draw function,
-    /// make sure to adapt the pipeline descriptor in [UiMaterial::specialize()]
+    /// The default draw function for UI is [`DrawUiMaterial`]. If you use a custom draw function,
+    /// make sure to adapt the pipeline descriptor in [`UiMaterial::specialize()`]
     fn draw_function_id<P: PhaseItem>(draw_functions: &DrawFunctions<P>) -> DrawFunctionId {
         draw_functions.read().id::<DrawUiMaterial<Self>>()
     }
