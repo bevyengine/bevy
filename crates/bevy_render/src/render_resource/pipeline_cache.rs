@@ -21,7 +21,7 @@ use std::{
     borrow::Cow,
     hash::Hash,
     mem,
-    ops::{ControlFlow, Deref},
+    ops::Deref,
     sync::{Mutex, PoisonError},
 };
 use thiserror::Error;
