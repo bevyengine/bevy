@@ -151,7 +151,9 @@ impl CommandQueue {
             // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
             cursor = unsafe { cursor.add(size) };
 
-            world.flush_commands();
+            if let Some(world) = &mut world {
+                world.flush_commands();
+            }
         }
     }
 

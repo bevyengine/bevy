@@ -6,7 +6,7 @@ use crate::{
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     prelude::{Component, QueryState},
-    query::{ReadOnlyWorldQuery, WorldQuery},
+    query::{WorldQueryData, WorldQueryFilter},
     system::{Commands, Query, Resource},
 };
 
@@ -52,7 +52,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     /// If state is from a different world then self
     #[inline]
-    pub fn query<'s, Q: WorldQuery, F: ReadOnlyWorldQuery>(
+    pub fn query<'s, Q: WorldQueryData, F: WorldQueryFilter>(
         &'w mut self,
         state: &'s mut QueryState<Q, F>,
     ) -> Query<'w, 's, Q, F> {
