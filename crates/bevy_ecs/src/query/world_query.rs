@@ -14,13 +14,11 @@ use bevy_utils::all_tuples;
 /// # Safety
 ///
 /// Implementor must ensure that
-/// [`update_component_access`], [`update_archetype_component_access`], [`matches_component_set`], and [`fetch`]
+/// [`update_component_access`], [`matches_component_set`], and [`fetch`]
 /// obey the following:
 ///
 /// - For each component mutably accessed by [`fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
 /// - For each component readonly accessed by [`fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
-/// - For each component mutably accessed by [`fetch`], [`update_archetype_component_access`] should add write access if that component belongs to the archetype.
-/// - For each component readonly accessed by [`fetch`], [`update_archetype_component_access`] should add read access if that component belongs to the archetype.
 /// - If `fetch` mutably accesses the same component twice, [`update_component_access`] should panic.
 /// - [`update_component_access`] may not add a `Without` filter for a component unless [`matches_component_set`] always returns `false` when the component set contains that component.
 /// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` when the component set doesn't contain that component.
@@ -34,7 +32,6 @@ use bevy_utils::all_tuples;
 /// [`fetch`]: Self::fetch
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
-/// [`update_archetype_component_access`]: Self::update_archetype_component_access
 /// [`update_component_access`]: Self::update_component_access
 /// [`WorldQueryData`]: crate::query::WorldQueryData
 /// [`WorldQueryFilter`]: crate::query::WorldQueryFilter
@@ -84,7 +81,6 @@ pub unsafe trait WorldQuery {
     /// # Safety
     ///
     /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
-    /// - [`Self::update_archetype_component_access`] must have been previously called with `archetype`.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_archetype<'w>(
@@ -100,12 +96,11 @@ pub unsafe trait WorldQuery {
     /// # Safety
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
-    /// - `table` must belong to an archetype that was previously registered with
-    ///   [`Self::update_archetype_component_access`].
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
-    /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`] or [`FilteredEntityMut`]
+    /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
+    /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
     ///
     /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
     fn set_access(_state: &mut Self::State, _access: &FilteredAccess<ComponentId>) {}
