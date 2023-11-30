@@ -1,4 +1,4 @@
-/// Call `trace!(...)` once per call site.
+/// Call [`trace!`] once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
@@ -10,7 +10,7 @@ macro_rules! trace_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            trace!($($arg)+);
+            $crate::trace!($($arg)+);
             true
         } else {
             false
@@ -18,7 +18,7 @@ macro_rules! trace_once {
     });
 }
 
-/// Call `debug!(...)` once per call site.
+/// Call [`debug!`] once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
@@ -30,7 +30,7 @@ macro_rules! debug_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            debug!($($arg)+);
+            $crate::debug!($($arg)+);
             true
         } else {
             false
@@ -38,7 +38,7 @@ macro_rules! debug_once {
     });
 }
 
-/// Call `info!(...)` once per call site.
+/// Call [`info!`] once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
@@ -50,7 +50,7 @@ macro_rules! info_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            info!($($arg)+);
+            $crate::info!($($arg)+);
             true
         } else {
             false
@@ -58,7 +58,7 @@ macro_rules! info_once {
     });
 }
 
-/// Call `warn!(...)` once per call site.
+/// Call [`warn!`] once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
@@ -70,7 +70,7 @@ macro_rules! warn_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            warn!($($arg)+);
+            $crate::warn!($($arg)+);
             true
         } else {
             false
@@ -78,7 +78,7 @@ macro_rules! warn_once {
     });
 }
 
-/// Call `error!(...)` once per call site.
+/// Call [`error!`] once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 ///
@@ -90,7 +90,7 @@ macro_rules! error_once {
 
         static FIRST_TIME: AtomicBool = AtomicBool::new(true);
         if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            error!($($arg)+);
+            $crate::error!($($arg)+);
             true
         } else {
             false
