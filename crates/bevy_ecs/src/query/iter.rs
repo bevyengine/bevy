@@ -517,7 +517,11 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIterationCursor<'w, 's
             let index = self.current_row - 1;
             if Self::IS_DENSE {
                 let entity = self.table_entities.get_unchecked(index);
-                Some(Q::fetch(&mut self.fetch, *entity, TableRow::new(index)))
+                Some(Q::fetch(
+                    &mut self.fetch,
+                    *entity,
+                    TableRow::from_usize(index),
+                ))
             } else {
                 let archetype_entity = self.archetype_entities.get_unchecked(index);
                 Some(Q::fetch(
@@ -578,7 +582,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIterationCursor<'w, 's
                 // SAFETY: set_table was called prior.
                 // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 let entity = self.table_entities.get_unchecked(self.current_row);
-                let row = TableRow::new(self.current_row);
+                let row = TableRow::from_usize(self.current_row);
                 if !F::filter_fetch(&mut self.filter, *entity, row) {
                     self.current_row += 1;
                     continue;

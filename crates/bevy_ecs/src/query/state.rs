@@ -267,7 +267,7 @@ impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
                 self.matched_archetypes.set(archetype_index, true);
                 self.matched_archetype_ids.push(archetype.id());
             }
-            let table_index = archetype.table_id().index();
+            let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow(table_index + 1);
                 self.matched_tables.set(table_index, true);
@@ -1128,7 +1128,7 @@ impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
                 let entities = table.entities();
                 for row in 0..table.entity_count() {
                     let entity = entities.get_unchecked(row);
-                    let row = TableRow::new(row);
+                    let row = TableRow::from_usize(row);
                     if !F::filter_fetch(&mut filter, *entity, row) {
                         continue;
                     }
@@ -1221,7 +1221,7 @@ impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
                             F::set_table(&mut filter, &self.filter_state, table);
                             for row in offset..offset + len {
                                 let entity = entities.get_unchecked(row);
-                                let row = TableRow::new(row);
+                                let row = TableRow::from_usize(row);
                                 if !F::filter_fetch(&mut filter, *entity, row) {
                                     continue;
                                 }
