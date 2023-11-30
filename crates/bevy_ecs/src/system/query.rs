@@ -1461,7 +1461,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     /// // We can also use it with a query that does not match exactly
     /// // by transmuting it.
     /// fn system_2(mut query: Query<(&mut A, &B)>) {
-    ///     let mut lens = query.transmute_fetch::<&A>();
+    ///     let mut lens = query.transmute_lens::<&A>();
     ///     reusable_function(&mut lens);
     /// }
     ///
