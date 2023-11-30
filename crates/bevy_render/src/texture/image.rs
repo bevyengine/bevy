@@ -109,7 +109,7 @@ pub struct Image {
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
-    pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
+    pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -444,18 +444,18 @@ impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
 impl Default for Image {
     /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
-        let format = wgpu::TextureFormat::bevy_default();
+        let format = TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size()];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
-                size: wgpu::Extent3d {
+                size: Extent3d {
                     width: 1,
                     height: 1,
                     depth_or_array_layers: 1,
                 },
                 format,
-                dimension: wgpu::TextureDimension::D2,
+                dimension: TextureDimension::D2,
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,

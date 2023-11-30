@@ -15,11 +15,11 @@ fn main() {
     let mut query = system_state.get_mut(&mut world);
 
     {
-        let mut subquery_a = query.subquery::<&mut Foo>();
-        let mut subquery_b = query.subquery::<&mut Foo>();
+        let mut lens_a = query.transmute_lens::<&mut Foo>();
+        let mut lens_b = query.transmute_lens::<&mut Foo>();
 
-        let mut query_a = subquery_a.query();
-        let mut query_b = subquery_b.query();
+        let mut query_a = lens_a.query();
+        let mut query_b = lens_b.query();
 
         let a = query_a.single_mut();
         let b = query_b.single_mut(); // oops 2 mutable references to same Foo
@@ -27,10 +27,10 @@ fn main() {
     }
 
     {
-        let mut subquery = query.subquery::<&mut Foo>();
+        let mut lens = query.transmute_lens::<&mut Foo>();
 
-        let mut query_a = subquery.query();
-        let mut query_b = subquery.query();
+        let mut query_a = lens.query();
+        let mut query_b = lens.query();
 
         let a = query_a.single_mut();
         let b = query_b.single_mut(); // oops 2 mutable references to same Foo

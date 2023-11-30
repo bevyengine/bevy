@@ -6,7 +6,7 @@ use crate::{
     prelude::{Component, FromWorld},
     query::{
         Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
-        QueryIter, QueryParIter, WorldQuery,
+        QueryIter, QueryParIter,
     },
     storage::{SparseSetIndex, TableId, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -18,15 +18,15 @@ use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryComponentError, QueryEntityError, QueryManyIter,
-    QuerySingleError, ROQueryItem, ReadOnlyWorldQuery,
+    QuerySingleError, ROQueryItem, WorldQueryData, WorldQueryFilter,
 };
 
-/// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
+/// Provides scoped access to a [`World`] state according to a given [`WorldQueryData`] and [`WorldQueryFilter`].
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `Q` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
-pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
+pub struct QueryState<Q: WorldQueryData, F: WorldQueryFilter = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
@@ -43,7 +43,7 @@ pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     par_iter_span: Span,
 }
 
-impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> {
+impl<Q: WorldQueryData, F: WorldQueryFilter> fmt::Debug for QueryState<Q, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
             .field("world_id", &self.world_id)
@@ -53,18 +53,18 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> 
     }
 }
 
-impl<Q: WorldQuery, F: ReadOnlyWorldQuery> FromWorld for QueryState<Q, F> {
+impl<Q: WorldQueryData, F: WorldQueryFilter> FromWorld for QueryState<Q, F> {
     fn from_world(world: &mut World) -> Self {
         world.query_filtered()
     }
 }
 
-impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
+impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
-    pub fn as_readonly(&self) -> &QueryState<Q::ReadOnly, F::ReadOnly> {
+    pub fn as_readonly(&self) -> &QueryState<Q::ReadOnly, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `Q::ReadOnly` and `F::ReadOnly`
         // have a subset of the access, and match the exact same archetypes/tables as `Q`/`F` respectively.
-        unsafe { self.as_transmuted_state::<Q::ReadOnly, F::ReadOnly>() }
+        unsafe { self.as_transmuted_state::<Q::ReadOnly, F>() }
     }
 
     /// Converts this `QueryState` reference to a `QueryState` that does not return any data
@@ -88,8 +88,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// `NewQ` must have a subset of the access that `Q` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
     pub(crate) unsafe fn as_transmuted_state<
-        NewQ: WorldQuery<State = Q::State>,
-        NewF: ReadOnlyWorldQuery<State = F::State>,
+        NewQ: WorldQueryData<State = Q::State>,
+        NewF: WorldQueryFilter<State = F::State>,
     >(
         &self,
     ) -> &QueryState<NewQ, NewF> {
@@ -97,7 +97,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 }
 
-impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
+impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let fetch_state = Q::init_state(world);
@@ -190,7 +190,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Safety
     ///
-    /// - `world` must have permission to read any components required by this instance's `F` [`WorldQuery`].
+    /// - `world` must have permission to read any components required by this instance's `F` [`WorldQueryFilter`].
     /// - `world` must match the one used to create this [`QueryState`].
     #[inline]
     pub(crate) unsafe fn is_empty_unsafe_world_cell(
@@ -323,13 +323,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         });
     }
 
-    /// Creates a new [`QueryState`] with the same underlying [`FilteredAccess`], matched tables and archetypes
-    /// as self but with a new type signature.
+    /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
+    /// This can be useful for passing to another function that might take the more general form.
+    /// See [`Query::transmute_lens`](crate::system::Query::transmute_lens) for more details.
     ///
-    /// Panics if `NewQ` requires accesses that this query does not have.
-    ///
-    /// If including a filter type see [`Self::transmute_filtered`]
-    pub fn transmute<NewQ: WorldQuery>(&self, world: &World) -> QueryState<NewQ> {
+    /// You should not call [`update_archetypes`](Self::update_archetypes) on the returned [`QueryState`] as the result will be unpredictable.
+    /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
+    /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally, so this
+    /// best used through a [`Query`](crate::system::Query).
+    pub fn transmute<NewQ: WorldQueryData>(&self, world: &World) -> QueryState<NewQ> {
         self.transmute_filtered::<NewQ, ()>(world)
     }
 
@@ -337,7 +339,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// as self but with a new type signature.
     ///
     /// Panics if `NewQ` or `NewF` require accesses that this query does not have.
-    pub fn transmute_filtered<NewQ: WorldQuery, NewF: ReadOnlyWorldQuery>(
+    pub fn transmute_filtered<NewQ: WorldQueryData, NewF: WorldQueryFilter>(
         &self,
         world: &World,
     ) -> QueryState<NewQ, NewF> {
@@ -799,10 +801,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
     #[inline]
-    pub fn iter<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-    ) -> QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, Q::ReadOnly, F> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -831,10 +830,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// This can only be called for read-only queries.
     #[inline]
-    pub fn iter_manual<'w, 's>(
-        &'s self,
-        world: &'w World,
-    ) -> QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn iter_manual<'w, 's>(&'s self, world: &'w World) -> QueryIter<'w, 's, Q::ReadOnly, F> {
         self.validate_world(world.id());
         // SAFETY: query is read only and world is validated
         unsafe {
@@ -871,7 +867,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub fn iter_combinations<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
-    ) -> QueryCombinationIter<'w, 's, Q::ReadOnly, F::ReadOnly, K> {
+    ) -> QueryCombinationIter<'w, 's, Q::ReadOnly, F, K> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -931,7 +927,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, Q::ReadOnly, F::ReadOnly, EntityList::IntoIter>
+    ) -> QueryManyIter<'w, 's, Q::ReadOnly, F, EntityList::IntoIter>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -966,7 +962,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, Q::ReadOnly, F::ReadOnly, EntityList::IntoIter>
+    ) -> QueryManyIter<'w, 's, Q::ReadOnly, F, EntityList::IntoIter>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -1170,7 +1166,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub fn par_iter<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> QueryParIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
+    ) -> QueryParIter<'w, 's, Q::ReadOnly, F> {
         self.update_archetypes(world);
         QueryParIter {
             world: world.as_unsafe_world_cell_readonly(),
@@ -1520,6 +1516,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 }
 
+impl<Q: WorldQueryData, F: WorldQueryFilter> From<QueryBuilder<'_, Q, F>> for QueryState<Q, F> {
+    fn from(mut value: QueryBuilder<Q, F>) -> Self {
+        QueryState::from_builder(&mut value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
@@ -1630,7 +1632,7 @@ mod tests {
         let _panics = query_state.get_many_mut(&mut world_2, []);
     }
 
-    mod subquery {
+    mod transmute {
         use super::*;
 
         #[derive(Component, PartialEq, Debug)]
@@ -1724,7 +1726,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "Transmuted state for ((&bevy_ecs::query::state::tests::subquery::A, &bevy_ecs::query::state::tests::subquery::B), ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::subquery::A, ())."
+            expected = "Transmuted state for ((&bevy_ecs::query::state::tests::transmute::A, &bevy_ecs::query::state::tests::transmute::B), ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::transmute::A, ())."
         )]
         fn cannot_transmute_to_include_data_not_in_original_query() {
             let mut world = World::new();
@@ -1738,7 +1740,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::subquery::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::subquery::A, ())."
+            expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::transmute::A, ())."
         )]
         fn cannot_transmute_immut_to_mut() {
             let mut world = World::new();
@@ -1750,7 +1752,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "Transmuted state for (&bevy_ecs::query::state::tests::subquery::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::subquery::A>, ())."
+            expected = "Transmuted state for (&bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::transmute::A>, ())."
         )]
         fn cannot_transmute_option_to_immut() {
             let mut world = World::new();
@@ -1764,7 +1766,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "Transmuted state for (&bevy_ecs::query::state::tests::subquery::A, ()) attempts to access terms that are not allowed by original state (bevy_ecs::world::entity_ref::EntityRef, ())."
+            expected = "Transmuted state for (&bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (bevy_ecs::world::entity_ref::EntityRef, ())."
         )]
         fn cannot_transmute_entity_ref() {
             let mut world = World::new();

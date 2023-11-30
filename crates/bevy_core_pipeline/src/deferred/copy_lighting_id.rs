@@ -8,7 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_resource::*,
+    render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
@@ -128,19 +128,13 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("copy_deferred_lighting_id_bind_group_layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Uint,
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
+        let layout = render_device.create_bind_group_layout(
+            "copy_deferred_lighting_id_bind_group_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::FRAGMENT,
+                texture_2d(TextureSampleType::Uint),
+            ),
+        );
 
         let pipeline_id =
             world

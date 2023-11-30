@@ -244,7 +244,6 @@ where
     Self: Sized,
 {
     /// Convert into a [`SystemConfigs`].
-    #[doc(hidden)]
     fn into_configs(self) -> SystemConfigs;
 
     /// Add these systems to the provided `set`.

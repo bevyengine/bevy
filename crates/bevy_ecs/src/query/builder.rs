@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{component::ComponentId, prelude::*};
 
-use super::{FilteredAccess, ReadOnlyWorldQuery, WorldQuery};
+use super::{FilteredAccess, WorldQueryData, WorldQueryFilter};
 
 /// Builder struct to create [`QueryState`] instances at runtime.
 ///
@@ -32,7 +32,7 @@ use super::{FilteredAccess, ReadOnlyWorldQuery, WorldQuery};
 /// // Consume the QueryState
 /// let (entity, b) = query.single(&world);
 ///```
-pub struct QueryBuilder<'w, Q: WorldQuery = (), F: ReadOnlyWorldQuery = ()> {
+pub struct QueryBuilder<'w, Q: WorldQueryData = (), F: WorldQueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
     world: &'w mut World,
     or: bool,
@@ -40,7 +40,7 @@ pub struct QueryBuilder<'w, Q: WorldQuery = (), F: ReadOnlyWorldQuery = ()> {
     _marker: PhantomData<(Q, F)>,
 }
 
-impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
+impl<'w, Q: WorldQueryData, F: WorldQueryFilter> QueryBuilder<'w, Q, F> {
     /// Creates a new builder with the accesses required for `Q` and `F`
     pub fn new(world: &'w mut World) -> Self {
         let fetch_state = Q::init_state(world);
@@ -94,7 +94,16 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
     }
 
     /// Adds accesses required for `T` to self.
-    pub fn push<T: WorldQuery>(&mut self) -> &mut Self {
+    pub fn data<T: WorldQueryData>(&mut self) -> &mut Self {
+        let state = T::init_state(self.world);
+        let mut access = FilteredAccess::default();
+        T::update_component_access(&state, &mut access);
+        self.extend_access(access);
+        self
+    }
+
+    /// Adds filter from `T` to self.
+    pub fn filter<T: WorldQueryFilter>(&mut self) -> &mut Self {
         let state = T::init_state(self.world);
         let mut access = FilteredAccess::default();
         T::update_component_access(&state, &mut access);
@@ -104,7 +113,7 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
 
     /// Adds [`With<T>`] to the [`FilteredAccess`] of self.
     pub fn with<T: Component>(&mut self) -> &mut Self {
-        self.push::<With<T>>();
+        self.filter::<With<T>>();
         self
     }
 
@@ -118,7 +127,7 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
 
     /// Adds [`Without<T>`] to the [`FilteredAccess`] of self.
     pub fn without<T: Component>(&mut self) -> &mut Self {
-        self.push::<Without<T>>();
+        self.filter::<Without<T>>();
         self
     }
 
@@ -184,7 +193,7 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
     ///     builder.with::<B>();
     /// });
     /// // is equivalent to
-    /// QueryBuilder::<Entity>::new(&mut world).push::<Or<(With<A>, With<B>)>>();
+    /// QueryBuilder::<Entity>::new(&mut world).filter::<Or<(With<A>, With<B>)>>();
     /// ```
     pub fn or(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
@@ -204,13 +213,13 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
     /// This will maintain all exisiting accesses.
     ///
     /// If including a filter type see [`Self::transmute_filtered`]
-    pub fn transmute<NewQ: WorldQuery>(&mut self) -> &mut QueryBuilder<'w, NewQ> {
+    pub fn transmute<NewQ: WorldQueryData>(&mut self) -> &mut QueryBuilder<'w, NewQ> {
         self.transmute_filtered::<NewQ, ()>()
     }
 
     /// Transmute the existing builder adding required accesses.
     /// This will maintain all existing accesses.
-    pub fn transmute_filtered<NewQ: WorldQuery, NewF: ReadOnlyWorldQuery>(
+    pub fn transmute_filtered<NewQ: WorldQueryData, NewF: WorldQueryFilter>(
         &mut self,
     ) -> &mut QueryBuilder<'w, NewQ, NewF> {
         let mut fetch_state = NewQ::init_state(self.world);
@@ -230,6 +239,9 @@ impl<'w, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryBuilder<'w, Q, F> {
     }
 
     /// Create a [`QueryState`] with the accesses of the builder.
+    ///
+    /// Takes `&mut self` to access the innner world reference while initializing
+    /// state for the new [`QueryState`]
     pub fn build(&mut self) -> QueryState<Q, F> {
         QueryState::<Q, F>::from_builder(self)
     }
@@ -346,8 +358,8 @@ mod tests {
         let entity = world.spawn((A(0), B(1))).id();
 
         let mut query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
-            .push::<&A>()
-            .push::<&B>()
+            .data::<&A>()
+            .data::<&B>()
             .build();
 
         let entity_ref = query.single(&world);
@@ -385,38 +397,5 @@ mod tests {
             assert_eq!(0, a.deref::<A>().0);
             assert_eq!(1, b.deref::<B>().0);
         }
-    }
-
-    #[test]
-    fn builder_query_system() {
-        let mut world = World::new();
-        world.spawn(A(0));
-        let entity = world.spawn((A(1), B(0))).id();
-
-        let sys = move |query: Query<(Entity, &A)>| {
-            let (e, a) = query.single();
-            assert_eq!(e, entity);
-            assert_eq!(1, a.0);
-        };
-
-        // Add additional terms that don't appear in the original query
-        let query = QueryBuilder::<(Entity, &A)>::new(&mut world)
-            .with::<B>()
-            .build();
-        let mut system = IntoSystem::into_system(sys);
-        system.initialize(&mut world);
-
-        // SAFETY: We know the system param we are modifying has a compatible type signature
-        unsafe { system.state_mut().0 = query };
-        system.run((), &mut world);
-
-        // Alternatively truncate terms from a query to match the system
-        let query = QueryBuilder::<(Entity, &A, &B)>::new(&mut world).build();
-        let mut system = IntoSystem::into_system(sys);
-        system.initialize(&mut world);
-
-        // SAFETY: We know the system param we are modifying has a compatible type signature
-        unsafe { system.state_mut().0 = query.transmute(&world) };
-        system.run((), &mut world);
     }
 }

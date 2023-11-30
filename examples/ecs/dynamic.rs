@@ -6,8 +6,8 @@ use std::{alloc::Layout, io::Write, ptr::NonNull};
 use bevy::prelude::*;
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, StorageType},
-        query::{QueryBuilder, WorldQuery},
+        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
+        query::{QueryBuilder, WorldQueryData},
         world::FilteredEntityMut,
     },
     ptr::OwningPtr,
@@ -45,9 +45,8 @@ query, q  Query for entities
 fn main() {
     let mut world = World::new();
     let mut lines = std::io::stdin().lines();
-    let mut components = HashMap::<String, ComponentId>::new();
-    let mut system = IntoSystem::into_system(query_system);
-    system.initialize(&mut world);
+    let mut component_names = HashMap::<String, ComponentId>::new();
+    let mut component_info = HashMap::<ComponentId, ComponentInfo>::new();
 
     println!("{}", PROMPT);
     loop {
@@ -91,7 +90,11 @@ fn main() {
                             None,
                         )
                     });
-                    components.insert(name.to_string(), id);
+                    let Some(info) = world.components().get_info(id) else {
+                        return;
+                    };
+                    component_names.insert(name.to_string(), id);
+                    component_info.insert(id, info.clone());
                     println!("Component {} created with id: {:?}", name, id.index());
                 });
             }
@@ -103,7 +106,7 @@ fn main() {
                     let Some(name) = component.next() else {
                         return;
                     };
-                    let Some(&id) = components.get(name) else {
+                    let Some(&id) = component_names.get(name) else {
                         println!("Component {} does not exist", name);
                         return;
                     };
@@ -139,19 +142,46 @@ fn main() {
             }
             "q" => {
                 let mut builder = QueryBuilder::<FilteredEntityMut>::new(&mut world);
-                parse_query(rest, &mut builder, &components);
-                let query = builder.build();
+                parse_query(rest, &mut builder, &component_names);
+                let mut query = builder.build();
 
-                // SAFETY: Our query state is valid as we just built it
-                unsafe { system.state_mut().0 = query };
-                system.run((), &mut world);
+                query.iter_mut(&mut world).for_each(|filtered_entity| {
+                    let terms = filtered_entity
+                        .components()
+                        .map(|id| {
+                            let ptr = filtered_entity.get_by_id(id).unwrap();
+                            let info = component_info.get(&id).unwrap();
+                            let len = info.layout().size() / std::mem::size_of::<u64>();
+
+                            // SAFETY:
+                            // - All components are created with layout [u64]
+                            // - len is calculated from the component descriptor
+                            let data = unsafe {
+                                std::slice::from_raw_parts_mut(
+                                    ptr.assert_unique().as_ptr().cast::<u64>(),
+                                    len,
+                                )
+                            };
+                            if filtered_entity.access().has_write(id) {
+                                data.iter_mut().for_each(|data| {
+                                    *data += 1;
+                                });
+                            }
+
+                            format!("{}: {:?}", info.name(), data[0..len].to_vec())
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+
+                    println!("{:?}: {}", filtered_entity.id(), terms);
+                });
             }
             _ => continue,
         }
     }
 }
 
-fn parse_term<Q: WorldQuery>(
+fn parse_term<Q: WorldQueryData>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
     components: &HashMap<String, ComponentId>,
@@ -192,7 +222,7 @@ fn parse_term<Q: WorldQuery>(
     }
 }
 
-fn parse_query<Q: WorldQuery>(
+fn parse_query<Q: WorldQueryData>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
     components: &HashMap<String, ComponentId>,
@@ -209,35 +239,5 @@ fn parse_query<Q: WorldQuery>(
                     .for_each(|term| parse_term(term, b, components));
             });
         }
-    });
-}
-
-fn query_system(mut query: Query<FilteredEntityMut>, world: &World) {
-    query.iter_mut().for_each(|filtered_entity| {
-        let terms = filtered_entity
-            .components()
-            .map(|id| {
-                let ptr = filtered_entity.get_by_id(id).unwrap();
-                let info = world.components().get_info(id).unwrap();
-                let len = info.layout().size() / std::mem::size_of::<u64>();
-
-                // SAFETY:
-                // - All components are created with layout [u64]
-                // - len is calculated from the component descriptor
-                let data = unsafe {
-                    std::slice::from_raw_parts_mut(ptr.assert_unique().as_ptr().cast::<u64>(), len)
-                };
-                if filtered_entity.access().has_write(id) {
-                    data.iter_mut().for_each(|data| {
-                        *data += 1;
-                    });
-                }
-
-                format!("{}: {:?}", info.name(), data[0..len].to_vec())
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        println!("{:?}: {}", filtered_entity.id(), terms);
     });
 }

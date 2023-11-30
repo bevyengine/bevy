@@ -1430,13 +1430,13 @@ impl<'w> FilteredEntityRef<'w> {
     /// # Safety
     /// - `cell` must have permission to mutate every component of the entity.
     /// - No accesses to any of the entity's components may exist
-    ///   at the same time as the returned [`EntityMut`].
+    ///   at the same time as the returned [`FilteredEntityMut`].
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
         Self { entity, access }
     }
 
     /// Returns a new instance with a shorter lifetime.
-    /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
+    /// This is useful if you have `&FilteredEntityRef`, but you need `FilteredEntityRef`.
     pub fn reborrow(&mut self) -> FilteredEntityRef<'_> {
         // SAFETY: We have exclusive access to the entire entity and its components.
         unsafe { Self::new(self.entity, self.access.clone()) }
@@ -1554,7 +1554,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::get_change_ticks`] where possible and only
+    /// **You should prefer to use the typed API [`Self::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
@@ -1569,12 +1569,12 @@ impl<'w> FilteredEntityRef<'w> {
 
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::get`] where possible and only
+    /// **You should prefer to use the typed API [`Self::get`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
+    /// Unlike [`FilteredEntityRef::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityRef`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.access
@@ -1610,13 +1610,13 @@ impl<'w> FilteredEntityMut<'w> {
     /// # Safety
     /// - `cell` must have permission to mutate every component of the entity.
     /// - No accesses to any of the entity's components may exist
-    ///   at the same time as the returned [`EntityMut`].
+    ///   at the same time as the returned [`FilteredEntityMut`].
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
         Self { entity, access }
     }
 
     /// Returns a new instance with a shorter lifetime.
-    /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
+    /// This is useful if you have `&mut FilteredEntityMut`, but you need `FilteredEntityMut`.
     pub fn reborrow(&mut self) -> FilteredEntityMut<'_> {
         // SAFETY: We have exclusive access to the entire entity and its components.
         unsafe { Self::new(self.entity, self.access.clone()) }
@@ -1734,7 +1734,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::get_change_ticks`] where possible and only
+    /// **You should prefer to use the typed API [`Self::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
@@ -1744,12 +1744,12 @@ impl<'w> FilteredEntityMut<'w> {
 
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::get`] where possible and only
+    /// **You should prefer to use the typed API [`Self::get`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
+    /// Unlike [`FilteredEntityMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         self.as_readonly().get_by_id(component_id)
@@ -1757,12 +1757,12 @@ impl<'w> FilteredEntityMut<'w> {
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
+    /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
+    /// Unlike [`FilteredEntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY: We have write access so we must have the component

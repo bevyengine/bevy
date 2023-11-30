@@ -109,7 +109,7 @@ impl<T> SystemSet for SystemTypeSet<T> {
     }
 
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        std::any::TypeId::of::<Self>().hash(&mut state);
+        TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
     }
 }
@@ -136,7 +136,7 @@ impl SystemSet for AnonymousSet {
     }
 
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        std::any::TypeId::of::<Self>().hash(&mut state);
+        TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
     }
 
