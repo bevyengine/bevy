@@ -1,7 +1,10 @@
 use std::hash::Hash;
 
 use bevy_asset::Asset;
-use bevy_render::{render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef}, render_phase::{DrawFunctionId, PhaseItem, DrawFunctions}};
+use bevy_render::{
+    render_phase::{DrawFunctionId, DrawFunctions, PhaseItem},
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+};
 
 use crate::DrawUiMaterial;
 
@@ -109,7 +112,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     fn specialize(descriptor: &mut RenderPipelineDescriptor, key: UiMaterialKey<Self>) {}
 
     /// Returns the ID of the registered draw function that will be used for this material.
-    /// 
+    ///
     /// The default draw function for UI is [DrawUiMaterial]. If you use a custom draw function,
     /// make sure to adapt the pipeline descriptor in [UiMaterial::specialize()]
     fn draw_function_id<P: PhaseItem>(draw_functions: &DrawFunctions<P>) -> DrawFunctionId {
