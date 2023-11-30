@@ -10,6 +10,7 @@ use crate::{
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_tasks::{AsyncComputeTaskPool, Task};
 use bevy_utils::{
     default,
     tracing::{debug, error},
@@ -20,7 +21,7 @@ use std::{
     borrow::Cow,
     hash::Hash,
     mem,
-    ops::Deref,
+    ops::{ControlFlow, Deref},
     sync::{Mutex, PoisonError},
 };
 use thiserror::Error;
@@ -94,6 +95,8 @@ pub struct CachedPipeline {
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
     Queued,
+    /// The pipeline GPU object is being created.
+    Creating(Task<Pipeline>),
     /// The pipeline GPU object was created successfully and is available (allocated on the GPU).
     Ok(Pipeline),
     /// An error occurred while trying to create the pipeline GPU object.
@@ -116,6 +119,9 @@ impl CachedPipelineState {
             CachedPipelineState::Ok(pipeline) => pipeline,
             CachedPipelineState::Queued => {
                 panic!("Pipeline has not been compiled yet. It is still in the 'Queued' state.")
+            }
+            CachedPipelineState::Creating(..) => {
+                panic!("Pipeline has not been compiled yet. It is still in the 'Creating' state.")
             }
             CachedPipelineState::Err(err) => panic!("{}", err),
         }
@@ -464,7 +470,7 @@ impl LayoutCache {
 /// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
 /// graph starts being processed, as this requires access to the GPU.
 ///
-/// Note that the cache do not perform automatic deduplication of identical pipelines. It is
+/// Note that the cache does not perform automatic deduplication of identical pipelines. It is
 /// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
 ///
 /// [`RenderSet::Render`]: crate::RenderSet::Render
@@ -649,7 +655,7 @@ impl PipelineCache {
         }
     }
 
-    fn process_render_pipeline(
+    fn try_start_create_render_pipeline(
         &mut self,
         id: CachedPipelineId,
         descriptor: &RenderPipelineDescriptor,
@@ -729,12 +735,13 @@ impl PipelineCache {
                 }),
         };
 
-        let pipeline = self.device.create_render_pipeline(&descriptor);
-
-        CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline))
+        let device = self.device.clone();
+        CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
+            Pipeline::RenderPipeline(device.create_render_pipeline(&descriptor))
+        }))
     }
 
-    fn process_compute_pipeline(
+    fn try_start_create_compute_pipeline(
         &mut self,
         id: CachedPipelineId,
         descriptor: &ComputePipelineDescriptor,
@@ -768,9 +775,10 @@ impl PipelineCache {
             entry_point: descriptor.entry_point.as_ref(),
         };
 
-        let pipeline = self.device.create_compute_pipeline(&descriptor);
-
-        CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline))
+        let device = self.device.clone();
+        CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
+            Pipeline::ComputePipeline(device.create_compute_pipeline(&descriptor))
+        }))
     }
 
     /// Process the pipeline queue and create all pending pipelines if possible.
@@ -796,42 +804,49 @@ impl PipelineCache {
         }
 
         for id in waiting_pipelines {
-            let pipeline = &mut pipelines[id];
-            if matches!(pipeline.state, CachedPipelineState::Ok(_)) {
-                continue;
-            }
-
-            pipeline.state = match &pipeline.descriptor {
-                PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
-                    self.process_render_pipeline(id, descriptor)
-                }
-                PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
-                    self.process_compute_pipeline(id, descriptor)
-                }
-            };
-
-            if let CachedPipelineState::Err(err) = &pipeline.state {
-                match err {
-                    PipelineCacheError::ShaderNotLoaded(_)
-                    | PipelineCacheError::ShaderImportNotYetAvailable => {
-                        // retry
-                        self.waiting_pipelines.insert(id);
-                    }
-                    // shader could not be processed ... retrying won't help
-                    PipelineCacheError::ProcessShaderError(err) => {
-                        let error_detail = err.emit_to_string(&self.shader_cache.composer);
-                        error!("failed to process shader:\n{}", error_detail);
-                        continue;
-                    }
-                    PipelineCacheError::CreateShaderModule(description) => {
-                        error!("failed to create shader module: {}", description);
-                        continue;
-                    }
-                }
-            }
+            self.process_pipeline(&mut pipelines[id], id);
         }
 
         self.pipelines = pipelines;
+    }
+
+    fn process_pipeline(&mut self, cached_pipeline: &mut CachedPipeline, id: usize) {
+        match &mut cached_pipeline.state {
+            CachedPipelineState::Queued => {
+                cached_pipeline.state = match &cached_pipeline.descriptor {
+                    PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
+                        self.try_start_create_render_pipeline(id, descriptor)
+                    }
+                    PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
+                        self.try_start_create_compute_pipeline(id, descriptor)
+                    }
+                };
+            }
+
+            CachedPipelineState::Creating(ref mut task) => {
+                if let Some(pipeline) = bevy_utils::futures::check_ready(task) {
+                    cached_pipeline.state = CachedPipelineState::Ok(pipeline);
+                }
+            }
+
+            CachedPipelineState::Err(err) => match err {
+                PipelineCacheError::ShaderNotLoaded(_)
+                | PipelineCacheError::ShaderImportNotYetAvailable => {
+                    // Retry
+                    self.waiting_pipelines.insert(id);
+                }
+                // Shader could not be processed ... retrying won't help
+                PipelineCacheError::ProcessShaderError(err) => {
+                    let error_detail = err.emit_to_string(&self.shader_cache.composer);
+                    error!("failed to process shader:\n{}", error_detail);
+                }
+                PipelineCacheError::CreateShaderModule(description) => {
+                    error!("failed to create shader module: {}", description);
+                }
+            },
+
+            CachedPipelineState::Ok(_) => unreachable!(),
+        }
     }
 
     pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
