@@ -30,12 +30,9 @@ impl<'w> Deref for DeferredWorld<'w> {
 impl<'w> DeferredWorld<'w> {
     /// Creates a [`Commands`] instance that pushes to the world's command queue
     #[inline]
-    pub fn with_commands(&mut self, f: impl Fn(Commands)) {
-        // SAFETY: We have exclusive access to the world's command queue
-        let world = unsafe { self.world.world_mut() };
-        let mut queue = std::mem::take(&mut world.command_queue);
-        f(Commands::new(&mut queue, world));
-        world.command_queue = std::mem::take(&mut queue);
+    pub fn commands(&mut self) -> Commands {
+        // SAFETY: Commands cannot make structural changes.
+        unsafe { self.world.world_mut().commands() }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.

@@ -24,7 +24,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{CommandQueue, Resource},
+    system::{CommandQueue, Commands, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -179,6 +179,13 @@ impl World {
     #[inline]
     pub fn cell(&mut self) -> WorldCell<'_> {
         WorldCell::new(self)
+    }
+
+    /// Creates a new [`Commands`] instance that writes to the world's command queue
+    /// Use [`World::flush_commands`] to apply all queued commands
+    #[inline]
+    pub fn commands(&mut self) -> Commands {
+        Commands::new_from_entities(&mut self.command_queue, &self.entities)
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.

@@ -688,21 +688,21 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let entity = self.entity;
-        let old_archetype = &world.archetypes[old_location.archetype_id];
-
-        // Drop borrow on world so it can be turned into DeferredWorld
-        let bundle_info = {
+        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
+        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
             let bundle_info: *const BundleInfo = bundle_info;
-            // SAFETY: Changes to Bundles cannot happen through DeferredWorld
-            unsafe { &*bundle_info }
+            let world = world.as_unsafe_world_cell();
+            (
+                &world.archetypes()[old_location.archetype_id],
+                &*bundle_info,
+                world.into_deferred(),
+            )
         };
+
         if old_archetype.has_on_remove() {
             // SAFETY: All components in the archetype exist in world
             unsafe {
-                world
-                    .as_unsafe_world_cell()
-                    .into_deferred()
-                    .trigger_on_remove(entity, bundle_info.iter_components());
+                deferred_world.trigger_on_remove(entity, bundle_info.iter_components());
             }
         }
 
@@ -865,22 +865,22 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         }
 
-        let entity: Entity = self.entity;
-        let old_archetype = &world.archetypes[old_location.archetype_id];
-
-        // Drop borrow on world so it can be turned into DeferredWorld
-        let bundle_info = {
+        let entity = self.entity;
+        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
+        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
             let bundle_info: *const BundleInfo = bundle_info;
-            // SAFETY: Changes to Bundles cannot happen through DeferredWorld
-            unsafe { &*bundle_info }
+            let world = world.as_unsafe_world_cell();
+            (
+                &world.archetypes()[old_location.archetype_id],
+                &*bundle_info,
+                world.into_deferred(),
+            )
         };
+
         if old_archetype.has_on_remove() {
             // SAFETY: All components in the archetype exist in world
             unsafe {
-                world
-                    .as_unsafe_world_cell()
-                    .into_deferred()
-                    .trigger_on_remove(entity, bundle_info.iter_components());
+                deferred_world.trigger_on_remove(entity, bundle_info.iter_components());
             }
         }
 
@@ -923,19 +923,18 @@ impl<'w> EntityWorldMut<'w> {
         let world = self.world;
         world.flush_entities();
         let archetype = &world.archetypes[self.location.archetype_id];
+
+        // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
+        let (archetype, mut deferred_world) = unsafe {
+            let archetype: *const Archetype = archetype;
+            let world = world.as_unsafe_world_cell();
+            (&*archetype, world.into_deferred())
+        };
+
         if archetype.has_on_remove() {
-            // Drop borrow on world so it can be turned into DeferredWorld
-            let archetype = {
-                let archetype: *const Archetype = archetype;
-                // SAFETY: Changes to Archetypes cannot happpen through DeferredWorld
-                unsafe { &*archetype }
-            };
             // SAFETY: All components in the archetype exist in world
             unsafe {
-                world
-                    .as_unsafe_world_cell()
-                    .into_deferred()
-                    .trigger_on_remove(self.entity, archetype.components());
+                deferred_world.trigger_on_remove(self.entity, archetype.components());
             }
         }
 

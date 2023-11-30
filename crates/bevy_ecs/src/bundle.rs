@@ -1181,27 +1181,18 @@ mod tests {
             .register_component::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
-
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).insert(B);
-                });
+                world.commands().entity(entity).insert(B);
             })
             .on_remove(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(2);
-
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).remove::<B>();
-                });
+                world.commands().entity(entity).remove::<B>();
             });
 
         world
             .register_component::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
-
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).remove::<A>();
-                });
+                world.commands().entity(entity).remove::<A>();
             })
             .on_remove(|mut world, _, _| {
                 world.resource_mut::<R>().assert_order(3);
@@ -1222,18 +1213,14 @@ mod tests {
             .register_component::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).insert(B).insert(D);
-                });
+                world.commands().entity(entity).insert(B).insert(D);
             });
 
         world
             .register_component::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).insert(C);
-                });
+                world.commands().entity(entity).insert(C);
             });
 
         world.register_component::<C>().on_add(|mut world, _, _| {
