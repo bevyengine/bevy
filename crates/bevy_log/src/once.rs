@@ -1,3 +1,19 @@
+/// Call some expression only once
+#[macro_export]
+macro_rules! once {
+    ($expression:expr) => {{
+        use ::std::sync::atomic::{AtomicBool, Ordering};
+
+        static SHOULD_FIRE: AtomicBool = AtomicBool::new(true);
+        if SHOULD_FIRE.swap(false, Ordering::Relaxed) {
+            $expression;
+            true
+        } else {
+            false
+        }
+    }};
+}
+
 /// Call [`trace!`] once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
@@ -6,15 +22,7 @@
 #[macro_export]
 macro_rules! trace_once {
     ($($arg:tt)+) => ({
-        use ::std::sync::atomic::{AtomicBool, Ordering};
-
-        static FIRST_TIME: AtomicBool = AtomicBool::new(true);
-        if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            $crate::trace!($($arg)+);
-            true
-        } else {
-            false
-        }
+        $crate::once!($crate::trace!($($arg)+))
     });
 }
 
@@ -26,15 +34,7 @@ macro_rules! trace_once {
 #[macro_export]
 macro_rules! debug_once {
     ($($arg:tt)+) => ({
-        use ::std::sync::atomic::{AtomicBool, Ordering};
-
-        static FIRST_TIME: AtomicBool = AtomicBool::new(true);
-        if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            $crate::debug!($($arg)+);
-            true
-        } else {
-            false
-        }
+        $crate::once!($crate::debug!($($arg)+))
     });
 }
 
@@ -46,15 +46,7 @@ macro_rules! debug_once {
 #[macro_export]
 macro_rules! info_once {
     ($($arg:tt)+) => ({
-        use ::std::sync::atomic::{AtomicBool, Ordering};
-
-        static FIRST_TIME: AtomicBool = AtomicBool::new(true);
-        if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            $crate::info!($($arg)+);
-            true
-        } else {
-            false
-        }
+        $crate::once!($crate::info!($($arg)+))
     });
 }
 
@@ -66,15 +58,7 @@ macro_rules! info_once {
 #[macro_export]
 macro_rules! warn_once {
     ($($arg:tt)+) => ({
-        use ::std::sync::atomic::{AtomicBool, Ordering};
-
-        static FIRST_TIME: AtomicBool = AtomicBool::new(true);
-        if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            $crate::warn!($($arg)+);
-            true
-        } else {
-            false
-        }
+        $crate::once!($crate::warn!($($arg)+))
     });
 }
 
@@ -86,14 +70,6 @@ macro_rules! warn_once {
 #[macro_export]
 macro_rules! error_once {
     ($($arg:tt)+) => ({
-        use ::std::sync::atomic::{AtomicBool, Ordering};
-
-        static FIRST_TIME: AtomicBool = AtomicBool::new(true);
-        if FIRST_TIME.swap(false, Ordering::Relaxed) {
-            $crate::error!($($arg)+);
-            true
-        } else {
-            false
-        }
+        $crate::once!($crate::error!($($arg)+))
     });
 }
