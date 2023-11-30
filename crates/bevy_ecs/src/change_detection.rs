@@ -623,6 +623,28 @@ impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
 
 /// Shared borrow of an entity's component with access to change detection.
 /// Similar to [`Mut`] but is immutable and so doesn't require unique access.
+///
+/// # Examples
+///
+/// These two systems produce the same output.
+///
+/// ```
+/// # use bevy_ecs::change_detection::DetectChanges;
+/// # use bevy_ecs::query::{Changed, With};
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::world::Ref;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+///
+/// fn how_many_changed_1(query: Query<(), Changed<MyComponent>>) {
+///     println!("{} changed", query.iter().count());
+/// }
+///
+/// fn how_many_changed_2(query: Query<Ref<MyComponent>>) {
+///     println!("{} changed", query.iter().filter(|c| c.is_changed()).count());
+/// }
+/// ```
 pub struct Ref<'a, T: ?Sized> {
     pub(crate) value: &'a T,
     pub(crate) ticks: Ticks<'a>,

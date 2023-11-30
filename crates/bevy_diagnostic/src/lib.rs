@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
 mod frame_time_diagnostics_plugin;

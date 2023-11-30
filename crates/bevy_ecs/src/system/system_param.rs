@@ -6,7 +6,8 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
+        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQueryData,
+        WorldQueryData, WorldQueryFilter,
     },
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
@@ -152,14 +153,14 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>
+unsafe impl<'w, 's, Q: ReadOnlyWorldQueryData + 'static, F: WorldQueryFilter + 'static>
     ReadOnlySystemParam for Query<'w, 's, Q, F>
 {
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
+unsafe impl<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static> SystemParam
     for Query<'_, '_, Q, F>
 {
     type State = QueryState<Q, F>;
@@ -259,7 +260,7 @@ fn assert_component_access_compatibility(
 ///     // ...
 /// }
 /// #
-/// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
+/// # let mut bad_system_system = IntoSystem::into_system(bad_system);
 /// # let mut world = World::new();
 /// # bad_system_system.initialize(&mut world);
 /// # bad_system_system.run((), &mut world);
@@ -322,7 +323,7 @@ fn assert_component_access_compatibility(
 ///         &World,
 ///     )>,
 /// ) {
-///     for event in set.p0().iter() {
+///     for event in set.p0().read() {
 ///         // ...
 ///         # let _event = event;
 ///     }
@@ -402,7 +403,6 @@ impl_param_set!();
 /// }
 /// ```
 ///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
@@ -1244,7 +1244,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 ///
 /// Component change ticks that are more recent than `last_run` will be detected by the system.
 /// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
-/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](crate::change_detection::ResMut).
+/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
     last_run: Tick,
@@ -1557,7 +1557,6 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        query::{ReadOnlyWorldQuery, WorldQuery},
         system::{assert_is_system, Query},
     };
     use std::{cell::RefCell, marker::PhantomData};
@@ -1569,8 +1568,8 @@ mod tests {
         pub struct SpecialQuery<
             'w,
             's,
-            Q: WorldQuery + Send + Sync + 'static,
-            F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
+            Q: WorldQueryData + Send + Sync + 'static,
+            F: WorldQueryFilter + Send + Sync + 'static = (),
         > {
             _query: Query<'w, 's, Q, F>,
         }
@@ -1691,7 +1690,7 @@ mod tests {
         #[derive(SystemParam)]
         pub struct WhereParam<'w, 's, Q>
         where
-            Q: 'static + WorldQuery,
+            Q: 'static + WorldQueryData,
         {
             _q: Query<'w, 's, Q, ()>,
         }

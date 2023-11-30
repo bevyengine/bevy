@@ -93,7 +93,7 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
         self.reader.is_directory(path)
     }
 }

@@ -1,5 +1,6 @@
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use encase::ShaderType;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 use thiserror::Error;
@@ -1061,11 +1062,12 @@ impl Color {
     pub fn perceptually_eq(self, rhs: Self) -> bool {
         self.difference_in::<palette::Lch>(rhs).abs() < 1.
     }
-}
 
-impl Default for Color {
-    fn default() -> Self {
-        Color::WHITE
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with RGB representation in sRGB colorspace.
+    #[inline]
+    pub fn rgba_from_array(arr: impl Into<[f32; 4]>) -> Self {
+        let [r, g, b, a]: [f32; 4] = arr.into();
+        Color::rgba(r, g, b, a)
     }
 }
 
@@ -1122,6 +1124,12 @@ impl AddAssign<Color> for Color {
         self.g += rhs.g;
         self.b += rhs.b;
         self.a += rhs.a;
+    }
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        Color::WHITE
     }
 }
 
@@ -1346,7 +1354,9 @@ impl encase::private::CreateFrom for Color {
     }
 }
 
-impl encase::ShaderSize for Color {}
+impl encase::ShaderSize for Color {
+    const SHADER_SIZE: std::num::NonZeroU64 = Self::METADATA.min_size().0;
+}
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {
@@ -1420,7 +1430,7 @@ mod tests {
     #[test]
     fn conversions_vec4() {
         let starting_vec4 = Vec4::new(0.4, 0.5, 0.6, 1.0);
-        let starting_color = Color::from(starting_vec4);
+        let starting_color = Color::rgba_from_array(starting_vec4);
 
         assert_eq!(starting_vec4, Vec4::from(starting_color));
 
@@ -1428,7 +1438,7 @@ mod tests {
 
         assert_eq!(
             starting_color * transformation,
-            Color::from(starting_vec4 * transformation),
+            Color::rgba_from_array(starting_vec4 * transformation)
         );
     }
 
