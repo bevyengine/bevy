@@ -15,15 +15,7 @@ use bevy_ecs::{
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
-    render_resource::{
-        binding_types::{
-            sampler, storage_buffer_read_only_sized, storage_buffer_sized, texture_2d,
-            uniform_buffer, uniform_buffer_sized,
-        },
-        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder, BindingType,
-        BufferBindingType, DynamicBindGroupEntries, DynamicBindGroupLayoutEntries,
-        SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType,
-    },
+    render_resource::{binding_types::*, *},
     renderer::RenderDevice,
     texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
