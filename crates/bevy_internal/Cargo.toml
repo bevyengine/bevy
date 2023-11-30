@@ -146,8 +146,8 @@ embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 # Enable system stepping support
 bevy_debug_stepping = [
-    "bevy_ecs/bevy_debug_stepping",
-    "bevy_app/bevy_debug_stepping"
+  "bevy_ecs/bevy_debug_stepping",
+  "bevy_app/bevy_debug_stepping",
 ]
 
 [dependencies]
