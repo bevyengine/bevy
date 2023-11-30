@@ -19,4 +19,3 @@ error[E0499]: cannot borrow `lens` as mutable more than once at a time
 34 |
 35 |         let a = query_a.single_mut();
    |                 ------- first borrow later used here
-   
