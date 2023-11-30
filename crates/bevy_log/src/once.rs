@@ -1,6 +1,4 @@
 /// Call some expression only once per call site.
-///
-/// Returns `Some(<result-of-expression>)` on first-time call, and `None` all other times.
 #[macro_export]
 macro_rules! once {
     ($expression:expr) => {{
