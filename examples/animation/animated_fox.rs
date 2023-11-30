@@ -154,6 +154,5 @@ fn keyboard_animation_control(
         if keyboard_input.just_pressed(KeyCode::L) {
             player.set_repeat(RepeatAnimation::Forever);
         }
-
     }
 }
