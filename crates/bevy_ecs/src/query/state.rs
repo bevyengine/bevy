@@ -1048,6 +1048,10 @@ impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
+    #[deprecated(
+        since = "0.13.0",
+        note = "QueryState::for_each_unchecked was not idiomatic Rust and has been moved to query.iter_unchecked_manual().for_each()"
+    )]
     pub unsafe fn for_each_unchecked<'w, FN: FnMut(Q::Item<'w>)>(
         &mut self,
         world: UnsafeWorldCell<'w>,
