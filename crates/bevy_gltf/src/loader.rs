@@ -111,13 +111,16 @@ pub struct GltfLoader {
 /// # Example
 ///
 /// To load a gltf but exclude the cameras, replace a call to `asset_server.load("my.gltf")` with
-/// ```ignore
-/// asset_server.load_with_settings(
+/// ```no_run
+/// # use bevy_asset::{AssetServer, Handle};
+/// # use bevy_gltf::*;
+/// # let asset_server: AssetServer = panic!();
+/// let gltf_handle: Handle<Gltf> = asset_server.load_with_settings(
 ///     "my.gltf",
 ///     |s: &mut GltfLoaderSettings| {
 ///         s.load_cameras = false;
 ///     }
-/// );
+/// );    
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
