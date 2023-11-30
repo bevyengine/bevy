@@ -13,6 +13,8 @@ mod loader;
 mod vertex_attributes;
 pub use loader::*;
 
+pub type SerdeValue = serde_json::Value;
+
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
