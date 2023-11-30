@@ -13,30 +13,43 @@ use bevy::{
     window::WindowResized,
 };
 
-// in-game resolution
+/// In-game resolution width.
 const RES_WIDTH: u32 = 160;
+
+/// In-game resolution height.
 const RES_HEIGHT: u32 = 90;
+
+/// Default render layers for pixel-perfect rendering.
+/// You can skip adding this component, as this is the default.
+const PIXEL_PERFECT_LAYERS: RenderLayers = RenderLayers::layer(0);
+
+/// Render layers for high-resolution rendering.
+const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .insert_resource(Msaa::Off)
         .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
-        .add_systems(Update, (rotate_drawables, fit_canvas))
+        .add_systems(Update, (rotate, fit_canvas))
         .run();
 }
 
+/// Low-resolution texture that contains the pixel-perfect world.
+/// Canvas itself is rendered to the high-resolution world.
 #[derive(Component)]
 struct Canvas;
 
+/// Camera that renders the pixel-perfect world to the [`Canvas`].
 #[derive(Component)]
 struct InGameCamera;
 
+/// Camera that renders the [`Canvas`] (and other graphics on [`HIGH_RES_LAYERS`]) to the screen.
 #[derive(Component)]
 struct OuterCamera;
 
 #[derive(Component)]
-struct Drawable;
+struct Rotate;
 
 fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     // the sample sprite that will be rendered to the pixel-perfect canvas
@@ -46,8 +59,8 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(-40., 20., 2.),
             ..default()
         },
-        Drawable,
-        RenderLayers::layer(1),
+        Rotate,
+        PIXEL_PERFECT_LAYERS,
     ));
 
     // the sample sprite that will be rendered to the high-res "outer world"
@@ -57,7 +70,8 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(-40., -20., 2.),
             ..default()
         },
-        Drawable,
+        Rotate,
+        HIGH_RES_LAYERS,
     ));
 }
 
@@ -73,8 +87,8 @@ fn setup_mesh(
             material: materials.add(ColorMaterial::from(Color::BLACK)),
             ..default()
         },
-        RenderLayers::layer(1),
-        Drawable,
+        Rotate,
+        PIXEL_PERFECT_LAYERS,
     ));
 }
 
@@ -107,7 +121,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     let image_handle = images.add(canvas);
 
-    // this camera renders whatever is on Render layer 1 to the canvas
+    // this camera renders whatever is on [`PIXEL_PERFECT_LAYER`] to the canvas
     commands.spawn((
         Camera2dBundle {
             camera: Camera {
@@ -118,8 +132,8 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             },
             ..default()
         },
-        RenderLayers::layer(1),
         InGameCamera,
+        PIXEL_PERFECT_LAYERS,
     ));
 
     // spawn the canvas
@@ -129,22 +143,23 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         },
         Canvas,
+        HIGH_RES_LAYERS,
     ));
 
-    // the "outer" camera renders the objects that are not rendered to the canvas
+    // the "outer" camera renders whatever is on [`HIGH_RES_LAYER`] to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((Camera2dBundle::default(), OuterCamera));
+    commands.spawn((Camera2dBundle::default(), OuterCamera, HIGH_RES_LAYERS));
 }
 
-/// Rotates drawables to demonstrate grid snapping
-fn rotate_drawables(time: Res<Time>, mut query: Query<&mut Transform, With<Drawable>>) {
+/// Rotates entities to demonstrate grid snapping.
+fn rotate(time: Res<Time>, mut query: Query<&mut Transform, With<Rotate>>) {
     for mut transform in &mut query {
         let dt = time.delta_seconds();
         transform.rotate_z(dt);
     }
 }
 
-/// Scales camera projection to fit the window (integer multiples only)
+/// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
     mut resize_events: EventReader<WindowResized>,
     mut q: Query<&mut OrthographicProjection, With<OuterCamera>>,
