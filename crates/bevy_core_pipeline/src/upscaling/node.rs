@@ -67,9 +67,8 @@ impl ViewNode for UpscalingNode {
             }
         };
 
-        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.0) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(upscaling_target.0) else {
+            return Ok(());
         };
 
         let pass_descriptor = RenderPassDescriptor {

@@ -64,10 +64,8 @@ fn setup(world: &mut World) {
                 component_id, entity, value
             );
             world.resource_mut::<MyComponentIndex>().remove(&value);
-            // You can also issue commands through `.with_commands`
-            world.with_commands(|mut commands| {
-                commands.entity(entity).despawn();
-            });
+            // You can also issue commands through `.commands()`
+            world.commands().entity(entity).despawn();
         });
 }
 

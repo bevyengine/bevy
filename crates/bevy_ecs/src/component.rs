@@ -345,8 +345,8 @@ impl ComponentInfo {
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
-/// [`World::init_component`](crate::world::World::init_component) or
-/// [`World::init_component_with_descriptor`](crate::world::World::init_component_with_descriptor),
+/// [`World::init_component`](World::init_component) or
+/// [`World::init_component_with_descriptor`](World::init_component_with_descriptor),
 /// a corresponding `ComponentId` is created to track it.
 ///
 /// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
@@ -763,7 +763,7 @@ pub struct Tick {
 
 impl Tick {
     /// The maximum relative age for a change tick.
-    /// The value of this is equal to [`crate::change_detection::MAX_CHANGE_AGE`].
+    /// The value of this is equal to [`MAX_CHANGE_AGE`].
     ///
     /// Since change detection will not work for any ticks older than this,
     /// ticks are periodically scanned to ensure their relative values are below this.

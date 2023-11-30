@@ -1,7 +1,7 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
+mod component_constants;
 mod deferred_world;
-mod entity_constants;
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
@@ -9,8 +9,8 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
+pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
-pub use entity_constants::*;
 pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut, Entry, OccupiedEntry, VacantEntry};
 pub use spawn_batch::*;
 pub use world_cell::*;
@@ -23,11 +23,11 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryEntityError, QueryState, ReadOnlyWorldQuery, WorldQuery},
+    query::{DebugCheckedUnwrap, QueryEntityError, QueryState, WorldQueryData, WorldQueryFilter},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{CommandQueue, Resource},
+    system::{CommandQueue, Commands, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -193,6 +193,13 @@ impl World {
     #[inline]
     pub fn cell(&mut self) -> WorldCell<'_> {
         WorldCell::new(self)
+    }
+
+    /// Creates a new [`Commands`] instance that writes to the world's command queue
+    /// Use [`World::flush_commands`] to apply all queued commands
+    #[inline]
+    pub fn commands(&mut self) -> Commands {
+        Commands::new_from_entities(&mut self.command_queue, &self.entities)
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -952,7 +959,7 @@ impl World {
         self.last_change_tick = self.increment_change_tick();
     }
 
-    /// Returns [`QueryState`] for the given [`WorldQuery`], which is used to efficiently
+    /// Returns [`QueryState`] for the given [`WorldQueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
@@ -1015,11 +1022,11 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
+    pub fn query<Q: WorldQueryData>(&mut self) -> QueryState<Q, ()> {
         self.query_filtered::<Q, ()>()
     }
 
-    /// Returns [`QueryState`] for the given filtered [`WorldQuery`], which is used to efficiently
+    /// Returns [`QueryState`] for the given filtered [`WorldQueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
@@ -1039,7 +1046,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: WorldQuery, F: ReadOnlyWorldQuery>(&mut self) -> QueryState<Q, F> {
+    pub fn query_filtered<Q: WorldQueryData, F: WorldQueryFilter>(&mut self) -> QueryState<Q, F> {
         QueryState::new(self)
     }
 
@@ -1832,7 +1839,7 @@ impl World {
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
 
-        if let Some(mut schedules) = self.get_resource_mut::<crate::schedule::Schedules>() {
+        if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);
         }
 
@@ -2326,7 +2333,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .get_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -2342,7 +2349,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .get_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         {
@@ -2375,7 +2382,7 @@ mod tests {
                 Some(|ptr| {
                     let data = ptr.read::<[u8; 8]>();
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
-                    DROP_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
             )
         };
@@ -2401,7 +2408,7 @@ mod tests {
 
         assert!(world.remove_resource_by_id(component_id).is_some());
 
-        assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 1);
     }
 
     #[derive(Resource)]

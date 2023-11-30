@@ -11,7 +11,7 @@ struct ShowPrepassSettings {
     padding_1: u32,
     padding_2: u32,
 }
-@group(1) @binding(0) var<uniform> settings: ShowPrepassSettings;
+@group(2) @binding(0) var<uniform> settings: ShowPrepassSettings;
 
 @fragment
 fn fragment(

@@ -85,7 +85,7 @@ impl Default for PointLightShadowMap {
 /// A light that emits light in a given direction from a central point.
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
-/// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
+/// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct SpotLight {
@@ -172,7 +172,7 @@ impl Default for SpotLight {
 /// Shadows are produced via [cascaded shadow maps](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf).
 ///
 /// To modify the cascade set up, such as the number of cascades or the maximum shadow distance,
-/// change the [`CascadeShadowConfig`] component of the [`crate::bundle::DirectionalLightBundle`].
+/// change the [`CascadeShadowConfig`] component of the [`DirectionalLightBundle`].
 ///
 /// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
 ///
@@ -1203,9 +1203,8 @@ pub(crate) fn assign_lights_to_clusters(
     mut max_point_lights_warning_emitted: Local<bool>,
     render_device: Option<Res<RenderDevice>>,
 ) {
-    let render_device = match render_device {
-        Some(render_device) => render_device,
-        None => return,
+    let Some(render_device) = render_device else {
+        return;
     };
 
     global_lights.entities.clear();

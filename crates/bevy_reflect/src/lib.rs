@@ -492,15 +492,6 @@ mod impls {
 
     mod std;
     mod uuid;
-
-    #[cfg(feature = "glam")]
-    pub use self::glam::*;
-    #[cfg(feature = "bevy_math")]
-    pub use self::rect::*;
-    #[cfg(feature = "smallvec")]
-    pub use self::smallvec::*;
-    pub use self::std::*;
-    pub use self::uuid::*;
 }
 
 mod enums;
@@ -522,7 +513,6 @@ pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
-pub use impls::*;
 pub use list::*;
 pub use map::*;
 pub use path::*;
@@ -1281,11 +1271,11 @@ mod tests {
         // TypeInfo
         let info = i32::type_info();
         assert_eq!(i32::type_path(), info.type_path());
-        assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
+        assert_eq!(TypeId::of::<i32>(), info.type_id());
 
         // TypeInfo (unsized)
         assert_eq!(
-            std::any::TypeId::of::<dyn Reflect>(),
+            TypeId::of::<dyn Reflect>(),
             <dyn Reflect as Typed>::type_info().type_id()
         );
 
@@ -1306,10 +1296,7 @@ mod tests {
             assert!(info.is::<MyStruct>());
             assert_eq!(MyStruct::type_path(), info.type_path());
             assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
-            assert_eq!(
-                std::any::TypeId::of::<i32>(),
-                info.field("foo").unwrap().type_id()
-            );
+            assert_eq!(TypeId::of::<i32>(), info.field("foo").unwrap().type_id());
             assert!(info.field("foo").unwrap().is::<i32>());
             assert_eq!("foo", info.field("foo").unwrap().name());
             assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
@@ -1990,7 +1977,7 @@ bevy_reflect::tests::Test {
             let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
-                ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
+                Deserializer::from_str(data).expect("Failed to acquire deserializer");
 
             let dynamic_struct = de
                 .deserialize(&mut deserializer)
@@ -2047,7 +2034,7 @@ bevy_reflect::tests::Test {
             let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
-                ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
+                Deserializer::from_str(data).expect("Failed to acquire deserializer");
 
             let dynamic_struct = de
                 .deserialize(&mut deserializer)

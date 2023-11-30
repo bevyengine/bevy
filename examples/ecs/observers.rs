@@ -44,8 +44,9 @@ fn setup(world: &mut World) {
             my_component.0 += 1;
             println!("Component: {:?}, Event: {:?}", my_component.0, data);
         })
-        .flush();
+        .id();
 
+    world.flush_commands();
     world.ecs_event(MyEvent(5)).target(entity_b).emit();
     world.ecs_event(MyEvent(10)).target(entity_a).emit();
     world.ecs_event(MyEvent(15)).target(entity_b).emit();

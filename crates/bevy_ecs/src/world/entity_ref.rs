@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     observer::{AttachObserver, EcsEvent, ObserverBuilder, Observers},
     prelude::Observer,
-    query::{ReadOnlyWorldQuery, WorldQuery},
+    query::{WorldQueryData, WorldQueryFilter},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     world::{Mut, World},
@@ -692,21 +692,17 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let entity = self.entity;
-
-        // Drop borrow on world so it can be turned into DeferredWorld
-        let bundle_info = {
+        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
+        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
             let bundle_info: *const BundleInfo = bundle_info;
-            // SAFETY: Changes to Bundles cannot happen through DeferredWorld
-            unsafe { &*bundle_info }
-        };
-        // SAFETY: archetypes cannot be modified through DeferredWorld
-        let (old_archetype, mut deferred_world) = unsafe {
             let world = world.as_unsafe_world_cell();
             (
-                &world.world().archetypes[old_location.archetype_id],
+                &world.archetypes()[old_location.archetype_id],
+                &*bundle_info,
                 world.into_deferred(),
             )
         };
+
         // SAFETY: All components in the archetype exist in world
         unsafe {
             deferred_world.trigger_on_remove(old_archetype, entity, bundle_info.iter_components());
@@ -879,18 +875,14 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         }
 
-        let entity: Entity = self.entity;
-        // Drop borrow on world so it can be turned into DeferredWorld
-        let bundle_info = {
+        let entity = self.entity;
+        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
+        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
             let bundle_info: *const BundleInfo = bundle_info;
-            // SAFETY: Changes to Bundles cannot happen through DeferredWorld
-            unsafe { &*bundle_info }
-        };
-        // SAFETY: archetypes cannot be modified through DeferredWorld
-        let (old_archetype, mut deferred_world) = unsafe {
             let world = world.as_unsafe_world_cell();
             (
-                &world.world().archetypes[old_location.archetype_id],
+                &world.archetypes()[old_location.archetype_id],
+                &*bundle_info,
                 world.into_deferred(),
             )
         };
@@ -941,13 +933,13 @@ impl<'w> EntityWorldMut<'w> {
     pub fn despawn(self) {
         let world = self.world;
         world.flush_entities();
-        // SAFETY: You cannot modify archetypes through DeferredWorld
+        let archetype = &world.archetypes[self.location.archetype_id];
+
+        // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
         let (archetype, mut deferred_world) = unsafe {
+            let archetype: *const Archetype = archetype;
             let world = world.as_unsafe_world_cell();
-            (
-                &world.world().archetypes[self.location.archetype_id],
-                world.into_deferred(),
-            )
+            (&*archetype, world.into_deferred())
         };
 
         // SAFETY: All components in the archetype exist in world
@@ -1023,7 +1015,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush_commands`]
-    pub fn flush(&mut self) -> Entity {
+    pub fn flush(self) -> Entity {
         self.world.flush_commands();
         self.entity
     }
@@ -1141,7 +1133,7 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    pub fn observe<E: EcsEvent, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>(
+    pub fn observe<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
         callback: fn(Observer<E, Q, F>),
     ) -> &mut Self {

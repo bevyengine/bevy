@@ -5,7 +5,7 @@ use std::{any::TypeId, marker::PhantomData};
 use crate::{
     self as bevy_ecs,
     archetype::{ArchetypeFlags, Archetypes},
-    query::{DebugCheckedUnwrap, FilteredAccess},
+    query::{DebugCheckedUnwrap, FilteredAccess, WorldQueryData},
     system::Insert,
     world::*,
 };
@@ -13,21 +13,16 @@ use crate::{
 use bevy_ptr::PtrMut;
 use bevy_utils::{EntityHashMap, HashMap};
 
-use crate::{
-    component::ComponentId,
-    prelude::*,
-    query::{ReadOnlyWorldQuery, WorldQuery},
-    world::DeferredWorld,
-};
+use crate::{component::ComponentId, prelude::*, query::WorldQueryFilter, world::DeferredWorld};
 
-pub struct Observer<'w, E, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
+pub struct Observer<'w, E, Q: WorldQueryData, F: WorldQueryFilter = ()> {
     world: DeferredWorld<'w>,
     state: &'w mut ObserverState<Q, F>,
     data: &'w mut E,
     trigger: ObserverTrigger,
 }
 
-impl<'w, E, Q: WorldQuery, F: ReadOnlyWorldQuery> Observer<'w, E, Q, F> {
+impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
     pub(crate) fn new(
         world: DeferredWorld<'w>,
         state: &'w mut ObserverState<Q, F>,
@@ -81,14 +76,14 @@ impl<'w, E, Q: WorldQuery, F: ReadOnlyWorldQuery> Observer<'w, E, Q, F> {
 }
 
 #[derive(Component)]
-struct ObserverState<Q: WorldQuery, F: ReadOnlyWorldQuery> {
+struct ObserverState<Q: WorldQueryData, F: WorldQueryFilter> {
     fetch_state: Q::State,
     filter_state: F::State,
     component_access: FilteredAccess<ComponentId>,
     last_event_id: u32,
 }
 
-impl<Q: WorldQuery, F: ReadOnlyWorldQuery> ObserverState<Q, F> {
+impl<Q: WorldQueryData, F: WorldQueryFilter> ObserverState<Q, F> {
     pub fn new(world: &mut World) -> Self {
         let fetch_state = Q::init_state(world);
         let filter_state = F::init_state(world);
@@ -186,7 +181,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
         self
     }
 
-    pub fn run<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>(
+    pub fn run<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
         callback: fn(Observer<E, Q, F>),
     ) -> Entity {
@@ -195,7 +190,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
         entity
     }
 
-    pub fn enqueue<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>(
+    pub fn enqueue<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
         callback: fn(Observer<E, Q, F>),
     ) -> Entity {
@@ -222,7 +217,7 @@ pub(crate) struct ObserverComponent {
 }
 
 impl ObserverComponent {
-    fn from<E: 'static, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>(
+    fn from<E: 'static, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         descriptor: ObserverDescriptor,
         value: fn(Observer<E, Q, F>),
     ) -> Self {
@@ -503,6 +498,8 @@ impl World {
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
         assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
+
+        // Update event cache when observers are spawned and despawned
         self.register_component::<ObserverComponent>()
             .on_add(|mut world, entity, _| {
                 let (world, archetypes, observers) = unsafe {
@@ -531,29 +528,30 @@ impl World {
                 observers.unregister(archetypes, entity, observer);
             });
 
+        // Register attached observer to `ObservedBy` for later despawning
         self.register_component::<AttachObserver>()
-            .on_add(|mut world, entity, _| {
+            .on_insert(|mut world, entity, _| {
                 let observer = world.get::<AttachObserver>(entity).unwrap().0;
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).remove::<AttachObserver>();
-                });
+
                 match world.get_mut::<ObservedBy>(entity) {
                     Some(mut o) => o.0.push(observer),
-                    None => world.with_commands(|mut commands| {
-                        commands.entity(entity).insert(ObservedBy(vec![observer]));
-                    }),
+                    None => {
+                        world
+                            .commands()
+                            .entity(entity)
+                            .insert(ObservedBy(vec![observer]));
+                    }
                 }
             });
 
+        // When an entity is despawned while being observed by entity observers despawn them
         self.register_component::<ObservedBy>()
             .on_remove(|mut world, entity, _| {
                 let observed_by =
                     std::mem::take(world.get_mut::<ObservedBy>(entity).unwrap().as_mut());
-                world.with_commands(|mut commands| {
-                    observed_by.0.iter().for_each(|&e| {
-                        commands.entity(e).despawn();
-                    })
-                })
+                observed_by.0.iter().for_each(|&e| {
+                    world.commands().entity(e).despawn();
+                });
             });
     }
 
@@ -561,7 +559,7 @@ impl World {
         ObserverBuilder::new(self)
     }
 
-    pub fn observer<E: EcsEvent, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>(
+    pub fn observer<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
         callback: fn(Observer<E, Q, F>),
     ) -> Entity {
@@ -574,8 +572,8 @@ impl World {
 
     pub(crate) fn spawn_observer<
         E: EcsEvent,
-        Q: WorldQuery + 'static,
-        F: ReadOnlyWorldQuery + 'static,
+        Q: WorldQueryData + 'static,
+        F: WorldQueryFilter + 'static,
     >(
         &mut self,
         descriptor: &ObserverDescriptor,

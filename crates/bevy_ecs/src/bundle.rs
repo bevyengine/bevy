@@ -714,12 +714,12 @@ impl<'w> BundleInserter<'w> {
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
                 let new_archetype = &**new_archetype;
                 let mut world = self.world.into_deferred();
-                world.trigger_on_add(archetype, entity, add_bundle.added.iter().cloned());
-                if archetype.has_add_observer() {
+                world.trigger_on_add(new_archetype, entity, add_bundle.added.iter().cloned());
+                if new_archetype.has_add_observer() {
                     world.trigger_observers(ON_ADD, entity, add_bundle.added.iter().cloned());
                 }
                 world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
-                if archetype.has_insert_observer() {
+                if new_archetype.has_insert_observer() {
                     world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components());
                 }
                 new_location
@@ -1176,27 +1176,18 @@ mod tests {
             .register_component::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
-
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).insert(B);
-                });
+                world.commands().entity(entity).insert(B);
             })
             .on_remove(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(2);
-
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).remove::<B>();
-                });
+                world.commands().entity(entity).remove::<B>();
             });
 
         world
             .register_component::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
-
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).remove::<A>();
-                });
+                world.commands().entity(entity).remove::<A>();
             })
             .on_remove(|mut world, _, _| {
                 world.resource_mut::<R>().assert_order(3);
@@ -1217,18 +1208,14 @@ mod tests {
             .register_component::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).insert(B).insert(D);
-                });
+                world.commands().entity(entity).insert(B).insert(D);
             });
 
         world
             .register_component::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
-                world.with_commands(|mut commands| {
-                    commands.entity(entity).insert(C);
-                });
+                world.commands().entity(entity).insert(C);
             });
 
         world.register_component::<C>().on_add(|mut world, _, _| {
