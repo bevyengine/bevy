@@ -41,7 +41,7 @@ impl TableId {
     /// [`World`]: crate::world::World
     #[inline]
     pub const fn from_u32(index: u32) -> Self {
-        TableId(index)
+        Self(index)
     }
 
     /// Creates a new [`TableId`].
@@ -56,8 +56,8 @@ impl TableId {
     /// Will panic if the provided value does not fit within a [`u32`] with `debug_assertions`.
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
-        debug_assert!((index as u128) < (u32::MAX as u128));
-        TableId(index as u32)
+        debug_assert!(index as u32 as usize == index);
+        Self(index as u32)
     }
 
     /// Gets the underlying table index from the ID.
@@ -73,13 +73,13 @@ impl TableId {
     /// Will panic if the inner value does not fit within a [`usize`] with `debug_assertions`.
     #[inline]
     pub const fn as_usize(self) -> usize {
-        debug_assert!((self.0 as u128) < (usize::MAX as u128));
+        debug_assert!(self.0 as usize as u32 == self.0);
         self.0 as usize
     }
 
     /// The [`TableId`] of the [`Table`] without any components.
     #[inline]
-    pub const fn empty() -> TableId {
+    pub const fn empty() -> Self {
         Self(0)
     }
 }
@@ -120,7 +120,7 @@ impl TableRow {
     /// Will panic if the provided value does not fit within a [`u32`] with `debug_assertions`.
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
-        debug_assert!((index as u128) < (u32::MAX as u128));
+        debug_assert!(index as u32 as usize == index);
         Self(index as u32)
     }
 
@@ -131,7 +131,7 @@ impl TableRow {
     /// Will panic if the inner value does not fit within a [`usize`] with `debug_assertions`.
     #[inline]
     pub const fn as_usize(self) -> usize {
-        debug_assert!((self.0 as u128) < (usize::MAX as u128));
+        debug_assert!(self.0 as usize as u32 == self.0);
         self.0 as usize
     }
 
