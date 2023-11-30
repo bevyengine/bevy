@@ -53,10 +53,10 @@ impl TableId {
     ///
     /// # Panics
     ///
-    /// Will panic if the provided value does not fit within a [`u32`] with `debug_assertions`.
+    /// Will panic if the provided value does not fit within a [`u32`].
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
-        debug_assert!(index as u32 as usize == index);
+        assert!(index as u32 as usize == index);
         Self(index as u32)
     }
 
@@ -67,13 +67,9 @@ impl TableId {
     }
 
     /// Gets the underlying table index from the ID.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the inner value does not fit within a [`usize`] with `debug_assertions`.
     #[inline]
     pub const fn as_usize(self) -> usize {
-        debug_assert!(self.0 as usize as u32 == self.0);
+        // usize is at least u32 in Bevy
         self.0 as usize
     }
 
@@ -117,21 +113,17 @@ impl TableRow {
     ///
     /// # Panics
     ///
-    /// Will panic if the provided value does not fit within a [`u32`] with `debug_assertions`.
+    /// Will panic if the provided value does not fit within a [`u32`].
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
-        debug_assert!(index as u32 as usize == index);
+        assert!(index as u32 as usize == index);
         Self(index as u32)
     }
 
     /// Gets the index of the row as a [`usize`].
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the inner value does not fit within a [`usize`] with `debug_assertions`.
     #[inline]
     pub const fn as_usize(self) -> usize {
-        debug_assert!(self.0 as usize as u32 == self.0);
+        // usize is at least u32 in Bevy
         self.0 as usize
     }
 
