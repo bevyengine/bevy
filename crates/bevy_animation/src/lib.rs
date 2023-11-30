@@ -73,16 +73,17 @@ pub struct AnimationClip {
 }
 
 impl fmt::Display for AnimationClip {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AnimationClip: {{ duration: {}, paths: ", self.duration)?;
-
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "AnimationClip: {{ duration: {}, paths: ",
+            self.duration
+        )?;
         for (path, _) in self.paths.iter() {
-            write!(f, "\n\t{:?}", path.parts)?;
+            write!(formatter, "\n\t{:?}", path.parts)?;
         }
-
-        write!(f, " }}")?;
-
-        return Ok(());
+        write!(formatter, " }}")?;
+        Ok(())
     }
 }
 
