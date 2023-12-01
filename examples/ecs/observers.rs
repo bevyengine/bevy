@@ -3,51 +3,65 @@
 use bevy::prelude::*;
 
 #[derive(Component, Debug)]
-struct MyComponent(usize);
+struct CompA(Entity);
 
-#[derive(Component)]
-struct MyEvent(usize);
+#[derive(Component, Debug)]
+struct CompB;
+
+#[derive(Component, Debug)]
+struct Resize(u64, u64);
 
 #[derive(Resource, Default)]
-struct MyResource(usize);
+struct ResizeCount(usize);
 
 fn main() {
     App::new().add_systems(Startup, setup).run();
 }
 
 fn setup(world: &mut World) {
-    world.init_resource::<MyResource>();
+    world.init_resource::<ResizeCount>();
 
-    // Responds to all added instances of MyComponent (or any WorldQuery/Filter)
-    world.observer(|mut observer: Observer<OnAdd, &MyComponent>| {
-        let mut resource = observer.world_mut().resource_mut::<MyResource>();
-        resource.0 += 1;
-
-        let count = resource.0;
-        let my_component = observer.fetch().0;
-        println!(
-            "Added: {:?} to entity: {:?}, count: {:?}",
-            my_component,
-            observer.source(),
-            count
-        );
+    // Triggered when &ComponentA is added to any component that also has ComponentB
+    let observer = world.observer(|mut observer: Observer<OnAdd, &CompA, With<CompB>>| {
+        // Get source entity that triggered the observer
+        let source = observer.source();
+        // Able to read requested component data as if it was a query
+        let data = observer.fetch().0;
+        // Access to all resources and components through DeferredWorld
+        let world = observer.world_mut();
+        // Can submit commands for any structural changes
+        world.commands().entity(source).remove::<CompB>();
+        // Or to raise other events
+        world.commands().ecs_event(Resize(2, 4)).target(data).emit();
     });
 
-    let entity_a = world.spawn(MyComponent(0)).flush();
-
-    // Responds to MyEvent events targeting this entity
-    let entity_b = world
-        .spawn(MyComponent(1))
-        .observe(|mut observer: Observer<MyEvent, &mut MyComponent>| {
-            let data = observer.data().0;
-            let mut my_component = observer.fetch();
-            my_component.0 += 1;
-            println!("Component: {:?}, Event: {:?}", my_component.0, data);
+    // This will not trigger the observer as the entity does not have CompB
+    let entity = world
+        .spawn(CompA(observer))
+        // Respond to events targetting a specific entity
+        .observe(|mut observer: Observer<Resize, &CompA>| {
+            // Since Resize carries data you can read/write that data from the observer
+            let size = observer.data();
+            // Simulataneously read components
+            let data = observer.fetch();
+            println!("Received resize: {:?} while data was: {:?}", size, data);
+            // Write to resources
+            observer.world_mut().resource_mut::<ResizeCount>().0 += 1;
         })
         .id();
 
     world.flush_commands();
-    world.ecs_event(MyEvent(5)).target(entity_b).emit();
-    world.ecs_event(MyEvent(10)).target(entity_a).emit();
-    world.ecs_event(MyEvent(15)).target(entity_b).emit();
+
+    assert_eq!(world.resource::<ResizeCount>().0, 0);
+
+    // This will spawn an entity with CompA
+    // - Which will trigger the first observer
+    //   - Removing CompB
+    //   - Emitting Resize targetting `entity`
+    //      - Which will trigger it's entity observer
+    //          - Incrementing ResizeCount
+    let entity_b = world.spawn((CompA(entity), CompB)).flush();
+
+    assert!(!world.entity(entity_b).contains::<CompB>());
+    assert_eq!(world.resource::<ResizeCount>().0, 1);
 }

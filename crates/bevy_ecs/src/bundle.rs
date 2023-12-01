@@ -662,11 +662,21 @@ impl<'w> BundleInserter<'w> {
                 let mut world = self.world.into_deferred();
                 world.trigger_on_add(archetype, entity, add_bundle.added.iter().cloned());
                 if archetype.has_add_observer() {
-                    world.trigger_observers(ON_ADD, entity, add_bundle.added.iter().cloned());
+                    world.trigger_observers(
+                        ON_ADD,
+                        entity,
+                        location,
+                        add_bundle.added.iter().cloned(),
+                    );
                 }
                 world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
                 if archetype.has_insert_observer() {
-                    world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components());
+                    world.trigger_observers(
+                        ON_INSERT,
+                        entity,
+                        location,
+                        bundle_info.iter_components(),
+                    );
                 }
 
                 location
@@ -716,11 +726,21 @@ impl<'w> BundleInserter<'w> {
                 let mut world = self.world.into_deferred();
                 world.trigger_on_add(new_archetype, entity, add_bundle.added.iter().cloned());
                 if new_archetype.has_add_observer() {
-                    world.trigger_observers(ON_ADD, entity, add_bundle.added.iter().cloned());
+                    world.trigger_observers(
+                        ON_ADD,
+                        entity,
+                        new_location,
+                        add_bundle.added.iter().cloned(),
+                    );
                 }
                 world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
                 if new_archetype.has_insert_observer() {
-                    world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components());
+                    world.trigger_observers(
+                        ON_INSERT,
+                        entity,
+                        new_location,
+                        bundle_info.iter_components(),
+                    );
                 }
                 new_location
             }
@@ -808,11 +828,21 @@ impl<'w> BundleInserter<'w> {
                 let mut world = self.world.into_deferred();
                 world.trigger_on_add(new_archetype, entity, add_bundle.added.iter().cloned());
                 if new_archetype.has_add_observer() {
-                    world.trigger_observers(ON_ADD, entity, add_bundle.added.iter().cloned())
+                    world.trigger_observers(
+                        ON_ADD,
+                        entity,
+                        new_location,
+                        add_bundle.added.iter().cloned(),
+                    )
                 }
                 world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
                 if new_archetype.has_insert_observer() {
-                    world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components())
+                    world.trigger_observers(
+                        ON_INSERT,
+                        entity,
+                        new_location,
+                        bundle_info.iter_components(),
+                    )
                 }
                 new_location
             }
@@ -920,11 +950,11 @@ impl<'w> BundleSpawner<'w> {
         let mut world = self.world.into_deferred();
         world.trigger_on_add(archetype, entity, bundle_info.iter_components());
         if archetype.has_add_observer() {
-            world.trigger_observers(ON_ADD, entity, bundle_info.iter_components())
+            world.trigger_observers(ON_ADD, entity, location, bundle_info.iter_components())
         }
         world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
         if archetype.has_insert_observer() {
-            world.trigger_observers(ON_INSERT, entity, bundle_info.iter_components())
+            world.trigger_observers(ON_INSERT, entity, location, bundle_info.iter_components())
         }
         location
     }

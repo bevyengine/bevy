@@ -4,7 +4,7 @@ use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
     component::ComponentId,
-    entity::Entity,
+    entity::{Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     prelude::{Component, QueryState},
     query::{WorldQueryData, WorldQueryFilter},
@@ -33,7 +33,7 @@ impl<'w> Deref for DeferredWorld<'w> {
 
 impl<'w> DeferredWorld<'w> {
     #[inline]
-    pub fn clone(&mut self) -> DeferredWorld {
+    pub fn reborrow(&mut self) -> DeferredWorld {
         DeferredWorld { world: self.world }
     }
 
@@ -320,6 +320,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         target: Entity,
+        location: EntityLocation,
         components: impl Iterator<Item = ComponentId>,
     ) {
         let (world, observers) = unsafe {
@@ -327,7 +328,7 @@ impl<'w> DeferredWorld<'w> {
             world.world_mut().last_event_id += 1;
             (world.into_deferred(), &world.world().observers)
         };
-        observers.invoke(event, target, components, world, &mut ());
+        observers.invoke(event, target, location, components, world, &mut ());
     }
 
     /// Triggers all event observers for [`ComponentId`] in target.
@@ -339,6 +340,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         target: Entity,
+        location: EntityLocation,
         components: impl Iterator<Item = ComponentId>,
         data: &mut E,
     ) {
@@ -347,7 +349,7 @@ impl<'w> DeferredWorld<'w> {
             world.world_mut().last_event_id += 1;
             (world.into_deferred(), &world.world().observers)
         };
-        observers.invoke(event, target, components, world, data);
+        observers.invoke(event, target, location, components, world, data);
     }
 
     #[inline]

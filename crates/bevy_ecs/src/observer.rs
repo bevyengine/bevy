@@ -5,8 +5,9 @@ use std::{any::TypeId, marker::PhantomData};
 use crate::{
     self as bevy_ecs,
     archetype::{ArchetypeFlags, Archetypes},
-    query::{DebugCheckedUnwrap, FilteredAccess, WorldQueryData},
-    system::Insert,
+    entity::EntityLocation,
+    query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery, WorldQueryData},
+    system::{EmitEcsEvent, Insert},
     world::*,
 };
 
@@ -17,7 +18,7 @@ use crate::{component::ComponentId, prelude::*, query::WorldQueryFilter, world::
 
 pub struct Observer<'w, E, Q: WorldQueryData, F: WorldQueryFilter = ()> {
     world: DeferredWorld<'w>,
-    state: &'w mut ObserverState<Q, F>,
+    state: &'w ObserverState<Q, F>,
     data: &'w mut E,
     trigger: ObserverTrigger,
 }
@@ -41,7 +42,24 @@ impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
         self.trigger.event
     }
 
-    pub fn fetch(&mut self) -> Q::Item<'_> {
+    pub fn fetch(&self) -> <Q::ReadOnly as WorldQuery>::Item<'_> {
+        let location = self.world.entities.get(self.trigger.source).unwrap();
+        let world = self.world.as_unsafe_world_cell_readonly();
+        unsafe {
+            let mut fetch = Q::ReadOnly::init_fetch(
+                world,
+                &self.state.fetch_state,
+                world.last_change_tick(),
+                world.change_tick(),
+            );
+            let archetype = world.archetypes().get(location.archetype_id).unwrap();
+            let table = world.storages().tables.get(location.table_id).unwrap();
+            Q::ReadOnly::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
+            Q::ReadOnly::fetch(&mut fetch, self.trigger.source, location.table_row)
+        }
+    }
+
+    pub fn fetch_mut(&mut self) -> Q::Item<'_> {
         let location = self.world.entities.get(self.trigger.source).unwrap();
         let world = self.world.as_unsafe_world_cell();
         unsafe {
@@ -76,7 +94,7 @@ impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
 }
 
 #[derive(Component)]
-struct ObserverState<Q: WorldQueryData, F: WorldQueryFilter> {
+pub(crate) struct ObserverState<Q: WorldQueryData, F: WorldQueryFilter> {
     fetch_state: Q::State,
     filter_state: F::State,
     component_access: FilteredAccess<ComponentId>,
@@ -143,7 +161,6 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
 
     // Allows listening for multiple types of events but without passing typed data
     pub fn on_event<NewE: EcsEvent>(&mut self) -> &mut ObserverBuilder<'w, NoEvent> {
-        let type_id = TypeId::of::<NewE>();
         let event = self.world.init_component::<NewE>();
         self.descriptor.events.push(event);
         // SAFETY: () type will not allow bad memory access as it has no size
@@ -185,7 +202,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
         &mut self,
         callback: fn(Observer<E, Q, F>),
     ) -> Entity {
-        let entity = self.world.spawn_observer(&self.descriptor, callback);
+        let entity = self.enqueue(callback);
         self.world.flush_commands();
         entity
     }
@@ -200,6 +217,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
 
 pub struct ObserverTrigger {
     observer: Entity,
+    location: EntityLocation,
     event: ComponentId,
     source: Entity,
 }
@@ -227,24 +245,50 @@ impl ObserverComponent {
                 run: |mut world, trigger, ptr, callback| {
                     let callback: fn(Observer<E, Q, F>) =
                         unsafe { std::mem::transmute(callback.debug_checked_unwrap()) };
-                    // let last_event = world.last_event_id;
-                    let mut state = unsafe {
-                        world
+                    let state = unsafe {
+                        let mut state = world
                             .get_mut::<ObserverState<Q, F>>(trigger.observer)
-                            .debug_checked_unwrap()
+                            .debug_checked_unwrap();
+                        let state: *mut ObserverState<Q, F> = state.as_mut();
+                        &mut *state
                     };
-                    // if state.last_event_id == last_event {
-                    //     return;
-                    // }
+                    // This being stored in a component is not ideal, should be able to check this before fetching
+                    let last_event = world.last_event_id;
+                    if state.last_event_id == last_event {
+                        return;
+                    }
+                    state.last_event_id = last_event;
 
-                    let state: *mut ObserverState<Q, F> = state.as_mut();
+                    let archetype_id = trigger.location.archetype_id;
+                    let archetype = &world.archetypes()[archetype_id];
+                    if !Q::matches_component_set(&state.fetch_state, &mut |id| {
+                        archetype.contains(id)
+                    }) || !F::matches_component_set(&state.filter_state, &mut |id| {
+                        archetype.contains(id)
+                    }) {
+                        return;
+                    }
+
+                    // TODO: Change ticks?
+                    unsafe {
+                        let mut filter_fetch = F::init_fetch(
+                            world.as_unsafe_world_cell_readonly(),
+                            &state.filter_state,
+                            world.last_change_tick(),
+                            world.read_change_tick(),
+                        );
+
+                        if !F::filter_fetch(
+                            &mut filter_fetch,
+                            trigger.source,
+                            trigger.location.table_row,
+                        ) {
+                            return;
+                        }
+                    }
+
                     // SAFETY: Pointer is valid as we just created it, ObserverState is a private type and so will not be aliased
-                    let observer = Observer::new(
-                        world,
-                        unsafe { &mut *state },
-                        unsafe { ptr.deref_mut() },
-                        trigger,
-                    );
+                    let observer = Observer::new(world, state, unsafe { ptr.deref_mut() }, trigger);
                     callback(observer);
                 },
                 callback: Some(unsafe { std::mem::transmute(value) }),
@@ -254,7 +298,7 @@ impl ObserverComponent {
 }
 
 #[derive(Default, Debug)]
-struct CachedObservers {
+pub(crate) struct CachedObservers {
     component_observers: HashMap<ComponentId, EntityHashMap<Entity, ObserverCallback>>,
     entity_observers: EntityHashMap<Entity, EntityHashMap<Entity, ObserverCallback>>,
 }
@@ -361,6 +405,7 @@ impl Observers {
         &self,
         event: ComponentId,
         source: Entity,
+        location: EntityLocation,
         components: impl Iterator<Item = ComponentId>,
         mut world: DeferredWorld,
         data: &mut E,
@@ -371,10 +416,11 @@ impl Observers {
         if let Some(observers) = observers.entity_observers.get(&source) {
             observers.iter().for_each(|(&observer, runner)| {
                 (runner.run)(
-                    world.clone(),
+                    world.reborrow(),
                     ObserverTrigger {
                         observer,
                         event,
+                        location,
                         source,
                     },
                     data.into(),
@@ -386,10 +432,11 @@ impl Observers {
             if let Some(observers) = observers.component_observers.get(&component) {
                 observers.iter().for_each(|(&observer, runner)| {
                     (runner.run)(
-                        world.clone(),
+                        world.reborrow(),
                         ObserverTrigger {
                             observer,
                             event,
+                            location,
                             source,
                         },
                         data.into(),
@@ -447,28 +494,27 @@ pub struct OnRemove;
 pub struct NoEvent;
 
 #[derive(Component)]
+#[component(storage = "SparseSet")]
 pub(crate) struct AttachObserver(pub(crate) Entity);
 
 #[derive(Component, Default)]
+#[component(storage = "SparseSet")]
 pub(crate) struct ObservedBy(Vec<Entity>);
 
 pub struct EventBuilder<'w, E> {
-    event: ComponentId,
-    world: &'w mut World,
-    data: E,
+    commands: Commands<'w, 'w>,
     targets: Vec<Entity>,
     components: Vec<ComponentId>,
+    data: Option<E>,
 }
 
 impl<'w, E: EcsEvent> EventBuilder<'w, E> {
-    pub fn new(world: &'w mut World, data: E) -> Self {
-        let event = world.init_component::<E>();
+    pub fn new(data: E, commands: Commands<'w, 'w>) -> Self {
         Self {
-            event,
-            world,
-            data,
+            commands,
             targets: Vec::new(),
             components: Vec::new(),
+            data: Some(data),
         }
     }
 
@@ -478,17 +524,11 @@ impl<'w, E: EcsEvent> EventBuilder<'w, E> {
     }
 
     pub fn emit(&mut self) {
-        let mut world = unsafe { self.world.as_unsafe_world_cell().into_deferred() };
-        for &target in &self.targets {
-            unsafe {
-                world.trigger_observers_with_data(
-                    self.event,
-                    target,
-                    self.components.iter().cloned(),
-                    &mut self.data,
-                )
-            }
-        }
+        self.commands.add(EmitEcsEvent::<E> {
+            data: std::mem::take(&mut self.data).unwrap(),
+            targets: std::mem::take(&mut self.targets),
+            components: std::mem::take(&mut self.components),
+        })
     }
 }
 
@@ -567,7 +607,7 @@ impl World {
     }
 
     pub fn ecs_event<E: EcsEvent>(&mut self, event: E) -> EventBuilder<E> {
-        EventBuilder::new(self, event)
+        EventBuilder::new(event, self.commands())
     }
 
     pub(crate) fn spawn_observer<

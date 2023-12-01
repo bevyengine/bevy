@@ -4,7 +4,11 @@ mod parallel_scope;
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
+    component::ComponentId,
     entity::{Entities, Entity},
+    observer::{EcsEvent, EventBuilder},
+    prelude::Observer,
+    query::{WorldQueryData, WorldQueryFilter},
     system::{RunSystemWithInput, SystemId},
     world::{EntityWorldMut, FromWorld, World},
 };
@@ -586,6 +590,17 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
+
+    pub fn ecs_event<E: EcsEvent>(&mut self, data: E) -> EventBuilder<E> {
+        EventBuilder::new(data, self.reborrow())
+    }
+
+    pub fn reborrow(&mut self) -> Commands {
+        Commands {
+            queue: Deferred(self.queue.0),
+            entities: self.entities,
+        }
+    }
 }
 
 /// A [`Command`] which gets executed for a given [`Entity`].
@@ -923,6 +938,17 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
     }
+
+    pub fn observe<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
+        &mut self,
+        callback: fn(Observer<E, Q, F>),
+    ) -> &mut Self {
+        self.commands.add(Observe::<E, Q, F> {
+            entity: self.entity,
+            callback,
+        });
+        self
+    }
 }
 
 impl<F> Command for F
@@ -1163,6 +1189,50 @@ impl Command for LogComponents {
             .map(|component_info| component_info.name())
             .collect();
         info!("Entity {:?}: {:?}", self.entity, debug_infos);
+    }
+}
+
+/// A [`Command`] that spawns an observer attached to a specific entity.
+#[derive(Debug)]
+pub struct Observe<E: EcsEvent, Q: WorldQueryData, F: WorldQueryFilter> {
+    /// The entity that will be observed.
+    pub entity: Entity,
+    pub callback: fn(Observer<E, Q, F>),
+}
+
+impl<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static> Command
+    for Observe<E, Q, F>
+{
+    fn apply(self, world: &mut World) {
+        world.entity_mut(self.entity).observe(self.callback);
+    }
+}
+
+/// A [`Command`] that emits an event to be received by observers.
+#[derive(Debug)]
+pub struct EmitEcsEvent<E: EcsEvent> {
+    pub data: E,
+    pub components: Vec<ComponentId>,
+    pub targets: Vec<Entity>,
+}
+
+impl<E: EcsEvent> Command for EmitEcsEvent<E> {
+    fn apply(mut self, world: &mut World) {
+        let event = world.init_component::<E>();
+        let mut world = unsafe { world.as_unsafe_world_cell().into_deferred() };
+        for &target in &self.targets {
+            if let Some(location) = world.entities().get(target) {
+                unsafe {
+                    world.trigger_observers_with_data(
+                        event,
+                        target,
+                        location,
+                        self.components.iter().cloned(),
+                        &mut self.data,
+                    )
+                }
+            }
+        }
     }
 }
 
