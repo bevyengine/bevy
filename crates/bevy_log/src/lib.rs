@@ -34,12 +34,15 @@ pub use bevy_utils::tracing::{
     debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     Level,
 };
+pub use tracing_subscriber;
+
 
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
+use bevy_utils::tracing::Subscriber;
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -60,6 +63,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+///             update_subscriber: None,
 ///         }))
 ///         .run();
 /// }
@@ -96,13 +100,20 @@ pub struct LogPlugin {
     /// Filters out logs that are "less than" the given level.
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
+
+    /// Optionally apply extra transformations to the tracing subscriber.
+    /// For example add [`Layers`](tracing_subscriber::layer::Layer)
+    pub update_subscriber: Option<fn(BoxedSubscriber) -> BoxedSubscriber>
 }
+
+pub type BoxedSubscriber = Box<dyn Subscriber + Send + Sync + 'static>;
 
 impl Default for LogPlugin {
     fn default() -> Self {
         Self {
             filter: "wgpu=error,naga=warn".to_string(),
             level: Level::INFO,
+            update_subscriber: None,
         }
     }
 }
@@ -175,7 +186,11 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
 
-            finished_subscriber = subscriber;
+            if let Some(update_subscriber) = self.update_subscriber {
+                finished_subscriber = update_subscriber(Box::new(subscriber));
+            } else {
+                finished_subscriber = Box::new(subscriber);
+            }
         }
 
         #[cfg(target_arch = "wasm32")]
