@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
     component::Tick,
     entity::{Entities, Entity},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
+    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState},
     storage::{Table, TableId, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
