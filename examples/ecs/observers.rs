@@ -21,7 +21,7 @@ fn main() {
 fn setup(world: &mut World) {
     world.init_resource::<ResizeCount>();
 
-    // Triggered when &ComponentA is added to any component that also has ComponentB
+    // Triggered when &CompA is added to any component that also has ComponentB
     // This can take any query types that implement WorldQueryData and WorldQueryFilter
     let observer = world.observer(|mut observer: Observer<OnAdd, &CompA, With<CompB>>| {
         // Get source entity that triggered the observer
