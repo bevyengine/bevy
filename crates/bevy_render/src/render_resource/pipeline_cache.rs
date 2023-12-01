@@ -651,7 +651,7 @@ impl PipelineCache {
     fn try_start_create_render_pipeline(
         &mut self,
         id: CachedPipelineId,
-        descriptor: &RenderPipelineDescriptor,
+        descriptor: RenderPipelineDescriptor,
     ) -> CachedPipelineState {
         let vertex_module = match self.shader_cache.get(
             &self.device,
@@ -708,32 +708,26 @@ impl PipelineCache {
         };
 
         let device = self.device.clone();
-        let depth_stencil = descriptor.depth_stencil.clone();
-        let label = descriptor.label.to_owned();
-        let multisample = descriptor.multisample;
-        let primitive = descriptor.primitive;
-        let vertex_entry_point = descriptor.vertex.entry_point.to_owned();
-        let fragment_data = fragment_data.map(|(module, entry_point, targets)| {
-            (module, entry_point.to_owned(), targets.to_owned())
-        });
         CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
             let descriptor = RawRenderPipelineDescriptor {
                 multiview: None,
-                depth_stencil,
-                label: label.as_deref(),
+                depth_stencil: descriptor.depth_stencil.clone(),
+                label: descriptor.label.as_deref(),
                 layout: layout.as_deref(),
-                multisample,
-                primitive,
+                multisample: descriptor.multisample,
+                primitive: descriptor.primitive,
                 vertex: RawVertexState {
                     buffers: &vertex_buffer_layouts,
-                    entry_point: vertex_entry_point.deref(),
+                    entry_point: descriptor.vertex.entry_point.deref(),
                     module: &vertex_module,
                 },
-                fragment: fragment_data.map(|(module, entry_point, targets)| RawFragmentState {
-                    module: &module,
-                    entry_point: &entry_point,
-                    targets: &targets,
-                }),
+                fragment: fragment_data
+                    .as_ref()
+                    .map(|(module, entry_point, targets)| RawFragmentState {
+                        entry_point,
+                        module,
+                        targets,
+                    }),
             };
             Pipeline::RenderPipeline(device.create_render_pipeline(&descriptor))
         }))
@@ -742,7 +736,7 @@ impl PipelineCache {
     fn try_start_create_compute_pipeline(
         &mut self,
         id: CachedPipelineId,
-        descriptor: &ComputePipelineDescriptor,
+        descriptor: ComputePipelineDescriptor,
     ) -> CachedPipelineState {
         let compute_module = match self.shader_cache.get(
             &self.device,
@@ -767,14 +761,12 @@ impl PipelineCache {
         };
 
         let device = self.device.clone();
-        let label = descriptor.label.to_owned();
-        let entry_point = descriptor.entry_point.to_owned();
         CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
             let descriptor = RawComputePipelineDescriptor {
-                label: label.as_deref(),
+                label: descriptor.label.as_deref(),
                 layout: layout.as_deref(),
                 module: &compute_module,
-                entry_point: &entry_point,
+                entry_point: &descriptor.entry_point,
             };
             Pipeline::ComputePipeline(device.create_compute_pipeline(&descriptor))
         }))
@@ -814,10 +806,10 @@ impl PipelineCache {
             CachedPipelineState::Queued => {
                 cached_pipeline.state = match &cached_pipeline.descriptor {
                     PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
-                        self.try_start_create_render_pipeline(id, descriptor)
+                        self.try_start_create_render_pipeline(id, *descriptor.clone())
                     }
                     PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
-                        self.try_start_create_compute_pipeline(id, descriptor)
+                        self.try_start_create_compute_pipeline(id, *descriptor.clone())
                     }
                 };
             }
