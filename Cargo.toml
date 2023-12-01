@@ -1103,6 +1103,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "callbacks"
+path = "examples/asset/callbacks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.callbacks]
+name = "Callbacks"
+description = "Demonstrates using Callbacks"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
 doc-scrape-examples = true

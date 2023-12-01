@@ -6,8 +6,8 @@ pub mod saver;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets, Handle,
-        UntypedHandle,
+        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
+        Callback, Handle, RunCallbackCommands, RunCallbackWorld, UntypedHandle,
     };
 }
 
