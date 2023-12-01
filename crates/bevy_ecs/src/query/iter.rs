@@ -1,12 +1,12 @@
 use crate::{
-    archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
     component::Tick,
     entity::{Entities, Entity},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState},
-    storage::{TableId, TableRow, Tables},
+    storage::{Table, TableId, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::{borrow::Borrow, iter::FusedIterator, mem::MaybeUninit};
+use std::{borrow::Borrow, iter::FusedIterator, mem::MaybeUninit, ops::Range};
 
 use super::{ReadOnlyWorldQueryData, WorldQueryData, WorldQueryFilter};
 
@@ -39,6 +39,158 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIter<'w, 's, Q, F> {
             cursor: QueryIterationCursor::init(world, query_state, last_run, this_run),
         }
     }
+
+    /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
+    /// from an table.
+    ///
+    /// # Safety
+    ///  - all `rows` must be in `[0, table.entity_count)`.
+    ///  - `table` must match Q and F
+    ///  - Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    pub(super) unsafe fn for_each_in_table_range<Func>(
+        &mut self,
+        func: &mut Func,
+        table: &'w Table,
+        rows: Range<usize>,
+    ) where
+        Func: FnMut(Q::Item<'w>),
+    {
+        // SAFETY: Caller assures that Q::IS_DENSE and F::IS_DENSE are true, that table matches Q and F
+        // and all indicies in rows are in range.
+        unsafe {
+            self.fold_over_table_range((), &mut |_, item| func(item), table, rows);
+        }
+    }
+
+    /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
+    /// from an archetype.
+    ///
+    /// # Safety
+    ///  - all `indices` must be in `[0, archetype.len())`.
+    ///  - `archetype` must match Q and F
+    ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    pub(super) unsafe fn for_each_in_archetype_range<Func>(
+        &mut self,
+        func: &mut Func,
+        archetype: &'w Archetype,
+        rows: Range<usize>,
+    ) where
+        Func: FnMut(Q::Item<'w>),
+    {
+        // SAFETY: Caller assures that either Q::IS_DENSE or F::IS_DENSE are falsae, that archetype matches Q and F
+        // and all indicies in rows are in range.
+        unsafe {
+            self.fold_over_archetype_range((), &mut |_, item| func(item), archetype, rows);
+        }
+    }
+
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
+    /// from an table.
+    ///
+    /// # Safety
+    ///  - all `rows` must be in `[0, table.entity_count)`.
+    ///  - `table` must match Q and F
+    ///  - Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
+    pub(super) unsafe fn fold_over_table_range<B, Func>(
+        &mut self,
+        mut accum: B,
+        func: &mut Func,
+        table: &'w Table,
+        rows: Range<usize>,
+    ) -> B
+    where
+        Func: FnMut(B, Q::Item<'w>) -> B,
+    {
+        Q::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
+        F::set_table(
+            &mut self.cursor.filter,
+            &self.query_state.filter_state,
+            table,
+        );
+
+        let entities = table.entities();
+        for row in rows {
+            // SAFETY: Caller assures `row` in range of the current archetype.
+            let entity = entities.get_unchecked(row);
+            let row = TableRow::new(row);
+            // SAFETY: set_table was called prior.
+            // Caller assures `row` in range of the current archetype.
+            if !F::filter_fetch(&mut self.cursor.filter, *entity, row) {
+                continue;
+            }
+
+            // SAFETY: set_table was called prior.
+            // Caller assures `row` in range of the current archetype.
+            let item = Q::fetch(&mut self.cursor.fetch, *entity, row);
+
+            accum = func(accum, item);
+        }
+        accum
+    }
+
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
+    /// from an archetype.
+    ///
+    /// # Safety
+    ///  - all `indices` must be in `[0, archetype.len())`.
+    ///  - `archetype` must match Q and F
+    ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
+    pub(super) unsafe fn fold_over_archetype_range<B, Func>(
+        &mut self,
+        mut accum: B,
+        func: &mut Func,
+        archetype: &'w Archetype,
+        indices: Range<usize>,
+    ) -> B
+    where
+        Func: FnMut(B, Q::Item<'w>) -> B,
+    {
+        let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
+        Q::set_archetype(
+            &mut self.cursor.fetch,
+            &self.query_state.fetch_state,
+            archetype,
+            table,
+        );
+        F::set_archetype(
+            &mut self.cursor.filter,
+            &self.query_state.filter_state,
+            archetype,
+            table,
+        );
+
+        let entities = archetype.entities();
+        for index in indices {
+            // SAFETY: Caller assures `index` in range of the current archetype.
+            let archetype_entity = entities.get_unchecked(index);
+            // SAFETY: set_archetype was called prior.
+            // Caller assures `index` in range of the current archetype.
+            if !F::filter_fetch(
+                &mut self.cursor.filter,
+                archetype_entity.entity(),
+                archetype_entity.table_row(),
+            ) {
+                continue;
+            }
+
+            // SAFETY: set_archetype was called prior, `index` is an archetype index in range of the current archetype
+            // Caller assures `index` in range of the current archetype.
+            let item = Q::fetch(
+                &mut self.cursor.fetch,
+                archetype_entity.entity(),
+                archetype_entity.table_row(),
+            );
+
+            accum = func(accum, item);
+        }
+        accum
+    }
 }
 
 impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Iterator for QueryIter<'w, 's, Q, F> {
@@ -60,6 +212,44 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Iterator for QueryIter<'w, 
         let archetype_query = F::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
+    }
+
+    #[inline]
+    fn fold<B, Func>(mut self, init: B, mut func: Func) -> B
+    where
+        Func: FnMut(B, Self::Item) -> B,
+    {
+        let mut accum = init;
+        // Empty any remaining uniterated values from the current table/archetype
+        while self.cursor.current_row != self.cursor.current_len {
+            let Some(item) = self.next() else { break };
+            accum = func(accum, item);
+        }
+        if Q::IS_DENSE && F::IS_DENSE {
+            for table_id in self.cursor.table_id_iter.clone() {
+                // SAFETY: Matched table IDs are guaranteed to still exist.
+                let table = unsafe { self.tables.get(*table_id).debug_checked_unwrap() };
+                accum =
+                    // SAFETY: 
+                    // - The fetched table matches both Q and F
+                    // - The provided range is equivalent to [0, table.entity_count)
+                    // - The if block ensures that Q::IS_DENSE and F::IS_DENSE are both true
+                    unsafe { self.fold_over_table_range(accum, &mut func, table, 0..table.entity_count()) };
+            }
+        } else {
+            for archetype_id in self.cursor.archetype_id_iter.clone() {
+                let archetype =
+                    // SAFETY: Matched archetype IDs are guaranteed to still exist.
+                    unsafe { self.archetypes.get(*archetype_id).debug_checked_unwrap() };
+                accum =
+                    // SAFETY:
+                    // - The fetched archetype matches both Q and F
+                    // - The provided range is equivalent to [0, archetype.len)
+                    // - The if block ensures that ether Q::IS_DENSE or F::IS_DENSE are false
+                    unsafe { self.fold_over_archetype_range(accum, &mut func, archetype, 0..archetype.len()) };
+            }
+        }
+        accum
     }
 }
 
@@ -547,7 +737,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIterationCursor<'w, 's
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-    // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+    // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_for_each_unchecked_manual
     /// # Safety
     /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
     /// was initialized for.
@@ -599,9 +789,9 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIterationCursor<'w, 's
                 if self.current_row == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+                    let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     Q::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);
                     F::set_archetype(
                         &mut self.filter,
