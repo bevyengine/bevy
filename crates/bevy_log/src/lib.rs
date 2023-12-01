@@ -105,7 +105,7 @@ pub struct LogPlugin {
     pub update_subscriber: Option<fn(BoxedSubscriber) -> BoxedSubscriber>,
 }
 
-/// Alias for a boxed [`tracing_subscriber::Subscriber`].
+/// Alias for a boxed [`Subscriber`].
 pub type BoxedSubscriber = Box<dyn Subscriber + Send + Sync + 'static>;
 
 impl Default for LogPlugin {
