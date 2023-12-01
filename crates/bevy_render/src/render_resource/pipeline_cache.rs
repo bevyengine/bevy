@@ -1,12 +1,4 @@
-use crate::{
-    render_resource::{
-        BindGroupLayout, BindGroupLayoutId, ComputePipeline, ComputePipelineDescriptor,
-        RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
-        RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport, Source,
-    },
-    renderer::RenderDevice,
-    Extract,
-};
+use crate::{render_resource::*, renderer::RenderDevice, Extract};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
@@ -442,7 +434,7 @@ impl LayoutCache {
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
         push_constant_ranges: Vec<PushConstantRange>,
-    ) -> &wgpu::PipelineLayout {
+    ) -> ErasedPipelineLayout {
         let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
         self.layouts
             .entry((bind_group_ids, push_constant_ranges))
@@ -459,6 +451,7 @@ impl LayoutCache {
                     },
                 ))
             })
+            .clone()
     }
 }
 
@@ -714,29 +707,34 @@ impl PipelineCache {
             ))
         };
 
-        let descriptor = RawRenderPipelineDescriptor {
-            multiview: None,
-            depth_stencil: descriptor.depth_stencil.clone(),
-            label: descriptor.label.as_deref(),
-            layout,
-            multisample: descriptor.multisample,
-            primitive: descriptor.primitive,
-            vertex: RawVertexState {
-                buffers: &vertex_buffer_layouts,
-                entry_point: descriptor.vertex.entry_point.deref(),
-                module: &vertex_module,
-            },
-            fragment: fragment_data
-                .as_ref()
-                .map(|(module, entry_point, targets)| RawFragmentState {
-                    entry_point,
-                    module,
-                    targets,
-                }),
-        };
-
         let device = self.device.clone();
+        let depth_stencil = descriptor.depth_stencil.clone();
+        let label = descriptor.label.to_owned();
+        let multisample = descriptor.multisample;
+        let primitive = descriptor.primitive;
+        let vertex_entry_point = descriptor.vertex.entry_point.to_owned();
+        let fragment_data = fragment_data.map(|(module, entry_point, targets)| {
+            (module, entry_point.to_owned(), targets.to_owned())
+        });
         CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
+            let descriptor = RawRenderPipelineDescriptor {
+                multiview: None,
+                depth_stencil,
+                label: label.as_deref(),
+                layout: layout.as_deref(),
+                multisample,
+                primitive,
+                vertex: RawVertexState {
+                    buffers: &vertex_buffer_layouts,
+                    entry_point: vertex_entry_point.deref(),
+                    module: &vertex_module,
+                },
+                fragment: fragment_data.map(|(module, entry_point, targets)| RawFragmentState {
+                    module: &module,
+                    entry_point: &entry_point,
+                    targets: &targets,
+                }),
+            };
             Pipeline::RenderPipeline(device.create_render_pipeline(&descriptor))
         }))
     }
@@ -768,15 +766,16 @@ impl PipelineCache {
             ))
         };
 
-        let descriptor = RawComputePipelineDescriptor {
-            label: descriptor.label.as_deref(),
-            layout,
-            module: &compute_module,
-            entry_point: descriptor.entry_point.as_ref(),
-        };
-
         let device = self.device.clone();
+        let label = descriptor.label.to_owned();
+        let entry_point = descriptor.entry_point.to_owned();
         CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
+            let descriptor = RawComputePipelineDescriptor {
+                label: label.as_deref(),
+                layout: layout.as_deref(),
+                module: &compute_module,
+                entry_point: &entry_point,
+            };
             Pipeline::ComputePipeline(device.create_compute_pipeline(&descriptor))
         }))
     }
