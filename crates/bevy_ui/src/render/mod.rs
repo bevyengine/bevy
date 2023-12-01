@@ -557,7 +557,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
         }
 
         if let (
-            Some(logical_size),
+            Ok(logical_size),
             Some(URect {
                 min: physical_origin,
                 ..

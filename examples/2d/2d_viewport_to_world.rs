@@ -22,7 +22,7 @@ fn draw_cursor(
     };
 
     // Calculate a world position based on the cursor's position.
-    let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+    let Ok(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
         return;
     };
 
