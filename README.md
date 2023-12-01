@@ -86,13 +86,19 @@ fn main(){
 
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
 
-## Libraries Used
+## Foundational Libraries Used
 
-Bevy is only possible because of the hard work put into these foundational technologies:
+Bevy as a whole is only possible because of the hard work put into these foundational technologies:
 
-* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library based on the [WebGPU](https://gpuweb.github.io/gpuweb/) API.
+* [ab-glyph](https://github.com/alexheretic/ab-glyph): font loading, scaling, positioning and rasterization
+* [accesskit](https://github.com/AccessKit/accesskit): cross-platform accessibility(ally) support
+* [gilrs](https://gitlab.com/gilrs-project/gilrs): cross-platform game input device handling
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
+* [gltf](https://github.com/gltf-rs/gltf): glTF 2.0 loader
+* [rodio](https://github.com/RustAudio/rodio): audio playback library leveraging [CPAL](https://github.com/RustAudio/cpal)
+* [taffy](https://github.com/DioxusLabs/taffy): cross-platform UI layout library
 * [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
+* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library based on the [WebGPU](https://gpuweb.github.io/gpuweb/) API.
 
 ## [Bevy Cargo Features][cargo_features]
 
