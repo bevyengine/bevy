@@ -20,6 +20,14 @@ use bevy_ecs::schedule::State;
 /// * [`Input::just_pressed`] will return `true` for one frame after a press event.
 /// * [`Input::just_released`] will return `true` for one frame after a release event.
 ///
+/// ## Input types
+///
+/// This crate provides support for the following parameters of `Input`:
+///
+/// * [`KeyCode`](crate::KeyCode) and [`ScanCode`](crate::ScanCode) for keyboard input
+/// * [`MouseButton`](crate::MouseButton)
+/// * [`GamepadButton`](crate::GamepadButton)
+///
 /// ## Multiple systems
 ///
 /// In case multiple systems are checking for [`Input::just_pressed`] or [`Input::just_released`]
