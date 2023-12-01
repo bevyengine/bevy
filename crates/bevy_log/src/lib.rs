@@ -36,13 +36,12 @@ pub use bevy_utils::tracing::{
 };
 pub use tracing_subscriber;
 
-
 use bevy_app::{App, Plugin};
+use bevy_utils::tracing::Subscriber;
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
-use bevy_utils::tracing::Subscriber;
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -103,7 +102,7 @@ pub struct LogPlugin {
 
     /// Optionally apply extra transformations to the tracing subscriber.
     /// For example add [`Layers`](tracing_subscriber::layer::Layer)
-    pub update_subscriber: Option<fn(BoxedSubscriber) -> BoxedSubscriber>
+    pub update_subscriber: Option<fn(BoxedSubscriber) -> BoxedSubscriber>,
 }
 
 /// Alias for a boxed [`tracing_subscriber::Subscriber`].

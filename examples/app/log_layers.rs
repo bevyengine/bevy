@@ -1,10 +1,10 @@
 //! This example illustrates how to add custom log layers in bevy.
 
 use bevy::{
+    log::tracing_subscriber::{layer::SubscriberExt, Layer},
     log::BoxedSubscriber,
-    log::tracing_subscriber::{Layer, layer::SubscriberExt},
     prelude::*,
-    utils::tracing::{Subscriber},
+    utils::tracing::Subscriber,
 };
 
 struct CustomLayer;
@@ -36,8 +36,6 @@ fn main() {
         .run();
 }
 
-
-
 fn log_system() {
     // here is how you write new logs at each "log level" (in "most import" to
     // "least important" order)
@@ -47,4 +45,3 @@ fn log_system() {
     debug!("helpful for debugging");
     trace!("very noisy");
 }
-
