@@ -665,37 +665,20 @@ impl PipelineCache {
             }
         };
 
-        let fragment_data = if let Some(fragment) = &descriptor.fragment {
-            let fragment_module = match self.shader_cache.get(
+        let fragment_module = match &descriptor.fragment {
+            Some(fragment) => match self.shader_cache.get(
                 &self.device,
                 id,
                 fragment.shader.id(),
                 &fragment.shader_defs,
             ) {
-                Ok(module) => module,
+                Ok(module) => Some(module),
                 Err(err) => {
                     return CachedPipelineState::Err(err);
                 }
-            };
-            Some((
-                fragment_module,
-                fragment.entry_point.deref(),
-                fragment.targets.as_slice(),
-            ))
-        } else {
-            None
+            },
+            None => None,
         };
-
-        let vertex_buffer_layouts = descriptor
-            .vertex
-            .buffers
-            .iter()
-            .map(|layout| RawVertexBufferLayout {
-                array_stride: layout.array_stride,
-                attributes: &layout.attributes,
-                step_mode: layout.step_mode,
-            })
-            .collect::<Vec<_>>();
 
         let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
@@ -709,6 +692,27 @@ impl PipelineCache {
 
         let device = self.device.clone();
         CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
+            let vertex_buffer_layouts = descriptor
+                .vertex
+                .buffers
+                .iter()
+                .map(|layout| RawVertexBufferLayout {
+                    array_stride: layout.array_stride,
+                    attributes: &layout.attributes,
+                    step_mode: layout.step_mode,
+                })
+                .collect::<Vec<_>>();
+
+            let fragment_data = if let Some(fragment) = &descriptor.fragment {
+                Some((
+                    fragment_module.unwrap(),
+                    fragment.entry_point.deref(),
+                    fragment.targets.as_slice(),
+                ))
+            } else {
+                None
+            };
+
             let descriptor = RawRenderPipelineDescriptor {
                 multiview: None,
                 depth_stencil: descriptor.depth_stencil.clone(),
@@ -729,6 +733,7 @@ impl PipelineCache {
                         targets,
                     }),
             };
+
             Pipeline::RenderPipeline(device.create_render_pipeline(&descriptor))
         }))
     }
@@ -768,6 +773,7 @@ impl PipelineCache {
                 module: &compute_module,
                 entry_point: &descriptor.entry_point,
             };
+
             Pipeline::ComputePipeline(device.create_compute_pipeline(&descriptor))
         }))
     }
