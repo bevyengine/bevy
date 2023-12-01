@@ -47,6 +47,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIter<'w, 's, Q, F> {
     ///  - all `rows` must be in `[0, table.entity_count)`.
     ///  - `table` must match Q and F
     ///  - Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
     pub(super) unsafe fn for_each_in_table_range<Func>(
         &mut self,
         func: &mut Func,
@@ -69,6 +70,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIter<'w, 's, Q, F> {
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match Q and F
     ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
     pub(super) unsafe fn for_each_in_archetype_range<Func>(
         &mut self,
         func: &mut Func,
