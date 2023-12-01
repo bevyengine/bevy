@@ -12,12 +12,13 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::HashMap;
+use bevy_utils::Setters;
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
 
 /// A component bundle for entities with a [`Mesh`] and a [`Material`].
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Setters)]
 pub struct MaterialMeshBundle<M: Material> {
     pub mesh: Handle<Mesh>,
     pub material: Handle<M>,

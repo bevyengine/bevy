@@ -17,11 +17,12 @@ use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{BreakLineOn, Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_utils::Setters;
 
 /// The basic UI node
 ///
 /// Useful as a container for a variety of child nodes.
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Setters)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,

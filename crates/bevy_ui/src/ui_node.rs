@@ -5,6 +5,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
+use bevy_utils::Setters;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
@@ -132,8 +133,7 @@ impl Default for Node {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
-
-#[derive(Component, Clone, PartialEq, Debug, Deserialize, Serialize, Reflect)]
+#[derive(Component, Clone, PartialEq, Debug, Deserialize, Serialize, Reflect, Setters)]
 #[reflect(Component, Default, PartialEq, Deserialize, Serialize)]
 pub struct Style {
     /// Which layout algorithm to use when laying out this node's contents:

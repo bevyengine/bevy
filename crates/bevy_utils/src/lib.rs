@@ -29,6 +29,7 @@ pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
 pub use cow_arc::*;
 pub use default::default;
+pub use derive_setters::Setters;
 pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};

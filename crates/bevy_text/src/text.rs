@@ -185,7 +185,8 @@ impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
     }
 }
 
-#[derive(Clone, Debug, Reflect)]
+use bevy_utils::Setters;
+#[derive(Clone, Debug, Reflect, Setters)]
 pub struct TextStyle {
     /// If this is not specified, then
     /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),

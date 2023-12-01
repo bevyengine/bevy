@@ -17,16 +17,16 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn(
+        Camera3dBundle::default()
+            .transform(Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y))
+    );
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..default()
-    });
+    commands.spawn(
+        PbrBundle::default()
+            .mesh(meshes.add(Mesh::from(shape::Plane::from_size(5.0))))
+            .material(materials.add(Color::rgb(0.3, 0.5, 0.3).into()))
+    );
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),

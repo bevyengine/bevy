@@ -12,6 +12,7 @@ use bevy_render::{
     view::{ColorGrading, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_utils::Setters;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
@@ -135,7 +136,7 @@ pub enum ScreenSpaceTransmissionQuality {
     Ultra,
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Setters)]
 pub struct Camera3dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
