@@ -81,8 +81,8 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIter<'w, 's, Q, F> {
     ) where
         Func: FnMut(Q::Item<'w>),
     {
-        // SAFETY: Caller assures that either Q::IS_DENSE or F::IS_DENSE are false, that archetype matches Q and F
-        // and all indices in rows are in range.
+        // SAFETY: Caller assures that either Q::IS_DENSE or F::IS_DENSE are falsae, that archetype matches Q and F
+        // and all indicies in rows are in range.
         unsafe {
             self.fold_over_archetype_range((), &mut |_, item| func(item), archetype, rows);
         }
