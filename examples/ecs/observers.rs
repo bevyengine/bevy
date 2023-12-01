@@ -22,6 +22,7 @@ fn setup(world: &mut World) {
     world.init_resource::<ResizeCount>();
 
     // Triggered when &ComponentA is added to any component that also has ComponentB
+    // This can take any query types that implement WorldQueryData and WorldQueryFilter
     let observer = world.observer(|mut observer: Observer<OnAdd, &CompA, With<CompB>>| {
         // Get source entity that triggered the observer
         let source = observer.source();
@@ -35,14 +36,15 @@ fn setup(world: &mut World) {
         world.commands().ecs_event(Resize(2, 4)).target(data).emit();
     });
 
-    // This will not trigger the observer as the entity does not have CompB
     let entity = world
+        // This will not trigger the observer as the entity does not have CompB
         .spawn(CompA(observer))
-        // Respond to events targetting a specific entity
+        // Respond to events targeting a specific entity
+        // Still must match the query in order to trigger
         .observe(|mut observer: Observer<Resize, &CompA>| {
             // Since Resize carries data you can read/write that data from the observer
             let size = observer.data();
-            // Simulataneously read components
+            // Simultaneously read components
             let data = observer.fetch();
             println!("Received resize: {:?} while data was: {:?}", size, data);
             // Write to resources
