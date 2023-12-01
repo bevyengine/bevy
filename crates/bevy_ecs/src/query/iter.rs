@@ -48,6 +48,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIter<'w, 's, Q, F> {
     ///  - `table` must match Q and F
     ///  - Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
     #[inline]
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     pub(super) unsafe fn for_each_in_table_range<Func>(
         &mut self,
         func: &mut Func,
@@ -71,6 +72,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIter<'w, 's, Q, F> {
     ///  - `archetype` must match Q and F
     ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     pub(super) unsafe fn for_each_in_archetype_range<Func>(
         &mut self,
         func: &mut Func,
