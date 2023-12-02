@@ -91,7 +91,7 @@ impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
         let segments = self
             .control_points
             .iter()
-            .map(|p| CubicCurve::coefficients(*p, 1.0, char_matrix))
+            .map(|p| CubicSegment::coefficients(*p, 1.0, char_matrix))
             .collect();
 
         CubicCurve { segments }
@@ -162,7 +162,7 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
             .windows(2)
             .map(|p| {
                 let (p0, v0, p1, v1) = (p[0].0, p[0].1, p[1].0, p[1].1);
-                CubicCurve::coefficients([p0, v0, p1, v1], 1.0, char_matrix)
+                CubicSegment::coefficients([p0, v0, p1, v1], 1.0, char_matrix)
             })
             .collect();
 
@@ -233,7 +233,7 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
         let segments = self
             .control_points
             .windows(4)
-            .map(|p| CubicCurve::coefficients([p[0], p[1], p[2], p[3]], 1.0, char_matrix))
+            .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], 1.0, char_matrix))
             .collect();
 
         CubicCurve { segments }
@@ -289,7 +289,7 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
         let segments = self
             .control_points
             .windows(4)
-            .map(|p| CubicCurve::coefficients([p[0], p[1], p[2], p[3]], 1.0 / 6.0, char_matrix))
+            .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], 1.0 / 6.0, char_matrix))
             .collect();
 
         CubicCurve { segments }
@@ -444,7 +444,7 @@ impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
                     .unwrap();
                 let matrix = Self::generate_matrix(knot_vector_segment);
                 // Unwrap will not fail because the windows slice is of length 4
-                CubicCurve::coefficients(points.try_into().unwrap(), 1.0, matrix)
+                CubicSegment::coefficients(points.try_into().unwrap(), 1.0, matrix)
             })
             .collect();
         CubicCurve { segments }
@@ -515,6 +515,21 @@ impl<P: Point> CubicSegment<P> {
     pub fn acceleration(&self, t: f32) -> P {
         let [_, _, c, d] = self.coeff;
         c * 2.0 + d * 6.0 * t
+    }
+
+    #[inline]
+    fn coefficients(p: [P; 4], multiplier: f32, char_matrix: [[f32; 4]; 4]) -> Self {
+        let [c0, c1, c2, c3] = char_matrix;
+        // These are the polynomial coefficients, computed by multiplying the characteristic
+        // matrix by the point matrix.
+        let mut coeff = [
+            p[0] * c0[0] + p[1] * c0[1] + p[2] * c0[2] + p[3] * c0[3],
+            p[0] * c1[0] + p[1] * c1[1] + p[2] * c1[2] + p[3] * c1[3],
+            p[0] * c2[0] + p[1] * c2[1] + p[2] * c2[2] + p[3] * c2[3],
+            p[0] * c3[0] + p[1] * c3[1] + p[2] * c3[2] + p[3] * c3[3],
+        ];
+        coeff.iter_mut().for_each(|c| *c = *c * multiplier);
+        Self { coeff }
     }
 }
 
@@ -729,21 +744,6 @@ impl<P: Point> CubicCurve<P> {
             let i = (t.floor() as usize).clamp(0, self.segments.len() - 1);
             (&self.segments[i], t - i as f32)
         }
-    }
-
-    #[inline]
-    fn coefficients(p: [P; 4], multiplier: f32, char_matrix: [[f32; 4]; 4]) -> CubicSegment<P> {
-        let [c0, c1, c2, c3] = char_matrix;
-        // These are the polynomial coefficients, computed by multiplying the characteristic
-        // matrix by the point matrix.
-        let mut coeff = [
-            p[0] * c0[0] + p[1] * c0[1] + p[2] * c0[2] + p[3] * c0[3],
-            p[0] * c1[0] + p[1] * c1[1] + p[2] * c1[2] + p[3] * c1[3],
-            p[0] * c2[0] + p[1] * c2[1] + p[2] * c2[2] + p[3] * c2[3],
-            p[0] * c3[0] + p[1] * c3[1] + p[2] * c3[2] + p[3] * c3[3],
-        ];
-        coeff.iter_mut().for_each(|c| *c = *c * multiplier);
-        CubicSegment { coeff }
     }
 }
 
