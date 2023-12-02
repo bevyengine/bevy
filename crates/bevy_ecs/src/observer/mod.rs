@@ -17,7 +17,7 @@ use crate::{
     world::*,
 };
 
-use bevy_ptr::PtrMut;
+use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{EntityHashMap, HashMap};
 
 use crate::{component::ComponentId, prelude::*, query::WorldQueryFilter, world::DeferredWorld};
@@ -100,6 +100,11 @@ impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
     /// Returns a mutable reference to the data associated with the event that triggered the observer.
     pub fn data_mut(&mut self) -> &mut E {
         &mut self.data
+    }
+
+    /// Returns a pointer to the data associated with the event that triggered the observer.
+    pub fn data_ptr(&self) -> Ptr {
+        Ptr::from(&self.data)
     }
 
     /// Returns the entity that triggered the observer.
