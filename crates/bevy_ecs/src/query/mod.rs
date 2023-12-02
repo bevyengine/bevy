@@ -751,7 +751,7 @@ mod tests {
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>(&world).next();
         let _: Option<&Foo> = q.iter_manual(&world).next();
         let _: Option<&Foo> = q.iter_many(&world, [e]).next();
-        q.for_each(&world, |_: &Foo| ());
+        q.iter(&world).for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
@@ -765,7 +765,7 @@ mod tests {
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
         let _: Option<&Foo> = q.iter_many([e]).next();
-        q.for_each(|_: &Foo| ());
+        q.iter().for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<&Foo> = q.get_component(e).ok();
