@@ -4,4 +4,5 @@
 struct SpriteVertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
+    @location(1) @interpolate(flat) color: vec4<f32>,
 };

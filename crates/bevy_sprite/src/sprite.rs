@@ -1,10 +1,7 @@
-use bevy_asset::Handle;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::color::Color;
-
-use crate::sprite_material::SpriteMaterial;
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -24,39 +21,6 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
-#[repr(C)]
-pub struct SpriteWithMaterial<M: SpriteMaterial> {
-    /// The sprite's material tint
-    pub material: Handle<M>,
-    /// Flip the sprite along the `X` axis
-    pub flip_x: bool,
-    /// Flip the sprite along the `Y` axis
-    pub flip_y: bool,
-    /// An optional custom size for the sprite that will be used when rendering, instead of the size
-    /// of the sprite's image
-    pub custom_size: Option<Vec2>,
-    /// An optional rectangle representing the region of the sprite's image to render, instead of
-    /// rendering the full image. This is an easy one-off alternative to using a texture atlas.
-    pub rect: Option<Rect>,
-    /// [`Anchor`] point of the sprite in the world
-    pub anchor: Anchor,
-}
-
-impl<M: SpriteMaterial> Default for SpriteWithMaterial<M> {
-    fn default() -> Self {
-        Self {
-            material: Default::default(),
-            flip_x: Default::default(),
-            flip_y: Default::default(),
-            custom_size: Default::default(),
-            rect: Default::default(),
-            anchor: Default::default(),
-        }
-    }
 }
 
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).

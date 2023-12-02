@@ -466,6 +466,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_sheet_material"
+path = "examples/2d/sprite_sheet_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_sheet_material]
+name = "Sprite Sheet Material"
+description = "Renders an animated sprite with custom material"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 doc-scrape-examples = true

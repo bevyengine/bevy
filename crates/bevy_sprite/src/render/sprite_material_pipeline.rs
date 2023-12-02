@@ -55,9 +55,11 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     sprite_material::{SpriteMaterial, SpriteMaterialKey},
-    ImageBindGroups, SpriteAssetEvents, SpritePipelineKey, SpriteSystem, SpriteWithMaterial,
-    TextureAtlas, TextureAtlasSpriteWithMaterial,
+    ExtractedSprite, ImageBindGroups, Sprite, SpriteAssetEvents, SpritePipelineKey, SpriteSystem,
+    TextureAtlas, TextureAtlasSprite,
 };
+
+use super::SpriteInstance;
 
 pub const SPRITE_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(270703992682389545502295514338037592175);
@@ -272,7 +274,7 @@ where
         };
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 64,
+            array_stride: 80,
             step_mode: VertexStepMode::Instance,
             attributes: vec![
                 // @location(0) i_model_transpose_col0: vec4<f32>,
@@ -293,14 +295,21 @@ where
                     offset: 32,
                     shader_location: 2,
                 },
-                // @location(3) i_uv_offset_scale: vec4<f32>,
+                // @location(3) i_color: vec4<f32>,
                 VertexAttribute {
                     format: VertexFormat::Float32x4,
                     offset: 48,
                     shader_location: 3,
                 },
+                // @location(4) i_uv_offset_scale: vec4<f32>,
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: 64,
+                    shader_location: 4,
+                },
             ],
         };
+
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SPRITE_MATERIAL_SHADER_HANDLE,
@@ -318,7 +327,7 @@ where
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: vec![],
+            layout: vec![self.view_layout.clone(), self.material_layout.clone()],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -358,22 +367,11 @@ where
     }
 }
 
+#[derive(Deref, DerefMut)]
 pub struct ExtractedSpriteWithMaterial<M: SpriteMaterial> {
-    pub transform: GlobalTransform,
-    pub material: AssetId<M>,
-    /// Select an area of the texture
-    pub rect: Option<Rect>,
-    /// Change the on-screen size of the sprite
-    pub custom_size: Option<Vec2>,
-    /// Asset ID of the [`Image`] of this sprite
-    /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
-    pub image_handle_id: AssetId<Image>,
-    pub flip_x: bool,
-    pub flip_y: bool,
-    pub anchor: Vec2,
-    /// For cases where additional ExtractedSprites are created during extraction, this stores the
-    /// entity that caused that creation for use in determining visibility.
-    pub original_entity: Option<Entity>,
+    #[deref]
+    pub extracted_sprite: ExtractedSprite,
+    pub material_handle_id: AssetId<M>,
 }
 
 #[derive(Resource)]
@@ -396,7 +394,8 @@ pub fn extract_sprite_with_materials<M: SpriteMaterial>(
         Query<(
             Entity,
             &ViewVisibility,
-            &SpriteWithMaterial<M>,
+            &Sprite,
+            &Handle<M>,
             &GlobalTransform,
             &Handle<Image>,
         )>,
@@ -405,7 +404,8 @@ pub fn extract_sprite_with_materials<M: SpriteMaterial>(
         Query<(
             Entity,
             &ViewVisibility,
-            &TextureAtlasSpriteWithMaterial<M>,
+            &TextureAtlasSprite,
+            &Handle<M>,
             &GlobalTransform,
             &Handle<TextureAtlas>,
         )>,
@@ -413,7 +413,9 @@ pub fn extract_sprite_with_materials<M: SpriteMaterial>(
 ) {
     extracted_sprite_with_materials.sprites.clear();
 
-    for (entity, view_visibility, sprite, transform, handle) in sprite_with_material_query.iter() {
+    for (entity, view_visibility, sprite, material, transform, handle) in
+        sprite_with_material_query.iter()
+    {
         if !view_visibility.get() {
             continue;
         }
@@ -421,20 +423,23 @@ pub fn extract_sprite_with_materials<M: SpriteMaterial>(
         extracted_sprite_with_materials.sprites.insert(
             entity,
             ExtractedSpriteWithMaterial {
-                material: sprite.material.id(),
-                transform: *transform,
-                rect: sprite.rect,
-                // Pass the custom size
-                custom_size: sprite.custom_size,
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                image_handle_id: handle.id(),
-                anchor: sprite.anchor.as_vec(),
-                original_entity: None,
+                material_handle_id: material.id(),
+                extracted_sprite: ExtractedSprite {
+                    transform: *transform,
+                    color: sprite.color,
+                    rect: sprite.rect,
+                    // Pass the custom size
+                    custom_size: sprite.custom_size,
+                    flip_x: sprite.flip_x,
+                    flip_y: sprite.flip_y,
+                    image_handle_id: handle.id(),
+                    anchor: sprite.anchor.as_vec(),
+                    original_entity: None,
+                },
             },
         );
     }
-    for (entity, view_visibility, atlas_sprite, transform, texture_atlas_handle) in
+    for (entity, view_visibility, atlas_sprite, material, transform, texture_atlas_handle) in
         atlas_query.iter()
     {
         if !view_visibility.get() {
@@ -456,42 +461,22 @@ pub fn extract_sprite_with_materials<M: SpriteMaterial>(
             extracted_sprite_with_materials.sprites.insert(
                 entity,
                 ExtractedSpriteWithMaterial {
-                    material: atlas_sprite.material.id(),
-                    transform: *transform,
-                    // Select the area in the texture atlas
-                    rect,
-                    // Pass the custom size
-                    custom_size: atlas_sprite.custom_size,
-                    flip_x: atlas_sprite.flip_x,
-                    flip_y: atlas_sprite.flip_y,
-                    image_handle_id: texture_atlas.texture.id(),
-                    anchor: atlas_sprite.anchor.as_vec(),
-                    original_entity: None,
+                    material_handle_id: material.id(),
+                    extracted_sprite: ExtractedSprite {
+                        transform: *transform,
+                        color: atlas_sprite.color,
+                        // Select the area in the texture atlas
+                        rect,
+                        // Pass the custom size
+                        custom_size: atlas_sprite.custom_size,
+                        flip_x: atlas_sprite.flip_x,
+                        flip_y: atlas_sprite.flip_y,
+                        image_handle_id: texture_atlas.texture.id(),
+                        anchor: atlas_sprite.anchor.as_vec(),
+                        original_entity: None,
+                    },
                 },
             );
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
-struct SpriteInstance {
-    // Affine 4x3 transposed to 3x4
-    pub i_model_transpose: [Vec4; 3],
-    pub i_uv_offset_scale: [f32; 4],
-}
-
-impl SpriteInstance {
-    #[inline]
-    fn from(transform: &Affine3A, uv_offset_scale: &Vec4) -> Self {
-        let transpose_model_3x3 = transform.matrix3.transpose();
-        Self {
-            i_model_transpose: [
-                transpose_model_3x3.x_axis.extend(transform.translation.x),
-                transpose_model_3x3.y_axis.extend(transform.translation.y),
-                transpose_model_3x3.z_axis.extend(transform.translation.z),
-            ],
-            i_uv_offset_scale: uv_offset_scale.to_array(),
         }
     }
 }
@@ -580,7 +565,7 @@ pub fn queue_sprites<M: SpriteMaterial>(
             .reserve(extracted_sprites.sprites.len());
 
         for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
-            let Some(material) = render_materials.get(&extracted_sprite.material) else {
+            let Some(material) = render_materials.get(&extracted_sprite.material_handle_id) else {
                 continue;
             };
 
@@ -705,13 +690,17 @@ pub fn prepare_sprites<M: SpriteMaterial>(
                         });
                 }
 
-                let batch_material_changed = batch_material_handle != extracted_sprite.material;
+                let batch_material_changed =
+                    batch_material_handle != extracted_sprite.material_handle_id;
                 if batch_material_changed {
-                    if render_materials.get(&extracted_sprite.material).is_none() {
+                    if render_materials
+                        .get(&extracted_sprite.material_handle_id)
+                        .is_none()
+                    {
                         continue;
                     };
 
-                    batch_material_handle = extracted_sprite.material;
+                    batch_material_handle = extracted_sprite.material_handle_id;
                 }
 
                 // By default, the size of the quad is the size of the texture
@@ -757,7 +746,11 @@ pub fn prepare_sprites<M: SpriteMaterial>(
                 // Store the vertex data and add the item to the render phase
                 sprite_meta
                     .sprite_instance_buffer
-                    .push(SpriteInstance::from(&transform, &uv_offset_scale));
+                    .push(SpriteInstance::from(
+                        &transform,
+                        &extracted_sprite.color,
+                        &uv_offset_scale,
+                    ));
 
                 if batch_image_changed || batch_material_changed {
                     batch_item_index = item_index;

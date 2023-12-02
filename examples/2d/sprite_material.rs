@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use bevy_internal::{
     render::render_resource::{AsBindGroup, ShaderRef},
-    sprite::{SpriteMaterial, SpriteMaterialPlugin, SpriteWithMaterial, SpriteWithMaterialBundle},
+    sprite::{SpriteMaterial, SpriteMaterialPlugin, SpriteWithMaterialBundle},
 };
 
 fn main() {
@@ -21,11 +21,12 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(SpriteWithMaterialBundle {
-        sprite: SpriteWithMaterial {
-            material: sprite_materials.add(GrayScale {}),
+        sprite: Sprite {
+            color: Color::rgb(0.21, 0.72, 0.07),
             ..default()
         },
         texture: asset_server.load("textures/rpg/chars/sensei/sensei.png"),
+        material: sprite_materials.add(GrayScale {}),
         ..default()
     });
 }

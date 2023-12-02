@@ -1,4 +1,4 @@
-use crate::{sprite_material::SpriteMaterial, Anchor};
+use crate::Anchor;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -57,48 +57,6 @@ impl TextureAtlasSprite {
     /// Create a new [`TextureAtlasSprite`] with a sprite index,
     /// it should be valid in the corresponding [`TextureAtlas`]
     pub fn new(index: usize) -> TextureAtlasSprite {
-        Self {
-            index,
-            ..Default::default()
-        }
-    }
-}
-
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
-pub struct TextureAtlasSpriteWithMaterial<M: SpriteMaterial> {
-    /// The tint color used to draw the sprite, defaulting to [`Color::WHITE`]
-    pub material: Handle<M>,
-    /// Texture index in [`TextureAtlas`]
-    pub index: usize,
-    /// Whether to flip the sprite in the X axis
-    pub flip_x: bool,
-    /// Whether to flip the sprite in the Y axis
-    pub flip_y: bool,
-    /// An optional custom size for the sprite that will be used when rendering, instead of the size
-    /// of the sprite's image in the atlas
-    pub custom_size: Option<Vec2>,
-    /// [`Anchor`] point of the sprite in the world
-    pub anchor: Anchor,
-}
-
-impl<M: SpriteMaterial> Default for TextureAtlasSpriteWithMaterial<M> {
-    fn default() -> Self {
-        Self {
-            index: 0,
-            material: Default::default(),
-            flip_x: false,
-            flip_y: false,
-            custom_size: None,
-            anchor: Anchor::default(),
-        }
-    }
-}
-
-impl<M: SpriteMaterial> TextureAtlasSpriteWithMaterial<M> {
-    /// Create a new [`TextureAtlasSprite`] with a sprite index,
-    /// it should be valid in the corresponding [`TextureAtlas`]
-    pub fn new(index: usize) -> Self {
         Self {
             index,
             ..Default::default()

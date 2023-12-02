@@ -1,3 +1,6 @@
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
 
 #import bevy_render::{
     maths::affine_to_square,
@@ -15,7 +18,8 @@ struct VertexInput {
     @location(0) i_model_transpose_col0: vec4<f32>,
     @location(1) i_model_transpose_col1: vec4<f32>,
     @location(2) i_model_transpose_col2: vec4<f32>,
-    @location(3) i_uv_offset_scale: vec4<f32>,
+    @location(3) i_color: vec4<f32>,
+    @location(4) i_uv_offset_scale: vec4<f32>,
 }
 
 @vertex
@@ -34,12 +38,21 @@ fn vertex(in: VertexInput) -> SpriteVertexOutput {
         in.i_model_transpose_col2,
     )) * vec4<f32>(vertex_position, 1.0);
     out.uv = vec2<f32>(vertex_position.xy) * in.i_uv_offset_scale.zw + in.i_uv_offset_scale.xy;
+    out.color = in.i_color;
 
     return out;
 }
 
+@group(1) @binding(0) var sprite_texture: texture_2d<f32>;
+@group(1) @binding(1) var sprite_sampler: sampler;
 
 @fragment
 fn fragment(in: SpriteVertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0);
+    var color = in.color * textureSample(sprite_texture, sprite_sampler, in.uv);
+
+#ifdef TONEMAP_IN_SHADER
+    color = tonemapping::tone_mapping(color, view.color_grading);
+#endif
+
+    return color;
 }

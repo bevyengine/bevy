@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite, SPRITE_SHADER_HANDLE,
+    Sprite, SpriteMaterialMarke, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
@@ -338,22 +338,28 @@ pub fn extract_sprites(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     sprite_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &Sprite,
-            &GlobalTransform,
-            &Handle<Image>,
-        )>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &Sprite,
+                &GlobalTransform,
+                &Handle<Image>,
+            ),
+            Without<SpriteMaterialMarke>,
+        >,
     >,
     atlas_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &TextureAtlasSprite,
-            &GlobalTransform,
-            &Handle<TextureAtlas>,
-        )>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &TextureAtlasSprite,
+                &GlobalTransform,
+                &Handle<TextureAtlas>,
+            ),
+            Without<SpriteMaterialMarke>,
+        >,
     >,
 ) {
     extracted_sprites.sprites.clear();

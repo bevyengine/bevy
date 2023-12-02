@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use bevy_asset::Asset;
+use bevy_ecs::component::Component;
 use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
 
 use crate::SpritePipelineKey;
@@ -146,3 +147,6 @@ where
         self.bind_group_data.hash(state);
     }
 }
+
+#[derive(Component, Debug, Default, Clone, Copy)]
+pub struct SpriteMaterialMarke;

@@ -15,6 +15,6 @@
 fn fragment(in: SpriteVertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
     // let g = input.color.r * color.r + input.color.g * color.g + input.color.b * color.b;
-    let g = 0.21 * color.r + 0.72 * color.g + 0.07 * color.b;
+    let g = in.color.r * color.r + in.color.g * color.g + in.color.b * color.b;
     return vec4<f32>(g, g, g, color.a);
 }
