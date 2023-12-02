@@ -608,6 +608,39 @@ fn apply_animation(
     parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
+    /// Set transform to exactly the value of some keyframe.
+    fn set_keyframe(
+        curve: &VariableCurve,
+        transform: &mut Mut<'_, Transform>,
+        weight: f32,
+        morphs: &mut Result<Mut<'_, MorphWeights>, bevy_ecs::query::QueryEntityError>,
+        keyframe: usize,
+    ) {
+        match &curve.keyframes {
+            Keyframes::Rotation(keyframes) => {
+                transform.rotation = transform.rotation.slerp(keyframes[keyframe], weight);
+            }
+            Keyframes::Translation(keyframes) => {
+                transform.translation = transform.translation.lerp(keyframes[keyframe], weight);
+            }
+            Keyframes::Scale(keyframes) => {
+                transform.scale = transform.scale.lerp(keyframes[keyframe], weight);
+            }
+            Keyframes::Weights(keyframes) => {
+                if let Ok(morphs) = morphs {
+                    let target_count = morphs.weights().len();
+                    lerp_morph_weights(
+                        morphs.weights_mut(),
+                        get_keyframe(target_count, keyframes, keyframe)
+                            .iter()
+                            .copied(),
+                        weight,
+                    );
+                }
+            }
+        }
+    }
+
     if let Some(animation_clip) = animations.get(&animation.animation_clip) {
         // We don't return early because seek_to() may have been called on the animation player.
         animation.update(
@@ -648,31 +681,13 @@ fn apply_animation(
             };
             // SAFETY: As above, there can't be other AnimationPlayers with this target so this fetch can't alias
             let mut morphs = unsafe { morphs.get_unchecked(target) };
+
             for curve in curves {
+                let len = curve.keyframe_timestamps.len();
+
                 // Some curves have only one keyframe used to set a transform
-                if curve.keyframe_timestamps.len() == 1 {
-                    match &curve.keyframes {
-                        Keyframes::Rotation(keyframes) => {
-                            transform.rotation = transform.rotation.slerp(keyframes[0], weight);
-                        }
-                        Keyframes::Translation(keyframes) => {
-                            transform.translation =
-                                transform.translation.lerp(keyframes[0], weight);
-                        }
-                        Keyframes::Scale(keyframes) => {
-                            transform.scale = transform.scale.lerp(keyframes[0], weight);
-                        }
-                        Keyframes::Weights(keyframes) => {
-                            if let Ok(morphs) = &mut morphs {
-                                let target_count = morphs.weights().len();
-                                lerp_morph_weights(
-                                    morphs.weights_mut(),
-                                    get_keyframe(target_count, keyframes, 0).iter().copied(),
-                                    weight,
-                                );
-                            }
-                        }
-                    }
+                if len == 1 {
+                    set_keyframe(curve, &mut transform, weight, &mut morphs, 0);
                     continue;
                 }
 
@@ -682,10 +697,16 @@ fn apply_animation(
                     .keyframe_timestamps
                     .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap())
                 {
-                    Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                    Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => {
+                        set_keyframe(curve, &mut transform, weight, &mut morphs, len - 1);
+                        continue;
+                    } // this curve is finished
                     Ok(i) => i,
                     Err(0) => continue, // this curve isn't started yet
-                    Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                    Err(n) if n > curve.keyframe_timestamps.len() - 1 => {
+                        set_keyframe(curve, &mut transform, weight, &mut morphs, len - 1);
+                        continue;
+                    } // this curve is finished
                     Err(i) => i - 1,
                 };
                 let ts_start = curve.keyframe_timestamps[step_start];
