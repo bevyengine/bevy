@@ -1,10 +1,21 @@
 //! This examples illustrates the different ways you can employ component lifecycle hooks
 
+use bevy::ecs::component::{ComponentInfo, TableStorage};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-#[derive(Component, Debug)]
+#[derive(Debug)]
 struct MyComponent(KeyCode);
+
+impl Component for MyComponent {
+    type Storage = TableStorage;
+
+    /// Hooks can also be registered during component initialisation by
+    /// implementing `init_component_info`
+    fn init_component_info(_info: &mut ComponentInfo) {
+        // Register hooks...
+    }
+}
 
 #[derive(Resource, Default, Debug, Deref, DerefMut)]
 struct MyComponentIndex(HashMap<KeyCode, Entity>);
