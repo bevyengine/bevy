@@ -438,10 +438,9 @@ impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
             .windows(4)
             .enumerate()
             .map(|(i, points)| {
+                let i = i * 3;
                 // Unwrap will not fail because the slice is of length 8
-                let knot_vector_segment = (&self.knot_vector[(i * 3)..(i * 3 + 8)])
-                    .try_into()
-                    .unwrap();
+                let knot_vector_segment = (&self.knot_vector[i..i + 8]).try_into().unwrap();
                 let matrix = Self::generate_matrix(knot_vector_segment);
                 // Unwrap will not fail because the windows slice is of length 4
                 CubicSegment::coefficients(points.try_into().unwrap(), 1.0, matrix)
