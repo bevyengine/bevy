@@ -440,10 +440,12 @@ impl<P: Point> CubicNurbs<P> {
         ]
     }
 
+    /// Normalizes weights vector using L0 norm.
+    /// The resulting weight vector's values will add up to be equal the length of the vector
     fn normalize_weights(weights: &mut [f32]) {
         let g = weights.len() as f32;
-        let weights_norm = weights.iter().fold(0.0, |sum, w| sum + w.powi(2));
-        let mul = g / weights_norm.sqrt();
+        let weights_sum = weights.iter().fold(0.0, |sum, w| sum + w);
+        let mul = g / weights_sum;
         weights.iter_mut().for_each(|w| *w *= mul);
     }
 }
