@@ -33,7 +33,7 @@ impl<I, O> VisitAssetDependencies for Callback<I, O> {
 impl<I: TypePath, O: TypePath> Asset for Callback<I, O> {}
 
 // TODO: Add docs
-#[derive(Error)]
+#[derive(Error, PartialEq, Eq)]
 pub enum CallbackError<I: TypePath, O: TypePath> {
     // TODO: Add docs
     #[error("Callback {0:?} was not found")]
@@ -379,5 +379,29 @@ mod tests {
         app.world.spawn(Call(increment_by, 3));
         let _ = app.world.run_callback(nested_id);
         assert_eq!(*app.world.resource::<Counter>(), Counter(5));
+    }
+
+    #[test]
+    fn error_on_recursive_call() {
+        #[derive(Component)]
+        struct Call(Handle<Callback>);
+
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default());
+        app.insert_resource(Counter(0));
+
+        let mut callbacks = app.world.resource_mut::<Assets<Callback>>();
+
+        let call_self = callbacks.add(Callback::from_system(|world: &mut World| {
+            let callbacks = world.resource::<Assets<Callback>>();
+            // this is this callback's id because it is the only callback.
+            let own_id = callbacks.iter().next().unwrap().0.clone();
+            let own_handle = Handle::Weak(own_id);
+            let result = world.run_callback(own_handle.clone());
+
+            assert_eq!(result, Err(CallbackError::Recursive(own_handle)));
+        }));
+
+        let _ = app.world.run_callback(call_self);
     }
 }
