@@ -444,8 +444,8 @@ impl Entities {
             .free_cursor
             // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
             // and use AtomicIsize instead (see note on `IdCursor`).
-            .fetch_sub(IdCursor::try_from(count).unwrap(), Ordering::Relaxed);
-        let range_start = range_end - IdCursor::try_from(count).unwrap();
+            .fetch_sub(IdCursor::from(count), Ordering::Relaxed);
+        let range_start = range_end - IdCursor::from(count);
 
         let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
 
@@ -633,7 +633,7 @@ impl Entities {
         let freelist_size = *self.free_cursor.get_mut();
         // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
         // and use AtomicIsize instead (see note on `IdCursor`).
-        let shortfall = IdCursor::try_from(additional).unwrap() - freelist_size;
+        let shortfall = IdCursor::from(additional) - freelist_size;
         if shortfall > 0 {
             self.meta.reserve(shortfall as usize);
         }
