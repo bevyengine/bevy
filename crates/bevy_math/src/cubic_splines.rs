@@ -441,12 +441,6 @@ impl<P: Point> CubicNurbs<P> {
     }
 
     fn normalize_weights(weights: &mut [f32]) {
-        let mut max = weights[0];
-        let mut min = weights[0];
-        weights.iter().for_each(|w| {
-            max = f32::max(max, *w);
-            min = f32::min(min, *w);
-        });
         let g = weights.len() as f32;
         let weights_norm = weights.iter().fold(0.0, |sum, w| sum + w.powi(2));
         let mul = g / weights_norm.sqrt();
