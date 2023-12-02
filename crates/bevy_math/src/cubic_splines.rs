@@ -415,7 +415,21 @@ impl<P: Point> CubicNurbs<P> {
 impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
-        todo!()
+        let segments = self
+            .control_points
+            .windows(4)
+            .enumerate()
+            .map(|(i, points)| {
+                // Unwrap will not fail because the slice take nis of length 8
+                let knot_vector_segment = (&self.knot_vector[(i * 3)..(i * 3 + 8)])
+                    .try_into()
+                    .unwrap();
+                let matrix = Self::generate_matrix(knot_vector_segment);
+                // Unwrap will not fail because the windows slice is of length 4
+                CubicCurve::coefficients(points.try_into().unwrap(), 1.0, matrix)
+            })
+            .collect();
+        CubicCurve { segments }
     }
 }
 
