@@ -74,6 +74,7 @@ pub struct World {
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
     pub(crate) command_queue: CommandQueue,
+    pub(crate) flushing_commands: bool,
 }
 
 impl Default for World {
@@ -93,6 +94,7 @@ impl Default for World {
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
             command_queue: CommandQueue::default(),
+            flushing_commands: false,
         }
     }
 }
@@ -1755,7 +1757,7 @@ impl World {
     /// Applies the internal [`CommandQueue`] to self
     #[inline]
     pub fn flush_commands(&mut self) {
-        if !self.command_queue.is_empty() {
+        if !self.flushing_commands && !self.command_queue.is_empty() {
             let mut commands = std::mem::take(&mut self.command_queue);
             commands.apply(self);
         }
