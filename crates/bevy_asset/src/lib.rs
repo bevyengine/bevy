@@ -6,8 +6,8 @@ pub mod saver;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
-        Callback, Handle, RunCallbackCommands, RunCallbackWorld, UntypedHandle,
+        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets, Handle,
+        RunCallbackCommands, RunCallbackWorld, UntypedHandle,
     };
 }
 
@@ -48,7 +48,7 @@ use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
-    system::Resource,
+    system::{Callback, Resource},
     world::FromWorld,
 };
 use bevy_log::error;

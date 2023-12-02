@@ -1,27 +1,9 @@
-use bevy_ecs::{
-    prelude::*,
-    system::{Command, DriveSystem},
-};
+use bevy_ecs::{prelude::*, system::Command};
 use bevy_reflect::prelude::*;
 use bevy_utils::tracing;
 use thiserror::Error;
 
 use crate::{Asset, Assets, Handle, VisitAssetDependencies};
-
-// TODO: Add docs
-#[derive(TypePath)]
-pub struct Callback<I = (), O = ()> {
-    inner: Option<DriveSystem<I, O>>,
-}
-
-impl<I: 'static, O: 'static> Callback<I, O> {
-    // TODO: Add docs
-    pub fn from_system<M, S: IntoSystem<I, O, M>>(system: S) -> Self {
-        Self {
-            inner: Some(DriveSystem::new(Box::new(IntoSystem::into_system(system)))),
-        }
-    }
-}
 
 impl<I, O> VisitAssetDependencies for Callback<I, O> {
     fn visit_dependencies(&self, _visit: &mut impl FnMut(crate::UntypedAssetId)) {
@@ -41,9 +23,6 @@ pub enum CallbackError<I: TypePath, O: TypePath> {
     // TODO: Add docs
     #[error("Callback {0:?} tried to run itself recursively")]
     Recursive(Handle<Callback<I, O>>),
-    // TODO: Add docs
-    #[error("Callback {0:?} removed itself")]
-    RemovedSelf(Handle<Callback<I, O>>),
 }
 
 impl<I: TypePath, O: TypePath> std::fmt::Debug for CallbackError<I, O> {
@@ -51,7 +30,6 @@ impl<I: TypePath, O: TypePath> std::fmt::Debug for CallbackError<I, O> {
         match self {
             Self::HandleNotFound(arg0) => f.debug_tuple("HandleNotFound").field(arg0).finish(),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
-            Self::RemovedSelf(arg0) => f.debug_tuple("RemovedSelf").field(arg0).finish(),
         }
     }
 }
@@ -82,18 +60,12 @@ impl RunCallbackWorld for World {
     ) -> Result<Out, CallbackError<In, Out>> {
         let mut assets = self.resource_mut::<Assets<Callback<In, Out>>>();
         let mut callback = assets
-            .get_mut(&handle)
-            .ok_or_else(|| CallbackError::HandleNotFound(handle.clone()))?
-            .inner
-            .take()
-            .ok_or_else(|| CallbackError::Recursive(handle.clone()))?;
+            .remove_untracked(&handle)
+            .ok_or_else(|| CallbackError::HandleNotFound(handle.clone()))?;
 
         let result = callback.run_with_input(self, input);
         let mut assets = self.resource_mut::<Assets<Callback<In, Out>>>();
-        assets
-            .get_mut(&handle)
-            .ok_or_else(|| CallbackError::RemovedSelf(handle))?
-            .inner = Some(callback);
+        assets.insert(&handle, callback);
 
         Ok(result)
     }

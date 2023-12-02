@@ -8,24 +8,28 @@ use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-struct RegisteredSystem<I, O>(DriveSystem<I, O>);
+struct RegisteredSystem<I, O>(Callback<I, O>);
 
 #[derive(TypePath)]
-pub struct DriveSystem<I, O> {
+pub struct Callback<I = (), O = ()> {
     initialized: bool,
     system: BoxedSystem<I, O>,
 }
 
-impl<I, O> DriveSystem<I, O> {
+impl<I, O> Callback<I, O> {
     pub fn new(system: BoxedSystem<I, O>) -> Self {
         Self {
             initialized: false,
             system,
         }
     }
+
+    pub fn from_system<M, S: IntoSystem<I, O, M> + 'static>(system: S) -> Self {
+        Self::new(Box::new(IntoSystem::into_system(system)))
+    }
 }
 
-impl<I: 'static, O: 'static> DriveSystem<I, O> {
+impl<I: 'static, O: 'static> Callback<I, O> {
     pub fn run_with_input(&mut self, world: &mut World, input: I) -> O {
         if !self.initialized {
             self.system.initialize(world);
@@ -126,7 +130,7 @@ impl World {
         system: BoxedSystem<I, O>,
     ) -> SystemId<I, O> {
         SystemId(
-            self.spawn(RegisteredSystem(DriveSystem::new(system))).id(),
+            self.spawn(RegisteredSystem(Callback::new(system))).id(),
             std::marker::PhantomData,
         )
     }
