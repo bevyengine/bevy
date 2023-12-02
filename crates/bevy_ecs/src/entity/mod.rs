@@ -421,8 +421,6 @@ pub struct Entities {
     free_cursor: AtomicIdCursor,
     /// Stores the number of free entities for [`len`](Entities::len)
     len: u32,
-    /// Count of entities marked as constant, will cause panics on despawn
-    constant_count: u32,
 }
 
 impl Entities {
@@ -432,7 +430,6 @@ impl Entities {
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
             len: 0,
-            constant_count: 0,
         }
     }
 
@@ -611,9 +608,6 @@ impl Entities {
     ///
     /// Must not be called while reserved entities are awaiting `flush()`.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
-        if entity.index < self.constant_count {
-            panic!("Cannot despawn entities marked as internal");
-        }
         self.verify_flushed();
 
         let meta = &mut self.meta[entity.index as usize];
@@ -655,7 +649,7 @@ impl Entities {
 
     /// Clears all [`Entity`] from the World.
     pub fn clear(&mut self) {
-        self.meta.truncate(self.constant_count as usize);
+        self.meta.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
         self.len = 0;
@@ -707,10 +701,6 @@ impl Entities {
         } else {
             false
         }
-    }
-
-    pub(crate) fn set_constant(&mut self) {
-        self.constant_count = self.total_count() as u32;
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
@@ -830,11 +820,6 @@ impl Entities {
     #[inline]
     pub fn len(&self) -> u32 {
         self.len
-    }
-
-    #[inline]
-    pub fn constant_count(&self) -> u32 {
-        self.constant_count
     }
 
     /// Checks if any entity is currently active.
