@@ -117,43 +117,60 @@ impl CommandQueue {
         let bytes_range = self.bytes.as_mut_ptr_range();
 
         // Pointer that will iterate over the entries of the buffer.
-        let mut cursor = bytes_range.start;
+        let cursor = bytes_range.start;
+
+        let end = bytes_range.end;
 
         // Reset the buffer, so it can be reused after this function ends.
         // In the loop below, ownership of each command will be transferred into user code.
-        // SAFETY: `set_len(0)` is always valid.
-        unsafe { self.bytes.set_len(0) };
+        let bytes = std::mem::take(&mut self.bytes);
 
-        while cursor < bytes_range.end {
-            // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
-            // Since we know that the cursor is in bounds, it must point to the start of a new command.
-            let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
-            // Advance to the bytes just after `meta`, which represent a type-erased command.
-            // SAFETY: For most types of `Command`, the pointer immediately following the metadata
-            // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
-            // might be 1 byte past the end of the buffer, which is safe.
-            cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
-            // Construct an owned pointer to the command.
-            // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
-            // guarantees that nothing stored in the buffer will get observed after this function ends.
-            // `cmd` points to a valid address of a stored command, so it must be non-null.
-            let cmd = unsafe {
-                OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(cursor.cast()))
-            };
-            // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
-            // since they were stored next to each other by `.push()`.
-            // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-            let size = unsafe { (meta.consume_command_and_get_size)(cmd, &mut world) };
-            // Advance the cursor past the command. For ZSTs, the cursor will not move.
-            // At this point, it will either point to the next `CommandMeta`,
-            // or the cursor will be out of bounds and the loop will end.
-            // SAFETY: The address just past the command is either within the buffer,
-            // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
-            cursor = unsafe { cursor.add(size) };
+        let mut resolving_commands = vec![(cursor, end, bytes)];
 
-            if let Some(world) = &mut world {
-                world.flush_commands();
+        while let Some((mut cursor, mut end, mut bytes)) = resolving_commands.pop() {
+            while cursor < end {
+                // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
+                // Since we know that the cursor is in bounds, it must point to the start of a new command.
+                let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
+                // Advance to the bytes just after `meta`, which represent a type-erased command.
+                // SAFETY: For most types of `Command`, the pointer immediately following the metadata
+                // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
+                // might be 1 byte past the end of the buffer, which is safe.
+                cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
+                // Construct an owned pointer to the command.
+                // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
+                // guarantees that nothing stored in the buffer will get observed after this function ends.
+                // `cmd` points to a valid address of a stored command, so it must be non-null.
+                let cmd = unsafe {
+                    OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(cursor.cast()))
+                };
+                // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
+                // since they were stored next to each other by `.push()`.
+                // For ZSTs, the type doesn't matter as long as the pointer is non-null.
+                let size = unsafe { (meta.consume_command_and_get_size)(cmd, &mut world) };
+                // Advance the cursor past the command. For ZSTs, the cursor will not move.
+                // At this point, it will either point to the next `CommandMeta`,
+                // or the cursor will be out of bounds and the loop will end.
+                // SAFETY: The address just past the command is either within the buffer,
+                // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
+                cursor = unsafe { cursor.add(size) };
+
+                if let Some(world) = &mut world {
+                    world.flushing_commands = true;
+                    if !world.command_queue.is_empty() {
+                        if cursor < end {
+                            resolving_commands.push((cursor, end, bytes));
+                        }
+                        bytes = std::mem::take(&mut world.command_queue.bytes);
+                        let bytes_range = bytes.as_mut_ptr_range();
+                        cursor = bytes_range.start;
+                        end = bytes_range.end;
+                    }
+                }
             }
+        }
+        if let Some(world) = world {
+            world.flushing_commands = false;
         }
     }
 
