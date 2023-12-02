@@ -403,8 +403,8 @@ impl<P: Point> CubicNurbs<P> {
         (0..length).map(|v| v as f32).collect()
     }
 
-    /// Generates an open uniform knot vector, which makes the ends of the curve meet the end and
-    /// start control points
+    /// Generates an open uniform knot vector, which makes the ends of the curve pass through the
+    /// start and end points
     pub fn open_uniform_knot_vector(control_points: usize) -> Vec<f32> {
         let last_knots_value = control_points - 3;
         std::iter::repeat(0.0)
