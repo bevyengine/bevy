@@ -561,7 +561,7 @@ fn init_materials(
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(ColorMaterial {
         color: Color::WHITE,
-        texture: textures.get(0).cloned(),
+        texture: textures.first().cloned(),
     }));
 
     let mut color_rng = StdRng::seed_from_u64(42);
