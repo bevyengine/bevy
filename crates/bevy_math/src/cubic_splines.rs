@@ -717,7 +717,7 @@ impl<P: Point> CubicCurve<P> {
     #[inline]
     /// Adds a segment to the curve
     pub fn push_segment(&mut self, segment: CubicSegment<P>) {
-        self.segments.push(segment)
+        self.segments.push(segment);
     }
 
     /// Returns the [`CubicSegment`] and local `t` value given a spline's global `t` value.
@@ -749,7 +749,7 @@ impl<P: Point> CubicCurve<P> {
 
 impl<P: Point> Extend<CubicSegment<P>> for CubicCurve<P> {
     fn extend<T: IntoIterator<Item = CubicSegment<P>>>(&mut self, iter: T) {
-        self.segments.extend(iter)
+        self.segments.extend(iter);
     }
 }
 
