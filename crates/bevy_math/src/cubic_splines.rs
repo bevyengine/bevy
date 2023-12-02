@@ -6,7 +6,7 @@ use std::{
     ops::{Add, Mul, Sub},
 };
 
-use glam::{Vec2, Vec3, Vec3A};
+use glam::Vec2;
 
 /// A point in space of any dimension that supports the math ops needed for cubic spline
 /// interpolation.
