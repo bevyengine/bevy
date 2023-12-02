@@ -1,6 +1,6 @@
 //! Types for creating and storing [`Observer`]s
 
-use std::{any::TypeId, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::{
     self as bevy_ecs,

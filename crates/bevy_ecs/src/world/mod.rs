@@ -112,7 +112,6 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         self.bootstrap_observers();
-        self.entities.set_constant();
     }
     /// Creates a new empty [`World`].
     ///
