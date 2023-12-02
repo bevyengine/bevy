@@ -8,7 +8,7 @@ use crate::{
         Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
         QueryIter, QueryParIter,
     },
-    storage::{SparseSetIndex, TableId, TableRow},
+    storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 #[cfg(feature = "trace")]
