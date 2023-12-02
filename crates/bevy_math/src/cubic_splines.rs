@@ -299,7 +299,6 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
 /// A Non-Uniform Rational B-Spline
 pub struct CubicNurbs<P: Point> {
     control_points: Vec<P>,
-    weights: Vec<f32>,
     knot_vector: Vec<f32>,
 }
 impl<P: Point> CubicNurbs<P> {
@@ -314,10 +313,10 @@ impl<P: Point> CubicNurbs<P> {
         weights: Option<impl Into<Vec<f32>>>,
         knot_vector: Option<impl Into<Vec<f32>>>,
     ) -> Self {
-        let control_points: Vec<P> = control_points.into();
+        let mut control_points: Vec<P> = control_points.into();
         let control_points_len = control_points.len();
 
-        let weights = weights
+        let mut weights = weights
             .map(Into::into)
             .unwrap_or_else(|| vec![1.0; control_points_len]);
 
@@ -362,9 +361,15 @@ impl<P: Point> CubicNurbs<P> {
             );
         }
 
+        Self::normalize_weights(&mut weights);
+
+        control_points
+            .iter_mut()
+            .zip(weights)
+            .for_each(|(p, w)| *p = *p * w);
+
         Self {
             control_points,
-            weights,
             knot_vector,
         }
     }
@@ -410,6 +415,19 @@ impl<P: Point> CubicNurbs<P> {
             [3.0 * m00, -3.0 * m00 - m22, m22, 0.0],
             [-m00, m00 - m32 - m33, m32, m33],
         ]
+    }
+
+    fn normalize_weights(weights: &mut [f32]) {
+        let mut max = weights[0];
+        let mut min = weights[0];
+        weights.iter().for_each(|w| {
+            max = f32::max(max, *w);
+            min = f32::min(min, *w);
+        });
+        let g = weights.len() as f32;
+        let weights_norm = weights.iter().fold(0.0, |sum, w| sum + w.powi(2));
+        let mul = g / weights_norm.sqrt();
+        weights.iter_mut().for_each(|w| *w *= mul);
     }
 }
 impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
