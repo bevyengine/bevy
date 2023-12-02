@@ -1,6 +1,12 @@
 //! Types for creating and storing [`Observer`]s
 
-use std::marker::PhantomData;
+mod builder;
+mod runner;
+mod state;
+
+pub use builder::*;
+pub use runner::*;
+use state::*;
 
 use crate::{
     self as bevy_ecs,
@@ -16,6 +22,13 @@ use bevy_utils::{EntityHashMap, HashMap};
 
 use crate::{component::ComponentId, prelude::*, query::WorldQueryFilter, world::DeferredWorld};
 
+/// Trait used to mark components used as ECS events.
+pub trait EcsEvent: Component {}
+
+impl<E: Component> EcsEvent for E {}
+
+/// Type used in callbacks registered for observers.
+/// TODO: Proper docs and examples
 pub struct Observer<'w, E, Q: WorldQueryData, F: WorldQueryFilter = ()> {
     world: DeferredWorld<'w>,
     state: &'w ObserverState<Q, F>,
@@ -38,10 +51,12 @@ impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
         }
     }
 
+    /// Returns the event id for the triggering event
     pub fn event(&self) -> ComponentId {
         self.trigger.event
     }
 
+    /// Gets read access to the data for [`Q`] from the triggering entity
     pub fn fetch(&self) -> <Q::ReadOnly as WorldQuery>::Item<'_> {
         let location = self.world.entities.get(self.trigger.source).unwrap();
         let world = self.world.as_unsafe_world_cell_readonly();
@@ -59,6 +74,7 @@ impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
         }
     }
 
+    /// Gets write access to the data for [`Q`] from the triggering entity
     pub fn fetch_mut(&mut self) -> Q::Item<'_> {
         let location = self.world.entities.get(self.trigger.source).unwrap();
         let world = self.world.as_unsafe_world_cell();
@@ -76,61 +92,31 @@ impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
         }
     }
 
+    /// Returns a reference to the data associated with the event that triggered the observer.
     pub fn data(&self) -> &E {
         &self.data
     }
 
+    /// Returns a mutable reference to the data associated with the event that triggered the observer.
+    pub fn data_mut(&mut self) -> &mut E {
+        &mut self.data
+    }
+
+    /// Returns the entity that triggered the observer.
     pub fn source(&self) -> Entity {
         self.trigger.source
     }
 
+    /// Returns a reference to the underlying [`DeferredWorld`]
     pub fn world(&self) -> &DeferredWorld {
         &self.world
     }
 
+    /// Returns a mutable reference to the underlying [`DeferredWorld`]
     pub fn world_mut(&mut self) -> &mut DeferredWorld<'w> {
         &mut self.world
     }
 }
-
-#[derive(Component)]
-pub(crate) struct ObserverState<Q: WorldQueryData, F: WorldQueryFilter> {
-    fetch_state: Q::State,
-    filter_state: F::State,
-    component_access: FilteredAccess<ComponentId>,
-    last_event_id: u32,
-}
-
-impl<Q: WorldQueryData, F: WorldQueryFilter> ObserverState<Q, F> {
-    pub fn new(world: &mut World) -> Self {
-        let fetch_state = Q::init_state(world);
-        let filter_state = F::init_state(world);
-
-        let mut component_access = FilteredAccess::default();
-        Q::update_component_access(&fetch_state, &mut component_access);
-
-        // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
-        // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
-        // because they are evaluated *before* a specific reference is constructed.
-        let mut filter_component_access = FilteredAccess::default();
-        F::update_component_access(&filter_state, &mut filter_component_access);
-
-        // Merge the temporary filter access with the main access. This ensures that filter access is
-        // properly considered in a global "cross-query" context (both within systems and across systems).
-        component_access.extend(&filter_component_access);
-
-        Self {
-            fetch_state,
-            filter_state,
-            component_access,
-            last_event_id: 0,
-        }
-    }
-}
-
-pub trait EcsEvent: Component {}
-
-impl<C: Component> EcsEvent for C {}
 
 #[derive(Default, Clone, Component)]
 pub(crate) struct ObserverDescriptor {
@@ -139,162 +125,12 @@ pub(crate) struct ObserverDescriptor {
     sources: Vec<Entity>,
 }
 
-pub struct ObserverBuilder<'w, E: EcsEvent = NoEvent> {
-    world: &'w mut World,
-    descriptor: ObserverDescriptor,
-    _marker: PhantomData<E>,
-}
-
-impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
-    pub fn new(world: &'w mut World) -> Self {
-        let mut descriptor = ObserverDescriptor::default();
-        let event = world.init_component::<E>();
-        if event != NO_EVENT {
-            descriptor.events.push(event);
-        }
-        Self {
-            world,
-            descriptor,
-            _marker: PhantomData::default(),
-        }
-    }
-
-    // Allows listening for multiple types of events but without passing typed data
-    pub fn on_event<NewE: EcsEvent>(&mut self) -> &mut ObserverBuilder<'w, NoEvent> {
-        let event = self.world.init_component::<NewE>();
-        self.descriptor.events.push(event);
-        // SAFETY: () type will not allow bad memory access as it has no size
-        unsafe { std::mem::transmute(self) }
-    }
-
-    pub fn on_event_ids(
-        &mut self,
-        events: impl IntoIterator<Item = ComponentId>,
-    ) -> &mut ObserverBuilder<'w, NoEvent> {
-        self.descriptor.events.extend(events);
-        // SAFETY: () type will not allow bad memory access as it has no size
-        unsafe { std::mem::transmute(self) }
-    }
-
-    pub fn components<T: Bundle>(&mut self) -> &mut Self {
-        T::component_ids(
-            &mut self.world.components,
-            &mut self.world.storages,
-            &mut |id| self.descriptor.components.push(id),
-        );
-        self
-    }
-
-    pub fn component_ids<T: Bundle>(
-        &mut self,
-        ids: impl IntoIterator<Item = ComponentId>,
-    ) -> &mut Self {
-        self.descriptor.components.extend(ids);
-        self
-    }
-
-    pub fn source(&mut self, source: Entity) -> &mut Self {
-        self.descriptor.sources.push(source);
-        self
-    }
-
-    pub fn run<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
-        &mut self,
-        callback: fn(Observer<E, Q, F>),
-    ) -> Entity {
-        let entity = self.enqueue(callback);
-        self.world.flush_commands();
-        entity
-    }
-
-    pub fn enqueue<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
-        &mut self,
-        callback: fn(Observer<E, Q, F>),
-    ) -> Entity {
-        self.world.spawn_observer(&self.descriptor, callback)
-    }
-}
-
+/// Metadata for the source triggering an [`Observer`],
 pub struct ObserverTrigger {
     observer: Entity,
     location: EntityLocation,
     event: ComponentId,
     source: Entity,
-}
-
-#[derive(Copy, Clone, Debug)]
-struct ObserverCallback {
-    run: fn(DeferredWorld, ObserverTrigger, PtrMut, Option<fn(Observer<(), ()>)>),
-    callback: Option<fn(Observer<(), ()>)>,
-}
-
-#[derive(Component)]
-pub(crate) struct ObserverComponent {
-    descriptor: ObserverDescriptor,
-    runner: ObserverCallback,
-}
-
-impl ObserverComponent {
-    fn from<E: 'static, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
-        descriptor: ObserverDescriptor,
-        value: fn(Observer<E, Q, F>),
-    ) -> Self {
-        Self {
-            descriptor,
-            runner: ObserverCallback {
-                run: |mut world, trigger, ptr, callback| {
-                    let callback: fn(Observer<E, Q, F>) =
-                        unsafe { std::mem::transmute(callback.debug_checked_unwrap()) };
-                    let state = unsafe {
-                        let mut state = world
-                            .get_mut::<ObserverState<Q, F>>(trigger.observer)
-                            .debug_checked_unwrap();
-                        let state: *mut ObserverState<Q, F> = state.as_mut();
-                        &mut *state
-                    };
-                    // This being stored in a component is not ideal, should be able to check this before fetching
-                    let last_event = world.last_event_id;
-                    if state.last_event_id == last_event {
-                        return;
-                    }
-                    state.last_event_id = last_event;
-
-                    let archetype_id = trigger.location.archetype_id;
-                    let archetype = &world.archetypes()[archetype_id];
-                    if !Q::matches_component_set(&state.fetch_state, &mut |id| {
-                        archetype.contains(id)
-                    }) || !F::matches_component_set(&state.filter_state, &mut |id| {
-                        archetype.contains(id)
-                    }) {
-                        return;
-                    }
-
-                    // TODO: Change ticks?
-                    unsafe {
-                        let mut filter_fetch = F::init_fetch(
-                            world.as_unsafe_world_cell_readonly(),
-                            &state.filter_state,
-                            world.last_change_tick(),
-                            world.read_change_tick(),
-                        );
-
-                        if !F::filter_fetch(
-                            &mut filter_fetch,
-                            trigger.source,
-                            trigger.location.table_row,
-                        ) {
-                            return;
-                        }
-                    }
-
-                    // SAFETY: Pointer is valid as we just created it, ObserverState is a private type and so will not be aliased
-                    let observer = Observer::new(world, state, unsafe { ptr.deref_mut() }, trigger);
-                    callback(observer);
-                },
-                callback: Some(unsafe { std::mem::transmute(value) }),
-            },
-        }
-    }
 }
 
 #[derive(Default, Debug)]
@@ -303,6 +139,7 @@ pub(crate) struct CachedObservers {
     entity_observers: EntityHashMap<Entity, EntityHashMap<Entity, ObserverCallback>>,
 }
 
+/// Metadata for observers. Stores a cache mapping event ids to the registered observers.
 #[derive(Default, Debug)]
 pub struct Observers {
     on_add: CachedObservers,
@@ -353,7 +190,7 @@ impl Observers {
             let cache = self.get_observers(event);
             for &component in &observer.descriptor.components {
                 let observers = cache.component_observers.entry(component).or_default();
-                observers.insert(entity, observer.runner);
+                observers.insert(entity, observer.callback);
                 if observers.len() == 1 {
                     if let Some(flag) = Self::is_archetype_cached(event) {
                         archetypes.update_flags(component, flag, true);
@@ -362,7 +199,7 @@ impl Observers {
             }
             for &source in &observer.descriptor.sources {
                 let observers = cache.entity_observers.entry(source).or_default();
-                observers.insert(entity, observer.runner);
+                observers.insert(entity, observer.callback);
             }
         }
     }
@@ -413,6 +250,7 @@ impl Observers {
         let Some(observers) = self.try_get_observers(event) else {
             return;
         };
+        // Run entity observers for source
         if let Some(observers) = observers.entity_observers.get(&source) {
             observers.iter().for_each(|(&observer, runner)| {
                 (runner.run)(
@@ -428,6 +266,23 @@ impl Observers {
                 );
             });
         }
+        // Run component observers for ANY
+        if let Some(observers) = observers.component_observers.get(&ANY) {
+            observers.iter().for_each(|(&observer, runner)| {
+                (runner.run)(
+                    world.reborrow(),
+                    ObserverTrigger {
+                        observer,
+                        event,
+                        location,
+                        source,
+                    },
+                    data.into(),
+                    runner.callback,
+                )
+            })
+        }
+        // Run component observers for each component
         for component in components {
             if let Some(observers) = observers.component_observers.get(&component) {
                 observers.iter().for_each(|(&observer, runner)| {
@@ -481,64 +336,69 @@ impl Observers {
     }
 }
 
+/// EcsEvent to signify an entity observer being attached to an entity
+/// Can be modelled by parent-child relationship if/when that is enforced
 #[derive(Component)]
-pub struct OnAdd;
-
-#[derive(Component)]
-pub struct OnInsert;
-
-#[derive(Component)]
-pub struct OnRemove;
-
-#[derive(Component)]
-pub struct NoEvent;
-
-#[derive(Component)]
-#[component(storage = "SparseSet")]
 pub(crate) struct AttachObserver(pub(crate) Entity);
 
+/// Tracks a list of entity observers for the attached entity
 #[derive(Component, Default)]
 #[component(storage = "SparseSet")]
 pub(crate) struct ObservedBy(Vec<Entity>);
 
+/// Type used to construct and emit a [`EcsEvent`]
 pub struct EventBuilder<'w, E> {
-    commands: Commands<'w, 'w>,
+    world: DeferredWorld<'w>,
     targets: Vec<Entity>,
     components: Vec<ComponentId>,
     data: Option<E>,
 }
 
 impl<'w, E: EcsEvent> EventBuilder<'w, E> {
-    pub fn new(data: E, commands: Commands<'w, 'w>) -> Self {
+    /// Constructs a new builder that will write it's event to `world`'s command queue
+    pub fn new(data: E, world: DeferredWorld<'w>) -> Self {
         Self {
-            commands,
+            world,
             targets: Vec::new(),
             components: Vec::new(),
             data: Some(data),
         }
     }
 
-    pub fn target(&mut self, target: Entity) -> &mut Self {
+    /// Adds `target` to the list of entities targeted by `self`
+    pub fn entity(&mut self, target: Entity) -> &mut Self {
         self.targets.push(target);
         self
     }
 
+    /// Add the [`ComponentId`] of `T` to the list of components targeted by `self`
+    pub fn component<T: Component>(&mut self) -> &mut Self {
+        let component_id = self.world.components().component_id::<T>().expect(
+            "Cannot emit event for component that does not exist, initialize components before emitting events targeting them."
+        );
+        self.components.push(component_id);
+        self
+    }
+
+    /// Adds `component_id` to the list of components targeted by `self`
+    pub fn component_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.components.push(component_id);
+        self
+    }
+
+    /// Add the event to the command queue of world
     pub fn emit(&mut self) {
-        self.commands.add(EmitEcsEvent::<E> {
+        self.world.commands().add(EmitEcsEvent::<E> {
             data: std::mem::take(&mut self.data).unwrap(),
-            targets: std::mem::take(&mut self.targets),
+            entities: std::mem::take(&mut self.targets),
             components: std::mem::take(&mut self.components),
-        })
+        });
     }
 }
 
 impl World {
+    /// Initialize components and register hooks for types used by [`Observer`].
     pub(crate) fn bootstrap_observers(&mut self) {
-        assert_eq!(NO_EVENT, self.init_component::<NoEvent>());
-        assert_eq!(ON_ADD, self.init_component::<OnAdd>());
-        assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
-        assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
-
         // Update event cache when observers are spawned and despawned
         self.register_component::<ObserverComponent>()
             .on_add(|mut world, entity, _| {
@@ -568,21 +428,24 @@ impl World {
                 observers.unregister(archetypes, entity, observer);
             });
 
-        // Register attached observer to `ObservedBy` for later despawning
-        self.register_component::<AttachObserver>()
-            .on_insert(|mut world, entity, _| {
-                let observer = world.get::<AttachObserver>(entity).unwrap().0;
-
-                match world.get_mut::<ObservedBy>(entity) {
-                    Some(mut o) => o.0.push(observer),
-                    None => {
-                        world
-                            .commands()
-                            .entity(entity)
-                            .insert(ObservedBy(vec![observer]));
-                    }
+        // When any entity is targeted for an `AttachObserver` event add it to `ObservedBy`
+        // or insert `ObservedBy` if it doesn't exist
+        // Can also use a hooks here instead
+        self.observer_builder().components::<Any>().run(
+            |mut observer: Observer<AttachObserver, Option<&mut ObservedBy>>| {
+                let attached_observer = observer.data().0;
+                if let Some(mut observed_by) = observer.fetch_mut() {
+                    observed_by.0.push(attached_observer);
+                } else {
+                    let source = observer.source();
+                    observer
+                        .world_mut()
+                        .commands()
+                        .entity(source)
+                        .insert(ObservedBy(vec![attached_observer]));
                 }
-            });
+            },
+        );
 
         // When an entity is despawned while being observed by entity observers despawn them
         self.register_component::<ObservedBy>()
@@ -595,10 +458,14 @@ impl World {
             });
     }
 
+    /// Construct an [`ObserverBuilder`]
     pub fn observer_builder<E: EcsEvent>(&mut self) -> ObserverBuilder<E> {
         ObserverBuilder::new(self)
     }
 
+    /// Create an [`Observer`] for the components accessed in `Q`.
+    /// For more control over targetting components see [`Self::observer_builder`].
+    /// For observing events targetting a specific entity see [`EntityWorldMut::observe`].
     pub fn observer<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
         callback: fn(Observer<E, Q, F>),
@@ -606,8 +473,13 @@ impl World {
         ObserverBuilder::new(self).run(callback)
     }
 
+    /// Constructs an [`EventBuilder`] for an [`EcsEvent`].
     pub fn ecs_event<E: EcsEvent>(&mut self, event: E) -> EventBuilder<E> {
-        EventBuilder::new(event, self.commands())
+        self.init_component::<E>();
+        // TODO: Safe into deferred for world
+        EventBuilder::new(event, unsafe {
+            self.as_unsafe_world_cell().into_deferred()
+        })
     }
 
     pub(crate) fn spawn_observer<
@@ -616,23 +488,23 @@ impl World {
         F: WorldQueryFilter + 'static,
     >(
         &mut self,
-        descriptor: &ObserverDescriptor,
-        callback: fn(Observer<E, Q, F>),
+        mut observer: ObserverComponent,
     ) -> Entity {
-        let mut descriptor = descriptor.clone();
         let iterator_state = ObserverState::<Q, F>::new(self);
-        if descriptor.components.is_empty() && descriptor.sources.is_empty() {
-            descriptor
-                .components
-                .extend(iterator_state.component_access.access().reads_and_writes());
+        let components = &mut observer.descriptor.components;
+        let sources = &observer.descriptor.sources;
+        // If the observer has no explicit targets use the accesses of the query
+        if components.is_empty() && sources.is_empty() {
+            components.extend(iterator_state.component_access.access().reads_and_writes());
+            // If there are still no targets add the ANY target
+            if components.is_empty() {
+                components.push(ANY);
+            }
         }
         let entity = self.entities.reserve_entity();
         self.command_queue.push(Insert {
             entity,
-            bundle: (
-                iterator_state,
-                ObserverComponent::from(descriptor, callback),
-            ),
+            bundle: (iterator_state, observer),
         });
 
         entity

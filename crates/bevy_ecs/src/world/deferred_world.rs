@@ -6,6 +6,7 @@ use crate::{
     component::ComponentId,
     entity::{Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
+    observer::{EcsEvent, EventBuilder},
     prelude::{Component, QueryState},
     query::{WorldQueryData, WorldQueryFilter},
     system::{Commands, Query, Resource},
@@ -32,6 +33,7 @@ impl<'w> Deref for DeferredWorld<'w> {
 }
 
 impl<'w> DeferredWorld<'w> {
+    /// Reborrow self as a new instance of [`DeferredWorld`]
     #[inline]
     pub fn reborrow(&mut self) -> DeferredWorld {
         DeferredWorld { world: self.world }
@@ -55,6 +57,9 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_entity(entity)?.get_mut() }
     }
 
+    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
+    /// Returns [`None`] if the `entity` does not exist.
+    /// Instead of unwrapping the value returned from this function, prefer [`Self::entity_mut`].
     #[inline]
     pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
         let location = self.entities.get(entity)?;
@@ -66,6 +71,9 @@ impl<'w> DeferredWorld<'w> {
         Some(entity_ref)
     }
 
+    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
+    /// This will panic if the `entity` does not exist. Use [`Self::get_entity_mut`] if you want
+    /// to check for entity existence instead of implicitly panic-ing.
     #[inline]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
         #[inline(never)]
@@ -350,6 +358,11 @@ impl<'w> DeferredWorld<'w> {
             (world.into_deferred(), &world.world().observers)
         };
         observers.invoke(event, target, location, components, world, data);
+    }
+
+    /// Constructs an [`EventBuilder`] for an [`EcsEvent`].
+    pub fn ecs_event<E: EcsEvent>(&mut self, data: E) -> EventBuilder<E> {
+        EventBuilder::new(data, self.reborrow())
     }
 
     #[inline]

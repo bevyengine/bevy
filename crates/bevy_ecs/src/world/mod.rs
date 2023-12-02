@@ -111,6 +111,12 @@ impl Default for World {
 impl World {
     #[inline]
     fn bootstrap(&mut self) {
+        assert_eq!(ANY, self.init_component::<Any>());
+        assert_eq!(NO_EVENT, self.init_component::<NoEvent>());
+        assert_eq!(ON_ADD, self.init_component::<OnAdd>());
+        assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
+        assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
+
         self.bootstrap_observers();
     }
     /// Creates a new empty [`World`].

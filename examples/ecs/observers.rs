@@ -33,7 +33,7 @@ fn setup(world: &mut World) {
         // Can submit commands for any structural changes
         world.commands().entity(source).remove::<CompB>();
         // Or to raise other events
-        world.commands().ecs_event(Resize(2, 4)).target(data).emit();
+        world.ecs_event(Resize(2, 4)).entity(data).emit();
     });
 
     let entity = world

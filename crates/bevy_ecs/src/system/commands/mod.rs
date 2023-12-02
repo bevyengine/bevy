@@ -6,7 +6,7 @@ use crate::{
     bundle::Bundle,
     component::ComponentId,
     entity::{Entities, Entity},
-    observer::{EcsEvent, EventBuilder},
+    observer::EcsEvent,
     prelude::Observer,
     query::{WorldQueryData, WorldQueryFilter},
     system::{RunSystemWithInput, SystemId},
@@ -591,10 +591,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(command);
     }
 
-    pub fn ecs_event<E: EcsEvent>(&mut self, data: E) -> EventBuilder<E> {
-        EventBuilder::new(data, self.reborrow())
-    }
-
+    /// Reborrow self as a new instance of [`Commands`]
     pub fn reborrow(&mut self) -> Commands {
         Commands {
             queue: Deferred(self.queue.0),
@@ -939,6 +936,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self.commands
     }
 
+    /// Creates an [`Observer`] listening for `E` events targetting this entity.
+    /// In order to trigger the callback the entity must also match the query when the event is fired.
     pub fn observe<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
         callback: fn(Observer<E, Q, F>),
@@ -1197,6 +1196,7 @@ impl Command for LogComponents {
 pub struct Observe<E: EcsEvent, Q: WorldQueryData, F: WorldQueryFilter> {
     /// The entity that will be observed.
     pub entity: Entity,
+    /// The callback to run when the event is observed.
     pub callback: fn(Observer<E, Q, F>),
 }
 
@@ -1211,16 +1211,20 @@ impl<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static> Co
 /// A [`Command`] that emits an event to be received by observers.
 #[derive(Debug)]
 pub struct EmitEcsEvent<E: EcsEvent> {
+    /// Data for the event.
     pub data: E,
+    /// Components to trigger observers for.
     pub components: Vec<ComponentId>,
-    pub targets: Vec<Entity>,
+    /// Entities to trigger observers for.
+    pub entities: Vec<Entity>,
 }
 
 impl<E: EcsEvent> Command for EmitEcsEvent<E> {
     fn apply(mut self, world: &mut World) {
         let event = world.init_component::<E>();
         let mut world = unsafe { world.as_unsafe_world_cell().into_deferred() };
-        for &target in &self.targets {
+
+        for &target in &self.entities {
             if let Some(location) = world.entities().get(target) {
                 unsafe {
                     world.trigger_observers_with_data(
@@ -1229,8 +1233,8 @@ impl<E: EcsEvent> Command for EmitEcsEvent<E> {
                         location,
                         self.components.iter().cloned(),
                         &mut self.data,
-                    )
-                }
+                    );
+                };
             }
         }
     }

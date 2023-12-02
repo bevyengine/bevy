@@ -36,7 +36,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        observer::{Observer, OnAdd, OnInsert, OnRemove},
+        observer::Observer,
         query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -48,7 +48,9 @@ pub mod prelude {
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
+        world::{
+            EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove, World,
+        },
     };
 }
 
