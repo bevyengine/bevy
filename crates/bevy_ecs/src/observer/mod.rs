@@ -341,9 +341,10 @@ impl Observers {
     }
 }
 
-/// EcsEvent to signify an entity observer being attached to an entity
+/// Component to signify an entity observer being attached to an entity
 /// Can be modelled by parent-child relationship if/when that is enforced
 #[derive(Component)]
+#[component(storage = "SparseSet")]
 pub(crate) struct AttachObserver(pub(crate) Entity);
 
 /// Tracks a list of entity observers for the attached entity
