@@ -433,24 +433,21 @@ impl World {
                 observers.unregister(archetypes, entity, observer);
             });
 
-        // When any entity is targeted for an `AttachObserver` event add it to `ObservedBy`
+        // When `AttachObserver` is inserted onto an event add it to `ObservedBy`
         // or insert `ObservedBy` if it doesn't exist
-        // Can also use a hooks here instead
-        self.observer_builder().components::<Any>().run(
-            |mut observer: Observer<AttachObserver, Option<&mut ObservedBy>>| {
-                let attached_observer = observer.data().0;
-                if let Some(mut observed_by) = observer.fetch_mut() {
+        // Can also use an observer here but avoiding spawning entities in the world
+        self.register_component::<AttachObserver>()
+            .on_insert(|mut world, entity, _| {
+                let attached_observer = world.get::<AttachObserver>(entity).unwrap().0;
+                if let Some(mut observed_by) = world.get_mut::<ObservedBy>(entity) {
                     observed_by.0.push(attached_observer);
                 } else {
-                    let source = observer.source();
-                    observer
-                        .world_mut()
+                    world
                         .commands()
-                        .entity(source)
+                        .entity(entity)
                         .insert(ObservedBy(vec![attached_observer]));
                 }
-            },
-        );
+            });
 
         // When an entity is despawned while being observed by entity observers despawn them
         self.register_component::<ObservedBy>()
