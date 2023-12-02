@@ -442,8 +442,6 @@ impl Entities {
         // negative, meaning they are all new IDs to allocate, or a mix of both.
         let range_end = self
             .free_cursor
-            // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
-            // and use AtomicIsize instead (see note on `IdCursor`).
             .fetch_sub(IdCursor::from(count), Ordering::Relaxed);
         let range_start = range_end - IdCursor::from(count);
 
@@ -631,8 +629,6 @@ impl Entities {
         self.verify_flushed();
 
         let freelist_size = *self.free_cursor.get_mut();
-        // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
-        // and use AtomicIsize instead (see note on `IdCursor`).
         let shortfall = IdCursor::from(additional) - freelist_size;
         if shortfall > 0 {
             self.meta.reserve(shortfall as usize);
