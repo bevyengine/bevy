@@ -438,7 +438,7 @@ impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
             .windows(4)
             .enumerate()
             .map(|(i, points)| {
-                // Unwrap will not fail because the slice take nis of length 8
+                // Unwrap will not fail because the slice is of length 8
                 let knot_vector_segment = (&self.knot_vector[(i * 3)..(i * 3 + 8)])
                     .try_into()
                     .unwrap();
