@@ -4,9 +4,9 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy::ui::widget::{
-    HueWheelMaterial, HueWheelSibling, SaturationValueBoxEvent, SaturationValueBoxMaterial,
+    hsv_to_rgb, HueWheelEvent, HueWheelMaterial, HueWheelSibling, SaturationValueBoxEvent,
+    SaturationValueBoxMaterial,
 };
-use bevy_internal::ui::widget::{hsv_to_rgb, HueWheelEvent};
 
 fn main() {
     App::new()
