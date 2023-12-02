@@ -92,12 +92,7 @@ fn hue_wheel_system(
     base_wheel: Query<Entity, With<BaseColorWheel>>,
     cube_wheel: Query<Entity, With<CubeColorWheel>>,
 ) {
-    for HueWheelEvent {
-        entity,
-        color: _,
-        hue,
-    } in events.read()
-    {
+    for HueWheelEvent { entity, hue } in events.read() {
         if base_wheel.single() == *entity {
             colors.base.hue = *hue;
         } else if cube_wheel.single() == *entity {
@@ -182,7 +177,7 @@ fn setup_ui(
     // ..some math is required in order to have the inner box UI element
     // exactly touch the wheel
     let wheel_radius = wheel_diameter / 2.;
-    let inner_wheel_radius = wheel_radius * hue_wheel_material.inner_radius;
+    let inner_wheel_radius = wheel_radius * hue_wheel_material.uniform.inner_radius;
     let box_size = (inner_wheel_radius * 2.) * (PI / 4.).cos();
 
     commands

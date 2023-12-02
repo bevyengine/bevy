@@ -12,10 +12,10 @@ use bevy_ecs::{
     query::{Changed, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut},
+    system::{Query, ResMut},
 };
 use bevy_log::warn;
-use bevy_math::{Vec2, Vec3};
+use bevy_math::Vec3;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::render_resource::ShaderType;
 use bevy_render::{
@@ -70,9 +70,6 @@ pub struct HueWheelEvent {
     /// The [`HueWheel`] entity which produced the event
     pub entity: Entity,
 
-    /// The color pressed on the wheel
-    pub color: Color,
-
     /// The (0., 1.) range hue pressed
     pub hue: f32,
 }
@@ -82,9 +79,6 @@ pub struct HueWheelEvent {
 pub struct SaturationValueBoxEvent {
     /// The [`SaturationValueBox`] entity which produced the event
     pub entity: Entity,
-
-    /// The color pressed within the box
-    pub color: Color,
 
     /// The (0., 1.) range saturation pressed
     pub saturation: f32,
@@ -109,7 +103,7 @@ fn hue_wheel_events(
         ),
         (Changed<Interaction>, With<HueWheel>),
     >,
-    wheels: Res<Assets<HueWheelMaterial>>,
+    mut wheels: ResMut<Assets<HueWheelMaterial>>,
     mut event_writer: EventWriter<HueWheelEvent>,
 ) {
     for (entity, material_handle, interaction, relative_position) in &interaction_query {
@@ -118,10 +112,12 @@ fn hue_wheel_events(
                 // NOTE: The UV and hue calculations must sync with similar calculations in `hue_wheel.wgsl`
                 let uv = (uv * 2.) - 1.;
 
-                let Some(HueWheelMaterial { inner_radius }) = wheels.get(material_handle) else {
+                let Some(HueWheelMaterial { uniform }) = wheels.get_mut(material_handle) else {
                     warn!("unexpected: a saturation-value box was pressed but found no asset containing its material");
                     continue;
                 };
+                let HueWheelUniform { hue, inner_radius } = uniform;
+
                 let length = uv.length();
                 if length < *inner_radius || length > 1.0 {
                     // the wheel is cut-out if below the radius in the shader so don't
@@ -130,13 +126,9 @@ fn hue_wheel_events(
                     continue;
                 }
 
-                let hue = (uv.y.atan2(uv.x) + PI) / (2. * PI);
+                *hue = (uv.y.atan2(uv.x) + PI) / (2. * PI);
 
-                event_writer.send(HueWheelEvent {
-                    entity,
-                    color: hsv_to_rgb(hue, 1., 1.),
-                    hue,
-                });
+                event_writer.send(HueWheelEvent { entity, hue: *hue });
             }
         }
     }
@@ -157,11 +149,7 @@ fn update_saturation_value_box_hue(
     mut boxes: ResMut<Assets<SaturationValueBoxMaterial>>,
 ) {
     for event in hue.read() {
-        let HueWheelEvent {
-            entity,
-            color: _,
-            hue,
-        } = event;
+        let HueWheelEvent { entity, hue } = event;
 
         if let Some((_, handle, _)) = box_query.iter().find(|(.., sibling)| *entity == ***sibling) {
             let Some(material) = boxes.get_mut(handle) else {
@@ -196,19 +184,18 @@ fn saturation_value_box_events(
                     warn!("unexpected: a saturation-value box was pressed but found no asset containing its material");
                     continue;
                 };
+                let SaturationValueUniform {
+                    saturation, value, ..
+                } = uniform;
 
-                uniform.marker = Vec2::new(uv.x * 2. - 1., (uv.y * 2. - 1.) * -1.);
-
-                let saturation = uv.x;
+                *saturation = uv.x;
                 // NOTE: We want "value" to increase vertically which looks most natural hence the flip
-                let value = 1. - uv.y;
+                *value = 1. - uv.y;
 
-                let color = hsv_to_rgb(uniform.hue, saturation, value);
                 event_writer.send(SaturationValueBoxEvent {
                     entity,
-                    color,
-                    saturation,
-                    value,
+                    saturation: *saturation,
+                    value: *value,
                 });
             }
         }
@@ -232,17 +219,30 @@ pub fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> Color {
 #[reflect(Component, Default)]
 pub struct HueWheel;
 
-#[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
-pub struct HueWheelMaterial {
+#[derive(Debug, ShaderType, Clone, Default)]
+pub struct HueWheelUniform {
+    /// Which hue to display
+    pub hue: f32,
+
     /// The ratio of the inner radius (when the hue wheel cuts off) compared to the
     /// outer radius.
-    #[uniform(0)]
     pub inner_radius: f32,
+}
+
+#[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+pub struct HueWheelMaterial {
+    #[uniform(0)]
+    pub uniform: HueWheelUniform,
 }
 
 impl Default for HueWheelMaterial {
     fn default() -> Self {
-        Self { inner_radius: 0.85 }
+        Self {
+            uniform: HueWheelUniform {
+                hue: 0.0,
+                inner_radius: 0.85,
+            },
+        }
     }
 }
 
@@ -253,8 +253,14 @@ pub struct SaturationValueBox;
 
 #[derive(Debug, ShaderType, Clone, Default)]
 struct SaturationValueUniform {
+    /// Which hue to display
     hue: f32,
-    marker: Vec2,
+
+    /// Saturation to use for indicating choice via a marker
+    saturation: f32,
+
+    /// Value to use for indicating choice via a marker
+    value: f32,
 }
 
 #[derive(AsBindGroup, Asset, TypePath, Debug, Clone, Default)]
