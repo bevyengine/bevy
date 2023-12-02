@@ -325,14 +325,13 @@ impl<P: Point> CubicNurbs<P> {
             .map(Into::into)
             .unwrap_or_else(|| Self::open_uniform_knot_vector(control_points_len));
 
-        let knot_vector_required_length = control_points_len + 4; // Number of control points +
-                                                                  // curve order
+        let knot_vector_expected_length = Self::knot_vector_length(control_points_len);
 
         // Check the knot vector length
-        if knot_vector.len() != knot_vector_required_length {
+        if knot_vector.len() != knot_vector_expected_length {
             // TODO: change to result
             panic!(
-                "Invalid knot vector length: {knot_vector_required_length} expected, {} provided",
+                "Invalid knot vector length: {knot_vector_expected_length} expected, {} provided",
                 knot_vector.len()
             );
         }
@@ -384,6 +383,16 @@ impl<P: Point> CubicNurbs<P> {
             .chain((1..(control_points - 1)).map(|v| v as f32))
             .chain(std::iter::repeat(control_points as f32).take(4))
             .collect()
+    }
+
+    #[inline(always)]
+    const fn knot_vector_length(control_points_len: usize) -> usize {
+        control_points_len + 4
+    }
+
+    /// Based on <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
+    fn generate_matrix(knot_vector_segment: &[f32; 6]) -> [[f32; 4]; 4] {
+        todo!()
     }
 }
 impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
