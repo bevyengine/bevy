@@ -106,6 +106,11 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIter<'w, 's, Q, F> {
     where
         Func: FnMut(B, Q::Item<'w>) -> B,
     {
+        assert!(
+            rows.end <= u32::MAX as usize,
+            "TableRow is only valid up to u32::MAX"
+        );
+
         Q::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
         F::set_table(
             &mut self.cursor.filter,
@@ -117,7 +122,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryIter<'w, 's, Q, F> {
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
             let entity = entities.get_unchecked(row);
-            let row = TableRow::new(row);
+            let row = TableRow::from_usize(row);
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
             if !F::filter_fetch(&mut self.cursor.filter, *entity, row) {
