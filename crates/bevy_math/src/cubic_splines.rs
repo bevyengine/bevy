@@ -7,6 +7,7 @@ use std::{
 };
 
 use glam::Vec2;
+use thiserror::Error;
 
 /// A point in space of any dimension that supports the math ops needed for cubic spline
 /// interpolation.
@@ -296,6 +297,31 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
     }
 }
 
+/// Error during construction of [`CubicNurbs`]
+#[derive(Debug, Error)]
+pub enum CubicNurbsError {
+    /// Provided knot vector had an invalid length
+    #[error("Invalid knot vector length: expected {expected}, provided {provided}")]
+    InvalidKnotVectorLength {
+        /// Expected knot vector lengths
+        expected: usize,
+        /// Provided knot vector length
+        provided: usize,
+    },
+    /// Knot vector has invalid values. Values of a knot vector must be nondescending, meaning the
+    /// next element must be greater than or equal to the previous one.
+    #[error("Invalid knot vector values: elements are not nondescending")]
+    InvalidKnotVectorValues,
+    /// Provided weights vector didn't have the same amoutn of values as teh control points vector
+    #[error("Invalid weights vector length: expected {expected}, provided {provided}")]
+    WeightsVectorMismatch {
+        /// Expected weights vector size
+        expected: usize,
+        /// Provided weights vector size
+        provided: usize,
+    },
+}
+
 /// A Non-Uniform Rational B-Spline
 pub struct CubicNurbs<P: Point> {
     control_points: Vec<P>,
@@ -312,7 +338,7 @@ impl<P: Point> CubicNurbs<P> {
         control_points: impl Into<Vec<P>>,
         weights: Option<impl Into<Vec<f32>>>,
         knot_vector: Option<impl Into<Vec<f32>>>,
-    ) -> Self {
+    ) -> Result<Self, CubicNurbsError> {
         let mut control_points: Vec<P> = control_points.into();
         let control_points_len = control_points.len();
 
@@ -328,11 +354,10 @@ impl<P: Point> CubicNurbs<P> {
 
         // Check the knot vector length
         if knot_vector.len() != knot_vector_expected_length {
-            // TODO: change to result
-            panic!(
-                "Invalid knot vector length: {knot_vector_expected_length} expected, {} provided",
-                knot_vector.len()
-            );
+            return Err(CubicNurbsError::InvalidKnotVectorLength {
+                expected: knot_vector_expected_length,
+                provided: knot_vector.len(),
+            });
         }
 
         // Check the knot vector for being nondescending (previous elements is less than or equal
@@ -347,18 +372,16 @@ impl<P: Point> CubicNurbs<P> {
             }
 
             if !is_nondescending {
-                // TODO: change to result
-                panic!("Invalid knot vector, elements are not nondescending");
+                return Err(CubicNurbsError::InvalidKnotVectorValues);
             }
         }
 
         // Check the weights vector length
         if weights.len() != control_points_len {
-            // TODO: change to result
-            panic!(
-                "Invalid weights vector length: {control_points_len} expected, {} provided",
-                weights.len()
-            );
+            return Err(CubicNurbsError::WeightsVectorMismatch {
+                expected: control_points_len,
+                provided: weights.len(),
+            });
         }
 
         Self::normalize_weights(&mut weights);
@@ -368,10 +391,10 @@ impl<P: Point> CubicNurbs<P> {
             .zip(weights)
             .for_each(|(p, w)| *p = *p * w);
 
-        Self {
+        Ok(Self {
             control_points,
             knot_vector,
-        }
+        })
     }
 
     /// Generates a uniform knot vector that will generate the same curve as [`CubicBSpline`]
