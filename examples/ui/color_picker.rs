@@ -6,20 +6,50 @@ use bevy::prelude::*;
 use bevy::ui::widget::{
     HueWheelMaterial, HueWheelSibling, SaturationValueBoxEvent, SaturationValueBoxMaterial,
 };
+use bevy_internal::ui::widget::{hsv_to_rgb, HueWheelEvent};
 
 fn main() {
     App::new()
+        .init_resource::<BaseAndCube>()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_ui, setup_3d))
-        .add_systems(Update, saturation_value_box_system)
+        .add_systems(
+            Update,
+            // First check for hue wheel or sat-val events to update colors,
+            // then apply updates if any updates were had
+            (
+                (saturation_value_box_system, hue_wheel_system),
+                update_colors.run_if(resource_changed::<BaseAndCube>()),
+            )
+                .chain(),
+        )
         .run();
 }
 
-#[derive(Debug, Component)]
-struct SaturationValueBox1;
+#[derive(Debug, Default)]
+struct Hsv {
+    hue: f32,
+    saturation: f32,
+    value: f32,
+}
+
+#[derive(Debug, Resource, Default)]
+struct BaseAndCube {
+    base: Hsv,
+    cube: Hsv,
+}
 
 #[derive(Debug, Component)]
-struct SaturationValueBox2;
+struct BaseColorBox;
+
+#[derive(Debug, Component)]
+struct CubeColorBox;
+
+#[derive(Debug, Component)]
+struct BaseColorWheel;
+
+#[derive(Debug, Component)]
+struct CubeColorWheel;
 
 #[derive(Debug, Component)]
 struct Cube;
@@ -32,27 +62,67 @@ struct Base;
 // then applies the color to either the cube or base.
 fn saturation_value_box_system(
     mut events: EventReader<SaturationValueBoxEvent>,
-    mut color_materials: ResMut<Assets<StandardMaterial>>,
-    svb1: Query<Entity, With<SaturationValueBox1>>,
-    svb2: Query<Entity, With<SaturationValueBox2>>,
+    mut colors: ResMut<BaseAndCube>,
+    base_box: Query<Entity, With<BaseColorBox>>,
+    cube_box: Query<Entity, With<CubeColorBox>>,
+) {
+    for SaturationValueBoxEvent {
+        entity,
+        saturation,
+        value,
+        ..
+    } in events.read()
+    {
+        if base_box.single() == *entity {
+            colors.base.saturation = *saturation;
+            colors.base.value = *value;
+        } else if cube_box.single() == *entity {
+            colors.cube.saturation = *saturation;
+            colors.cube.value = *value;
+        }
+    }
+}
+
+// Looks at events from hue-wheels.
+// If found, checks which one the event stemmed from,
+// then applies the color to either the cube or base.
+fn hue_wheel_system(
+    mut events: EventReader<HueWheelEvent>,
+    mut colors: ResMut<BaseAndCube>,
+    base_wheel: Query<Entity, With<BaseColorWheel>>,
+    cube_wheel: Query<Entity, With<CubeColorWheel>>,
+) {
+    for HueWheelEvent {
+        entity,
+        color: _,
+        hue,
+    } in events.read()
+    {
+        if base_wheel.single() == *entity {
+            colors.base.hue = *hue;
+        } else if cube_wheel.single() == *entity {
+            colors.cube.hue = *hue;
+        }
+    }
+}
+
+fn update_colors(
+    colors: Res<BaseAndCube>,
     base: Query<&Handle<StandardMaterial>, With<Base>>,
     cube: Query<&Handle<StandardMaterial>, With<Cube>>,
+    mut color_materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for SaturationValueBoxEvent { entity, color } in events.read() {
-        let handle = if svb1.single() == *entity {
-            base.single()
-        } else if svb2.single() == *entity {
-            cube.single()
-        } else {
-            continue;
-        };
+    let Some(material) = color_materials.get_mut(base.single()) else {
+        return;
+    };
 
-        let Some(material) = color_materials.get_mut(handle) else {
-            continue;
-        };
+    material.base_color = hsv_to_rgb(colors.base.hue, colors.base.saturation, colors.base.value);
 
-        material.base_color = *color;
-    }
+    let Some(material) = color_materials.get_mut(cube.single()) else {
+        return;
+    };
+
+    material.base_color = hsv_to_rgb(colors.cube.hue, colors.cube.saturation, colors.cube.value);
 }
 
 fn setup_3d(
@@ -64,7 +134,7 @@ fn setup_3d(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(shape::Circle::new(4.0).into()),
-            material: materials.add(Color::WHITE.into()),
+            material: materials.add(Color::default().into()),
             transform: Transform::from_rotation(Quat::from_rotation_x(
                 -std::f32::consts::FRAC_PI_2,
             )),
@@ -76,7 +146,7 @@ fn setup_3d(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb_u8(124, 144, 255).into()),
+            material: materials.add(Color::default().into()),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..default()
         },
@@ -139,16 +209,19 @@ fn setup_ui(
             })
             .with_children(|picker1| {
                 let hue_wheel = picker1
-                    .spawn(HueWheelBundle {
-                        style: Style {
-                            position_type: PositionType::Absolute,
-                            width: Val::Percent(100.),
-                            height: Val::Percent(100.),
+                    .spawn((
+                        HueWheelBundle {
+                            style: Style {
+                                position_type: PositionType::Absolute,
+                                width: Val::Percent(100.),
+                                height: Val::Percent(100.),
+                                ..default()
+                            },
+                            material: hue_materials.add(hue_wheel_material.clone()),
                             ..default()
                         },
-                        material: hue_materials.add(hue_wheel_material.clone()),
-                        ..default()
-                    })
+                        BaseColorWheel,
+                    ))
                     .id();
                 picker1.spawn((
                     SaturationValueBoxBundle {
@@ -161,7 +234,7 @@ fn setup_ui(
                         material: satval_materials.add(default()),
                         ..default()
                     },
-                    SaturationValueBox1,
+                    BaseColorBox,
                     // added to make the saturation-value box update automatically
                     HueWheelSibling(hue_wheel),
                 ));
@@ -180,16 +253,19 @@ fn setup_ui(
             })
             .with_children(|picker2| {
                 let hue_wheel = picker2
-                    .spawn(HueWheelBundle {
-                        style: Style {
-                            position_type: PositionType::Absolute,
-                            width: Val::Percent(100.),
-                            height: Val::Percent(100.),
+                    .spawn((
+                        HueWheelBundle {
+                            style: Style {
+                                position_type: PositionType::Absolute,
+                                width: Val::Percent(100.),
+                                height: Val::Percent(100.),
+                                ..default()
+                            },
+                            material: hue_materials.add(hue_wheel_material.clone()),
                             ..default()
                         },
-                        material: hue_materials.add(hue_wheel_material.clone()),
-                        ..default()
-                    })
+                        CubeColorWheel,
+                    ))
                     .id();
                 picker2.spawn((
                     SaturationValueBoxBundle {
@@ -202,7 +278,7 @@ fn setup_ui(
                         material: satval_materials.add(default()),
                         ..default()
                     },
-                    SaturationValueBox2,
+                    CubeColorBox,
                     // added to make the saturation-value box update automatically
                     HueWheelSibling(hue_wheel),
                 ));

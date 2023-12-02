@@ -73,7 +73,7 @@ pub struct HueWheelEvent {
     /// The color pressed on the wheel
     pub color: Color,
 
-    /// The (0., 1.) range hue value pressed
+    /// The (0., 1.) range hue pressed
     pub hue: f32,
 }
 
@@ -85,6 +85,12 @@ pub struct SaturationValueBoxEvent {
 
     /// The color pressed within the box
     pub color: Color,
+
+    /// The (0., 1.) range saturation pressed
+    pub saturation: f32,
+
+    /// The (0., 1.) range value pressed
+    pub value: f32,
 }
 
 /// Marks an entity as a sibling to the wrapped hue wheel entity.
@@ -193,33 +199,26 @@ fn saturation_value_box_events(
 
                 uniform.marker = Vec2::new(uv.x * 2. - 1., (uv.y * 2. - 1.) * -1.);
 
+                let saturation = uv.x;
                 // NOTE: We want "value" to increase vertically which looks most natural hence the flip
-                let color = hsv_to_rgb(uniform.hue, uv.x, 1.0 - uv.y);
-                event_writer.send(SaturationValueBoxEvent { entity, color });
+                let value = 1. - uv.y;
+
+                let color = hsv_to_rgb(uniform.hue, saturation, value);
+                event_writer.send(SaturationValueBoxEvent {
+                    entity,
+                    color,
+                    saturation,
+                    value,
+                });
             }
         }
     }
 }
 
-/// As ported from utils.wgsl:
-///
-/// ```wgsl
-/// fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
-///     let rgb = clamp(
-///         abs(
-///             ((hue * 6.0 + vec3<f32>(0.0, 4.0, 2.0)) % 6.0) - 3.0
-///         ) - 1.0,
-///         vec3<f32>(0.0),
-///         vec3<f32>(1.0)
-///     );
-///
-///     return value * mix(vec3<f32>(1.0), rgb, vec3<f32>(saturation));
-/// }
-/// ```
-///
-/// All inputs in range (0., 1.)
-///
-fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> Color {
+/// All inputs in range (0., 1.).
+/// The hue value signifies an angle.
+// Ported from the HSV to RGB code in utils.wgsl
+pub fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> Color {
     let rgb = ((((Vec3::splat(hue * 6.0) + Vec3::new(0.0, 4.0, 2.0)) % 6.0) - 3.0).abs() - 1.0)
         .clamp(Vec3::ZERO, Vec3::ONE);
 
