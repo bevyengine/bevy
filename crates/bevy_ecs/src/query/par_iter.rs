@@ -118,12 +118,9 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryParIter<'w, 's, Q, F> 
             // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
             // at the same time.
             unsafe {
-                self.state.for_each_unchecked_manual(
-                    self.world,
-                    func,
-                    self.last_run,
-                    self.this_run,
-                );
+                self.state
+                    .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                    .for_each(func);
             }
         }
         #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
@@ -132,12 +129,9 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryParIter<'w, 's, Q, F> 
             if thread_count <= 1 {
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.for_each_unchecked_manual(
-                        self.world,
-                        func,
-                        self.last_run,
-                        self.this_run,
-                    );
+                    self.state
+                        .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                        .for_each(func);
                 }
             } else {
                 // Need a batch size of at least 1.
