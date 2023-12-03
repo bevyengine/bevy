@@ -134,7 +134,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
     fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
-        let mut shader_defs = key.shader_defs();
+        let shader_defs = key.shader_defs();
 
         // Customize how to store the meshes' vertex attributes in the vertex buffer
         // Our meshes only have position and color
@@ -155,14 +155,14 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
                 entry_point: "vertex".into(),
-                shader_defs: vec![],
+                shader_defs: shader_defs.clone(),
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.view_key.texture_format.format(),
