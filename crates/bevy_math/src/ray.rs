@@ -31,7 +31,7 @@ impl Ray2d {
 
     /// Get the distance to a plane if the ray intersects it
     #[inline]
-    pub fn intersect_plane(&self, plane: impl Into<Plane2d>, plane_origin: Vec2) -> Option<f32> {
+    pub fn intersect_plane(&self, plane_origin: Vec2, plane: impl Into<Plane2d>) -> Option<f32> {
         let plane = plane.into();
         let denominator = plane.normal.dot(*self.direction);
         if denominator.abs() > f32::EPSILON {
@@ -72,7 +72,7 @@ impl Ray3d {
 
     /// Get the distance to a plane if the ray intersects it
     #[inline]
-    pub fn intersect_plane(&self, plane: impl Into<Plane3d>, plane_origin: Vec3) -> Option<f32> {
+    pub fn intersect_plane(&self, plane_origin: Vec3, plane: impl Into<Plane3d>) -> Option<f32> {
         let plane = plane.into();
         let denominator = plane.normal.dot(*self.direction);
         if denominator.abs() > f32::EPSILON {
