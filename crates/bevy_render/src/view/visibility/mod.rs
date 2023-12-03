@@ -222,7 +222,7 @@ impl Plugin for VisibilityPlugin {
                         // We add an AABB component in CalculateBounds,
                         // which must be ready on the same frame.
                         calculate_bounds.into_set(CalculateBounds),
-                        CalculateBoundsFlush,
+                        apply_deferred.into_set(CalculateBoundsFlush),
                     )
                         .chain(),
                     update_frusta::<OrthographicProjection>
