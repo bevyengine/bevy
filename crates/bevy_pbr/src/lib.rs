@@ -263,18 +263,15 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     (
-                        SimulationLightSystems::AddClusters,
-                        SimulationLightSystems::AddClustersFlush,
-                        SimulationLightSystems::AssignLightsToClusters,
+                        add_clusters.into_set(SimulationLightSystems::AddClusters),
+                        apply_deferred.into_set(SimulationLightSystems::AddClustersFlush),
+                        assign_lights_to_clusters
+                            .into_set(SimulationLightSystems::AssignLightsToClusters)
+                            .after(TransformSystem::TransformPropagate)
+                            .after(VisibilitySystems::CheckVisibility)
+                            .after(CameraUpdateSystem),
                     )
                         .chain(),
-                    add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
-                    assign_lights_to_clusters
-                        .in_set(SimulationLightSystems::AssignLightsToClusters)
-                        .after(TransformSystem::TransformPropagate)
-                        .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystem),
                     (
                         clear_directional_light_cascades,
                         build_directional_light_cascades::<Projection>,
