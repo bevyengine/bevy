@@ -11,7 +11,7 @@
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -27,6 +27,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::Mesh,
     render_asset::RenderAssets,
+    render_resource::Shader,
     texture::{GpuImage, Image},
     Render, RenderApp, RenderSet,
 };
@@ -39,6 +40,10 @@ use crate::{Mesh3d, RenderMeshInstances};
 
 /// The maximum number of lightmaps in a scene.
 pub const MAX_LIGHTMAPS: usize = 1024;
+
+/// The ID of the lightmap shader.
+pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(285484768317531991932943596447919767152);
 
 /// A plugin that provides an implementation of lightmaps.
 pub struct LightmapPlugin;
@@ -107,6 +112,13 @@ pub(crate) struct RenderMeshLightmapIndex(pub(crate) usize);
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            LIGHTMAP_SHADER_HANDLE,
+            "lightmap.wgsl",
+            Shader::from_wgsl
+        );
+
         app.add_plugins(ExtractComponentPlugin::<Lightmap>::default())
             .register_type::<Lightmap>();
 

@@ -8,7 +8,7 @@
     mesh_bindings::mesh,
     mesh_view_bindings::view,
     parallax_mapping::parallaxed_uv,
-    lightmaps::lightmap,
+    lightmap::lightmap,
 }
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION

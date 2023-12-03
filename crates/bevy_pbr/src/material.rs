@@ -610,7 +610,9 @@ pub fn queue_material_meshes<M: Material>(
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
 
             if let Ok(lightmap) = lightmaps.get(*visible_entity) {
-                if images.get(lightmap.image.id()).is_some() {
+                if images.get(lightmap.image.id()).is_some()
+                    && mesh.layout.contains(Mesh::ATTRIBUTE_UV_1.id)
+                {
                     mesh_key |= MeshPipelineKey::LIGHTMAPPED;
                 }
             }
