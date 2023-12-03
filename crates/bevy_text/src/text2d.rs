@@ -196,7 +196,7 @@ pub fn update_text2d_layout(
                 &fonts,
                 &text.sections,
                 scale_factor,
-                text.alignment,
+                text.justification,
                 text.linebreak_behavior,
                 text_bounds,
                 &mut font_atlas_sets,

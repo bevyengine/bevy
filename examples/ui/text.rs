@@ -39,8 +39,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: 100.0,
                 ..default()
             },
-        ) // Set the alignment of the Text
-        .with_text_alignment(TextAlignment::Center)
+        ) // Set the justification of the Text
+        .with_text_justification(TextJustification::Center)
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,

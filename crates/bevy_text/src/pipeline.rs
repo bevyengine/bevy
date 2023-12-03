@@ -1,6 +1,6 @@
 use crate::{
     compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
-    FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextAlignment, TextSection,
+    FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextJustification, TextSection,
     TextSettings, YAxisOrientation,
 };
 use ab_glyph::PxScale;
@@ -47,7 +47,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
-        text_alignment: TextAlignment,
+        text_alignment: TextJustification,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
         font_atlas_sets: &mut FontAtlasSets,
@@ -119,7 +119,7 @@ pub struct TextMeasureSection {
 pub struct TextMeasureInfo {
     pub fonts: Box<[ab_glyph::FontArc]>,
     pub sections: Box<[TextMeasureSection]>,
-    pub text_alignment: TextAlignment,
+    pub text_alignment: TextJustification,
     pub linebreak_behavior: glyph_brush_layout::BuiltInLineBreaker,
     pub min: Vec2,
     pub max: Vec2,
@@ -158,14 +158,14 @@ impl TextMeasureInfo {
         Ok(Self::new(
             auto_fonts,
             sections,
-            text.alignment,
+            text.justification,
             text.linebreak_behavior.into(),
         ))
     }
     fn new(
         fonts: Vec<ab_glyph::FontArc>,
         sections: Vec<TextMeasureSection>,
-        text_alignment: TextAlignment,
+        text_alignment: TextJustification,
         linebreak_behavior: glyph_brush_layout::BuiltInLineBreaker,
     ) -> Self {
         let mut info = Self {

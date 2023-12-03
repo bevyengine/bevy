@@ -13,7 +13,7 @@ pub struct Text {
     pub sections: Vec<TextSection>,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
-    pub alignment: TextAlignment,
+    pub justification: TextJustification,
     /// How the text should linebreak when running out of the bounds determined by max_size
     pub linebreak_behavior: BreakLineOn,
 }
@@ -22,7 +22,7 @@ impl Default for Text {
     fn default() -> Self {
         Self {
             sections: Default::default(),
-            alignment: TextAlignment::Left,
+            justification: TextJustification::Left,
             linebreak_behavior: BreakLineOn::WordBoundary,
         }
     }
@@ -50,14 +50,14 @@ impl Text {
     /// );
     ///
     /// let hello_bevy = Text::from_section(
-    ///     "hello bevy!",
+    ///     "hello world\nand bevy!",
     ///     TextStyle {
     ///         font: font_handle,
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
-    /// ) // You can still add an alignment.
-    /// .with_alignment(TextAlignment::Center);
+    /// ) // You can still add text justifaction.
+    /// .with_justification(TextJustification::Center);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
@@ -101,9 +101,9 @@ impl Text {
         }
     }
 
-    /// Returns this [`Text`] with a new [`TextAlignment`].
-    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
-        self.alignment = alignment;
+    /// Returns this [`Text`] with a new [`TextJustification`].
+    pub const fn with_alignment(mut self, justification: TextJustification) -> Self {
+        self.justification = justification;
         self
     }
 
@@ -159,28 +159,32 @@ impl From<String> for TextSection {
     }
 }
 
-/// Describes horizontal alignment preference for positioning & bounds.
+/// Describes the horizontal alignment of multiple lines of text relative to each other.
+/// This only affects the internal positioning of the lines of text within a text entity and
+/// does not affect the text entity's position.
+///
+/// _Has no affect on a single line text entity._
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum TextAlignment {
-    /// Leftmost character is immediately to the right of the render position.<br/>
+pub enum TextJustification {
+    /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
     #[default]
     Left,
-    /// Leftmost & rightmost characters are equidistant to the render position.<br/>
+    /// Leftmost & rightmost characters are equidistant to the render position.
     /// Bounds start from the render position and advance equally left & right.
     Center,
-    /// Rightmost character is immediately to the left of the render position.<br/>
+    /// Rightmost character is immediately to the left of the render position.
     /// Bounds start from the render position and advance leftwards.
     Right,
 }
 
-impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: TextAlignment) -> Self {
+impl From<TextJustification> for glyph_brush_layout::HorizontalAlign {
+    fn from(val: TextJustification) -> Self {
         match val {
-            TextAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
-            TextAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
-            TextAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
+            TextJustification::Left => glyph_brush_layout::HorizontalAlign::Left,
+            TextJustification::Center => glyph_brush_layout::HorizontalAlign::Center,
+            TextJustification::Right => glyph_brush_layout::HorizontalAlign::Right,
         }
     }
 }

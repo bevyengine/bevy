@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 60.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextAlignment::Center;
+    let text_alignment = TextJustification::Center;
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "this text wraps in the box\n(Unicode linebreaks)",
                         slightly_smaller_text_style.clone(),
                     )],
-                    alignment: TextAlignment::Left,
+                    justification: TextJustification::Left,
                     linebreak_behavior: BreakLineOn::WordBoundary,
                 },
                 text_2d_bounds: Text2dBounds {
@@ -123,7 +123,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "this text wraps in the box\n(AnyCharacter linebreaks)",
                         slightly_smaller_text_style.clone(),
                     )],
-                    alignment: TextAlignment::Left,
+                    justification: TextJustification::Left,
                     linebreak_behavior: BreakLineOn::AnyCharacter,
                 },
                 text_2d_bounds: Text2dBounds {

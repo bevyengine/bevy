@@ -47,7 +47,7 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
         }],
-        alignment: TextAlignment::Left,
+        justification: TextJustification::Left,
         linebreak_behavior: BreakLineOn::AnyCharacter,
     };
 
