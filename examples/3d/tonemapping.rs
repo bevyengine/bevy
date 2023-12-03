@@ -347,7 +347,7 @@ fn update_image_viewer(
 }
 
 fn toggle_scene(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Visibility, &SceneNumber)>,
     mut current_scene: ResMut<CurrentScene>,
 ) {
@@ -374,7 +374,7 @@ fn toggle_scene(
 }
 
 fn toggle_tonemapping_method(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut tonemapping: Query<&mut Tonemapping>,
     mut color_grading: Query<&mut ColorGrading>,
     per_method_settings: Res<PerMethodSettings>,
@@ -422,7 +422,7 @@ impl SelectedParameter {
 }
 
 fn update_color_grading_settings(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut per_method_settings: ResMut<PerMethodSettings>,
     tonemapping: Query<&Tonemapping>,
@@ -479,7 +479,7 @@ fn update_ui(
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
 ) {
     let (method, color_grading) = settings.single();
     let method = *method;

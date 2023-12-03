@@ -29,7 +29,7 @@ pub mod prelude {
         keyboard::{KeyCode, ScanCode},
         mouse::MouseButton,
         touch::{TouchInput, Touches},
-        Axis, Input,
+        Axis, ButtonInput,
     };
 }
 
@@ -68,14 +68,14 @@ impl Plugin for InputPlugin {
         app
             // keyboard
             .add_event::<KeyboardInput>()
-            .init_resource::<Input<KeyCode>>()
-            .init_resource::<Input<ScanCode>>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<ScanCode>>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
-            .init_resource::<Input<MouseButton>>()
+            .init_resource::<ButtonInput<MouseButton>>()
             .add_systems(PreUpdate, mouse_button_input_system.in_set(InputSystem))
             .add_event::<TouchpadMagnify>()
             .add_event::<TouchpadRotate>()
@@ -88,7 +88,7 @@ impl Plugin for InputPlugin {
             .add_event::<GamepadRumbleRequest>()
             .init_resource::<GamepadSettings>()
             .init_resource::<Gamepads>()
-            .init_resource::<Input<GamepadButton>>()
+            .init_resource::<ButtonInput<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
             .add_systems(
