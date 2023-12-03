@@ -34,7 +34,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
+    /// # use bevy_text::{Font, Text, TextStyle, TextJustification};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
