@@ -10,10 +10,42 @@ pub(crate) struct ObserverCallback {
 /// Typically refers to the default runner defined in [`ObserverComponent::from`]
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, Option<fn(Observer<(), ()>)>);
 
-#[derive(Component)]
 pub(crate) struct ObserverComponent {
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) callback: ObserverCallback,
+}
+
+impl Component for ObserverComponent {
+    type Storage = SparseStorage;
+
+    fn init_component_info(info: &mut ComponentInfo) {
+        info.on_add(|mut world, entity, _| {
+            let (world, archetypes, observers) = unsafe {
+                let world = world.as_unsafe_world_cell();
+                (
+                    world.into_deferred(),
+                    world.archetypes_mut(),
+                    world.observers_mut(),
+                )
+            };
+
+            let observer = world.get::<ObserverComponent>(entity).unwrap();
+            observers.register(archetypes, entity, observer);
+        })
+        .on_remove(|mut world, entity, _| {
+            let (world, archetypes, observers) = unsafe {
+                let world = world.as_unsafe_world_cell();
+                (
+                    world.into_deferred(),
+                    world.archetypes_mut(),
+                    world.observers_mut(),
+                )
+            };
+
+            let observer = world.get::<ObserverComponent>(entity).unwrap();
+            observers.unregister(archetypes, entity, observer);
+        });
+    }
 }
 
 impl ObserverComponent {

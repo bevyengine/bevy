@@ -11,6 +11,7 @@ use state::*;
 use crate::{
     self as bevy_ecs,
     archetype::{ArchetypeFlags, Archetypes},
+    component::{ComponentInfo, SparseStorage},
     entity::EntityLocation,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery, WorldQueryData},
     system::{EmitEcsEvent, Insert},
@@ -343,14 +344,44 @@ impl Observers {
 
 /// Component to signify an entity observer being attached to an entity
 /// Can be modelled by parent-child relationship if/when that is enforced
-#[derive(Component)]
-#[component(storage = "SparseSet")]
 pub(crate) struct AttachObserver(pub(crate) Entity);
 
+impl Component for AttachObserver {
+    type Storage = SparseStorage;
+
+    // When `AttachObserver` is inserted onto an event add it to `ObservedBy`
+    // or insert `ObservedBy` if it doesn't exist
+    fn init_component_info(info: &mut ComponentInfo) {
+        info.on_insert(|mut world, entity, _| {
+            let attached_observer = world.get::<AttachObserver>(entity).unwrap().0;
+            if let Some(mut observed_by) = world.get_mut::<ObservedBy>(entity) {
+                observed_by.0.push(attached_observer);
+            } else {
+                world
+                    .commands()
+                    .entity(entity)
+                    .insert(ObservedBy(vec![attached_observer]));
+            }
+        });
+    }
+}
+
 /// Tracks a list of entity observers for the attached entity
-#[derive(Component, Default)]
-#[component(storage = "SparseSet")]
 pub(crate) struct ObservedBy(Vec<Entity>);
+
+impl Component for ObservedBy {
+    type Storage = SparseStorage;
+
+    fn init_component_info(info: &mut ComponentInfo) {
+        info.on_remove(|mut world, entity, _| {
+            let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
+            let observed_by = std::mem::take(&mut component.0);
+            observed_by.iter().for_each(|&e| {
+                world.commands().entity(e).despawn();
+            });
+        });
+    }
+}
 
 /// Type used to construct and emit a [`EcsEvent`]
 pub struct EventBuilder<'w, E> {
@@ -403,64 +434,6 @@ impl<'w, E: EcsEvent> EventBuilder<'w, E> {
 }
 
 impl World {
-    /// Initialize components and register hooks for types used by [`Observer`].
-    pub(crate) fn bootstrap_observers(&mut self) {
-        // Update event cache when observers are spawned and despawned
-        self.register_component::<ObserverComponent>()
-            .on_add(|mut world, entity, _| {
-                let (world, archetypes, observers) = unsafe {
-                    let world = world.as_unsafe_world_cell();
-                    (
-                        world.into_deferred(),
-                        world.archetypes_mut(),
-                        world.observers_mut(),
-                    )
-                };
-
-                let observer = world.get::<ObserverComponent>(entity).unwrap();
-                observers.register(archetypes, entity, observer);
-            })
-            .on_remove(|mut world, entity, _| {
-                let (world, archetypes, observers) = unsafe {
-                    let world = world.as_unsafe_world_cell();
-                    (
-                        world.into_deferred(),
-                        world.archetypes_mut(),
-                        world.observers_mut(),
-                    )
-                };
-
-                let observer = world.get::<ObserverComponent>(entity).unwrap();
-                observers.unregister(archetypes, entity, observer);
-            });
-
-        // When `AttachObserver` is inserted onto an event add it to `ObservedBy`
-        // or insert `ObservedBy` if it doesn't exist
-        // Can also use an observer here but avoiding spawning entities in the world
-        self.register_component::<AttachObserver>()
-            .on_insert(|mut world, entity, _| {
-                let attached_observer = world.get::<AttachObserver>(entity).unwrap().0;
-                if let Some(mut observed_by) = world.get_mut::<ObservedBy>(entity) {
-                    observed_by.0.push(attached_observer);
-                } else {
-                    world
-                        .commands()
-                        .entity(entity)
-                        .insert(ObservedBy(vec![attached_observer]));
-                }
-            });
-
-        // When an entity is despawned while being observed by entity observers despawn them
-        self.register_component::<ObservedBy>()
-            .on_remove(|mut world, entity, _| {
-                let observed_by =
-                    std::mem::take(world.get_mut::<ObservedBy>(entity).unwrap().as_mut());
-                observed_by.0.iter().for_each(|&e| {
-                    world.commands().entity(e).despawn();
-                });
-            });
-    }
-
     /// Construct an [`ObserverBuilder`]
     pub fn observer_builder<E: EcsEvent>(&mut self) -> ObserverBuilder<E> {
         ObserverBuilder::new(self)

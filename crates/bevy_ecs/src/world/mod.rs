@@ -116,8 +116,6 @@ impl World {
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
         assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
-
-        self.bootstrap_observers();
     }
     /// Creates a new empty [`World`].
     ///
