@@ -90,7 +90,7 @@ pub enum RenderSet {
     ManageViews,
     /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
     ManageViewsFlush,
-    /// blah
+    /// Construct and cache entity pipeline keys for view entities or other entities that may be shared by multiple pipelines
     PrepareKeys,
     /// Queue drawable entities as phase items in [`RenderPhase`](render_phase::RenderPhase)s
     /// ready for sorting
