@@ -65,7 +65,7 @@ fn setup(
     });
 
     let texture_camera = commands
-        .spawn(Camera3dBundle {
+        .spawn(Camera2dBundle {
             camera: Camera {
                 // render before the "main pass" camera
                 order: -1,
