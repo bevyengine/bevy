@@ -214,13 +214,17 @@ impl Plugin for VisibilityPlugin {
         use VisibilitySystems::*;
 
         app
-            // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
-            .configure_sets(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
+            // rustfmt
             .add_systems(
                 PostUpdate,
                 (
-                    calculate_bounds.in_set(CalculateBounds),
+                    (
+                        // We add an AABB component in CalculateBounds,
+                        // which must be ready on the same frame.
+                        calculate_bounds.into_set(CalculateBounds),
+                        CalculateBoundsFlush,
+                    )
+                        .chain(),
                     update_frusta::<OrthographicProjection>
                         .in_set(UpdateOrthographicFrusta)
                         .after(camera_system::<OrthographicProjection>)

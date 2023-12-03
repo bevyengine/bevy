@@ -276,6 +276,20 @@ where
         self.into_configs().in_set(set)
     }
 
+    /// Add these systems to the provided `set`.
+    ///
+    /// Any configuration applied to the returned `SystemConfigs` will be applied to `set`.
+    #[track_caller]
+    fn into_set(self, set: impl SystemSet) -> SystemConfigs {
+        let set = set.intern();
+
+        let configs = self.into_configs().in_set(set);
+
+        // We wrap the configs in a single-tuple to prevent a circular depdency
+        // if `.chain()` is called on the `SystemConfigs` returned from this function.
+        ((configs, set),).into_configs()
+    }
+
     /// Run before all systems in `set`.
     ///
     /// Note: The given set is not implicitly added to the schedule when this system set is added.
