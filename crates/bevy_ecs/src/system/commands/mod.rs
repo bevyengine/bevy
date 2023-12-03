@@ -52,7 +52,7 @@ pub trait Command: Send + 'static {
     fn apply(self, world: &mut World);
 }
 
-/// A [`Command`] queue to perform impactful changes to the [`World`].
+/// A [`Command`] queue to perform structural changes to the [`World`].
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence

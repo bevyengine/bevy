@@ -712,6 +712,8 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
 
     /// Runs `f` on each read-only query item.
     ///
+    /// Shorthand for `query.iter().for_each(..)`.
+    ///
     /// # Example
     ///
     /// Here, the `report_names_system` iterates over the `Player` component of every entity that contains it:
@@ -735,21 +737,25 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     /// - [`for_each_mut`](Self::for_each_mut) to operate on mutable query items.
     /// - [`iter`](Self::iter) for the iterator based alternative.
     #[inline]
+    #[deprecated(
+        since = "0.13.0",
+        note = "Query::for_each was not idiomatic Rust and has been moved to query.iter().for_each()"
+    )]
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
-            self.state.as_readonly().for_each_unchecked_manual(
-                self.world,
-                f,
-                self.last_run,
-                self.this_run,
-            );
+            self.state
+                .as_readonly()
+                .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                .for_each(f);
         };
     }
 
     /// Runs `f` on each query item.
+    ///
+    /// Shorthand for `query.iter_mut().for_each(..)`.
     ///
     /// # Example
     ///
@@ -774,11 +780,16 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     /// - [`for_each`](Self::for_each) to operate on read-only query items.
     /// - [`iter_mut`](Self::iter_mut) for the iterator based alternative.
     #[inline]
+    #[deprecated(
+        since = "0.13.0",
+        note = "Query::for_each_mut was not idiomatic Rust and has been moved to query.iter_mut().for_each()"
+    )]
     pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(Q::Item<'a>)) {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state
-                .for_each_unchecked_manual(self.world, f, self.last_run, self.this_run);
+                .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                .for_each(f);
         };
     }
 

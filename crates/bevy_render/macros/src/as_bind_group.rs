@@ -644,7 +644,7 @@ fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibili
     }
 
     if flags.len() == 1 {
-        if let Some(flag) = flags.get(0) {
+        if let Some(flag) = flags.first() {
             if flag == VISIBILITY_ALL {
                 return Ok(ShaderStageVisibility::All);
             } else if flag == VISIBILITY_NONE {

@@ -222,7 +222,7 @@ fn init_materials(
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(StandardMaterial {
         base_color: Color::WHITE,
-        base_color_texture: textures.get(0).cloned(),
+        base_color_texture: textures.first().cloned(),
         ..default()
     }));
 
