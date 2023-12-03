@@ -11,7 +11,7 @@ impl Direction2d {
     /// If the input is zero (or very close to zero), or non-finite,
     /// the result of this operation will be `None`.
     pub fn new(value: Vec2) -> Option<Self> {
-        value.try_normalize().map(|value| Self(value))
+        value.try_normalize().map(Self)
     }
 
     /// Create a direction from a [`Vec2`] that is already normalized
