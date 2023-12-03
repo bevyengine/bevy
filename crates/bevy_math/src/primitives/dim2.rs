@@ -5,13 +5,15 @@ use crate::Vec2;
 #[derive(Clone, Copy, Debug)]
 pub struct Direction2d(Vec2);
 
-impl From<Vec2> for Direction2d {
-    fn from(value: Vec2) -> Self {
-        Self(value.normalize())
-    }
-}
-
 impl Direction2d {
+    /// Create a direction from a finite, nonzero [`Vec2`].
+    ///
+    /// If the input is zero (or very close to zero), or non-finite,
+    /// the result of this operation will be `None`.
+    pub fn new(value: Vec2) -> Option<Self> {
+        value.try_normalize().map(|value| Self(value)) 
+    }
+
     /// Create a direction from a [`Vec2`] that is already normalized
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
