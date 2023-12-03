@@ -17,7 +17,7 @@ mod ssao;
 pub use alpha::*;
 use bevy_core_pipeline::{
     prepass::PrepassKey,
-    tonemapping::{DebandDitherKey, Tonemapping},
+    tonemapping::{DebandDitherKey, Tonemapping}, transmission::ScreenSpaceTransmissionQuality,
 };
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
@@ -369,7 +369,7 @@ impl Plugin for PbrPlugin {
         render_app
             .register_system_key::<DepthClampOrthoKey, With<ExtractedView>>()
             .register_system_key::<ShadowFilteringMethod, With<ExtractedView>>()
-            .register_system_key::<ScreenSpaceTransmissionQualityKey, With<ExtractedView>>()
+            .register_system_key::<ScreenSpaceTransmissionQuality, With<ExtractedView>>()
             .register_composite_key::<PbrViewKey, With<ExtractedView>>();
     }
 
@@ -397,7 +397,7 @@ pub struct PbrViewKey {
     pub msaa: MsaaKey,
     pub shadow_method: ShadowFilteringMethod,
     pub projection: ViewProjectionKey,
-    pub transmission_quality: ScreenSpaceTransmissionQualityKey,
+    pub transmission_quality: ScreenSpaceTransmissionQuality,
 }
 // TODO move optional things from PbrViewKey over here
 #[derive(PipelineKey)]

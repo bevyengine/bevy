@@ -2,7 +2,7 @@ use crate::*;
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_core_pipeline::core_3d::{
-    AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d, Transparent3d,
+    AlphaMask3d, Camera3d, Opaque3d, Transmissive3d, Transparent3d,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
