@@ -189,27 +189,6 @@ impl FixedSizeKey for i32 {
 }
 
 // blend factor
-fn _check_blendfactor_variant_count(value: &wgpu::BlendFactor) {
-    // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
-    // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
-    // 13 variants => 4 bits
-    match value {
-        wgpu::BlendFactor::Zero
-        | wgpu::BlendFactor::One
-        | wgpu::BlendFactor::Src
-        | wgpu::BlendFactor::OneMinusSrc
-        | wgpu::BlendFactor::SrcAlpha
-        | wgpu::BlendFactor::OneMinusSrcAlpha
-        | wgpu::BlendFactor::Dst
-        | wgpu::BlendFactor::OneMinusDst
-        | wgpu::BlendFactor::DstAlpha
-        | wgpu::BlendFactor::OneMinusDstAlpha
-        | wgpu::BlendFactor::SrcAlphaSaturated
-        | wgpu::BlendFactor::Constant
-        | wgpu::BlendFactor::OneMinusConstant => (),
-    }
-}
-
 impl PipelineKeyType for wgpu::BlendFactor {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
         HashMap::from_iter([(
@@ -226,6 +205,7 @@ impl PipelineKeyType for wgpu::BlendFactor {
     }
 
     fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
+        // if the number of variants changes make sure to update fixed_size()
         let raw = match value {
             wgpu::BlendFactor::Zero => 0,
             wgpu::BlendFactor::One => 1,
@@ -267,24 +247,12 @@ impl PipelineKeyType for wgpu::BlendFactor {
 
 impl FixedSizeKey for wgpu::BlendFactor {
     fn fixed_size() -> u8 {
+        // 13 variants => 4 bits
         4
     }
 }
 
 // blend operation
-fn _check_blendoperation_variant_count(value: &wgpu::BlendOperation) {
-    // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
-    // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
-    // 5 variants => 3 bits
-    match value {
-        wgpu::BlendOperation::Add
-        | wgpu::BlendOperation::Subtract
-        | wgpu::BlendOperation::ReverseSubtract
-        | wgpu::BlendOperation::Min
-        | wgpu::BlendOperation::Max => (),
-    }
-}
-
 impl PipelineKeyType for wgpu::BlendOperation {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
         HashMap::from_iter([(
@@ -301,6 +269,7 @@ impl PipelineKeyType for wgpu::BlendOperation {
     }
 
     fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
+        // if the number of variants changes make sure to update fixed_size()
         let raw = match value {
             wgpu::BlendOperation::Add => 0,
             wgpu::BlendOperation::Subtract => 1,
@@ -326,6 +295,7 @@ impl PipelineKeyType for wgpu::BlendOperation {
 
 impl FixedSizeKey for wgpu::BlendOperation {
     fn fixed_size() -> u8 {
+        // 5 variants => 3 bits
         3
     }
 }
@@ -401,28 +371,6 @@ impl FixedSizeKey for wgpu::BlendState {
 }
 
 // AstcBlock
-fn _check_astcblock_variant_count(value: &wgpu::AstcBlock) {
-    // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
-    // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
-    // 14 variants => 4 bits
-    match value {
-        wgpu::AstcBlock::B4x4
-        | wgpu::AstcBlock::B5x4
-        | wgpu::AstcBlock::B5x5
-        | wgpu::AstcBlock::B6x5
-        | wgpu::AstcBlock::B6x6
-        | wgpu::AstcBlock::B8x5
-        | wgpu::AstcBlock::B8x6
-        | wgpu::AstcBlock::B8x8
-        | wgpu::AstcBlock::B10x5
-        | wgpu::AstcBlock::B10x6
-        | wgpu::AstcBlock::B10x8
-        | wgpu::AstcBlock::B10x10
-        | wgpu::AstcBlock::B12x10
-        | wgpu::AstcBlock::B12x12 => (),
-    }
-}
-
 impl PipelineKeyType for wgpu::AstcBlock {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
         HashMap::from_iter([(
@@ -439,6 +387,7 @@ impl PipelineKeyType for wgpu::AstcBlock {
     }
 
     fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
+        // if the number of variants changes make sure to update fixed_size()
         let raw = match value {
             wgpu::AstcBlock::B4x4 => 0,
             wgpu::AstcBlock::B5x4 => 1,
@@ -482,20 +431,12 @@ impl PipelineKeyType for wgpu::AstcBlock {
 
 impl FixedSizeKey for wgpu::AstcBlock {
     fn fixed_size() -> u8 {
+        // 14 variants -> 4 bits
         4
     }
 }
 
 // AstcChannel
-fn _check_astcchannel_variant_count(value: &wgpu::AstcChannel) {
-    // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
-    // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
-    // 3 variants => 2 bits
-    match value {
-        wgpu::AstcChannel::Unorm | wgpu::AstcChannel::UnormSrgb | wgpu::AstcChannel::Hdr => (),
-    }
-}
-
 impl PipelineKeyType for wgpu::AstcChannel {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
         HashMap::from_iter([(
@@ -512,7 +453,8 @@ impl PipelineKeyType for wgpu::AstcChannel {
     }
 
     fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
-        let raw = match value {
+         // if the number of variants changes make sure to update fixed_size()
+         let raw = match value {
             wgpu::AstcChannel::Unorm => 0,
             wgpu::AstcChannel::UnormSrgb => 1,
             wgpu::AstcChannel::Hdr => 2,
@@ -533,6 +475,7 @@ impl PipelineKeyType for wgpu::AstcChannel {
 
 impl FixedSizeKey for wgpu::AstcChannel {
     fn fixed_size() -> u8 {
+        // 3 variants -> 2 bits
         2
     }
 }
@@ -738,19 +681,6 @@ impl FixedSizeKey for wgpu::TextureFormat {
 }
 
 // PrimitiveTopology
-fn _check_primitivetopology_variant_count(value: &wgpu::PrimitiveTopology) {
-    // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
-    // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
-    // 5 variants => 3 bits
-    match value {
-        wgpu::PrimitiveTopology::PointList
-        | wgpu::PrimitiveTopology::LineList
-        | wgpu::PrimitiveTopology::LineStrip
-        | wgpu::PrimitiveTopology::TriangleList
-        | wgpu::PrimitiveTopology::TriangleStrip => (),
-    }
-}
-
 impl PipelineKeyType for wgpu::PrimitiveTopology {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
         HashMap::from_iter([(
@@ -767,6 +697,7 @@ impl PipelineKeyType for wgpu::PrimitiveTopology {
     }
 
     fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
+        // if the number of variants changes make sure to update fixed_size()
         let raw = match value {
             wgpu::PrimitiveTopology::PointList => 0,
             wgpu::PrimitiveTopology::LineList => 1,
@@ -792,20 +723,12 @@ impl PipelineKeyType for wgpu::PrimitiveTopology {
 
 impl FixedSizeKey for wgpu::PrimitiveTopology {
     fn fixed_size() -> u8 {
+        // 5 variants -> 3 bits
         3
     }
 }
 
 // Face
-fn _check_face_variant_count(value: &wgpu::Face) {
-    // this is to ensure we cover all variants. if the number of variants changes in future, the key size may need to be updated.
-    // this will be possible robustly once https://github.com/rust-lang/rust/issues/73662 lands.
-    // 2 variants => 1 bits
-    match value {
-        wgpu::Face::Front | wgpu::Face::Back => (),
-    }
-}
-
 impl PipelineKeyType for wgpu::Face {
     fn positions(_: &KeyMetaStore) -> HashMap<TypeId, SizeOffset> {
         HashMap::from_iter([(
@@ -822,6 +745,7 @@ impl PipelineKeyType for wgpu::Face {
     }
 
     fn pack(value: &Self, _: &KeyMetaStore) -> PackedPipelineKey<Self> {
+        // if the number of variants changes make sure to update fixed_size()
         let raw = match value {
             wgpu::Face::Front => 0,
             wgpu::Face::Back => 1,
@@ -841,6 +765,7 @@ impl PipelineKeyType for wgpu::Face {
 
 impl FixedSizeKey for wgpu::Face {
     fn fixed_size() -> u8 {
+        // 2 variants -> 1 bit
         1
     }
 }
