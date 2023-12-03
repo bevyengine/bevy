@@ -445,7 +445,9 @@ impl Entities {
                 .expect("64-bit atomic operations are not supported on this platform."),
             Ordering::Relaxed,
         );
-        let range_start = range_end - IdCursor::from(count);
+        let range_start = range_end
+            - IdCursor::try_from(count)
+                .expect("64-bit atomic operations are not supported on this platform.");
 
         let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
 
