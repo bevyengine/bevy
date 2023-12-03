@@ -32,7 +32,7 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
     }
 }
 
-impl<Marker, F> IntoSystemConfigs<Marker> for F
+impl<Marker, F> IntoSystemConfigs<(F, Marker)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
@@ -57,14 +57,16 @@ pub struct NodeConfig<T> {
 /// Stores configuration for a single system.
 pub type SystemConfig = NodeConfig<BoxedSystem>;
 
-/// A collections of generic [`NodeConfig`]s.
-pub enum NodeConfigs<T> {
-    /// Configuration for a single node.
-    NodeConfig(NodeConfig<T>),
-    /// Configuration for a tuple of nested `Configs` instances.
+/// A collection of [`SystemConfig`] and [`SystemSetConfig`].
+pub enum SystemConfigs {
+    /// Configuration for a single system.
+    SystemConfig(SystemConfig),
+    /// Configuration for a single system set.
+    SystemSetConfig(SystemSetConfig),
+    /// Configuration for a tuple of nested `SystemConfigs` instances.
     Configs {
         /// Configuration for each element of the tuple.
-        configs: Vec<NodeConfigs<T>>,
+        configs: Vec<SystemConfigs>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
         /// If `true`, adds `before -> after` ordering constraints between the successive elements.
@@ -72,14 +74,11 @@ pub enum NodeConfigs<T> {
     },
 }
 
-/// A collection of [`SystemConfig`].
-pub type SystemConfigs = NodeConfigs<BoxedSystem>;
-
 impl SystemConfigs {
     fn new_system(system: BoxedSystem) -> Self {
         // include system in its default sets
         let sets = system.default_system_sets().into_iter().collect();
-        Self::NodeConfig(SystemConfig {
+        Self::SystemConfig(SystemConfig {
             node: system,
             graph_info: GraphInfo {
                 sets,
@@ -88,13 +87,14 @@ impl SystemConfigs {
             conditions: Vec::new(),
         })
     }
-}
-
-impl<T> NodeConfigs<T> {
+    
     /// Adds a new boxed system set to the systems.
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::SystemConfig(config) => {
+                config.graph_info.sets.push(set);
+            }
+            Self::SystemSetConfig(config) => {
                 config.graph_info.sets.push(set);
             }
             Self::Configs { configs, .. } => {
@@ -107,7 +107,13 @@ impl<T> NodeConfigs<T> {
 
     fn before_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::SystemConfig(config) => {
+                config
+                    .graph_info
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::Before, set));
+            }
+            Self::SystemSetConfig(config) => {
                 config
                     .graph_info
                     .dependencies
@@ -123,7 +129,13 @@ impl<T> NodeConfigs<T> {
 
     fn after_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::SystemConfig(config) => {
+                config
+                    .graph_info
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::After, set));
+            }
+            Self::SystemSetConfig(config) => {
                 config
                     .graph_info
                     .dependencies
@@ -139,7 +151,10 @@ impl<T> NodeConfigs<T> {
 
     fn distributive_run_if_inner<M>(&mut self, condition: impl Condition<M> + Clone) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::SystemConfig(config) => {
+                config.conditions.push(new_condition(condition));
+            }
+            Self::SystemSetConfig(config) => {
                 config.conditions.push(new_condition(condition));
             }
             Self::Configs { configs, .. } => {
@@ -152,7 +167,10 @@ impl<T> NodeConfigs<T> {
 
     fn ambiguous_with_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::SystemConfig(config) => {
+                ambiguous_with(&mut config.graph_info, set);
+            }
+            Self::SystemSetConfig(config) => {
                 ambiguous_with(&mut config.graph_info, set);
             }
             Self::Configs { configs, .. } => {
@@ -165,7 +183,10 @@ impl<T> NodeConfigs<T> {
 
     fn ambiguous_with_all_inner(&mut self) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::SystemConfig(config) => {
+                config.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
+            }
+            Self::SystemSetConfig(config) => {
                 config.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
             }
             Self::Configs { configs, .. } => {
@@ -182,7 +203,10 @@ impl<T> NodeConfigs<T> {
     /// Prefer `run_if` for run conditions whose type is known at compile time.
     pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::SystemConfig(config) => {
+                config.conditions.push(condition);
+            }
+            Self::SystemSetConfig(config) => {
                 config.conditions.push(condition);
             }
             Self::Configs {
@@ -196,7 +220,7 @@ impl<T> NodeConfigs<T> {
 
     fn chain_inner(mut self) -> Self {
         match &mut self {
-            Self::NodeConfig(_) => { /* no op */ }
+            Self::SystemConfig(_) | Self::SystemSetConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
                 *chained = true;
             }
@@ -456,143 +480,8 @@ impl SystemSetConfig {
     }
 }
 
-/// A collection of [`SystemSetConfig`].
-pub type SystemSetConfigs = NodeConfigs<InternedSystemSet>;
-
-/// Types that can convert into a [`SystemSetConfigs`].
-pub trait IntoSystemSetConfigs
-where
-    Self: Sized,
-{
-    /// Convert into a [`SystemSetConfigs`].
-    #[doc(hidden)]
-    fn into_configs(self) -> SystemSetConfigs;
-
-    /// Add these system sets to the provided `set`.
-    #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> SystemSetConfigs {
-        self.into_configs().in_set(set)
-    }
-
-    /// Run before all systems in `set`.
-    fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
-        self.into_configs().before(set)
-    }
-
-    /// Run after all systems in `set`.
-    fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
-        self.into_configs().after(set)
-    }
-
-    /// Run the systems in this set(s) only if the [`Condition`] is `true`.
-    ///
-    /// The `Condition` will be evaluated at most once (per schedule run),
-    /// the first time a system in this set(s) prepares to run.
-    fn run_if<M>(self, condition: impl Condition<M>) -> SystemSetConfigs {
-        self.into_configs().run_if(condition)
-    }
-
-    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
-    /// (conflicting access but indeterminate order) with systems in `set`.
-    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
-        self.into_configs().ambiguous_with(set)
-    }
-
-    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
-    /// (conflicting access but indeterminate order) with any other system.
-    fn ambiguous_with_all(self) -> SystemSetConfigs {
-        self.into_configs().ambiguous_with_all()
-    }
-
-    /// Treat this collection as a sequence of system sets.
-    ///
-    /// Ordering constraints will be applied between the successive elements.
-    fn chain(self) -> SystemSetConfigs {
-        self.into_configs().chain()
+impl<S: SystemSet> IntoSystemConfigs<()> for S {
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::SystemSetConfig(SystemSetConfig::new(self.intern()))
     }
 }
-
-impl IntoSystemSetConfigs for SystemSetConfigs {
-    fn into_configs(self) -> Self {
-        self
-    }
-
-    #[track_caller]
-    fn in_set(mut self, set: impl SystemSet) -> Self {
-        assert!(
-            set.system_type().is_none(),
-            "adding arbitrary systems to a system type set is not allowed"
-        );
-        self.in_set_inner(set.intern());
-
-        self
-    }
-
-    fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
-        self.before_inner(set.intern());
-
-        self
-    }
-
-    fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
-        self.after_inner(set.intern());
-
-        self
-    }
-
-    fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemSetConfigs {
-        self.run_if_dyn(new_condition(condition));
-
-        self
-    }
-
-    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
-        self.ambiguous_with_inner(set.intern());
-
-        self
-    }
-
-    fn ambiguous_with_all(mut self) -> Self {
-        self.ambiguous_with_all_inner();
-
-        self
-    }
-
-    fn chain(self) -> Self {
-        self.chain_inner()
-    }
-}
-
-impl<S: SystemSet> IntoSystemSetConfigs for S {
-    fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::NodeConfig(SystemSetConfig::new(self.intern()))
-    }
-}
-
-impl IntoSystemSetConfigs for SystemSetConfig {
-    fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::NodeConfig(self)
-    }
-}
-
-macro_rules! impl_system_set_collection {
-    ($($set: ident),*) => {
-        impl<$($set: IntoSystemSetConfigs),*> IntoSystemSetConfigs for ($($set,)*)
-        {
-            #[allow(non_snake_case)]
-            fn into_configs(self) -> SystemSetConfigs {
-                let ($($set,)*) = self;
-                SystemSetConfigs::Configs {
-                    configs: vec![$($set.into_configs(),)*],
-                    collective_conditions: Vec::new(),
-                    chained: false,
-                }
-            }
-        }
-    }
-}
-
-all_tuples!(impl_system_set_collection, 1, 20, S);

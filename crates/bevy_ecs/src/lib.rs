@@ -39,7 +39,7 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
+            IntoSystemConfigs, IntoSystemSet, NextState, OnEnter, OnExit,
             OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
         system::{

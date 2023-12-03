@@ -226,7 +226,8 @@ impl Schedule {
         }
     }
 
-    /// Add a collection of systems to the schedule.
+    /// Add a collection of systems or system sets to the schedule.
+    #[track_caller]
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.process_configs(systems.into_configs(), false);
         self
@@ -234,8 +235,9 @@ impl Schedule {
 
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
     #[track_caller]
-    pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
-        self.graph.configure_sets(sets);
+    #[deprecated = "Use `.add_systems()` instead."]
+    pub fn configure_sets<M>(&mut self, sets: impl IntoSystemConfigs<M>) -> &mut Self {
+        self.add_systems(sets);
         self
     }
 
@@ -570,14 +572,14 @@ impl ScheduleGraph {
     /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
-    fn process_configs<T: ProcessNodeConfig>(
+    fn process_configs(
         &mut self,
-        configs: NodeConfigs<T>,
+        configs: SystemConfigs,
         collect_nodes: bool,
     ) -> ProcessConfigsResult {
         match configs {
-            NodeConfigs::NodeConfig(config) => {
-                let node_id = T::process_config(self, config);
+            SystemConfigs::SystemConfig(config) => {
+                let node_id = BoxedSystem::process_config(self, config);
                 if collect_nodes {
                     ProcessConfigsResult {
                         densely_chained: true,
@@ -590,7 +592,21 @@ impl ScheduleGraph {
                     }
                 }
             }
-            NodeConfigs::Configs {
+            SystemConfigs::SystemSetConfig(config) => {
+                let node_id = InternedSystemSet::process_config(self, config);
+                if collect_nodes {
+                    ProcessConfigsResult {
+                        densely_chained: true,
+                        nodes: vec![node_id],
+                    }
+                } else {
+                    ProcessConfigsResult {
+                        densely_chained: true,
+                        nodes: Vec::new(),
+                    }
+                }
+            }
+            SystemConfigs::Configs {
                 mut configs,
                 collective_conditions,
                 chained,
@@ -726,11 +742,6 @@ impl ScheduleGraph {
         self.system_conditions.push(config.conditions);
 
         Ok(id)
-    }
-
-    #[track_caller]
-    fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
-        self.process_configs(sets.into_configs(), false);
     }
 
     fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {

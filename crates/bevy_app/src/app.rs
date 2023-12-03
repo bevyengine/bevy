@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
+        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs,
         ScheduleBuildSettings, ScheduleLabel,
     },
 };
@@ -424,21 +424,13 @@ impl App {
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
     #[track_caller]
-    pub fn configure_sets(
+    #[deprecated = "use `.add_systems()` instead"]
+    pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoSystemSetConfigs,
+        sets: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
-        let schedule = schedule.intern();
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(schedule) {
-            schedule.configure_sets(sets);
-        } else {
-            let mut new_schedule = Schedule::new(schedule);
-            new_schedule.configure_sets(sets);
-            schedules.insert(new_schedule);
-        }
-        self
+        self.add_systems(schedule, sets)
     }
 
     /// Setup the application to manage events of type `T`.
