@@ -1755,7 +1755,7 @@ impl ScheduleBuildSettings {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule, SystemSet},
+        schedule::{IntoSystemConfigs, Schedule, SystemSet},
         world::World,
     };
 
@@ -1768,7 +1768,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
-        schedule.configure_sets(Set.run_if(|| false));
+        schedule.add_systems(Set.run_if(|| false));
         schedule.add_systems(
             (|| panic!("This system must not run"))
                 .ambiguous_with(|| ())

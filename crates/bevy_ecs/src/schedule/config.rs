@@ -345,7 +345,7 @@ where
     /// # #[derive(SystemSet, Debug, Eq, PartialEq, Hash, Clone, Copy)]
     /// # struct C;
     /// schedule.add_systems((a, b).run_if(condition));
-    /// schedule.add_systems((a, b).in_set(C)).configure_sets(C.run_if(condition));
+    /// schedule.add_systems(((a, b).in_set(C), C.run_if(condition)));
     /// ```
     ///
     /// # Note

@@ -115,8 +115,7 @@ impl<T> SystemSet for SystemTypeSet<T> {
 }
 
 /// A [`SystemSet`] implicitly created when using
-/// [`Schedule::add_systems`](super::Schedule::add_systems) or
-/// [`Schedule::configure_sets`](super::Schedule::configure_sets).
+/// [`Schedule::add_systems`](super::Schedule::add_systems).
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct AnonymousSet(usize);
 

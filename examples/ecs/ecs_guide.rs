@@ -284,7 +284,7 @@ fn main() {
         // "before_round": new_player_system, new_round_system
         // "round": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .configure_sets(
+        .add_systems(
             Update,
             // chain() will ensure sets run in the order they are listed
             (MySet::BeforeRound, MySet::Round, MySet::AfterRound).chain(),
