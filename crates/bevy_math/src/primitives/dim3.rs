@@ -3,6 +3,7 @@ use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction3d(Vec3);
 
 impl From<Vec3> for Direction3d {
@@ -43,29 +44,19 @@ pub struct Plane3d {
 }
 impl Primitive3d for Plane3d {}
 
-/// An infinite half-line starting at `origin` and going in `direction` in 3D space.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Ray3d {
-    /// The origin of the ray.
-    pub origin: Vec3,
-    /// The direction of the ray.
-    pub direction: Direction3d,
-}
-
-impl Ray3d {
-    /// Create a new `Ray3d` from a given origin and direction
+impl Plane3d {
+    /// Create a new `Plane3d` from a normal
     #[inline]
-    pub fn new(origin: Vec3, direction: Vec3) -> Self {
+    pub fn new(normal: Vec3) -> Self {
         Self {
-            origin,
-            direction: direction.into(),
+            normal: normal.into(),
         }
     }
+}
 
-    /// Get a point at a given distance along the ray
-    #[inline]
-    pub fn get_point(&self, distance: f32) -> Vec3 {
-        self.origin + *self.direction * distance
+impl From<Vec3> for Plane3d {
+    fn from(vec: Vec3) -> Self {
+        Self { normal: vec.into() }
     }
 }
 
@@ -355,17 +346,5 @@ impl Torus {
             std::cmp::Ordering::Equal => TorusKind::Horn,
             std::cmp::Ordering::Less => TorusKind::Spindle,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ray_math() {
-        let ray = Ray3d::new(Vec3::ZERO, Vec3::Z * 10.0);
-        assert_eq!(*ray.direction, Vec3::Z, "ray direction is not normalized");
-        assert_eq!(ray.get_point(2.0), Vec3::Z * 2.0);
     }
 }

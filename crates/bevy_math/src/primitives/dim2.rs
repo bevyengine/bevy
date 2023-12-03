@@ -3,6 +3,7 @@ use crate::Vec2;
 
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
 
 impl From<Vec2> for Direction2d {
@@ -63,29 +64,19 @@ pub struct Plane2d {
 }
 impl Primitive2d for Plane2d {}
 
-/// An infinite half-line starting at `origin` and going in `direction` in 2D space.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Ray2d {
-    /// The origin of the ray.
-    pub origin: Vec2,
-    /// The direction of the ray.
-    pub direction: Direction2d,
-}
-
-impl Ray2d {
-    /// Create a new `Ray2d` from a given origin and direction
+impl Plane2d {
+    /// Create a new `Plane2d` from a normal
     #[inline]
-    pub fn new(origin: Vec2, direction: Vec2) -> Self {
+    pub fn new(normal: Vec2) -> Self {
         Self {
-            origin,
-            direction: direction.into(),
+            normal: normal.into(),
         }
     }
+}
 
-    /// Get a point at a given distance along the ray
-    #[inline]
-    pub fn get_point(&self, distance: f32) -> Vec2 {
-        self.origin + *self.direction * distance
+impl From<Vec2> for Plane2d {
+    fn from(vec: Vec2) -> Self {
+        Self { normal: vec.into() }
     }
 }
 
@@ -348,13 +339,6 @@ impl RegularPolygon {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn ray_math() {
-        let ray = Ray2d::new(Vec2::ZERO, Vec2::Y * 10.0);
-        assert_eq!(*ray.direction, Vec2::Y, "ray direction is not normalized");
-        assert_eq!(ray.get_point(2.0), Vec2::Y * 2.0);
-    }
 
     #[test]
     fn triangle_winding_order() {
