@@ -94,21 +94,21 @@ mod tests {
         let ray = Ray2d::new(Vec2::ZERO, Vec2::Y);
 
         // Orthogonal, and test that an inverse plane_normal has the same result
-        assert_eq!(ray.intersect_plane(Vec2::Y, Vec2::Y), Some(1.0),);
-        assert_eq!(ray.intersect_plane(Vec2::NEG_Y, Vec2::Y), Some(1.0),);
-        assert!(ray.intersect_plane(Vec2::Y, Vec2::NEG_Y).is_none());
+        assert_eq!(ray.intersect_plane(Vec2::Y, Vec2::Y), Some(1.0));
+        assert_eq!(ray.intersect_plane(Vec2::Y, Vec2::NEG_Y), Some(1.0));
+        assert!(ray.intersect_plane(Vec2::NEG_Y, Vec2::Y).is_none());
         assert!(ray.intersect_plane(Vec2::NEG_Y, Vec2::NEG_Y).is_none());
 
         // Diagonal
-        assert_eq!(ray.intersect_plane(Vec2::ONE, Vec2::Y), Some(1.0),);
-        assert!(ray.intersect_plane(Vec2::ONE, Vec2::NEG_Y).is_none());
+        assert_eq!(ray.intersect_plane(Vec2::Y, Vec2::ONE), Some(1.0));
+        assert!(ray.intersect_plane(Vec2::NEG_Y, Vec2::ONE).is_none());
 
         // Parallel
         assert!(ray.intersect_plane(Vec2::X, Vec2::X).is_none());
 
         // Parallel with simulated rounding error
         assert!(ray
-            .intersect_plane(Vec2::X + Vec2::Y * f32::EPSILON, Vec2::X)
+            .intersect_plane(Vec2::X, Vec2::X + Vec2::Y * f32::EPSILON)
             .is_none());
     }
 
@@ -117,21 +117,21 @@ mod tests {
         let ray = Ray3d::new(Vec3::ZERO, Vec3::Z);
 
         // Orthogonal, and test that an inverse plane_normal has the same result
-        assert_eq!(ray.intersect_plane(Vec3::Z, Vec3::Z), Some(1.0),);
-        assert_eq!(ray.intersect_plane(Vec3::NEG_Y, Vec3::Z), Some(1.0),);
-        assert!(ray.intersect_plane(Vec3::Z, Vec3::NEG_Y).is_none());
-        assert!(ray.intersect_plane(Vec3::NEG_Y, Vec3::NEG_Y).is_none());
+        assert_eq!(ray.intersect_plane(Vec3::Z, Vec3::Z), Some(1.0));
+        assert_eq!(ray.intersect_plane(Vec3::Z, Vec3::NEG_Z), Some(1.0));
+        assert!(ray.intersect_plane(Vec3::NEG_Z, Vec3::Z).is_none());
+        assert!(ray.intersect_plane(Vec3::NEG_Z, Vec3::NEG_Z).is_none());
 
         // Diagonal
-        assert_eq!(ray.intersect_plane(Vec3::ONE, Vec3::Z), Some(1.0),);
-        assert!(ray.intersect_plane(Vec3::ONE, Vec3::NEG_Y).is_none());
+        assert_eq!(ray.intersect_plane(Vec3::Z, Vec3::ONE), Some(1.0));
+        assert!(ray.intersect_plane(Vec3::NEG_Z, Vec3::ONE).is_none());
 
         // Parallel
         assert!(ray.intersect_plane(Vec3::X, Vec3::X).is_none());
 
         // Parallel with simulated rounding error
         assert!(ray
-            .intersect_plane(Vec3::X + Vec3::Z * f32::EPSILON, Vec3::X)
+            .intersect_plane(Vec3::X, Vec3::X + Vec3::Z * f32::EPSILON)
             .is_none());
     }
 }
