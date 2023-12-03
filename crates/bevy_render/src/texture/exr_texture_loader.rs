@@ -5,6 +5,7 @@ use bevy_asset::{
 };
 use bevy_utils::BoxedFuture;
 use image::ImageDecoder;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
