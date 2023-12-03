@@ -20,7 +20,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Usage
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
-/// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
+/// to update the [`Input<KeyCode>`](Input<KeyCode>) resource.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(

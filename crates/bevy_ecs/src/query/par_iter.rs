@@ -1,7 +1,7 @@
 use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use std::ops::Range;
 
-use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
+use super::{QueryItem, QueryState, WorldQueryData, WorldQueryFilter};
 
 /// Dictates how a parallel query chunks up large tables/archetypes
 /// during iteration.
@@ -82,7 +82,7 @@ impl BatchingStrategy {
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+pub struct QueryParIter<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<Q, F>,
     pub(crate) last_run: Tick,
@@ -90,7 +90,7 @@ pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryParIter<'w, 's, Q, F> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -118,12 +118,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
             // at the same time.
             unsafe {
-                self.state.for_each_unchecked_manual(
-                    self.world,
-                    func,
-                    self.last_run,
-                    self.this_run,
-                );
+                self.state
+                    .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                    .for_each(func);
             }
         }
         #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
@@ -132,12 +129,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             if thread_count <= 1 {
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.for_each_unchecked_manual(
-                        self.world,
-                        func,
-                        self.last_run,
-                        self.this_run,
-                    );
+                    self.state
+                        .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                        .for_each(func);
                 }
             } else {
                 // Need a batch size of at least 1.

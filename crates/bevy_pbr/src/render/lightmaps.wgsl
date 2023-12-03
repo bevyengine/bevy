@@ -1,14 +1,9 @@
 #define_import_path bevy_pbr::lightmaps
 
-#import bevy_pbr::mesh_bindings mesh
+#import bevy_pbr::mesh_bindings::mesh
 
-#ifdef MESH_BINDGROUP_1
 @group(1) @binding(4) var lightmaps_texture: texture_2d<f32>;
 @group(1) @binding(5) var lightmaps_sampler: sampler;
-#else
-@group(2) @binding(4) var lightmaps_texture: texture_2d<f32>;
-@group(2) @binding(5) var lightmaps_sampler: sampler;
-#endif  // MESH_BINDGROUP_1
 
 // Samples the lightmap, if any, and returns indirect illumination from it.
 fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
