@@ -8,8 +8,7 @@ pub struct Direction3d(Vec3);
 impl Direction3d {
     /// Create a direction from a finite, nonzero [`Vec3`].
     ///
-    /// If the input is zero (or very close to zero), or non-finite,
-    /// the result of this operation will be `None`.
+    /// Returns `None` if the input is zero (or very close to zero), or non-finite.
     pub fn new(value: Vec3) -> Option<Self> {
         value.try_normalize().map(Self)
     }
