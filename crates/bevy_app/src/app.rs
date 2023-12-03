@@ -190,6 +190,7 @@ impl Default for App {
         app.init_resource::<AppTypeRegistry>();
 
         app.add_plugins(MainSchedulePlugin);
+
         app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
@@ -419,17 +420,6 @@ impl App {
         }
 
         self
-    }
-
-    /// Configures a system set in the default schedule, adding the set if it does not exist.
-    #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
-    #[track_caller]
-    pub fn configure_set(
-        &mut self,
-        schedule: impl ScheduleLabel,
-        set: impl IntoSystemSetConfigs,
-    ) -> &mut Self {
-        self.configure_sets(schedule, set)
     }
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
@@ -899,7 +889,7 @@ impl App {
         self
     }
 
-    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
+    /// When doing [ambiguity checking](ScheduleBuildSettings) this
     /// ignores systems that are ambiguous on [`Component`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
@@ -937,7 +927,7 @@ impl App {
         self
     }
 
-    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
+    /// When doing [ambiguity checking](ScheduleBuildSettings) this
     /// ignores systems that are ambiguous on [`Resource`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
@@ -1014,19 +1004,19 @@ mod tests {
 
     struct PluginA;
     impl Plugin for PluginA {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginB;
     impl Plugin for PluginB {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginC<T>(T);
     impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginD;
     impl Plugin for PluginD {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
         fn is_unique(&self) -> bool {
             false
         }
@@ -1059,10 +1049,10 @@ mod tests {
         struct PluginRun;
         struct InnerPlugin;
         impl Plugin for InnerPlugin {
-            fn build(&self, _: &mut crate::App) {}
+            fn build(&self, _: &mut App) {}
         }
         impl Plugin for PluginRun {
-            fn build(&self, app: &mut crate::App) {
+            fn build(&self, app: &mut App) {
                 app.add_plugins(InnerPlugin).run();
             }
         }
@@ -1203,5 +1193,37 @@ mod tests {
             GenericLabel::<u32>(PhantomData).intern(),
             GenericLabel::<u64>(PhantomData).intern()
         );
+    }
+
+    /// Custom runners should be in charge of when `app::update` gets called as they may need to
+    /// coordinate some state.
+    /// bug: <https://github.com/bevyengine/bevy/issues/10385>
+    /// fix: <https://github.com/bevyengine/bevy/pull/10389>
+    #[test]
+    fn regression_test_10385() {
+        use super::{Res, Resource};
+        use crate::PreUpdate;
+
+        #[derive(Resource)]
+        struct MyState {}
+
+        fn my_runner(mut app: App) {
+            let my_state = MyState {};
+            app.world.insert_resource(my_state);
+
+            for _ in 0..5 {
+                app.update();
+            }
+        }
+
+        fn my_system(_: Res<MyState>) {
+            // access state during app update
+        }
+
+        // Should not panic due to missing resource
+        App::new()
+            .set_runner(my_runner)
+            .add_systems(PreUpdate, my_system)
+            .run();
     }
 }

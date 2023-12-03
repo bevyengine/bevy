@@ -4,7 +4,6 @@
 //! instantiated or removed from a world to allow composition. Scenes can be serialized/deserialized,
 //! for example to save part of the world state to a file.
 
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 mod bundle;

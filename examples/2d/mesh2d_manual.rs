@@ -5,8 +5,6 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
-#![allow(clippy::type_complexity)]
-
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     prelude::*,
@@ -150,24 +148,21 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
-        // Meshes typically live in bind group 2. Because we are using bind group 1
-        // we need to add the MESH_BINDGROUP_1 shader def so that the bindings are correctly
-        // linked in the shader.
-        shader_defs.push("MESH_BINDGROUP_1".into());
+
 
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
                 entry_point: "vertex".into(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: vec![],
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
-                shader_defs,
+                shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.view_key.texture_format.format(),

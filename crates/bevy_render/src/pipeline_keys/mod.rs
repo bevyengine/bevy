@@ -248,7 +248,7 @@ pub trait FixedSizeKey: 'static {
 /// Specifies how to determine a key value for a given entity.
 pub trait SystemKey: PipelineKeyType + FixedSizeKey {
     type Param: SystemParam + 'static;
-    type Query: ReadOnlyWorldQuery + 'static;
+    type Query: ReadOnlyWorldQueryData + 'static;
 
     fn from_params(
         params: &SystemParamItem<Self::Param>,
@@ -281,17 +281,17 @@ pub trait AddPipelineKey {
 
     /// Register a `SystemKey`. The key's value will be generated and stored in the `PipelineKeys` component for entities
     /// matching the query filter `F`.
-    fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(&mut self) -> &mut Self;
+    fn register_system_key<K: SystemKey, F: WorldQueryFilter + 'static>(&mut self) -> &mut Self;
 
     /// Register a composite (tuple or struct) key. The key's value will be generated and stored in the `PipelineKeys`
     /// component for entities matching the query filter `F`, and where all the component keys are generated.
-    fn register_composite_key<K: CompositeKey, F: ReadOnlyWorldQuery + 'static>(
+    fn register_composite_key<K: CompositeKey, F: WorldQueryFilter + 'static>(
         &mut self,
     ) -> &mut Self;
 
     /// Register a dynamic key. The key's value will be generated and stored in the `PipelineKeys`
     /// component for entities matching the query filter `F`, and where all the component keys are generated.
-    fn register_dynamic_key<K: DynamicKey, F: ReadOnlyWorldQuery + 'static>(&mut self)
+    fn register_dynamic_key<K: DynamicKey, F: WorldQueryFilter + 'static>(&mut self)
         -> &mut Self;
 
     /// Add a component to a dynamic key.
@@ -539,7 +539,7 @@ impl AddPipelineKey for App {
         self
     }
 
-    fn register_system_key<K: SystemKey, F: ReadOnlyWorldQuery + 'static>(&mut self) -> &mut Self {
+    fn register_system_key<K: SystemKey, F: WorldQueryFilter + 'static>(&mut self) -> &mut Self {
         self.world
             .get_resource_mut::<KeyMetaStoreInitializer>()
             .expect("should be run on the RenderApp after adding the PipelineKeyPlugin")
@@ -567,7 +567,7 @@ impl AddPipelineKey for App {
         self
     }
 
-    fn register_composite_key<K: CompositeKey, F: ReadOnlyWorldQuery + 'static>(
+    fn register_composite_key<K: CompositeKey, F: WorldQueryFilter + 'static>(
         &mut self,
     ) -> &mut Self {
         self.world
@@ -593,7 +593,7 @@ impl AddPipelineKey for App {
         self
     }
 
-    fn register_dynamic_key<K: DynamicKey, F: ReadOnlyWorldQuery + 'static>(
+    fn register_dynamic_key<K: DynamicKey, F: WorldQueryFilter + 'static>(
         &mut self,
     ) -> &mut Self {
         self.world

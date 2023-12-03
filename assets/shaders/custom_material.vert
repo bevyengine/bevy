@@ -23,9 +23,9 @@ struct Mesh {
 };
 
 #ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-layout(set = 2, binding = 0) uniform Mesh Meshes[#{PER_OBJECT_BUFFER_BATCH_SIZE}];
+layout(set = 1, binding = 0) uniform Mesh Meshes[#{PER_OBJECT_BUFFER_BATCH_SIZE}];
 #else
-layout(set = 2, binding = 0) readonly buffer _Meshes {
+layout(set = 1, binding = 0) readonly buffer _Meshes {
     Mesh Meshes[];
 };
 #endif // PER_OBJECT_BUFFER_BATCH_SIZE

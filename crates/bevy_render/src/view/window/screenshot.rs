@@ -16,9 +16,9 @@ use crate::{
     pipeline_keys::PipelineKey,
     prelude::{Image, Shader},
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines, Texture,
-        VertexState,
+        binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
+        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
     },
     renderer::RenderDevice,
     texture::TextureFormatPixelInfo,
@@ -154,8 +154,8 @@ impl Plugin for ScreenshotPlugin {
 
 #[cfg(feature = "bevy_ci_testing")]
 fn ci_testing_screenshot_at(
-    mut current_frame: bevy_ecs::prelude::Local<u32>,
-    ci_testing_config: bevy_ecs::prelude::Res<bevy_app::ci_testing::CiTestingConfig>,
+    mut current_frame: Local<u32>,
+    ci_testing_config: Res<bevy_app::ci_testing::CiTestingConfig>,
     mut screenshot_manager: ResMut<ScreenshotManager>,
     main_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
 ) {
@@ -202,19 +202,13 @@ impl FromWorld for ScreenshotToScreenPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let device = render_world.resource::<RenderDevice>();
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("screenshot-to-screen-bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout = device.create_bind_group_layout(
+            "screenshot-to-screen-bgl",
+            &BindGroupLayoutEntries::single(
+                wgpu::ShaderStages::FRAGMENT,
+                texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+            ),
+        );
 
         Self { bind_group_layout }
     }
@@ -275,7 +269,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 memory.texture.as_image_copy(),
                 wgpu::ImageCopyBuffer {
                     buffer: &memory.buffer,
-                    layout: crate::view::screenshot::layout_data(width, height, texture_format),
+                    layout: layout_data(width, height, texture_format),
                 },
                 Extent3d {
                     width,

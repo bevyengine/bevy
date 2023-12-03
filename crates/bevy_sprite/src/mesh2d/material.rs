@@ -93,9 +93,9 @@ use crate::{
 ///     color: vec4<f32>,
 /// }
 ///
-/// @group(1) @binding(0) var<uniform> material: CustomMaterial;
-/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2) var color_sampler: sampler;
+/// @group(2) @binding(0) var<uniform> material: CustomMaterial;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -108,6 +108,12 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     /// will be used.
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
+    }
+
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
+    #[inline]
+    fn depth_bias(&self) -> f32 {
+        0.0
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`].
@@ -236,8 +242,8 @@ where
         }
         descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
-            self.material2d_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
+            self.material2d_layout.clone(),
         ];
 
         M::specialize(&mut descriptor, layout, key)?;
@@ -272,8 +278,8 @@ impl<M: Material2d> FromWorld for Material2dPipeline<M> {
 type DrawMaterial2d<M> = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
-    SetMaterial2dBindGroup<M, 1>,
-    SetMesh2dBindGroup<2>,
+    SetMesh2dBindGroup<1>,
+    SetMaterial2dBindGroup<M, 2>,
     DrawMesh2d,
 );
 
@@ -382,7 +388,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 // lowest sort key and getting closer should increase. As we have
                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                 // camera. As such we can just use mesh_z as the distance
-                sort_key: FloatOrd(mesh_z),
+                sort_key: FloatOrd(mesh_z + material2d.depth_bias),
                 // Batching is done in batch_and_prepare_render_phase
                 batch_range: 0..1,
                 dynamic_offset: None,
@@ -399,6 +405,7 @@ pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub packed_key: PackedPipelineKey<T::Data>,
+    pub depth_bias: f32,
 }
 
 impl<T: Material2d> PreparedMaterial2d<T> {
@@ -557,6 +564,7 @@ fn prepare_material2d<M: Material2d>(
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
         packed_key,
+        depth_bias: material.depth_bias(),
     })
 }
 

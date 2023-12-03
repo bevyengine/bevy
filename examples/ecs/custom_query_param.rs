@@ -12,11 +12,10 @@
 //!
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
-use bevy::{ecs::query::WorldQuery, prelude::*};
+use bevy::{
+    ecs::query::{WorldQueryData, WorldQueryFilter},
+    prelude::*,
+};
 use std::fmt::Debug;
 
 fn main() {
@@ -46,8 +45,8 @@ struct ComponentD;
 #[derive(Component, Debug)]
 struct ComponentZ;
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(WorldQueryData)]
+#[world_query_data(derive(Debug))]
 struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static ComponentA,
@@ -80,8 +79,8 @@ fn print_components_read_only(
 // suffix.
 // Note: if you want to use derive macros with read-only query variants, you need to pass them with
 // using the `derive` attribute.
-#[derive(WorldQuery)]
-#[world_query(mutable, derive(Debug))]
+#[derive(WorldQueryData)]
+#[world_query_data(mutable, derive(Debug))]
 struct CustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static mut ComponentA,
@@ -94,26 +93,26 @@ struct CustomQuery<T: Component + Debug, P: Component + Debug> {
 }
 
 // This is a valid query as well, which would iterate over every entity.
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(WorldQueryData)]
+#[world_query_data(derive(Debug))]
 struct EmptyQuery {
     empty: (),
 }
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(WorldQueryData)]
+#[world_query_data(derive(Debug))]
 struct NestedQuery {
     c: &'static ComponentC,
     d: Option<&'static ComponentD>,
 }
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(WorldQueryData)]
+#[world_query_data(derive(Debug))]
 struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }
 
-#[derive(WorldQuery)]
+#[derive(WorldQueryFilter)]
 struct QueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,

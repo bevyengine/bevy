@@ -107,6 +107,24 @@ pub struct Polyline3d<const N: usize> {
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
+impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
+    fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
+        let mut vertices: [Vec3; N] = [Vec3::ZERO; N];
+
+        for (index, i) in iter.into_iter().take(N).enumerate() {
+            vertices[index] = i;
+        }
+        Self { vertices }
+    }
+}
+
+impl<const N: usize> Polyline3d<N> {
+    /// Create a new `Polyline3d` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
+
 /// A series of connected line segments in 3D space, allocated on the heap
 /// in a `Box<[Vec3]>`.
 ///
@@ -118,6 +136,22 @@ pub struct BoxedPolyline3d {
 }
 impl Primitive3d for BoxedPolyline3d {}
 
+impl FromIterator<Vec3> for BoxedPolyline3d {
+    fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
+        let vertices: Vec<Vec3> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
+impl BoxedPolyline3d {
+    /// Create a new `BoxedPolyline3d` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
+
 /// A cuboid primitive, more commonly known as a box.
 #[derive(Clone, Copy, Debug)]
 pub struct Cuboid {
@@ -127,7 +161,7 @@ pub struct Cuboid {
 impl Primitive3d for Cuboid {}
 
 impl Cuboid {
-    /// Create a cuboid from a full x, y and z length
+    /// Create a cuboid from a full x, y, and z length
     pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self::from_size(Vec3::new(x_length, y_length, z_length))
     }
@@ -171,3 +205,129 @@ pub struct Capsule {
 }
 impl super::Primitive2d for Capsule {}
 impl Primitive3d for Capsule {}
+
+impl Capsule {
+    /// Create a new `Capsule` from a radius and length
+    pub fn new(radius: f32, length: f32) -> Self {
+        Self {
+            radius,
+            half_length: length / 2.0,
+        }
+    }
+}
+
+/// A cone primitive.
+#[derive(Clone, Copy, Debug)]
+pub struct Cone {
+    /// The radius of the base
+    pub radius: f32,
+    /// The height of the cone
+    pub height: f32,
+}
+impl Primitive3d for Cone {}
+
+/// A conical frustum primitive.
+/// A conical frustum can be created
+/// by slicing off a section of a cone.
+#[derive(Clone, Copy, Debug)]
+pub struct ConicalFrustum {
+    /// The radius of the top of the frustum
+    pub radius_top: f32,
+    /// The radius of the base of the frustum
+    pub radius_bottom: f32,
+    /// The height of the frustum
+    pub height: f32,
+}
+impl Primitive3d for ConicalFrustum {}
+
+/// The type of torus determined by the minor and major radii
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TorusKind {
+    /// A torus that has a ring.
+    /// The major radius is greater than the minor radius
+    Ring,
+    /// A torus that has no hole but also doesn't intersect itself.
+    /// The major radius is equal to the minor radius
+    Horn,
+    /// A self-intersecting torus.
+    /// The major radius is less than the minor radius
+    Spindle,
+    /// A torus with non-geometric properties like
+    /// a minor or major radius that is non-positive,
+    /// infinite, or `NaN`
+    Invalid,
+}
+
+/// A torus primitive, often representing a ring or donut shape
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Torus {
+    /// The radius of the tube of the torus
+    #[doc(
+        alias = "ring_radius",
+        alias = "tube_radius",
+        alias = "cross_section_radius"
+    )]
+    pub minor_radius: f32,
+    /// The distance from the center of the torus to the center of the tube
+    #[doc(alias = "radius_of_revolution")]
+    pub major_radius: f32,
+}
+impl Primitive3d for Torus {}
+
+impl Torus {
+    /// Create a new `Torus` from an inner and outer radius.
+    ///
+    /// The inner radius is the radius of the hole, and the outer radius
+    /// is the radius of the entire object
+    pub fn new(inner_radius: f32, outer_radius: f32) -> Self {
+        let minor_radius = (outer_radius - inner_radius) / 2.0;
+        let major_radius = outer_radius - minor_radius;
+
+        Self {
+            minor_radius,
+            major_radius,
+        }
+    }
+
+    /// Get the inner radius of the torus.
+    /// For a ring torus, this corresponds to the radius of the hole,
+    /// or `major_radius - minor_radius`
+    #[inline]
+    pub fn inner_radius(&self) -> f32 {
+        self.major_radius - self.minor_radius
+    }
+
+    /// Get the outer radius of the torus.
+    /// This corresponds to the overall radius of the entire object,
+    /// or `major_radius + minor_radius`
+    #[inline]
+    pub fn outer_radius(&self) -> f32 {
+        self.major_radius + self.minor_radius
+    }
+
+    /// Get the [`TorusKind`] determined by the minor and major radii.
+    ///
+    /// The torus can either be a *ring torus* that has a hole,
+    /// a *horn torus* that doesn't have a hole but also isn't self-intersecting,
+    /// or a *spindle torus* that is self-intersecting.
+    ///
+    /// If the minor or major radius is non-positive, infinite, or `NaN`,
+    /// [`TorusKind::Invalid`] is returned
+    #[inline]
+    pub fn kind(&self) -> TorusKind {
+        // Invalid if minor or major radius is non-positive, infinite, or NaN
+        if self.minor_radius <= 0.0
+            || !self.minor_radius.is_finite()
+            || self.major_radius <= 0.0
+            || !self.major_radius.is_finite()
+        {
+            return TorusKind::Invalid;
+        }
+
+        match self.major_radius.partial_cmp(&self.minor_radius).unwrap() {
+            std::cmp::Ordering::Greater => TorusKind::Ring,
+            std::cmp::Ordering::Equal => TorusKind::Horn,
+            std::cmp::Ordering::Less => TorusKind::Spindle,
+        }
+    }
+}
