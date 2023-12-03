@@ -303,7 +303,7 @@ pub fn ui_layout_system(
                 };
                 let layout_info = camera_layout_info
                     .entry(camera_entity)
-                    .or_insert_with(|| calculate_camera_layout_info(&camera));
+                    .or_insert_with(|| calculate_camera_layout_info(camera));
                 layout_info.root_nodes.push(entity);
             }
             None => {
