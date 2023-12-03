@@ -367,7 +367,10 @@ impl GetBatchData for Mesh2dPipeline {
 
 #[derive(PipelineKey)]
 pub struct Mesh2dPipelineKey {
+    // View-level settings such as output texture format. These are usually consistent across all 
+    // main-pass items rendered in a frame
     pub view_key: Mesh2dViewKey,
+    // Mesh specific settings
     pub mesh_key: MeshKey,
 }
 
