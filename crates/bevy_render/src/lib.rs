@@ -132,22 +132,26 @@ impl Render {
         let mut schedule = Schedule::new(Self);
 
         // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_systems(
+        schedule.add_systems((
             (
                 ExtractCommands,
                 ManageViews,
-                apply_deferred.into_set(ManageViewsFlush),
+                ManageViewsFlush,
                 Queue,
                 PhaseSort,
                 Prepare,
-                apply_deferred.into_set(PrepareFlush),
+                PrepareFlush,
                 Render,
-                apply_deferred.into_set(RenderFlush),
+                RenderFlush,
                 Cleanup,
-                apply_deferred.into_set(CleanupFlush),
+                CleanupFlush,
             )
                 .chain(),
-        );
+            apply_deferred.in_set(ManageViewsFlush),
+            apply_deferred.in_set(PrepareFlush),
+            apply_deferred.in_set(RenderFlush),
+            apply_deferred.in_set(CleanupFlush),
+        ));
 
         schedule.add_systems((ExtractCommands, PrepareAssets, Prepare).chain());
         schedule.add_systems(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));

@@ -218,13 +218,11 @@ impl Plugin for VisibilityPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    (
-                        // We add an AABB component in CalculateBounds,
-                        // which must be ready on the same frame.
-                        calculate_bounds.into_set(CalculateBounds),
-                        apply_deferred.into_set(CalculateBoundsFlush),
-                    )
-                        .chain(),
+                    calculate_bounds.in_set(CalculateBounds),
+                    apply_deferred.in_set(CalculateBoundsFlush),
+                    // We add an AABB component in CalculateBounds,
+                    // which must be ready on the same frame.
+                    (CalculateBounds, CalculateBoundsFlush).chain(),
                     update_frusta::<OrthographicProjection>
                         .in_set(UpdateOrthographicFrusta)
                         .after(camera_system::<OrthographicProjection>)
