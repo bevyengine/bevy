@@ -579,7 +579,7 @@ impl ScheduleGraph {
     ) -> ProcessConfigsResult {
         match configs {
             SystemConfigs::SystemConfig(config) => {
-                let node_id = BoxedSystem::process_config(self, config);
+                let node_id = self.add_system_inner(config).unwrap();
                 if collect_nodes {
                     ProcessConfigsResult {
                         densely_chained: true,
@@ -593,7 +593,7 @@ impl ScheduleGraph {
                 }
             }
             SystemConfigs::SystemSetConfig(config) => {
-                let node_id = InternedSystemSet::process_config(self, config);
+                let node_id = self.configure_set_inner(config).unwrap();
                 if collect_nodes {
                     ProcessConfigsResult {
                         densely_chained: true,
@@ -1289,24 +1289,6 @@ struct ProcessConfigsResult {
     /// are linearly chained (as if `after` system ordering had been applied between each node)
     /// in the order they are defined
     densely_chained: bool,
-}
-
-/// Trait used by [`ScheduleGraph::process_configs`] to process a single [`NodeConfig`].
-trait ProcessNodeConfig: Sized {
-    /// Process a single [`NodeConfig`].
-    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
-}
-
-impl ProcessNodeConfig for BoxedSystem {
-    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
-        schedule_graph.add_system_inner(config).unwrap()
-    }
-}
-
-impl ProcessNodeConfig for InternedSystemSet {
-    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
-        schedule_graph.configure_set_inner(config).unwrap()
-    }
 }
 
 /// Used to select the appropriate reporting function.
