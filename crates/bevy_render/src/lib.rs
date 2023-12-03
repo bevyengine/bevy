@@ -138,9 +138,6 @@ impl Render {
             apply_deferred.in_set(RenderFlush),
             apply_deferred.in_set(PrepareFlush),
             apply_deferred.in_set(CleanupFlush),
-        ));
-
-        schedule.configure_sets(
             (
                 ExtractCommands,
                 ManageViews,
@@ -155,11 +152,11 @@ impl Render {
                 CleanupFlush,
             )
                 .chain(),
-        );
+        ));
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));
-        schedule.configure_sets(
+        schedule.add_systems((ExtractCommands, PrepareAssets, Prepare).chain());
+        schedule.add_systems(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));
+        schedule.add_systems(
             (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
                 .in_set(Prepare),

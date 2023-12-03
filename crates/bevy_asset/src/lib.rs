@@ -45,7 +45,7 @@ use crate::{
 use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    schedule::{IntoSystemConfigs, ScheduleLabel, SystemSet},
     system::Resource,
     world::FromWorld,
 };
@@ -213,11 +213,10 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedFolder>()
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
-            .configure_sets(
+            .add_systems(
                 UpdateAssets,
-                TrackAssets.after(handle_internal_asset_events),
-            )
-            .add_systems(UpdateAssets, handle_internal_asset_events);
+                (handle_internal_asset_events, TrackAssets).chain(),
+            );
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(First, UpdateAssets);

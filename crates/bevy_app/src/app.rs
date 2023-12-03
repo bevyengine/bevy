@@ -4,8 +4,8 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs,
-        ScheduleBuildSettings, ScheduleLabel,
+        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, ScheduleBuildSettings,
+        ScheduleLabel,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};

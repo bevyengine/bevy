@@ -101,10 +101,6 @@ impl Plugin for TransformPlugin {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
-            .configure_sets(
-                PostStartup,
-                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
-            )
             // add transform systems to startup so the first update is "correct"
             .add_systems(
                 PostStartup,
@@ -116,11 +112,8 @@ impl Plugin for TransformPlugin {
                         // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
                         .ambiguous_with(PropagateTransformsSet),
                     propagate_transforms.in_set(PropagateTransformsSet),
+                    PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
                 ),
-            )
-            .configure_sets(
-                PostUpdate,
-                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
             )
             .add_systems(
                 PostUpdate,
@@ -129,6 +122,7 @@ impl Plugin for TransformPlugin {
                         .in_set(TransformSystem::TransformPropagate)
                         .ambiguous_with(PropagateTransformsSet),
                     propagate_transforms.in_set(PropagateTransformsSet),
+                    PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
                 ),
             );
     }

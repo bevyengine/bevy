@@ -259,18 +259,15 @@ impl Plugin for PbrPlugin {
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
             ))
-            .configure_sets(
-                PostUpdate,
-                (
-                    SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AddClustersFlush,
-                    SimulationLightSystems::AssignLightsToClusters,
-                )
-                    .chain(),
-            )
             .add_systems(
                 PostUpdate,
                 (
+                    (
+                        SimulationLightSystems::AddClusters,
+                        SimulationLightSystems::AddClustersFlush,
+                        SimulationLightSystems::AssignLightsToClusters,
+                    )
+                        .chain(),
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
                     apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
                     assign_lights_to_clusters

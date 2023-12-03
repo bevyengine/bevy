@@ -81,7 +81,7 @@ impl Plugin for AudioPlugin {
             .register_type::<PlaybackSettings>()
             .insert_resource(self.global_volume)
             .insert_resource(self.spatial_scale)
-            .configure_sets(
+            .add_systems(
                 PostUpdate,
                 AudioPlaySet
                     .run_if(audio_output_available)
