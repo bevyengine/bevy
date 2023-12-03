@@ -783,40 +783,34 @@ pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut views: Query<(Entity, &ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
-    for (view_entity, view, mut transparent_phase) in &mut views {
+    for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
+        let Ok((view, mut transparent_phase)) = views.get_mut(extracted_uinode.camera_entity)
+        else {
+            continue;
+        };
+
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey { hdr: view.hdr },
         );
-        transparent_phase
-            .items
-            .reserve(extracted_uinodes.uinodes.len());
-
-        for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-            // Skip if the node is not in the current view
-            if view_entity != extracted_uinode.camera_entity {
-                continue;
-            }
-
-            transparent_phase.add(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: *entity,
-                sort_key: (
-                    FloatOrd(extracted_uinode.stack_index as f32),
-                    entity.index(),
-                ),
-                // batch_range will be calculated in prepare_uinodes
-                batch_range: 0..0,
-                dynamic_offset: None,
-            });
-        }
+        transparent_phase.add(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: *entity,
+            sort_key: (
+                FloatOrd(extracted_uinode.stack_index as f32),
+                entity.index(),
+            ),
+            // batch_range will be calculated in prepare_uinodes
+            batch_range: 0..0,
+            dynamic_offset: None,
+        });
     }
 }
 
