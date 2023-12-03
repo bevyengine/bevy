@@ -588,10 +588,7 @@ impl SystemKey for TextureFormatKey {
 
 impl KeyShaderDefs for TextureFormatKey {
     fn shader_defs(&self) -> Vec<ShaderDefVal> {
-        match self.0 {
-            false => vec!["TONEMAP_IN_SHADER".into()],
-            true => vec!["HDR".into()],
-        }
+        self.0.then_some("TONEMAP_IN_SHADER".into()).into_iter().collect()
     }
 }
 
