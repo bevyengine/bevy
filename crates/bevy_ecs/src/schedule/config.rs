@@ -32,7 +32,7 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
     }
 }
 
-impl<Marker, F> IntoSystemConfigs<(F, Marker)> for F
+impl<Marker, F> IntoSystemConfigs<(Marker,)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
