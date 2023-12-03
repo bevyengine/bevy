@@ -36,7 +36,7 @@ macro_rules! impl_composite_key_tuples {
 
                 $(
                     let PackedPipelineKey{ packed, size, .. } = $K::pack($value, store);
-                    assert_eq!(size, $K::size(store), "{} mismatch", type_name::<$K>());
+                    debug_assert_eq!(size, $K::size(store), "{} mismatch", type_name::<$K>());
 
                     result = (result << size) | packed;
                     total_size += size;
