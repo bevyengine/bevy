@@ -102,7 +102,7 @@ impl Text {
     }
 
     /// Returns this [`Text`] with a new [`TextJustification`].
-    pub const fn with_alignment(mut self, justification: TextJustification) -> Self {
+    pub const fn with_justification(mut self, justification: TextJustification) -> Self {
         self.justification = justification;
         self
     }

@@ -38,14 +38,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 60.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextJustification::Center;
+    let text_justification = TextJustification::Center;
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
     commands.spawn((
         Text2dBundle {
             text: Text::from_section("translation", text_style.clone())
-                .with_alignment(text_alignment),
+                .with_justification(text_justification),
             ..default()
         },
         AnimateTranslation,
@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing rotation
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("rotation", text_style.clone()).with_alignment(text_alignment),
+            text: Text::from_section("rotation", text_style.clone()).with_justification(text_justification),
             ..default()
         },
         AnimateRotation,
@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("scale", text_style).with_alignment(text_alignment),
+            text: Text::from_section("scale", text_style).with_justification(text_justification),
             ..default()
         },
         AnimateScale,
