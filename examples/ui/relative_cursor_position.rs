@@ -3,7 +3,6 @@
 use bevy::{
     prelude::*, render::camera::Viewport, ui::RelativeCursorPosition, winit::WinitSettings,
 };
-use bevy_internal::core_pipeline::clear_color::ClearColorConfig;
 
 fn main() {
     App::new()
@@ -17,10 +16,8 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle {
-        camera_2d: Camera2d {
-            clear_color: ClearColorConfig::None,
-        },
         camera: Camera {
+            // Cursor position will take the viewport offset into account
             viewport: Some(Viewport {
                 physical_position: [200, 100].into(),
                 physical_size: [600, 600].into(),
