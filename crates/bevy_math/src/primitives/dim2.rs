@@ -68,15 +68,15 @@ impl Plane2d {
     /// Create a new `Plane2d` from a normal
     #[inline]
     pub fn new(normal: Vec2) -> Self {
-        Self {
-            normal: normal.into(),
-        }
+        Self::from(normal)
     }
 }
 
 impl From<Vec2> for Plane2d {
-    fn from(vec: Vec2) -> Self {
-        Self { normal: vec.into() }
+    fn from(normal: Vec2) -> Self {
+        Self {
+            normal: normal.into(),
+        }
     }
 }
 

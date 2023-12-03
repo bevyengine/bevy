@@ -48,15 +48,15 @@ impl Plane3d {
     /// Create a new `Plane3d` from a normal
     #[inline]
     pub fn new(normal: Vec3) -> Self {
-        Self {
-            normal: normal.into(),
-        }
+        Self::from(normal)
     }
 }
 
 impl From<Vec3> for Plane3d {
-    fn from(vec: Vec3) -> Self {
-        Self { normal: vec.into() }
+    fn from(normal: Vec3) -> Self {
+        Self {
+            normal: normal.into(),
+        }
     }
 }
 
