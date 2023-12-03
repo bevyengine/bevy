@@ -12,6 +12,19 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 #[derive(Clone, Default)]
 pub struct ExrTextureLoader;
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExrTextureLoaderSettings {
+    pub cpu_persistent_access: bool,
+}
+
+impl Default for ExrTextureLoaderSettings {
+    fn default() -> Self {
+        Self {
+            cpu_persistent_access: false,
+        }
+    }
+}
+
 /// Possible errors that can be produced by [`ExrTextureLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -24,13 +37,13 @@ pub enum ExrTextureLoaderError {
 
 impl AssetLoader for ExrTextureLoader {
     type Asset = Image;
-    type Settings = ();
+    type Settings = ExrTextureLoaderSettings;
     type Error = ExrTextureLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        _settings: &'a Self::Settings,
+        settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
@@ -63,7 +76,7 @@ impl AssetLoader for ExrTextureLoader {
                 TextureDimension::D2,
                 buf,
                 format,
-                false,
+                settings.cpu_persistent_access,
             ))
         })
     }

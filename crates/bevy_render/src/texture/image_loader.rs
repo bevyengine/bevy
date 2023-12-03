@@ -57,6 +57,7 @@ pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
     pub sampler: ImageSampler,
+    pub cpu_persistent_access: bool,
 }
 
 impl Default for ImageLoaderSettings {
@@ -65,6 +66,7 @@ impl Default for ImageLoaderSettings {
             format: ImageFormatSetting::default(),
             is_srgb: true,
             sampler: ImageSampler::Default,
+            cpu_persistent_access: false,
         }
     }
 }
@@ -104,7 +106,7 @@ impl AssetLoader for ImageLoader {
                 self.supported_compressed_formats,
                 settings.is_srgb,
                 settings.sampler.clone(),
-                false,
+                settings.cpu_persistent_access,
             )
             .map_err(|err| FileTextureError {
                 error: err,
