@@ -517,8 +517,12 @@ impl GetBatchData for MeshPipeline {
 
 #[derive(PipelineKey)]
 pub struct MeshPipelineKey {
+    // View-level settings such as output texture format. These are usually consistent across all 
+    // main-pass items rendered in a frame
     pub view_key: PbrViewKey,
+    // Mesh specific settings
     pub mesh_key: MeshKey,
+    // the alpha mode for the current item
     pub alpha_mode: AlphaKey,
 }
 
