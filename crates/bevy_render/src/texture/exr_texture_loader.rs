@@ -13,17 +13,9 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 #[derive(Clone, Default)]
 pub struct ExrTextureLoader;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ExrTextureLoaderSettings {
     pub cpu_persistent_access: bool,
-}
-
-impl Default for ExrTextureLoaderSettings {
-    fn default() -> Self {
-        Self {
-            cpu_persistent_access: false,
-        }
-    }
 }
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]

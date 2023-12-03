@@ -8,17 +8,9 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 #[derive(Clone, Default)]
 pub struct HdrTextureLoader;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct HdrTextureLoaderSettings {
     pub cpu_persistent_access: bool,
-}
-
-impl Default for HdrTextureLoaderSettings {
-    fn default() -> Self {
-        Self {
-            cpu_persistent_access: false,
-        }
-    }
 }
 
 #[non_exhaustive]
