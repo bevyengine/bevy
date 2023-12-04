@@ -6,40 +6,47 @@
 //! with an addon like [The Lightmapper]. The tools in the [`bevy-baked-gi`]
 //! project support other lightmap baking methods.
 //!
+//! When a [`Lightmap`] component is added to an entity with a [`Mesh`] and a
+//! [`StandardMaterial`], Bevy applies the lightmap when rendering. The brightness
+//! of the lightmap may be controlled with the `lightmap_exposure` field on
+//! `StandardMaterial`.
+//!
+//! During the rendering extraction phase, we extract all lightmaps into the
+//! [`RenderLightmaps`] table, which lives in the render world. Mesh bindgroup
+//! and mesh uniform creation consults this table to determine which lightmap to
+//! supply to the shader. Essentially, the lightmap is a special type of texture
+//! that is part of the mesh instance rather than part of the material (because
+//! multiple meshes can share the same material, whereas sharing lightmaps is
+//! nonsensical).
+//!
+//! Note that meshes can't be instanced if they use different lightmap textures.
+//! If you want to instance a lightmapped mesh, combine the lightmap textures
+//! into a single atlas, and set the `uv_rect` field on [`Lightmap`]
+//! appropriately.
+//!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
 //!
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
-use bevy_derive::{Deref, DerefMut};
+use bevy_derive::Deref;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
-    system::{lifetimeless::Read, Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    mesh::Mesh,
-    render_asset::RenderAssets,
-    render_resource::Shader,
-    texture::{GpuImage, Image},
-    Render, RenderApp, RenderSet,
+    mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
+    view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
 };
-use bevy_utils::{
-    hashbrown::{hash_map::Entry, HashMap},
-    EntityHashMap,
-};
+use bevy_utils::{EntityHashMap, HashSet};
 
-use crate::{Mesh3d, RenderMeshInstances};
-
-/// The maximum number of lightmaps in a scene.
-pub const MAX_LIGHTMAPS: usize = 1024;
+use crate::RenderMeshInstances;
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
@@ -60,7 +67,7 @@ pub struct Lightmap {
     /// The lightmap texture.
     pub image: Handle<Image>,
 
-    /// The rectangle within the lightmap image that the UVs are relative to.
+    /// The rectangle within the lightmap texture that the UVs are relative to.
     ///
     /// The top left coordinate is the `min` part of the rect, and the bottom
     /// right coordinate is the `max` part of the rect. The rect ranges from (0,
@@ -71,42 +78,40 @@ pub struct Lightmap {
     pub uv_rect: Rect,
 }
 
-/// A render world resource that stores all lightmaps associated with each mesh.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct RenderLightmaps(pub HashMap<AssetId<Mesh>, RenderMeshLightmaps>);
-
-/// Lightmaps associated with a mesh.
-pub struct RenderMeshLightmaps {
-    /// Maps an entity to lightmap index of the lightmap within
-    /// `render_mesh_lightmaps`.
-    pub(crate) entity_to_lightmap_index: EntityHashMap<Entity, RenderMeshLightmapIndex>,
-
-    /// Maps a lightmap key to the index of the lightmap inside
-    /// `render_mesh_lightmaps`.
-    pub(crate) render_mesh_lightmap_to_lightmap_index:
-        HashMap<RenderMeshLightmapKey, RenderMeshLightmapIndex>,
-
-    /// A list of all (lightmap image, exposure) pairs used in the scene. Each
-    /// element in this array should be unique.
-    pub(crate) render_mesh_lightmaps: Vec<RenderMeshLightmap>,
-}
-
-/// A key that can be used to fetch a [`RenderMeshLightmap`].
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct RenderMeshLightmapKey {
+/// Lightmap data stored in the render world.
+///
+/// There is one of these per visible lightmapped mesh instance.
+#[derive(Debug)]
+pub(crate) struct RenderLightmap {
     /// The ID of the lightmap texture.
     pub(crate) image: AssetId<Image>,
+
+    /// The rectangle within the lightmap texture that the UVs are relative to.
+    ///
+    /// The top left coordinate is the `min` part of the rect, and the bottom
+    /// right coordinate is the `max` part of the rect. The rect ranges from (0,
+    /// 0) to (1, 1).
+    pub(crate) uv_rect: Rect,
 }
 
-/// Per-mesh data needed to render a lightmap.
+/// Stores data for all lightmaps in the render world.
 ///
-/// The UV rect varies per mesh *instance*, not per mesh, so it's not stored
-/// here.
-pub struct RenderMeshLightmap {
-    /// The lightmap texture.
-    pub(crate) image: GpuImage,
-    /// The ID of the lightmap's image asset.
-    pub(crate) image_id: AssetId<Image>,
+/// This is cleared and repopulated each frame during the [`extract_lightmaps`]
+/// system.
+#[derive(Default, Resource)]
+pub struct RenderLightmaps {
+    /// The mapping from every lightmapped entity to its lightmap info.
+    ///
+    /// Entities without lightmaps, or for which the mesh or lightmap isn't
+    /// loaded, won't have entries in this table.
+    pub(crate) render_lightmaps: EntityHashMap<Entity, RenderLightmap>,
+
+    /// All active lightmap images in the scene.
+    ///
+    /// Gathering all lightmap images into a set makes mesh bindgroup
+    /// preparation slightly more efficient, because only one bindgroup needs to
+    /// be created per lightmap texture.
+    pub(crate) all_lightmap_images: HashSet<AssetId<Image>>,
 }
 
 /// The index of a lightmap within the `render_mesh_lightmaps` array in
@@ -123,152 +128,62 @@ impl Plugin for LightmapPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugins(ExtractComponentPlugin::<Lightmap>::default())
-            .register_type::<Lightmap>();
-
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app.init_resource::<RenderLightmaps>().add_systems(
-            Render,
-            build_lightmap_texture_arrays.in_set(RenderSet::PrepareResources),
+            ExtractSchedule,
+            extract_lightmaps.after(crate::extract_meshes),
         );
     }
 }
 
-/// A system, part of the [`RenderApp`], that finds all lightmapped meshes in
-/// the scene and updates the [`RenderMeshLightmaps`] resource.
-///
-/// This runs before batch building.
-pub fn build_lightmap_texture_arrays(
+/// Extracts all lightmaps from the scene and populates the [`RenderLightmaps`]
+/// resource.
+fn extract_lightmaps(
     mut render_lightmaps: ResMut<RenderLightmaps>,
-    lightmaps: Query<(Entity, &Lightmap), With<Mesh3d>>,
-    images: Res<RenderAssets<Image>>,
+    lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap)>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    images: Res<RenderAssets<Image>>,
+    meshes: Res<RenderAssets<Mesh>>,
 ) {
-    // Rebuild all lightmaps for this frame.
-    render_lightmaps.clear();
-    render_lightmaps.update(lightmaps, &render_mesh_instances, &images);
-}
+    // Clear out the old frame's data.
+    render_lightmaps.render_lightmaps.clear();
+    render_lightmaps.all_lightmap_images.clear();
 
-impl ExtractComponent for Lightmap {
-    type Query = Read<Lightmap>;
-    type Filter = ();
-    type Out = Lightmap;
-
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        Some((*item).clone())
-    }
-}
-
-impl Default for Lightmap {
-    fn default() -> Self {
-        Self {
-            image: Default::default(),
-            uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+    // Loop over each entity.
+    for (entity, view_visibility, lightmap) in lightmaps.iter() {
+        // Only process visible entities for which the mesh and lightmap are
+        // both loaded.
+        if !view_visibility.get()
+            || images.get(&lightmap.image).is_none()
+            || !render_mesh_instances
+                .get(&entity)
+                .and_then(|mesh_instance| meshes.get(mesh_instance.mesh_asset_id))
+                .is_some_and(|mesh| mesh.layout.contains(Mesh::ATTRIBUTE_UV_1.id))
+        {
+            continue;
         }
+
+        // Store information about the lightmap in the render world.
+        render_lightmaps.render_lightmaps.insert(
+            entity,
+            RenderLightmap::new(lightmap.image.id(), lightmap.uv_rect),
+        );
+
+        // Make a note of the loaded lightmap image so we can efficiently
+        // process them later during mesh bindgroup creation.
+        render_lightmaps
+            .all_lightmap_images
+            .insert(lightmap.image.id());
     }
 }
 
-impl RenderMeshLightmaps {
-    fn new() -> RenderMeshLightmaps {
-        RenderMeshLightmaps {
-            entity_to_lightmap_index: EntityHashMap::default(),
-            render_mesh_lightmap_to_lightmap_index: HashMap::new(),
-            render_mesh_lightmaps: vec![],
-        }
-    }
-}
-
-impl RenderLightmaps {
-    /// Gathers information about all the lightmaps needed in this scene.
-    fn update(
-        &mut self,
-        lightmaps: Query<(Entity, &Lightmap), With<Mesh3d>>,
-        render_mesh_instances: &RenderMeshInstances,
-        images: &RenderAssets<Image>,
-    ) {
-        for (entity, lightmap) in lightmaps.iter() {
-            // If the mesh isn't loaded, skip it.
-            let Some(mesh_id) = render_mesh_instances.get(&entity) else {
-                continue;
-            };
-
-            // If the lightmap hasn't loaded, skip it.
-            let Some(image) = images.get(&lightmap.image) else {
-                continue;
-            };
-
-            let render_mesh_lightmaps = self
-                .entry(mesh_id.mesh_asset_id)
-                .or_insert_with(RenderMeshLightmaps::new);
-
-            let render_mesh_lightmap_key = RenderMeshLightmapKey::from(lightmap);
-
-            // We might already have an entry in the list corresponding to this
-            // lightmap texture and exposure value. This will frequently occur
-            // if, for example, multiple meshes share the same lightmap texture.
-            // We can share the lightmap data among all such meshes in that
-            // case.
-            let render_mesh_lightmap_index = match render_mesh_lightmaps
-                .render_mesh_lightmap_to_lightmap_index
-                .entry(render_mesh_lightmap_key)
-            {
-                Entry::Occupied(entry) => *entry.get(),
-                Entry::Vacant(entry) => {
-                    // Make a new lightmap data record.
-                    let index =
-                        RenderMeshLightmapIndex(render_mesh_lightmaps.render_mesh_lightmaps.len());
-                    render_mesh_lightmaps
-                        .render_mesh_lightmaps
-                        .push(RenderMeshLightmap::new(
-                            (*image).clone(),
-                            lightmap.image.id(),
-                        ));
-                    entry.insert(index);
-                    index
-                }
-            };
-
-            render_mesh_lightmaps
-                .entity_to_lightmap_index
-                .insert(entity, render_mesh_lightmap_index);
-        }
-    }
-
-    pub(crate) fn lightmap_key_for_entity(
-        &self,
-        mesh_asset_id: AssetId<Mesh>,
-        entity: Entity,
-    ) -> Option<RenderMeshLightmapKey> {
-        let render_mesh_lightmaps = self.get(&mesh_asset_id)?;
-        let lightmap_index = render_mesh_lightmaps
-            .entity_to_lightmap_index
-            .get(&entity)?;
-        Some((&render_mesh_lightmaps.render_mesh_lightmaps[lightmap_index.0]).into())
-    }
-}
-
-impl RenderMeshLightmap {
-    fn new(image: GpuImage, image_id: AssetId<Image>) -> Self {
-        Self { image, image_id }
-    }
-}
-
-impl<'a> From<&'a Lightmap> for RenderMeshLightmapKey {
-    fn from(lightmap: &'a Lightmap) -> Self {
-        RenderMeshLightmapKey {
-            image: lightmap.image.id(),
-        }
-    }
-}
-
-impl<'a> From<&'a RenderMeshLightmap> for RenderMeshLightmapKey {
-    fn from(lightmap: &'a RenderMeshLightmap) -> Self {
-        RenderMeshLightmapKey {
-            image: lightmap.image_id,
-        }
+impl RenderLightmap {
+    /// Creates a new lightmap from a texture and a UV rect.
+    fn new(image: AssetId<Image>, uv_rect: Rect) -> Self {
+        Self { image, uv_rect }
     }
 }
 
@@ -285,5 +200,14 @@ pub(crate) fn pack_lightmap_uv_rect(maybe_rect: Option<Rect>) -> UVec2 {
             )
         }
         None => UVec2::ZERO,
+    }
+}
+
+impl Default for Lightmap {
+    fn default() -> Self {
+        Self {
+            image: Default::default(),
+            uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+        }
     }
 }

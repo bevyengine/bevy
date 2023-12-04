@@ -1,9 +1,11 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
-use bevy_render::{mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice};
+use bevy_render::{
+    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice, texture::GpuImage,
+};
 
-use crate::{render::skin::MAX_JOINTS, RenderMeshLightmap};
+use crate::render::skin::MAX_JOINTS;
 
 const MORPH_WEIGHT_SIZE: usize = std::mem::size_of::<f32>();
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
@@ -207,15 +209,15 @@ impl MeshLayouts {
         &self,
         render_device: &RenderDevice,
         model: &BindingResource,
-        lightmap: &RenderMeshLightmap,
+        lightmap: &GpuImage,
     ) -> BindGroup {
         render_device.create_bind_group(
             "lightmapped_mesh_bind_group",
             &self.lightmapped,
             &[
                 entry::model(0, model.clone()),
-                entry::lightmaps_texture_view(4, &lightmap.image.texture_view),
-                entry::lightmaps_sampler(5, &lightmap.image.sampler),
+                entry::lightmaps_texture_view(4, &lightmap.texture_view),
+                entry::lightmaps_sampler(5, &lightmap.sampler),
             ],
         )
     }

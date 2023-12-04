@@ -458,23 +458,24 @@ impl MeshPipeline {
 }
 
 impl GetBatchData for MeshPipeline {
-    type Param = SRes<RenderMeshInstances>;
-    type Query = (Entity, Option<Read<Lightmap>>);
+    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
+    type Query = Entity;
     type QueryFilter = With<Mesh3d>;
-    type CompareData = (
-        MaterialBindGroupId,
-        AssetId<Mesh>,
-        Option<RenderMeshLightmapKey>,
-    );
+
+    // The material bind group ID, the mesh ID, and the lightmap ID,
+    // respectively.
+    type CompareData = (MaterialBindGroupId, AssetId<Mesh>, Option<AssetId<Image>>);
+
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        mesh_instances: &SystemParamItem<Self::Param>,
-        (entity, maybe_lightmap): &QueryItem<Self::Query>,
+        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
+        entity: &QueryItem<Self::Query>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
             .expect("Failed to find render mesh instance");
+        let maybe_lightmap = lightmaps.render_lightmaps.get(entity);
 
         (
             MeshUniform::new(
@@ -484,7 +485,7 @@ impl GetBatchData for MeshPipeline {
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.into()),
+                maybe_lightmap.map(|lightmap| lightmap.image),
             )),
         )
     }
@@ -948,7 +949,7 @@ pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<BindGroup>,
     morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
-    lightmaps: HashMap<RenderMeshLightmapKey, BindGroup>,
+    lightmaps: HashMap<AssetId<Image>, BindGroup>,
 }
 impl MeshBindGroups {
     pub fn reset(&mut self) {
@@ -962,7 +963,7 @@ impl MeshBindGroups {
     pub fn get(
         &self,
         asset_id: AssetId<Mesh>,
-        lightmap: Option<RenderMeshLightmapKey>,
+        lightmap: Option<AssetId<Image>>,
         is_skinned: bool,
         morph: bool,
     ) -> Option<&BindGroup> {
@@ -978,6 +979,7 @@ impl MeshBindGroups {
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
+    images: Res<RenderAssets<Image>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
@@ -1012,26 +1014,11 @@ pub fn prepare_mesh_bind_group(
     }
 
     // Create lightmap bindgroups.
-    for (mesh_id, _) in meshes.iter() {
-        // Skip meshes with no lightmaps.
-        let Some(render_lightmaps) = render_lightmaps.get(&mesh_id) else {
-            continue;
-        };
-
-        for (render_mesh_lightmap_key, render_mesh_lightmap_index) in
-            &render_lightmaps.render_mesh_lightmap_to_lightmap_index
+    for &image_id in &render_lightmaps.all_lightmap_images {
+        if let (Entry::Vacant(entry), Some(image)) =
+            (groups.lightmaps.entry(image_id), images.get(image_id))
         {
-            // We can reuse layouts between meshes that share the same lightmap
-            // texture and exposure value.
-            let Entry::Vacant(entry) = groups.lightmaps.entry(render_mesh_lightmap_key.clone())
-            else {
-                continue;
-            };
-
-            // If we got here, we need to make a new layout.
-            let render_mesh_lightmap =
-                &render_lightmaps.render_mesh_lightmaps[render_mesh_lightmap_index.0];
-            entry.insert(layouts.lightmapped(&render_device, &model, render_mesh_lightmap));
+            entry.insert(layouts.lightmapped(&render_device, &model, image));
         }
     }
 }
@@ -1107,7 +1094,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();
-        let lightmap = lightmaps.lightmap_key_for_entity(mesh.mesh_asset_id, *entity);
+
+        let lightmap = lightmaps
+            .render_lightmaps
+            .get(entity)
+            .map(|render_lightmap| render_lightmap.image);
 
         let Some(bind_group) =
             bind_groups.get(mesh.mesh_asset_id, lightmap, is_skinned, is_morphed)
