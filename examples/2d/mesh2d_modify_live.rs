@@ -1,11 +1,8 @@
 //! Shows how to change the attributes of a polygonal [`Mesh`], in a 2D scene, over time.
 
-use bevy::{
-    prelude::*,
-    sprite::MaterialMesh2dBundle,
-};
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
-const DIFF_CONST: f32 = 0.2;  // How fast the diffusion happens
+const DIFF_CONST: f32 = 0.2; // How fast the diffusion happens
 
 fn main() {
     App::new()
@@ -51,8 +48,7 @@ fn setup(
     // Spawn the quad with vertex colors
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone().into(),
-        transform: Transform::from_translation(Vec3::new(0., 0., 0.))
-            .with_scale(Vec3::splat(512.)),
+        transform: Transform::from_translation(Vec3::new(0., 0., 0.)).with_scale(Vec3::splat(512.)),
         material: materials.add(ColorMaterial::default()),
         ..default()
     });
@@ -62,15 +58,10 @@ fn setup(
         mesh_handle: mesh_handle.clone(),
         vertex_colors: vertex_colors.clone(),
     });
-
 }
 
 // Diffuse the colors over time
-fn equalize_colors(
-    time: Res<Time>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    query: Query<&DynamicMesh>,
-) {
+fn equalize_colors(time: Res<Time>, mut meshes: ResMut<Assets<Mesh>>, query: Query<&DynamicMesh>) {
     for data in &query {
         let mesh = meshes.get_mut(&data.mesh_handle).unwrap();
         // let vertex_colors = data.vertex_colors.clone();
