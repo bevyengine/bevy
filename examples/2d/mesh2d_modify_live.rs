@@ -61,7 +61,11 @@ fn setup(
 }
 
 // Get the mesh from the asset storage and update the vertex colors
-fn update_mesh_colors(time: Res<Time>, mut meshes: ResMut<Assets<Mesh>>, query: Query<&DynamicMesh>) {
+fn update_mesh_colors(
+    time: Res<Time>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    query: Query<&DynamicMesh>,
+) {
     for data in &query {
         let mesh = meshes.get_mut(&data.mesh_handle).unwrap();
         // let vertex_colors = data.vertex_colors.clone();
