@@ -1,9 +1,11 @@
-//! Shows how to change the attributes of a polygonal [`Mesh`], generated from a [`Quad`] primitive, in a 2D scene.
+//! Shows how to change the attributes of a polygonal [`Mesh`], in a 2D scene, over time.
 
 use bevy::{
     prelude::*,
     sprite::MaterialMesh2dBundle,
 };
+
+const DIFF_CONST: f32 = 0.2;  // How fast the diffusion happens
 
 fn main() {
     App::new()
@@ -13,6 +15,9 @@ fn main() {
         .run();
 }
 
+// This Component tracks the mesh and the initial vertex colors. We can query
+// for it using an ECS System on each update. By tracking the handle, we can
+// get the particular mesh from the asset storage and modify it.
 #[derive(Component)]
 struct DynamicMesh {
     mesh_handle: Handle<Mesh>,
@@ -33,19 +38,12 @@ fn setup(
         Color::RED.as_rgba_f32(),
         Color::BLUE.as_rgba_f32(),
     ];
-    println!("vertex_colors: {:?}", vertex_colors);
 
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors.clone());
 
     // Add the mesh to the asset storage and get a handle to it that will allow us to access it later
     let mesh_handle: Handle<Mesh> = meshes.add(mesh).into();
-
-    // Track the colors using the DynamicMesh component
-    commands.spawn(DynamicMesh {
-        mesh_handle: mesh_handle.clone(),
-        vertex_colors: vertex_colors.clone(),
-    });
 
     // Spawn camera
     commands.spawn(Camera2dBundle::default());
@@ -59,35 +57,36 @@ fn setup(
         ..default()
     });
 
+    // Track the mesh handle and the initial vertex colors
+    commands.spawn(DynamicMesh {
+        mesh_handle: mesh_handle.clone(),
+        vertex_colors: vertex_colors.clone(),
+    });
+
 }
 
-// Change the colors of the quad proportionally to the time elapsed
+// Diffuse the colors over time
 fn equalize_colors(
     time: Res<Time>,
     mut meshes: ResMut<Assets<Mesh>>,
     query: Query<&DynamicMesh>,
 ) {
-    println!("equalize_colors: time={}", time.elapsed_seconds());
     for data in &query {
-        let handle = data.mesh_handle.clone();
-        let mesh = meshes.get_mut(&handle).unwrap();
-        // let mesh = meshes.get(&handle).unwrap();
-        let mut vertex_colors = data.vertex_colors.clone();
+        let mesh = meshes.get_mut(&data.mesh_handle).unwrap();
+        // let vertex_colors = data.vertex_colors.clone();
         let t = time.elapsed_seconds() as f32;
-        vertex_colors = _equalize_colors(vertex_colors, t);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
+        let new_colors = _equalize_colors(&data.vertex_colors, t);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, new_colors);
     }
 }
-
-const DIFF_CONST: f32 = 0.2;
 
 // Implement the diffusion logic
 // - for all colors, A is one of those colors, B is average of all colors
 // - at time t, the diffused color A = (A * exp(-t) + B * (1 - exp(-t)))
-fn _equalize_colors(vertex_colors: Vec<[f32; 4]>, t: f32) -> Vec<[f32; 4]> {
+fn _equalize_colors(vertex_colors: &Vec<[f32; 4]>, t: f32) -> Vec<[f32; 4]> {
     let mut new_colors = vertex_colors.clone();
     let mut sum: [f32; 4] = [0., 0., 0., 0.];
-    for color in &vertex_colors {
+    for color in vertex_colors {
         sum[0] += color[0];
         sum[1] += color[1];
         sum[2] += color[2];
