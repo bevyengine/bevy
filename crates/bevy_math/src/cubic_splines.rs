@@ -363,10 +363,13 @@ pub struct CubicNurbs<P: Point> {
 impl<P: Point> CubicNurbs<P> {
     /// Generates a Non-Uniform Rational B-Spline.
     ///
-    /// If provided, weights vector must have the same amount of items as the control points vector
+    /// If provided, weights vector must have the same amount of items as the control points
+    /// vector.
     ///
     /// If provided, the knot vector must have n + 4 elements, where n is the amoutn of control
-    /// points
+    /// points.
+    ///
+    /// At least 4 points must be provided, otherwise an error will be returned.
     pub fn new(
         control_points: impl Into<Vec<P>>,
         weights: Option<impl Into<Vec<f32>>>,
