@@ -457,7 +457,7 @@ pub fn tuple_struct_debug(
         dyn_tuple_struct
             .get_represented_type_info()
             .map(|s| s.type_path())
-            .unwrap_or("Uknown"),
+            .unwrap_or(""),
     );
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
