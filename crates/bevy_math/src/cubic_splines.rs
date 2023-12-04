@@ -320,9 +320,42 @@ pub enum CubicNurbsError {
         /// Provided weights vector size
         provided: usize,
     },
+    /// The amoutn of points provided is less than 4
+    #[error("Not enough control points, at least 4 are required, {provided} were provided")]
+    NotEnoughControlPoints {
+        /// The amount of control points provided
+        provided: usize,
+    },
 }
 
-/// A Non-Uniform Rational B-Spline
+/// A spline interpolated continuously across the nearest four control points. The curve does not
+/// pass through any of the control points unless there is a knot with multiplicity of 4.
+///
+/// ### Interpolation
+/// The curve does not pass through control points, unless the knot vector has 4 consecutive values
+/// that are equal to each other
+///
+/// ### Tangency
+/// Automatically computed based on the position of control points.
+///
+/// ### Continuity
+/// C2 continuous! The acceleration continuity of this spline makes it useful for camera paths.
+///
+/// ### Usage
+///
+/// ```
+/// # use bevy_math::{*, prelude::*};
+/// let points = [
+///     vec2(-1.0, -20.0),
+///     vec2(3.0, 2.0),
+///     vec2(5.0, 3.0),
+///     vec2(9.0, 8.0),
+/// ];
+/// let weights = [1.0, 1.0, 2.0, 1.0];
+/// let knot_vector = [0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0];
+/// let nurbs = CubicNurbs::new(points, Some(weights), Some(knot_vector)).to_curve();
+/// let positions: Vec<_> = nurbs.iter_positions(100).collect();
+/// ```
 pub struct CubicNurbs<P: Point> {
     control_points: Vec<P>,
     knot_vector: Vec<f32>,
@@ -342,13 +375,20 @@ impl<P: Point> CubicNurbs<P> {
         let mut control_points: Vec<P> = control_points.into();
         let control_points_len = control_points.len();
 
+        if control_points_len < 4 {
+            return Err(CubicNurbsError::NotEnoughControlPoints {
+                provided: control_points_len,
+            });
+        }
+
         let mut weights = weights
             .map(Into::into)
             .unwrap_or_else(|| vec![1.0; control_points_len]);
 
+        // Unwrap is safe because the length was checked before
         let knot_vector: Vec<f32> = knot_vector
             .map(Into::into)
-            .unwrap_or_else(|| Self::open_uniform_knot_vector(control_points_len));
+            .unwrap_or_else(|| Self::open_uniform_knot_vector(control_points_len).unwrap());
 
         let knot_vector_expected_length = Self::knot_vector_length(control_points_len);
 
@@ -397,21 +437,40 @@ impl<P: Point> CubicNurbs<P> {
         })
     }
 
-    /// Generates a uniform knot vector that will generate the same curve as [`CubicBSpline`]
-    pub fn uniform_knot_vector(control_points: usize) -> Vec<f32> {
+    /// Generates a uniform knot vector that will generate the same curve as [`CubicBSpline`].
+    ///
+    /// "Uniform" means that teh difference between two knot values next to each other is the same
+    /// through teh entire knot vector.
+    ///
+    /// Will return `None` if there are less than 4 control points
+    pub fn uniform_knot_vector(control_points: usize) -> Option<Vec<f32>> {
+        if control_points < 4 {
+            return None;
+        }
         let length = control_points + 4;
-        (0..length).map(|v| v as f32).collect()
+        Some((0..length).map(|v| v as f32).collect())
     }
 
     /// Generates an open uniform knot vector, which makes the ends of the curve pass through the
-    /// start and end points
-    pub fn open_uniform_knot_vector(control_points: usize) -> Vec<f32> {
+    /// start and end points.
+    ///
+    /// The knot vector will have a knot with multiplicity of 4 at the end and start and elements
+    /// in the middle will have a difference of 1. "Multiplicity" means taht there are N
+    /// consecutive elements that have the same value.
+    ///
+    /// Will return `None` if there are less than 4 control points
+    pub fn open_uniform_knot_vector(control_points: usize) -> Option<Vec<f32>> {
+        if control_points < 4 {
+            return None;
+        }
         let last_knots_value = control_points - 3;
-        std::iter::repeat(0.0)
-            .take(4)
-            .chain((1..last_knots_value).map(|v| v as f32))
-            .chain(std::iter::repeat(last_knots_value as f32).take(4))
-            .collect()
+        Some(
+            std::iter::repeat(0.0)
+                .take(4)
+                .chain((1..last_knots_value).map(|v| v as f32))
+                .chain(std::iter::repeat(last_knots_value as f32).take(4))
+                .collect(),
+        )
     }
 
     #[inline(always)]
