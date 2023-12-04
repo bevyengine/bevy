@@ -58,9 +58,10 @@ pub struct LightmapPlugin;
 /// A component that applies baked indirect diffuse global illumination from a
 /// lightmap.
 ///
-/// When assigned to an entity that contains a [Mesh] and a [StandardMaterial],
-/// if the mesh has a second UV layer ([MeshVertexAttribute::UV1]), then the
-/// lightmap will render using those UVs.
+/// When assigned to an entity that contains a [`Mesh`] and a
+/// [`StandardMaterial`], if the mesh has a second UV layer
+/// ([`MeshVertexAttribute::UV1`]), then the lightmap will render using those
+/// UVs.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Lightmap {
