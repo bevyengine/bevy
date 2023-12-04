@@ -7,7 +7,7 @@
 //! project support other lightmap baking methods.
 //!
 //! When a [`Lightmap`] component is added to an entity with a [`Mesh`] and a
-//! [`StandardMaterial`], Bevy applies the lightmap when rendering. The brightness
+//! [`StandardMaterial`](crate::StandardMaterial), Bevy applies the lightmap when rendering. The brightness
 //! of the lightmap may be controlled with the `lightmap_exposure` field on
 //! `StandardMaterial`.
 //!
@@ -30,7 +30,6 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
-use bevy_derive::Deref;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -59,9 +58,9 @@ pub struct LightmapPlugin;
 /// lightmap.
 ///
 /// When assigned to an entity that contains a [`Mesh`] and a
-/// [`StandardMaterial`], if the mesh has a second UV layer
-/// ([`MeshVertexAttribute::UV1`]), then the lightmap will render using those
-/// UVs.
+/// [`StandardMaterial`](crate::StandardMaterial), if the mesh has a second UV
+/// layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)), then
+/// the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Lightmap {
@@ -97,7 +96,7 @@ pub(crate) struct RenderLightmap {
 
 /// Stores data for all lightmaps in the render world.
 ///
-/// This is cleared and repopulated each frame during the [`extract_lightmaps`]
+/// This is cleared and repopulated each frame during the `extract_lightmaps`
 /// system.
 #[derive(Default, Resource)]
 pub struct RenderLightmaps {
@@ -114,11 +113,6 @@ pub struct RenderLightmaps {
     /// be created per lightmap texture.
     pub(crate) all_lightmap_images: HashSet<AssetId<Image>>,
 }
-
-/// The index of a lightmap within the `render_mesh_lightmaps` array in
-/// [`RenderMeshLightmaps`].
-#[derive(Clone, Copy, Default, Deref)]
-pub(crate) struct RenderMeshLightmapIndex(pub(crate) usize);
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
