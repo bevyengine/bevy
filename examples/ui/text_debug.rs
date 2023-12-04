@@ -121,10 +121,10 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
         builder.spawn(
             TextBundle::from_section(
-                "This text is left-justified. The text is vertically positioned to distribute the empty space equally above and below.",
+                "This text is left-justified and is vertically positioned to distribute the empty space equally above and below it.",
                 TextStyle {
                     font: font.clone(),
-                    font_size: 40.0,
+                    font_size: 35.0,
                     color: Color::YELLOW,
                 },
             )

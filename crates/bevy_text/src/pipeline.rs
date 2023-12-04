@@ -119,7 +119,7 @@ pub struct TextMeasureSection {
 pub struct TextMeasureInfo {
     pub fonts: Box<[ab_glyph::FontArc]>,
     pub sections: Box<[TextMeasureSection]>,
-    pub text_alignment: TextJustification,
+    pub text_justification: TextJustification,
     pub linebreak_behavior: glyph_brush_layout::BuiltInLineBreaker,
     pub min: Vec2,
     pub max: Vec2,
@@ -171,7 +171,7 @@ impl TextMeasureInfo {
         let mut info = Self {
             fonts: fonts.into_boxed_slice(),
             sections: sections.into_boxed_slice(),
-            text_alignment,
+            text_justification: text_alignment,
             linebreak_behavior,
             min: Vec2::ZERO,
             max: Vec2::ZERO,
@@ -191,7 +191,7 @@ impl TextMeasureInfo {
             ..Default::default()
         };
         let section_glyphs = glyph_brush_layout::Layout::default()
-            .h_align(self.text_alignment.into())
+            .h_align(self.text_justification.into())
             .line_breaker(self.linebreak_behavior)
             .calculate_glyphs(&self.fonts, &geom, sections);
 
