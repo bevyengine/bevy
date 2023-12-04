@@ -353,7 +353,9 @@ pub enum CubicNurbsError {
 /// ];
 /// let weights = [1.0, 1.0, 2.0, 1.0];
 /// let knot_vector = [0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0];
-/// let nurbs = CubicNurbs::new(points, Some(weights), Some(knot_vector)).to_curve();
+/// let nurbs = CubicNurbs::new(points, Some(weights), Some(knot_vector))
+///     .expect("NURBS construction failed!")
+///     .to_curve();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
 pub struct CubicNurbs<P: Point> {
