@@ -361,7 +361,7 @@ pub struct CubicNurbs<P: Point> {
     knot_vector: Vec<f32>,
 }
 impl<P: Point> CubicNurbs<P> {
-    /// Generates a Non-Uniform Rational B-Spline.
+    /// Build a Non-Uniform Rational B-Spline.
     ///
     /// If provided, weights vector must have the same amount of items as the control points
     /// vector.
