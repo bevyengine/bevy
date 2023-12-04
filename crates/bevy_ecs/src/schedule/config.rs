@@ -319,7 +319,7 @@ where
     /// that all evaluations in a single schedule run will yield the same result. If another
     /// system is run inbetween two evaluations it could cause the result of the condition to change.
     ///
-    /// Use [`run_if`](IntoSystemSetConfigs::run_if) on a [`SystemSet`] if you want to make sure
+    /// Use [`run_if`](IntoSystemConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
     fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> SystemConfigs {

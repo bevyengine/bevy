@@ -569,7 +569,7 @@ impl ScheduleGraph {
     /// `process_config` is the function which processes each individual config node and returns a corresponding `NodeId`.
     ///
     /// The fields on the returned [`ProcessConfigsResult`] are:
-    /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
+    /// - `nodes`: a vector of all node ids contained in the nested `SystemConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
     fn process_configs(
@@ -1282,7 +1282,7 @@ impl ScheduleGraph {
 
 /// Values returned by [`ScheduleGraph::process_configs`]
 struct ProcessConfigsResult {
-    /// All nodes contained inside this process_configs call's [`NodeConfigs`] hierarchy,
+    /// All nodes contained inside this process_configs call's [`SystemConfigs`] hierarchy,
     /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
     /// True if and only if all nodes are "densely chained", meaning that all nested nodes
