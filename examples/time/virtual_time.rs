@@ -118,7 +118,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                         ..default()
                     },
                 )
-                .with_text_justification(TextJustification::Center),
+                .with_text_justify(JustifyText::Center),
             );
 
             // virtual time info
@@ -131,7 +131,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                         ..default()
                     },
                 )
-                .with_text_justification(TextJustification::Right),
+                .with_text_justify(JustifyText::Right),
                 VirtualTime,
             ));
         });

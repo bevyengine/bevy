@@ -182,7 +182,7 @@ fn queue_text(
             fonts,
             &text.sections,
             scale_factor,
-            text.justification,
+            text.justify,
             text.linebreak_behavior,
             physical_node_size,
             font_atlas_sets,

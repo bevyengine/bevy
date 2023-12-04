@@ -129,7 +129,7 @@ fn setup_scene(
                         ..default()
                     },
                 )
-                .with_text_justification(TextJustification::Center),
+                .with_text_justify(JustifyText::Center),
             );
         });
 }

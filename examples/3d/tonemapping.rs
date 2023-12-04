@@ -277,7 +277,7 @@ fn setup_image_viewer_scene(
                     ..default()
                 },
             )
-            .with_text_justification(TextJustification::Center)
+            .with_text_justify(JustifyText::Center)
             .with_style(Style {
                 align_self: AlignSelf::Center,
                 margin: UiRect::all(Val::Auto),

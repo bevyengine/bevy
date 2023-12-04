@@ -64,13 +64,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             )
         );
         builder.spawn(TextBundle::from_section(
-                "This text is right-justified. The `TextJustication` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",                TextStyle {
+                "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",                TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
                     color: Color::YELLOW,
                 },
             )
-            .with_text_justification(TextJustification::Right)
+            .with_text_justify(JustifyText::Right)
             .with_style(Style {
                 max_width: Val::Px(300.),
                 ..default()
@@ -112,7 +112,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     color: Color::rgb(0.8, 0.2, 0.7),
                 },
             )
-            .with_text_justification(TextJustification::Center)
+            .with_text_justify(JustifyText::Center)
             .with_style(Style {
                 max_width: Val::Px(400.),
                 ..default()
@@ -128,7 +128,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     color: Color::YELLOW,
                 },
             )
-            .with_text_justification(TextJustification::Left)
+            .with_text_justify(JustifyText::Left)
             .with_style(Style {
                 max_width: Val::Px(300.),
                 ..default()
