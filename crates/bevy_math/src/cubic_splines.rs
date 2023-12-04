@@ -300,10 +300,10 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
 /// Error during construction of [`CubicNurbs`]
 #[derive(Debug, Error)]
 pub enum CubicNurbsError {
-    /// Provided knot vector had an invalid length
+    /// Provided knot vector had an invalid length.
     #[error("Invalid knot vector length: expected {expected}, provided {provided}")]
     InvalidKnotVectorLength {
-        /// Expected knot vector lengths
+        /// Expected knot vector length
         expected: usize,
         /// Provided knot vector length
         provided: usize,
@@ -312,15 +312,15 @@ pub enum CubicNurbsError {
     /// next element must be greater than or equal to the previous one.
     #[error("Invalid knot vector values: elements are not nondescending")]
     InvalidKnotVectorValues,
-    /// Provided weights vector didn't have the same amoutn of values as teh control points vector
+    /// Provided weights vector didn't have the same amount of values as the control points vector.
     #[error("Invalid weights vector length: expected {expected}, provided {provided}")]
     WeightsVectorMismatch {
-        /// Expected weights vector size
+        /// Expected weights vector length
         expected: usize,
-        /// Provided weights vector size
+        /// Provided weights vector length
         provided: usize,
     },
-    /// The amoutn of points provided is less than 4
+    /// The amount of control points provided is less than 4.
     #[error("Not enough control points, at least 4 are required, {provided} were provided")]
     NotEnoughControlPoints {
         /// The amount of control points provided
