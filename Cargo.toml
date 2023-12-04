@@ -878,7 +878,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.lightmaps]
 name = "Lightmaps"
-description = "Displays the Cornell Box with lightmaps"
+description = "Rendering a scene with baked lightmaps"
 category = "3D Rendering"
 wasm = false
 
