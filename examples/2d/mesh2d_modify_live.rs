@@ -8,7 +8,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, equalize_colors)
+        .add_systems(Update, update_mesh_colors)
         .run();
 }
 
@@ -60,13 +60,13 @@ fn setup(
     });
 }
 
-// Diffuse the colors over time
-fn equalize_colors(time: Res<Time>, mut meshes: ResMut<Assets<Mesh>>, query: Query<&DynamicMesh>) {
+// Get the mesh from the asset storage and update the vertex colors
+fn update_mesh_colors(time: Res<Time>, mut meshes: ResMut<Assets<Mesh>>, query: Query<&DynamicMesh>) {
     for data in &query {
         let mesh = meshes.get_mut(&data.mesh_handle).unwrap();
         // let vertex_colors = data.vertex_colors.clone();
         let t = time.elapsed_seconds() as f32;
-        let new_colors = _equalize_colors(&data.vertex_colors, t);
+        let new_colors = get_diffused_colors(&data.vertex_colors, t);
         mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, new_colors);
     }
 }
@@ -74,7 +74,7 @@ fn equalize_colors(time: Res<Time>, mut meshes: ResMut<Assets<Mesh>>, query: Que
 // Implement the diffusion logic
 // - for all colors, A is one of those colors, B is average of all colors
 // - at time t, the diffused color A = (A * exp(-t) + B * (1 - exp(-t)))
-fn _equalize_colors(vertex_colors: &Vec<[f32; 4]>, t: f32) -> Vec<[f32; 4]> {
+fn get_diffused_colors(vertex_colors: &Vec<[f32; 4]>, t: f32) -> Vec<[f32; 4]> {
     let mut new_colors = vertex_colors.clone();
     let mut sum: [f32; 4] = [0., 0., 0., 0.];
     for color in vertex_colors {
