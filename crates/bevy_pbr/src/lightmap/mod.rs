@@ -1,8 +1,8 @@
 //! Lightmaps, baked lighting textures that can be applied at runtime to provide
-//! global illumination.
+//! diffuse global illumination.
 //!
 //! Bevy doesn't currently have any way to actually bake lightmaps, but they can
-//! be baked in an external tool like [Blender](http://blender.org), perhaps
+//! be baked in an external tool like [Blender](http://blender.org), for example
 //! with an addon like [The Lightmapper]. The tools in the [`bevy-baked-gi`]
 //! project support other lightmap baking methods.
 //!
@@ -21,7 +21,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{lifetimeless::Read, Query, Res, ResMut, Resource},
 };
-use bevy_math::Rect;
+use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -48,19 +48,23 @@ pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
 /// A plugin that provides an implementation of lightmaps.
 pub struct LightmapPlugin;
 
-/// A component that applies baked indirect global illumination from a lightmap.
+/// A component that applies baked indirect diffuse global illumination from a
+/// lightmap.
 ///
-/// When assigned to an entity that contains a [Mesh], if the mesh has a second
-/// UV layer (UV1), then the lightmap will render using those UVs.
+/// When assigned to an entity that contains a [Mesh] and a [StandardMaterial],
+/// if the mesh has a second UV layer ([MeshVertexAttribute::UV1]), then the
+/// lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Lightmap {
-    /// The lightmap image.
+    /// The lightmap texture.
     pub image: Handle<Image>,
 
     /// The rectangle within the lightmap image that the UVs are relative to.
     ///
-    /// The rect ranges from (0, 0) to (1, 1).
+    /// The top left coordinate is the `min` part of the rect, and the bottom
+    /// right coordinate is the `max` part of the rect. The rect ranges from (0,
+    /// 0) to (1, 1).
     ///
     /// This field allows lightmaps for a variety of meshes to be packed into a
     /// single atlas.
@@ -265,5 +269,21 @@ impl<'a> From<&'a RenderMeshLightmap> for RenderMeshLightmapKey {
         RenderMeshLightmapKey {
             image: lightmap.image_id,
         }
+    }
+}
+
+/// Packs the lightmap UV rect into 64 bits (4 16-bit unsigned integers).
+pub(crate) fn pack_lightmap_uv_rect(maybe_rect: Option<Rect>) -> UVec2 {
+    match maybe_rect {
+        Some(rect) => {
+            let rect_uvec4 = (vec4(rect.min.x, rect.min.y, rect.max.x, rect.max.y) * 65535.0)
+                .round()
+                .as_uvec4();
+            uvec2(
+                rect_uvec4.x | (rect_uvec4.y << 16),
+                rect_uvec4.z | (rect_uvec4.w << 16),
+            )
+        }
+        None => UVec2::ZERO,
     }
 }

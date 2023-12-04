@@ -10,7 +10,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{uvec2, vec4, Affine3, Rect, UVec2, Vec4};
+use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
@@ -221,19 +221,7 @@ impl MeshUniform {
         Self {
             transform: mesh_transforms.transform.to_transpose(),
             previous_transform: mesh_transforms.previous_transform.to_transpose(),
-            lightmap_uv_rect: match maybe_lightmap_uv_rect {
-                Some(rect) => {
-                    let rect_uvec4 = (vec4(rect.min.x, rect.min.y, rect.max.x, rect.max.y)
-                        * 65535.0)
-                        .round()
-                        .as_uvec4();
-                    uvec2(
-                        rect_uvec4.x | (rect_uvec4.y << 16),
-                        rect_uvec4.z | (rect_uvec4.w << 16),
-                    )
-                }
-                None => UVec2::ZERO,
-            },
+            lightmap_uv_rect: lightmap::pack_lightmap_uv_rect(maybe_lightmap_uv_rect),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_transforms.flags,

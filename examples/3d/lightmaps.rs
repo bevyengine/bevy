@@ -1,3 +1,5 @@
+//! Rendering a schene with baked lightmaps.
+
 use bevy::pbr::Lightmap;
 use bevy::prelude::*;
 
