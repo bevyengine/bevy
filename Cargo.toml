@@ -378,6 +378,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "mesh2d_modify_live"
+path = "examples/2d/mesh2d_modify_live.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_modify_live]
+name = "Animated Mesh 2D"
+description = "Change the attributes of a mesh over time"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "mesh2d_vertex_color_texture"
 path = "examples/2d/mesh2d_vertex_color_texture.rs"
 doc-scrape-examples = true
