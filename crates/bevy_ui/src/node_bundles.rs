@@ -245,9 +245,9 @@ impl TextBundle {
         }
     }
 
-    /// Returns this [`TextBundle`] with a new [`TextJustification`] on [`Text`].
-    pub const fn with_text_justify(mut self, justification: JustifyText) -> Self {
-        self.text.justify = justification;
+    /// Returns this [`TextBundle`] with a new [`JustifyText`] on [`Text`].
+    pub const fn with_text_justify(mut self, justify: JustifyText) -> Self {
+        self.text.justify = justify;
         self
     }
 
