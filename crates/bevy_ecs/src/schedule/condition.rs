@@ -842,6 +842,7 @@ pub mod common_conditions {
     /// world.init_resource::<State<GameState>>();
     ///
     /// app.add_systems(
+    ///     Update,
     ///     // `state_changed` will only return true if the
     ///     // given states value has just been updated or
     ///     // the state has just been added
