@@ -270,7 +270,7 @@ pub struct CubicBSpline<P: Point> {
     control_points: Vec<P>,
 }
 impl<P: Point> CubicBSpline<P> {
-    /// Build a new Cardinal spline.
+    /// Build a new B-Spline.
     pub fn new(control_points: impl Into<Vec<P>>) -> Self {
         Self {
             control_points: control_points.into(),
