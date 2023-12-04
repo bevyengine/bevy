@@ -64,10 +64,12 @@ pub struct Plane2d {
 }
 impl Primitive2d for Plane2d {}
 
-impl From<Vec2> for Plane2d {
-    fn from(normal: Vec2) -> Self {
+impl Plane2d {
+    /// Create a new `Plane2d` from a normal
+    #[inline]
+    pub fn new(normal: Vec2) -> Self {
         Self {
-            normal: normal.into(),
+            normal: Direction2d::from(normal),
         }
     }
 }

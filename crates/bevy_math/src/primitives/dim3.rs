@@ -44,10 +44,12 @@ pub struct Plane3d {
 }
 impl Primitive3d for Plane3d {}
 
-impl From<Vec3> for Plane3d {
-    fn from(normal: Vec3) -> Self {
+impl Plane3d {
+    /// Create a new `Plane3d` from a normal
+    #[inline]
+    pub fn new(normal: Vec3) -> Self {
         Self {
-            normal: normal.into(),
+            normal: Direction3d::from(normal),
         }
     }
 }
