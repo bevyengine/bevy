@@ -16,11 +16,11 @@ pub trait Primitive3d {}
 /// An error indicating that a direction is invalid.
 #[derive(Debug, PartialEq)]
 pub enum InvalidDirectionError {
-    /// The direction has a length that is zero or very close to zero.
+    /// The length of the direction vector is zero or very close to zero.
     Zero,
-    /// The length of the vector is equal to `std::f32::INFINITY`.
+    /// The length of the direction vector is `std::f32::INFINITY`.
     Infinite,
-    /// One or more components of the direction vector have a `NaN` value.
+    /// The length of the direction vector is `NaN`.
     NaN,
 }
 
