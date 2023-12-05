@@ -13,7 +13,15 @@ impl Direction3d {
         value.try_normalize().map(Self)
     }
 
-    /// Create a direction from a [`Vec3`] that is already normalized
+    /// Create a direction from its `x`, `y`, and `z` components.
+    ///
+    /// Returns `None` if the vector formed by the components
+    /// is zero (or very close to zero), or non-finite.
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Option<Self> {
+        Self::new(Vec3::new(x, y, z))
+    }
+
+    /// Create a direction from a [`Vec3`] that is already normalized.
     pub fn from_normalized(value: Vec3) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)

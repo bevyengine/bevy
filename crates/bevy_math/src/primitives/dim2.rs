@@ -13,7 +13,15 @@ impl Direction2d {
         value.try_normalize().map(Self)
     }
 
-    /// Create a direction from a [`Vec2`] that is already normalized
+    /// Create a direction from its `x` and `y` components.
+    ///
+    /// Returns `None` if the vector formed by the components
+    /// is zero (or very close to zero), or non-finite.
+    pub fn from_xy(x: f32, y: f32) -> Option<Self> {
+        Self::new(Vec2::new(x, y))
+    }
+
+    /// Create a direction from a [`Vec2`] that is already normalized.
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
