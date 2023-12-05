@@ -3,9 +3,10 @@ use bevy_asset::{Asset, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
+use bevy_reflect::prelude::*;
 
 /// Defines the volume to play an audio source at.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub enum Volume {
     /// A volume level relative to the global volume.
     Relative(VolumeLevel),
@@ -31,7 +32,7 @@ impl Volume {
 }
 
 /// A volume level equivalent to a non-negative float.
-#[derive(Clone, Copy, Deref, DerefMut, Debug)]
+#[derive(Clone, Copy, Deref, DerefMut, Debug, Reflect)]
 pub struct VolumeLevel(pub(crate) f32);
 
 impl Default for VolumeLevel {
@@ -56,7 +57,7 @@ impl VolumeLevel {
 }
 
 /// The way Bevy manages the sound playback.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     Once,
@@ -72,7 +73,8 @@ pub enum PlaybackMode {
 /// If you would like to control the audio while it is playing, query for the
 /// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
 /// components. Changes to this component will *not* be applied to already-playing audio.
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Component)]
 pub struct PlaybackSettings {
     /// The desired playback behavior.
     pub mode: PlaybackMode,
@@ -166,7 +168,8 @@ impl PlaybackSettings {
 ///
 /// This must be accompanied by `Transform` and `GlobalTransform`.
 /// Only one entity with a `SpatialListener` should be present at any given time.
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Default, Component)]
 pub struct SpatialListener {
     /// Left ear position relative to the `GlobalTransform`.
     pub left_ear_offset: Vec3,
@@ -196,7 +199,8 @@ impl SpatialListener {
 /// Use this [`Resource`] to control the global volume of all audio with a [`Volume::Relative`] volume.
 ///
 /// Note: changing this value will not affect already playing audio.
-#[derive(Resource, Default, Clone, Copy)]
+#[derive(Resource, Default, Clone, Copy, Reflect)]
+#[reflect(Resource)]
 pub struct GlobalVolume {
     /// The global volume of all audio.
     pub volume: VolumeLevel,
@@ -217,7 +221,8 @@ impl GlobalVolume {
 /// You may need to adjust this scale to fit your world's units.
 ///
 /// Default is `Vec3::ONE`.
-#[derive(Resource, Clone, Copy)]
+#[derive(Resource, Clone, Copy, Reflect)]
+#[reflect(Resource)]
 pub struct SpatialScale(pub Vec3);
 
 impl SpatialScale {

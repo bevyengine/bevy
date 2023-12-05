@@ -260,6 +260,10 @@ impl AssetInfos {
         self.infos.get(&id)
     }
 
+    pub(crate) fn contains_key(&self, id: UntypedAssetId) -> bool {
+        self.infos.contains_key(&id)
+    }
+
     pub(crate) fn get_mut(&mut self, id: UntypedAssetId) -> Option<&mut AssetInfo> {
         self.infos.get_mut(&id)
     }

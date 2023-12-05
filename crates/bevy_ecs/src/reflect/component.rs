@@ -125,7 +125,7 @@ impl ReflectComponent {
         (self.0.from_world)(world)
     }
 
-    /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
+    /// Insert a reflected [`Component`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
         (self.0.insert)(entity, component);
     }

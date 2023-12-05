@@ -32,7 +32,7 @@ impl std::fmt::Debug for RenderLayers {
     }
 }
 
-impl std::iter::FromIterator<Layer> for RenderLayers {
+impl FromIterator<Layer> for RenderLayers {
     fn from_iter<T: IntoIterator<Item = Layer>>(i: T) -> Self {
         i.into_iter().fold(Self::none(), |mask, g| mask.with(g))
     }
@@ -174,7 +174,7 @@ mod rendering_mask_tests {
         );
         assert_eq!(
             RenderLayers::from_layers(&[0, 1, 2]),
-            <RenderLayers as std::iter::FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
+            <RenderLayers as FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
             "from_layers and from_iter are equivalent"
         );
     }

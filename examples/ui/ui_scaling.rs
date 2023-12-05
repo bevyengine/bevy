@@ -24,7 +24,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {

@@ -3,7 +3,7 @@
 //! This module re-exports the [`Uuid`] type from the [`uuid`] crate,
 //! and provides additional utility functions.
 //!
-//! [`uuid`]: ::uuid
+//! [`uuid`]: uuid
 
 pub use ::uuid::Uuid;
 

@@ -23,7 +23,7 @@ fn main() {
                 parse_message_system.map(dbg),
                 warning_pipe_system.map(warn),
                 parse_error_message_system.map(error),
-                parse_message_system.map(std::mem::drop),
+                parse_message_system.map(drop),
             ),
         )
         .run();
