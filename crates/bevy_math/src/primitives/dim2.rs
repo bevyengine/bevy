@@ -1,4 +1,4 @@
-use super::{Primitive2d, WindingOrder};
+use super::{InvalidDirectionError, Primitive2d, WindingOrder};
 use crate::Vec2;
 
 /// A normalized vector pointing in a direction in 2D space
@@ -17,6 +17,14 @@ impl Direction2d {
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
+    }
+}
+
+impl TryFrom<Vec2> for Direction2d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec2) -> Result<Self, Self::Error> {
+        Self::new(value).map_or(Err(InvalidDirectionError), Ok)
     }
 }
 

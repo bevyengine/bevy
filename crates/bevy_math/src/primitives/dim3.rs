@@ -1,4 +1,4 @@
-use super::Primitive3d;
+use super::{InvalidDirectionError, Primitive3d};
 use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
@@ -17,6 +17,14 @@ impl Direction3d {
     pub fn from_normalized(value: Vec3) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
+    }
+}
+
+impl TryFrom<Vec3> for Direction3d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec3) -> Result<Self, Self::Error> {
+        Self::new(value).map_or(Err(InvalidDirectionError), Ok)
     }
 }
 

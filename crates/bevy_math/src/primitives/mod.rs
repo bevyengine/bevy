@@ -13,6 +13,19 @@ pub trait Primitive2d {}
 /// A marker trait for 3D primitives
 pub trait Primitive3d {}
 
+/// An error indicating that a direction is invalid because it is zero or not finite.
+#[derive(Debug)]
+pub struct InvalidDirectionError;
+
+impl std::fmt::Display for InvalidDirectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Direction can not be zero (or very close to zero), or non-finite."
+        )
+    }
+}
+
 /// The winding order for a set of points
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WindingOrder {
