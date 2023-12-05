@@ -6,13 +6,14 @@ use crate::Vec2;
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
 
-impl From<Vec2> for Direction2d {
-    fn from(value: Vec2) -> Self {
-        Self(value.normalize())
-    }
-}
-
 impl Direction2d {
+    /// Create a direction from a finite, nonzero [`Vec2`].
+    ///
+    /// Returns `None` if the input is zero (or very close to zero), or non-finite.
+    pub fn new(value: Vec2) -> Option<Self> {
+        value.try_normalize().map(Self)
+    }
+
     /// Create a direction from a [`Vec2`] that is already normalized
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
