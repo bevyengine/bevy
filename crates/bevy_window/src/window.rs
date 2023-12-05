@@ -992,8 +992,8 @@ pub enum WindowMode {
     ///
     /// Note: As this mode respects the scale factor provided by the operating system,
     /// the window's logical size may be different from its physical size.
-    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`]
-    /// function to set the scale factor to 1.0.
+    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
+    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
     BorderlessFullscreen,
     /// The window should be in "true"/"legacy" Fullscreen mode.
     ///
@@ -1014,8 +1014,8 @@ pub enum WindowMode {
     ///
     /// Note: As this mode respects the scale factor provided by the operating system,
     /// the window's logical size may be different from its physical size.
-    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`]
-    /// function to set the scale factor to 1.0.
+    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
+    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
     Fullscreen,
 }
 
