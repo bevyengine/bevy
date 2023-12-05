@@ -12,10 +12,12 @@ fn main() {
         .run();
 }
 
-// This Component tracks the mesh and the initial vertex colors. We can query
-// for it using an ECS System on each update. By tracking the handle, we can
-// get the particular mesh from the asset storage and modify it.
-#[derive(Component)]
+// This Resource tracks the mesh and the initial vertex colors. We can query for
+// it using an ECS System on each update. By tracking the handle, we can get the
+// particular mesh from the asset storage and modify it.  We use a Resource here
+// because tracking the mesh should be done at a global scope.
+// Source: https://bevyengine.org/learn/book/getting-started/resources/
+#[derive(Resource)]
 struct DynamicMesh {
     mesh_handle: Handle<Mesh>,
     vertex_colors: Vec<[f32; 4]>,
@@ -54,31 +56,29 @@ fn setup(
     });
 
     // Track the mesh handle and the initial vertex colors
-    commands.spawn(DynamicMesh {
-        mesh_handle: mesh_handle.clone(),
-        vertex_colors: vertex_colors.clone(),
+    commands.insert_resource(DynamicMesh {
+        mesh_handle,
+        vertex_colors,
     });
 }
 
 // Get the mesh from the asset storage and update the vertex colors
 fn update_mesh_colors(
     time: Res<Time>,
+    dyn_mesh: Res<DynamicMesh>,
     mut meshes: ResMut<Assets<Mesh>>,
-    query: Query<&DynamicMesh>,
 ) {
-    for data in &query {
-        let mesh = meshes.get_mut(&data.mesh_handle).unwrap();
-        // let vertex_colors = data.vertex_colors.clone();
-        let t = time.elapsed_seconds() as f32;
-        let new_colors = get_diffused_colors(&data.vertex_colors, t);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, new_colors);
-    }
+    let mesh = meshes.get_mut(&dyn_mesh.mesh_handle).unwrap();
+    let t = time.elapsed_seconds() as f32;
+    let new_colors = get_diffused_colors(&dyn_mesh.vertex_colors, t);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, new_colors);
 }
 
 // Implement the diffusion logic
 // - for all colors, A is one of those colors, B is average of all colors
 // - at time t, the diffused color A = (A * exp(-t) + B * (1 - exp(-t)))
 fn get_diffused_colors(vertex_colors: &Vec<[f32; 4]>, t: f32) -> Vec<[f32; 4]> {
+    let tt = t * DIFF_CONST;
     let mut new_colors = vertex_colors.clone();
     let mut sum: [f32; 4] = [0., 0., 0., 0.];
     for color in vertex_colors {
@@ -93,7 +93,6 @@ fn get_diffused_colors(vertex_colors: &Vec<[f32; 4]>, t: f32) -> Vec<[f32; 4]> {
         sum[2] / vertex_colors.len() as f32,
         sum[3] / vertex_colors.len() as f32,
     ];
-    let tt = t * DIFF_CONST;
     for color in &mut new_colors {
         color[0] = color[0] * (-tt).exp() + avg[0] * (1. - (-tt).exp());
         color[1] = color[1] * (-tt).exp() + avg[1] * (1. - (-tt).exp());
