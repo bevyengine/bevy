@@ -47,10 +47,14 @@ impl Primitive3d for Plane3d {}
 
 impl Plane3d {
     /// Create a new `Plane3d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline]
     pub fn new(normal: Vec3) -> Self {
         Self {
-            normal: Direction3d::from(normal),
+            normal: Direction3d::new(normal).expect("normal must be nonzero and finite"),
         }
     }
 }

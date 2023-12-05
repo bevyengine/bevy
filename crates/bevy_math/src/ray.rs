@@ -15,11 +15,16 @@ pub struct Ray2d {
 
 impl Ray2d {
     /// Create a new `Ray2d` from a given origin and direction
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `direction` is zero (or very close to zero), or non-finite.
     #[inline]
     pub fn new(origin: Vec2, direction: Vec2) -> Self {
         Self {
             origin,
-            direction: direction.into(),
+            direction: Direction2d::new(direction)
+                .expect("ray direction must be nonzero and finite"),
         }
     }
 
@@ -55,11 +60,16 @@ pub struct Ray3d {
 
 impl Ray3d {
     /// Create a new `Ray3d` from a given origin and direction
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `direction` is zero (or very close to zero), or non-finite.
     #[inline]
     pub fn new(origin: Vec3, direction: Vec3) -> Self {
         Self {
             origin,
-            direction: direction.into(),
+            direction: Direction3d::new(direction)
+                .expect("ray direction must be nonzero and finite"),
         }
     }
 

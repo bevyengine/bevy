@@ -67,10 +67,14 @@ impl Primitive2d for Plane2d {}
 
 impl Plane2d {
     /// Create a new `Plane2d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline]
     pub fn new(normal: Vec2) -> Self {
         Self {
-            normal: Direction2d::from(normal),
+            normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
         }
     }
 }
