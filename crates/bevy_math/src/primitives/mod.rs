@@ -13,9 +13,16 @@ pub trait Primitive2d {}
 /// A marker trait for 3D primitives
 pub trait Primitive3d {}
 
-/// An error indicating that a direction is invalid because it is zero or not finite.
-#[derive(Debug)]
-pub struct InvalidDirectionError;
+/// An error indicating that a direction is invalid.
+#[derive(Debug, PartialEq)]
+pub enum InvalidDirectionError {
+    /// The direction has a length that is zero or very close to zero.
+    Zero,
+    /// The length of the vector is equal to `std::f32::INFINITY`.
+    Infinite,
+    /// One or more components of the direction vector have a `NaN` value.
+    NaN,
+}
 
 impl std::fmt::Display for InvalidDirectionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

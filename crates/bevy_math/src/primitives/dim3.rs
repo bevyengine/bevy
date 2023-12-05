@@ -2,7 +2,7 @@ use super::{InvalidDirectionError, Primitive3d};
 use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Direction3d(Vec3);
 
 impl Direction3d {
@@ -24,7 +24,20 @@ impl TryFrom<Vec3> for Direction3d {
     type Error = InvalidDirectionError;
 
     fn try_from(value: Vec3) -> Result<Self, Self::Error> {
-        Self::new(value).map_or(Err(InvalidDirectionError), Ok)
+        Self::new(value).map_or_else(
+            || {
+                if value.is_nan() {
+                    Err(InvalidDirectionError::NaN)
+                } else if !value.is_finite() {
+                    // If the direction is non-finite but also not NaN, it must be infinite
+                    Err(InvalidDirectionError::Infinite)
+                } else {
+                    // If the direction is invalid but neither NaN nor infinite, it must be zero
+                    Err(InvalidDirectionError::Zero)
+                }
+            },
+            Ok,
+        )
     }
 }
 
@@ -338,5 +351,34 @@ impl Torus {
             std::cmp::Ordering::Equal => TorusKind::Horn,
             std::cmp::Ordering::Less => TorusKind::Spindle,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn direction_try_from_vec() {
+        assert_eq!(
+            Direction3d::try_from(Vec3::X * 12.5),
+            Ok(Direction3d::from_normalized(Vec3::X))
+        );
+        assert_eq!(
+            Direction3d::try_from(Vec3::new(0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Direction3d::try_from(Vec3::new(std::f32::INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction3d::try_from(Vec3::new(std::f32::NEG_INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction3d::try_from(Vec3::new(std::f32::NAN, 0.0, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
     }
 }
