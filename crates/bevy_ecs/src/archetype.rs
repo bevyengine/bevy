@@ -69,7 +69,7 @@ impl ArchetypeRow {
 /// [`EMPTY`] which is guaranteed to be identical for all Worlds.
 ///
 /// [`World`]: crate::world::World
-/// [`EMPTY`]: crate::archetype::ArchetypeId::EMPTY
+/// [`EMPTY`]: ArchetypeId::EMPTY
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 // SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]

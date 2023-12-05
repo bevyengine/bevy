@@ -123,7 +123,7 @@ mod tests {
         let ticker = executor.ticker();
         assert!(ticker.is_some());
 
-        std::thread::scope(|s| {
+        thread::scope(|s| {
             s.spawn(|| {
                 let ticker = executor.ticker();
                 assert!(ticker.is_none());

@@ -32,7 +32,6 @@ use super::inc_generation_by;
 /// }
 /// ```
 ///
-/// [`World`]: crate::world::World
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///

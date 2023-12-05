@@ -253,6 +253,27 @@ impl Command for RemoveParent {
 }
 
 /// Struct for building children entities and adding them to a parent entity.
+///
+/// # Example
+///
+/// This example creates three entities, a parent and two children.
+///
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
+/// # use bevy_ecs::system::Commands;
+/// # use bevy_hierarchy::BuildChildren;
+/// # #[derive(Bundle)]
+/// # struct MyBundle {}
+/// # #[derive(Bundle)]
+/// # struct MyChildBundle {}
+/// #
+/// # fn test(mut commands: Commands) {
+/// commands.spawn(MyBundle {}).with_children(|child_builder| {
+///     child_builder.spawn(MyChildBundle {});
+///     child_builder.spawn(MyChildBundle {});
+/// });
+/// # }
+/// ```
 pub struct ChildBuilder<'w, 's, 'a> {
     commands: &'a mut Commands<'w, 's>,
     push_children: PushChildren,
