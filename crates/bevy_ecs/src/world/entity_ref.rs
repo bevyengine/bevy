@@ -825,6 +825,9 @@ impl<'w> EntityWorldMut<'w> {
         entities.set(entity.index(), new_location);
     }
 
+    /// Remove the components of `bundle_info` from `entity`, where `self_location` and `old_location`
+    /// are the location of this entity, and `self_location` is updated to the new location.
+    ///
     /// SAFETY: `old_location` must be valid and the components in `bundle_info` must exist.
     #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle_info(
