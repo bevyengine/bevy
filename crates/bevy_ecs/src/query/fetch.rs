@@ -272,7 +272,7 @@ pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
-pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as QueryData>::ReadOnly>;
+pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
@@ -1399,27 +1399,27 @@ macro_rules! impl_anytuple_fetch {
 all_tuples!(impl_tuple_query_data, 0, 15, F, S);
 all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 
-/// [`WorldQuery`] used to nullify queries by turning `Query<Q>` into `Query<NopWorldQuery<Q>>`
+/// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
 /// This will rarely be useful to consumers of `bevy_ecs`.
-pub struct NopWorldQuery<Q: QueryData>(PhantomData<Q>);
+pub struct NopWorldQuery<D: QueryData>(PhantomData<D>);
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
-unsafe impl<Q: QueryData> WorldQuery for NopWorldQuery<Q> {
+unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     type Fetch<'w> = ();
     type Item<'w> = ();
-    type State = Q::State;
+    type State = D::State;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: ()) {}
 
-    const IS_DENSE: bool = Q::IS_DENSE;
+    const IS_DENSE: bool = D::IS_DENSE;
 
     #[inline(always)]
     unsafe fn init_fetch(
         _world: UnsafeWorldCell,
-        _state: &Q::State,
+        _state: &D::State,
         _last_run: Tick,
         _this_run: Tick,
     ) {
@@ -1428,14 +1428,14 @@ unsafe impl<Q: QueryData> WorldQuery for NopWorldQuery<Q> {
     #[inline(always)]
     unsafe fn set_archetype(
         _fetch: &mut (),
-        _state: &Q::State,
+        _state: &D::State,
         _archetype: &Archetype,
         _tables: &Table,
     ) {
     }
 
     #[inline(always)]
-    unsafe fn set_table<'w>(_fetch: &mut (), _state: &Q::State, _table: &Table) {}
+    unsafe fn set_table<'w>(_fetch: &mut (), _state: &D::State, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -1445,34 +1445,34 @@ unsafe impl<Q: QueryData> WorldQuery for NopWorldQuery<Q> {
     ) -> Self::Item<'w> {
     }
 
-    fn update_component_access(_state: &Q::State, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &D::State, _access: &mut FilteredAccess<ComponentId>) {}
 
     fn update_archetype_component_access(
-        _state: &Q::State,
+        _state: &D::State,
         _archetype: &Archetype,
         _access: &mut Access<ArchetypeComponentId>,
     ) {
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        Q::init_state(world)
+        D::init_state(world)
     }
 
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        Q::matches_component_set(state, set_contains_id)
+        D::matches_component_set(state, set_contains_id)
     }
 }
 
 /// SAFETY: `Self::ReadOnly` is `Self`
-unsafe impl<Q: QueryData> QueryData for NopWorldQuery<Q> {
+unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: `NopFetch` never accesses any data
-unsafe impl<Q: QueryData> ReadOnlyQueryData for NopWorldQuery<Q> {}
+unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
@@ -1601,14 +1601,14 @@ mod tests {
 
             #[derive(QueryData)]
             #[query_data(mutable)]
-            pub struct Q {
+            pub struct D {
                 pub a: &'static mut A,
             }
         }
 
-        let _ = private::QReadOnly { a: &A };
+        let _ = private::DReadOnly { a: &A };
 
-        fn my_system(query: Query<private::Q>) {
+        fn my_system(query: Query<private::D>) {
             for q in &query {
                 let _ = &q.a;
             }
