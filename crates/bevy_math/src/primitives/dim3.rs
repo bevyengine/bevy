@@ -8,23 +8,10 @@ pub struct Direction3d(Vec3);
 impl Direction3d {
     /// Create a direction from a finite, nonzero [`Vec3`].
     ///
-    /// Returns `None` if the input is zero (or very close to zero), or non-finite.
-    pub fn new(value: Vec3) -> Option<Self> {
-        value.try_normalize().map(Self)
-    }
-
-    /// Create a direction from a [`Vec3`] that is already normalized
-    pub fn from_normalized(value: Vec3) -> Self {
-        debug_assert!(value.is_normalized());
-        Self(value)
-    }
-}
-
-impl TryFrom<Vec3> for Direction3d {
-    type Error = InvalidDirectionError;
-
-    fn try_from(value: Vec3) -> Result<Self, Self::Error> {
-        Self::new(value).map_or_else(
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new(value: Vec3) -> Result<Self, InvalidDirectionError> {
+        value.try_normalize().map(Self).map_or_else(
             || {
                 if value.is_nan() {
                     Err(InvalidDirectionError::NaN)
@@ -38,6 +25,20 @@ impl TryFrom<Vec3> for Direction3d {
             },
             Ok,
         )
+    }
+
+    /// Create a direction from a [`Vec3`] that is already normalized
+    pub fn from_normalized(value: Vec3) -> Self {
+        debug_assert!(value.is_normalized());
+        Self(value)
+    }
+}
+
+impl TryFrom<Vec3> for Direction3d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec3) -> Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 
@@ -359,25 +360,25 @@ mod test {
     use super::*;
 
     #[test]
-    fn direction_try_from_vec() {
+    fn direction_creation() {
         assert_eq!(
-            Direction3d::try_from(Vec3::X * 12.5),
+            Direction3d::new(Vec3::X * 12.5),
             Ok(Direction3d::from_normalized(Vec3::X))
         );
         assert_eq!(
-            Direction3d::try_from(Vec3::new(0.0, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction3d::try_from(Vec3::new(std::f32::INFINITY, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(std::f32::INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::try_from(Vec3::new(std::f32::NEG_INFINITY, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(std::f32::NEG_INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::try_from(Vec3::new(std::f32::NAN, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(std::f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
     }
