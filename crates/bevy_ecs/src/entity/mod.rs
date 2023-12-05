@@ -264,19 +264,38 @@ impl Entity {
         (self.generation.get() as u64) << 32 | self.index as u64
     }
 
-    /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`], will return
-    /// `None` if the parsed generation is an invalid value (ie. generation 0).
+    /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    ///
+    /// # Panics
+    ///
+    /// This method will likely panic if given `u64` values that did not come from [`Entity::to_bits`]
+    #[inline]
+    pub const fn from_bits(bits: u64) -> Self {
+        // Construct an Identifier initially to extract the kind from.
+        let id = Self::try_from_bits(bits);
+
+        match id {
+            Ok(entity) => entity,
+            Err(_) => panic!("Attempted to initialise invalid bits as an entity"),
+        }
+    }
+
+    /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
+    ///
+    /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    ///
+    /// This method is the fallible counterpart to [`Entity::from_bits`].
     #[inline(always)]
-    pub const fn from_bits(bits: u64) -> Option<Self> {
+    pub const fn try_from_bits(bits: u64) -> Result<Self, &'static str> {
         if let Some(generation) = NonZeroU32::new((bits >> 32) as u32) {
-            Some(Self {
+            Ok(Self {
                 generation,
                 index: bits as u32,
             })
         } else {
-            None
+            Err("Invalid generation bits")
         }
     }
 
@@ -315,7 +334,7 @@ impl<'de> Deserialize<'de> for Entity {
     {
         use serde::de::Error;
         let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
-        Entity::from_bits(id).ok_or(D::Error::custom("Invalid generation bits"))
+        Entity::try_from_bits(id).map_err(D::Error::custom)
     }
 }
 
@@ -966,7 +985,7 @@ mod tests {
             generation: NonZeroU32::new(0xDEADBEEF).unwrap(),
             index: 0xBAADF00D,
         };
-        assert_eq!(Entity::from_bits(e.to_bits()), Some(e));
+        assert_eq!(Entity::from_bits(e.to_bits()), e);
     }
 
     #[test]
@@ -1002,18 +1021,14 @@ mod tests {
         assert_eq!(42, C1.index());
         assert_eq!(1, C1.generation());
 
-        const C2: Option<Entity> = Entity::from_bits(0x0000_00ff_0000_00cc);
-        assert_eq!(Some(0x0000_00cc), C2.map(|v| v.index()));
-        assert_eq!(Some(0x0000_00ff), C2.map(|v| v.generation()));
+        const C2: Entity = Entity::from_bits(0x0000_00ff_0000_00cc);
+        assert_eq!(0x0000_00cc, C2.index());
+        assert_eq!(0x0000_00ff, C2.generation());
 
         const C3: u32 = Entity::from_raw(33).index();
         assert_eq!(33, C3);
 
-        const C4: u32 = if let Some(entity) = Entity::from_bits(0x00dd_00ff_0000_0000) {
-            entity.generation()
-        } else {
-            panic!("Could not construct Entity from bits, check generation > 1")
-        };
+        const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
         assert_eq!(0x00dd_00ff, C4);
     }
 

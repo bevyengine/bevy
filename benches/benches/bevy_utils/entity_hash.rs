@@ -22,7 +22,7 @@ fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
 
     // this is not reliable, but we're internal so a hack is ok
     let bits = ((gen as u64) << 32) | (id as u64);
-    let e = Entity::from_bits(bits).unwrap();
+    let e = Entity::from_bits(bits);
     assert_eq!(e.index(), id as u32);
     assert_eq!(e.generation(), gen as u32);
     e
@@ -52,7 +52,7 @@ fn entity_set_build_and_lookup(c: &mut Criterion) {
                     entities
                         .iter()
                         .copied()
-                        .map(|e| Entity::from_bits(e.to_bits() + 1).unwrap())
+                        .map(|e| Entity::from_bits(e.to_bits() + 1))
                         .filter(|e| set.contains(e))
                         .count()
                 });
@@ -66,7 +66,7 @@ fn entity_set_build_and_lookup(c: &mut Criterion) {
                     entities
                         .iter()
                         .copied()
-                        .map(|e| Entity::from_bits(e.to_bits() + (1 << 32)).unwrap())
+                        .map(|e| Entity::from_bits(e.to_bits() + (1 << 32)))
                         .filter(|e| set.contains(e))
                         .count()
                 });
