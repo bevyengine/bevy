@@ -112,7 +112,7 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(2.0 * spawn_plane_depth).into()),
+        mesh: meshes.add(shape::Plane::from_size(2.0 * spawn_plane_depth)),
         material: white_handle,
         ..default()
     });
