@@ -1869,7 +1869,7 @@ mod tests {
 
         world.entity_mut(ent).retain::<(Marker<2>, Marker<4>)>();
         // Check that marker 2 was retained.
-        assert_eq!(world.entity(ent).get::<Marker<2>>().is_some(), true);
+        assert!(world.entity(ent).get::<Marker<2>>().is_some());
         // Check that only marker 2 was retained.
         assert_eq!(
             world
