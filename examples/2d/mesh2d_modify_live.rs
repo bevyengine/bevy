@@ -42,7 +42,7 @@ fn setup(
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors.clone());
 
     // Add the mesh to the asset storage and get a handle to it that will allow us to access it later
-    let mesh_handle: Handle<Mesh> = meshes.add(mesh).into();
+    let mesh_handle: Handle<Mesh> = meshes.add(mesh);
 
     // Spawn camera
     commands.spawn(Camera2dBundle::default());
@@ -69,7 +69,7 @@ fn update_mesh_colors(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let mesh = meshes.get_mut(&dyn_mesh.mesh_handle).unwrap();
-    let t = time.elapsed_seconds() as f32;
+    let t = time.elapsed_seconds();
     let new_colors = get_diffused_colors(&dyn_mesh.vertex_colors, t);
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, new_colors);
 }
