@@ -1,23 +1,46 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
-use super::{Circle, Primitive3d};
+use super::{Circle, InvalidDirectionError, Primitive3d};
 use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Direction3d(Vec3);
 
-impl From<Vec3> for Direction3d {
-    fn from(value: Vec3) -> Self {
-        Self(value.normalize())
-    }
-}
-
 impl Direction3d {
+    /// Create a direction from a finite, nonzero [`Vec3`].
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new(value: Vec3) -> Result<Self, InvalidDirectionError> {
+        value.try_normalize().map(Self).map_or_else(
+            || {
+                if value.is_nan() {
+                    Err(InvalidDirectionError::NaN)
+                } else if !value.is_finite() {
+                    // If the direction is non-finite but also not NaN, it must be infinite
+                    Err(InvalidDirectionError::Infinite)
+                } else {
+                    // If the direction is invalid but neither NaN nor infinite, it must be zero
+                    Err(InvalidDirectionError::Zero)
+                }
+            },
+            Ok,
+        )
+    }
+
     /// Create a direction from a [`Vec3`] that is already normalized
     pub fn from_normalized(value: Vec3) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
+    }
+}
+
+impl TryFrom<Vec3> for Direction3d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec3) -> Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 
@@ -74,13 +97,9 @@ impl Plane3d {
     /// Panics if a valid normal can not be computed, for example when the points
     /// are *collinear* and lie on the same line.
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        let normal = Direction3d::from((b - a).cross(c - a));
+        let normal = Direction3d::new((b - a).cross(c - a))
+            .expect("plane must be defined by three finite points that don't lie on the same line");
         let translation = (a + b + c) / 3.0;
-
-        debug_assert!(
-            normal.is_normalized(),
-            "plane must be defined by three finite points that don't lie on the same line"
-        );
 
         (Self { normal }, translation)
     }
@@ -610,5 +629,34 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn direction_creation() {
+        assert_eq!(
+            Direction3d::new(Vec3::X * 12.5),
+            Ok(Direction3d::from_normalized(Vec3::X))
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(std::f32::INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(std::f32::NEG_INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(std::f32::NAN, 0.0, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
     }
 }

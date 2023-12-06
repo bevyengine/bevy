@@ -243,7 +243,7 @@ pub(crate) fn new_asset_event_debouncer(
 }
 
 pub(crate) struct FileEventHandler {
-    sender: crossbeam_channel::Sender<AssetSourceEvent>,
+    sender: Sender<AssetSourceEvent>,
     root: PathBuf,
     last_event: Option<AssetSourceEvent>,
 }

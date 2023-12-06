@@ -65,9 +65,8 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let render_app = match app.get_sub_app_mut(RenderApp) {
-        Ok(render_app) => render_app,
-        Err(_) => return,
+    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
     };
 
     render_app
