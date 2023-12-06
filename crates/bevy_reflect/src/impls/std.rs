@@ -1166,8 +1166,8 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
         self.as_ref().len()
     }
 
-    fn iter(&self) -> crate::ListIter {
-        crate::ListIter::new(self)
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
@@ -1474,7 +1474,7 @@ impl Reflect for Cow<'static, Path> {
         }
     }
 
-    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
     }
 }

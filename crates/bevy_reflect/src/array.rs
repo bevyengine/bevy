@@ -380,7 +380,7 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(array).hash(&mut hasher);
+    Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
         hasher.write_u64(value.reflect_hash()?);

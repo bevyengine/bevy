@@ -21,7 +21,9 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{
+    primitives::Direction3d, vec2, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3,
+};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -273,7 +275,7 @@ impl Camera {
         &self,
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
-    ) -> Option<Ray> {
+    ) -> Option<Ray3d> {
         let target_size = self.logical_viewport_size()?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
@@ -285,9 +287,12 @@ impl Camera {
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
-        (!world_near_plane.is_nan() && !world_far_plane.is_nan()).then_some(Ray {
-            origin: world_near_plane,
-            direction: (world_far_plane - world_near_plane).normalize(),
+        // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
+        Direction3d::new(world_far_plane - world_near_plane).map_or(None, |direction| {
+            Some(Ray3d {
+                origin: world_near_plane,
+                direction,
+            })
         })
     }
 
@@ -369,7 +374,7 @@ pub enum CameraOutputMode {
         blend_state: Option<BlendState>,
         /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
         /// target texture.
-        color_attachment_load_op: wgpu::LoadOp<wgpu::Color>,
+        color_attachment_load_op: LoadOp<wgpu::Color>,
     },
     /// Skips writing the camera output to the configured render target. The output will remain in the
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
@@ -562,7 +567,6 @@ impl NormalizedRenderTarget {
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
-/// [`Projection`]: crate::camera::Projection
 #[allow(clippy::too_many_arguments)]
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,

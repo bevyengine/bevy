@@ -1,21 +1,45 @@
-use super::Primitive2d;
+use super::{InvalidDirectionError, Primitive2d, WindingOrder};
 use crate::Vec2;
 
 /// A normalized vector pointing in a direction in 2D space
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
 
-impl From<Vec2> for Direction2d {
-    fn from(value: Vec2) -> Self {
-        Self(value.normalize())
-    }
-}
-
 impl Direction2d {
+    /// Create a direction from a finite, nonzero [`Vec2`].
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new(value: Vec2) -> Result<Self, InvalidDirectionError> {
+        value.try_normalize().map(Self).map_or_else(
+            || {
+                if value.is_nan() {
+                    Err(InvalidDirectionError::NaN)
+                } else if !value.is_finite() {
+                    // If the direction is non-finite but also not NaN, it must be infinite
+                    Err(InvalidDirectionError::Infinite)
+                } else {
+                    // If the direction is invalid but neither NaN nor infinite, it must be zero
+                    Err(InvalidDirectionError::Zero)
+                }
+            },
+            Ok,
+        )
+    }
+
     /// Create a direction from a [`Vec2`] that is already normalized
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
+    }
+}
+
+impl TryFrom<Vec2> for Direction2d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec2) -> Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 
@@ -34,6 +58,26 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+/// An ellipse primitive
+#[derive(Clone, Copy, Debug)]
+pub struct Ellipse {
+    /// The half "width" of the ellipse
+    pub half_width: f32,
+    /// The half "height" of the ellipse
+    pub half_height: f32,
+}
+impl Primitive2d for Ellipse {}
+
+impl Ellipse {
+    /// Create a new `Ellipse` from a "width" and a "height"
+    pub fn new(width: f32, height: f32) -> Self {
+        Self {
+            half_width: width / 2.0,
+            half_height: height / 2.0,
+        }
+    }
+}
+
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
@@ -42,6 +86,20 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Plane2d {
+    /// Create a new `Plane2d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
+    pub fn new(normal: Vec2) -> Self {
+        Self {
+            normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
+        }
+    }
+}
 
 /// An infinite line along a direction in 2D space.
 ///
@@ -108,6 +166,24 @@ pub struct Polyline2d<const N: usize> {
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
+impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
+
+        for (index, i) in iter.into_iter().take(N).enumerate() {
+            vertices[index] = i;
+        }
+        Self { vertices }
+    }
+}
+
+impl<const N: usize> Polyline2d<N> {
+    /// Create a new `Polyline2d` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
+
 /// A series of connected line segments in 2D space, allocated on the heap
 /// in a `Box<[Vec2]>`.
 ///
@@ -119,13 +195,58 @@ pub struct BoxedPolyline2d {
 }
 impl Primitive2d for BoxedPolyline2d {}
 
+impl FromIterator<Vec2> for BoxedPolyline2d {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let vertices: Vec<Vec2> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
+impl BoxedPolyline2d {
+    /// Create a new `BoxedPolyline2d` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
+
 /// A triangle in 2D space
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
 }
 impl Primitive2d for Triangle2d {}
+
+impl Triangle2d {
+    /// Create a new `Triangle2d` from points `a`, `b`, and `c`
+    pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+        Self {
+            vertices: [a, b, c],
+        }
+    }
+
+    /// Get the [`WindingOrder`] of the triangle
+    #[doc(alias = "orientation")]
+    pub fn winding_order(&self) -> WindingOrder {
+        let [a, b, c] = self.vertices;
+        let area = (b - a).perp_dot(c - a);
+        if area > f32::EPSILON {
+            WindingOrder::CounterClockwise
+        } else if area < -f32::EPSILON {
+            WindingOrder::Clockwise
+        } else {
+            WindingOrder::Invalid
+        }
+    }
+
+    /// Reverse the [`WindingOrder`] of the triangle
+    /// by swapping the second and third vertices
+    pub fn reverse(&mut self) {
+        self.vertices.swap(1, 2);
+    }
+}
 
 /// A rectangle primitive
 #[doc(alias = "Quad")]
@@ -158,10 +279,28 @@ impl Rectangle {
 /// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug)]
 pub struct Polygon<const N: usize> {
-    /// The vertices of the polygon
+    /// The vertices of the `Polygon`
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polygon<N> {}
+
+impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
+
+        for (index, i) in iter.into_iter().take(N).enumerate() {
+            vertices[index] = i;
+        }
+        Self { vertices }
+    }
+}
+
+impl<const N: usize> Polygon<N> {
+    /// Create a new `Polygon` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
 
 /// A polygon with a variable number of vertices, allocated on the heap
 /// in a `Box<[Vec2]>`.
@@ -169,10 +308,26 @@ impl<const N: usize> Primitive2d for Polygon<N> {}
 /// For a version without alloc: [`Polygon`]
 #[derive(Clone, Debug)]
 pub struct BoxedPolygon {
-    /// The vertices of the polygon
+    /// The vertices of the `BoxedPolygon`
     pub vertices: Box<[Vec2]>,
 }
 impl Primitive2d for BoxedPolygon {}
+
+impl FromIterator<Vec2> for BoxedPolygon {
+    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
+        let vertices: Vec<Vec2> = iter.into_iter().collect();
+        Self {
+            vertices: vertices.into_boxed_slice(),
+        }
+    }
+}
+
+impl BoxedPolygon {
+    /// Create a new `BoxedPolygon` from its vertices
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self::from_iter(vertices)
+    }
+}
 
 /// A polygon where all vertices lie on a circle, equally far apart
 #[derive(Clone, Copy, Debug)]
@@ -183,3 +338,79 @@ pub struct RegularPolygon {
     pub sides: usize,
 }
 impl Primitive2d for RegularPolygon {}
+
+impl RegularPolygon {
+    /// Create a new `RegularPolygon`
+    /// from the radius of the circumcircle and number of sides
+    ///
+    /// # Panics
+    ///
+    /// Panics if `circumcircle_radius` is non-positive
+    pub fn new(circumcircle_radius: f32, sides: usize) -> Self {
+        assert!(circumcircle_radius > 0.0);
+        Self {
+            circumcircle: Circle {
+                radius: circumcircle_radius,
+            },
+            sides,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn direction_creation() {
+        assert_eq!(
+            Direction2d::new(Vec2::X * 12.5),
+            Ok(Direction2d::from_normalized(Vec2::X))
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(std::f32::INFINITY, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(std::f32::NEG_INFINITY, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(std::f32::NAN, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
+    }
+
+    #[test]
+    fn triangle_winding_order() {
+        let mut cw_triangle = Triangle2d::new(
+            Vec2::new(0.0, 2.0),
+            Vec2::new(-0.5, -1.2),
+            Vec2::new(-1.0, -1.0),
+        );
+        assert_eq!(cw_triangle.winding_order(), WindingOrder::Clockwise);
+
+        let ccw_triangle = Triangle2d::new(
+            Vec2::new(0.0, 2.0),
+            Vec2::new(-1.0, -1.0),
+            Vec2::new(-0.5, -1.2),
+        );
+        assert_eq!(ccw_triangle.winding_order(), WindingOrder::CounterClockwise);
+
+        // The clockwise triangle should be the same as the counterclockwise
+        // triangle when reversed
+        cw_triangle.reverse();
+        assert_eq!(cw_triangle, ccw_triangle);
+
+        let invalid_triangle = Triangle2d::new(
+            Vec2::new(0.0, 2.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(0.0, -1.2),
+        );
+        assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
+    }
+}

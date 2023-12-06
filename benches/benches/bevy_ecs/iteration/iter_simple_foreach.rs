@@ -36,7 +36,8 @@ impl<'w> Benchmark<'w> {
     #[inline(never)]
     pub fn run(&mut self) {
         self.1
-            .for_each_mut(&mut self.0, |(velocity, mut position)| {
+            .iter_mut(&mut self.0)
+            .for_each(|(velocity, mut position)| {
                 position.0 += velocity.0;
             });
     }

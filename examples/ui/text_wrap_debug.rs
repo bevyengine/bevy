@@ -120,7 +120,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         value: message.clone(),
                         style: text_style.clone(),
                     }],
-                    alignment: TextAlignment::Left,
+                    justify: JustifyText::Left,
                     linebreak_behavior,
                 };
                 let text_id = commands

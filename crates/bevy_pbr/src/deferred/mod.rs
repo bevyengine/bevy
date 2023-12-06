@@ -20,7 +20,9 @@ use bevy_render::{
     },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
+    render_resource::{
+        binding_types::uniform_buffer, Operations, PipelineCache, RenderPassDescriptor,
+    },
     renderer::{RenderContext, RenderDevice},
     texture::Image,
     view::{ViewTarget, ViewUniformOffset},
@@ -377,19 +379,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 impl FromWorld for DeferredLightingLayout {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("deferred_lighting_layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: render_resource::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(PbrDeferredLightingDepthId::min_size()),
-                },
-                count: None,
-            }],
-        });
+        let layout = render_device.create_bind_group_layout(
+            "deferred_lighting_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                uniform_buffer::<PbrDeferredLightingDepthId>(false),
+            ),
+        );
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             bind_group_layout_1: layout,

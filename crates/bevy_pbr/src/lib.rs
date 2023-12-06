@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 pub mod wireframe;
 
 mod alpha;
@@ -338,25 +336,21 @@ impl Plugin for PbrPlugin {
             },
         );
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         // Extract the required data from the main world
         render_app
-            .add_systems(
-                ExtractSchedule,
-                (render::extract_clusters, render::extract_lights),
-            )
+            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
             .add_systems(
                 Render,
                 (
-                    render::prepare_lights
+                    prepare_lights
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_assets::<Image>),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
-                    render::prepare_clusters.in_set(RenderSet::PrepareResources),
+                    prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();
@@ -369,9 +363,8 @@ impl Plugin for PbrPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         // Extract the required data from the main world

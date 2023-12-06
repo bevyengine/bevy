@@ -12,7 +12,7 @@ use glyph_brush_layout::{
 
 use crate::{
     error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, FontAtlasWarning,
-    GlyphAtlasInfo, TextAlignment, TextSettings, YAxisOrientation,
+    GlyphAtlasInfo, JustifyText, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -36,7 +36,7 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Vec2,
-        text_alignment: TextAlignment,
+        text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
@@ -208,7 +208,7 @@ impl GlyphPlacementAdjuster {
 pub(crate) fn compute_text_bounds<T>(
     section_glyphs: &[SectionGlyph],
     get_scaled_font: impl Fn(usize) -> PxScaleFont<T>,
-) -> bevy_math::Rect
+) -> Rect
 where
     T: ab_glyph::Font,
 {
