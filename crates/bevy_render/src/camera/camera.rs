@@ -287,9 +287,11 @@ impl Camera {
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
         // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Direction3d::new(world_far_plane - world_near_plane).map(|direction| Ray3d {
-            origin: world_near_plane,
-            direction,
+        Direction3d::new(world_far_plane - world_near_plane).map_or(None, |direction| {
+            Some(Ray3d {
+                origin: world_near_plane,
+                direction,
+            })
         })
     }
 
