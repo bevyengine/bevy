@@ -4,7 +4,8 @@ use crate::renderer::{
 use std::borrow::Cow;
 
 pub use wgpu::{
-    Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags, Limits as WgpuLimits, PowerPreference,
+    Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
+    Limits as WgpuLimits, PowerPreference,
 };
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
