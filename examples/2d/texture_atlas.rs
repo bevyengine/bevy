@@ -30,7 +30,7 @@ fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn check_textures(
     mut next_state: ResMut<NextState<AppState>>,
-    rpg_sprite_folder: ResMut<RpgSpriteFolder>,
+    rpg_sprite_folder: Res<RpgSpriteFolder>,
     mut events: EventReader<AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
