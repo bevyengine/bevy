@@ -106,13 +106,13 @@ impl Meshable for Torus {
 }
 
 impl From<Torus> for Mesh {
-    fn from(sphere: Torus) -> Self {
-        sphere.mesh().build()
+    fn from(torus: Torus) -> Self {
+        torus.mesh().build()
     }
 }
 
 impl From<TorusBuilder> for Mesh {
-    fn from(sphere: TorusBuilder) -> Self {
-        sphere.build()
+    fn from(torus: TorusBuilder) -> Self {
+        torus.build()
     }
 }

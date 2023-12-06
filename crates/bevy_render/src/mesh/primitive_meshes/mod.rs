@@ -1,6 +1,7 @@
 mod circle;
 mod cone;
 mod cuboid;
+mod cylinder;
 mod rectangle;
 mod regular_polygon;
 mod sphere;
@@ -10,6 +11,7 @@ mod triangle;
 pub(crate) mod builders {
     pub use super::circle::CircleBuilder;
     pub use super::cone::ConeBuilder;
+    pub use super::cylinder::CylinderBuilder;
     pub use super::rectangle::RectangleBuilder;
     pub use super::sphere::SphereBuilder;
     pub use super::torus::TorusBuilder;

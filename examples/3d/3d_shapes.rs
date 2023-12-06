@@ -37,7 +37,7 @@ fn setup(
         meshes.add(primitives::Cuboid::default().into()),
         //meshes.add(primitives::Capsule::default().into()),
         meshes.add(primitives::Torus::default().into()),
-        //meshes.add(primitives::Cylinder::default().into()),
+        meshes.add(primitives::Cylinder::default().into()),
         meshes.add(primitives::Cone::default().into()),
         meshes.add(primitives::Sphere { radius: 0.5 }.mesh().ico(6).unwrap()),
         meshes.add(primitives::Sphere { radius: 0.5 }.mesh().uv(6, 6)),
