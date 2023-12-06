@@ -639,10 +639,25 @@ impl WindowResolution {
         }
     }
 
+    /// Creates a new [`WindowResolution`], with `scale_factor_override` 1.0.
+    pub fn new_without_scaling(logical_width: f32, logical_height: f32) -> Self {
+        Self {
+            physical_width: logical_width as u32,
+            physical_height: logical_height as u32,
+            scale_factor_override: Some(1.0),
+            ..Default::default()
+        }
+    }
+
     /// Builder method for adding a scale factor override to the resolution.
     pub fn with_scale_factor_override(mut self, scale_factor_override: f64) -> Self {
         self.scale_factor_override = Some(scale_factor_override);
         self
+    }
+
+    /// Builder method for disabling scaling.
+    pub fn without_scaling(self) -> Self {
+        self.with_scale_factor_override(1.0)
     }
 
     /// The window's client area width in logical pixels.
@@ -992,8 +1007,8 @@ pub enum WindowMode {
     ///
     /// Note: As this mode respects the scale factor provided by the operating system,
     /// the window's logical size may be different from its physical size.
-    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
-    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
+    /// If you want to avoid that behavior, you can use the [`WindowResolution::without_scaling`]
+    /// builder method or create a new [`WindowResolution`] with [`WindowResolution::new_without_scaling`]
     BorderlessFullscreen,
     /// The window should be in "true"/"legacy" Fullscreen mode.
     ///
@@ -1014,8 +1029,8 @@ pub enum WindowMode {
     ///
     /// Note: As this mode respects the scale factor provided by the operating system,
     /// the window's logical size may be different from its physical size.
-    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
-    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
+    /// If you want to avoid that behavior, you can use the [`WindowResolution::without_scaling`]
+    /// builder method or create a new [`WindowResolution`] with [`WindowResolution::new_without_scaling`]
     Fullscreen,
 }
 
