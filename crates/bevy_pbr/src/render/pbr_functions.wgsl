@@ -48,7 +48,7 @@ fn prepare_world_normal(
     double_sided: bool,
     is_front: bool,
 ) -> vec3<f32> {
-    var output: vec3<f32> = world_normal;
+    var output: vec3<f32> = normalize(world_normal);
 #ifndef VERTEX_TANGENTS
 #ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided

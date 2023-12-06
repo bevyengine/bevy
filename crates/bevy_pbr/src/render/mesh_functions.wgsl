@@ -38,12 +38,13 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> 
     // Unreal Engine, Godot, and more all use the mikktspace method. Do not change this code
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
-    return normalize(
-        mat2x4_f32_to_mat3x3_unpack(
+    //
+    // For testing purposes, the normalization has been removed.
+    // Don't merge this!
+    return mat2x4_f32_to_mat3x3_unpack(
             mesh[instance_index].inverse_transpose_model_a,
             mesh[instance_index].inverse_transpose_model_b,
-        ) * vertex_normal
-    );
+    ) * vertex_normal;
 }
 
 // Calculates the sign of the determinant of the 3x3 model matrix based on a
