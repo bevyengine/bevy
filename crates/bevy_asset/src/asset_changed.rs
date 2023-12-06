@@ -163,9 +163,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
 
     type Item<'w> = ();
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
-        item
-    }
+    fn shrink<'wlong: 'wshort, 'wshort>(_: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {}
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
         let resource_id = world.init_resource::<AssetChanges<A>>();
@@ -226,9 +224,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
         }
     }
 
-    unsafe fn fetch<'w>(_: &mut Self::Fetch<'w>, _: Entity, _: TableRow) -> Self::Item<'w> {
-        ()
-    }
+    unsafe fn fetch<'w>(_: &mut Self::Fetch<'w>, _: Entity, _: TableRow) -> Self::Item<'w> {}
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
