@@ -10,11 +10,8 @@ pub struct ConeBuilder {
 
 impl ConeBuilder {
     pub fn build(&self) -> Mesh {
-        let seg = 1;
-        let num_rings = seg + 1;
-        let num_vertices = self.resolution * 2 + num_rings * (self.resolution + 1);
-        let num_faces = self.resolution * (num_rings - 2);
-        let num_indices = (2 * num_faces + 2 * (self.resolution - 1) * 2) * 3;
+        let num_vertices = self.resolution * 2 + 1;
+        let num_indices = self.resolution * 3;
 
         let mut positions = Vec::with_capacity(num_vertices as usize);
         let mut normals = Vec::with_capacity(num_vertices as usize);
@@ -23,11 +20,15 @@ impl ConeBuilder {
 
         let step_theta = std::f32::consts::TAU / self.resolution as f32;
 
-        // caps
+        // tip
 
-        positions.push([0.0, self.cone.height, 0.0]);
+        positions.push([0.0, self.cone.height / 2.0, 0.0]);
+        // Invalid normal so that this doesn't affect shading.
+        // Requires normalization to be disabled in vertex shader!
         normals.push([0.0, 0.0, 0.0]);
-        uvs.push([0.0, 0.0]);
+        uvs.push([0.5, 0.5]);
+
+        // lateral surface
 
         let radius = self.cone.radius;
 
@@ -37,7 +38,7 @@ impl ConeBuilder {
 
             positions.push([radius * cos, -self.cone.height / 2.0, radius * sin]);
             normals.push([cos, 0., sin]);
-            uvs.push([segment as f32 / self.resolution as f32, 0.0]);
+            uvs.push([0.5 + cos * 0.5, 0.5 + sin * 0.5]);
         }
 
         for j in 0..self.resolution {
