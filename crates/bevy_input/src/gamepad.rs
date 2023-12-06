@@ -1,6 +1,6 @@
 //! The gamepad input functionality.
 
-use crate::{Axis, ButtonState, Input};
+use crate::{Axis, ButtonState, Input, InputSource};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -89,12 +89,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 )]
 pub struct Gamepad {
     /// The `ID` of the gamepad.
-    pub id: usize,
+    pub id: InputSource,
 }
 
 impl Gamepad {
     /// Creates a new [`Gamepad`].
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: InputSource) -> Self {
         Self { id }
     }
 }
@@ -252,10 +252,11 @@ impl GamepadButton {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadButton, GamepadButtonType, Gamepad};
-    /// #
+    /// # use bevy_input::{InputSources, gamepad::{GamepadButton, GamepadButtonType, Gamepad}};
+    /// # let mut input_sources = InputSources::default();
+    /// # let gamepad = Gamepad::new(input_sources.register());
     /// let gamepad_button = GamepadButton::new(
-    ///     Gamepad::new(1),
+    ///     gamepad,
     ///     GamepadButtonType::South,
     /// );
     /// ```
@@ -345,10 +346,12 @@ impl GamepadAxis {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadAxis, GamepadAxisType, Gamepad};
+    /// # use bevy_input::{InputSources, gamepad::{GamepadAxis, GamepadAxisType, Gamepad}};
+    /// # let mut input_sources = InputSources::default();
+    /// # let gamepad = Gamepad::new(input_sources.register());
     /// #
     /// let gamepad_axis = GamepadAxis::new(
-    ///     Gamepad::new(1),
+    ///     gamepad,
     ///     GamepadAxisType::LeftStickX,
     /// );
     /// ```
@@ -395,10 +398,12 @@ impl GamepadSettings {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadSettings, GamepadButton, Gamepad, GamepadButtonType};
+    /// # use bevy_input::{InputSources, gamepad::{GamepadSettings, GamepadButton, Gamepad, GamepadButtonType}};
+    /// # let mut input_sources = InputSources::default();
+    /// # let gamepad = Gamepad::new(input_sources.register());
     /// #
     /// # let settings = GamepadSettings::default();
-    /// let button = GamepadButton::new(Gamepad::new(1), GamepadButtonType::South);
+    /// let button = GamepadButton::new(gamepad, GamepadButtonType::South);
     /// let button_settings = settings.get_button_settings(button);
     /// ```
     pub fn get_button_settings(&self, button: GamepadButton) -> &ButtonSettings {
@@ -414,10 +419,12 @@ impl GamepadSettings {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadSettings, GamepadAxis, Gamepad, GamepadAxisType};
+    /// # use bevy_input::{InputSources, gamepad::{GamepadSettings, GamepadAxis, Gamepad, GamepadAxisType}};
+    /// # let mut input_sources = InputSources::default();
+    /// # let gamepad = Gamepad::new(input_sources.register());
     /// #
     /// # let settings = GamepadSettings::default();
-    /// let axis = GamepadAxis::new(Gamepad::new(1), GamepadAxisType::LeftStickX);
+    /// let axis = GamepadAxis::new(gamepad, GamepadAxisType::LeftStickX);
     /// let axis_settings = settings.get_axis_settings(axis);
     /// ```
     pub fn get_axis_settings(&self, axis: GamepadAxis) -> &AxisSettings {
@@ -433,10 +440,12 @@ impl GamepadSettings {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadSettings, GamepadButton, Gamepad, GamepadButtonType};
+    /// # use bevy_input::{InputSources, gamepad::{GamepadSettings, GamepadButton, Gamepad, GamepadButtonType}};
+    /// # let mut input_sources = InputSources::default();
+    /// # let gamepad = Gamepad::new(input_sources.register());
     /// #
     /// # let settings = GamepadSettings::default();
-    /// let button = GamepadButton::new(Gamepad::new(1), GamepadButtonType::South);
+    /// let button = GamepadButton::new(gamepad, GamepadButtonType::South);
     /// let button_axis_settings = settings.get_button_axis_settings(button);
     /// ```
     pub fn get_button_axis_settings(&self, button: GamepadButton) -> &ButtonAxisSettings {

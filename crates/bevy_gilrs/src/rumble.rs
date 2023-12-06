@@ -13,7 +13,7 @@ use gilrs::{
 };
 use thiserror::Error;
 
-use crate::converter::convert_gamepad_id;
+use crate::GilrsGamepads;
 
 /// A rumble effect that is currently in effect.
 struct RunningRumble {
@@ -28,8 +28,6 @@ struct RunningRumble {
 
 #[derive(Error, Debug)]
 enum RumbleError {
-    #[error("gamepad not found")]
-    GamepadNotFound,
     #[error("gilrs error while rumbling gamepad: {0}")]
     GilrsError(#[from] ff::Error),
 }
@@ -83,14 +81,8 @@ fn handle_rumble_request(
     gilrs: &mut Gilrs,
     rumble: GamepadRumbleRequest,
     current_time: Duration,
+    gamepad_id: GamepadId,
 ) -> Result<(), RumbleError> {
-    let gamepad = rumble.gamepad();
-
-    let (gamepad_id, _) = gilrs
-        .gamepads()
-        .find(|(pad_id, _)| convert_gamepad_id(*pad_id) == gamepad)
-        .ok_or(RumbleError::GamepadNotFound)?;
-
     match rumble {
         GamepadRumbleRequest::Stop { .. } => {
             // `ff::Effect` uses RAII, dropping = deactivating
@@ -124,6 +116,7 @@ pub(crate) fn play_gilrs_rumble(
     mut gilrs: NonSendMut<Gilrs>,
     mut requests: EventReader<GamepadRumbleRequest>,
     mut running_rumbles: NonSendMut<RunningRumbleEffects>,
+    gamepads: Res<GilrsGamepads>,
 ) {
     let current_time = time.elapsed();
     // Remove outdated rumble effects.
@@ -138,7 +131,23 @@ pub(crate) fn play_gilrs_rumble(
     // Add new effects.
     for rumble in requests.read().cloned() {
         let gamepad = rumble.gamepad();
-        match handle_rumble_request(&mut running_rumbles, &mut gilrs, rumble, current_time) {
+
+        let Some((&gamepad_id, _)) = gamepads
+            .mapping
+            .iter()
+            .find(|(_, source)| source == &&gamepad.id)
+        else {
+            warn!("Tried to handle rumble request {gamepad:?} but it doesn't exist!");
+            continue;
+        };
+
+        match handle_rumble_request(
+            &mut running_rumbles,
+            &mut gilrs,
+            rumble,
+            current_time,
+            gamepad_id,
+        ) {
             Ok(()) => {}
             Err(RumbleError::GilrsError(err)) => {
                 if let ff::Error::FfNotSupported(_) = err {
@@ -148,9 +157,6 @@ pub(crate) fn play_gilrs_rumble(
                     "Tried to handle rumble request for {gamepad:?} but an error occurred: {err}"
                     );
                 }
-            }
-            Err(RumbleError::GamepadNotFound) => {
-                warn!("Tried to handle rumble request {gamepad:?} but it doesn't exist!");
             }
         };
     }

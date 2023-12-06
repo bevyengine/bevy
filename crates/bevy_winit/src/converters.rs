@@ -3,7 +3,7 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
     touch::{ForceTouch, TouchInput, TouchPhase},
-    ButtonState,
+    ButtonState, InputSource,
 };
 use bevy_math::Vec2;
 use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
@@ -11,12 +11,14 @@ use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
 pub fn convert_keyboard_input(
     keyboard_input: &winit::event::KeyboardInput,
     window: Entity,
+    source: InputSource,
 ) -> KeyboardInput {
     KeyboardInput {
         scan_code: keyboard_input.scancode,
         state: convert_element_state(keyboard_input.state),
         key_code: keyboard_input.virtual_keycode.map(convert_virtual_key_code),
         window,
+        source,
     }
 }
 

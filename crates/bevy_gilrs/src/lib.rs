@@ -11,9 +11,9 @@ mod rumble;
 
 use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
 use bevy_ecs::prelude::*;
-use bevy_input::InputSystem;
-use bevy_utils::tracing::error;
-use gilrs::GilrsBuilder;
+use bevy_input::{InputSource, InputSystem};
+use bevy_utils::{tracing::error, HashMap};
+use gilrs::{GamepadId, GilrsBuilder};
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 
@@ -34,6 +34,7 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 app.insert_non_send_resource(gilrs)
+                    .init_resource::<GilrsGamepads>()
                     .init_non_send_resource::<RunningRumbleEffects>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
                     .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))
@@ -42,4 +43,10 @@ impl Plugin for GilrsPlugin {
             Err(err) => error!("Failed to start Gilrs. {}", err),
         }
     }
+}
+
+/// Registry of all Gilrs gamepads and their [`InputSource`] IDs.
+#[derive(Resource, Default)]
+struct GilrsGamepads {
+    mapping: HashMap<GamepadId, InputSource>,
 }

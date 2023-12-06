@@ -1,8 +1,4 @@
-use bevy_input::gamepad::{Gamepad, GamepadAxisType, GamepadButtonType};
-
-pub fn convert_gamepad_id(gamepad_id: gilrs::GamepadId) -> Gamepad {
-    Gamepad::new(gamepad_id.into())
-}
+use bevy_input::gamepad::{GamepadAxisType, GamepadButtonType};
 
 pub fn convert_button(button: gilrs::Button) -> Option<GamepadButtonType> {
     match button {
