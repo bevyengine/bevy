@@ -34,13 +34,13 @@ fn setup(
     });
 
     let shapes = [
-        meshes.add(shape::Cube::default().into()),
-        meshes.add(shape::Box::default().into()),
-        meshes.add(shape::Capsule::default().into()),
-        meshes.add(shape::Torus::default().into()),
-        meshes.add(shape::Cylinder::default().into()),
-        meshes.add(shape::Icosphere::default().try_into().unwrap()),
-        meshes.add(shape::UVSphere::default().into()),
+        meshes.add(primitives::Cuboid::default().into()),
+        //meshes.add(primitives::Capsule::default().into()),
+        meshes.add(primitives::Torus::default().into()),
+        //meshes.add(primitives::Cylinder::default().into()),
+        meshes.add(primitives::Cone::default().into()),
+        meshes.add(primitives::Sphere { radius: 0.5 }.mesh().ico(6).unwrap()),
+        meshes.add(primitives::Sphere { radius: 0.5 }.mesh().uv(6, 6)),
     ];
 
     let num_shapes = shapes.len();
