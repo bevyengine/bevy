@@ -7,17 +7,17 @@
 //! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
 
 mod axis;
+mod button_input;
 /// Common run conditions
 pub mod common_conditions;
 pub mod gamepad;
-mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod touch;
 pub mod touchpad;
 
 pub use axis::*;
-pub use input::*;
+pub use button_input::*;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
