@@ -3,6 +3,7 @@ use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction3d(Vec3);
 
 impl Direction3d {
@@ -65,6 +66,20 @@ pub struct Plane3d {
     pub normal: Direction3d,
 }
 impl Primitive3d for Plane3d {}
+
+impl Plane3d {
+    /// Create a new `Plane3d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
+    pub fn new(normal: Vec3) -> Self {
+        Self {
+            normal: Direction3d::new(normal).expect("normal must be nonzero and finite"),
+        }
+    }
+}
 
 /// An infinite line along a direction in 3D space.
 ///
