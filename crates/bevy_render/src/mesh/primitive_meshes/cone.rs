@@ -1,0 +1,103 @@
+use super::Meshable;
+use crate::mesh::{Indices, Mesh};
+use bevy_math::primitives::Cone;
+use wgpu::PrimitiveTopology;
+
+pub struct ConeBuilder {
+    pub cone: Cone,
+    pub resolution: u32,
+}
+
+impl ConeBuilder {
+    pub fn build(&self) -> Mesh {
+        let seg = 1;
+        let num_rings = seg + 1;
+        let num_vertices = self.resolution * 2 + num_rings * (self.resolution + 1);
+        let num_faces = self.resolution * (num_rings - 2);
+        let num_indices = (2 * num_faces + 2 * (self.resolution - 1) * 2) * 3;
+
+        let mut positions = Vec::with_capacity(num_vertices as usize);
+        let mut normals = Vec::with_capacity(num_vertices as usize);
+        let mut uvs = Vec::with_capacity(num_vertices as usize);
+        let mut indices = Vec::with_capacity(num_indices as usize);
+
+        let step_theta = std::f32::consts::TAU / self.resolution as f32;
+
+        // caps
+
+        positions.push([0.0, self.cone.height, 0.0]);
+        normals.push([0.0, 0.0, 0.0]);
+        uvs.push([0.0, 0.0]);
+
+        let radius = self.cone.radius;
+
+        for segment in 0..=self.resolution {
+            let theta = segment as f32 * step_theta;
+            let (sin, cos) = theta.sin_cos();
+
+            positions.push([radius * cos, -self.cone.height / 2.0, radius * sin]);
+            normals.push([cos, 0., sin]);
+            uvs.push([segment as f32 / self.resolution as f32, 0.0]);
+        }
+
+        for j in 0..self.resolution {
+            indices.extend_from_slice(&[0, j + 1, j]);
+        }
+
+        indices.extend(&[0, positions.len() as u32 - 1, positions.len() as u32 - 2]);
+
+        // base
+
+        let offset = positions.len() as u32;
+        let y = self.cone.height / -2.;
+
+        let radius = self.cone.radius;
+
+        for i in 0..self.resolution {
+            let theta = i as f32 * step_theta;
+            let (sin, cos) = theta.sin_cos();
+
+            positions.push([cos * radius, y, sin * radius]);
+            normals.push([0.0, -1.0, 0.0]);
+            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
+        }
+
+        for i in 1..(self.resolution - 1) {
+            indices.extend_from_slice(&[offset, offset + i, offset + i + 1]);
+        }
+
+        Mesh::new(PrimitiveTopology::TriangleList)
+            .with_indices(Some(Indices::U32(indices)))
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    }
+
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.resolution = segments as u32;
+        self
+    }
+}
+
+impl Meshable for Cone {
+    type Output = ConeBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        ConeBuilder {
+            cone: *self,
+            resolution: 32,
+        }
+    }
+}
+
+impl From<Cone> for Mesh {
+    fn from(sphere: Cone) -> Self {
+        sphere.mesh().build()
+    }
+}
+
+impl From<ConeBuilder> for Mesh {
+    fn from(sphere: ConeBuilder) -> Self {
+        sphere.build()
+    }
+}
