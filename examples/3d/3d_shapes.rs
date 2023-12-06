@@ -35,7 +35,7 @@ fn setup(
 
     let shapes = [
         meshes.add(primitives::Cuboid::default().into()),
-        //meshes.add(primitives::Capsule::default().into()),
+        meshes.add(primitives::Capsule::default().into()),
         meshes.add(primitives::Torus::default().into()),
         meshes.add(primitives::Cylinder::default().into()),
         meshes.add(primitives::Cone::default().into()),

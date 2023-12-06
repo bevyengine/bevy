@@ -1,3 +1,4 @@
+mod capsule;
 mod circle;
 mod cone;
 mod cuboid;
@@ -9,6 +10,7 @@ mod torus;
 mod triangle;
 
 pub(crate) mod builders {
+    pub use super::capsule::CapsuleBuilder;
     pub use super::circle::CircleBuilder;
     pub use super::cone::ConeBuilder;
     pub use super::cylinder::CylinderBuilder;
