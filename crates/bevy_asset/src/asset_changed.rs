@@ -150,7 +150,7 @@ impl<'w, A: Asset> Clone for AssetChangedFetch<'w, A> {
 /// State for [`AssetChanged`].
 #[doc(hidden)]
 pub struct AssetChangedState<A: Asset> {
-    handle_id: ComponentId,
+    asset_id: ComponentId,
     resource_id: ComponentId,
     archetype_id: ArchetypeComponentId,
     _asset: PhantomData<fn(A)>,
@@ -169,7 +169,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
         let resource_id = world.init_resource::<AssetChanges<A>>();
         let archetype_id = world.storages().resources.get(resource_id).unwrap().id();
         AssetChangedState {
-            handle_id: world.init_component::<Handle<A>>(),
+            asset_id: world.init_component::<Handle<A>>(),
             resource_id,
             archetype_id,
             _asset: PhantomData,
@@ -180,7 +180,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        set_contains_id(state.handle_id)
+        set_contains_id(state.asset_id)
     }
 
     unsafe fn init_fetch<'w>(
@@ -200,7 +200,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
         let has_updates = changes.last_change_tick.is_newer_than(last_run, this_run);
         AssetChangedFetch {
             inner: has_updates
-                .then(|| <&_>::init_fetch(world, &state.handle_id, last_run, this_run)),
+                .then(|| <&_>::init_fetch(world, &state.asset_id, last_run, this_run)),
             check: AssetChangeCheck::new(changes, last_run, this_run),
         }
     }
@@ -209,7 +209,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
 
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
         if let Some(inner) = &mut fetch.inner {
-            <&Handle<A>>::set_table(inner, &state.handle_id, table);
+            <&Handle<A>>::set_table(inner, &state.asset_id, table);
         }
     }
 
@@ -220,7 +220,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
         table: &'w Table,
     ) {
         if let Some(inner) = &mut fetch.inner {
-            <&Handle<A>>::set_archetype(inner, &state.handle_id, archetype, table);
+            <&Handle<A>>::set_archetype(inner, &state.asset_id, archetype, table);
         }
     }
 
@@ -228,7 +228,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-        <&Handle<A>>::update_component_access(&state.handle_id, access);
+        <&Handle<A>>::update_component_access(&state.asset_id, access);
         access.add_read(state.resource_id);
     }
 
@@ -239,7 +239,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
         access: &mut Access<ArchetypeComponentId>,
     ) {
         access.add_read(state.archetype_id);
-        <&Handle<A>>::update_archetype_component_access(&state.handle_id, archetype, access);
+        <&Handle<A>>::update_archetype_component_access(&state.asset_id, archetype, access);
     }
 }
 
