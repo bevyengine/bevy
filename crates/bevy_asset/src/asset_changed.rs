@@ -1,4 +1,6 @@
-//! Filter query to limit iteration over [`Handle`]s which content was updated recently.
+//! Define the [`AssetChanged`] query filter.
+//!
+//! Like [`Changed`], but for [`Asset`]s.
 use std::marker::PhantomData;
 
 use bevy_ecs::{
@@ -29,6 +31,7 @@ impl<A: Asset> AssetChanges<A> {
         self.change_ticks.remove(asset_id);
     }
 }
+
 impl<A: Asset> Default for AssetChanges<A> {
     fn default() -> Self {
         Self {
@@ -39,20 +42,23 @@ impl<A: Asset> Default for AssetChanges<A> {
 }
 
 struct AssetChangeCheck<'w, A: Asset> {
-    handle_change_map: &'w HashMap<AssetId<A>, Tick>,
+    change_ticks: &'w HashMap<AssetId<A>, Tick>,
     last_run: Tick,
     this_run: Tick,
 }
+
 impl<A: Asset> Clone for AssetChangeCheck<'_, A> {
     fn clone(&self) -> Self {
         *self
     }
 }
+
 impl<A: Asset> Copy for AssetChangeCheck<'_, A> {}
+
 impl<'w, A: Asset> AssetChangeCheck<'w, A> {
     fn new(changes: &'w AssetChanges<A>, last_run: Tick, this_run: Tick) -> Self {
         Self {
-            handle_change_map: &changes.change_ticks,
+            change_ticks: &changes.change_ticks,
             last_run,
             this_run,
         }
@@ -63,7 +69,7 @@ impl<'w, A: Asset> AssetChangeCheck<'w, A> {
         let is_newer = |tick: &Tick| tick.is_newer_than(self.last_run, self.this_run);
         let id = &handle.id();
 
-        self.handle_change_map.get(id).is_some_and(is_newer)
+        self.change_ticks.get(id).is_some_and(is_newer)
     }
 }
 
@@ -90,8 +96,9 @@ pub type AssetOrHandleChanged<A> = Or<(Changed<Handle<A>>, AssetChanged<A>)>;
 /// entities with the `Handle<Mesh>` for that mesh. Meanwhile, `Changed<Handle<Mesh>>`
 /// will iterate over no entities.
 ///
-/// You probably need to check for both asset and handle changes. If this is the case,
-/// use [`AssetOrHandleChanged`] instead.
+/// Swapping the actual `Handle<A>` component is a common pattern. So you
+/// should check for _both_ `AssetChanged<A>` and `Changed<Handle<A>>` with
+/// [`AssetOrHandleChanged`]
 ///
 /// # Quirks
 ///
@@ -130,6 +137,7 @@ pub struct AssetChangedFetch<'w, A: Asset> {
     inner: Option<ReadFetch<'w, Handle<A>>>,
     check: AssetChangeCheck<'w, A>,
 }
+
 impl<'w, A: Asset> Clone for AssetChangedFetch<'w, A> {
     fn clone(&self) -> Self {
         Self {
@@ -176,6 +184,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
     ) -> bool {
         set_contains_id(state.handle_id)
     }
+
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         state: &Self::State,
@@ -329,6 +338,7 @@ mod tests {
         };
         *run_count += 1;
     }
+
     fn add_some(
         mut assets: ResMut<Assets<MyAsset>>,
         mut cmds: Commands,
@@ -349,6 +359,7 @@ mod tests {
         };
         *run_count += 1;
     }
+
     #[track_caller]
     fn assert_counter(app: &App, assert: Counter) {
         assert_eq!(&assert, app.world.resource::<Counter>());
