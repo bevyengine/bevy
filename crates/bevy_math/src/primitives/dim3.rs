@@ -34,6 +34,12 @@ pub struct Sphere {
 }
 impl Primitive3d for Sphere {}
 
+impl Default for Sphere {
+    fn default() -> Self {
+        Self { radius: 0.5 }
+    }
+}
+
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug)]
@@ -42,6 +48,14 @@ pub struct Plane3d {
     pub normal: Direction3d,
 }
 impl Primitive3d for Plane3d {}
+
+impl Default for Plane3d {
+    fn default() -> Self {
+        Self {
+            normal: Direction3d::from_normalized(Vec3::Y),
+        }
+    }
+}
 
 /// An infinite line along a direction in 3D space.
 ///
@@ -160,6 +174,14 @@ pub struct Cuboid {
 }
 impl Primitive3d for Cuboid {}
 
+impl Default for Cuboid {
+    fn default() -> Self {
+        Self {
+            half_extents: Vec3::splat(0.5),
+        }
+    }
+}
+
 impl Cuboid {
     /// Create a cuboid from a full x, y, and z length
     pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
@@ -184,6 +206,15 @@ pub struct Cylinder {
 }
 impl Primitive3d for Cylinder {}
 
+impl Default for Cylinder {
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            half_height: 0.5,
+        }
+    }
+}
+
 impl Cylinder {
     /// Create a cylinder from a radius and full height
     pub fn new(radius: f32, height: f32) -> Self {
@@ -206,6 +237,15 @@ pub struct Capsule {
 impl super::Primitive2d for Capsule {}
 impl Primitive3d for Capsule {}
 
+impl Default for Capsule {
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            half_length: 0.5,
+        }
+    }
+}
+
 impl Capsule {
     /// Create a new `Capsule` from a radius and length
     pub fn new(radius: f32, length: f32) -> Self {
@@ -226,6 +266,15 @@ pub struct Cone {
 }
 impl Primitive3d for Cone {}
 
+impl Default for Cone {
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            height: 1.0,
+        }
+    }
+}
+
 /// A conical frustum primitive.
 /// A conical frustum can be created
 /// by slicing off a section of a cone.
@@ -239,6 +288,16 @@ pub struct ConicalFrustum {
     pub height: f32,
 }
 impl Primitive3d for ConicalFrustum {}
+
+impl Default for ConicalFrustum {
+    fn default() -> Self {
+        Self {
+            radius_top: 0.1,
+            radius_bottom: 0.5,
+            height: 1.0,
+        }
+    }
+}
 
 /// The type of torus determined by the minor and major radii
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -273,6 +332,15 @@ pub struct Torus {
     pub major_radius: f32,
 }
 impl Primitive3d for Torus {}
+
+impl Default for Torus {
+    fn default() -> Self {
+        Self {
+            minor_radius: 0.5,
+            major_radius: 1.0,
+        }
+    }
+}
 
 impl Torus {
     /// Create a new `Torus` from an inner and outer radius.

@@ -34,6 +34,12 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+impl Default for Circle {
+    fn default() -> Self {
+        Self { radius: 0.5 }
+    }
+}
+
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
@@ -43,6 +49,15 @@ pub struct Ellipse {
     pub half_height: f32,
 }
 impl Primitive2d for Ellipse {}
+
+impl Default for Ellipse {
+    fn default() -> Self {
+        Self {
+            half_width: 0.5,
+            half_height: 0.5,
+        }
+    }
+}
 
 impl Ellipse {
     /// Create a new `Ellipse` from a "width" and a "height"
@@ -62,6 +77,14 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Default for Plane2d {
+    fn default() -> Self {
+        Self {
+            normal: Direction2d::from_normalized(Vec2::Y),
+        }
+    }
+}
 
 /// An infinite line along a direction in 2D space.
 ///
@@ -181,6 +204,14 @@ pub struct Triangle2d {
 }
 impl Primitive2d for Triangle2d {}
 
+impl Default for Triangle2d {
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::Y * 0.5, Vec2::new(-0.5, -0.5), Vec2::new(0.5, -0.5)],
+        }
+    }
+}
+
 impl Triangle2d {
     /// Create a new `Triangle2d` from points `a`, `b`, and `c`
     pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
@@ -220,6 +251,15 @@ pub struct Rectangle {
     pub half_height: f32,
 }
 impl Primitive2d for Rectangle {}
+
+impl Default for Rectangle {
+    fn default() -> Self {
+        Self {
+            half_width: 0.5,
+            half_height: 0.5,
+        }
+    }
+}
 
 impl Rectangle {
     /// Create a rectangle from a full width and height
@@ -300,6 +340,15 @@ pub struct RegularPolygon {
     pub sides: usize,
 }
 impl Primitive2d for RegularPolygon {}
+
+impl Default for RegularPolygon {
+    fn default() -> Self {
+        Self {
+            circumcircle: Circle { radius: 0.5 },
+            sides: 6,
+        }
+    }
+}
 
 impl RegularPolygon {
     /// Create a new `RegularPolygon`
