@@ -1,1 +1,2 @@
 doc-valid-idents = ["GilRs", "glTF", "sRGB", "VSync", "WebGL2", "WebGPU", ".."]
+excessive-nesting-threshold = 9
