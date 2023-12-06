@@ -29,9 +29,9 @@ impl Direction2d {
 
     /// Create a direction from its `x` and `y` components.
     ///
-    /// Returns `None` if the vector formed by the components
-    /// is zero (or very close to zero), or non-finite.
-    pub fn from_xy(x: f32, y: f32) -> Option<Self> {
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec2::new(x, y))
     }
 

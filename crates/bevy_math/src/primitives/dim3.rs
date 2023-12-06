@@ -29,9 +29,9 @@ impl Direction3d {
 
     /// Create a direction from its `x`, `y`, and `z` components.
     ///
-    /// Returns `None` if the vector formed by the components
-    /// is zero (or very close to zero), or non-finite.
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Option<Self> {
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3::new(x, y, z))
     }
 
