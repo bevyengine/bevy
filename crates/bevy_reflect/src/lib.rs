@@ -1988,8 +1988,8 @@ bevy_reflect::tests::Test {
                 e: DynamicEnum(A(11)), \
                 map: DynamicMap({9: 10}), \
                 value: 12, \
-                unknown_struct: DynamicStruct( { a: 13 }), \
-                unknown_tuplestruct: DynamicTupleStruct((14,)) \
+                unknown_struct: DynamicStruct(_ { a: 13 }), \
+                unknown_tuplestruct: DynamicTupleStruct(_(14)) \
             })"
         );
     }
