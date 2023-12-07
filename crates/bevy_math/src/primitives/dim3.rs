@@ -292,9 +292,9 @@ impl Primitive3d for ConicalFrustum {}
 impl Default for ConicalFrustum {
     fn default() -> Self {
         Self {
-            radius_top: 0.1,
+            radius_top: 0.2,
             radius_bottom: 0.5,
-            height: 1.0,
+            height: 0.75,
         }
     }
 }

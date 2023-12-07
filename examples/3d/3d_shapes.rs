@@ -39,6 +39,7 @@ fn setup(
         meshes.add(primitives::Torus::default().into()),
         meshes.add(primitives::Cylinder::default().into()),
         meshes.add(primitives::Cone::default().into()),
+        meshes.add(primitives::ConicalFrustum::default().into()),
         meshes.add(primitives::Sphere { radius: 0.5 }.mesh().ico(6).unwrap()),
         meshes.add(primitives::Sphere { radius: 0.5 }.mesh().uv(6, 6)),
     ];
@@ -81,7 +82,7 @@ fn setup(
     });
 
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        transform: Transform::from_xyz(2.0, 3., 6.0).looking_at(Vec3::new(2., 1., 0.), Vec3::Y),
         ..default()
     });
 }

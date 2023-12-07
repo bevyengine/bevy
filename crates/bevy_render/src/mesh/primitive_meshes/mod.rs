@@ -1,6 +1,7 @@
 mod capsule;
 mod circle;
 mod cone;
+mod conical_frustum;
 mod cuboid;
 mod cylinder;
 mod rectangle;
@@ -13,6 +14,7 @@ pub(crate) mod builders {
     pub use super::capsule::CapsuleBuilder;
     pub use super::circle::CircleBuilder;
     pub use super::cone::ConeBuilder;
+    pub use super::conical_frustum::ConicalFrustumBuilder;
     pub use super::cylinder::CylinderBuilder;
     pub use super::rectangle::RectangleBuilder;
     pub use super::sphere::SphereBuilder;
