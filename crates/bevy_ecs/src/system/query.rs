@@ -363,7 +363,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     /// This will create a query that could violate memory safety rules. Make sure that this is only
     /// called in ways that ensure the queries have unique mutable access.
     #[inline]
-    pub(crate) unsafe fn new(
+    pub unsafe fn new(
         world: UnsafeWorldCell<'w>,
         state: &'s QueryState<Q, F>,
         last_run: Tick,
