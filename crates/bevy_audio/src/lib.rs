@@ -87,6 +87,10 @@ impl Plugin for AudioPlugin {
                     .run_if(audio_output_available)
                     .after(TransformSystem::TransformPropagate), // For spatial audio transforms
             )
+            .add_systems(
+                PostUpdate,
+                (update_emitter_positions, update_listener_positions).in_set(AudioPlaySet),
+            )
             .init_resource::<AudioOutput>();
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
@@ -107,11 +111,8 @@ impl AddAudioSource for App {
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,
-            play_queued_audio_system::<T>.in_set(AudioPlaySet),
+            (play_queued_audio_system::<T>, cleanup_finished_audio::<T>).in_set(AudioPlaySet),
         );
-        self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet));
-        self.add_systems(PostUpdate, update_emitter_positions.in_set(AudioPlaySet));
-        self.add_systems(PostUpdate, update_listener_positions.in_set(AudioPlaySet));
         self
     }
 }

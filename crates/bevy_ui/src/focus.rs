@@ -7,7 +7,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
-use bevy_input::{mouse::MouseButton, touch::Touches, Input};
+use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
@@ -126,7 +126,7 @@ pub fn ui_focus_system(
     mut state: Local<State>,
     camera: Query<(&Camera, Option<&UiCameraConfig>)>,
     windows: Query<&Window>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
     ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
