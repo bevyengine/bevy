@@ -3,13 +3,13 @@ use crate::mesh::{Indices, Mesh};
 use bevy_math::{primitives::ConicalFrustum, Vec3};
 use wgpu::PrimitiveTopology;
 
-pub struct ConicalFrustumBuilder {
+pub struct ConicalFrustumMesh {
     pub frustum: ConicalFrustum,
     pub resolution: u32,
     pub segments: u32,
 }
 
-impl ConicalFrustumBuilder {
+impl ConicalFrustumMesh {
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
@@ -133,10 +133,10 @@ impl ConicalFrustumBuilder {
 }
 
 impl Meshable for ConicalFrustum {
-    type Output = ConicalFrustumBuilder;
+    type Output = ConicalFrustumMesh;
 
     fn mesh(&self) -> Self::Output {
-        ConicalFrustumBuilder {
+        ConicalFrustumMesh {
             frustum: *self,
             resolution: 32,
             segments: 1,
@@ -150,8 +150,8 @@ impl From<ConicalFrustum> for Mesh {
     }
 }
 
-impl From<ConicalFrustumBuilder> for Mesh {
-    fn from(frustum: ConicalFrustumBuilder) -> Self {
+impl From<ConicalFrustumMesh> for Mesh {
+    fn from(frustum: ConicalFrustumMesh) -> Self {
         frustum.build()
     }
 }

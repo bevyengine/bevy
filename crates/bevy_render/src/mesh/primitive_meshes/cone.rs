@@ -3,12 +3,12 @@ use crate::mesh::{Indices, Mesh};
 use bevy_math::primitives::Cone;
 use wgpu::PrimitiveTopology;
 
-pub struct ConeBuilder {
+pub struct ConeMesh {
     pub cone: Cone,
     pub resolution: u32,
 }
 
-impl ConeBuilder {
+impl ConeMesh {
     pub fn resolution(mut self, resolution: usize) -> Self {
         self.resolution = resolution as u32;
         self
@@ -81,10 +81,10 @@ impl ConeBuilder {
 }
 
 impl Meshable for Cone {
-    type Output = ConeBuilder;
+    type Output = ConeMesh;
 
     fn mesh(&self) -> Self::Output {
-        ConeBuilder {
+        ConeMesh {
             cone: *self,
             resolution: 32,
         }
@@ -97,8 +97,8 @@ impl From<Cone> for Mesh {
     }
 }
 
-impl From<ConeBuilder> for Mesh {
-    fn from(cone: ConeBuilder) -> Self {
+impl From<ConeMesh> for Mesh {
+    fn from(cone: ConeMesh) -> Self {
         cone.build()
     }
 }

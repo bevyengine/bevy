@@ -4,12 +4,12 @@ use bevy_math::primitives::Rectangle;
 use wgpu::PrimitiveTopology;
 
 #[derive(Debug)]
-pub struct RectangleBuilder {
+pub struct RectangleMesh {
     pub rectangle: Rectangle,
     pub flipped: bool,
 }
 
-impl RectangleBuilder {
+impl RectangleMesh {
     fn build(&self) -> Mesh {
         let (u_left, u_right) = if self.flipped { (1.0, 0.0) } else { (0.0, 1.0) };
         let [hw, hh] = [self.rectangle.half_width, self.rectangle.half_height];
@@ -41,10 +41,10 @@ impl RectangleBuilder {
 }
 
 impl Meshable for Rectangle {
-    type Output = RectangleBuilder;
+    type Output = RectangleMesh;
 
     fn mesh(&self) -> Self::Output {
-        RectangleBuilder {
+        RectangleMesh {
             rectangle: *self,
             flipped: false,
         }
@@ -57,8 +57,8 @@ impl From<Rectangle> for Mesh {
     }
 }
 
-impl From<RectangleBuilder> for Mesh {
-    fn from(rectangle: RectangleBuilder) -> Self {
+impl From<RectangleMesh> for Mesh {
+    fn from(rectangle: RectangleMesh) -> Self {
         rectangle.build()
     }
 }

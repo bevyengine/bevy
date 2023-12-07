@@ -16,7 +16,7 @@ pub enum CapsuleUvProfile {
     Fixed,
 }
 
-pub struct CapsuleBuilder {
+pub struct CapsuleMesh {
     pub capsule: Capsule,
     pub rings: usize,
     pub longitudes: usize,
@@ -24,7 +24,7 @@ pub struct CapsuleBuilder {
     pub uv_profile: CapsuleUvProfile,
 }
 
-impl CapsuleBuilder {
+impl CapsuleMesh {
     pub fn rings(mut self, rings: usize) -> Self {
         self.rings = rings;
         self
@@ -47,7 +47,7 @@ impl CapsuleBuilder {
 
     pub fn build(&self) -> Mesh {
         // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
-        let CapsuleBuilder {
+        let CapsuleMesh {
             capsule,
             rings,
             longitudes,
@@ -371,10 +371,10 @@ impl CapsuleBuilder {
 }
 
 impl Meshable for Capsule {
-    type Output = CapsuleBuilder;
+    type Output = CapsuleMesh;
 
     fn mesh(&self) -> Self::Output {
-        CapsuleBuilder {
+        CapsuleMesh {
             capsule: *self,
             rings: 0,
             latitudes: 16,
@@ -390,8 +390,8 @@ impl From<Capsule> for Mesh {
     }
 }
 
-impl From<CapsuleBuilder> for Mesh {
-    fn from(capsule: CapsuleBuilder) -> Self {
+impl From<CapsuleMesh> for Mesh {
+    fn from(capsule: CapsuleMesh) -> Self {
         capsule.build()
     }
 }

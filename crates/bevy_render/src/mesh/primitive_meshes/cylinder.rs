@@ -3,13 +3,13 @@ use crate::mesh::{Indices, Mesh};
 use bevy_math::primitives::Cylinder;
 use wgpu::PrimitiveTopology;
 
-pub struct CylinderBuilder {
+pub struct CylinderMesh {
     pub cylinder: Cylinder,
     pub resolution: u32,
     pub segments: u32,
 }
 
-impl CylinderBuilder {
+impl CylinderMesh {
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
@@ -118,10 +118,10 @@ impl CylinderBuilder {
 }
 
 impl Meshable for Cylinder {
-    type Output = CylinderBuilder;
+    type Output = CylinderMesh;
 
     fn mesh(&self) -> Self::Output {
-        CylinderBuilder {
+        CylinderMesh {
             cylinder: *self,
             resolution: 16,
             segments: 1,
@@ -135,8 +135,8 @@ impl From<Cylinder> for Mesh {
     }
 }
 
-impl From<CylinderBuilder> for Mesh {
-    fn from(cylinder: CylinderBuilder) -> Self {
+impl From<CylinderMesh> for Mesh {
+    fn from(cylinder: CylinderMesh) -> Self {
         cylinder.build()
     }
 }

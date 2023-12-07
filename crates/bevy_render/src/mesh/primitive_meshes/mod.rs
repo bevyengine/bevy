@@ -11,14 +11,14 @@ mod torus;
 mod triangle;
 
 pub(crate) mod builders {
-    pub use super::capsule::CapsuleBuilder;
-    pub use super::circle::CircleBuilder;
-    pub use super::cone::ConeBuilder;
-    pub use super::conical_frustum::ConicalFrustumBuilder;
-    pub use super::cylinder::CylinderBuilder;
-    pub use super::rectangle::RectangleBuilder;
-    pub use super::sphere::SphereBuilder;
-    pub use super::torus::TorusBuilder;
+    pub use super::capsule::CapsuleMesh;
+    pub use super::circle::CircleMesh;
+    pub use super::cone::ConeMesh;
+    pub use super::conical_frustum::ConicalFrustumMesh;
+    pub use super::cylinder::CylinderMesh;
+    pub use super::rectangle::RectangleMesh;
+    pub use super::sphere::SphereMesh;
+    pub use super::torus::TorusMesh;
 }
 
 use super::Mesh;

@@ -31,12 +31,12 @@ pub enum SphereKind {
 }
 
 #[derive(Debug)]
-pub struct SphereBuilder {
+pub struct SphereMesh {
     pub sphere: Sphere,
     pub kind: SphereKind,
 }
 
-impl SphereBuilder {
+impl SphereMesh {
     /// Builds a sphere mesh according to the configuration in `self`.
     ///
     /// # Panics
@@ -199,10 +199,10 @@ impl SphereBuilder {
 }
 
 impl Meshable for Sphere {
-    type Output = SphereBuilder;
+    type Output = SphereMesh;
 
     fn mesh(&self) -> Self::Output {
-        SphereBuilder {
+        SphereMesh {
             sphere: *self,
             kind: SphereKind::Ico { subdivisions: 5 },
         }
@@ -215,8 +215,8 @@ impl From<Sphere> for Mesh {
     }
 }
 
-impl From<SphereBuilder> for Mesh {
-    fn from(sphere: SphereBuilder) -> Self {
+impl From<SphereMesh> for Mesh {
+    fn from(sphere: SphereMesh) -> Self {
         sphere.build()
     }
 }

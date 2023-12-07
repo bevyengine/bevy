@@ -3,13 +3,13 @@ use crate::mesh::{Indices, Mesh};
 use bevy_math::{primitives::Torus, Vec3};
 use wgpu::PrimitiveTopology;
 
-pub struct TorusBuilder {
+pub struct TorusMesh {
     pub torus: Torus,
     pub subdivisions_segments: usize,
     pub subdivisions_sides: usize,
 }
 
-impl TorusBuilder {
+impl TorusMesh {
     pub fn build(&self) -> Mesh {
         // code adapted from http://apparat-engine.blogspot.com/2013/04/procedural-meshes-torus.html
         // (source code at https://github.com/SEilers/Apparat)
@@ -94,10 +94,10 @@ impl TorusBuilder {
 }
 
 impl Meshable for Torus {
-    type Output = TorusBuilder;
+    type Output = TorusMesh;
 
     fn mesh(&self) -> Self::Output {
-        TorusBuilder {
+        TorusMesh {
             torus: *self,
             subdivisions_segments: 32,
             subdivisions_sides: 24,
@@ -111,8 +111,8 @@ impl From<Torus> for Mesh {
     }
 }
 
-impl From<TorusBuilder> for Mesh {
-    fn from(torus: TorusBuilder) -> Self {
+impl From<TorusMesh> for Mesh {
+    fn from(torus: TorusMesh) -> Self {
         torus.build()
     }
 }

@@ -4,14 +4,14 @@ use super::Meshable;
 use bevy_math::primitives::{Circle, RegularPolygon};
 
 #[derive(Debug)]
-pub struct CircleBuilder {
+pub struct CircleMesh {
     /// The circle shape.
     pub circle: Circle,
     /// The number of vertices used for the circle mesh.
     pub vertices: usize,
 }
 
-impl CircleBuilder {
+impl CircleMesh {
     pub fn build(&self) -> Mesh {
         RegularPolygon::new(self.circle.radius, self.vertices).mesh()
     }
@@ -25,10 +25,10 @@ impl CircleBuilder {
 }
 
 impl Meshable for Circle {
-    type Output = CircleBuilder;
+    type Output = CircleMesh;
 
     fn mesh(&self) -> Self::Output {
-        CircleBuilder {
+        CircleMesh {
             circle: *self,
             vertices: 64,
         }
@@ -41,8 +41,8 @@ impl From<Circle> for Mesh {
     }
 }
 
-impl From<CircleBuilder> for Mesh {
-    fn from(circle: CircleBuilder) -> Self {
+impl From<CircleMesh> for Mesh {
+    fn from(circle: CircleMesh) -> Self {
         circle.build()
     }
 }
