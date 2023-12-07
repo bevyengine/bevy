@@ -29,11 +29,7 @@ pub mod prelude {
     pub use crate::{
         camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
-        mesh::{
-            morph::MorphWeights,
-            primitive_meshes::{builders::*, Meshable},
-            shape, Mesh,
-        },
+        mesh::{morph::MorphWeights, primitive_meshes::*, shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},

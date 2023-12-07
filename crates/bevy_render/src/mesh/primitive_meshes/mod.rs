@@ -10,16 +10,14 @@ mod sphere;
 mod torus;
 mod triangle;
 
-pub(crate) mod builders {
-    pub use super::capsule::CapsuleMesh;
-    pub use super::circle::CircleMesh;
-    pub use super::cone::ConeMesh;
-    pub use super::conical_frustum::ConicalFrustumMesh;
-    pub use super::cylinder::CylinderMesh;
-    pub use super::rectangle::RectangleMesh;
-    pub use super::sphere::SphereMesh;
-    pub use super::torus::TorusMesh;
-}
+pub use capsule::CapsuleMesh;
+pub use circle::CircleMesh;
+pub use cone::ConeMesh;
+pub use conical_frustum::ConicalFrustumMesh;
+pub use cylinder::CylinderMesh;
+pub use rectangle::RectangleMesh;
+pub use sphere::SphereMesh;
+pub use torus::TorusMesh;
 
 use super::Mesh;
 
@@ -27,4 +25,25 @@ pub trait Meshable {
     type Output;
 
     fn mesh(&self) -> Self::Output;
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum Facing {
+    X = 1,
+    Y = 2,
+    #[default]
+    Z = 3,
+    NegX = -1,
+    NegY = -2,
+    NegZ = -3,
+}
+
+impl Facing {
+    /// Returns `1` if the facing direction is positive `X`, `Y`, or `Z`, and `-1` otherwise.
+    pub const fn signum(&self) -> i8 {
+        match self {
+            Facing::X | Facing::Y | Facing::Z => 1,
+            _ => -1,
+        }
+    }
 }
