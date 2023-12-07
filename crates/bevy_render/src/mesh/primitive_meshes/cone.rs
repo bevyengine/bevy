@@ -9,6 +9,11 @@ pub struct ConeBuilder {
 }
 
 impl ConeBuilder {
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution as u32;
+        self
+    }
+
     pub fn build(&self) -> Mesh {
         let num_vertices = self.resolution * 2 + 1;
         let num_indices = self.resolution * 3;
@@ -73,11 +78,6 @@ impl ConeBuilder {
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
-
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.resolution = segments as u32;
-        self
-    }
 }
 
 impl Meshable for Cone {
@@ -92,13 +92,13 @@ impl Meshable for Cone {
 }
 
 impl From<Cone> for Mesh {
-    fn from(sphere: Cone) -> Self {
-        sphere.mesh().build()
+    fn from(cone: Cone) -> Self {
+        cone.mesh().build()
     }
 }
 
 impl From<ConeBuilder> for Mesh {
-    fn from(sphere: ConeBuilder) -> Self {
-        sphere.build()
+    fn from(cone: ConeBuilder) -> Self {
+        cone.build()
     }
 }
