@@ -1,5 +1,5 @@
 use super::Meshable;
-use crate::mesh::{Indices, Mesh};
+use crate::mesh::{primitive_meshes::CircleMesh, Indices, Mesh};
 use bevy_math::primitives::Cylinder;
 use wgpu::PrimitiveTopology;
 
@@ -76,38 +76,22 @@ impl CylinderMesh {
             }
         }
 
-        // caps
-
-        let mut build_cap = |top: bool| {
-            let offset = positions.len() as u32;
-            let (y, normal_y, winding) = if top {
-                (self.cylinder.half_height * 2.0 / 2., 1., (1, 0))
-            } else {
-                (self.cylinder.half_height * 2.0 / -2., -1., (0, 1))
-            };
-
-            for i in 0..resolution {
-                let theta = i as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
-
-                positions.push([cos * self.cylinder.radius, y, sin * self.cylinder.radius]);
-                normals.push([0.0, normal_y, 0.0]);
-                uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-            }
-
-            for i in 1..(resolution - 1) {
-                indices.extend_from_slice(&[
-                    offset,
-                    offset + i + winding.0,
-                    offset + i + winding.1,
-                ]);
-            }
-        };
-
-        // top
-
-        build_cap(true);
-        build_cap(false);
+        // Top and bottom
+        let base = CircleMesh::new(self.cylinder.radius, self.resolution as usize).facing_y();
+        base.build_mesh_data(
+            [0.0, self.cylinder.half_height, 0.0],
+            &mut indices,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+        );
+        base.facing_neg_y().build_mesh_data(
+            [0.0, -self.cylinder.half_height, 0.0],
+            &mut indices,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+        );
 
         Mesh::new(PrimitiveTopology::TriangleList)
             .with_indices(Some(Indices::U32(indices)))

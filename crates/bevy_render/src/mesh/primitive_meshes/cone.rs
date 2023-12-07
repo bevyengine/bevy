@@ -1,4 +1,4 @@
-use super::Meshable;
+use super::{CircleMesh, Meshable};
 use crate::mesh::{Indices, Mesh};
 use bevy_math::primitives::Cone;
 use wgpu::PrimitiveTopology;
@@ -54,23 +54,14 @@ impl ConeMesh {
 
         // base
 
-        let offset = positions.len() as u32;
-        let y = self.cone.height / -2.;
-
-        let radius = self.cone.radius;
-
-        for i in 0..self.resolution {
-            let theta = i as f32 * step_theta;
-            let (sin, cos) = theta.sin_cos();
-
-            positions.push([cos * radius, y, sin * radius]);
-            normals.push([0.0, -1.0, 0.0]);
-            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-        }
-
-        for i in 1..(self.resolution - 1) {
-            indices.extend_from_slice(&[offset, offset + i, offset + i + 1]);
-        }
+        let base = CircleMesh::new(self.cone.radius, self.resolution as usize).facing_neg_y();
+        base.build_mesh_data(
+            [0.0, -self.cone.height / 2.0, 0.0],
+            &mut indices,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+        );
 
         Mesh::new(PrimitiveTopology::TriangleList)
             .with_indices(Some(Indices::U32(indices)))

@@ -1,5 +1,5 @@
 use super::Meshable;
-use crate::mesh::{Indices, Mesh};
+use crate::mesh::{primitive_meshes::CircleMesh, Indices, Mesh};
 use bevy_math::{primitives::ConicalFrustum, Vec3};
 use wgpu::PrimitiveTopology;
 
@@ -85,44 +85,24 @@ impl ConicalFrustumMesh {
             }
         }
 
-        // caps
+        let top = CircleMesh::new(self.frustum.radius_top, self.resolution as usize).facing_y();
+        top.build_mesh_data(
+            [0.0, self.frustum.height / 2.0, 0.0],
+            &mut indices,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+        );
 
-        let mut build_cap = |top: bool| {
-            let offset = positions.len() as u32;
-            let (y, normal_y, winding) = if top {
-                (height / 2., 1., (1, 0))
-            } else {
-                (height / -2., -1., (0, 1))
-            };
-
-            let radius = if top { radius_top } else { radius_bottom };
-
-            if radius == 0.0 {
-                return;
-            }
-
-            for i in 0..self.resolution {
-                let theta = i as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
-
-                positions.push([cos * radius, y, sin * radius]);
-                normals.push([0.0, normal_y, 0.0]);
-                uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-            }
-
-            for i in 1..(self.resolution - 1) {
-                indices.extend_from_slice(&[
-                    offset,
-                    offset + i + winding.0,
-                    offset + i + winding.1,
-                ]);
-            }
-        };
-
-        // top
-
-        build_cap(true);
-        build_cap(false);
+        let bottom =
+            CircleMesh::new(self.frustum.radius_bottom, self.resolution as usize).facing_neg_y();
+        bottom.build_mesh_data(
+            [0.0, -self.frustum.height / 2.0, 0.0],
+            &mut indices,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+        );
 
         Mesh::new(PrimitiveTopology::TriangleList)
             .with_indices(Some(Indices::U32(indices)))
