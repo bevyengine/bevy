@@ -82,7 +82,7 @@ fn setup(
     });
 
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(2.0, 3., 6.0).looking_at(Vec3::new(2., 1., 0.), Vec3::Y),
+        transform: Transform::from_xyz(0.0, 5.0, 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..default()
     });
 }
