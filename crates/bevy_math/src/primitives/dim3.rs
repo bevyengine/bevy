@@ -292,9 +292,11 @@ impl Primitive3d for ConicalFrustum {}
 impl Default for ConicalFrustum {
     fn default() -> Self {
         Self {
-            radius_top: 0.2,
+            // This produces the same shape as the default Cone,
+            // but trancated to half the height.
+            radius_top: 0.25,
             radius_bottom: 0.5,
-            height: 0.75,
+            height: 0.5,
         }
     }
 }
@@ -336,8 +338,8 @@ impl Primitive3d for Torus {}
 impl Default for Torus {
     fn default() -> Self {
         Self {
-            minor_radius: 0.5,
-            major_radius: 1.0,
+            minor_radius: 0.25,
+            major_radius: 0.75,
         }
     }
 }
