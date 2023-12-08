@@ -96,9 +96,6 @@ fn update_accessibility_nodes(
         // TODO: Extract into function
         adapter.update_if_active(|| {
             let mut to_update = vec![];
-            // TODO: Inline variable
-            // TODO: Remove redundant dereference
-            let focus_id = (*focus).unwrap_or_else(|| primary_window_id).to_bits();
             // TODO: Rename to `window_children`
             let mut root_children = vec![];
             for (entity, node, children, parent) in &nodes {
@@ -141,7 +138,7 @@ fn update_accessibility_nodes(
             TreeUpdate {
                 nodes: to_update,
                 tree: None,
-                focus: NodeId(focus_id),
+                focus: NodeId(focus.unwrap_or(primary_window_id).to_bits()),
             }
         });
     }
