@@ -335,7 +335,7 @@ enum DefaultRenderMode {
 fn switch_mode(
     mut text: Query<&mut Text>,
     mut commands: Commands,
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     cameras: Query<Entity, With<Camera>>,

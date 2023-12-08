@@ -438,7 +438,7 @@ fn example_control_system(
     mut display: Query<&mut Text, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::Digit2) {
         state.diffuse_transmission = (state.diffuse_transmission + time.delta_seconds()).min(1.0);

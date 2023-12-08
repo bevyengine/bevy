@@ -85,7 +85,7 @@ fn setup(
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
 fn input_handler(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<&mut Transform, With<CustomUV>>,

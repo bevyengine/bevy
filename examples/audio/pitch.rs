@@ -39,7 +39,7 @@ fn play_pitch(
 }
 
 fn keyboard_input_system(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut frequency: ResMut<PitchFrequency>,
     mut events: EventWriter<PlayPitch>,
 ) {

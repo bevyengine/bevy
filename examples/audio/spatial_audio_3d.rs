@@ -101,7 +101,7 @@ struct Emitter {
 fn update_positions(
     time: Res<Time>,
     mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
@@ -116,7 +116,7 @@ fn update_positions(
 }
 
 fn update_listener(
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut listeners: Query<&mut Transform, With<SpatialListener>>,
 ) {

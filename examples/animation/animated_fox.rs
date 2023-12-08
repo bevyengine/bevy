@@ -92,7 +92,7 @@ fn setup_scene_once_loaded(
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut animation_players: Query<&mut AnimationPlayer>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,

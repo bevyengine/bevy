@@ -101,7 +101,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn toggle_ime(
-    input: Res<Input<MouseButton>>,
+    input: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
     mut text: Query<&mut Text, With<Node>>,
 ) {

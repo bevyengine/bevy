@@ -99,8 +99,8 @@ fn camera_controller(
     time: Res<Time>,
     mut windows: Query<&mut Window>,
     mut mouse_events: EventReader<MouseMotion>,
-    mouse_button_input: Res<Input<MouseButton>>,
-    key_input: Res<Input<KeyCode>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     mut move_toggled: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {

@@ -1,22 +1,45 @@
-use super::{Primitive2d, WindingOrder};
+use super::{InvalidDirectionError, Primitive2d, WindingOrder};
 use crate::Vec2;
 
 /// A normalized vector pointing in a direction in 2D space
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
 
 impl Direction2d {
     /// Create a direction from a finite, nonzero [`Vec2`].
     ///
-    /// Returns `None` if the input is zero (or very close to zero), or non-finite.
-    pub fn new(value: Vec2) -> Option<Self> {
-        value.try_normalize().map(Self)
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new(value: Vec2) -> Result<Self, InvalidDirectionError> {
+        value.try_normalize().map(Self).map_or_else(
+            || {
+                if value.is_nan() {
+                    Err(InvalidDirectionError::NaN)
+                } else if !value.is_finite() {
+                    // If the direction is non-finite but also not NaN, it must be infinite
+                    Err(InvalidDirectionError::Infinite)
+                } else {
+                    // If the direction is invalid but neither NaN nor infinite, it must be zero
+                    Err(InvalidDirectionError::Zero)
+                }
+            },
+            Ok,
+        )
     }
 
     /// Create a direction from a [`Vec2`] that is already normalized
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
+    }
+}
+
+impl TryFrom<Vec2> for Direction2d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec2) -> Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 
@@ -63,6 +86,20 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Plane2d {
+    /// Create a new `Plane2d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
+    pub fn new(normal: Vec2) -> Self {
+        Self {
+            normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
+        }
+    }
+}
 
 /// An infinite line along a direction in 2D space.
 ///
@@ -323,6 +360,30 @@ impl RegularPolygon {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn direction_creation() {
+        assert_eq!(
+            Direction2d::new(Vec2::X * 12.5),
+            Ok(Direction2d::from_normalized(Vec2::X))
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(std::f32::INFINITY, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(std::f32::NEG_INFINITY, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(std::f32::NAN, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
+    }
 
     #[test]
     fn triangle_winding_order() {
