@@ -96,8 +96,6 @@ fn update_accessibility_nodes(
         // TODO: Extract into function
         adapter.update_if_active(|| {
             let mut to_update = vec![];
-            // TODO: Remove `name` variable
-            let mut name = None;
             // TODO: Inline variable
             // TODO: Remove redundant dereference
             let focus_id = (*focus).unwrap_or_else(|| primary_window_id).to_bits();
@@ -133,10 +131,7 @@ fn update_accessibility_nodes(
             let mut root = NodeBuilder::new(Role::Window);
             if primary_window.focused {
                 let title = primary_window.title.clone();
-                name = Some(title.into_boxed_str());
-            }
-            if let Some(name) = name {
-                root.set_name(name);
+                root.set_name(title.into_boxed_str());
             }
             root.set_children(root_children);
             let root = root.build(&mut NodeClassSet::lock_global());
