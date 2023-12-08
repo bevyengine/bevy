@@ -116,12 +116,9 @@ fn update_accessibility_nodes(
                         }
                     }
                 }
-                to_update.push((
-                    // TODO: Extract variable
-                    NodeId(entity.to_bits()),
-                    // TODO: extract variable
-                    node.build(&mut NodeClassSet::lock_global()),
-                ));
+                let node_id = NodeId(entity.to_bits());
+                let node = node.build(&mut NodeClassSet::lock_global());
+                to_update.push((node_id, node));
             }
             let mut window_node = NodeBuilder::new(Role::Window);
             if primary_window.focused {
@@ -130,8 +127,8 @@ fn update_accessibility_nodes(
             }
             window_node.set_children(window_children);
             let window_node = window_node.build(&mut NodeClassSet::lock_global());
-            // TODO: Extract `window_node_id`
-            let window_update = (NodeId(primary_window_id.to_bits()), window_node);
+            let node_id = NodeId(primary_window_id.to_bits());
+            let window_update = (node_id, window_node);
             to_update.insert(0, window_update);
             TreeUpdate {
                 nodes: to_update,
