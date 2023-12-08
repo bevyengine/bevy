@@ -3,7 +3,7 @@ use crate::mesh::Indices;
 use bevy_math::primitives::Cuboid;
 use wgpu::PrimitiveTopology;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct CuboidMesh {
     pub cuboid: Cuboid,
 }

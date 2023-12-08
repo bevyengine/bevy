@@ -7,7 +7,7 @@ use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;
 
-#[derive(Debug, Clone, Error)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum IcosphereError {
     #[error("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
     TooManyVertices {
@@ -16,7 +16,7 @@ pub enum IcosphereError {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum SphereKind {
     Ico {
         /// The number of subdivisions applied.
@@ -30,7 +30,13 @@ pub enum SphereKind {
     },
 }
 
-#[derive(Debug)]
+impl Default for SphereKind {
+    fn default() -> Self {
+        Self::Ico { subdivisions: 5 }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
 pub struct SphereMesh {
     pub sphere: Sphere,
     pub kind: SphereKind,
@@ -204,7 +210,7 @@ impl Meshable for Sphere {
     fn mesh(&self) -> Self::Output {
         SphereMesh {
             sphere: *self,
-            kind: SphereKind::Ico { subdivisions: 5 },
+            ..Default::default()
         }
     }
 }

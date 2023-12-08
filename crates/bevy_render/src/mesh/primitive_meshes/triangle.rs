@@ -1,4 +1,4 @@
-use super::{Facing, Mesh, Meshable};
+use super::{Facing, Mesh, MeshFacingExtension, Meshable};
 use crate::mesh::Indices;
 use bevy_math::{
     primitives::{Triangle2d, WindingOrder},
@@ -6,10 +6,17 @@ use bevy_math::{
 };
 use wgpu::PrimitiveTopology;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Triangle2dMesh {
     pub triangle: Triangle2d,
     pub facing: Facing,
+}
+
+impl MeshFacingExtension for Triangle2dMesh {
+    fn facing(mut self, facing: Facing) -> Self {
+        self.facing = facing;
+        self
+    }
 }
 
 impl Triangle2dMesh {
@@ -19,41 +26,6 @@ impl Triangle2dMesh {
             triangle: Triangle2d::new(a, b, c),
             facing: Facing::Z,
         }
-    }
-
-    pub const fn facing(mut self, facing: Facing) -> Self {
-        self.facing = facing;
-        self
-    }
-
-    pub const fn facing_x(mut self) -> Self {
-        self.facing = Facing::X;
-        self
-    }
-
-    pub const fn facing_y(mut self) -> Self {
-        self.facing = Facing::Y;
-        self
-    }
-
-    pub const fn facing_z(mut self) -> Self {
-        self.facing = Facing::Z;
-        self
-    }
-
-    pub const fn facing_neg_x(mut self) -> Self {
-        self.facing = Facing::NegX;
-        self
-    }
-
-    pub const fn facing_neg_y(mut self) -> Self {
-        self.facing = Facing::NegY;
-        self
-    }
-
-    pub const fn facing_neg_z(mut self) -> Self {
-        self.facing = Facing::NegZ;
-        self
     }
 
     pub fn build(&self) -> Mesh {

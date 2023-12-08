@@ -1,50 +1,22 @@
-use super::{Facing, Mesh, Meshable};
+use super::{Facing, Mesh, MeshFacingExtension, Meshable};
 use crate::mesh::Indices;
 use bevy_math::primitives::RegularPolygon;
 use wgpu::PrimitiveTopology;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RegularPolygonMesh {
     pub polygon: RegularPolygon,
     pub facing: Facing,
 }
 
-impl RegularPolygonMesh {
-    pub const fn facing(mut self, facing: Facing) -> Self {
+impl MeshFacingExtension for RegularPolygonMesh {
+    fn facing(mut self, facing: Facing) -> Self {
         self.facing = facing;
         self
     }
+}
 
-    pub const fn facing_x(mut self) -> Self {
-        self.facing = Facing::X;
-        self
-    }
-
-    pub const fn facing_y(mut self) -> Self {
-        self.facing = Facing::Y;
-        self
-    }
-
-    pub const fn facing_z(mut self) -> Self {
-        self.facing = Facing::Z;
-        self
-    }
-
-    pub const fn facing_neg_x(mut self) -> Self {
-        self.facing = Facing::NegX;
-        self
-    }
-
-    pub const fn facing_neg_y(mut self) -> Self {
-        self.facing = Facing::NegY;
-        self
-    }
-
-    pub const fn facing_neg_z(mut self) -> Self {
-        self.facing = Facing::NegZ;
-        self
-    }
-
+impl RegularPolygonMesh {
     pub fn build(&self) -> Mesh {
         let mut indices = Vec::with_capacity((self.polygon.sides - 2) * 3);
         let mut positions = Vec::with_capacity(self.polygon.sides);

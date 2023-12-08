@@ -3,10 +3,21 @@ use crate::mesh::{Indices, Mesh};
 use bevy_math::{primitives::Torus, Vec3};
 use wgpu::PrimitiveTopology;
 
+#[derive(Clone, Copy, Debug)]
 pub struct TorusMesh {
     pub torus: Torus,
     pub subdivisions_segments: usize,
     pub subdivisions_sides: usize,
+}
+
+impl Default for TorusMesh {
+    fn default() -> Self {
+        Self {
+            torus: Torus::default(),
+            subdivisions_segments: 32,
+            subdivisions_sides: 24,
+        }
+    }
 }
 
 impl TorusMesh {
@@ -99,8 +110,7 @@ impl Meshable for Torus {
     fn mesh(&self) -> Self::Output {
         TorusMesh {
             torus: *self,
-            subdivisions_segments: 32,
-            subdivisions_sides: 24,
+            ..Default::default()
         }
     }
 }

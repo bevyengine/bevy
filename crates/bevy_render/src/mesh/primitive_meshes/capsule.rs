@@ -4,7 +4,7 @@ use bevy_math::{primitives::Capsule, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 /// Manner in which UV coordinates are distributed vertically.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum CapsuleUvProfile {
     /// UV space is distributed by how much of the capsule consists of the hemispheres.
     #[default]
@@ -16,12 +16,25 @@ pub enum CapsuleUvProfile {
     Fixed,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct CapsuleMesh {
     pub capsule: Capsule,
     pub rings: usize,
     pub longitudes: usize,
     pub latitudes: usize,
     pub uv_profile: CapsuleUvProfile,
+}
+
+impl Default for CapsuleMesh {
+    fn default() -> Self {
+        Self {
+            capsule: Capsule::default(),
+            rings: 0,
+            longitudes: 32,
+            latitudes: 16,
+            uv_profile: CapsuleUvProfile::default(),
+        }
+    }
 }
 
 impl CapsuleMesh {
@@ -376,10 +389,7 @@ impl Meshable for Capsule {
     fn mesh(&self) -> Self::Output {
         CapsuleMesh {
             capsule: *self,
-            rings: 0,
-            latitudes: 16,
-            longitudes: 32,
-            uv_profile: CapsuleUvProfile::Aspect,
+            ..Default::default()
         }
     }
 }

@@ -66,3 +66,31 @@ impl Facing {
         }
     }
 }
+
+pub trait MeshFacingExtension: Sized {
+    fn facing(self, facing: Facing) -> Self;
+
+    fn facing_x(self) -> Self {
+        self.facing(Facing::X)
+    }
+
+    fn facing_y(self) -> Self {
+        self.facing(Facing::Y)
+    }
+
+    fn facing_z(self) -> Self {
+        self.facing(Facing::Z)
+    }
+
+    fn facing_neg_x(self) -> Self {
+        self.facing(Facing::NegX)
+    }
+
+    fn facing_neg_y(self) -> Self {
+        self.facing(Facing::NegY)
+    }
+
+    fn facing_neg_z(self) -> Self {
+        self.facing(Facing::NegZ)
+    }
+}

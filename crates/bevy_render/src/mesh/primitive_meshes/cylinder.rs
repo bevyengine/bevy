@@ -1,12 +1,26 @@
 use super::Meshable;
-use crate::mesh::{primitive_meshes::CircleMesh, Indices, Mesh};
+use crate::mesh::{
+    primitive_meshes::{CircleMesh, MeshFacingExtension},
+    Indices, Mesh,
+};
 use bevy_math::primitives::Cylinder;
 use wgpu::PrimitiveTopology;
 
+#[derive(Clone, Copy, Debug)]
 pub struct CylinderMesh {
     pub cylinder: Cylinder,
     pub resolution: u32,
     pub segments: u32,
+}
+
+impl Default for CylinderMesh {
+    fn default() -> Self {
+        Self {
+            cylinder: Cylinder::default(),
+            resolution: 32,
+            segments: 1,
+        }
+    }
 }
 
 impl CylinderMesh {
@@ -107,8 +121,7 @@ impl Meshable for Cylinder {
     fn mesh(&self) -> Self::Output {
         CylinderMesh {
             cylinder: *self,
-            resolution: 16,
-            segments: 1,
+            ..Default::default()
         }
     }
 }

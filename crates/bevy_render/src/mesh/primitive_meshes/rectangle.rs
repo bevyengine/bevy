@@ -1,12 +1,19 @@
-use super::{Facing, Mesh, Meshable};
+use super::{Facing, Mesh, MeshFacingExtension, Meshable};
 use crate::mesh::Indices;
 use bevy_math::primitives::Rectangle;
 use wgpu::PrimitiveTopology;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RectangleMesh {
     pub rectangle: Rectangle,
     pub facing: Facing,
+}
+
+impl MeshFacingExtension for RectangleMesh {
+    fn facing(mut self, facing: Facing) -> Self {
+        self.facing = facing;
+        self
+    }
 }
 
 impl RectangleMesh {
@@ -16,41 +23,6 @@ impl RectangleMesh {
             rectangle: Rectangle::new(width, height),
             facing: Facing::Z,
         }
-    }
-
-    pub const fn facing(mut self, facing: Facing) -> Self {
-        self.facing = facing;
-        self
-    }
-
-    pub const fn facing_x(mut self) -> Self {
-        self.facing = Facing::X;
-        self
-    }
-
-    pub const fn facing_y(mut self) -> Self {
-        self.facing = Facing::Y;
-        self
-    }
-
-    pub const fn facing_z(mut self) -> Self {
-        self.facing = Facing::Z;
-        self
-    }
-
-    pub const fn facing_neg_x(mut self) -> Self {
-        self.facing = Facing::NegX;
-        self
-    }
-
-    pub const fn facing_neg_y(mut self) -> Self {
-        self.facing = Facing::NegY;
-        self
-    }
-
-    pub const fn facing_neg_z(mut self) -> Self {
-        self.facing = Facing::NegZ;
-        self
     }
 
     fn build(&self) -> Mesh {

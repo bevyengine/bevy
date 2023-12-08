@@ -1,12 +1,26 @@
 use super::Meshable;
-use crate::mesh::{primitive_meshes::CircleMesh, Indices, Mesh};
+use crate::mesh::{
+    primitive_meshes::{CircleMesh, MeshFacingExtension},
+    Indices, Mesh,
+};
 use bevy_math::{primitives::ConicalFrustum, Vec3};
 use wgpu::PrimitiveTopology;
 
+#[derive(Clone, Copy, Debug)]
 pub struct ConicalFrustumMesh {
     pub frustum: ConicalFrustum,
     pub resolution: u32,
     pub segments: u32,
+}
+
+impl Default for ConicalFrustumMesh {
+    fn default() -> Self {
+        Self {
+            frustum: ConicalFrustum::default(),
+            resolution: 32,
+            segments: 1,
+        }
+    }
 }
 
 impl ConicalFrustumMesh {
@@ -118,8 +132,7 @@ impl Meshable for ConicalFrustum {
     fn mesh(&self) -> Self::Output {
         ConicalFrustumMesh {
             frustum: *self,
-            resolution: 32,
-            segments: 1,
+            ..Default::default()
         }
     }
 }

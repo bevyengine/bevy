@@ -1,11 +1,21 @@
-use super::{CircleMesh, Meshable};
+use super::{CircleMesh, MeshFacingExtension, Meshable};
 use crate::mesh::{Indices, Mesh};
 use bevy_math::primitives::Cone;
 use wgpu::PrimitiveTopology;
 
+#[derive(Clone, Copy, Debug)]
 pub struct ConeMesh {
     pub cone: Cone,
     pub resolution: u32,
+}
+
+impl Default for ConeMesh {
+    fn default() -> Self {
+        Self {
+            cone: Cone::default(),
+            resolution: 32,
+        }
+    }
 }
 
 impl ConeMesh {
@@ -77,7 +87,7 @@ impl Meshable for Cone {
     fn mesh(&self) -> Self::Output {
         ConeMesh {
             cone: *self,
-            resolution: 32,
+            ..Default::default()
         }
     }
 }

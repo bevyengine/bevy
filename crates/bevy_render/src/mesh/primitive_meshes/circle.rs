@@ -1,15 +1,32 @@
 use crate::mesh::Mesh;
 
-use super::{Facing, Meshable};
+use super::{Facing, MeshFacingExtension, Meshable};
 use bevy_math::primitives::{Circle, RegularPolygon};
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct CircleMesh {
     /// The circle shape.
     pub circle: Circle,
     /// The number of vertices used for the circle mesh.
     pub vertices: usize,
     pub facing: Facing,
+}
+
+impl Default for CircleMesh {
+    fn default() -> Self {
+        Self {
+            circle: Circle::default(),
+            vertices: 32,
+            facing: Facing::Z,
+        }
+    }
+}
+
+impl MeshFacingExtension for CircleMesh {
+    fn facing(mut self, facing: Facing) -> Self {
+        self.facing = facing;
+        self
+    }
 }
 
 impl CircleMesh {
@@ -26,41 +43,6 @@ impl CircleMesh {
     #[doc(alias = "segments")]
     pub const fn vertices(mut self, vertices: usize) -> Self {
         self.vertices = vertices;
-        self
-    }
-
-    pub const fn facing(mut self, facing: Facing) -> Self {
-        self.facing = facing;
-        self
-    }
-
-    pub const fn facing_x(mut self) -> Self {
-        self.facing = Facing::X;
-        self
-    }
-
-    pub const fn facing_y(mut self) -> Self {
-        self.facing = Facing::Y;
-        self
-    }
-
-    pub const fn facing_z(mut self) -> Self {
-        self.facing = Facing::Z;
-        self
-    }
-
-    pub const fn facing_neg_x(mut self) -> Self {
-        self.facing = Facing::NegX;
-        self
-    }
-
-    pub const fn facing_neg_y(mut self) -> Self {
-        self.facing = Facing::NegY;
-        self
-    }
-
-    pub const fn facing_neg_z(mut self) -> Self {
-        self.facing = Facing::NegZ;
         self
     }
 
@@ -92,8 +74,7 @@ impl Meshable for Circle {
     fn mesh(&self) -> Self::Output {
         CircleMesh {
             circle: *self,
-            vertices: 32,
-            facing: Facing::Z,
+            ..Default::default()
         }
     }
 }
