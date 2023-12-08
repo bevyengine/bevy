@@ -92,9 +92,7 @@ fn update_accessibility_nodes(
     let Some(adapter) = adapters.get(&primary_window_id) else {
         return;
     };
-    // TODO: Inline variable
-    let should_run = focus.is_changed() || !nodes.is_empty();
-    if should_run {
+    if focus.is_changed() || !nodes.is_empty() {
         // TODO: Extract into function
         adapter.update_if_active(|| {
             let mut to_update = vec![];
