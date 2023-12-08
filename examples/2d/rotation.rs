@@ -117,7 +117,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Demonstrates applying rotation and movement based on keyboard input.
 fn player_movement_system(
     time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&Player, &mut Transform)>,
 ) {
     let (ship, mut transform) = query.single_mut();

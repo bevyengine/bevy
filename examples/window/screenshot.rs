@@ -13,7 +13,7 @@ fn main() {
 }
 
 fn screenshot_on_spacebar(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     main_window: Query<Entity, With<PrimaryWindow>>,
     mut screenshot_manager: ResMut<ScreenshotManager>,
     mut counter: Local<u32>,

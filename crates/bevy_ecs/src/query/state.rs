@@ -267,7 +267,7 @@ impl<Q: WorldQueryData, F: WorldQueryFilter> QueryState<Q, F> {
                 self.matched_archetypes.set(archetype_index, true);
                 self.matched_archetype_ids.push(archetype.id());
             }
-            let table_index = archetype.table_id().index();
+            let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow(table_index + 1);
                 self.matched_tables.set(table_index, true);
