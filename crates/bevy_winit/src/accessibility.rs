@@ -157,7 +157,7 @@ fn queue_node_for_update(
         true
     };
     if should_push {
-        window_children.push(NodeId(node_entity.to_bits()))
+        window_children.push(NodeId(node_entity.to_bits()));
     }
 }
 
