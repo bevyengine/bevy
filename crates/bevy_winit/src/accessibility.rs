@@ -93,49 +93,86 @@ fn update_accessibility_nodes(
         return;
     };
     if focus.is_changed() || !nodes.is_empty() {
-        // TODO: Extract into function
         adapter.update_if_active(|| {
-            let mut to_update = vec![];
-            let mut window_children = vec![];
-            for (entity, node, children, parent) in &nodes {
-                let mut node = (**node).clone();
-                // TODO: Extract function
-                if let Some(parent) = parent {
-                    if !node_entities.contains(**parent) {
-                        window_children.push(NodeId(entity.to_bits()));
-                    }
-                } else {
-                    window_children.push(NodeId(entity.to_bits()));
-                }
-                // TODO: Extract function
-                // TODO: Invert CF
-                if let Some(children) = children {
-                    for child in children {
-                        if node_entities.contains(*child) {
-                            node.push_child(NodeId(child.to_bits()));
-                        }
-                    }
-                }
-                let node_id = NodeId(entity.to_bits());
-                let node = node.build(&mut NodeClassSet::lock_global());
-                to_update.push((node_id, node));
-            }
-            let mut window_node = NodeBuilder::new(Role::Window);
-            if primary_window.focused {
-                let title = primary_window.title.clone();
-                window_node.set_name(title.into_boxed_str());
-            }
-            window_node.set_children(window_children);
-            let window_node = window_node.build(&mut NodeClassSet::lock_global());
-            let node_id = NodeId(primary_window_id.to_bits());
-            let window_update = (node_id, window_node);
-            to_update.insert(0, window_update);
-            TreeUpdate {
-                nodes: to_update,
-                tree: None,
-                focus: NodeId(focus.unwrap_or(primary_window_id).to_bits()),
-            }
+            update_adapter(
+                nodes,
+                node_entities,
+                primary_window,
+                primary_window_id,
+                focus,
+            )
         });
+    }
+}
+
+fn update_adapter(
+    nodes: Query<(
+        Entity,
+        &AccessibilityNode,
+        Option<&Children>,
+        Option<&Parent>,
+    )>,
+    node_entities: Query<Entity, With<AccessibilityNode>>,
+    primary_window: &Window,
+    primary_window_id: Entity,
+    focus: Res<Focus>,
+) -> TreeUpdate {
+    let mut to_update = vec![];
+    let mut window_children = vec![];
+    for (entity, node, children, parent) in &nodes {
+        let mut node = (**node).clone();
+        queue_node_for_update(entity, parent, &node_entities, &mut window_children);
+        add_children_nodes(children, &node_entities, &mut node);
+        let node_id = NodeId(entity.to_bits());
+        let node = node.build(&mut NodeClassSet::lock_global());
+        to_update.push((node_id, node));
+    }
+    let mut window_node = NodeBuilder::new(Role::Window);
+    if primary_window.focused {
+        let title = primary_window.title.clone();
+        window_node.set_name(title.into_boxed_str());
+    }
+    window_node.set_children(window_children);
+    let window_node = window_node.build(&mut NodeClassSet::lock_global());
+    let node_id = NodeId(primary_window_id.to_bits());
+    let window_update = (node_id, window_node);
+    to_update.insert(0, window_update);
+    TreeUpdate {
+        nodes: to_update,
+        tree: None,
+        focus: NodeId(focus.unwrap_or(primary_window_id).to_bits()),
+    }
+}
+
+#[inline]
+fn queue_node_for_update(
+    node_entity: Entity,
+    parent: Option<&Parent>,
+    node_entities: &Query<Entity, With<AccessibilityNode>>,
+    window_children: &mut Vec<NodeId>,
+) {
+    if let Some(parent) = parent {
+        if !node_entities.contains(parent.get()) {
+            window_children.push(NodeId(node_entity.to_bits()));
+        }
+    } else {
+        window_children.push(NodeId(node_entity.to_bits()));
+    }
+}
+
+#[inline]
+fn add_children_nodes(
+    children: Option<&Children>,
+    node_entities: &Query<Entity, With<AccessibilityNode>>,
+    node: &mut NodeBuilder,
+) {
+    let Some(children) = children else {
+        return;
+    };
+    for child in children {
+        if node_entities.contains(*child) {
+            node.push_child(NodeId(child.to_bits()));
+        }
     }
 }
 
