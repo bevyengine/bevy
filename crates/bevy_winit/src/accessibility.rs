@@ -151,12 +151,13 @@ fn queue_node_for_update(
     node_entities: &Query<Entity, With<AccessibilityNode>>,
     window_children: &mut Vec<NodeId>,
 ) {
-    if let Some(parent) = parent {
-        if !node_entities.contains(parent.get()) {
-            window_children.push(NodeId(node_entity.to_bits()));
-        }
+    let should_push = if let Some(parent) = parent {
+        node_entities.contains(parent.get())
     } else {
-        window_children.push(NodeId(node_entity.to_bits()));
+        true
+    };
+    if should_push {
+        window_children.push(NodeId(node_entity.to_bits()))
     }
 }
 
