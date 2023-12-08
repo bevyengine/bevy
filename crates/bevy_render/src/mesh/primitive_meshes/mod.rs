@@ -14,6 +14,7 @@ pub use capsule::CapsuleMesh;
 pub use circle::CircleMesh;
 pub use cone::ConeMesh;
 pub use conical_frustum::ConicalFrustumMesh;
+pub use cuboid::CuboidMesh;
 pub use cylinder::CylinderMesh;
 pub use rectangle::RectangleMesh;
 pub use sphere::SphereMesh;

@@ -3,12 +3,21 @@ use crate::mesh::Indices;
 use bevy_math::primitives::Cuboid;
 use wgpu::PrimitiveTopology;
 
-impl Meshable for Cuboid {
-    type Output = Mesh;
+#[derive(Debug, Default, Clone)]
+pub struct CuboidMesh {
+    pub cuboid: Cuboid,
+}
 
-    fn mesh(&self) -> Mesh {
-        let min = -self.half_extents;
-        let max = self.half_extents;
+impl CuboidMesh {
+    pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
+        Self {
+            cuboid: Cuboid::new(x_length, y_length, z_length),
+        }
+    }
+
+    pub fn build(&self) -> Mesh {
+        let min = -self.cuboid.half_extents;
+        let max = self.cuboid.half_extents;
 
         // suppose Y-up right hand, and camera look from +z to -z
         let vertices = &[
@@ -65,8 +74,22 @@ impl Meshable for Cuboid {
     }
 }
 
+impl Meshable for Cuboid {
+    type Output = CuboidMesh;
+
+    fn mesh(&self) -> Self::Output {
+        CuboidMesh { cuboid: *self }
+    }
+}
+
 impl From<Cuboid> for Mesh {
     fn from(cuboid: Cuboid) -> Self {
-        cuboid.mesh()
+        cuboid.mesh().build()
+    }
+}
+
+impl From<CuboidMesh> for Mesh {
+    fn from(cuboid: CuboidMesh) -> Self {
+        cuboid.build()
     }
 }
