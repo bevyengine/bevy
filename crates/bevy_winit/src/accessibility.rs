@@ -96,17 +96,16 @@ fn update_accessibility_nodes(
         // TODO: Extract into function
         adapter.update_if_active(|| {
             let mut to_update = vec![];
-            // TODO: Rename to `window_children`
-            let mut root_children = vec![];
+            let mut window_children = vec![];
             for (entity, node, children, parent) in &nodes {
                 let mut node = (**node).clone();
                 // TODO: Extract function
                 if let Some(parent) = parent {
                     if !node_entities.contains(**parent) {
-                        root_children.push(NodeId(entity.to_bits()));
+                        window_children.push(NodeId(entity.to_bits()));
                     }
                 } else {
-                    root_children.push(NodeId(entity.to_bits()));
+                    window_children.push(NodeId(entity.to_bits()));
                 }
                 // TODO: Extract function
                 // TODO: Invert CF
@@ -124,16 +123,15 @@ fn update_accessibility_nodes(
                     node.build(&mut NodeClassSet::lock_global()),
                 ));
             }
-            // TODO: Rename to window_node
-            let mut root = NodeBuilder::new(Role::Window);
+            let mut window_node = NodeBuilder::new(Role::Window);
             if primary_window.focused {
                 let title = primary_window.title.clone();
-                root.set_name(title.into_boxed_str());
+                window_node.set_name(title.into_boxed_str());
             }
-            root.set_children(root_children);
-            let root = root.build(&mut NodeClassSet::lock_global());
+            window_node.set_children(window_children);
+            let window_node = window_node.build(&mut NodeClassSet::lock_global());
             // TODO: Extract `window_node_id`
-            let window_update = (NodeId(primary_window_id.to_bits()), root);
+            let window_update = (NodeId(primary_window_id.to_bits()), window_node);
             to_update.insert(0, window_update);
             TreeUpdate {
                 nodes: to_update,
