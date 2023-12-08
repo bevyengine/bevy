@@ -77,7 +77,7 @@ impl Primitive2d for Ellipse {}
 impl Default for Ellipse {
     fn default() -> Self {
         Self {
-            half_width: 0.5,
+            half_width: 1.0,
             half_height: 0.5,
         }
     }
