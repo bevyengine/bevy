@@ -197,7 +197,7 @@ impl BoxedPolyline2d {
 }
 
 /// A triangle in 2D space
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
@@ -214,7 +214,7 @@ impl Default for Triangle2d {
 
 impl Triangle2d {
     /// Create a new `Triangle2d` from points `a`, `b`, and `c`
-    pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+    pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             vertices: [a, b, c],
         }

@@ -1,4 +1,4 @@
-use super::{Mesh, Meshable};
+use super::{Facing, Mesh, Meshable};
 use crate::mesh::Indices;
 use bevy_math::{
     primitives::{Triangle2d, WindingOrder},
@@ -6,38 +6,112 @@ use bevy_math::{
 };
 use wgpu::PrimitiveTopology;
 
-impl Meshable for Triangle2d {
-    type Output = Mesh;
+#[derive(Clone, Debug, Default)]
+pub struct Triangle2dMesh {
+    pub triangle: Triangle2d,
+    pub facing: Facing,
+}
 
-    fn mesh(&self) -> Mesh {
-        let [a, b, c] = self.vertices;
-        let max = a.min(b).min(c).abs().max(a.max(b).max(c)) * Vec2::new(1.0, -1.0);
-        let [norm_a, norm_b, norm_c] = [(a) / max, (b) / max, (c) / max];
-        let vertices = [
-            (a.extend(0.0), [0.0, 0.0, 1.0], norm_a / 2.0 + 0.5),
-            (b.extend(0.0), [0.0, 0.0, 1.0], norm_b / 2.0 + 0.5),
-            (c.extend(0.0), [0.0, 0.0, 1.0], norm_c / 2.0 + 0.5),
+impl Triangle2dMesh {
+    /// Creates a new [`Triangle2dMesh`] from a given radius and vertex count.
+    pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+        Self {
+            triangle: Triangle2d::new(a, b, c),
+            facing: Facing::Z,
+        }
+    }
+
+    pub const fn facing(mut self, facing: Facing) -> Self {
+        self.facing = facing;
+        self
+    }
+
+    pub const fn facing_x(mut self) -> Self {
+        self.facing = Facing::X;
+        self
+    }
+
+    pub const fn facing_y(mut self) -> Self {
+        self.facing = Facing::Y;
+        self
+    }
+
+    pub const fn facing_z(mut self) -> Self {
+        self.facing = Facing::Z;
+        self
+    }
+
+    pub const fn facing_neg_x(mut self) -> Self {
+        self.facing = Facing::NegX;
+        self
+    }
+
+    pub const fn facing_neg_y(mut self) -> Self {
+        self.facing = Facing::NegY;
+        self
+    }
+
+    pub const fn facing_neg_z(mut self) -> Self {
+        self.facing = Facing::NegZ;
+        self
+    }
+
+    pub fn build(&self) -> Mesh {
+        let [a, b, c] = self.triangle.vertices;
+
+        let positions = match self.facing {
+            Facing::X | Facing::NegX => [[0.0, a.y, -a.x], [0.0, b.y, -b.x], [0.0, c.y, -c.x]],
+            Facing::Y | Facing::NegY => [[a.x, 0.0, -a.y], [b.x, 0.0, -b.y], [c.x, 0.0, -c.y]],
+            Facing::Z | Facing::NegZ => [[a.x, a.y, 0.0], [b.x, b.y, 0.0], [c.x, c.y, 0.0]],
+        };
+
+        let normals = vec![self.facing.to_array(); 3];
+
+        // The extents of the bounding box of the triangle,
+        // used to compute the UV coordinates of the points.
+        let extents = a.min(b).min(c).abs().max(a.max(b).max(c)) * Vec2::new(1.0, -1.0);
+        let uvs = vec![
+            a / extents / 2.0 + 0.5,
+            b / extents / 2.0 + 0.5,
+            c / extents / 2.0 + 0.5,
         ];
 
-        let indices = if self.winding_order() == WindingOrder::CounterClockwise {
+        let flipped = self.facing.signum() < 0;
+        let is_ccw = self.triangle.winding_order() == WindingOrder::CounterClockwise;
+        let is_cw = self.triangle.winding_order() == WindingOrder::Clockwise;
+        let indices = if (is_ccw && !flipped) || (is_cw && flipped) {
             Indices::U32(vec![0, 1, 2])
         } else {
             Indices::U32(vec![0, 2, 1])
         };
 
-        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
-        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
-        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
-
         Mesh::new(PrimitiveTopology::TriangleList)
             .with_indices(Some(indices))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, Vec::from(positions))
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
+
+impl Meshable for Triangle2d {
+    type Output = Triangle2dMesh;
+
+    fn mesh(&self) -> Triangle2dMesh {
+        Triangle2dMesh {
+            triangle: *self,
+            ..Default::default()
+        }
+    }
+}
+
 impl From<Triangle2d> for Mesh {
     fn from(triangle: Triangle2d) -> Self {
-        triangle.mesh()
+        triangle.mesh().build()
+    }
+}
+
+impl From<Triangle2dMesh> for Mesh {
+    fn from(triangle: Triangle2dMesh) -> Self {
+        triangle.build()
     }
 }

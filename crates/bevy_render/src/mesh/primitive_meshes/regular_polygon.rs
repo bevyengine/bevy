@@ -75,46 +75,33 @@ impl RegularPolygonMesh {
         uvs: &mut Vec<[f32; 2]>,
     ) {
         let sides = self.polygon.sides;
-
-        debug_assert!(sides > 2, "RegularPolygon requires at least 3 sides.");
-
         let radius = self.polygon.circumcircle.radius;
         let [trans_x, trans_y, trans_z] = translation;
+
         let index_offset = positions.len() as u32;
+        let facing_coords = self.facing.to_array();
         let normal_sign = self.facing.signum() as f32;
-        let step = std::f32::consts::TAU / sides as f32;
+        let step = normal_sign * std::f32::consts::TAU / sides as f32;
 
         for i in 0..sides {
-            let theta = std::f32::consts::FRAC_PI_2 - i as f32 * step;
+            let theta = std::f32::consts::FRAC_PI_2 + i as f32 * step;
             let (sin, cos) = theta.sin_cos();
+            let x = cos * radius;
+            let y = sin * radius;
 
-            let (position, normal) = match self.facing {
-                Facing::Z | Facing::NegZ => (
-                    [trans_x + cos * radius, trans_y + sin * radius, trans_z],
-                    [0.0, 0.0, normal_sign],
-                ),
-                Facing::Y | Facing::NegY => (
-                    [trans_x + cos * radius, trans_y, trans_z + sin * radius],
-                    [0.0, normal_sign, 0.0],
-                ),
-                Facing::X | Facing::NegX => (
-                    [trans_x, trans_y + cos * radius, trans_z + sin * radius],
-                    [normal_sign, 0.0, 0.0],
-                ),
+            let position = match self.facing {
+                Facing::X | Facing::NegX => [trans_x, trans_y + y, trans_z - x],
+                Facing::Y | Facing::NegY => [trans_x + x, trans_y, trans_z - y],
+                Facing::Z | Facing::NegZ => [trans_x + x, trans_y + y, trans_z],
             };
 
             positions.push(position);
-            normals.push(normal);
+            normals.push(facing_coords);
             uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
         }
 
-        let winding = if normal_sign < 0.0 { (1, 0) } else { (0, 1) };
         for i in 1..(sides as u32 - 1) {
-            indices.extend_from_slice(&[
-                index_offset,
-                index_offset + i + winding.0,
-                index_offset + i + winding.1,
-            ]);
+            indices.extend_from_slice(&[index_offset, index_offset + i, index_offset + i + 1]);
         }
     }
 }

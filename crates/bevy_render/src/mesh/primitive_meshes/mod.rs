@@ -46,4 +46,22 @@ impl Facing {
             _ => -1,
         }
     }
+
+    /// Returns the direction in as an array in the format `[x, y, z]`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// assert_eq!(Facing::X.to_array(), [1.0, 0.0, 0.0]);
+    /// ```
+    pub const fn to_array(&self) -> [f32; 3] {
+        match self {
+            Facing::X => [1.0, 0.0, 0.0],
+            Facing::Y => [0.0, 1.0, 0.0],
+            Facing::Z => [0.0, 0.0, 1.0],
+            Facing::NegX => [-1.0, 0.0, 0.0],
+            Facing::NegY => [0.0, -1.0, 0.0],
+            Facing::NegZ => [0.0, 0.0, -1.0],
+        }
+    }
 }

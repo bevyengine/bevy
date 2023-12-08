@@ -65,7 +65,10 @@ impl CircleMesh {
     }
 
     pub fn build(&self) -> Mesh {
-        RegularPolygon::new(self.circle.radius, self.vertices).into()
+        RegularPolygon::new(self.circle.radius, self.vertices)
+            .mesh()
+            .facing(self.facing)
+            .build()
     }
 
     pub(super) fn build_mesh_data(
@@ -89,7 +92,7 @@ impl Meshable for Circle {
     fn mesh(&self) -> Self::Output {
         CircleMesh {
             circle: *self,
-            vertices: 64,
+            vertices: 32,
             facing: Facing::Z,
         }
     }
