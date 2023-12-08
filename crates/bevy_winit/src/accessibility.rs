@@ -86,72 +86,72 @@ fn update_accessibility_nodes(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
-    // TODO: Invert CF
-    if let Ok((primary_window_id, primary_window)) = primary_window.get_single() {
-        // TODO: Invert CF
-        if let Some(adapter) = adapters.get(&primary_window_id) {
-            // TODO: Inline variable
-            let should_run = focus.is_changed() || !nodes.is_empty();
-            if should_run {
-                // TODO: Extract into function
-                adapter.update_if_active(|| {
-                    let mut to_update = vec![];
-                    // TODO: Remove `name` variable
-                    let mut name = None;
-                    // TODO: Move after loop
-                    if primary_window.focused {
-                        let title = primary_window.title.clone();
-                        name = Some(title.into_boxed_str());
-                    }
-                    // TODO: Inline variable
-                    // TODO: Remove redundant dereference
-                    let focus_id = (*focus).unwrap_or_else(|| primary_window_id).to_bits();
-                    // TODO: Rename to `window_children`
-                    let mut root_children = vec![];
-                    for (entity, node, children, parent) in &nodes {
-                        let mut node = (**node).clone();
-                        // TODO: Extract function
-                        if let Some(parent) = parent {
-                            if !node_entities.contains(**parent) {
-                                root_children.push(NodeId(entity.to_bits()));
-                            }
-                        } else {
-                            root_children.push(NodeId(entity.to_bits()));
-                        }
-                        // TODO: Extract function
-                        // TODO: Invert CF
-                        if let Some(children) = children {
-                            for child in children {
-                                if node_entities.contains(*child) {
-                                    node.push_child(NodeId(child.to_bits()));
-                                }
-                            }
-                        }
-                        to_update.push((
-                            // TODO: Extract variable
-                            NodeId(entity.to_bits()),
-                            // TODO: extract variable
-                            node.build(&mut NodeClassSet::lock_global()),
-                        ));
-                    }
-                    // TODO: Rename to window_node
-                    let mut root = NodeBuilder::new(Role::Window);
-                    if let Some(name) = name {
-                        root.set_name(name);
-                    }
-                    root.set_children(root_children);
-                    let root = root.build(&mut NodeClassSet::lock_global());
-                    // TODO: Extract `window_node_id`
-                    let window_update = (NodeId(primary_window_id.to_bits()), root);
-                    to_update.insert(0, window_update);
-                    TreeUpdate {
-                        nodes: to_update,
-                        tree: None,
-                        focus: NodeId(focus_id),
-                    }
-                });
+    let Ok((primary_window_id, primary_window)) = primary_window.get_single() else {
+        return;
+    };
+    let Some(adapter) = adapters.get(&primary_window_id) else {
+        return;
+    };
+    // TODO: Inline variable
+    let should_run = focus.is_changed() || !nodes.is_empty();
+    if should_run {
+        // TODO: Extract into function
+        adapter.update_if_active(|| {
+            let mut to_update = vec![];
+            // TODO: Remove `name` variable
+            let mut name = None;
+            // TODO: Move after loop
+            if primary_window.focused {
+                let title = primary_window.title.clone();
+                name = Some(title.into_boxed_str());
             }
-        }
+            // TODO: Inline variable
+            // TODO: Remove redundant dereference
+            let focus_id = (*focus).unwrap_or_else(|| primary_window_id).to_bits();
+            // TODO: Rename to `window_children`
+            let mut root_children = vec![];
+            for (entity, node, children, parent) in &nodes {
+                let mut node = (**node).clone();
+                // TODO: Extract function
+                if let Some(parent) = parent {
+                    if !node_entities.contains(**parent) {
+                        root_children.push(NodeId(entity.to_bits()));
+                    }
+                } else {
+                    root_children.push(NodeId(entity.to_bits()));
+                }
+                // TODO: Extract function
+                // TODO: Invert CF
+                if let Some(children) = children {
+                    for child in children {
+                        if node_entities.contains(*child) {
+                            node.push_child(NodeId(child.to_bits()));
+                        }
+                    }
+                }
+                to_update.push((
+                    // TODO: Extract variable
+                    NodeId(entity.to_bits()),
+                    // TODO: extract variable
+                    node.build(&mut NodeClassSet::lock_global()),
+                ));
+            }
+            // TODO: Rename to window_node
+            let mut root = NodeBuilder::new(Role::Window);
+            if let Some(name) = name {
+                root.set_name(name);
+            }
+            root.set_children(root_children);
+            let root = root.build(&mut NodeClassSet::lock_global());
+            // TODO: Extract `window_node_id`
+            let window_update = (NodeId(primary_window_id.to_bits()), root);
+            to_update.insert(0, window_update);
+            TreeUpdate {
+                nodes: to_update,
+                tree: None,
+                focus: NodeId(focus_id),
+            }
+        });
     }
 }
 
