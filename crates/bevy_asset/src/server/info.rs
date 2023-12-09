@@ -554,6 +554,35 @@ impl AssetInfos {
         }
     }
 
+    fn remove_dependants_and_labels(
+        info: &AssetInfo,
+        loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        path: &AssetPath<'static>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+    ) {
+        for loader_dependency in info.loader_dependencies.keys() {
+            if let Some(dependants) = loader_dependants.get_mut(loader_dependency) {
+                dependants.remove(path);
+            }
+        }
+
+        let Some(label) = path.label() else {
+            return;
+        };
+
+        let mut without_label = path.to_owned();
+        without_label.remove_label();
+
+        let Entry::Occupied(mut entry) = living_labeled_assets.entry(without_label) else {
+            return;
+        };
+
+        entry.get_mut().remove(label);
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+    }
+
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, UntypedAssetId>,
@@ -574,36 +603,19 @@ impl AssetInfos {
         }
 
         let info = entry.remove();
-        let Some(path) = info.path else {
+        let Some(path) = &info.path else {
             return true;
         };
 
-        if !watching_for_changes {
-            path_to_id.remove(&path);
-            return true;
+        if watching_for_changes {
+            Self::remove_dependants_and_labels(
+                &info,
+                loader_dependants,
+                path,
+                living_labeled_assets,
+            );
         }
-
-        for loader_dependency in info.loader_dependencies.keys() {
-            if let Some(dependants) = loader_dependants.get_mut(loader_dependency) {
-                dependants.remove(&path);
-            }
-        }
-
-        let Some(label) = path.label() else {
-            path_to_id.remove(&path);
-            return true;
-        };
-
-        let mut without_label = path.to_owned();
-        without_label.remove_label();
-
-        if let Entry::Occupied(mut entry) = living_labeled_assets.entry(without_label) {
-            entry.get_mut().remove(label);
-            if entry.get().is_empty() {
-                entry.remove();
-            }
-        };
-        path_to_id.remove(&path);
+        path_to_id.remove(path);
         true
     }
 
@@ -630,7 +642,6 @@ impl AssetInfos {
         }
     }
 }
-
 /// Determines how a handle should be initialized
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum HandleLoadingMode {
