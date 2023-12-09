@@ -4,8 +4,8 @@ use bevy_render::{
     globals::GlobalsBuffer,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroupDescriptor, BindGroupEntry, BindingResource, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor,
+        BindGroupEntry, BindingResource, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor,
     },
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
@@ -62,40 +62,38 @@ impl ViewNode for MotionBlurNode {
             &motion_blur_pipeline.layout_msaa
         };
 
-        let bind_group = render_context
-            .render_device()
-            .create_bind_group(&BindGroupDescriptor {
-                label: Some("motion_blur_bind_group"),
-                layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(post_process.source),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::TextureView(
-                            &prepass_motion_vectors_texture.default_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: BindingResource::TextureView(&prepass_depth_texture.default_view),
-                    },
-                    BindGroupEntry {
-                        binding: 3,
-                        resource: BindingResource::Sampler(&motion_blur_pipeline.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 4,
-                        resource: settings_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 5,
-                        resource: globals_uniforms.clone(),
-                    },
-                ],
-            });
+        let bind_group = render_context.render_device().create_bind_group(
+            Some("motion_blur_bind_group"),
+            layout,
+            &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(post_process.source),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(
+                        &prepass_motion_vectors_texture.default_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(&prepass_depth_texture.default_view),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(&motion_blur_pipeline.sampler),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: settings_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: globals_uniforms.clone(),
+                },
+            ],
+        );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("motion_blur_pass"),
