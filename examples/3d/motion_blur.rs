@@ -27,7 +27,7 @@ fn main() {
         ))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, (translate, rotate, scale, update_settings).chain())
-        .insert_resource(Msaa::Off) //
+        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -206,7 +206,6 @@ fn setup_ui(mut commands: Commands) {
             TextSection::new("WASD + Mouse - Move camera\n", style.clone()),
             TextSection::new("1/2 - Decrease/Increase shutter angle\n", style.clone()),
             TextSection::new("3/4 - Decrease/Increase sample count\n", style.clone()),
-            TextSection::new("5/6 - Decrease/Increase depth bias\n", style.clone()),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
