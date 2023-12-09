@@ -608,9 +608,6 @@ impl AssetInfos {
         true
     }
 
-    // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
-    // None of these cases should result in a removal from the Assets collection
-
     /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
     /// will not affect [`Assets`] storages. For normal use cases, prefer `Assets::track_assets()`
     /// This should only be called if `Assets` storage isn't being used (such as in [`AssetProcessor`](crate::processor::AssetProcessor))
