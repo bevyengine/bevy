@@ -10,7 +10,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
-use std::any::TypeId;
+use std::{any::TypeId, marker::PhantomData};
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
@@ -174,7 +174,7 @@ impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     fn from(value: EntityMut<'w>) -> Self {
         // SAFETY:
-        // - `EntityMut` gurantees exclusive access to all of the entity's components.
+        // - `EntityMut` guarantees exclusive access to all of the entity's components.
         unsafe { EntityRef::new(value.0) }
     }
 }
@@ -182,7 +182,7 @@ impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
 impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
     fn from(value: &'a EntityMut<'_>) -> Self {
         // SAFETY:
-        // - `EntityMut` gurantees exclusive access to all of the entity's components.
+        // - `EntityMut` guarantees exclusive access to all of the entity's components.
         // - `&value` ensures there are no mutable accesses.
         unsafe { EntityRef::new(value.0) }
     }
@@ -825,38 +825,39 @@ impl<'w> EntityWorldMut<'w> {
         entities.set(entity.index(), new_location);
     }
 
-    /// Removes any components in the [`Bundle`] from the entity.
-    // TODO: BundleRemover?
-    pub fn remove<T: Bundle>(&mut self) -> &mut Self {
-        let archetypes = &mut self.world.archetypes;
-        let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
-        let entities = &mut self.world.entities;
-        let removed_components = &mut self.world.removed_components;
-
-        let bundle_info = self.world.bundles.init_info::<T>(components, storages);
-        let old_location = self.location;
-
-        // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
-        // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
-        let new_archetype_id = unsafe {
-            remove_bundle_from_archetype(
-                archetypes,
-                storages,
-                components,
-                old_location.archetype_id,
-                bundle_info,
-                true,
-            )
-            .expect("intersections should always return a result")
-        };
+    /// Remove the components of `bundle_info` from `entity`, where `self_location` and `old_location`
+    /// are the location of this entity, and `self_location` is updated to the new location.
+    ///
+    /// SAFETY: `old_location` must be valid and the components in `bundle_info` must exist.
+    #[allow(clippy::too_many_arguments)]
+    unsafe fn remove_bundle_info(
+        entity: Entity,
+        self_location: &mut EntityLocation,
+        old_location: EntityLocation,
+        bundle_info: &BundleInfo,
+        archetypes: &mut Archetypes,
+        storages: &mut Storages,
+        components: &Components,
+        entities: &mut Entities,
+        removed_components: &mut RemovedComponentEvents,
+    ) {
+        // SAFETY: `archetype_id` exists because it is referenced in `old_location` which is valid
+        // and components in `bundle_info` must exist due to this functions safety invariants.
+        let new_archetype_id = remove_bundle_from_archetype(
+            archetypes,
+            storages,
+            components,
+            old_location.archetype_id,
+            bundle_info,
+            true,
+        )
+        .expect("intersections should always return a result");
 
         if new_archetype_id == old_location.archetype_id {
-            return self;
+            return;
         }
 
         let old_archetype = &mut archetypes[old_location.archetype_id];
-        let entity = self.entity;
         for component_id in bundle_info.components().iter().cloned() {
             if old_archetype.contains(component_id) {
                 removed_components.send(component_id, entity);
@@ -873,17 +874,86 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
-        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
+        // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
+        // because it is created by removing a bundle from these components.
+        Self::move_entity_from_remove::<true>(
+            entity,
+            self_location,
+            old_location.archetype_id,
+            old_location,
+            entities,
+            archetypes,
+            storages,
+            new_archetype_id,
+        );
+    }
+
+    /// Removes any components in the [`Bundle`] from the entity.
+    // TODO: BundleRemover?
+    pub fn remove<T: Bundle>(&mut self) -> &mut Self {
+        let archetypes = &mut self.world.archetypes;
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let entities = &mut self.world.entities;
+        let removed_components = &mut self.world.removed_components;
+
+        let bundle_info = self.world.bundles.init_info::<T>(components, storages);
+        let old_location = self.location;
+
+        // SAFETY: Components exist in `bundle_info` because `Bundles::init_info`
+        // initializes a `BundleInfo` containing all components of the bundle type `T`.
         unsafe {
-            Self::move_entity_from_remove::<true>(
-                entity,
+            Self::remove_bundle_info(
+                self.entity,
                 &mut self.location,
-                old_location.archetype_id,
                 old_location,
-                entities,
+                bundle_info,
                 archetypes,
                 storages,
-                new_archetype_id,
+                components,
+                entities,
+                removed_components,
+            );
+        }
+
+        self
+    }
+
+    /// Removes any components except those in the [`Bundle`] from the entity.
+    pub fn retain<T: Bundle>(&mut self) -> &mut Self {
+        let archetypes = &mut self.world.archetypes;
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let entities = &mut self.world.entities;
+        let removed_components = &mut self.world.removed_components;
+
+        let retained_bundle_info = self.world.bundles.init_info::<T>(components, storages);
+        let old_location = self.location;
+        let old_archetype = &mut archetypes[old_location.archetype_id];
+
+        let to_remove = &old_archetype
+            .components()
+            .filter(|c| !retained_bundle_info.components().contains(c))
+            .collect::<Vec<_>>();
+        let remove_bundle_info = self
+            .world
+            .bundles
+            .init_dynamic_info(components, to_remove)
+            .0;
+
+        // SAFETY: Components exist in `remove_bundle_info` because `Bundles::init_dynamic_info`
+        // initializes a `BundleInfo` containing all components in the to_remove Bundle.
+        unsafe {
+            Self::remove_bundle_info(
+                self.entity,
+                &mut self.location,
+                old_location,
+                remove_bundle_info,
+                archetypes,
+                storages,
+                components,
+                entities,
+                removed_components,
             );
         }
 
@@ -1031,6 +1101,391 @@ impl<'w> EntityWorldMut<'w> {
     /// which enables the location to change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
+    }
+
+    /// Gets an Entry into the world for this entity and component for in-place manipulation.
+    ///
+    /// The type parameter specifies which component to get.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    /// entity.entry().or_insert_with(|| Comp(4));
+    /// # let entity_id = entity.id();
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    ///
+    /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
+    /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 5);
+    ///
+    /// ```
+    pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
+        if self.contains::<T>() {
+            Entry::Occupied(OccupiedEntry {
+                entity_world: self,
+                _marker: PhantomData,
+            })
+        } else {
+            Entry::Vacant(VacantEntry {
+                entity_world: self,
+                _marker: PhantomData,
+            })
+        }
+    }
+}
+
+/// A view into a single entity and component in a world, which may either be vacant or occupied.
+///
+/// This `enum` can only be constructed from the [`entry`] method on [`EntityWorldMut`].
+///
+/// [`entry`]: EntityWorldMut::entry
+pub enum Entry<'w, 'a, T: Component> {
+    /// An occupied entry.
+    Occupied(OccupiedEntry<'w, 'a, T>),
+    /// A vacant entry.
+    Vacant(VacantEntry<'w, 'a, T>),
+}
+
+impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
+    /// Provides in-place mutable access to an occupied entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(0));
+    ///
+    /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 1);
+    /// ```
+    #[inline]
+    pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
+        match self {
+            Entry::Occupied(mut entry) => {
+                f(entry.get_mut());
+                Entry::Occupied(entry)
+            }
+            Entry::Vacant(entry) => Entry::Vacant(entry),
+        }
+    }
+
+    /// Replaces the component of the entry, and returns an [`OccupiedEntry`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// let entry = entity.entry().insert_entry(Comp(4));
+    /// assert_eq!(entry.get(), &Comp(4));
+    ///
+    /// let entry = entity.entry().insert_entry(Comp(2));
+    /// assert_eq!(entry.get(), &Comp(2));
+    /// ```
+    #[inline]
+    pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
+        match self {
+            Entry::Occupied(mut entry) => {
+                entry.insert(component);
+                entry
+            }
+            Entry::Vacant(entry) => entry.insert_entry(component),
+        }
+    }
+
+    /// Ensures the entry has this component by inserting the given default if empty, and
+    /// returns a mutable reference to this component in the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// entity.entry().or_insert(Comp(4));
+    /// # let entity_id = entity.id();
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    ///
+    /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
+    /// entity.entry().or_insert(Comp(15)).0 *= 2;
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 8);
+    /// ```
+    #[inline]
+    pub fn or_insert(self, default: T) -> Mut<'a, T> {
+        match self {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(default),
+        }
+    }
+
+    /// Ensures the entry has this component by inserting the result of the default function if
+    /// empty, and returns a mutable reference to this component in the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// entity.entry().or_insert_with(|| Comp(4));
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// ```
+    #[inline]
+    pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> Mut<'a, T> {
+        match self {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(default()),
+        }
+    }
+}
+
+impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
+    /// Ensures the entry has this component by inserting the default value if empty, and
+    /// returns a mutable reference to this component in the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// entity.entry::<Comp>().or_default();
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 0);
+    /// ```
+    #[inline]
+    pub fn or_default(self) -> Mut<'a, T> {
+        match self {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(Default::default()),
+        }
+    }
+}
+
+/// A view into an occupied entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
+///
+/// The contained entity must have the component type parameter if we have this struct.
+pub struct OccupiedEntry<'w, 'a, T: Component> {
+    entity_world: &'a mut EntityWorldMut<'w>,
+    _marker: PhantomData<T>,
+}
+
+impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
+    /// Gets a reference to the component in the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    ///     assert_eq!(o.get().0, 5);
+    /// }
+    /// ```
+    #[inline]
+    pub fn get(&self) -> &T {
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.get::<T>().unwrap()
+    }
+
+    /// Gets a mutable reference to the component in the entry.
+    ///
+    /// If you need a reference to the `OccupiedEntry` which may outlive the destruction of
+    /// the `Entry` value, see [`into_mut`].
+    ///
+    /// [`into_mut`]: Self::into_mut
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(mut o) = entity.entry::<Comp>() {
+    ///     o.get_mut().0 += 10;
+    ///     assert_eq!(o.get().0, 15);
+    ///
+    ///     // We can use the same Entry multiple times.
+    ///     o.get_mut().0 += 2
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 17);
+    /// ```
+    #[inline]
+    pub fn get_mut(&mut self) -> Mut<'_, T> {
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.get_mut::<T>().unwrap()
+    }
+
+    /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry with
+    /// a lifetime bound to the `EntityWorldMut`.
+    ///
+    /// If you need multiple references to the `OccupiedEntry`, see [`get_mut`].
+    ///
+    /// [`get_mut`]: Self::get_mut
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    ///     o.into_mut().0 += 10;
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 15);
+    /// ```
+    #[inline]
+    pub fn into_mut(self) -> Mut<'a, T> {
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.get_mut().unwrap()
+    }
+
+    /// Replaces the component of the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(mut o) = entity.entry::<Comp>() {
+    ///     o.insert(Comp(10));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// ```
+    #[inline]
+    pub fn insert(&mut self, component: T) {
+        self.entity_world.insert(component);
+    }
+
+    /// Removes the component from the entry and returns it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    ///     assert_eq!(o.take(), Comp(5));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().iter(&world).len(), 0);
+    /// ```
+    #[inline]
+    pub fn take(self) -> T {
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.take().unwrap()
+    }
+}
+
+/// A view into a vacant entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
+pub struct VacantEntry<'w, 'a, T: Component> {
+    entity_world: &'a mut EntityWorldMut<'w>,
+    _marker: PhantomData<T>,
+}
+
+impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
+    /// Inserts the component into the `VacantEntry` and returns a mutable reference to it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// if let Entry::Vacant(v) = entity.entry::<Comp>() {
+    ///     v.insert(Comp(10));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// ```
+    #[inline]
+    pub fn insert(self, component: T) -> Mut<'a, T> {
+        self.entity_world.insert(component);
+        // This shouldn't panic because we just added this component
+        self.entity_world.get_mut::<T>().unwrap()
+    }
+
+    /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn_empty();
+    ///
+    /// if let Entry::Vacant(v) = entity.entry::<Comp>() {
+    ///     v.insert_entry(Comp(10));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// ```
+    #[inline]
+    pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
+        self.entity_world.insert(component);
+        OccupiedEntry {
+            entity_world: self.entity_world,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -1388,6 +1843,43 @@ mod tests {
 
         world.entity_mut(e1).remove::<Dense>();
         assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    // Test that calling retain with `()` removes all components.
+    #[test]
+    fn retain_nothing() {
+        #[derive(Component)]
+        struct Marker<const N: usize>;
+
+        let mut world = World::new();
+        let ent = world.spawn((Marker::<1>, Marker::<2>, Marker::<3>)).id();
+
+        world.entity_mut(ent).retain::<()>();
+        assert_eq!(world.entity(ent).archetype().components().next(), None);
+    }
+
+    // Test removing some components with `retain`, including components not on the entity.
+    #[test]
+    fn retain_some_components() {
+        #[derive(Component)]
+        struct Marker<const N: usize>;
+
+        let mut world = World::new();
+        let ent = world.spawn((Marker::<1>, Marker::<2>, Marker::<3>)).id();
+
+        world.entity_mut(ent).retain::<(Marker<2>, Marker<4>)>();
+        // Check that marker 2 was retained.
+        assert!(world.entity(ent).get::<Marker<2>>().is_some());
+        // Check that only marker 2 was retained.
+        assert_eq!(
+            world
+                .entity(ent)
+                .archetype()
+                .components()
+                .collect::<Vec<_>>()
+                .len(),
+            1
+        );
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7805

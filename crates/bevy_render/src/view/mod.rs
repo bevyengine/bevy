@@ -9,6 +9,7 @@ use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
+    primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -168,6 +169,7 @@ pub struct ViewUniform {
     world_position: Vec3,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
+    frustum: [Vec4; 6],
     color_grading: ColorGrading,
     mip_bias: f32,
 }
@@ -352,13 +354,21 @@ pub fn prepare_view_uniforms(
     views: Query<(
         Entity,
         &ExtractedView,
+        Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
 ) {
-    view_uniforms.uniforms.clear();
-
-    for (entity, camera, temporal_jitter, mip_bias) in &views {
+    let view_iter = views.iter();
+    let view_count = view_iter.len();
+    let Some(mut writer) =
+        view_uniforms
+            .uniforms
+            .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
+    for (entity, camera, frustum, temporal_jitter, mip_bias) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
         let mut projection = unjittered_projection;
@@ -379,8 +389,13 @@ pub fn prepare_view_uniforms(
                 .unwrap_or_else(|| projection * inverse_view)
         };
 
+        // Map Frustum type to shader array<vec4<f32>, 6>
+        let frustum = frustum
+            .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
+            .unwrap_or([Vec4::ZERO; 6]);
+
         let view_uniforms = ViewUniformOffset {
-            offset: view_uniforms.uniforms.push(ViewUniform {
+            offset: writer.write(&ViewUniform {
                 view_proj,
                 unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
@@ -390,6 +405,7 @@ pub fn prepare_view_uniforms(
                 inverse_projection,
                 world_position: camera.transform.translation(),
                 viewport,
+                frustum,
                 color_grading: camera.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
             }),
@@ -397,10 +413,6 @@ pub fn prepare_view_uniforms(
 
         commands.entity(entity).insert(view_uniforms);
     }
-
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Clone)]

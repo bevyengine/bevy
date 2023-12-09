@@ -1,6 +1,6 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use bevy_asset::anyhow;
 use image::{DynamicImage, ImageBuffer};
+use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
@@ -163,55 +163,50 @@ impl Image {
     /// - `TextureFormat::Bgra8UnormSrgb`
     ///
     /// To convert [`Image`] to a different format see: [`Image::convert`].
-    pub fn try_into_dynamic(self) -> Result<DynamicImage, anyhow::Error> {
+    pub fn try_into_dynamic(self) -> Result<DynamicImage, IntoDynamicImageError> {
         match self.texture_descriptor.format {
-            TextureFormat::R8Unorm => ImageBuffer::from_raw(
-                self.texture_descriptor.size.width,
-                self.texture_descriptor.size.height,
-                self.data,
-            )
-            .map(DynamicImage::ImageLuma8),
-            TextureFormat::Rg8Unorm => ImageBuffer::from_raw(
-                self.texture_descriptor.size.width,
-                self.texture_descriptor.size.height,
-                self.data,
-            )
-            .map(DynamicImage::ImageLumaA8),
-            TextureFormat::Rgba8UnormSrgb => ImageBuffer::from_raw(
-                self.texture_descriptor.size.width,
-                self.texture_descriptor.size.height,
-                self.data,
-            )
-            .map(DynamicImage::ImageRgba8),
+            TextureFormat::R8Unorm => ImageBuffer::from_raw(self.width(), self.height(), self.data)
+                .map(DynamicImage::ImageLuma8),
+            TextureFormat::Rg8Unorm => {
+                ImageBuffer::from_raw(self.width(), self.height(), self.data)
+                    .map(DynamicImage::ImageLumaA8)
+            }
+            TextureFormat::Rgba8UnormSrgb => {
+                ImageBuffer::from_raw(self.width(), self.height(), self.data)
+                    .map(DynamicImage::ImageRgba8)
+            }
             // This format is commonly used as the format for the swapchain texture
             // This conversion is added here to support screenshots
-            TextureFormat::Bgra8UnormSrgb | TextureFormat::Bgra8Unorm => ImageBuffer::from_raw(
-                self.texture_descriptor.size.width,
-                self.texture_descriptor.size.height,
-                {
+            TextureFormat::Bgra8UnormSrgb | TextureFormat::Bgra8Unorm => {
+                ImageBuffer::from_raw(self.width(), self.height(), {
                     let mut data = self.data;
                     for bgra in data.chunks_exact_mut(4) {
                         bgra.swap(0, 2);
                     }
                     data
-                },
-            )
-            .map(DynamicImage::ImageRgba8),
-            // Throw and error if conversion isn't supported
-            texture_format => {
-                return Err(anyhow::anyhow!(
-                    "Conversion into dynamic image not supported for {:?}.",
-                    texture_format
-                ))
+                })
+                .map(DynamicImage::ImageRgba8)
             }
+            // Throw and error if conversion isn't supported
+            texture_format => return Err(IntoDynamicImageError::UnsupportedFormat(texture_format)),
         }
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Failed to convert into {:?}.",
-                self.texture_descriptor.format
-            )
-        })
+        .ok_or(IntoDynamicImageError::UnknownConversionError(
+            self.texture_descriptor.format,
+        ))
     }
+}
+
+/// Errors that occur while converting an [`Image`] into a [`DynamicImage`]
+#[non_exhaustive]
+#[derive(Error, Debug)]
+pub enum IntoDynamicImageError {
+    /// Conversion into dynamic image not supported for source format.
+    #[error("Conversion into dynamic image not supported for {0:?}.")]
+    UnsupportedFormat(TextureFormat),
+
+    /// Encountered an unknown error during conversion.
+    #[error("Failed to convert into {0:?}.")]
+    UnknownConversionError(TextureFormat),
 }
 
 #[cfg(test)]

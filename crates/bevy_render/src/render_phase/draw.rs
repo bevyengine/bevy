@@ -2,13 +2,17 @@ use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::App;
 use bevy_ecs::{
     entity::Entity,
-    query::{QueryState, ROQueryItem, ReadOnlyWorldQuery},
+    query::{QueryState, ROQueryItem, ReadOnlyWorldQueryData},
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
 use bevy_utils::{all_tuples, HashMap};
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::{any::TypeId, fmt::Debug, hash::Hash};
+use std::{
+    any::TypeId,
+    fmt::Debug,
+    hash::Hash,
+    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -116,12 +120,14 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
 impl<P: PhaseItem> DrawFunctions<P> {
     /// Accesses the draw functions in read mode.
     pub fn read(&self) -> RwLockReadGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal.read()
+        self.internal.read().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Accesses the draw functions in write mode.
     pub fn write(&self) -> RwLockWriteGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal.write()
+        self.internal
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -173,12 +179,12 @@ pub trait RenderCommand<P: PhaseItem> {
     /// The view entity refers to the camera, or shadow-casting light, etc. from which the phase
     /// item will be rendered from.
     /// All components have to be accessed read only.
-    type ViewWorldQuery: ReadOnlyWorldQuery;
+    type ViewWorldQuery: ReadOnlyWorldQueryData;
     /// Specifies the ECS data of the item entity required by [`RenderCommand::render`].
     ///
     /// The item is the entity that will be rendered for the corresponding view.
     /// All components have to be accessed read only.
-    type ItemWorldQuery: ReadOnlyWorldQuery;
+    type ItemWorldQuery: ReadOnlyWorldQueryData;
 
     /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups,
     /// issuing draw calls, etc.) via the [`TrackedRenderPass`].

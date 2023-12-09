@@ -124,14 +124,14 @@ fn label_changed(
             .collect::<Vec<String>>();
         let name = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::LabelText);
+            accessible.set_role(Role::StaticText);
             if let Some(name) = name {
                 accessible.set_name(name);
             } else {
                 accessible.clear_name();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::LabelText);
+            let mut node = NodeBuilder::new(Role::StaticText);
             if let Some(name) = name {
                 node.set_name(name);
             }

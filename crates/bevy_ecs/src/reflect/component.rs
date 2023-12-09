@@ -125,7 +125,7 @@ impl ReflectComponent {
         (self.0.from_world)(world)
     }
 
-    /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
+    /// Insert a reflected [`Component`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
         (self.0.insert)(entity, component);
     }
@@ -279,7 +279,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
-                // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the the component `C` on the `entity`
+                // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
                 unsafe {
                     entity.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn Reflect,

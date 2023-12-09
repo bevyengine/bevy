@@ -79,7 +79,7 @@ impl CurrentMethod {
 }
 
 fn update_parallax_depth_scale(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
@@ -111,7 +111,7 @@ fn update_parallax_depth_scale(
 }
 
 fn switch_method(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut text: Query<&mut Text>,
     mut current: Local<CurrentMethod>,
@@ -130,7 +130,7 @@ fn switch_method(
 }
 
 fn update_parallax_layers(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
     mut text: Query<&mut Text>,
@@ -160,7 +160,7 @@ fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
     }
 }
 
-// Camera positions to cycle through when left-clickig.
+// Camera positions to cycle through when left-clicking.
 const CAMERA_POSITIONS: &[Transform] = &[
     Transform {
         translation: Vec3::new(1.5, 1.5, 1.5),
@@ -187,7 +187,7 @@ const CAMERA_POSITIONS: &[Transform] = &[
 fn move_camera(
     mut camera: Query<&mut Transform, With<CameraController>>,
     mut current_view: Local<usize>,
-    button: Res<Input<MouseButton>>,
+    button: Res<ButtonInput<MouseButton>>,
 ) {
     let mut camera = camera.single_mut();
     if button.just_pressed(MouseButton::Left) {
@@ -264,12 +264,6 @@ fn setup(
         ..default()
     });
 
-    let mut cube: Mesh = shape::Cube { size: 1.0 }.into();
-
-    // NOTE: for normal maps and depth maps to work, the mesh
-    // needs tangents generated.
-    cube.generate_tangents().unwrap();
-
     let parallax_depth_scale = TargetDepth::default().0;
     let max_parallax_layer_count = TargetLayers::default().0.exp2();
     let parallax_mapping_method = CurrentMethod::default();
@@ -287,16 +281,24 @@ fn setup(
     });
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(cube),
+            mesh: meshes.add(
+                // NOTE: for normal maps and depth maps to work, the mesh
+                // needs tangents generated.
+                Mesh::from(shape::Cube { size: 1.0 })
+                    .with_generated_tangents()
+                    .unwrap(),
+            ),
             material: parallax_material.clone_weak(),
             ..default()
         },
         Spin { speed: 0.3 },
     ));
 
-    let mut background_cube: Mesh = shape::Cube { size: 40.0 }.into();
-    background_cube.generate_tangents().unwrap();
-    let background_cube = meshes.add(background_cube);
+    let background_cube = meshes.add(
+        Mesh::from(shape::Cube { size: 40.0 })
+            .with_generated_tangents()
+            .unwrap(),
+    );
 
     let background_cube_bundle = |translation| {
         (

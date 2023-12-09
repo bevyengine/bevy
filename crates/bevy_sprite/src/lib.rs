@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
@@ -131,20 +129,20 @@ pub fn calculate_bounds_2d(
     for (entity, mesh_handle) in &meshes_without_aabb {
         if let Some(mesh) = meshes.get(&mesh_handle.0) {
             if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).insert(aabb);
+                commands.entity(entity).try_insert(aabb);
             }
         }
     }
     for (entity, sprite, texture_handle) in &sprites_without_aabb {
         if let Some(size) = sprite
             .custom_size
-            .or_else(|| images.get(texture_handle).map(|image| image.size()))
+            .or_else(|| images.get(texture_handle).map(|image| image.size_f32()))
         {
             let aabb = Aabb {
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
-            commands.entity(entity).insert(aabb);
+            commands.entity(entity).try_insert(aabb);
         }
     }
     for (entity, atlas_sprite, atlas_handle) in &atlases_without_aabb {
@@ -158,7 +156,7 @@ pub fn calculate_bounds_2d(
                 center: (-atlas_sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
-            commands.entity(entity).insert(aabb);
+            commands.entity(entity).try_insert(aabb);
         }
     }
 }

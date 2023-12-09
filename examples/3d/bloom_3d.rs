@@ -14,7 +14,6 @@ use std::{
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_scene)
         .add_systems(Update, (update_bloom_settings, bounce_spheres))
@@ -116,7 +115,7 @@ fn update_bloom_settings(
     mut camera: Query<(Entity, Option<&mut BloomSettings>), With<Camera>>,
     mut text: Query<&mut Text>,
     mut commands: Commands,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let bloom_settings = camera.single_mut();

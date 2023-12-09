@@ -1,8 +1,6 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, EmptyPathStream, PathStream,
-    Reader, VecReader,
+    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
-use anyhow::Result;
 use bevy_log::error;
 use bevy_utils::BoxedFuture;
 use js_sys::{Uint8Array, JSON};
@@ -79,7 +77,7 @@ impl AssetReader for HttpWasmAssetReader {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(async move {
-            let meta_path = get_meta_path(path);
+            let meta_path = get_meta_path(&self.root_path.join(path));
             Ok(self.fetch_bytes(meta_path).await?)
         })
     }
@@ -99,12 +97,5 @@ impl AssetReader for HttpWasmAssetReader {
     ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Box::pin(async move { Ok(false) })
-    }
-
-    fn watch_for_changes(
-        &self,
-        _event_sender: crossbeam_channel::Sender<super::AssetSourceEvent>,
-    ) -> Option<Box<dyn AssetWatcher>> {
-        None
     }
 }

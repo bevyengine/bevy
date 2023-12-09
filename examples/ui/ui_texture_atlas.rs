@@ -26,7 +26,6 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        color: Color::ANTIQUE_WHITE,
         font_size: 20.,
         ..default()
     };
@@ -77,7 +76,7 @@ fn setup(
 
 fn increment_atlas_index(
     mut atlas_images: Query<&mut UiTextureAtlasImage>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         for mut atlas_image in &mut atlas_images {

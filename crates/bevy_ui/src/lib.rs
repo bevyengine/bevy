@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
@@ -8,11 +6,14 @@
 pub mod camera_config;
 pub mod measurement;
 pub mod node_bundles;
+pub mod ui_material;
 pub mod update;
 pub mod widget;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
+#[cfg(feature = "bevy_text")]
+use bevy_text::TextLayoutInfo;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
 mod focus;
@@ -27,6 +28,7 @@ pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
+pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
@@ -34,12 +36,14 @@ use widget::UiImageSize;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
+        widget::Label, Interaction, UiMaterialPlugin, UiScale,
     };
 }
 
 use crate::prelude::UiCameraConfig;
+#[cfg(feature = "bevy_text")]
+use crate::widget::TextFlags;
 use bevy_app::prelude::*;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
@@ -63,6 +67,8 @@ pub enum UiSystem {
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
+    /// After this label, node outline widths have been updated
+    Outlines,
 }
 
 /// The current scale of the UI.
@@ -122,10 +128,15 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
+            .register_type::<Outline>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
+
+        #[cfg(feature = "bevy_text")]
+        app.register_type::<TextLayoutInfo>()
+            .register_type::<TextFlags>();
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
         app.add_systems(
@@ -172,18 +183,20 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
+                resolve_outlines_system
+                    .in_set(UiSystem::Outlines)
+                    .after(UiSystem::Layout),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
         );
 
-        crate::render::build_ui_render(app);
+        build_ui_render(app);
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app.init_resource::<UiPipeline>();

@@ -1,4 +1,4 @@
-//! This example illustrates the [`UIScale`] resource from `bevy_ui`.
+//! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
 use bevy::{prelude::*, text::TextSettings, utils::Duration};
 
@@ -24,7 +24,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
 }
 
 /// System that changes the scale of the ui when pressing up or down on the keyboard.
-fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
+fn change_scaling(input: Res<ButtonInput<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
     if input.just_pressed(KeyCode::Up) {
         let scale = (ui_scale.target_scale * 2.0).min(8.);
         ui_scale.set_scale(scale);
@@ -112,7 +112,7 @@ impl TargetScale {
     }
 
     fn current_scale(&self) -> f64 {
-        let completion = self.target_time.percent();
+        let completion = self.target_time.fraction();
         let multiplier = ease_in_expo(completion as f64);
         self.start_scale + (self.target_scale - self.start_scale) * multiplier
     }

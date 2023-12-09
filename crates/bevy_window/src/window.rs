@@ -95,8 +95,29 @@ impl NormalizedWindowRef {
 /// When the [`Window`] component is added to an entity, a new window will be opened.
 /// When it is removed or the entity is despawned, the window will close.
 ///
+/// The primary window entity (and the corresponding window) is spawned by default
+/// by [`WindowPlugin`](crate::WindowPlugin) and is marked with the [`PrimaryWindow`] component.
+///
 /// This component is synchronized with `winit` through `bevy_winit`:
 /// it will reflect the current state of the window and can be modified to change this state.
+///
+/// # Example
+///
+/// Because this component is synchronized with `winit`, it can be used to perform
+/// OS-integrated windowing operations. For example, here's a simple system
+/// to change the cursor type:
+///
+/// ```
+/// # use bevy_ecs::query::With;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_window::{CursorIcon, PrimaryWindow, Window};
+/// fn change_cursor(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+///     // Query returns one window typically.
+///     for mut window in windows.iter_mut() {
+///         window.cursor.icon = CursorIcon::Wait;
+///     }
+/// }
+/// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -589,7 +610,7 @@ pub struct WindowResolution {
     physical_height: u32,
     /// Code-provided ratio of physical size to logical size.
     ///
-    /// Should be used instead `scale_factor` when set.
+    /// Should be used instead of `scale_factor` when set.
     scale_factor_override: Option<f64>,
     /// OS-provided ratio of physical size to logical size.
     ///
@@ -729,14 +750,14 @@ where
     }
 }
 
-impl From<bevy_math::Vec2> for WindowResolution {
-    fn from(res: bevy_math::Vec2) -> WindowResolution {
+impl From<Vec2> for WindowResolution {
+    fn from(res: Vec2) -> WindowResolution {
         WindowResolution::new(res.x, res.y)
     }
 }
 
-impl From<bevy_math::DVec2> for WindowResolution {
-    fn from(res: bevy_math::DVec2) -> WindowResolution {
+impl From<DVec2> for WindowResolution {
+    fn from(res: DVec2) -> WindowResolution {
         WindowResolution::new(res.x as f32, res.y as f32)
     }
 }
@@ -968,6 +989,11 @@ pub enum WindowMode {
     /// When setting this, the window's physical size will be modified to match the size
     /// of the current monitor resolution, and the logical size will follow based
     /// on the scale factor, see [`WindowResolution`].
+    ///
+    /// Note: As this mode respects the scale factor provided by the operating system,
+    /// the window's logical size may be different from its physical size.
+    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
+    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
     BorderlessFullscreen,
     /// The window should be in "true"/"legacy" Fullscreen mode.
     ///
@@ -985,6 +1011,11 @@ pub enum WindowMode {
     /// After that, the window's physical size will be modified to match
     /// that monitor resolution, and the logical size will follow based on the
     /// scale factor, see [`WindowResolution`].
+    ///
+    /// Note: As this mode respects the scale factor provided by the operating system,
+    /// the window's logical size may be different from its physical size.
+    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
+    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
     Fullscreen,
 }
 
@@ -1054,7 +1085,7 @@ pub struct EnabledButtons {
     ///
     /// macOS note: When [`Window`] `resizable` member is set to `false`
     /// the maximize button will be disabled regardless of this value.
-    /// Additionaly, when `resizable` is set to `true` the window will
+    /// Additionally, when `resizable` is set to `true` the window will
     /// be maximized when its bar is double-clicked regardless of whether
     /// the maximize button is enabled or not.
     pub maximize: bool,

@@ -13,7 +13,7 @@ fn main() {
 }
 
 fn screenshot_on_spacebar(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     main_window: Query<Entity, With<PrimaryWindow>>,
     mut screenshot_manager: ResMut<ScreenshotManager>,
     mut counter: Local<u32>,
@@ -67,7 +67,6 @@ fn setup(
             "Press <spacebar> to save a screenshot to disk",
             TextStyle {
                 font_size: 25.0,
-                color: Color::WHITE,
                 ..default()
             },
         )

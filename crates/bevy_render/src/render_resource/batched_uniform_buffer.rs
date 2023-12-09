@@ -137,7 +137,7 @@ where
 
     const METADATA: Metadata<Self::ExtraMetadata> = T::METADATA;
 
-    fn size(&self) -> ::core::num::NonZeroU64 {
+    fn size(&self) -> NonZeroU64 {
         Self::METADATA.stride().mul(self.1.max(1) as u64).0
     }
 }

@@ -364,11 +364,10 @@ impl From<Capsule> for Mesh {
         assert_eq!(vs.len(), vert_len);
         assert_eq!(tris.len(), fs_len);
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vs);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vns);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vts);
-        mesh.set_indices(Some(Indices::U32(tris)));
-        mesh
+        Mesh::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
+            .with_indices(Some(Indices::U32(tris)))
     }
 }

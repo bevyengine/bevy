@@ -103,7 +103,7 @@ fn setup(
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 26.0,
-                color: Color::BLACK,
+                ..default()
             },
         )
         .with_style(Style {
@@ -127,7 +127,7 @@ fn update(
     mut text: Query<&mut Text>,
     mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let mut sphere = sphere.single_mut();

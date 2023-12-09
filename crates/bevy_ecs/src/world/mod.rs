@@ -7,7 +7,7 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut};
+pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut, Entry, OccupiedEntry, VacantEntry};
 pub use spawn_batch::*;
 pub use world_cell::*;
 
@@ -17,8 +17,8 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
-    event::{Event, Events},
-    query::{DebugCheckedUnwrap, QueryEntityError, QueryState, ReadOnlyWorldQuery, WorldQuery},
+    event::{Event, EventId, Events, SendBatchIds},
+    query::{DebugCheckedUnwrap, QueryEntityError, QueryState, WorldQueryData, WorldQueryFilter},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -383,7 +383,7 @@ impl World {
         }
     }
 
-    /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
+    /// Returns the components of an [`Entity`] through [`ComponentInfo`].
     #[inline]
     pub fn inspect_entity(&self, entity: Entity) -> Vec<&ComponentInfo> {
         let entity_location = self
@@ -922,7 +922,7 @@ impl World {
         self.last_change_tick = self.increment_change_tick();
     }
 
-    /// Returns [`QueryState`] for the given [`WorldQuery`], which is used to efficiently
+    /// Returns [`QueryState`] for the given [`WorldQueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
@@ -985,11 +985,11 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<Q: WorldQuery>(&mut self) -> QueryState<Q, ()> {
+    pub fn query<Q: WorldQueryData>(&mut self) -> QueryState<Q, ()> {
         self.query_filtered::<Q, ()>()
     }
 
-    /// Returns [`QueryState`] for the given filtered [`WorldQuery`], which is used to efficiently
+    /// Returns [`QueryState`] for the given filtered [`WorldQueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
@@ -1009,7 +1009,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: WorldQuery, F: ReadOnlyWorldQuery>(&mut self) -> QueryState<Q, F> {
+    pub fn query_filtered<Q: WorldQueryData, F: WorldQueryFilter>(&mut self) -> QueryState<Q, F> {
         QueryState::new(self)
     }
 
@@ -1594,27 +1594,37 @@ impl World {
     }
 
     /// Sends an [`Event`].
+    /// This method returns the [ID](`EventId`) of the sent `event`,
+    /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event<E: Event>(&mut self, event: E) {
-        self.send_event_batch(std::iter::once(event));
+    pub fn send_event<E: Event>(&mut self, event: E) -> Option<EventId<E>> {
+        self.send_event_batch(std::iter::once(event))?.next()
     }
 
     /// Sends the default value of the [`Event`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the sent `event`,
+    /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event_default<E: Event + Default>(&mut self) {
-        self.send_event_batch(std::iter::once(E::default()));
+    pub fn send_event_default<E: Event + Default>(&mut self) -> Option<EventId<E>> {
+        self.send_event(E::default())
     }
 
     /// Sends a batch of [`Event`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the sent `events`,
+    /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event_batch<E: Event>(&mut self, events: impl IntoIterator<Item = E>) {
-        match self.get_resource_mut::<Events<E>>() {
-            Some(mut events_resource) => events_resource.extend(events),
-            None => bevy_utils::tracing::error!(
-                    "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                    std::any::type_name::<E>()
-                ),
-        }
+    pub fn send_event_batch<E: Event>(
+        &mut self,
+        events: impl IntoIterator<Item = E>,
+    ) -> Option<SendBatchIds<E>> {
+        let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
+            bevy_utils::tracing::error!(
+                "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
+                std::any::type_name::<E>()
+            );
+            return None;
+        };
+        Some(events_resource.send_batch(events))
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -1766,7 +1776,7 @@ impl World {
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
     ///
-    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
+    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
     /// times since the previous pass.
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
@@ -1789,7 +1799,7 @@ impl World {
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
 
-        if let Some(mut schedules) = self.get_resource_mut::<crate::schedule::Schedules>() {
+        if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);
         }
 
@@ -1993,15 +2003,15 @@ impl World {
     /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope<R>(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
-        let label = label.as_ref();
+        let label = label.intern();
         let Some(mut schedule) = self
             .get_resource_mut::<Schedules>()
             .and_then(|mut s| s.remove(label))
         else {
-            return Err(TryRunScheduleError(label.dyn_clone()));
+            return Err(TryRunScheduleError(label));
         };
 
         let value = f(self, &mut schedule);
@@ -2053,7 +2063,7 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn schedule_scope<R>(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> R {
         self.try_schedule_scope(label, f)
@@ -2069,7 +2079,7 @@ impl World {
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule(
         &mut self,
-        label: impl AsRef<dyn ScheduleLabel>,
+        label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope(label, |world, sched| sched.run(world))
     }
@@ -2084,8 +2094,22 @@ impl World {
     /// # Panics
     ///
     /// If the requested schedule does not exist.
-    pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label, |world, sched| sched.run(world));
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    pub fn allow_ambiguous_component<T: Component>(&mut self) {
+        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
+        schedules.allow_ambiguous_component::<T>(self);
+        self.insert_resource(schedules);
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
+        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
+        schedules.allow_ambiguous_resource::<T>(self);
+        self.insert_resource(schedules);
     }
 }
 
@@ -2269,7 +2293,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .get_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -2285,7 +2309,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .get_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         {
@@ -2318,7 +2342,7 @@ mod tests {
                 Some(|ptr| {
                     let data = ptr.read::<[u8; 8]>();
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
-                    DROP_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
             )
         };
@@ -2344,7 +2368,7 @@ mod tests {
 
         assert!(world.remove_resource_by_id(component_id).is_some());
 
-        assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 1);
     }
 
     #[derive(Resource)]

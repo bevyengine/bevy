@@ -19,6 +19,12 @@ pub enum ClearColorConfig {
     None,
 }
 
+impl From<Color> for ClearColorConfig {
+    fn from(color: Color) -> Self {
+        Self::Custom(color)
+    }
+}
+
 /// A [`Resource`] that stores the color that is used to clear the screen between frames.
 ///
 /// This color appears as the "background" color for simple apps,
@@ -27,8 +33,9 @@ pub enum ClearColorConfig {
 #[reflect(Resource)]
 pub struct ClearColor(pub Color);
 
+/// Match the dark gray bevy website code block color by default.
 impl Default for ClearColor {
     fn default() -> Self {
-        Self(Color::rgb(0.4, 0.4, 0.4))
+        Self(Color::rgb_u8(43, 44, 47))
     }
 }

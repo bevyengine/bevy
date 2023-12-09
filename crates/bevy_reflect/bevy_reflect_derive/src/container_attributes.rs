@@ -5,8 +5,8 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
-use crate::fq_std::{FQAny, FQOption};
 use crate::utility;
+use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::parse::{Parse, ParseStream};
@@ -446,7 +446,7 @@ fn extract_bool(
     mut mapper: impl FnMut(&LitBool) -> LitBool,
 ) -> Result<LitBool, syn::Error> {
     match value {
-        syn::Expr::Lit(syn::ExprLit {
+        Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Bool(lit),
             ..
         }) => Ok(mapper(lit)),
