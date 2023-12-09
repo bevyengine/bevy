@@ -56,20 +56,47 @@ impl EllipseMesh {
         let mut normals = Vec::with_capacity(self.vertices);
         let mut uvs = Vec::with_capacity(self.vertices);
 
+        self.build_mesh_data(
+            [0.0; 3],
+            &mut indices,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+        );
+
+        Mesh::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            .with_indices(Some(Indices::U32(indices)))
+    }
+
+    pub(super) fn build_mesh_data(
+        &self,
+        translation: [f32; 3],
+        indices: &mut Vec<u32>,
+        positions: &mut Vec<[f32; 3]>,
+        normals: &mut Vec<[f32; 3]>,
+        uvs: &mut Vec<[f32; 2]>,
+    ) {
+        let sides = self.vertices;
+        let [trans_x, trans_y, trans_z] = translation;
+
+        let index_offset = positions.len() as u32;
         let facing_coords = self.facing.to_array();
         let normal_sign = self.facing.signum() as f32;
-        let step = normal_sign * std::f32::consts::TAU / self.vertices as f32;
+        let step = normal_sign * std::f32::consts::TAU / sides as f32;
 
-        for i in 0..self.vertices {
+        for i in 0..sides {
             let theta = std::f32::consts::FRAC_PI_2 + i as f32 * step;
             let (sin, cos) = theta.sin_cos();
             let x = cos * self.ellipse.half_width;
             let y = sin * self.ellipse.half_height;
 
             let position = match self.facing {
-                Facing::X | Facing::NegX => [0.0, y, -x],
-                Facing::Y | Facing::NegY => [x, 0.0, -y],
-                Facing::Z | Facing::NegZ => [x, y, 0.0],
+                Facing::X | Facing::NegX => [trans_x, trans_y + y, trans_z - x],
+                Facing::Y | Facing::NegY => [trans_x + x, trans_y, trans_z - y],
+                Facing::Z | Facing::NegZ => [trans_x + x, trans_y + y, trans_z],
             };
 
             positions.push(position);
@@ -77,15 +104,9 @@ impl EllipseMesh {
             uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
         }
 
-        for i in 1..(self.vertices as u32 - 1) {
-            indices.extend_from_slice(&[0, i, i + 1]);
+        for i in 1..(sides as u32 - 1) {
+            indices.extend_from_slice(&[index_offset, index_offset + i, index_offset + i + 1]);
         }
-
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_indices(Some(Indices::U32(indices)))
     }
 }
 

@@ -1,7 +1,5 @@
 use super::{Facing, Mesh, MeshFacingExtension, Meshable};
-use crate::mesh::Indices;
-use bevy_math::primitives::RegularPolygon;
-use wgpu::PrimitiveTopology;
+use bevy_math::primitives::{Ellipse, RegularPolygon};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RegularPolygonMesh {
@@ -18,24 +16,15 @@ impl MeshFacingExtension for RegularPolygonMesh {
 
 impl RegularPolygonMesh {
     pub fn build(&self) -> Mesh {
-        let mut indices = Vec::with_capacity((self.polygon.sides - 2) * 3);
-        let mut positions = Vec::with_capacity(self.polygon.sides);
-        let mut normals = Vec::with_capacity(self.polygon.sides);
-        let mut uvs = Vec::with_capacity(self.polygon.sides);
-
-        self.build_mesh_data(
-            [0.0; 3],
-            &mut indices,
-            &mut positions,
-            &mut normals,
-            &mut uvs,
-        );
-
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_indices(Some(Indices::U32(indices)))
+        // The ellipse mesh is just a regular polygon with two radii
+        Ellipse {
+            half_width: self.polygon.circumcircle.radius,
+            half_height: self.polygon.circumcircle.radius,
+        }
+        .mesh()
+        .vertices(self.polygon.sides)
+        .facing(self.facing)
+        .build()
     }
 
     pub(super) fn build_mesh_data(
@@ -46,35 +35,14 @@ impl RegularPolygonMesh {
         normals: &mut Vec<[f32; 3]>,
         uvs: &mut Vec<[f32; 2]>,
     ) {
-        let sides = self.polygon.sides;
-        let radius = self.polygon.circumcircle.radius;
-        let [trans_x, trans_y, trans_z] = translation;
-
-        let index_offset = positions.len() as u32;
-        let facing_coords = self.facing.to_array();
-        let normal_sign = self.facing.signum() as f32;
-        let step = normal_sign * std::f32::consts::TAU / sides as f32;
-
-        for i in 0..sides {
-            let theta = std::f32::consts::FRAC_PI_2 + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
-            let x = cos * radius;
-            let y = sin * radius;
-
-            let position = match self.facing {
-                Facing::X | Facing::NegX => [trans_x, trans_y + y, trans_z - x],
-                Facing::Y | Facing::NegY => [trans_x + x, trans_y, trans_z - y],
-                Facing::Z | Facing::NegZ => [trans_x + x, trans_y + y, trans_z],
-            };
-
-            positions.push(position);
-            normals.push(facing_coords);
-            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
+        Ellipse {
+            half_width: self.polygon.circumcircle.radius,
+            half_height: self.polygon.circumcircle.radius,
         }
-
-        for i in 1..(sides as u32 - 1) {
-            indices.extend_from_slice(&[index_offset, index_offset + i, index_offset + i + 1]);
-        }
+        .mesh()
+        .vertices(self.polygon.sides)
+        .facing(self.facing)
+        .build_mesh_data(translation, indices, positions, normals, uvs);
     }
 }
 
