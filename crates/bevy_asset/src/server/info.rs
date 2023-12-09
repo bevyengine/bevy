@@ -562,11 +562,10 @@ impl AssetInfos {
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {
-        let mut entry = match infos.entry(id) {
-            Entry::Occupied(entry) => entry,
+        let Entry::Occupied(mut entry) = infos.entry(id) else {
             // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
             // None of these cases should result in a removal from the Assets collection
-            Entry::Vacant(_) => return false,
+            return false;
         };
 
         if entry.get_mut().handle_drops_to_skip > 0 {
