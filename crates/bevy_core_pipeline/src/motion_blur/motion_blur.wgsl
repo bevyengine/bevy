@@ -31,6 +31,10 @@ fn fragment(
     #endif
     in: FullscreenVertexOutput
 ) -> @location(0) vec4<f32> { 
+    if i32(settings.max_samples) < 2 {
+        return textureSample(screen_texture, texture_sampler, in.uv);
+    }
+
     let shutter_angle = settings.shutter_angle;
     let texture_size = vec2<f32>(textureDimensions(screen_texture));
     let frag_coords = vec2<i32>(in.uv * texture_size);
@@ -64,12 +68,11 @@ fn fragment(
 
     var accumulator: vec4<f32>;
     var weight_total = 0.0;
-    let n_samples = (i32(settings.max_samples) / 2) * 2;    // Must be even
-    let n_samples_half = n_samples / 2;
+    let n_samples = (i32(settings.max_samples) / 2) * 2; // Must be even
     let noise = hash_noise(frag_coords, globals.frame_count); // 0 to 1
        
-    for (var i = -n_samples_half; i < n_samples_half; i++) {
-        let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples_half);
+    for (var i = -n_samples / 2; i < n_samples / 2; i++) {
+        let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples / 2);
         var sample_uv = in.uv + step_vector;
         let sample_coords = vec2<i32>(sample_uv * texture_size);
 
@@ -108,8 +111,10 @@ fn fragment(
                 weight = 0.0;
             } else {
                 let cos_angle = dot(step_vector, sample_motion_vector) / (this_len * sample_len);
+                // Important: take abs to check parallelism, vectors can have opposte sign
                 let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
-                weight = pow(motion_similarity, 10.0);
+                // Raise to power to increase attenuation when motion is dissimilar
+                weight = pow(motion_similarity, 16.0);
             }
         }
         weight_total += weight;
