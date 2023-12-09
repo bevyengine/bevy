@@ -140,9 +140,9 @@ fn update_accessibility_nodes(
 }
 
 /// Implements winit-specific `AccessKit` functionality.
-pub struct WinitAccessibilityPlugin;
+pub struct AccessKitPlugin;
 
-impl Plugin for WinitAccessibilityPlugin {
+impl Plugin for AccessKitPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AccessKitAdapters>()
             .init_resource::<WinitActionHandlers>()

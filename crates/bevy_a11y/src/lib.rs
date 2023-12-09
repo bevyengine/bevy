@@ -99,9 +99,9 @@ pub enum AccessibilitySystem {
 }
 
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
-pub struct A11YAccessibilityPlugin;
+pub struct AccessibilityPlugin;
 
-impl Plugin for A11YAccessibilityPlugin {
+impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
