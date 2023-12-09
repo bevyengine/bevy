@@ -54,7 +54,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
-use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHandlers};
+use crate::accessibility::{AccessKitAdapters, WinitAccessibilityPlugin, WinitActionHandlers};
 
 use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
@@ -142,7 +142,7 @@ impl Plugin for WinitPlugin {
                     .chain(),
             );
 
-        app.add_plugins(AccessibilityPlugin);
+        app.add_plugins(WinitAccessibilityPlugin);
 
         #[cfg(target_arch = "wasm32")]
         app.add_plugins(CanvasParentResizePlugin);

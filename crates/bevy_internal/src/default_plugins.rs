@@ -50,7 +50,7 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_diagnostic::DiagnosticsPlugin)
             .add(bevy_input::InputPlugin)
             .add(bevy_window::WindowPlugin::default())
-            .add(bevy_a11y::AccessibilityPlugin);
+            .add(bevy_a11y::A11YAccessibilityPlugin);
 
         #[cfg(feature = "bevy_asset")]
         {
