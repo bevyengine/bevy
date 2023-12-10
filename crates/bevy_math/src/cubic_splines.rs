@@ -609,7 +609,7 @@ impl RectifiedCurve {
 
             let segment_fraction = (distance - length_before) / segment_length;
 
-            (closest as f32 + segment_fraction + 1.) / (self.arc_lengths.len() + 1) as f32
+            (closest as f32 + segment_fraction) / (self.arc_lengths.len() - 1) as f32
         }
     }
 }
@@ -647,6 +647,24 @@ mod tests {
             + 3.0 * p[1] * t * (1.0 - t).powi(2)
             + 3.0 * p[2] * t.powi(2) * (1.0 - t)
             + p[3] * t.powi(3)
+    }
+
+    #[test]
+    fn rectified_curve() {
+        const SUBDIVISIONS: usize = 1000;
+        let points = [[0.0, 0.2, 0.8, 1.0]];
+        let bezier = CubicBezier::new(points).to_curve();
+        let rectified = bezier.rectify(SUBDIVISIONS);
+
+        assert_eq!(rectified.length(), 1.0);
+
+        // Check with exact point.
+        assert_eq!(rectified.distance_to_parameter(0.5), 0.5);
+
+        // Check with value between two points.
+        let t = rectified.distance_to_parameter(0.25);
+        let position = bezier.position(t);
+        assert!(0.24998 < position && position < 0.25001);
     }
 
     /// Basic cubic Bezier easing test to verify the shape of the curve.
