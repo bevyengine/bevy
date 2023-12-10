@@ -232,7 +232,7 @@ fn translate(time: Res<Time>, mut moves: Query<(&mut Transform, &Translates)>) {
     for (mut transform, moves) in &mut moves {
         let t = time.elapsed_seconds();
         transform.translation.x =
-            ((((t + moves.0) * moves.0 * 3.).sin() * 0.5 + 0.5).powi(4) - 0.5) * 30.;
+            ((((t + moves.0) * moves.0 * 3.).sin() * 0.5 + 0.5).powi(4) - 0.5) * 100.;
     }
 }
 
@@ -291,8 +291,8 @@ fn update_settings(
     }
 }
 
-use std::f32::consts::*;
 use std::fmt;
+use std::{collections::VecDeque, f32::consts::*};
 
 pub const RADIANS_PER_DOT: f32 = 1.0 / 360.0;
 
@@ -377,15 +377,28 @@ impl Plugin for CameraControllerPlugin {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn camera_controller(
     time: Res<Time>,
     mut windows: Query<&mut Window>,
     mut mouse_events: EventReader<MouseMotion>,
+    mut motion_buffer: Local<VecDeque<Vec2>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut move_toggled: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
+    if !mouse_events.is_empty() {
+        for mouse_move in mouse_events.read().map(|a| a.delta) {
+            motion_buffer.push_front(mouse_move);
+        }
+    } else {
+        motion_buffer.push_front(Vec2::ZERO);
+    }
+    let smoothing_window = 4;
+    motion_buffer.truncate(smoothing_window);
+    let smoothed_motion = motion_buffer.iter().sum::<Vec2>() / smoothing_window as f32;
+
     let dt = time.delta_seconds();
 
     if let Ok((mut transform, mut options)) = query.get_single_mut() {
@@ -456,9 +469,7 @@ fn camera_controller(
                 window.cursor.visible = false;
             }
 
-            for mouse_event in mouse_events.read() {
-                mouse_delta += mouse_event.delta;
-            }
+            mouse_delta = smoothed_motion;
         }
         if mouse_button_input.just_released(options.mouse_key_enable_mouse) {
             for mut window in &mut windows {

@@ -54,18 +54,6 @@ fn fragment(
     // than they physically travelled during a frame, which is not possible.
     let exposure_vector = shutter_angle * this_motion_vector;
 
-#ifdef NO_DEPTH_TEXTURE_SUPPORT
-    let this_depth = 0.0;
-    let depth_supported = false;
-#else
-    let depth_supported = true;
-#ifdef MULTISAMPLED
-    let this_depth = textureLoad(depth, frag_coords, i32(sample_index));
-#else
-    let this_depth = textureSample(depth, texture_sampler, in.uv);
-#endif
-#endif
-
     var accumulator: vec4<f32>;
     var weight_total = 0.0;
     let n_samples = (i32(settings.max_samples) / 2) * 2; // Must be even
@@ -77,27 +65,16 @@ fn fragment(
         var sample_uv = in.uv + step_vector;
         let sample_coords = vec2<i32>(sample_uv * texture_size);
 
-    #ifdef NO_DEPTH_TEXTURE_SUPPORT
-        let sample_depth = 0.0;
-    #else
-    #ifdef MULTISAMPLED
-        let sample_depth = textureLoad(depth, sample_coords, i32(sample_index));
-    #else
-        let sample_depth = textureSample(depth, texture_sampler, sample_uv);
-    #endif
-    #endif
-
     #ifdef MULTISAMPLED
         let sample_motion = textureLoad(motion_vectors, sample_coords, i32(sample_index)).rg;
     #else
         let sample_motion = textureSample(motion_vectors, texture_sampler, sample_uv).rg;
     #endif
 
-        var weight = 1.0;
-        // This block is used to all but eliminate reduce ghosting artifacts that are common in
-        // motion-vector-based motion blur implementations. While some resources recommend using
-        // depth, I've found that sampling the velocity results in significantly better results.
-        // Unlike a depth heuristic, this is not scale dependent.
+        // The following weight calculation is used to all but eliminate ghosting artifacts that are
+        // common in motion-vector-based motion blur implementations. While some resources recommend
+        // using depth, I've found that sampling the velocity results in significantly better
+        // results. Unlike a depth heuristic, this is not scale dependent.
         //
         // The idea is that the most distracting artifacts occur when a foreground object is
         // incorrectly sampled when blurring a background object. This is most obvious when the
@@ -107,24 +84,20 @@ fn fragment(
         // To attenuate these incorrect samples, we compare motion vectors of the current fragment
         // and sample to answer the question "is it possible that this sample was occluding the
         // current fragment?"
-        if sample_depth > this_depth { // Only run when the sample is in front of the current frag
-            let this_len = length(step_vector);
-            let sample_len = length(sample_motion / 2.0); // Halved because the sample is centered
-            let cos_angle = dot(step_vector, sample_motion) / (this_len * sample_len);
-            if sample_len * abs(cos_angle) < this_len {
-                // In this case, the sample motion projected onto the vector pointing to the current
-                // fragment is shorter than the distance to the current fragment. This means the
-                // foreground sample could not have occluded the current fragment - it is not moving
-                // fast enough to have overlapped during this frame.
-                weight = 0.0;
-            } else {
-                // Important: take abs to check parallelism, vectors can have opposite sign
-                let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
-                // Raise to power to increase attenuation when motion is dissimilar
-                weight = pow(motion_similarity, 8.0);
-            }
-        }
-
+        //
+        // Note: while I have attempted to use depth for an occlusion check, all variants ended up
+        // with distracting artifacts, caused by a discontinuity from the depth check.
+        let this_len = length(step_vector);
+        let sample_len = length(sample_motion / 2.0); // Halved because the sample is centered
+        let cos_angle = dot(step_vector, sample_motion) / (this_len * sample_len);
+        // Important: take abs to check parallelism, vectors can have opposite sign
+        let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
+        // In this case, the sample motion projected onto the vector pointing to the current
+        // fragment is shorter than the distance to the current fragment. This means the
+        // foreground sample could not have occluded the current fragment - it is not moving
+        // fast enough to have overlapped during this frame.
+        let weight = step(this_len, sample_len * motion_similarity);
+                
         weight_total += weight;
         accumulator += weight * textureSample(screen_texture, texture_sampler, sample_uv);
     }
