@@ -260,6 +260,13 @@ impl Touches {
         self.just_pressed.contains_key(&id)
     }
 
+    /// Clears the `just_pressed` state of the touch input and returns `true` if the touch input has just been pressed.
+    ///
+    /// Future calls to [`Touches::just_pressed`] for the given touch input will return false until a new press event occurs.
+    pub fn clear_just_pressed(&mut self, id: u64) -> bool {
+        self.just_pressed.remove(&id).is_some()
+    }
+
     /// An iterator visiting every just pressed [`Touch`] input in arbitrary order.
     pub fn iter_just_pressed(&self) -> impl Iterator<Item = &Touch> {
         self.just_pressed.values()
@@ -514,6 +521,9 @@ mod test {
         assert!(touches.get_pressed(touch_event.id).is_some());
         assert!(touches.just_pressed(touch_event.id));
         assert_eq!(touches.iter().count(), 1);
+
+        touches.clear_just_pressed(touch_event.id);
+        assert!(!touches.just_pressed(touch_event.id));
     }
 
     #[test]
