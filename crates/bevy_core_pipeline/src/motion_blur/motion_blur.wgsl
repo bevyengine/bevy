@@ -1,18 +1,16 @@
 #import bevy_pbr::prepass_utils
 #import bevy_pbr::utils
-#import bevy_core_pipeline::fullscreen_vertex_shader FullscreenVertexOutput
-#import bevy_render::globals Globals
+#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+#import bevy_render::globals::Globals
 
 #ifdef MULTISAMPLED
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
 @group(0) @binding(1) var motion_vectors: texture_multisampled_2d<f32>;
-@group(0) @binding(2) var depth: texture_depth_multisampled_2d;
 #else
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
 @group(0) @binding(1) var motion_vectors: texture_2d<f32>;
-@group(0) @binding(2) var depth: texture_depth_2d;
 #endif
-@group(0) @binding(3) var texture_sampler: sampler;
+@group(0) @binding(2) var texture_sampler: sampler;
 struct MotionBlur {
     shutter_angle: f32,
     max_samples: u32,
@@ -21,8 +19,8 @@ struct MotionBlur {
     _webgl2_padding: vec3<f32>
 #endif
 }
-@group(0) @binding(4) var<uniform> settings: MotionBlur;
-@group(0) @binding(5) var<uniform> globals: Globals;
+@group(0) @binding(3) var<uniform> settings: MotionBlur;
+@group(0) @binding(4) var<uniform> globals: Globals;
 
 @fragment
 fn fragment(
