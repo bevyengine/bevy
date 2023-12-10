@@ -6,6 +6,7 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
+#[cfg(feature = "a11y")]
 use bevy_a11y::Focus;
 
 mod cursor;
@@ -107,6 +108,7 @@ impl Plugin for WindowPlugin {
                 .spawn(primary_window.clone())
                 .insert(PrimaryWindow)
                 .id();
+            #[cfg(feature = "a11y")]
             if let Some(mut focus) = app.world.get_resource_mut::<Focus>() {
                 **focus = Some(initial_focus);
             }
