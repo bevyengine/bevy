@@ -110,6 +110,9 @@ bevy_ci_testing = [
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
+# Enable a11y support
+a11y = ["bevy_a11y", "bevy_ui?/a11y", "bevy_winit?/a11y"]
+
 bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
 bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]
 
@@ -146,7 +149,6 @@ embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 [dependencies]
 # bevy
-bevy_a11y = { path = "../bevy_a11y", version = "0.12.0" }
 bevy_app = { path = "../bevy_app", version = "0.12.0" }
 bevy_core = { path = "../bevy_core", version = "0.12.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
@@ -166,6 +168,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 bevy_window = { path = "../bevy_window", version = "0.12.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0" }
 # bevy (optional)
+bevy_a11y = { path = "../bevy_a11y", version = "0.12.0", optional = true }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.12.0" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.12.0" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.12.0" }

@@ -45,6 +45,7 @@ workspace = true
 [features]
 default = [
   "animation",
+  "a11y",
   "bevy_asset",
   "bevy_audio",
   "bevy_gilrs",
@@ -74,6 +75,9 @@ dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation"]
+
+# Provides a11y functionality
+a11y = ["bevy_internal/a11y"]
 
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]

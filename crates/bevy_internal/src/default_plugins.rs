@@ -49,8 +49,12 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_hierarchy::HierarchyPlugin)
             .add(bevy_diagnostic::DiagnosticsPlugin)
             .add(bevy_input::InputPlugin)
-            .add(bevy_window::WindowPlugin::default())
-            .add(bevy_a11y::AccessibilityPlugin);
+            .add(bevy_window::WindowPlugin::default());
+
+        #[cfg(feature = "a11y")]
+        {
+            group = group.add(bevy_a11y::AccessibilityPlugin);
+        }
 
         #[cfg(feature = "bevy_asset")]
         {
