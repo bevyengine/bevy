@@ -14,7 +14,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
 use bevy_text::TextLayoutInfo;
-#[cfg(feature = "bevy_text")]
+#[cfg(all(feature = "bevy_text", feature = "a11y"))]
 mod accessibility;
 mod focus;
 mod geometry;
@@ -158,7 +158,7 @@ impl Plugin for UiPlugin {
                     .before(Assets::<Image>::track_assets),
             ),
         );
-        #[cfg(feature = "bevy_text")]
+        #[cfg(all(feature = "bevy_text", feature = "a11y"))]
         app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
             let system = widget::update_image_content_size_system.before(UiSystem::Layout);
