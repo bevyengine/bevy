@@ -44,14 +44,14 @@ impl<T> Default for ReportHierarchyIssue<T> {
 }
 
 #[cfg(feature = "bevy_app")]
-/// System to print a warning for each [`Entity`] with a `T` component
-/// which parent hasn't a `T` component.
+/// Warns when hierarchy component inheritance is invalidated.
 ///
-/// Hierarchy propagations are top-down, and limited only to entities
-/// with a specific component (such as `InheritedVisibility` and `GlobalTransform`).
-/// This means that entities with one of those component
-/// and a parent without the same component is probably a programming error.
-/// (See B0004 explanation linked in warning message)
+/// This system emits [`warning[B0004]`][warning_B0004]
+/// when a child with component `T` has a parent without component `T`,
+/// a condition that would prevent the propagation of properties
+/// down the hierarchy tree.
+///
+/// [warning_B0004]: <https://bevyengine.org/learn/errors/#b0004>
 pub fn check_hierarchy_component_has_valid_parent<T: Component>(
     parent_query: Query<
         (Entity, &Parent, Option<&bevy_core::Name>),
@@ -74,7 +74,7 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
     }
 }
 
-/// Run criteria that only allows running when [`ReportHierarchyIssue<T>`] is enabled.
+/// Run condition that only allows running when [`ReportHierarchyIssue<T>`] is enabled.
 pub fn on_hierarchy_reports_enabled<T>(report: Res<ReportHierarchyIssue<T>>) -> bool
 where
     T: Component,
@@ -82,10 +82,10 @@ where
     report.enabled
 }
 
-/// Print a warning for each `Entity` with a `T` component
-/// whose parent doesn't have a `T` component.
+/// Diagnostic plugin to warn when hierarchy inheritance is invalidated.
 ///
-/// See [`check_hierarchy_component_has_valid_parent`] for details.
+/// Adds system [`check_hierarchy_component_has_valid_parent<T>`]
+/// and resource [`ReportHierarchyIssue<T>`].
 pub struct ValidParentCheckPlugin<T: Component>(PhantomData<fn() -> T>);
 impl<T: Component> Default for ValidParentCheckPlugin<T> {
     fn default() -> Self {
