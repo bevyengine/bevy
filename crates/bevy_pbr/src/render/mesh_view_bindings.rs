@@ -20,7 +20,7 @@ use bevy_render::{
             sampler, storage_buffer_read_only_sized, storage_buffer_sized, texture_2d,
             uniform_buffer, uniform_buffer_sized,
         },
-        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder, BindingType,
+        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder,
         BufferBindingType, DynamicBindGroupEntries, DynamicBindGroupLayoutEntries,
         SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType,
     },
@@ -305,7 +305,12 @@ pub fn generate_view_layouts(
         #[cfg(debug_assertions)]
         let texture_count: usize = entries
             .iter()
-            .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
+            .filter(|entry| {
+                matches!(
+                    entry.ty,
+                    bevy_render::render_resource::BindingType::Texture { .. }
+                )
+            })
             .count();
 
         MeshPipelineViewLayout {
