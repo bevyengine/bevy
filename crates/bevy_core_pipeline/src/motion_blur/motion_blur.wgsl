@@ -29,8 +29,9 @@ fn fragment(
     #endif
     in: FullscreenVertexOutput
 ) -> @location(0) vec4<f32> { 
+    let base_color = textureSample(screen_texture, texture_sampler, in.uv);;
     if i32(settings.max_samples) < 2 {
-        return textureSample(screen_texture, texture_sampler, in.uv);
+        return base_color;
     }
 
     let shutter_angle = settings.shutter_angle;
@@ -54,12 +55,12 @@ fn fragment(
 
     var accumulator: vec4<f32>;
     var weight_total = 0.0;
-    let n_samples = (i32(settings.max_samples) / 2) * 2; // Must be even
+    let n_samples_half = i32(settings.max_samples) / 2;
     let noise = hash_noise(frag_coords, globals.frame_count); // 0 to 1
        
-    for (var i = -n_samples / 2; i < n_samples / 2; i++) {
+    for (var i = -n_samples_half; i < n_samples_half; i++) {
         // The current sample step vector, from in.uv
-        let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples / 2);
+        let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples_half);
         var sample_uv = in.uv + step_vector;
         let sample_coords = vec2<i32>(sample_uv * texture_size);
 
@@ -85,19 +86,24 @@ fn fragment(
         //
         // Note: while I have attempted to use depth for an occlusion check, all variants ended up
         // with distracting artifacts, caused by a discontinuity from the depth check.
-        let this_len = length(step_vector);
-        let sample_len = length(sample_motion / 2.0); // Halved because the sample is centered
-        let cos_angle = dot(step_vector, sample_motion) / (this_len * sample_len);
+        let frag_speed = length(step_vector);
+        let sample_speed = length(sample_motion / 2.0); // Halved because the sample is centered
+        let cos_angle = dot(step_vector, sample_motion) / (frag_speed * sample_speed);
         // Important: take abs to check parallelism, vectors can have opposite sign
         let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
         // In this case, the sample motion projected onto the vector pointing to the current
         // fragment is shorter than the distance to the current fragment. This means the
         // foreground sample could not have occluded the current fragment - it is not moving
         // fast enough to have overlapped during this frame.
-        let weight = step(this_len, sample_len * motion_similarity);
+        var weight = step(frag_speed, sample_speed * motion_similarity);
                 
         weight_total += weight;
         accumulator += weight * textureSample(screen_texture, texture_sampler, sample_uv);
+    }
+
+    if weight_total <= 0.0 {
+        accumulator = base_color;
+        weight_total = 1.0;
     }
 
     return accumulator / weight_total;
