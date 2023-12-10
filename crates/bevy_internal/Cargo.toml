@@ -111,7 +111,7 @@ bevy_ci_testing = [
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
 # Enable a11y support
-bevy_a11y = ["dep:bevy_a11y", "bevy_ui?/a11y", "bevy_winit?/a11y"]
+bevy_a11y = ["dep:bevy_a11y", "bevy_window/a11y", "bevy_ui?/a11y", "bevy_winit?/a11y"]
 
 bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
 bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]

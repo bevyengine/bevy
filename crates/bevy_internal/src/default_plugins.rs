@@ -51,7 +51,7 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_input::InputPlugin)
             .add(bevy_window::WindowPlugin::default());
 
-        #[cfg(feature = "a11y")]
+        #[cfg(feature = "bevy_a11y")]
         {
             group = group.add(bevy_a11y::AccessibilityPlugin);
         }

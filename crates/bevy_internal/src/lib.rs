@@ -7,7 +7,7 @@ pub mod prelude;
 mod default_plugins;
 pub use default_plugins::*;
 
-#[cfg(feature = "a11y")]
+#[cfg(feature = "bevy_a11y")]
 pub mod a11y {
     //! Integrate with platform accessibility APIs.
     pub use bevy_a11y::*;
