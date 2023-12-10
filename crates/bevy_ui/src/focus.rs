@@ -143,7 +143,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
+        mouse_button_input.any_just_released() || touches_input.any_just_released();
     if mouse_released {
         for node in &mut node_query {
             if let Some(mut interaction) = node.interaction {
@@ -154,8 +154,7 @@ pub fn ui_focus_system(
         }
     }
 
-    let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
+    let mouse_clicked = mouse_button_input.any_just_pressed() || touches_input.any_just_pressed();
 
     let is_ui_disabled =
         |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
