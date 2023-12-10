@@ -483,20 +483,21 @@ impl<P: Point> CubicCurve<P> {
         let (segment, t) = self.segment(t);
         segment.acceleration(t)
     }
-    
+
     /// Splits the curve into subdivisions of straight line segments that can be used for computing
     /// spatial length.
     pub fn rectify(&self, subdivisions: usize) -> RectifiedCurve {
-        let arc_lengths: Vec<f32> = self.iter_positions(subdivisions).scan((0.0, self.position(0.0)), |state, x| {
-            state.0 += x.distance(state.1);
-            state.1 = x;
+        let arc_lengths: Vec<f32> = self
+            .iter_positions(subdivisions)
+            .scan((0.0, self.position(0.0)), |state, x| {
+                state.0 += x.distance(state.1);
+                state.1 = x;
 
-            Some(state.0)
-        }).collect();
+                Some(state.0)
+            })
+            .collect();
 
-        RectifiedCurve{
-            arc_lengths
-        }
+        RectifiedCurve { arc_lengths }
     }
 
     /// A flexible iterator used to sample curves with arbitrary functions.
@@ -583,7 +584,7 @@ impl<P: Point> CubicCurve<P> {
 #[derive(Clone, Debug)]
 pub struct RectifiedCurve {
     // Each index stores the distance from the start of the curve to that point.
-    arc_lengths: Vec<f32>
+    arc_lengths: Vec<f32>,
 }
 
 impl RectifiedCurve {
@@ -600,7 +601,7 @@ impl RectifiedCurve {
         // Check if index's distance perfectly matches target distance, otherwise lerp between the
         // index and its next neighbor.
         if self.arc_lengths[closest] == distance {
-            return (closest + 1) as f32 / (self.arc_lengths.len() + 1) as f32;
+            (closest + 1) as f32 / (self.arc_lengths.len() + 1) as f32
         } else {
             let length_before = self.arc_lengths[closest];
             let length_after = self.arc_lengths[closest + 1];
@@ -608,7 +609,7 @@ impl RectifiedCurve {
 
             let segment_fraction = (distance - length_before) / segment_length;
 
-            return (closest as f32 + segment_fraction + 1.) / (self.arc_lengths.len() + 1) as f32;
+            (closest as f32 + segment_fraction + 1.) / (self.arc_lengths.len() + 1) as f32
         }
     }
 }
