@@ -30,7 +30,7 @@ fn fragment(
     in: FullscreenVertexOutput
 ) -> @location(0) vec4<f32> { 
     let base_color = textureSample(screen_texture, texture_sampler, in.uv);;
-    if i32(settings.max_samples) < 2 {
+    if i32(settings.max_samples) < 2 || settings.shutter_angle <= 0.0 {
         return base_color;
     }
 
@@ -70,31 +70,39 @@ fn fragment(
         let sample_motion = textureSample(motion_vectors, texture_sampler, sample_uv).rg;
     #endif
 
-        // The following weight calculation is used to all but eliminate ghosting artifacts that are
-        // common in motion-vector-based motion blur implementations. While some resources recommend
-        // using depth, I've found that sampling the velocity results in significantly better
-        // results. Unlike a depth heuristic, this is not scale dependent.
+        // The following weight calculation is used to eliminate ghosting artifacts that are common
+        // in motion-vector-based motion blur implementations. While some resources recommend using
+        // depth, I've found that sampling the velocity results in significantly better results.
+        // Unlike a depth heuristic, this is not scale dependent.
         //
-        // The idea is that the most distracting artifacts occur when a foreground object is
-        // incorrectly sampled when blurring a background object. This is most obvious when the
-        // camera is tracking a fast moving object; the tracked object should be sharp, and the
-        // background should be heavily blurred.
+        // The most distracting artifacts occur when a stationary object is incorrectly sampled
+        // while blurring a moving object, causing the stationary object to blur when it should be
+        // sharp ("background bleeding"). This is most obvious when the camera is tracking a fast
+        // moving object. The tracked object should be sharp, and should not bleed into the motion
+        // blurred background.
         //
-        // To attenuate these incorrect samples, we compare motion vectors of the current fragment
-        // and sample to answer the question "is it possible that this sample was occluding the
-        // current fragment?"
+        // To attenuate these incorrect samples, we compare the motion of the fragment being blurred
+        // to the UV being sampled, to answer the question "is it possible that this sample was
+        // occluding the fragment?"
         //
-        // Note: while I have attempted to use depth for an occlusion check, all variants ended up
-        // with distracting artifacts, caused by a discontinuity from the depth check.
+        // Note to future maintainers: 
+        //
+        // I have repeatedly attempted to use depth tests, however:
+        //   - All occlusion experiments (foreground vs background) resulted in distracting
+        //     artifacts caused by discontinuities introduced by the depth check.
+        //   - Using depth to weight samples requires some hueristic that ends up being scale and
+        //     distance dependant.
+        //
+        // Proceed with caution when making any changes here, and ensure you check all
+        // oclusion/disocclusion scenarios and fullscreen camera rotation blur for regressions.
         let frag_speed = length(step_vector);
         let sample_speed = length(sample_motion / 2.0); // Halved because the sample is centered
         let cos_angle = dot(step_vector, sample_motion) / (frag_speed * sample_speed);
-        // Important: take abs to check parallelism, vectors can have opposite sign
+        // Sign is ignored because the sample is centered.
         let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
-        // In this case, the sample motion projected onto the vector pointing to the current
-        // fragment is shorter than the distance to the current fragment. This means the
-        // foreground sample could not have occluded the current fragment - it is not moving
-        // fast enough to have overlapped during this frame.
+        // Project the sample's motion onto the frag's motion vector. If the sample did not cover
+        // enough distance to each the original frag, there is no way it could have influenced this
+        // frag at all, and should be discarded.
         var weight = step(frag_speed, sample_speed * motion_similarity);
                 
         weight_total += weight;

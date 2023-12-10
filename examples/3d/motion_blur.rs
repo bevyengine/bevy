@@ -7,7 +7,6 @@
 use bevy::{
     core_pipeline::{
         bloom::BloomSettings,
-        fxaa::Fxaa,
         motion_blur::{MotionBlur, MotionBlurBundle},
         tonemapping::Tonemapping,
     },
@@ -27,7 +26,6 @@ fn main() {
         ))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, (translate, rotate, scale, update_settings).chain())
-        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -54,14 +52,13 @@ fn setup(
         MotionBlurBundle {
             // Configure motion blur settings per-camera
             motion_blur: MotionBlur {
-                shutter_angle: 0.5,
-                max_samples: 8,
+                shutter_angle: 0.5, // Amount of blur
+                max_samples: 16,    // Quality
                 ..default()
             },
             ..default()
         },
         CameraController::default(),
-        Fxaa::default(),
         BloomSettings::default(),
     ));
 
@@ -181,11 +178,23 @@ fn setup(
             mesh: meshes.add(UVSphere::default().into()),
             material: sphere_matl(Color::WHITE),
             transform: Transform::from_xyz(100.0, 50.0, -100.0)
-                .with_scale(Vec3::splat(60.0))
+                .with_scale(Vec3::splat(40.0))
                 .with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
             ..default()
         },
-        Rotates(30.0),
+        Rotates(10.0),
+    ));
+
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(UVSphere::default().into()),
+            material: sphere_matl(Color::WHITE),
+            transform: Transform::from_xyz(100.0, 50.0, 100.0)
+                .with_scale(Vec3::splat(40.0))
+                .with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
+            ..default()
+        },
+        Rotates(40.0),
     ));
 }
 
@@ -238,7 +247,8 @@ fn translate(time: Res<Time>, mut moves: Query<(&mut Transform, &Translates)>) {
 
 fn rotate(time: Res<Time>, mut moves: Query<(&mut Transform, &Rotates)>) {
     for (mut transform, rotate) in &mut moves {
-        transform.rotate_local_z(rotate.0 * time.delta_seconds());
+        transform
+            .rotate_local_z(rotate.0 * time.delta_seconds() * (time.elapsed_seconds() * 2.0).sin());
     }
 }
 
