@@ -22,11 +22,29 @@ pub trait Point:
     + PartialEq
     + Copy
 {
+    /// Distance between two points.
+    fn distance(&self, rhs: Self) -> f32;
 }
-impl Point for Vec3 {}
-impl Point for Vec3A {}
-impl Point for Vec2 {}
-impl Point for f32 {}
+impl Point for Vec3 {
+    fn distance(&self, rhs: Self) -> f32 {
+        Vec3::distance(*self, rhs)
+    }
+}
+impl Point for Vec3A {
+    fn distance(&self, rhs: Self) -> f32 {
+        Vec3A::distance(*self, rhs)
+    }
+}
+impl Point for Vec2 {
+    fn distance(&self, rhs: Self) -> f32 {
+        Vec2::distance(*self, rhs)
+    }
+}
+impl Point for f32 {
+    fn distance(&self, rhs: Self) -> f32 {
+        (self - rhs).abs()
+    }
+}
 
 /// A spline composed of a single cubic Bezier curve.
 ///
@@ -465,6 +483,21 @@ impl<P: Point> CubicCurve<P> {
         let (segment, t) = self.segment(t);
         segment.acceleration(t)
     }
+    
+    /// Splits the curve into subdivisions of straight line segments that can be used for computing
+    /// spatial length.
+    pub fn rectify(&self, subdivisions: usize) -> RectifiedCurve {
+        let arc_lengths: Vec<f32> = self.iter_positions(subdivisions).scan((0.0, self.position(0.0)), |state, x| {
+            state.0 += x.distance(state.1);
+            state.1 = x;
+
+            Some(state.0)
+        }).collect();
+
+        RectifiedCurve{
+            arc_lengths
+        }
+    }
 
     /// A flexible iterator used to sample curves with arbitrary functions.
     ///
@@ -543,6 +576,40 @@ impl<P: Point> CubicCurve<P> {
         ];
         coeff.iter_mut().for_each(|c| *c = *c * multiplier);
         CubicSegment { coeff }
+    }
+}
+
+/// A curve that has been divided into straight line segments.
+#[derive(Clone, Debug)]
+pub struct RectifiedCurve {
+    // Each index stores the distance from the start of the curve to that point.
+    arc_lengths: Vec<f32>
+}
+
+impl RectifiedCurve {
+    /// Total length of the curve.
+    pub fn length(&self) -> f32 {
+        self.arc_lengths[self.arc_lengths.len() - 1]
+    }
+
+    /// Returns a 't' value between 0..=1 based on the distance along the curve.
+    pub fn distance_to_parameter(&self, distance: f32) -> f32 {
+        // Get index with greatest value that is less than or equal to target distance.
+        let closest = self.arc_lengths.partition_point(|&x| x <= distance) - 1;
+
+        // Check if index's distance perfectly matches target distance, otherwise lerp between the
+        // index and its next neighbor.
+        if self.arc_lengths[closest] == distance {
+            return (closest + 1) as f32 / (self.arc_lengths.len() + 1) as f32;
+        } else {
+            let length_before = self.arc_lengths[closest];
+            let length_after = self.arc_lengths[closest + 1];
+            let segment_length = length_after - length_before;
+
+            let segment_fraction = (distance - length_before) / segment_length;
+
+            return (closest as f32 + segment_fraction + 1.) / (self.arc_lengths.len() + 1) as f32;
+        }
     }
 }
 
