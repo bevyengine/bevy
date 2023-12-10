@@ -1,31 +1,31 @@
 use bevy_ecs::{event::Event, prelude::Entity};
 
-/// An [`Event`] that is fired whenever there is a change in the world's hierarchy.
+/// An [`Event`] sent each time the hierarchy is mutated.
 ///
 /// [`Event`]: bevy_ecs::event::Event
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
 pub enum HierarchyEvent {
-    /// Fired whenever an [`Entity`] is added as a child to a parent.
+    /// Sent whenever a parent-child relationship is set.
     ChildAdded {
-        /// The child that was added
+        /// The child entity.
         child: Entity,
-        /// The parent the child was added to
+        /// The parent entity.
         parent: Entity,
     },
-    /// Fired whenever a child [`Entity`] is removed from its parent.
+    /// Sent whenever a parent-child relationship is cleared.
     ChildRemoved {
-        /// The child that was removed
+        /// The child entity.
         child: Entity,
-        /// The parent the child was removed from
+        /// The parent entity.
         parent: Entity,
     },
-    /// Fired whenever a child [`Entity`] is moved to a new parent.
+    /// Sent whenever a child is assigned to a new parent.
     ChildMoved {
-        /// The child that was moved
+        /// The child entity.
         child: Entity,
-        /// The parent the child was removed from
+        /// The old parent entity.
         previous_parent: Entity,
-        /// The parent the child was added to
+        /// The new parent entity.
         new_parent: Entity,
     },
 }
