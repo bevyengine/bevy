@@ -77,7 +77,7 @@ dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 bevy_animation = ["bevy_internal/bevy_animation"]
 
 # Provides a11y functionality
-a11y = ["bevy_internal/a11y"]
+a11y = ["bevy_internal/bevy_a11y"]
 
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
@@ -124,13 +124,14 @@ bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 # A custom ECS-driven UI framework
 bevy_ui = [
   "bevy_internal/bevy_ui",
+  "a11y",
   "bevy_core_pipeline",
   "bevy_text",
   "bevy_sprite",
 ]
 
 # winit window and input backend
-bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_winit = ["bevy_internal/bevy_winit", "a11y"]
 
 # Adds support for rendering gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos"]
