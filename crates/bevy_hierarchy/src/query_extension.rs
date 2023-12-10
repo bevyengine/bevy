@@ -8,15 +8,17 @@ use bevy_ecs::{
 
 use crate::{Children, Parent};
 
-/// An extension trait for [`Query`] that adds hierarchy related methods.
+/// [`Query`] API extension with hierarchy iteration methods.
 pub trait HierarchyQueryExt<'w, 's, Q: QueryData, F: QueryFilter> {
-    /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
+    /// Returns an iterator over descendants of the given entity.
     ///
-    /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<&Children>`).
-    ///
-    /// Traverses the hierarchy breadth-first.
+    /// This method is only available for queries of type `Query<&Children>`.
     ///
     /// # Examples
+    ///
+    /// This example illustrates how to use an auxiliary query
+    /// to complement the traversal query.
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_hierarchy::prelude::*;
@@ -34,11 +36,15 @@ pub trait HierarchyQueryExt<'w, 's, Q: QueryData, F: QueryFilter> {
     where
         Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
 
-    /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s ancestors.
+    /// Returns an iterator over ancestors of the given entity.
     ///
-    /// Can only be called on a [`Query`] of [`Parent`] (i.e. `Query<&Parent>`).
+    /// This method is only available for queries of type `Query<&Parent>`.
     ///
     /// # Examples
+    ///
+    /// This example illustrates how to use an auxiliary query
+    /// to complement the traversal query.
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_hierarchy::prelude::*;
@@ -73,7 +79,7 @@ impl<'w, 's, Q: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, Q, F> for Q
     }
 }
 
-/// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
+/// [`Iterator`] over descendant [`Entity`]s of a particular entity.
 ///
 /// Traverses the hierarchy breadth-first.
 pub struct DescendantIter<'w, 's, Q: QueryData, F: QueryFilter>
@@ -119,7 +125,7 @@ where
     }
 }
 
-/// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
+/// [`Iterator`] over ancestor [`Entity`]s of a particular entity.
 pub struct AncestorIter<'w, 's, Q: QueryData, F: QueryFilter>
 where
     Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
