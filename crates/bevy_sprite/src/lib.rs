@@ -3,6 +3,7 @@ mod dynamic_texture_atlas_builder;
 mod mesh2d;
 mod render;
 mod sprite;
+mod sprite_material;
 mod texture_atlas;
 mod texture_atlas_builder;
 
@@ -25,7 +26,8 @@ pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
-
+pub use sprite_material::*;
+pub use sprite_material_pipeline::SpriteMaterialPlugin;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
