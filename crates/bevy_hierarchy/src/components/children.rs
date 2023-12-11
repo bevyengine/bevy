@@ -10,19 +10,22 @@ use core::slice;
 use smallvec::SmallVec;
 use std::ops::Deref;
 
-/// Contains references to the child entities of this entity.
+/// Component referencing children entities.
 ///
-/// Each child must contain a [`Parent`] component that points back to this entity.
-/// This component rarely needs to be created manually,
-/// consider using higher level utilities like [`BuildChildren::with_children`]
-/// which are safer and easier to use.
+/// You can access children entities like an array,
+/// by calling iterator methods (e.g. `children.iter()`),
+/// or by index (e.g. `children[3]`).
 ///
-/// See [`HierarchyQueryExt`] for hierarchy related methods on [`Query`].
+/// Unless otherwise stated,
+/// children are always added at the last position.
 ///
-/// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
-/// [`Query`]: bevy_ecs::system::Query
-/// [`Parent`]: crate::components::parent::Parent
-/// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
+/// This component is automatically removed
+/// once the entity loses all of its children.
+///
+/// Check the [crate-level documentation]
+/// to learn how to correctly use this component.
+///
+/// [crate-level documentation]: crate
 #[derive(Component, Debug)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "reflect", reflect(Component, MapEntities))]
