@@ -44,7 +44,9 @@ impl ViewNode for MotionBlurNode {
         let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
             return Ok(());
         };
-        let Some(prepass_motion_vectors_texture) = &prepass_textures.motion_vectors else {
+        let (Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) =
+            (&prepass_textures.motion_vectors, &prepass_textures.depth)
+        else {
             return Ok(());
         };
         let Some(globals_uniforms) = world.resource::<GlobalsBuffer>().buffer.binding() else {
@@ -76,14 +78,18 @@ impl ViewNode for MotionBlurNode {
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::Sampler(&motion_blur_pipeline.sampler),
+                    resource: BindingResource::TextureView(&prepass_depth_texture.default_view),
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: settings_binding.clone(),
+                    resource: BindingResource::Sampler(&motion_blur_pipeline.sampler),
                 },
                 BindGroupEntry {
                     binding: 4,
+                    resource: settings_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 5,
                     resource: globals_uniforms.clone(),
                 },
             ],

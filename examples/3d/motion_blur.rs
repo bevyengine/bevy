@@ -15,7 +15,7 @@ use bevy::{
     prelude::*,
     window::CursorGrabMode,
 };
-use bevy_internal::prelude::shape::UVSphere;
+use bevy_internal::core_pipeline::fxaa::Fxaa;
 
 fn main() {
     App::new()
@@ -26,6 +26,7 @@ fn main() {
         ))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, (translate, rotate, scale, update_settings).chain())
+        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -60,6 +61,7 @@ fn setup(
         },
         CameraController::default(),
         BloomSettings::default(),
+        Fxaa::default(),
     ));
 
     // Add a light
@@ -73,10 +75,8 @@ fn setup(
         ..default()
     });
 
-    let sphere = meshes.add(Mesh::from(shape::UVSphere {
-        radius: 1.0,
-        ..default()
-    }));
+    let sphere = meshes.add(Mesh::from(shape::UVSphere::default()));
+    let cube = meshes.add(Mesh::from(shape::Cube::default()));
 
     let image = asset_server.load("textures/checkered.png");
     // Acts like a skybox to allow testing the effects of full screen blur due to camera movement.
@@ -170,12 +170,12 @@ fn setup(
             )),
             ..default()
         },
-        Scales(20.0),
+        Scales(2.0),
     ));
 
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(UVSphere::default().into()),
+            mesh: cube.clone(),
             material: sphere_matl(Color::WHITE),
             transform: Transform::from_xyz(100.0, 50.0, -100.0)
                 .with_scale(Vec3::splat(40.0))
@@ -187,14 +187,14 @@ fn setup(
 
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(UVSphere::default().into()),
+            mesh: sphere.clone(),
             material: sphere_matl(Color::WHITE),
             transform: Transform::from_xyz(100.0, 50.0, 100.0)
                 .with_scale(Vec3::splat(40.0))
                 .with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
             ..default()
         },
-        Rotates(40.0),
+        Rotates(10.0),
     ));
 }
 
@@ -248,14 +248,14 @@ fn translate(time: Res<Time>, mut moves: Query<(&mut Transform, &Translates)>) {
 fn rotate(time: Res<Time>, mut moves: Query<(&mut Transform, &Rotates)>) {
     for (mut transform, rotate) in &mut moves {
         transform
-            .rotate_local_z(rotate.0 * time.delta_seconds() * (time.elapsed_seconds() * 2.0).sin());
+            .rotate_local_z(rotate.0 * time.delta_seconds() * (time.elapsed_seconds() * 1.0).sin());
     }
 }
 
 fn scale(time: Res<Time>, mut moves: Query<(&mut Transform, &Scales)>) {
     for (mut transform, scales) in &mut moves {
         transform.scale =
-            Vec3::splat(((time.elapsed_seconds() * scales.0).sin() + 1.0) * 2.0 + 1.0);
+            Vec3::splat(((time.elapsed_seconds() * 20.0).sin() + 1.0).powi(2) * scales.0 + 1.0);
     }
 }
 

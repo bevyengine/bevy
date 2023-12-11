@@ -54,16 +54,27 @@ impl MotionBlurPipeline {
                 },
                 count: None,
             },
-            // The sampler that will be used to sample the screen texture
+            // Depth
             BindGroupLayoutEntry {
                 binding: 2,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    sample_type: TextureSampleType::Depth,
+                    view_dimension: TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            // The sampler that will be used to sample the screen texture
+            BindGroupLayoutEntry {
+                binding: 3,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Sampler(SamplerBindingType::Filtering),
                 count: None,
             },
             // The settings uniform that will control the effect
             BindGroupLayoutEntry {
-                binding: 3,
+                binding: 4,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
@@ -74,7 +85,7 @@ impl MotionBlurPipeline {
             },
             // Global uniforms
             BindGroupLayoutEntry {
-                binding: 4,
+                binding: 5,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
@@ -108,16 +119,27 @@ impl MotionBlurPipeline {
                 },
                 count: None,
             },
-            // The sampler that will be used to sample the screen texture
+            // Depth
             BindGroupLayoutEntry {
                 binding: 2,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    sample_type: TextureSampleType::Depth,
+                    view_dimension: TextureViewDimension::D2,
+                    multisampled: true,
+                },
+                count: None,
+            },
+            // The sampler that will be used to sample the screen texture
+            BindGroupLayoutEntry {
+                binding: 3,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Sampler(SamplerBindingType::Filtering),
                 count: None,
             },
             // The settings uniform that will control the effect
             BindGroupLayoutEntry {
-                binding: 3,
+                binding: 4,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
@@ -128,7 +150,7 @@ impl MotionBlurPipeline {
             },
             // Global uniforms
             BindGroupLayoutEntry {
-                binding: 4,
+                binding: 5,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
@@ -177,6 +199,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         {
             shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+            shader_defs.push("NO_DEPTH_TEXTURE_SUPPORT".into());
             shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
         }
 
