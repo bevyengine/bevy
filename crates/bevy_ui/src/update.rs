@@ -42,6 +42,11 @@ fn update_clipping(
         return;
     };
 
+    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
+    if style.display == Display::None {
+        maybe_inherited_clip = Some(Rect::default());
+    }
+
     // Update this node's CalculatedClip component
     if let Some(mut calculated_clip) = maybe_calculated_clip {
         if let Some(inherited_clip) = maybe_inherited_clip {
