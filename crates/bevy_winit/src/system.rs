@@ -1,4 +1,4 @@
-#[cfg(feature = "a11y")]
+#[cfg(feature = "bevy_a11y")]
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::{
     entity::Entity,
@@ -20,7 +20,7 @@ use winit::{
     event_loop::EventLoopWindowTarget,
 };
 
-#[cfg(feature = "a11y")]
+#[cfg(feature = "bevy_a11y")]
 use crate::accessibility::{AccessKitAdapters, WinitActionHandlers};
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
@@ -44,9 +44,9 @@ pub(crate) fn create_windows<'a>(
     created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
-    #[cfg(feature = "a11y")] mut adapters: NonSendMut<AccessKitAdapters>,
-    mut handlers: ResMut<WinitActionHandlers>,
-    #[cfg(feature = "a11y")] accessibility_requested: ResMut<AccessibilityRequested>,
+    #[cfg(feature = "bevy_a11y")] mut adapters: NonSendMut<AccessKitAdapters>,
+    #[cfg(feature = "bevy_a11y")] mut handlers: ResMut<WinitActionHandlers>,
+    #[cfg(feature = "bevy_a11y")] accessibility_requested: ResMut<AccessibilityRequested>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
     for (entity, mut window) in created_windows {
@@ -64,8 +64,11 @@ pub(crate) fn create_windows<'a>(
             event_loop,
             entity,
             &window,
+            #[cfg(feature = "bevy_a11y")]
             &mut adapters,
+            #[cfg(feature = "bevy_a11y")]
             &mut handlers,
+            #[cfg(feature = "bevy_a11y")]
             &accessibility_requested,
         );
 

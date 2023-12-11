@@ -6,7 +6,7 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
-#[cfg(feature = "a11y")]
+#[cfg(feature = "bevy_a11y")]
 pub mod accessibility;
 mod converters;
 mod system;
@@ -15,7 +15,7 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
-#[cfg(feature = "a11y")]
+#[cfg(feature = "bevy_a11y")]
 use bevy_a11y::AccessibilityRequested;
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 pub use winit_config::*;
@@ -145,7 +145,7 @@ impl Plugin for WinitPlugin {
                     .chain(),
             );
 
-        #[cfg(feature = "a11y")]
+        #[cfg(feature = "bevy_a11y")]
         app.add_plugins(AccessKitPlugin);
 
         #[cfg(target_arch = "wasm32")]
@@ -172,7 +172,7 @@ impl Plugin for WinitPlugin {
                 NonSendMut<WinitWindows>,
             )> = SystemState::from_world(&mut app.world);
 
-            #[cfg(all(not(target_arch = "wasm32"), feature = "a11y"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_a11y"))]
             let mut create_window_system_state: SystemState<(
                 Commands,
                 Query<(Entity, &mut Window)>,
@@ -183,7 +183,7 @@ impl Plugin for WinitPlugin {
                 ResMut<AccessibilityRequested>,
             )> = SystemState::from_world(&mut app.world);
 
-            #[cfg(all(target_arch = "wasm32", not(feature = "a11y")))]
+            #[cfg(all(target_arch = "wasm32", not(feature = "bevy_a11y")))]
             let mut create_window_system_state: SystemState<(
                 Commands,
                 Query<(Entity, &mut Window)>,
@@ -192,7 +192,7 @@ impl Plugin for WinitPlugin {
                 ResMut<CanvasParentResizeEventChannel>,
             )> = SystemState::from_world(&mut app.world);
 
-            #[cfg(all(target_arch = "wasm32", feature = "a11y"))]
+            #[cfg(all(target_arch = "wasm32", feature = "bevy_a11y"))]
             let mut create_window_system_state: SystemState<(
                 Commands,
                 Query<(Entity, &mut Window)>,
@@ -204,7 +204,7 @@ impl Plugin for WinitPlugin {
                 ResMut<CanvasParentResizeEventChannel>,
             )> = SystemState::from_world(&mut app.world);
 
-            #[cfg(all(not(target_arch = "wasm32"), feature = "a11y"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_a11y"))]
             let (
                 commands,
                 mut windows,
@@ -215,7 +215,7 @@ impl Plugin for WinitPlugin {
                 accessibility_requested,
             ) = create_window_system_state.get_mut(&mut app.world);
 
-            #[cfg(all(not(target_arch = "wasm32"), not(feature = "a11y")))]
+            #[cfg(all(not(target_arch = "wasm32"), not(feature = "bevy_a11y")))]
             let (commands, mut windows, event_writer, winit_windows) =
                 create_window_system_state.get_mut(&mut app.world);
 
@@ -231,7 +231,7 @@ impl Plugin for WinitPlugin {
                 event_channel,
             ) = create_window_system_state.get_mut(&mut app.world);
 
-            #[cfg(all(target_arch = "wasm32", not(feature = "a11y")))]
+            #[cfg(all(target_arch = "wasm32", not(feature = "bevy_a11y")))]
             let (commands, mut windows, event_writer, winit_windows, event_channel) =
                 create_window_system_state.get_mut(&mut app.world);
 
@@ -241,11 +241,11 @@ impl Plugin for WinitPlugin {
                 windows.iter_mut(),
                 event_writer,
                 winit_windows,
-                #[cfg(feature = "a11y")]
+                #[cfg(feature = "bevy_a11y")]
                 adapters,
-                #[cfg(feature = "a11y")]
+                #[cfg(feature = "bevy_a11y")]
                 handlers,
-                #[cfg(feature = "a11y")]
+                #[cfg(feature = "bevy_a11y")]
                 accessibility_requested,
                 #[cfg(target_arch = "wasm32")]
                 event_channel,
@@ -406,6 +406,7 @@ pub fn winit_runner(mut app: App) {
     let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<&Window>)> =
         SystemState::new(&mut app.world);
 
+    #[cfg(feature = "bevy_a11y")]
     let mut event_writer_system_state: SystemState<(
         WindowAndInputEventWriters,
         NonSend<WinitWindows>,
@@ -413,7 +414,14 @@ pub fn winit_runner(mut app: App) {
         NonSend<AccessKitAdapters>,
     )> = SystemState::new(&mut app.world);
 
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "a11y")))]
+    #[cfg(not(feature = "bevy_a11y"))]
+    let mut event_writer_system_state: SystemState<(
+        WindowAndInputEventWriters,
+        NonSend<WinitWindows>,
+        Query<(&mut Window, &mut CachedWindow)>,
+    )> = SystemState::new(&mut app.world);
+
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "bevy_a11y")))]
     let mut create_window_system_state: SystemState<(
         Commands,
         Query<(Entity, &mut Window), Added<Window>>,
@@ -421,7 +429,7 @@ pub fn winit_runner(mut app: App) {
         NonSendMut<WinitWindows>,
     )> = SystemState::from_world(&mut app.world);
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "a11y"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_a11y"))]
     let mut create_window_system_state: SystemState<(
         Commands,
         Query<(Entity, &mut Window), Added<Window>>,
@@ -432,7 +440,7 @@ pub fn winit_runner(mut app: App) {
         ResMut<AccessibilityRequested>,
     )> = SystemState::from_world(&mut app.world);
 
-    #[cfg(all(target_arch = "wasm32", feature = "a11y"))]
+    #[cfg(all(target_arch = "wasm32", feature = "bevy_a11y"))]
     let mut create_window_system_state: SystemState<(
         Commands,
         Query<(Entity, &mut Window), Added<Window>>,
@@ -444,7 +452,7 @@ pub fn winit_runner(mut app: App) {
         ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
-    #[cfg(all(target_arch = "wasm32", not(feature = "a11y")))]
+    #[cfg(all(target_arch = "wasm32", not(feature = "bevy_a11y")))]
     let mut create_window_system_state: SystemState<(
         Commands,
         Query<(Entity, &mut Window), Added<Window>>,
@@ -482,7 +490,7 @@ pub fn winit_runner(mut app: App) {
                 StartCause::Init => {
                     #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
-                        #[cfg(all(not(target_arch = "wasm32", feature = "a11y")))]
+                        #[cfg(all(not(target_arch = "wasm32", feature = "bevy_a11y")))]
                         let (
                             commands,
                             mut windows,
@@ -493,11 +501,11 @@ pub fn winit_runner(mut app: App) {
                             accessibility_requested,
                         ) = create_window_system_state.get_mut(&mut app.world);
 
-                        #[cfg(all(not(target_arch = "wasm32"), not(feature = "a11y")))]
+                        #[cfg(all(not(target_arch = "wasm32"), not(feature = "bevy_a11y")))]
                         let (commands, mut windows, event_writer, winit_windows) =
                             create_window_system_state.get_mut(&mut app.world);
 
-                        #[cfg(all(target_arch = "wasm32", feature = "a11y"))]
+                        #[cfg(all(target_arch = "wasm32", feature = "bevy_a11y"))]
                         let (
                             commands,
                             mut windows,
@@ -509,7 +517,7 @@ pub fn winit_runner(mut app: App) {
                             event_channel,
                         ) = create_window_system_state.get_mut(&mut app.world);
 
-                        #[cfg(all(target_arch = "wasm32", not(feature = "a11y")))]
+                        #[cfg(all(target_arch = "wasm32", not(feature = "bevy_a11y")))]
                         let (
                             commands,
                             mut windows,
@@ -551,7 +559,12 @@ pub fn winit_runner(mut app: App) {
             Event::WindowEvent {
                 event, window_id, ..
             } => {
+                #[cfg(feature = "bevy_a11y")]
                 let (mut event_writers, winit_windows, mut windows, access_kit_adapters) =
+                    event_writer_system_state.get_mut(&mut app.world);
+
+                #[cfg(not(feature = "bevy_a11y"))]
+                let (mut event_writers, winit_windows, mut windows) =
                     event_writer_system_state.get_mut(&mut app.world);
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
@@ -572,7 +585,7 @@ pub fn winit_runner(mut app: App) {
 
                 // Allow AccessKit to respond to `WindowEvent`s before they reach
                 // the engine.
-                #[cfg(feature = "a11y")]
+                #[cfg(feature = "bevy_a11y")]
                 if let Some(adapter) = access_kit_adapters.get(&window_entity) {
                     if let Some(window) = winit_windows.get_window(window_entity) {
                         // Somewhat surprisingly, this call has meaningful side effects
@@ -952,7 +965,7 @@ pub fn winit_runner(mut app: App) {
 
                     // create any new windows
                     // (even if app did not update, some may have been created by plugin setup)
-                    #[cfg(all(not(target_arch = "wasm32"), feature = "a11y"))]
+                    #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_a11y"))]
                     let (
                         commands,
                         mut windows,
@@ -963,11 +976,11 @@ pub fn winit_runner(mut app: App) {
                         accessibility_requested,
                     ) = create_window_system_state.get_mut(&mut app.world);
 
-                    #[cfg(all(not(target_arch = "wasm32"), not(feature = "a11y")))]
+                    #[cfg(all(not(target_arch = "wasm32"), not(feature = "bevy_a11y")))]
                     let (commands, mut windows, event_writer, winit_windows) =
                         create_window_system_state.get_mut(&mut app.world);
 
-                    #[cfg(all(target_arch = "wasm32", not(feature = "a11y")))]
+                    #[cfg(all(target_arch = "wasm32", not(feature = "bevy_a11y")))]
                     let (
                         commands,
                         mut windows,
@@ -979,7 +992,7 @@ pub fn winit_runner(mut app: App) {
                         event_channel,
                     ) = create_window_system_state.get_mut(&mut app.world);
 
-                    #[cfg(all(target_arch = "wasm32", feature = "a11y"))]
+                    #[cfg(all(target_arch = "wasm32", feature = "bevy_a11y"))]
                     let (
                         commands,
                         mut windows,
@@ -997,11 +1010,11 @@ pub fn winit_runner(mut app: App) {
                         windows.iter_mut(),
                         event_writer,
                         winit_windows,
-                        #[cfg(feature = "a11y")]
+                        #[cfg(feature = "bevy_a11y")]
                         adapters,
-                        #[cfg(feature = "a11y")]
+                        #[cfg(feature = "bevy_a11y")]
                         handlers,
-                        #[cfg(feature = "a11y")]
+                        #[cfg(feature = "bevy_a11y")]
                         accessibility_requested,
                         #[cfg(target_arch = "wasm32")]
                         event_channel,

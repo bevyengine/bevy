@@ -1,8 +1,8 @@
 #![warn(missing_docs)]
 
-#[cfg(feature = "a11y")]
+#[cfg(feature = "bevy_a11y")]
 use accesskit_winit::Adapter;
-#[cfg(feature = "a11y")]
+#[cfg(feature = "bevy_a11y")]
 use bevy_a11y::{
     accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
     AccessibilityRequested,
@@ -17,7 +17,7 @@ use winit::{
     monitor::MonitorHandle,
 };
 
-#[cfg(feature = "a11y")]
+#[cfg(feature = "bevy_a11y")]
 use crate::accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers};
 use crate::converters::{convert_enabled_buttons, convert_window_level, convert_window_theme};
 
@@ -44,9 +44,9 @@ impl WinitWindows {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         entity: Entity,
         window: &Window,
-        adapters: &mut AccessKitAdapters,
-        handlers: &mut WinitActionHandlers,
-        accessibility_requested: &AccessibilityRequested,
+        #[cfg(feature = "bevy_a11y")] adapters: &mut AccessKitAdapters,
+        #[cfg(feature = "bevy_a11y")] handlers: &mut WinitActionHandlers,
+        #[cfg(feature = "bevy_a11y")] accessibility_requested: &AccessibilityRequested,
     ) -> &winit::window::Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
@@ -147,12 +147,12 @@ impl WinitWindows {
         let winit_window = winit_window_builder.build(event_loop).unwrap();
         let name = window.title.clone();
 
-        let mut root_builder = NodeBuilder::new(Role::Window);
-        root_builder.set_name(name.into_boxed_str());
-        let root = root_builder.build(&mut NodeClassSet::lock_global());
-
-        #[cfg(feature = "a11y")]
+        #[cfg(feature = "bevy_a11y")]
         {
+            let mut root_builder = NodeBuilder::new(Role::Window);
+            root_builder.set_name(name.into_boxed_str());
+            let root = root_builder.build(&mut NodeClassSet::lock_global());
+
             let accesskit_window_id = NodeId(entity.to_bits());
             let handler = WinitActionHandler::default();
             let accessibility_requested = accessibility_requested.clone();
