@@ -37,12 +37,10 @@
 
 @group(0) @binding(12) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
 
-#ifdef NO_ARRAY_TEXTURES_SUPPORT
-@group(0) @binding(13) var environment_map_diffuse: texture_cube<f32>;
-@group(0) @binding(14) var environment_map_specular: texture_cube<f32>;
+#ifdef NO_BINDLESS_TEXTURES_SUPPORT
+@group(0) @binding(13) var environment_maps: texture_cube<f32>;
 #else
-@group(0) @binding(13) var environment_map_diffuse: texture_cube_array<f32>;
-@group(0) @binding(14) var environment_map_specular: texture_cube_array<f32>;
+@group(0) @binding(13) var environment_maps: binding_array<texture_cube<f32>>;
 #endif
 @group(0) @binding(15) var environment_map_sampler: sampler;
 

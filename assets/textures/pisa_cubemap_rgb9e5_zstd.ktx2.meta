@@ -1,6 +1,0 @@
-(
-    meta_format_version: "1.0",
-    asset: Load(
-        loader: "bevy_pbr::environment_map::EnvironmentMapLoader",
-    ),
-)

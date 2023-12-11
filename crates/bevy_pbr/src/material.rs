@@ -1,6 +1,6 @@
 use crate::{
-    environment_map::RenderEnvironmentMaps, render, AlphaMode, DrawMesh, DrawPrepass, MeshPipeline,
-    MeshPipelineKey, PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances,
+    environment_map::RenderViewEnvironmentMaps, queue_shadows, AlphaMode, DrawMesh, DrawPrepass,
+    MeshPipeline, MeshPipelineKey, PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances,
     ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
     ShadowFilteringMethod,
 };
@@ -468,7 +468,6 @@ pub fn queue_material_meshes<M: Material>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    environment_maps: Res<RenderEnvironmentMaps>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut views: Query<(
         &ExtractedView,
@@ -490,6 +489,7 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
         &mut RenderPhase<Transparent3d>,
+        Has<RenderViewEnvironmentMaps>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -509,6 +509,7 @@ pub fn queue_material_meshes<M: Material>(
         mut alpha_mask_phase,
         mut transmissive_phase,
         mut transparent_phase,
+        has_environment_maps,
     ) in &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
@@ -539,7 +540,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
-        if !environment_maps.is_empty() {
+        if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 

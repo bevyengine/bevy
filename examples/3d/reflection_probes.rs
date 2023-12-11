@@ -4,9 +4,10 @@
 //! (i.e. the skybox only, not the cubes), and a full reflection probe that
 //! reflects the skybox and the cubes.
 
+use bevy::core_pipeline::Skybox;
 use bevy::math::Vec3A;
+use bevy::pbr::EnvironmentMapLight;
 use bevy::prelude::*;
-use bevy_internal::core_pipeline::Skybox;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 

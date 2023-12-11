@@ -1,8 +1,7 @@
 #define_import_path bevy_pbr::environment_map
 
-#import bevy_pbr::mesh_view_bindings as bindings;
-
-#import bevy_pbr::mesh_view_bindings       light_probes,
+#import bevy_pbr::mesh_view_bindings as bindings
+#import bevy_pbr::mesh_view_bindings::light_probes
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -23,7 +22,8 @@ fn environment_map_light(
     // Search for a reflection probe that contains the fragment.
     //
     // TODO(pcwalton): Interpolate between multiple reflection probes.
-    var cubemap_index: i32 = -1;
+    var diffuse_cubemap_index: i32 = -1;
+    var specular_cubemap_index: i32 = -1;
     for (var reflection_probe_index: i32 = 0;
             reflection_probe_index < light_probes.reflection_probe_count;
             reflection_probe_index += 1) {
@@ -31,14 +31,18 @@ fn environment_map_light(
         let probe_space_pos =
             (reflection_probe.inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
         if (all(abs(probe_space_pos) <= reflection_probe.half_extents)) {
-            cubemap_index = reflection_probe.cubemap_index;
+            diffuse_cubemap_index = reflection_probe.diffuse_cubemap_index;
+            specular_cubemap_index = reflection_probe.specular_cubemap_index;
             break;
         }
     }
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
-    if (cubemap_index < 0) {
-        cubemap_index = light_probes.view_cubemap_index;
+    if (diffuse_cubemap_index < 0) {
+        diffuse_cubemap_index = light_probes.diffuse_cubemap_index;
+    }
+    if (specular_cubemap_index < 0) {
+        specular_cubemap_index = light_probes.specular_cubemap_index;
     }
 
     var out: EnvironmentMapLight;
@@ -48,7 +52,10 @@ fn environment_map_light(
     let radiance_level = perceptual_roughness * f32(bindings::lights.environment_map_smallest_specular_mip_level);
 
     // We always sample the first cubemap to achieve the required control flow uniformity (because of mip levels).
-    let irradiance = textureSample(bindings::environment_map_diffuse, bindings::environment_map_sampler, vec3(N.xy, -N.z), max(cubemap_index, 0)).rgb;
+    let irradiance = textureSample(
+        bindings::environment_maps[max(diffuse_cubemap_index, 0)],
+        bindings::environment_map_sampler,
+        vec3(N.xy, -N.z)).rgb;
 
     // If there's no cubemap, bail out.
     if (cubemap_index < 0) {
@@ -57,7 +64,11 @@ fn environment_map_light(
         return out;
     }
 
-    let radiance = textureSampleLevel(bindings::environment_map_specular, bindings::environment_map_sampler, vec3(R.xy, -R.z), cubemap_index, radiance_level).rgb;
+    let radiance = textureSampleLevel(
+        bindings::environment_maps[max(specular_cubemap_index, 0)],
+        bindings::environment_map_sampler,
+        vec3(R.xy, -R.z),
+        radiance_level).rgb;
 
     // No real world material has specular values under 0.02, so we use this range as a
     // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.

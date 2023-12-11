@@ -2,6 +2,7 @@
 //! or by accessing the entities of the scene.
 
 use bevy::prelude::*;
+use bevy_internal::pbr::EnvironmentMapLight;
 
 fn main() {
     App::new()

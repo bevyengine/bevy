@@ -1,4 +1,7 @@
-use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset};
+use crate::{
+    environment_map::RenderViewEnvironmentMaps, MeshPipeline, MeshViewBindGroup,
+    ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
@@ -16,25 +19,17 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{
-        binding_types::uniform_buffer, Operations, PipelineCache, RenderPassDescriptor,
-    },
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_resource::binding_types::uniform_buffer,
+    render_resource::*,
     renderer::{RenderContext, RenderDevice},
-    texture::Image,
-    view::{ViewTarget, ViewUniformOffset},
-    Render, RenderSet,
-};
-
-use bevy_render::{
-    render_graph::RenderGraphApp, render_resource::*, texture::BevyDefault, view::ExtractedView,
-    RenderApp,
+    texture::BevyDefault,
+    view::{ExtractedView, ViewTarget, ViewUniformOffset},
+    Render, RenderApp, RenderSet,
 };
 
 use crate::{
-    EnvironmentMapLight, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
-    ViewLightsUniformOffset,
+    MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset,
 };
 
 pub struct DeferredPbrLightingPlugin;
@@ -417,7 +412,6 @@ pub fn prepare_deferred_lighting_pipelines(
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
-            Option<&EnvironmentMapLight>,
             Option<&ShadowFilteringMethod>,
             Option<&ScreenSpaceAmbientOcclusionSettings>,
             (
@@ -425,20 +419,20 @@ pub fn prepare_deferred_lighting_pipelines(
                 Has<DepthPrepass>,
                 Has<MotionVectorPrepass>,
             ),
+            Has<RenderViewEnvironmentMaps>,
         ),
         With<DeferredPrepass>,
     >,
-    images: Res<RenderAssets<Image>>,
 ) {
     for (
         entity,
         view,
         tonemapping,
         dither,
-        environment_map,
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass),
+        has_render_view_environment_maps,
     ) in &views
     {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
@@ -485,11 +479,7 @@ pub fn prepare_deferred_lighting_pipelines(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
-        let environment_map_loaded = match environment_map {
-            Some(environment_map) => environment_map.is_loaded(&images),
-            None => false,
-        };
-        if environment_map_loaded {
+        if has_render_view_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 
