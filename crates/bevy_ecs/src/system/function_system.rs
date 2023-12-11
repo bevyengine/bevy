@@ -487,14 +487,6 @@ where
         out
     }
 
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
-    }
-
     #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
@@ -532,6 +524,14 @@ where
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 }
 

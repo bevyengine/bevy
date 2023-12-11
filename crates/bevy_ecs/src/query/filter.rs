@@ -128,8 +128,8 @@ pub struct With<T>(PhantomData<T>);
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
 unsafe impl<T: Component> WorldQuery for With<T> {
-    type Fetch<'w> = ();
     type Item<'w> = ();
+    type Fetch<'w> = ();
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
@@ -151,9 +151,6 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     };
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
-
-    #[inline]
     unsafe fn set_archetype(
         _fetch: &mut (),
         _state: &ComponentId,
@@ -161,6 +158,9 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         _table: &Table,
     ) {
     }
+
+    #[inline]
+    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -240,8 +240,8 @@ pub struct Without<T>(PhantomData<T>);
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
-    type Fetch<'w> = ();
     type Item<'w> = ();
+    type Fetch<'w> = ();
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
@@ -263,9 +263,6 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     };
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
-
-    #[inline]
     unsafe fn set_archetype(
         _fetch: &mut (),
         _state: &ComponentId,
@@ -273,6 +270,9 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         _table: &Table,
     ) {
     }
+
+    #[inline]
+    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -561,8 +561,8 @@ pub struct AddedFetch<'w> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
-    type Fetch<'w> = AddedFetch<'w>;
     type Item<'w> = bool;
+    type Fetch<'w> = AddedFetch<'w>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -593,18 +593,6 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     };
 
     #[inline]
-    unsafe fn set_table<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        &component_id: &ComponentId,
-        table: &'w Table,
-    ) {
-        fetch.table_ticks = Some(
-            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
-                .into(),
-        );
-    }
-
-    #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &ComponentId,
@@ -614,6 +602,18 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         if Self::IS_DENSE {
             Self::set_table(fetch, component_id, table);
         }
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        &component_id: &ComponentId,
+        table: &'w Table,
+    ) {
+        fetch.table_ticks = Some(
+            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+                .into(),
+        );
     }
 
     #[inline(always)]
@@ -737,8 +737,8 @@ pub struct ChangedFetch<'w> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
-    type Fetch<'w> = ChangedFetch<'w>;
     type Item<'w> = bool;
+    type Fetch<'w> = ChangedFetch<'w>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -769,18 +769,6 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     };
 
     #[inline]
-    unsafe fn set_table<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        &component_id: &ComponentId,
-        table: &'w Table,
-    ) {
-        fetch.table_ticks = Some(
-            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
-                .into(),
-        );
-    }
-
-    #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &ComponentId,
@@ -790,6 +778,18 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         if Self::IS_DENSE {
             Self::set_table(fetch, component_id, table);
         }
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        &component_id: &ComponentId,
+        table: &'w Table,
+    ) {
+        fetch.table_ticks = Some(
+            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+                .into(),
+        );
     }
 
     #[inline(always)]
