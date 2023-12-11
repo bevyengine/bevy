@@ -40,7 +40,8 @@ use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
-    WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
+    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
+    WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
@@ -275,6 +276,7 @@ struct WindowAndInputEventWriters<'w> {
     window_scale_factor_changed: EventWriter<'w, WindowScaleFactorChanged>,
     window_backend_scale_factor_changed: EventWriter<'w, WindowBackendScaleFactorChanged>,
     window_focused: EventWriter<'w, WindowFocused>,
+    window_occluded: EventWriter<'w, WindowOccluded>,
     window_moved: EventWriter<'w, WindowMoved>,
     window_theme_changed: EventWriter<'w, WindowThemeChanged>,
     window_destroyed: EventWriter<'w, WindowDestroyed>,
@@ -427,7 +429,7 @@ pub fn winit_runner(mut app: App) {
         }
 
         match event {
-            event::Event::NewEvents(start_cause) => match start_cause {
+            Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
                     #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
@@ -478,7 +480,7 @@ pub fn winit_runner(mut app: App) {
                     }
                 }
             },
-            event::Event::WindowEvent {
+            Event::WindowEvent {
                 event, window_id, ..
             } => {
                 let (mut event_writers, winit_windows, mut windows, access_kit_adapters) =
@@ -658,6 +660,12 @@ pub fn winit_runner(mut app: App) {
                             focused,
                         });
                     }
+                    WindowEvent::Occluded(occluded) => {
+                        event_writers.window_occluded.send(WindowOccluded {
+                            window: window_entity,
+                            occluded,
+                        });
+                    }
                     WindowEvent::DroppedFile(path_buf) => {
                         event_writers
                             .file_drag_and_drop
@@ -732,7 +740,7 @@ pub fn winit_runner(mut app: App) {
                     cache.window = window.clone();
                 }
             }
-            event::Event::DeviceEvent {
+            Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
@@ -741,14 +749,14 @@ pub fn winit_runner(mut app: App) {
                     delta: Vec2::new(x as f32, y as f32),
                 });
             }
-            event::Event::Suspended => {
+            Event::Suspended => {
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.lifetime.send(ApplicationLifetime::Suspended);
                 // Mark the state as `WillSuspend`. This will let the schedule run one last time
                 // before actually suspending to let the application react
                 runner_state.active = ActiveState::WillSuspend;
             }
-            event::Event::Resumed => {
+            Event::Resumed => {
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 match runner_state.active {
                     ActiveState::NotYetStarted => {
@@ -799,7 +807,7 @@ pub fn winit_runner(mut app: App) {
                     *control_flow = ControlFlow::Poll;
                 }
             }
-            event::Event::MainEventsCleared => {
+            Event::MainEventsCleared => {
                 if runner_state.active.should_run() {
                     if runner_state.active == ActiveState::WillSuspend {
                         runner_state.active = ActiveState::Suspended;

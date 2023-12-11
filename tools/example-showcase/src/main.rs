@@ -649,7 +649,7 @@ header_message = \"Examples ({})\"
 }
 
 fn parse_examples() -> Vec<Example> {
-    let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
+    let manifest_file = fs::read_to_string("Cargo.toml").unwrap();
     let manifest = manifest_file.parse::<Document>().unwrap();
     let metadatas = manifest
         .get("package")

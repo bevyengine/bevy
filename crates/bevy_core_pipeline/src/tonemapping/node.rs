@@ -51,9 +51,8 @@ impl ViewNode for TonemappingNode {
             return Ok(());
         }
 
-        let pipeline = match pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) else {
+            return Ok(());
         };
 
         let post_process = target.post_process_write();
