@@ -255,6 +255,13 @@ impl Touches {
         !self.just_pressed.is_empty()
     }
 
+    /// Register a release for a given touch input.
+    pub fn release(&mut self, id: u64) {
+        if let Some(touch) = self.pressed.remove(&id) {
+            self.just_released.insert(id, touch);
+        }
+    }
+
     /// Returns `true` if the input corresponding to the `id` has just been pressed.
     pub fn just_pressed(&self, id: u64) -> bool {
         self.just_pressed.contains_key(&id)
@@ -310,7 +317,7 @@ impl Touches {
     }
 
     /// Clears the `just_canceled` state of the touch input and returns `true` if the touch input has just been canceled.
-    /// 
+    ///
     /// Future calls to [`Touches::just_canceled`] for the given touch input will return false until a new cancel event occurs.
     pub fn clear_just_canceled(&mut self, id: u64) -> bool {
         self.just_canceled.remove(&id).is_some()
@@ -591,5 +598,29 @@ mod test {
 
         touches.clear_just_canceled(touch_event.id);
         assert!(!touches.just_canceled(touch_event.id));
+    }
+
+    #[test]
+    fn release_touch() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 4,
+        };
+
+        // Register the touch and test that it was registered correctly
+        touches.process_touch_event(&touch_event);
+
+        assert!(touches.get_pressed(touch_event.id).is_some());
+
+        touches.release(touch_event.id);
+        assert!(touches.get_pressed(touch_event.id).is_none());
+        assert!(touches.just_released(touch_event.id));
     }
 }
