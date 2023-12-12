@@ -857,6 +857,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// See [`World::despawn`] for more details.
     ///
+    /// # Note
+    ///
+    /// This won't clean up external references to the entity (such as parent-child relationships
+    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    ///
     /// # Panics
     ///
     /// The command will panic when applied if the associated entity does not exist.
@@ -1056,6 +1061,11 @@ where
 
 /// A [`Command`] that despawns a specific entity.
 /// This will emit a warning if the entity does not exist.
+///
+/// # Note
+///
+/// This won't clean up external references to the entity (such as parent-child relationships
+/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
 #[derive(Debug)]
 pub struct Despawn {
     /// The entity that will be despawned.
