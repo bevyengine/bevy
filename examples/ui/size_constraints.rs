@@ -287,7 +287,7 @@ fn spawn_button(
                                 ..text_style
                             },
                         )
-                        .with_alignment(TextAlignment::Center),
+                        .with_justify(JustifyText::Center),
                         ..Default::default()
                     });
                 });

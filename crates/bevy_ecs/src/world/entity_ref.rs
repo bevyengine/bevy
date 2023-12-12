@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleInfo, BundleInserter, DynamicBundle},
+    bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle},
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -834,44 +834,38 @@ impl<'w> EntityWorldMut<'w> {
         entities.set(entity.index(), new_location);
     }
 
-    /// Removes any components in the [`Bundle`] from the entity.
-    // TODO: BundleRemover?
-    pub fn remove<T: Bundle>(&mut self) -> &mut Self {
+    /// Remove the components of `bundle` from `entity`.
+    ///
+    /// SAFETY: The components in `bundle_info` must exist.
+    #[allow(clippy::too_many_arguments)]
+    unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
+        let entity = self.entity;
         let world = &mut self.world;
-        let archetypes = &mut world.archetypes;
-        let storages = &mut world.storages;
-        let components = &mut world.components;
+        let location = self.location;
+        let bundle_info = world.bundles.get_unchecked(bundle);
 
-        let bundle_id = world.bundles.init_info::<T>(components, storages);
-        // SAFETY: We just ensured this bundle exists
-        let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
-        let old_location = self.location;
+        // SAFETY: `archetype_id` exists because it is referenced in `old_location` which is valid
+        // and components in `bundle_info` must exist due to this functions safety invariants.
+        let new_archetype_id = remove_bundle_from_archetype(
+            &mut world.archetypes,
+            &mut world.storages,
+            &world.components,
+            location.archetype_id,
+            bundle_info,
+            true,
+        )
+        .expect("intersections should always return a result");
 
-        // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
-        // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
-        let new_archetype_id = unsafe {
-            remove_bundle_from_archetype(
-                archetypes,
-                storages,
-                components,
-                old_location.archetype_id,
-                bundle_info,
-                true,
-            )
-            .expect("intersections should always return a result")
-        };
-
-        if new_archetype_id == old_location.archetype_id {
-            return self;
+        if new_archetype_id == location.archetype_id {
+            return location;
         }
 
-        let entity = self.entity;
         // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
         let (old_archetype, bundle_info, mut deferred_world) = unsafe {
             let bundle_info: *const BundleInfo = bundle_info;
             let world = world.as_unsafe_world_cell();
             (
-                &world.archetypes()[old_location.archetype_id],
+                &world.archetypes()[location.archetype_id],
                 &*bundle_info,
                 world.into_deferred(),
             )
@@ -884,7 +878,7 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
-        let old_archetype = &world.archetypes[old_location.archetype_id];
+        let old_archetype = &world.archetypes[location.archetype_id];
         for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
                 world.removed_components.send(component_id, entity);
@@ -902,19 +896,58 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
-        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
-        unsafe {
-            Self::move_entity_from_remove::<true>(
-                entity,
-                &mut self.location,
-                old_location.archetype_id,
-                old_location,
-                &mut world.entities,
-                &mut world.archetypes,
-                &mut world.storages,
-                new_archetype_id,
-            );
-        }
+        // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
+        // because it is created by removing a bundle from these components.
+        let mut new_location = location;
+        Self::move_entity_from_remove::<true>(
+            entity,
+            &mut new_location,
+            location.archetype_id,
+            location,
+            &mut world.entities,
+            &mut world.archetypes,
+            &mut world.storages,
+            new_archetype_id,
+        );
+
+        new_location
+    }
+
+    /// Removes any components in the [`Bundle`] from the entity.
+    // TODO: BundleRemover?
+    pub fn remove<T: Bundle>(&mut self) -> &mut Self {
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let bundle_info = self.world.bundles.init_info::<T>(components, storages);
+
+        // SAFETY: Components exist in `bundle_info` because `Bundles::init_info`
+        // initializes a: EntityLocation `BundleInfo` containing all components of the bundle type `T`.
+        self.location = unsafe { self.remove_bundle(bundle_info) };
+
+        self
+    }
+
+    /// Removes any components except those in the [`Bundle`] from the entity.
+    pub fn retain<T: Bundle>(&mut self) -> &mut Self {
+        let archetypes = &mut self.world.archetypes;
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+
+        let retained_bundle = self.world.bundles.init_info::<T>(components, storages);
+        // SAFETY: `retained_bundle` exists as we just initialized it.
+        let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
+        let old_location = self.location;
+        let old_archetype = &mut archetypes[old_location.archetype_id];
+
+        let to_remove = &old_archetype
+            .components()
+            .filter(|c| !retained_bundle_info.components().contains(c))
+            .collect::<Vec<_>>();
+        let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
+
+        // SAFETY: Components exist in `remove_bundle` because `Bundles::init_dynamic_info`
+        // initializes a `BundleInfo` containing all components in the to_remove Bundle.
+        self.location = unsafe { self.remove_bundle(remove_bundle) };
         self
     }
 
@@ -1826,6 +1859,43 @@ mod tests {
 
         world.entity_mut(e1).remove::<Dense>();
         assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    // Test that calling retain with `()` removes all components.
+    #[test]
+    fn retain_nothing() {
+        #[derive(Component)]
+        struct Marker<const N: usize>;
+
+        let mut world = World::new();
+        let ent = world.spawn((Marker::<1>, Marker::<2>, Marker::<3>)).id();
+
+        world.entity_mut(ent).retain::<()>();
+        assert_eq!(world.entity(ent).archetype().components().next(), None);
+    }
+
+    // Test removing some components with `retain`, including components not on the entity.
+    #[test]
+    fn retain_some_components() {
+        #[derive(Component)]
+        struct Marker<const N: usize>;
+
+        let mut world = World::new();
+        let ent = world.spawn((Marker::<1>, Marker::<2>, Marker::<3>)).id();
+
+        world.entity_mut(ent).retain::<(Marker<2>, Marker<4>)>();
+        // Check that marker 2 was retained.
+        assert!(world.entity(ent).get::<Marker<2>>().is_some());
+        // Check that only marker 2 was retained.
+        assert_eq!(
+            world
+                .entity(ent)
+                .archetype()
+                .components()
+                .collect::<Vec<_>>()
+                .len(),
+            1
+        );
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7805

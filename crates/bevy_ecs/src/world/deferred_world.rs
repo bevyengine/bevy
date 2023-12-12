@@ -19,14 +19,15 @@ use super::{
 /// This includes initializing resources, registering components or spawning entities.
 pub struct DeferredWorld<'w> {
     // SAFETY: Implementors must not use this reference to make structural changes
-    world: &'w mut World,
+    world: UnsafeWorldCell<'w>,
 }
 
 impl<'w> Deref for DeferredWorld<'w> {
     type Target = World;
 
     fn deref(&self) -> &Self::Target {
-        self.world
+        // SAFETY: Structural changes cannot be made through &World
+        unsafe { self.world.world() }
     }
 }
 
@@ -34,14 +35,17 @@ impl<'w> DeferredWorld<'w> {
     /// Creates a [`Commands`] instance that pushes to the world's command queue
     #[inline]
     pub fn commands(&mut self) -> Commands {
-        self.world.commands()
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
+        let queue = unsafe { self.world.get_command_queue() };
+        Commands::new_from_entities(queue, self.world.entities())
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
     /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        self.world.get_mut(entity)
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the component
+        unsafe { self.world.get_entity(entity)?.get_mut() }
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -70,13 +74,7 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
         let location = self.entities.get(entity)?;
         // SAFETY: `entity` exists and `location` is that entity's location
-        Some(unsafe {
-            EntityMut::new(UnsafeEntityCell::new(
-                self.world.as_unsafe_world_cell(),
-                entity,
-                location,
-            ))
-        })
+        Some(unsafe { EntityMut::new(UnsafeEntityCell::new(self.world, entity, location)) })
     }
 
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
@@ -93,7 +91,7 @@ impl<'w> DeferredWorld<'w> {
         state.update_archetypes(self);
         // SAFETY: We ran validate_world to ensure our state matches
         unsafe {
-            let world_cell = self.world.as_unsafe_world_cell();
+            let world_cell = self.world;
             Query::new(
                 world_cell,
                 state,
@@ -131,7 +129,8 @@ impl<'w> DeferredWorld<'w> {
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
-        self.world.get_resource_mut()
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
+        unsafe { self.world.get_resource_mut() }
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
@@ -163,7 +162,8 @@ impl<'w> DeferredWorld<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        self.world.get_non_send_resource_mut()
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
+        unsafe { self.world.get_non_send_resource_mut() }
     }
 
     /// Sends an [`Event`].
@@ -208,7 +208,8 @@ impl<'w> DeferredWorld<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        self.world.get_resource_mut_by_id(component_id)
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
+        unsafe { self.world.get_resource_mut_by_id(component_id) }
     }
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
@@ -222,7 +223,8 @@ impl<'w> DeferredWorld<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        self.world.get_non_send_mut_by_id(component_id)
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
+        unsafe { self.world.get_non_send_resource_mut_by_id(component_id) }
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
@@ -236,7 +238,8 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        self.world.get_mut_by_id(entity, component_id)
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
+        unsafe { self.world.get_entity(entity)?.get_mut_by_id(component_id) }
     }
 
     /// Triggers all `on_add` hooks for [`ComponentId`] in target.
@@ -305,14 +308,14 @@ impl<'w> UnsafeWorldCell<'w> {
     /// outstanding references to the world's command queue, resource or component data
     #[inline]
     pub unsafe fn into_deferred(self) -> DeferredWorld<'w> {
-        DeferredWorld {
-            world: self.world_mut(),
-        }
+        DeferredWorld { world: self }
     }
 }
 
 impl<'w> From<&'w mut World> for DeferredWorld<'w> {
     fn from(world: &'w mut World) -> DeferredWorld<'w> {
-        DeferredWorld { world }
+        DeferredWorld {
+            world: world.as_unsafe_world_cell(),
+        }
     }
 }

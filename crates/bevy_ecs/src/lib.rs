@@ -343,7 +343,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &A, &TableStored)>()
-            .for_each(&world, |(e, &i, &s)| results.push((e, i, s)));
+            .iter(&world)
+            .for_each(|(e, &i, &s)| results.push((e, i, s)));
         assert_eq!(
             results,
             &[
@@ -388,7 +389,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &A)>()
-            .for_each(&world, |(e, &i)| results.push((e, i)));
+            .iter(&world)
+            .for_each(|(e, &i)| results.push((e, i)));
         assert_eq!(results, &[(e, A(123)), (f, A(456))]);
     }
 
@@ -479,7 +481,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&A, With<B>>()
-            .for_each(&world, |i| results.push(*i));
+            .iter(&world)
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![A(123)]);
     }
 
@@ -506,7 +509,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&A, With<SparseStored>>()
-            .for_each(&world, |i| results.push(*i));
+            .iter(&world)
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![A(123)]);
     }
 
@@ -1395,8 +1399,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        query.for_each(&world_a, |_| {});
-        query.for_each(&world_b, |_| {});
+        query.iter(&world_a).for_each(|_| {});
+        query.iter(&world_b).for_each(|_| {});
     }
 
     #[test]

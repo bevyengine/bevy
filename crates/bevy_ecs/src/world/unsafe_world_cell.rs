@@ -14,7 +14,7 @@ use crate::{
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::Resource,
+    system::{CommandQueue, Resource},
 };
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
@@ -565,6 +565,20 @@ impl<'w> UnsafeWorldCell<'w> {
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()
+    }
+
+    // Returns a mutable reference to the underlying world's [`CommandQueue`].
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
+    /// - no mutable references to the queue exist at the same time
+    pub(crate) unsafe fn get_command_queue(self) -> &'w mut CommandQueue {
+        // SAFETY:
+        // - caller ensures there are no existing mutable references
+        // - caller ensures that we have permission to access the queue
+        let ptr = unsafe { &mut (*self.0).command_queue as *mut _ };
+        // SAFETY: this pointer is valid as we just constructed it
+        unsafe { &mut *ptr }
     }
 }
 

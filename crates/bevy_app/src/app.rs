@@ -88,9 +88,7 @@ pub struct App {
 impl Debug for App {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "App {{ sub_apps: ")?;
-        f.debug_map()
-            .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
-            .finish()?;
+        f.debug_map().entries(self.sub_apps.iter()).finish()?;
         write!(f, "}}")
     }
 }
@@ -176,9 +174,7 @@ impl SubApp {
 impl Debug for SubApp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "SubApp {{ app: ")?;
-        f.debug_map()
-            .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
-            .finish()?;
+        f.debug_map().entries(self.app.sub_apps.iter()).finish()?;
         write!(f, "}}")
     }
 }
@@ -422,7 +418,7 @@ impl App {
         self
     }
 
-    /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
     pub fn configure_sets(
         &mut self,

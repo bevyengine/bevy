@@ -626,7 +626,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             StorageType::Table => fetch
                 .table_ticks
                 .debug_checked_unwrap()
-                .get(table_row.index())
+                .get(table_row.as_usize())
                 .deref()
                 .is_newer_than(fetch.last_run, fetch.this_run),
             StorageType::SparseSet => {
@@ -802,7 +802,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             StorageType::Table => fetch
                 .table_ticks
                 .debug_checked_unwrap()
-                .get(table_row.index())
+                .get(table_row.as_usize())
                 .deref()
                 .is_newer_than(fetch.last_run, fetch.this_run),
             StorageType::SparseSet => {

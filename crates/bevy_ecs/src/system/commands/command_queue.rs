@@ -156,11 +156,15 @@ impl CommandQueue {
                 cursor = unsafe { cursor.add(size) };
 
                 if let Some(world) = &mut world {
+                    // Mark world as flushing so calls to `World::flush_commands` don't cause multiple queues to be applying simultaneously
                     world.flushing_commands = true;
+                    // If the command we just applied generated more commands we must apply those first
                     if !world.command_queue.is_empty() {
+                        // If our current list of commands isn't complete push it to the `resolving_commands` stack to be applied after
                         if cursor < end {
                             resolving_commands.push((cursor, end, bytes));
                         }
+                        // Set our variables to start applying the new queue
                         bytes = std::mem::take(&mut world.command_queue.bytes);
                         let bytes_range = bytes.as_mut_ptr_range();
                         cursor = bytes_range.start;
@@ -170,6 +174,7 @@ impl CommandQueue {
             }
         }
         if let Some(world) = world {
+            // Unblock future calls to `World::flush_commands`
             world.flushing_commands = false;
         }
     }

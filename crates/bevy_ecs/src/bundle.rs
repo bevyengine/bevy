@@ -1127,6 +1127,7 @@ mod tests {
     struct R(usize);
 
     impl R {
+        #[track_caller]
         fn assert_order(&mut self, count: usize) {
             assert_eq!(count, self.0);
             self.0 += 1;
