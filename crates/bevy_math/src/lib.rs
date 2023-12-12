@@ -7,6 +7,7 @@
 #![warn(missing_docs)]
 
 mod affine3;
+pub mod bounding;
 pub mod cubic_splines;
 pub mod primitives;
 mod ray;
