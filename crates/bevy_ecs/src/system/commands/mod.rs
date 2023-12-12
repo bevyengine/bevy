@@ -812,9 +812,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityWorldMut::remove`](EntityWorldMut::remove) for more
-    /// details.
-    ///
     /// # Example
     ///
     /// ```
@@ -911,9 +908,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Removes all components except the given [`Bundle`] from the entity.
     ///
     /// This can also be used to remove all the components from the entity by passing it an empty Bundle.
-    ///
-    /// See [`EntityWorldMut::retain`](EntityWorldMut::retain) for more
-    /// details.
     ///
     /// # Example
     ///
