@@ -333,6 +333,25 @@ impl Touches {
         self.pressed.values().next().map(|t| t.position)
     }
 
+    /// Clears `just_pressed`, `just_released`, and `just_canceled` data for every touch input.
+    ///
+    /// See also [`Touches::reset_all`] for a full reset.
+    pub fn clear(&mut self) {
+        self.just_pressed.clear();
+        self.just_released.clear();
+        self.just_canceled.clear();
+    }
+
+    /// Clears `pressed`, `just_pressed`, `just_released`, and `just_canceled` data for every touch input.
+    ///
+    /// See also [`Touches::clear`] for clearing only touches that have just been pressed, released or canceled.
+    pub fn reset_all(&mut self) {
+        self.pressed.clear();
+        self.just_pressed.clear();
+        self.just_released.clear();
+        self.just_canceled.clear();
+    }
+
     /// Processes a [`TouchInput`] event by updating the `pressed`, `just_pressed`,
     /// `just_released`, and `just_canceled` collections.
     fn process_touch_event(&mut self, event: &TouchInput) {
@@ -622,5 +641,97 @@ mod test {
         touches.release(touch_event.id);
         assert!(touches.get_pressed(touch_event.id).is_none());
         assert!(touches.just_released(touch_event.id));
+    }
+
+    #[test]
+    fn clear_touches() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_press_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 4,
+        };
+
+        let touch_canceled_event = TouchInput {
+            phase: TouchPhase::Canceled,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 5,
+        };
+
+        let touch_released_event = TouchInput {
+            phase: TouchPhase::Ended,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 6,
+        };
+
+        // Register the touches and test that it was registered correctly
+        touches.process_touch_event(&touch_press_event);
+        touches.process_touch_event(&touch_canceled_event);
+        touches.process_touch_event(&touch_released_event);
+
+        assert!(touches.get_pressed(touch_press_event.id).is_some());
+        assert!(touches.just_pressed(touch_press_event.id));
+        assert!(touches.just_canceled(touch_canceled_event.id));
+        assert!(touches.just_released(touch_released_event.id));
+
+        touches.clear();
+
+        assert!(touches.get_pressed(touch_press_event.id).is_some());
+        assert!(!touches.just_pressed(touch_press_event.id));
+        assert!(!touches.just_canceled(touch_canceled_event.id));
+        assert!(!touches.just_released(touch_released_event.id));
+    }
+
+    #[test]
+    fn reset_all_touches() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_press_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 4,
+        };
+
+        let touch_canceled_event = TouchInput {
+            phase: TouchPhase::Canceled,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 5,
+        };
+
+        let touch_released_event = TouchInput {
+            phase: TouchPhase::Ended,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 6,
+        };
+
+        // Register the touches and test that it was registered correctly
+        touches.process_touch_event(&touch_press_event);
+        touches.process_touch_event(&touch_canceled_event);
+        touches.process_touch_event(&touch_released_event);
+
+        assert!(touches.get_pressed(touch_press_event.id).is_some());
+        assert!(touches.just_pressed(touch_press_event.id));
+        assert!(touches.just_canceled(touch_canceled_event.id));
+        assert!(touches.just_released(touch_released_event.id));
+
+        touches.reset_all();
+
+        assert!(touches.get_pressed(touch_press_event.id).is_none());
+        assert!(!touches.just_pressed(touch_press_event.id));
+        assert!(!touches.just_canceled(touch_canceled_event.id));
+        assert!(!touches.just_released(touch_released_event.id));
     }
 }
