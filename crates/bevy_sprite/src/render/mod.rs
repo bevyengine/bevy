@@ -756,7 +756,7 @@ pub fn prepare_sprites(
     }
 }
 
-/// [`RenderCommand`](bevy_render::render_phase::RenderCommand) for sprite rendering.
+/// [`RenderCommand`] for sprite rendering.
 pub type DrawSprite = (
     SetItemPipeline,
     SetSpriteViewBindGroup<0>,
