@@ -309,6 +309,13 @@ impl Touches {
         self.just_canceled.contains_key(&id)
     }
 
+    /// Clears the `just_canceled` state of the touch input and returns `true` if the touch input has just been canceled.
+    /// 
+    /// Future calls to [`Touches::just_canceled`] for the given touch input will return false until a new cancel event occurs.
+    pub fn clear_just_canceled(&mut self, id: u64) -> bool {
+        self.just_canceled.remove(&id).is_some()
+    }
+
     /// An iterator visiting every just canceled [`Touch`] input in arbitrary order.
     pub fn iter_just_canceled(&self) -> impl Iterator<Item = &Touch> {
         self.just_canceled.values()
@@ -581,5 +588,8 @@ mod test {
 
         assert!(touches.just_canceled(touch_event.id));
         assert_eq!(touches.iter_just_canceled().count(), 1);
+
+        touches.clear_just_canceled(touch_event.id);
+        assert!(!touches.just_canceled(touch_event.id));
     }
 }
