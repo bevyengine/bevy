@@ -15,7 +15,7 @@ use crate::{
     prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld},
     TypeIdMap,
 };
 use bevy_ptr::OwningPtr;
@@ -632,6 +632,21 @@ impl<'w> BundleInserter<'w> {
         let bundle_info = &*self.bundle_info;
         let add_bundle = &*self.add_bundle;
         let archetype = &*self.archetype;
+        let trigger_hooks = |archetype: &Archetype, mut world: DeferredWorld| {
+            if archetype.has_on_add() {
+                world.trigger_on_add(
+                    entity,
+                    bundle_info
+                        .iter_components()
+                        .zip(add_bundle.bundle_status.iter())
+                        .filter(|(_, &status)| status == ComponentStatus::Added)
+                        .map(|(id, _)| id),
+                );
+            }
+            if archetype.has_on_insert() {
+                world.trigger_on_insert(entity, bundle_info.iter_components());
+            }
+        };
         match &mut self.result {
             InsertBundleResult::SameArchetype => {
                 {
@@ -652,20 +667,7 @@ impl<'w> BundleInserter<'w> {
                     );
                 }
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
-                let mut world = self.world.into_deferred();
-                if archetype.has_on_add() {
-                    world.trigger_on_add(
-                        entity,
-                        bundle_info
-                            .iter_components()
-                            .zip(add_bundle.bundle_status.iter())
-                            .filter(|(_, &status)| status == ComponentStatus::Added)
-                            .map(|(id, _)| id),
-                    );
-                }
-                if archetype.has_on_insert() {
-                    world.trigger_on_insert(entity, bundle_info.iter_components());
-                }
+                trigger_hooks(archetype, self.world.into_deferred());
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
@@ -709,21 +711,8 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
-                let new_archetype = &**new_archetype;
-                let mut world = self.world.into_deferred();
-                if new_archetype.has_on_add() {
-                    world.trigger_on_add(
-                        entity,
-                        bundle_info
-                            .iter_components()
-                            .zip(add_bundle.bundle_status.iter())
-                            .filter(|(_, &status)| status == ComponentStatus::Added)
-                            .map(|(id, _)| id),
-                    );
-                }
-                if new_archetype.has_on_insert() {
-                    world.trigger_on_insert(entity, bundle_info.iter_components());
-                }
+                trigger_hooks(&**new_archetype, self.world.into_deferred());
+
                 new_location
             }
             InsertBundleResult::NewArchetypeNewTable {
@@ -806,21 +795,8 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
-                let new_archetype = &**new_archetype;
-                let mut world = self.world.into_deferred();
-                if new_archetype.has_on_add() {
-                    world.trigger_on_add(
-                        entity,
-                        bundle_info
-                            .iter_components()
-                            .zip(add_bundle.bundle_status.iter())
-                            .filter(|(_, &status)| status == ComponentStatus::Added)
-                            .map(|(id, _)| id),
-                    );
-                }
-                if new_archetype.has_on_insert() {
-                    world.trigger_on_insert(entity, bundle_info.iter_components());
-                }
+                trigger_hooks(&**new_archetype, self.world.into_deferred());
+
                 new_location
             }
         }
