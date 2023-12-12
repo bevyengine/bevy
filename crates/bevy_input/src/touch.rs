@@ -262,6 +262,11 @@ impl Touches {
         }
     }
 
+    /// Registers a release for all currently pressed touch inputs.
+    pub fn release_all(&mut self) {
+        self.just_released.extend(self.pressed.drain());
+    }
+
     /// Returns `true` if the input corresponding to the `id` has just been pressed.
     pub fn just_pressed(&self, id: u64) -> bool {
         self.just_pressed.contains_key(&id)
@@ -641,6 +646,41 @@ mod test {
         touches.release(touch_event.id);
         assert!(touches.get_pressed(touch_event.id).is_none());
         assert!(touches.just_released(touch_event.id));
+    }
+
+    #[test]
+    fn release_all_touches() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let touch_pressed_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 4,
+        };
+
+        let touch_moved_event = TouchInput {
+            phase: TouchPhase::Moved,
+            position: Vec2::splat(4.0),
+            force: None,
+            id: 4,
+        };
+
+        touches.process_touch_event(&touch_pressed_event);
+        touches.process_touch_event(&touch_moved_event);
+
+        assert!(touches.get_pressed(touch_pressed_event.id).is_some());
+        assert!(touches.get_pressed(touch_moved_event.id).is_some());
+
+        touches.release_all();
+
+        assert!(touches.get_pressed(touch_pressed_event.id).is_none());
+        assert!(touches.just_released(touch_pressed_event.id));
+        assert!(touches.get_pressed(touch_moved_event.id).is_none());
+        assert!(touches.just_released(touch_moved_event.id));
     }
 
     #[test]
