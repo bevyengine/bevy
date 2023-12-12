@@ -287,6 +287,13 @@ impl Touches {
         self.just_released.contains_key(&id)
     }
 
+    /// Clears the `just_released` state of the touch input and returns `true` if the touch input has just been released.
+    ///
+    /// Future calls to [`Touches::just_released`] for the given touch input will return false until a new release event occurs.
+    pub fn clear_just_released(&mut self, id: u64) -> bool {
+        self.just_released.remove(&id).is_some()
+    }
+
     /// An iterator visiting every just released [`Touch`] input in arbitrary order.
     pub fn iter_just_released(&self) -> impl Iterator<Item = &Touch> {
         self.just_released.values()
@@ -548,6 +555,9 @@ mod test {
         assert!(touches.get_released(touch_event.id).is_some());
         assert!(touches.just_released(touch_event.id));
         assert_eq!(touches.iter_just_released().count(), 1);
+
+        touches.clear_just_released(touch_event.id);
+        assert!(!touches.just_released(touch_event.id));
     }
 
     #[test]
