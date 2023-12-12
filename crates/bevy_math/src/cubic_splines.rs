@@ -484,22 +484,6 @@ impl<P: Point> CubicCurve<P> {
         segment.acceleration(t)
     }
 
-    /// Splits the curve into subdivisions of straight line segments that can be used for computing
-    /// spatial length.
-    pub fn rectify(&self, subdivisions: usize) -> RectifiedCurve {
-        let arc_lengths: Vec<f32> = self
-            .iter_positions(subdivisions)
-            .scan((0.0, self.position(0.0)), |state, x| {
-                state.0 += x.distance(state.1);
-                state.1 = x;
-
-                Some(state.0)
-            })
-            .collect();
-
-        RectifiedCurve { arc_lengths }
-    }
-
     /// A flexible iterator used to sample curves with arbitrary functions.
     ///
     /// This splits the curve into `subdivisions` of evenly spaced `t` values across the
@@ -580,40 +564,6 @@ impl<P: Point> CubicCurve<P> {
     }
 }
 
-/// A curve that has been divided into straight line segments.
-#[derive(Clone, Debug)]
-pub struct RectifiedCurve {
-    // Each index stores the distance from the start of the curve to that point.
-    arc_lengths: Vec<f32>,
-}
-
-impl RectifiedCurve {
-    /// Total length of the curve.
-    pub fn length(&self) -> f32 {
-        self.arc_lengths[self.arc_lengths.len() - 1]
-    }
-
-    /// Returns a 't' value between 0..=1 based on the distance along the curve.
-    pub fn distance_to_parameter(&self, distance: f32) -> f32 {
-        // Get index with greatest value that is less than or equal to target distance.
-        let closest = self.arc_lengths.partition_point(|&x| x <= distance) - 1;
-
-        // Check if index's distance perfectly matches target distance, otherwise lerp between the
-        // index and its next neighbor.
-        if self.arc_lengths[closest] == distance {
-            (closest + 1) as f32 / (self.arc_lengths.len() + 1) as f32
-        } else {
-            let length_before = self.arc_lengths[closest];
-            let length_after = self.arc_lengths[closest + 1];
-            let segment_length = length_after - length_before;
-
-            let segment_fraction = (distance - length_before) / segment_length;
-
-            (closest as f32 + segment_fraction) / (self.arc_lengths.len() - 1) as f32
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use glam::{vec2, Vec2};
@@ -647,24 +597,6 @@ mod tests {
             + 3.0 * p[1] * t * (1.0 - t).powi(2)
             + 3.0 * p[2] * t.powi(2) * (1.0 - t)
             + p[3] * t.powi(3)
-    }
-
-    #[test]
-    fn rectified_curve() {
-        const SUBDIVISIONS: usize = 1000;
-        let points = [[0.0, 0.2, 0.8, 1.0]];
-        let bezier = CubicBezier::new(points).to_curve();
-        let rectified = bezier.rectify(SUBDIVISIONS);
-
-        assert_eq!(rectified.length(), 1.0);
-
-        // Check with exact point.
-        assert_eq!(rectified.distance_to_parameter(0.5), 0.5);
-
-        // Check with value between two points.
-        let t = rectified.distance_to_parameter(0.25);
-        let position = bezier.position(t);
-        assert!(0.24998 < position && position < 0.25001);
     }
 
     /// Basic cubic Bezier easing test to verify the shape of the curve.

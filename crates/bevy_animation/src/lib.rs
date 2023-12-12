@@ -17,11 +17,14 @@ use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
 
+pub mod curve_path;
+
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve,
+        curve_path::CurvePath, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath,
+        Keyframes, VariableCurve,
     };
 }
 
