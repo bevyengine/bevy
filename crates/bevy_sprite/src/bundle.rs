@@ -10,11 +10,15 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
+/// A Bundle of components for drawing a single sprite from an image.
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
+    /// Specifies the rendering properties of the sprite, such as color tint and flip
     pub sprite: Sprite,
+    /// The transform of the sprite
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    /// A handle to the image to be drawn
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,

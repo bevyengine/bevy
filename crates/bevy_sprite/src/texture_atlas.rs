@@ -22,6 +22,9 @@ pub struct TextureAtlas {
     pub(crate) texture_handles: Option<HashMap<AssetId<Image>, usize>>,
 }
 
+/// Specifies the rendering properties of a sprite from a sprite sheet.
+///
+/// [`SpriteSheetBundle`](crate::bundle::SpriteSheetBundle) is a bundle for common sprite rendering use cases.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct TextureAtlasSprite {

@@ -1,3 +1,4 @@
+//! Provides 2D sprite rendering functionality.
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
@@ -40,11 +41,13 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
+/// Adds support for 2D sprite rendering.
 #[derive(Default)]
 pub struct SpritePlugin;
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
 
+/// Set system for the systems relating to sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SpriteSystem {
     ExtractSprites,
