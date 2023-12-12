@@ -5,7 +5,7 @@ use crate::{
 use bevy_reflect_derive::impl_type_path;
 use std::{
     any::{Any, TypeId},
-    fmt::Debug,
+    fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
 };
 
@@ -300,6 +300,12 @@ impl Reflect for DynamicArray {
     #[inline]
     fn is_dynamic(&self) -> bool {
         true
+    }
+
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicArray(")?;
+        array_debug(self, f)?;
+        write!(f, ")")
     }
 }
 
