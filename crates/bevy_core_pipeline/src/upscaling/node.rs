@@ -18,7 +18,7 @@ pub struct UpscalingNode {
 }
 
 impl ViewNode for UpscalingNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ViewTarget,
         &'static ViewUpscalingPipeline,
         Option<&'static ExtractedCamera>,
@@ -28,7 +28,7 @@ impl ViewNode for UpscalingNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
+        (target, upscaling_target, camera): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();

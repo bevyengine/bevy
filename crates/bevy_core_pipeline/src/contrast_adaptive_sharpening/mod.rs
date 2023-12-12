@@ -77,11 +77,11 @@ pub struct CASUniform {
 }
 
 impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
-    type Query = &'static Self;
+    type Data = &'static Self;
     type Filter = With<Camera>;
     type Out = (DenoiseCAS, CASUniform);
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<Self::Data>) -> Option<Self::Out> {
         if !item.enabled || item.sharpening_strength == 0.0 {
             return None;
         }

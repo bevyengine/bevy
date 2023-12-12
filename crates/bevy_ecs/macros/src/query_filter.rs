@@ -13,7 +13,7 @@ mod field_attr_keywords {
     syn::custom_keyword!(ignore);
 }
 
-pub fn derive_world_query_filter_impl(input: TokenStream) -> TokenStream {
+pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
 
     let ast = parse_macro_input!(input as DeriveInput);
@@ -120,7 +120,7 @@ pub fn derive_world_query_filter_impl(input: TokenStream) -> TokenStream {
     );
 
     let filter_impl = quote! {
-        impl #user_impl_generics #path::query::WorldQueryFilter
+        impl #user_impl_generics #path::query::QueryFilter
         for #struct_name #user_ty_generics #user_where_clauses {
             const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
 
@@ -163,7 +163,7 @@ pub fn derive_world_query_filter_impl(input: TokenStream) -> TokenStream {
 
             fn assert_filter<T>()
             where
-                T: #path::query::WorldQueryFilter,
+                T: #path::query::QueryFilter,
             {
             }
 
