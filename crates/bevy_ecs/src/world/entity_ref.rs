@@ -961,6 +961,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Despawns the current entity.
+    ///
+    /// See [`World::despawn`] for more details.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
         let world = self.world;
