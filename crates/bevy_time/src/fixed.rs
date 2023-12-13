@@ -1,8 +1,9 @@
+use bevy_app::FixedMain;
 use bevy_ecs::world::World;
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
-use crate::{time::Time, virt::Virtual, FixedUpdate};
+use crate::{time::Time, virt::Virtual};
 
 /// The fixed timestep game clock following virtual time.
 ///
@@ -232,10 +233,11 @@ pub fn run_fixed_update_schedule(world: &mut World) {
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
 
     // Run the schedule until we run out of accumulated time
-    let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
+
+    let _ = world.try_schedule_scope(FixedMain, |world, _schedule| {
         while world.resource_mut::<Time<Fixed>>().expend() {
             *world.resource_mut::<Time>() = world.resource::<Time<Fixed>>().as_generic();
-            schedule.run(world);
+            FixedMain::run_fixed_main(world);
         }
     });
 
