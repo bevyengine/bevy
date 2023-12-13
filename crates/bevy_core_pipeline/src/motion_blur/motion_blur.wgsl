@@ -15,7 +15,7 @@
 @group(0) @binding(3) var texture_sampler: sampler;
 struct MotionBlur {
     shutter_angle: f32,
-    max_samples: u32,
+    samples: u32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
     _webgl2_padding: vec3<f32>
@@ -40,7 +40,7 @@ fn fragment(
     let base_color = textureSample(screen_texture, texture_sampler, in.uv);
 #endif
 
-    if i32(settings.max_samples) < 2 || settings.shutter_angle <= 0.0 {
+    if i32(settings.samples) <= 0 || settings.shutter_angle <= 0.0 {
         return base_color;
     }
 
@@ -75,12 +75,12 @@ fn fragment(
 
     var accumulator: vec4<f32>;
     var weight_total = 0.0;
-    let n_samples_half = i32(settings.max_samples) / 2;
+    let n_samples = i32(settings.samples);
     let noise = hash_noise(frag_coords, globals.frame_count); // 0 to 1
        
-    for (var i = -n_samples_half; i < n_samples_half; i++) {
+    for (var i = -n_samples; i < n_samples; i++) {
         // The current sample step vector, from in.uv
-        let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples_half);
+        let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples);
         var sample_uv = in.uv + step_vector;
         let sample_coords = vec2<i32>(sample_uv * texture_size);
 

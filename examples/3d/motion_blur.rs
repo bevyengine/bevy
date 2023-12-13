@@ -54,7 +54,7 @@ fn setup(
             // Configure motion blur settings per-camera
             motion_blur: MotionBlur {
                 shutter_angle: 0.5, // Amount of blur
-                max_samples: 16,    // Quality
+                samples: 4,         // Quality
                 ..default()
             },
             ..default()
@@ -280,20 +280,20 @@ fn update_settings(
             settings.shutter_angle += 0.25;
         }
         if press.key_code == Some(KeyCode::Key3) {
-            settings.max_samples -= 1;
+            settings.samples = settings.samples.saturating_sub(1);
         }
         if press.key_code == Some(KeyCode::Key4) {
-            settings.max_samples += 1;
+            settings.samples += 1;
         }
         if press.key_code == Some(KeyCode::Space) {
             *follow = !*follow;
         }
         settings.shutter_angle = settings.shutter_angle.clamp(0.0, 100.0);
-        settings.max_samples = settings.max_samples.clamp(1, 1000);
+        settings.samples = settings.samples.clamp(0, 1000);
     }
     let mut text = text.single_mut();
     text.sections[0].value = format!("Shutter angle: {:.5}\n", settings.shutter_angle);
-    text.sections[1].value = format!("Max samples: {:.5}\n", settings.max_samples);
+    text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
 
     if *follow {
         let mut camera = camera.single_mut();
