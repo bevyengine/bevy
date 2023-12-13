@@ -80,6 +80,8 @@ impl<P: Point> CurvePath<P> {
 
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::{PI, TAU};
+
     use bevy_math::{
         cubic_splines::{CubicBezier, CubicGenerator},
         vec2, Vec2,
@@ -87,6 +89,7 @@ mod tests {
 
     use crate::curve_path::CurvePath;
 
+    const ERROR: f32 = 0.001;
     const SUBDIVISIONS: usize = 256;
     // The 0.551915 is taken from https://www.mechanicalexpressions.com/explore/geometric-modeling/circle-spline-approximation.pdf
     const CIRCLE_POINTS: [[Vec2; 4]; 4] = [
@@ -99,7 +102,7 @@ mod tests {
         [
             vec2(0., 1.),
             vec2(-0.551915, 1.),
-            vec2(-1., 0.55228475),
+            vec2(-1., 0.551915),
             vec2(-1., 0.),
         ],
         [
@@ -123,8 +126,8 @@ mod tests {
 
         let length = path.length();
 
-        // Length should be 2 PI
-        assert!(6.283 < length && length < 6.284);
+        // Length should be 2 PI or TAU
+        assert!(TAU - ERROR < length && length < TAU + ERROR);
     }
 
     #[test]
@@ -140,7 +143,7 @@ mod tests {
 
         // Check with value between two points.
         let position = curve_path.position(0.25);
-        assert!(0.24998 < position && position < 0.25001);
+        assert!(0.25 - ERROR < position && position < 0.25 + ERROR);
     }
 
     #[test]
@@ -149,8 +152,8 @@ mod tests {
             CurvePath::from_cubic_curve(CubicBezier::new(CIRCLE_POINTS).to_curve(), SUBDIVISIONS);
 
         // Circle starts at (1, 0) and goes counter-clockwise so PI should be (-1, 0)
-        let position = path.position(std::f32::consts::PI);
+        let position = path.position(PI);
 
-        assert!(position.distance(vec2(-1., 0.)) < 0.001);
+        assert!(position.distance(vec2(-1., 0.)) < ERROR);
     }
 }
