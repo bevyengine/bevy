@@ -1,6 +1,10 @@
 use bevy_math::cubic_splines::{CubicCurve, Point};
 
-/// A curve that has been divided into straight line segments.
+/// A curve that can be sampled by distance instead of t. Can be used for linearly animating along
+/// a curve.
+///
+/// Note: Values are approximated using a series of line segments. Accuracy is based on the
+/// subdivisions specified when creating the path.
 #[derive(Clone, Debug)]
 pub struct CurvePath<P: Point> {
     curve: CubicCurve<P>,
@@ -8,8 +12,8 @@ pub struct CurvePath<P: Point> {
 }
 
 impl<P: Point> CurvePath<P> {
-    /// Splits the curve into subdivisions of straight line segments that can be used for computing
-    /// spatial length.
+    /// Creates a new `CurvePath` from a curve. Subdivisions will determine how many line segments
+    /// are used, and therefore the accuracy.
     pub fn from_cubic_curve(curve: CubicCurve<P>, subdivisions: usize) -> CurvePath<P> {
         let arc_lengths: Vec<f32> = curve
             .iter_positions(subdivisions)
@@ -29,8 +33,9 @@ impl<P: Point> CurvePath<P> {
         self.arc_lengths[self.arc_lengths.len() - 1]
     }
 
-    /// Returns a 't' value between 0..=1 based on the distance along the curve.
-    fn sample(&self, distance: f32) -> f32 {
+    /// Returns a 't' value corresponding to the `t` value on the underlying curve that matches the
+    /// provided `distance`.
+    pub fn t(&self, distance: f32) -> f32 {
         // Get index with greatest value that is less than or equal to target distance.
         let closest = self.arc_lengths.partition_point(|&x| x <= distance) - 1;
 
@@ -46,19 +51,77 @@ impl<P: Point> CurvePath<P> {
             let segment_fraction = (distance - length_before) / segment_length;
 
             (closest as f32 + segment_fraction) / (self.arc_lengths.len() - 1) as f32
+                * self.curve.segments().len() as f32
         }
+    }
+
+    /// Compute the position of a point on the curve at `distance`.
+    pub fn position(&self, distance: f32) -> P {
+        self.curve.position(self.t(distance))
+    }
+
+    /// Compute the first derivative at `distance`. This is the instantaneous velocity of a point on the cubic curve at `distance`.
+    pub fn velocity(&self, distance: f32) -> P {
+        self.curve.velocity(self.t(distance))
+    }
+
+    /// Compute the second derivative at `distance`. This is the instantaneous acceleration of a point on the cubic curve at `distance`.
+    pub fn acceleration(&self, distance: f32) -> P {
+        self.curve.acceleration(self.t(distance))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::cubic_splines::{CubicBezier, CubicGenerator};
+    use bevy_math::{
+        cubic_splines::{CubicBezier, CubicGenerator},
+        vec2, Vec2,
+    };
 
     use crate::curve_path::CurvePath;
 
+    const SUBDIVISIONS: usize = 256;
+    // The 0.551915 is taken from https://www.mechanicalexpressions.com/explore/geometric-modeling/circle-spline-approximation.pdf
+    const CIRCLE_POINTS: [[Vec2; 4]; 4] = [
+        [
+            vec2(1., 0.),
+            vec2(1., 0.551915),
+            vec2(0.551915, 1.),
+            vec2(0., 1.),
+        ],
+        [
+            vec2(0., 1.),
+            vec2(-0.551915, 1.),
+            vec2(-1., 0.55228475),
+            vec2(-1., 0.),
+        ],
+        [
+            vec2(-1., 0.),
+            vec2(-1., -0.551915),
+            vec2(-0.551915, -1.),
+            vec2(0., -1.),
+        ],
+        [
+            vec2(0., -1.),
+            vec2(0.551915, -1.),
+            vec2(1., -0.551915),
+            vec2(1., 0.),
+        ],
+    ];
+
+    #[test]
+    fn length() {
+        let path =
+            CurvePath::from_cubic_curve(CubicBezier::new(CIRCLE_POINTS).to_curve(), SUBDIVISIONS);
+
+        let length = path.length();
+
+        // Length should be 2 PI
+        assert!(6.283 < length && length < 6.284);
+    }
+
     #[test]
     fn sample() {
-        const SUBDIVISIONS: usize = 1000;
         let points = [[0.0, 0.2, 0.8, 1.0]];
         let bezier = CubicBezier::new(points).to_curve();
         let curve_path = CurvePath::from_cubic_curve(bezier, SUBDIVISIONS);
@@ -66,11 +129,21 @@ mod tests {
         assert_eq!(curve_path.length(), 1.0);
 
         // Check with exact point.
-        assert_eq!(curve_path.sample(0.5), 0.5);
+        assert_eq!(curve_path.t(0.5), 0.5);
 
         // Check with value between two points.
-        let t = curve_path.sample(0.25);
-        let position = curve_path.curve.position(t);
+        let position = curve_path.position(0.25);
         assert!(0.24998 < position && position < 0.25001);
+    }
+
+    #[test]
+    fn sample_segmented_curve() {
+        let path =
+            CurvePath::from_cubic_curve(CubicBezier::new(CIRCLE_POINTS).to_curve(), SUBDIVISIONS);
+
+        // Circle starts at (1, 0) and goes counter-clockwise so PI should be (-1, 0)
+        let position = path.position(std::f32::consts::PI);
+
+        assert!(position.distance(vec2(-1., 0.)) < 0.001);
     }
 }
