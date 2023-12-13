@@ -29,7 +29,7 @@ pub struct SpriteBundle {
     pub view_visibility: ViewVisibility,
 }
 
-/// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
+/// A [`Bundle`] of components for drawing a single sprite from a sprite sheet (also referred
 /// to as a `TextureAtlas`)
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteSheetBundle {
