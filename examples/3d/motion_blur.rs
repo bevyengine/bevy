@@ -80,13 +80,12 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere::default())),
             material: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.1, 0.1, 0.1),
-                perceptual_roughness: 1.0,
-                reflectance: 0.0,
+                base_color: Color::CYAN,
                 base_color_texture: Some(image.clone()),
+                unlit: true,
                 ..default()
             }),
-            transform: Transform::from_scale(Vec3::splat(-1000.0))
+            transform: Transform::from_scale(Vec3::splat(-100000.0))
                 .with_translation(Vec3::Y * -200.0),
             ..default()
         },
