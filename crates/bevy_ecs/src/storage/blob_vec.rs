@@ -627,6 +627,7 @@ mod tests {
 
         let mut q = world.query::<&Zst>();
         for zst in q.iter(&world) {
+            // Ensure that the references returned are properly aligned.
             assert_eq!(zst as *const Zst as usize % mem::align_of::<Zst>(), 0);
             count += 1;
         }
