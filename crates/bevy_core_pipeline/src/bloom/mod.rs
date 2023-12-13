@@ -113,7 +113,7 @@ impl Plugin for BloomPlugin {
 #[derive(Default)]
 struct BloomNode;
 impl ViewNode for BloomNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
@@ -140,7 +140,7 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();

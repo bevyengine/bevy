@@ -149,7 +149,7 @@ pub const DEFERRED_LIGHTING_PASS: &str = "deferred_opaque_pbr_lighting_pass_3d";
 pub struct DeferredOpaquePass3dPbrLightingNode;
 
 impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
@@ -173,7 +173,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             deferred_lighting_id_depth_texture,
             camera_3d,
             deferred_lighting_pipeline,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();

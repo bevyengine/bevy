@@ -5,6 +5,7 @@ use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction3d(Vec3);
 
 impl Direction3d {
@@ -86,6 +87,18 @@ pub struct Plane3d {
 impl Primitive3d for Plane3d {}
 
 impl Plane3d {
+    /// Create a new `Plane3d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
+    pub fn new(normal: Vec3) -> Self {
+        Self {
+            normal: Direction3d::new(normal).expect("normal must be nonzero and finite"),
+        }
+    }
+
     /// Create a new `Plane3d` based on three points and compute the geometric center
     /// of those points.
     ///

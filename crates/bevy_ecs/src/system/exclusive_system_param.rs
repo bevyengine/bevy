@@ -1,6 +1,6 @@
 use crate::{
     prelude::{FromWorld, QueryState},
-    query::{WorldQueryData, WorldQueryFilter},
+    query::{QueryData, QueryFilter},
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
@@ -29,7 +29,7 @@ pub trait ExclusiveSystemParam: Sized {
 /// for a given [`ExclusiveSystemParam`].
 pub type ExclusiveSystemParamItem<'s, P> = <P as ExclusiveSystemParam>::Item<'s>;
 
-impl<'a, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static> ExclusiveSystemParam
+impl<'a, Q: QueryData + 'static, F: QueryFilter + 'static> ExclusiveSystemParam
     for &'a mut QueryState<Q, F>
 {
     type State = QueryState<Q, F>;

@@ -24,7 +24,7 @@ use super::{AlphaMask3d, Camera3dDepthLoadOp};
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3d>,
         &'static RenderPhase<AlphaMask3d>,
@@ -58,7 +58,7 @@ impl ViewNode for MainOpaquePass3dNode {
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let load = if deferred_prepass.is_none() {

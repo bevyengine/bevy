@@ -117,7 +117,7 @@ fn setup(
 
 /// This system let's you toggle various wireframe settings
 fn update_colors(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
     mut wireframe_colors: Query<&mut WireframeColor>,
     mut text: Query<&mut Text>,
