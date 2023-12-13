@@ -131,7 +131,7 @@ impl Plugin for MotionBlurPlugin {
             .init_resource::<SpecializedRenderPipelines<pipeline::MotionBlurPipeline>>()
             .add_systems(
                 Render,
-                (pipeline::prepare_motion_blur_pipelines.in_set(RenderSet::Prepare),),
+                pipeline::prepare_motion_blur_pipelines.in_set(RenderSet::Prepare),
             );
 
         render_app
