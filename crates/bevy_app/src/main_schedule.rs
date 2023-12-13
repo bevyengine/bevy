@@ -120,6 +120,8 @@ pub struct Last;
 pub struct MainScheduleOrder {
     /// The labels to run for the [`Main`] schedule (in the order they will be run).
     pub labels: Vec<InternedScheduleLabel>,
+    /// The labels to run for the startup phase of the [`Main`] schedule (in the order they will be run).
+    pub startup_labels: Vec<InternedScheduleLabel>,
 }
 
 impl Default for MainScheduleOrder {
@@ -135,6 +137,7 @@ impl Default for MainScheduleOrder {
                 PostUpdate.intern(),
                 Last.intern(),
             ],
+            startup_labels: vec![PreStartup.intern(), Startup.intern(), PostStartup.intern()],
         }
     }
 }
@@ -155,9 +158,11 @@ impl Main {
     /// A system that runs the "main schedule"
     pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            let _ = world.try_run_schedule(PreStartup);
-            let _ = world.try_run_schedule(Startup);
-            let _ = world.try_run_schedule(PostStartup);
+            world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+                for &label in &order.startup_labels {
+                    let _ = world.try_run_schedule(label);
+                }
+            });
             *run_at_least_once = true;
         }
 
