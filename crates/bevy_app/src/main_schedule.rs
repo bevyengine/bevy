@@ -216,15 +216,16 @@ impl Plugin for MainSchedulePlugin {
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         let mut fixed_main_schedule = Schedule::new(FixedMain);
         fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-        let mut fixed_update_loop_schedule = Schedule::new(RunFixedMainLoop);
-        fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
+        fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
         app.add_schedule(main_schedule)
             .add_schedule(fixed_main_schedule)
-            .add_schedule(fixed_update_loop_schedule)
+            .add_schedule(fixed_main_loop_schedule)
             .init_resource::<MainScheduleOrder>()
             .init_resource::<FixedMainScheduleOrder>()
-            .add_systems(Main, Main::run_main);
+            .add_systems(Main, Main::run_main)
+            .add_systems(FixedMain, FixedMain::run_fixed_main);
     }
 }
 
@@ -263,7 +264,7 @@ impl FixedMainScheduleOrder {
 }
 
 impl FixedMain {
-    /// A system that runs the "main schedule"
+    /// A system that runs the fixed timestep's "main schedule"
     pub fn run_fixed_main(world: &mut World) {
         world.resource_scope(|world, order: Mut<FixedMainScheduleOrder>| {
             for &label in &order.labels {

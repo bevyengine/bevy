@@ -235,11 +235,10 @@ pub fn run_fixed_main_schedule(world: &mut World) {
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
 
     // Run the schedule until we run out of accumulated time
-
-    let _ = world.try_schedule_scope(FixedMain, |world, _schedule| {
+    let _ = world.try_schedule_scope(FixedMain, |world, schedule| {
         while world.resource_mut::<Time<Fixed>>().expend() {
             *world.resource_mut::<Time>() = world.resource::<Time<Fixed>>().as_generic();
-            FixedMain::run_fixed_main(world);
+            schedule.run(world);
         }
     });
 
