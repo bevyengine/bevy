@@ -2448,7 +2448,7 @@ doc-scrape-examples = true
 name = "Reflection Probes"
 description = "Demonstrates reflection probes"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [package.metadata.example.fallback_image]
 hidden = true

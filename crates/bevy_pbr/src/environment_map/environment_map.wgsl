@@ -58,7 +58,7 @@ fn environment_map_light(
         vec3(N.xy, -N.z)).rgb;
 
     // If there's no cubemap, bail out.
-    if (cubemap_index < 0) {
+    if (diffuse_cubemap_index < 0 || specular_cubemap_index < 0) {
         out.diffuse = vec3(0.0);
         out.specular = vec3(0.0);
         return out;

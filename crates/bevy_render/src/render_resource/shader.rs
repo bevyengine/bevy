@@ -213,7 +213,10 @@ impl From<&Source> for naga_oil::compose::ShaderLanguage {
     fn from(value: &Source) -> Self {
         match value {
             Source::Wgsl(_) => naga_oil::compose::ShaderLanguage::Wgsl,
-            Source::Glsl(_, _) => naga_oil::compose::ShaderLanguage::Glsl,
+            Source::Glsl(_, _) => {
+                panic!("FIXME")
+                //naga_oil::compose::ShaderLanguage::Glsl
+            }
             Source::SpirV(_) => panic!("spirv not yet implemented"),
         }
     }
@@ -223,13 +226,14 @@ impl From<&Source> for naga_oil::compose::ShaderType {
     fn from(value: &Source) -> Self {
         match value {
             Source::Wgsl(_) => naga_oil::compose::ShaderType::Wgsl,
-            Source::Glsl(_, naga::ShaderStage::Vertex) => naga_oil::compose::ShaderType::GlslVertex,
+            /*Source::Glsl(_, naga::ShaderStage::Vertex) => naga_oil::compose::ShaderType::GlslVertex,
             Source::Glsl(_, naga::ShaderStage::Fragment) => {
                 naga_oil::compose::ShaderType::GlslFragment
             }
             Source::Glsl(_, naga::ShaderStage::Compute) => {
                 panic!("glsl compute not yet implemented")
-            }
+            }*/
+            Source::Glsl(..) => panic!("FIXME"),
             Source::SpirV(_) => panic!("spirv not yet implemented"),
         }
     }

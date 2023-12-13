@@ -67,7 +67,7 @@ wgpu = { version = "0.17.1", features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "0.13.0", features = ["wgsl-in"] }
-naga_oil = "0.10"
+naga_oil = { version = "0.10", default-features = false, features = ["test_shader"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
