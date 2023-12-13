@@ -18,8 +18,8 @@ use bevy_ecs::{
 /// * [`First`]
 /// * [`PreUpdate`]
 /// * [`StateTransition`]
-/// * [`RunFixedUpdateLoop`]
-///     * This will run [`FixedUpdate`] zero to many times, based on how much time has elapsed.
+/// * [`RunFixedMainLoop`]
+///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
 /// * [`PostUpdate`]
 /// * [`Last`]
@@ -67,11 +67,11 @@ pub struct PreUpdate;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
-/// Runs the [`FixedUpdate`] schedules in a loop according until all relevant elapsed time has been "consumed".
+/// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct RunFixedUpdateLoop;
+pub struct RunFixedMainLoop;
 
 /// Runs first in the [`FixedMain`] schedule.
 ///
@@ -111,8 +111,8 @@ pub struct FixedLast;
 
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
 ///
-/// The exclusive `run_fixed_update_schedule` system runs this schedule.
-/// This is run by the [`RunFixedUpdateLoop`] schedule.
+/// The exclusive `run_fixed_main_schedule` system runs this schedule.
+/// This is run by the [`RunFixedMainLoop`] schedule.
 ///
 /// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
@@ -166,7 +166,7 @@ impl Default for MainScheduleOrder {
                 First.intern(),
                 PreUpdate.intern(),
                 StateTransition.intern(),
-                RunFixedUpdateLoop.intern(),
+                RunFixedMainLoop.intern(),
                 Update.intern(),
                 SpawnScene.intern(),
                 PostUpdate.intern(),
@@ -216,7 +216,7 @@ impl Plugin for MainSchedulePlugin {
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         let mut fixed_main_schedule = Schedule::new(FixedMain);
         fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-        let mut fixed_update_loop_schedule = Schedule::new(RunFixedUpdateLoop);
+        let mut fixed_update_loop_schedule = Schedule::new(RunFixedMainLoop);
         fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
         app.add_schedule(main_schedule)

@@ -27,7 +27,9 @@ use crate::{time::Time, virt::Virtual};
 /// frame). Additionally, the value is a power of two which losslessly converts
 /// into [`f32`] and [`f64`].
 ///
-/// To run a system on a fixed timestep, add it to the [`FixedUpdate`] schedule.
+/// To run a system on a fixed timestep, add it to one of the [`FixedMain`]
+/// schedules, most commonly [`FixedUpdate`].
+///
 /// This schedule is run a number of times between
 /// [`PreUpdate`](bevy_app::PreUpdate) and [`Update`](bevy_app::Update)
 /// according to the accumulated [`overstep()`](Time::overstep) time divided by
@@ -226,9 +228,9 @@ impl Default for Fixed {
     }
 }
 
-/// Runs [`FixedUpdate`] zero or more times based on delta of
+/// Runs [`FixedMain`] zero or more times based on delta of
 /// [`Time<Virtual>`](Virtual) and [`Time::overstep`]
-pub fn run_fixed_update_schedule(world: &mut World) {
+pub fn run_fixed_main_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
 
