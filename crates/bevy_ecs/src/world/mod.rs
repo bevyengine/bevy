@@ -991,8 +991,8 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<Q: QueryData>(&mut self) -> QueryState<Q, ()> {
-        self.query_filtered::<Q, ()>()
+    pub fn query<D: QueryData>(&mut self) -> QueryState<D, ()> {
+        self.query_filtered::<D, ()>()
     }
 
     /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
@@ -1015,7 +1015,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: QueryData, F: QueryFilter>(&mut self) -> QueryState<Q, F> {
+    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
         QueryState::new(self)
     }
 

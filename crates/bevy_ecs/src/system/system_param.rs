@@ -153,22 +153,22 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'w, 's, Q: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Query<'w, 's, Q, F>
+unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Query<'w, 's, D, F>
 {
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<Q: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, Q, F> {
-    type State = QueryState<Q, F>;
-    type Item<'w, 's> = Query<'w, 's, Q, F>;
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new(world);
         assert_component_access_compatibility(
             &system_meta.name,
-            std::any::type_name::<Q>(),
+            std::any::type_name::<D>(),
             std::any::type_name::<F>(),
             &system_meta.component_access_set,
             &state.component_access,
@@ -1408,7 +1408,7 @@ all_tuples!(impl_system_param_tuple, 0, 16, P);
 /// [`SystemParam`]: super::SystemParam
 pub mod lifetimeless {
     /// A [`Query`](super::Query) with `'static` lifetimes.
-    pub type SQuery<Q, F = ()> = super::Query<'static, 'static, Q, F>;
+    pub type SQuery<D, F = ()> = super::Query<'static, 'static, D, F>;
     /// A shorthand for writing `&'static T`.
     pub type Read<T> = &'static T;
     /// A shorthand for writing `&'static mut T`.
@@ -1566,10 +1566,10 @@ mod tests {
         pub struct SpecialQuery<
             'w,
             's,
-            Q: QueryData + Send + Sync + 'static,
+            D: QueryData + Send + Sync + 'static,
             F: QueryFilter + Send + Sync + 'static = (),
         > {
-            _query: Query<'w, 's, Q, F>,
+            _query: Query<'w, 's, D, F>,
         }
 
         fn my_system(_: SpecialQuery<(), ()>) {}
@@ -1686,11 +1686,11 @@ mod tests {
     #[test]
     fn system_param_where_clause() {
         #[derive(SystemParam)]
-        pub struct WhereParam<'w, 's, Q>
+        pub struct WhereParam<'w, 's, D>
         where
-            Q: 'static + QueryData,
+            D: 'static + QueryData,
         {
-            _q: Query<'w, 's, Q, ()>,
+            _q: Query<'w, 's, D, ()>,
         }
 
         fn my_system(_: WhereParam<()>) {}

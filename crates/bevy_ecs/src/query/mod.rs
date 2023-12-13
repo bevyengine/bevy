@@ -115,13 +115,13 @@ mod tests {
             let ns = (n - k + 1..=n).rev();
             ks.zip(ns).fold(1, |acc, (k, n)| acc * n / k)
         }
-        fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
+        fn assert_combination<D, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            Q: ReadOnlyQueryData,
+            D: ReadOnlyQueryData,
             F: ArchetypeFilter,
         {
-            let mut query = world.query_filtered::<Q, F>();
-            let query_type = type_name::<QueryCombinationIter<Q, F, K>>();
+            let mut query = world.query_filtered::<D, F>();
+            let query_type = type_name::<QueryCombinationIter<D, F, K>>();
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
             let iter = query.iter_combinations::<K>(world);
@@ -129,24 +129,24 @@ mod tests {
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 5, query_type);
         }
-        fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
+        fn assert_all_sizes_equal<D, F>(world: &mut World, expected_size: usize)
         where
-            Q: ReadOnlyQueryData,
+            D: ReadOnlyQueryData,
             F: ArchetypeFilter,
         {
-            let mut query = world.query_filtered::<Q, F>();
-            let query_type = type_name::<QueryState<Q, F>>();
+            let mut query = world.query_filtered::<D, F>();
+            let query_type = type_name::<QueryState<D, F>>();
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 0, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 1, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);
 
             let expected = expected_size;
-            assert_combination::<Q, F, 0>(world, choose(expected, 0));
-            assert_combination::<Q, F, 1>(world, choose(expected, 1));
-            assert_combination::<Q, F, 2>(world, choose(expected, 2));
-            assert_combination::<Q, F, 5>(world, choose(expected, 5));
-            assert_combination::<Q, F, 43>(world, choose(expected, 43));
-            assert_combination::<Q, F, 64>(world, choose(expected, 64));
+            assert_combination::<D, F, 0>(world, choose(expected, 0));
+            assert_combination::<D, F, 1>(world, choose(expected, 1));
+            assert_combination::<D, F, 2>(world, choose(expected, 2));
+            assert_combination::<D, F, 5>(world, choose(expected, 5));
+            assert_combination::<D, F, 43>(world, choose(expected, 43));
+            assert_combination::<D, F, 64>(world, choose(expected, 64));
         }
         fn assert_all_exact_sizes_iterator_equal(
             iterator: impl ExactSizeIterator,
