@@ -7,6 +7,7 @@
 use bevy::{
     core_pipeline::{
         bloom::BloomSettings,
+        fxaa::Fxaa,
         motion_blur::{MotionBlur, MotionBlurBundle},
         tonemapping::Tonemapping,
     },
@@ -15,15 +16,10 @@ use bevy::{
     prelude::*,
     window::CursorGrabMode,
 };
-use bevy_internal::core_pipeline::fxaa::Fxaa;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            CameraControllerPlugin,
-            bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
-        ))
+        .add_plugins((DefaultPlugins, CameraControllerPlugin))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, (translate, rotate, scale, update_settings).chain())
         .insert_resource(Msaa::Off)
