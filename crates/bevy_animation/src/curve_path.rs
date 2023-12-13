@@ -1,7 +1,9 @@
+//! A curve through space.
+
 use bevy_math::cubic_splines::{CubicCurve, Point};
 
-/// A curve that can be sampled by distance instead of t. Can be used for linearly animating along
-/// a curve.
+/// A curve representing a path through space. Unlike [`CubicCurve`], it is sampled based on distance
+/// along the path. Can be used for linearly animating along a curve.
 ///
 /// Note: Values are approximated using a series of line segments. Accuracy is based on the
 /// subdivisions specified when creating the path.
@@ -12,7 +14,7 @@ pub struct CurvePath<P: Point> {
 }
 
 impl<P: Point> CurvePath<P> {
-    /// Creates a new `CurvePath` from a curve. Subdivisions will determine how many line segments
+    /// Creates a new [`CurvePath`] from a curve. Subdivisions will determine how many line segments
     /// are used, and therefore the accuracy.
     pub fn from_cubic_curve(curve: CubicCurve<P>, subdivisions: usize) -> CurvePath<P> {
         let arc_lengths: Vec<f32> = curve
@@ -26,6 +28,11 @@ impl<P: Point> CurvePath<P> {
             .collect();
 
         CurvePath { curve, arc_lengths }
+    }
+
+    /// Returns the [`CubicCurve`] this path is based on.
+    pub fn curve(&self) -> &CubicCurve<P> {
+        &self.curve
     }
 
     /// Total length of the curve.
