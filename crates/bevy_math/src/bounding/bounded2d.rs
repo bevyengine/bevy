@@ -1,9 +1,11 @@
 use super::BoundingVolume;
 use crate::prelude::Vec2;
 
-/// A trait with methods that return 2d bounded volumes for a shape
+/// A trait with methods that return 2D bounded volumes for a shape
+#[doc(alias = "BoundingRectangle")]
 pub trait Bounded2d {
-    /// Get an axis-aligned bounding box for the shape with the given translation and rotation
+    /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
+    /// The rotation is in radians, clockwise, with 0 meaning no rotation.
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d;
     /// Get a bounding circle for the shape
     fn bounding_circle(&self, translation: Vec2) -> BoundingCircle;
@@ -11,9 +13,9 @@ pub trait Bounded2d {
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
 pub struct Aabb2d {
-    /// The minimum point of the box
+    /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
-    /// The maximum point of the box
+    /// The maximum, conventionally top-right, point of the box
     pub max: Vec2,
 }
 
@@ -133,6 +135,10 @@ mod aabb2d_tests {
         let merged = a.merged(&b);
         assert!((merged.min - Vec2::new(-2., -1.)).length() < std::f32::EPSILON);
         assert!((merged.max - Vec2::new(1., 1.)).length() < std::f32::EPSILON);
+        assert!(merged.contains(&a));
+        assert!(merged.contains(&b));
+        assert!(!a.contains(&merged));
+        assert!(!b.contains(&merged));
     }
 
     #[test]
@@ -144,6 +150,8 @@ mod aabb2d_tests {
         let padded = a.padded((Vec2::ONE, Vec2::Y));
         assert!((padded.min - Vec2::new(-2., -2.)).length() < std::f32::EPSILON);
         assert!((padded.max - Vec2::new(1., 2.)).length() < std::f32::EPSILON);
+        assert!(padded.contains(&a));
+        assert!(!a.contains(&padded));
     }
 
     #[test]
@@ -155,15 +163,38 @@ mod aabb2d_tests {
         let shrunk = a.shrunk((Vec2::ONE, Vec2::Y));
         assert!((shrunk.min - Vec2::new(-0., -0.)).length() < std::f32::EPSILON);
         assert!((shrunk.max - Vec2::new(1., 0.)).length() < std::f32::EPSILON);
+        assert!(a.contains(&shrunk));
+        assert!(!shrunk.contains(&a));
     }
 }
 
+use crate::primitives::Circle;
+
 /// A bounding circle
+#[derive(Clone)]
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,
-    /// The radius of the bounding circle
-    pub radius: f32,
+    /// The circle
+    pub circle: Circle,
+}
+
+impl BoundingCircle {
+    /// Construct a bounding circle from its center and radius
+    #[inline(always)]
+    pub fn new(center: Vec2, radius: f32) -> Self {
+        debug_assert!(radius >= 0.);
+        Self {
+            center,
+            circle: Circle { radius },
+        }
+    }
+
+    /// Get the radius of the bounding circle
+    #[inline(always)]
+    pub fn radius(&self) -> f32 {
+        self.circle.radius
+    }
 }
 
 impl BoundingVolume for BoundingCircle {
@@ -177,53 +208,43 @@ impl BoundingVolume for BoundingCircle {
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        std::f32::consts::PI * self.radius * self.radius
+        std::f32::consts::PI * self.radius() * self.radius()
     }
 
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
-        if other.center == self.center {
-            other.radius <= self.radius
-        } else {
-            let furthest_point = (other.center - self.center).length() + other.radius;
-            furthest_point <= self.radius
-        }
+        let furthest_point = (other.center - self.center).length() + other.radius();
+        furthest_point <= self.radius()
     }
 
     #[inline(always)]
     fn merged(&self, other: &Self) -> Self {
-        if other.center == self.center {
-            Self {
-                center: self.center,
-                radius: self.radius.max(other.radius),
-            }
-        } else {
-            let diff = other.center - self.center;
-            let length = diff.length();
-            let dir = diff / length;
-
-            Self {
-                center: self.center + dir * ((length + other.radius - self.radius) / 2.),
-                radius: (length + self.radius + other.radius) / 2.,
-            }
+        let diff = other.center - self.center;
+        let length = diff.length();
+        if self.radius() >= length + other.radius() {
+            return self.clone();
         }
+        if other.radius() >= length + self.radius() {
+            return other.clone();
+        }
+        let dir = diff / length;
+        Self::new(
+            (self.center + other.center) / 2. + dir * ((other.radius() - self.radius()) / 2.),
+            (length + self.radius() + other.radius()) / 2.,
+        )
     }
 
     #[inline(always)]
     fn padded(&self, amount: Self::Padding) -> Self {
-        Self {
-            center: self.center,
-            radius: self.radius + amount,
-        }
+        debug_assert!(amount >= 0.);
+        Self::new(self.center, self.radius() + amount)
     }
 
     #[inline(always)]
     fn shrunk(&self, amount: Self::Padding) -> Self {
-        debug_assert!(self.radius >= amount);
-        Self {
-            center: self.center,
-            radius: self.radius - amount,
-        }
+        debug_assert!(amount >= 0.);
+        debug_assert!(self.radius() >= amount);
+        Self::new(self.center, self.radius() - amount)
     }
 }
 
@@ -234,64 +255,77 @@ mod bounding_circle_tests {
 
     #[test]
     fn area() {
-        let circle = BoundingCircle {
-            center: Vec2::ONE,
-            radius: 5.,
-        };
+        let circle = BoundingCircle::new(Vec2::ONE, 5.);
         // Since this number is messy we check it with a higher threshold
         assert!((circle.visible_area() - 78.5398).abs() < 0.001);
     }
 
     #[test]
     fn contains() {
-        let a = BoundingCircle {
-            center: Vec2::ONE,
-            radius: 5.,
-        };
-        let b = BoundingCircle {
-            center: Vec2::new(5.5, 1.),
-            radius: 1.,
-        };
+        let a = BoundingCircle::new(Vec2::ONE, 5.);
+        let b = BoundingCircle::new(Vec2::new(5.5, 1.), 1.);
         assert!(!a.contains(&b));
-        let b = BoundingCircle {
-            center: Vec2::new(1., -3.5),
-            radius: 0.5,
-        };
+        let b = BoundingCircle::new(Vec2::new(1., -3.5), 0.5);
         assert!(a.contains(&b));
     }
 
     #[test]
+    fn contains_identical() {
+        let a = BoundingCircle::new(Vec2::ONE, 5.);
+        assert!(a.contains(&a));
+    }
+
+    #[test]
     fn merged() {
-        let a = BoundingCircle {
-            center: Vec2::ONE,
-            radius: 5.,
-        };
-        let b = BoundingCircle {
-            center: Vec2::new(1., -4.),
-            radius: 1.,
-        };
+        // When merging two circles that don't contain eachother, we find a center position that
+        // contains both
+        let a = BoundingCircle::new(Vec2::ONE, 5.);
+        let b = BoundingCircle::new(Vec2::new(1., -4.), 1.);
         let merged = a.merged(&b);
         assert!((merged.center - Vec2::new(1., 0.5)).length() < std::f32::EPSILON);
-        assert!((merged.radius - 5.5).abs() < std::f32::EPSILON);
+        assert!((merged.radius() - 5.5).abs() < std::f32::EPSILON);
+        assert!(merged.contains(&a));
+        assert!(merged.contains(&b));
+        assert!(!a.contains(&merged));
+        assert!(!b.contains(&merged));
+
+        // When one circle contains the other circle, we use the bigger circle
+        let b = BoundingCircle::new(Vec2::ZERO, 3.);
+        assert!(a.contains(&b));
+        let merged = a.merged(&b);
+        assert_eq!(merged.center, a.center);
+        assert_eq!(merged.radius(), a.radius());
+
+        // When two circles are at the same point, we use the bigger radius
+        let b = BoundingCircle::new(Vec2::ONE, 6.);
+        let merged = a.merged(&b);
+        assert_eq!(merged.center, a.center);
+        assert_eq!(merged.radius(), b.radius());
+    }
+
+    #[test]
+    fn merge_identical() {
+        let a = BoundingCircle::new(Vec2::ONE, 5.);
+        let merged = a.merged(&a);
+        assert_eq!(merged.center, a.center);
+        assert_eq!(merged.radius(), a.radius());
     }
 
     #[test]
     fn padded() {
-        let a = BoundingCircle {
-            center: Vec2::ONE,
-            radius: 5.,
-        };
+        let a = BoundingCircle::new(Vec2::ONE, 5.);
         let padded = a.padded(1.25);
-        assert!((padded.radius - 6.25).abs() < std::f32::EPSILON);
+        assert!((padded.radius() - 6.25).abs() < std::f32::EPSILON);
+        assert!(padded.contains(&a));
+        assert!(!a.contains(&padded));
     }
 
     #[test]
     fn shrunk() {
-        let a = BoundingCircle {
-            center: Vec2::ONE,
-            radius: 5.,
-        };
+        let a = BoundingCircle::new(Vec2::ONE, 5.);
         let shrunk = a.shrunk(0.5);
-        assert!((shrunk.radius - 4.5).abs() < std::f32::EPSILON);
+        assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
+        assert!(a.contains(&shrunk));
+        assert!(!shrunk.contains(&a));
     }
 }

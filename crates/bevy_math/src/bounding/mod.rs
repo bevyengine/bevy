@@ -1,11 +1,17 @@
 //! This module contains traits and implements for working with bounding shapes
+//!
+//! There are four traits used:
+//! - [`BoundingVolume`] is a generic abstraction for any bounding volume
+//! - [`IntersectsVolume`] abstracts intersection tests against a [`BoundingVolume`]
+//! - [`Bounded2d`]/[`Bounded3d`] are abstractions for shapes to generate [`BoundingVolume`]s
 
 /// A trait that generalizes different bounding volumes.
 /// It supports both 2D and 3D bounding shapes.
 pub trait BoundingVolume {
-    /// The position type used for the volume. This should be Vec2 for 2D and Vec3 for 3D.
+    /// The position type used for the volume. This should be `Vec2` for 2D and `Vec3` for 3D.
     type Position: Clone + Copy + PartialEq;
-    /// The type used for the `padded` and `shrunk` methods.
+    /// The type used for the `padded` and `shrunk` methods. For example, a `f32` radius for
+    /// circles and spheres.
     type Padding;
 
     /// Returns the center of the bounding volume.
