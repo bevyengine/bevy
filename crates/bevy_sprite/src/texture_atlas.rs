@@ -24,7 +24,7 @@ pub struct TextureAtlas {
 
 /// Specifies the rendering properties of a sprite from a sprite sheet.
 ///
-/// [`SpriteSheetBundle`](crate::bundle::SpriteSheetBundle) is a bundle for common sprite rendering use cases.
+/// This is commonly used as a component within [`SpriteSheetBundle`](crate::bundle::SpriteSheetBundle).
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub struct TextureAtlasSprite {

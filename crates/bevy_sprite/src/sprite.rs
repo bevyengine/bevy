@@ -5,7 +5,7 @@ use bevy_render::color::Color;
 
 /// Specifies the rendering properties of a sprite.
 ///
-/// [`SpriteBundle`](crate::bundle::SpriteBundle) is a bundle for common sprite rendering use cases.
+/// This is commonly used as a component within [`SpriteBundle`](crate::bundle::SpriteBundle).
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default)]
 #[repr(C)]

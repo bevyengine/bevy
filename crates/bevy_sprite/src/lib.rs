@@ -47,7 +47,7 @@ pub struct SpritePlugin;
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
 
-/// Set system for the systems relating to sprite rendering.
+/// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SpriteSystem {
     ExtractSprites,
