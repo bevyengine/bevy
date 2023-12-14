@@ -756,6 +756,7 @@ pub fn prepare_sprites(
     }
 }
 
+/// [`RenderCommand`] for sprite rendering.
 pub type DrawSprite = (
     SetItemPipeline,
     SetSpriteViewBindGroup<0>,
