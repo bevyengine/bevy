@@ -5,7 +5,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor, SamplerDescriptor, TextureViewId,
+        RenderPassDescriptor, SamplerDescriptor, StoreOp, TextureViewId,
     },
     renderer::RenderContext,
     view::ViewTarget,
@@ -78,10 +78,12 @@ impl ViewNode for UpscalingNode {
                 resolve_target: None,
                 ops: Operations {
                     load: color_attachment_load_op,
-                    store: true,
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         let mut render_pass = render_context
