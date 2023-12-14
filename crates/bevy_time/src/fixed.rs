@@ -13,7 +13,8 @@ use crate::{time::Time, virt::Virtual};
 /// It is automatically inserted as a resource by
 /// [`TimePlugin`](crate::TimePlugin) and updated based on
 /// [`Time<Virtual>`](Virtual). The fixed clock is automatically set as the
-/// generic [`Time`] resource during [`FixedUpdate`] schedule processing.
+/// generic [`Time`] resource during [`FixedUpdate`](bevy_app::FixedUpdate)
+/// schedule processing.
 ///
 /// The fixed timestep clock advances in fixed-size increments, which is
 /// extremely useful for writing logic (like physics) that should have
@@ -28,7 +29,7 @@ use crate::{time::Time, virt::Virtual};
 /// into [`f32`] and [`f64`].
 ///
 /// To run a system on a fixed timestep, add it to one of the [`FixedMain`]
-/// schedules, most commonly [`FixedUpdate`].
+/// schedules, most commonly [`FixedUpdate`](bevy_app::FixedUpdate).
 ///
 /// This schedule is run a number of times between
 /// [`PreUpdate`](bevy_app::PreUpdate) and [`Update`](bevy_app::Update)
@@ -46,20 +47,21 @@ use crate::{time::Time, virt::Virtual};
 /// means it is affected by [`pause()`](Time::pause),
 /// [`set_relative_speed()`](Time::set_relative_speed) and
 /// [`set_max_delta()`](Time::set_max_delta) from virtual time. If the virtual
-/// clock is paused, the [`FixedUpdate`] schedule will not run. It is guaranteed
-/// that the [`elapsed()`](Time::elapsed) time in `Time<Fixed>` is always
-/// between the previous `elapsed()` and the current `elapsed()` value in
-/// `Time<Virtual>`, so the values are compatible.
+/// clock is paused, the [`FixedUpdate`](bevy_app::FixedUpdate) schedule will
+/// not run. It is guaranteed that the [`elapsed()`](Time::elapsed) time in
+/// `Time<Fixed>` is always between the previous `elapsed()` and the current
+/// `elapsed()` value in `Time<Virtual>`, so the values are compatible.
 ///
 /// Changing the timestep size while the game is running should not normally be
 /// done, as having a regular interval is the point of this schedule, but it may
 /// be necessary for effects like "bullet-time" if the normal granularity of the
 /// fixed timestep is too big for the slowed down time. In this case,
 /// [`set_timestep()`](Time::set_timestep) and be called to set a new value. The
-/// new value will be used immediately for the next run of the [`FixedUpdate`]
-/// schedule, meaning that it will affect the [`delta()`](Time::delta) value for
-/// the very next [`FixedUpdate`], even if it is still during the same frame.
-/// Any [`overstep()`](Time::overstep) present in the accumulator will be
+/// new value will be used immediately for the next run of the
+/// [`FixedUpdate`](bevy_app::FixedUpdate) schedule, meaning that it will affect
+/// the [`delta()`](Time::delta) value for the very next
+/// [`FixedUpdate`](bevy_app::FixedUpdate), even if it is still during the same
+/// frame. Any [`overstep()`](Time::overstep) present in the accumulator will be
 /// processed according to the new [`timestep()`](Time::timestep) value.
 #[derive(Debug, Copy, Clone, Reflect)]
 pub struct Fixed {
