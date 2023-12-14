@@ -1021,7 +1021,7 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
-    // modify the graph to have sync nodes for any depedants after a system with deferred system params
+    // modify the graph to have sync nodes for any dependants after a system with deferred system params
     fn auto_insert_apply_deferred(
         &mut self,
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
@@ -1068,7 +1068,7 @@ impl ScheduleGraph {
         Ok(sync_point_graph)
     }
 
-    /// add a [`apply_deferred`] system with no config
+    /// add an [`apply_deferred`] system with no config
     fn add_auto_sync(&mut self) -> NodeId {
         let id = NodeId::System(self.systems.len());
 
