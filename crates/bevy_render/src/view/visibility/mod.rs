@@ -85,7 +85,7 @@ impl InheritedVisibility {
     }
 }
 
-/// Algorithmically-computed indication or whether an entity is visible and should be extracted for rendering.
+/// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
 ///
 /// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in [`PostUpdate`].
 /// Later in the frame, systems in [`CheckVisibility`] will mark any visible entities using [`ViewVisibility::set`].
