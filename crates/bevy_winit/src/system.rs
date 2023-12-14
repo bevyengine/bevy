@@ -19,8 +19,6 @@ use winit::{
     event_loop::EventLoopWindowTarget,
 };
 
-#[cfg(target_arch = "wasm32")]
-use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
     converters::{
@@ -45,7 +43,6 @@ pub(crate) fn create_windows<'a>(
     mut adapters: NonSendMut<AccessKitAdapters>,
     mut handlers: ResMut<WinitActionHandlers>,
     accessibility_requested: ResMut<AccessibilityRequested>,
-    #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
     for (entity, mut window) in created_windows {
         if winit_windows.get_window(entity).is_some() {
@@ -83,18 +80,6 @@ pub(crate) fn create_windows<'a>(
             .insert(CachedWindow {
                 window: window.clone(),
             });
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            if window.fit_canvas_to_parent {
-                let selector = if let Some(selector) = &window.canvas {
-                    selector
-                } else {
-                    WINIT_CANVAS_SELECTOR
-                };
-                event_channel.listen_to_selector(entity, selector);
-            }
-        }
 
         event_writer.send(WindowCreated { window: entity });
     }
