@@ -1,11 +1,11 @@
-//! In this example we generate 4 texture atlases (sprite sheets) from a folder containing
+//! In this example we generate four texture atlases (sprite sheets) from a folder containing
 //! individual sprites.
 //!
 //! The texture atlases are generated with different padding and sampling to demonstrate the
 //! effect of these settings, and how bleeding issues can be resolved by padding the sprites.
 //!
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
-//! An upscaled sprite from each of the 4 atlases are rendered to the screen.
+//! An upscaled sprite from each of the four atlases are rendered to the screen.
 
 use bevy::{asset::LoadedFolder, prelude::*, render::texture::ImageSampler};
 
@@ -119,58 +119,16 @@ fn setup(
         ..default()
     });
 
-    // draw sprites from texture atlases
-
-    // get handle to a sprite to render
-    let vendor_handle: Handle<Image> = asset_server
-        .get_handle("textures/rpg/chars/vendor/generic-rpg-vendor.png")
-        .unwrap();
-
-    // get index of the sprite in the texture atlas, this is used to render the sprite
-    // the index is the same for all the texture atlases, since they are created from the same folder
-    let vendor_index = texture_atlas_linear
-        .get_texture_index(&vendor_handle)
-        .unwrap();
-
-    // linear, no padding
-    create_sprite_from_atlas(
-        &mut commands,
-        (-350.0, 170.0, 0.0),
-        vendor_index,
-        atlas_linear_handle,
-    );
-
-    // nearest, no padding
-    create_sprite_from_atlas(
-        &mut commands,
-        (-150.0, 170.0, 0.0),
-        vendor_index,
-        atlas_nearest_handle,
-    );
-
-    // linear, padding
-    create_sprite_from_atlas(
-        &mut commands,
-        (150.0, 170.0, 0.0),
-        vendor_index,
-        atlas_linear_padded_handle,
-    );
-
-    // nearest, padding
-    create_sprite_from_atlas(
-        &mut commands,
-        (350.0, 170.0, 0.0),
-        vendor_index,
-        atlas_nearest_padded_handle,
-    );
-
-    // labels to indicate the different settings
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_style = TextStyle {
+
+    // padding label text style
+    let text_style: TextStyle = TextStyle {
         font: font.clone(),
         font_size: 50.0,
         color: Color::WHITE,
     };
+
+    // labels to indicate padding
 
     // No padding
     create_label(
@@ -183,43 +141,46 @@ fn setup(
     // Padding
     create_label(&mut commands, (250.0, 330.0, 0.0), "Padding", text_style);
 
-    let text_style_smaller = TextStyle {
+    // get handle to a sprite to render
+    let vendor_handle: Handle<Image> = asset_server
+        .get_handle("textures/rpg/chars/vendor/generic-rpg-vendor.png")
+        .unwrap();
+
+    // get index of the sprite in the texture atlas, this is used to render the sprite
+    // the index is the same for all the texture atlases, since they are created from the same folder
+    let vendor_index = texture_atlas_linear
+        .get_texture_index(&vendor_handle)
+        .unwrap();
+
+    // configuration array to render sprites through iteration
+    let configurations: [(&str, Handle<TextureAtlas>, f32); 4] = [
+        ("Linear", atlas_linear_handle, -350.0),
+        ("Nearest", atlas_nearest_handle, -150.0),
+        ("Linear", atlas_linear_padded_handle, 150.0),
+        ("Nearest", atlas_nearest_padded_handle, 350.0),
+    ];
+
+    // label text style
+    let sampling_label_style = TextStyle {
         font,
         font_size: 30.0,
         color: Color::WHITE,
     };
 
-    // Linear, left
-    create_label(
-        &mut commands,
-        (-350.0, 280.0, 0.0),
-        "Linear",
-        text_style_smaller.clone(),
-    );
+    let base_y = 170.0; // y position of the sprites
 
-    // Nearest, left
-    create_label(
-        &mut commands,
-        (-150.0, 280.0, 0.0),
-        "Nearest",
-        text_style_smaller.clone(),
-    );
+    for (sampling, atlas_handle, x) in configurations {
+        // render a sprite from the texture_atlas
+        create_sprite_from_atlas(&mut commands, (x, base_y, 0.0), vendor_index, atlas_handle);
 
-    // Linear, right
-    create_label(
-        &mut commands,
-        (150.0, 280.0, 0.0),
-        "Linear",
-        text_style_smaller.clone(),
-    );
-
-    // Nearest, right
-    create_label(
-        &mut commands,
-        (350.0, 280.0, 0.0),
-        "Nearest",
-        text_style_smaller,
-    );
+        // render a label to indicate the sampling setting
+        create_label(
+            &mut commands,
+            (x, base_y + 110.0, 0.0), // offset to y position of the sprite
+            sampling,
+            sampling_label_style.clone(),
+        );
+    }
 }
 
 /// Create a texture atlas with the given padding and sampling settings
