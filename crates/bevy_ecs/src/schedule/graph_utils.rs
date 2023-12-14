@@ -45,6 +45,10 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
+    /// A node that should be preceded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    BeforeNoSync,
+    /// A node that should be succeeded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    AfterNoSync,
 }
 
 /// An edge to be added to the dependency graph.

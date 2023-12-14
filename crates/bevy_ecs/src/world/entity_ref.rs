@@ -889,6 +889,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Removes any components in the [`Bundle`] from the entity.
+    ///
+    /// See [`EntityCommands::remove`](crate::system::EntityCommands::remove) for more details.
     // TODO: BundleRemover?
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
         let archetypes = &mut self.world.archetypes;
@@ -920,6 +922,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Removes any components except those in the [`Bundle`] from the entity.
+    ///
+    /// See [`EntityCommands::retain`](crate::system::EntityCommands::retain) for more details.
     pub fn retain<T: Bundle>(&mut self) -> &mut Self {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
@@ -961,6 +965,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Despawns the current entity.
+    ///
+    /// See [`World::despawn`] for more details.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
         let world = self.world;

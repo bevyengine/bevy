@@ -415,7 +415,7 @@ impl App {
         self
     }
 
-    /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
     pub fn configure_sets(
         &mut self,
