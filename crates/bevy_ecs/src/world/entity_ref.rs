@@ -706,9 +706,6 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
-        for component_id in bundle_info.iter_components() {
-            world.removed_components.send(component_id, entity);
-        }
         let archetypes = &mut world.archetypes;
         let storages = &mut world.storages;
         let components = &mut world.components;
@@ -844,7 +841,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = self.location;
         let bundle_info = world.bundles.get_unchecked(bundle);
 
-        // SAFETY: `archetype_id` exists because it is referenced in `old_location` which is valid
+        // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
         // and components in `bundle_info` must exist due to this functions safety invariants.
         let new_archetype_id = remove_bundle_from_archetype(
             &mut world.archetypes,
@@ -971,7 +968,6 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
-        let archetype = &world.archetypes[self.location.archetype_id];
         for component_id in archetype.components() {
             world.removed_components.send(component_id, self.entity);
         }
