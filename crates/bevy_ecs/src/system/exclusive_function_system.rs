@@ -94,6 +94,12 @@ where
     }
 
     #[inline]
+    fn has_deferred(&self) -> bool {
+        // exclusive systems have no deferred system params
+        false
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, _input: Self::In, _world: UnsafeWorldCell) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }

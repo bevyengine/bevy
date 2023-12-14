@@ -104,6 +104,10 @@ where
         self.system.is_exclusive()
     }
 
+    fn has_deferred(&self) -> bool {
+        self.system.has_deferred()
+    }
+
     #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
