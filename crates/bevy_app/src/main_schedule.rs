@@ -118,8 +118,10 @@ pub struct Last;
 /// their order.
 #[derive(Resource, Debug)]
 pub struct MainScheduleOrder {
-    /// The labels to run for the [`Main`] schedule (in the order they will be run).
+    /// The labels to run for the main phase of the [`Main`] schedule (in the order they will be run).
     pub labels: Vec<InternedScheduleLabel>,
+    /// The labels to run for the startup phase of the [`Main`] schedule (in the order they will be run).
+    pub startup_labels: Vec<InternedScheduleLabel>,
 }
 
 impl Default for MainScheduleOrder {
@@ -135,12 +137,13 @@ impl Default for MainScheduleOrder {
                 PostUpdate.intern(),
                 Last.intern(),
             ],
+            startup_labels: vec![PreStartup.intern(), Startup.intern(), PostStartup.intern()],
         }
     }
 }
 
 impl MainScheduleOrder {
-    /// Adds the given `schedule` after the `after` schedule
+    /// Adds the given `schedule` after the `after` schedule in the main list of schedules.
     pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
         let index = self
             .labels
@@ -149,15 +152,31 @@ impl MainScheduleOrder {
             .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
         self.labels.insert(index + 1, schedule.intern());
     }
+
+    /// Adds the given `schedule` after the `after` schedule in the list of startup schedules.
+    pub fn insert_startup_after(
+        &mut self,
+        after: impl ScheduleLabel,
+        schedule: impl ScheduleLabel,
+    ) {
+        let index = self
+            .startup_labels
+            .iter()
+            .position(|current| (**current).eq(&after))
+            .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
+        self.startup_labels.insert(index + 1, schedule.intern());
+    }
 }
 
 impl Main {
     /// A system that runs the "main schedule"
     pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            let _ = world.try_run_schedule(PreStartup);
-            let _ = world.try_run_schedule(Startup);
-            let _ = world.try_run_schedule(PostStartup);
+            world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+                for &label in &order.startup_labels {
+                    let _ = world.try_run_schedule(label);
+                }
+            });
             *run_at_least_once = true;
         }
 
