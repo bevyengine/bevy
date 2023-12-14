@@ -6,7 +6,7 @@ use crate::{
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     prelude::{Component, QueryState},
-    query::{WorldQueryData, WorldQueryFilter},
+    query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
 };
 
@@ -83,10 +83,10 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     /// If state is from a different world then self
     #[inline]
-    pub fn query<'s, Q: WorldQueryData, F: WorldQueryFilter>(
+    pub fn query<'s, D: QueryData, F: QueryFilter>(
         &'w mut self,
-        state: &'s mut QueryState<Q, F>,
-    ) -> Query<'w, 's, Q, F> {
+        state: &'s mut QueryState<D, F>,
+    ) -> Query<'w, 's, D, F> {
         state.validate_world(self.world.id());
         state.update_archetypes(self);
         // SAFETY: We ran validate_world to ensure our state matches
