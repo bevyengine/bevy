@@ -61,7 +61,7 @@ impl CopyDeferredLightingIdNode {
 }
 
 impl ViewNode for CopyDeferredLightingIdNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ViewTarget,
         &'static ViewPrepassTextures,
         &'static DeferredLightingIdDepthTexture,
@@ -72,7 +72,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (_view_target, view_prepass_textures, deferred_lighting_id_depth_texture): QueryItem<
-            Self::ViewQuery,
+            Self::ViewData,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -104,10 +104,12 @@ impl ViewNode for CopyDeferredLightingIdNode {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Clear(0.0),
-                    store: true,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         render_pass.set_render_pipeline(pipeline);

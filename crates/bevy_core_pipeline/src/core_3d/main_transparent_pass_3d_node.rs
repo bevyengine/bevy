@@ -4,7 +4,9 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
+    render_resource::{
+        LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
+    },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };
@@ -16,7 +18,7 @@ use bevy_utils::tracing::info_span;
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static RenderPhase<Transparent3d>,
         &'static ViewTarget,
@@ -26,7 +28,7 @@ impl ViewNode for MainTransparentPass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
+        (camera, transparent_phase, target, depth): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -42,7 +44,7 @@ impl ViewNode for MainTransparentPass3dNode {
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
                 color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
-                    store: true,
+                    store: StoreOp::Store,
                 }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
@@ -54,10 +56,12 @@ impl ViewNode for MainTransparentPass3dNode {
                     // transparent ones.
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: true,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {
@@ -77,9 +81,11 @@ impl ViewNode for MainTransparentPass3dNode {
                 label: Some("reset_viewport_pass_3d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
-                    store: true,
+                    store: StoreOp::Store,
                 }))],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
 
             render_context

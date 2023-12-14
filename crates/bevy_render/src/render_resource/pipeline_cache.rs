@@ -197,6 +197,10 @@ impl ShaderCache {
             }
         }
 
+        // TODO: Check if this is supported, though I'm not sure if bevy works without this feature?
+        // We can't compile for native at least without it.
+        capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
         #[cfg(not(debug_assertions))]

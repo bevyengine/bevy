@@ -428,15 +428,15 @@ fn prepare_line_gizmo_bind_group(
 
 struct SetLineGizmoBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
+    type ViewData = ();
+    type ItemData = Read<DynamicUniformIndex<LineGizmoUniform>>;
     type Param = SRes<LineGizmoUniformBindgroup>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        uniform_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewData>,
+        uniform_index: ROQueryItem<'w, Self::ItemData>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -451,15 +451,15 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<LineGizmo>>;
+    type ViewData = ();
+    type ItemData = Read<Handle<LineGizmo>>;
     type Param = SRes<RenderAssets<LineGizmo>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewData>,
+        handle: ROQueryItem<'w, Self::ItemData>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

@@ -285,7 +285,7 @@ fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
     time: Res<Time>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,

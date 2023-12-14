@@ -377,8 +377,8 @@ type DrawMaterial<M> = (
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
     type Param = (SRes<RenderMaterials<M>>, SRes<RenderMaterialInstances<M>>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
