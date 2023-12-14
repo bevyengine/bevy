@@ -1147,8 +1147,8 @@ impl ScheduleGraph {
         for (&set, systems) in set_systems {
             if systems.is_empty() {
                 // collapse dependencies for empty sets
-                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
-                    for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
+                for a in dependency_flattened.neighbors_directed(set, Incoming) {
+                    for b in dependency_flattened.neighbors_directed(set, Outgoing) {
                         if self.no_sync_edges.contains(&(a, set))
                             && self.no_sync_edges.contains(&(set, b))
                         {
