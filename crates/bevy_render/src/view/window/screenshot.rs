@@ -153,8 +153,8 @@ impl Plugin for ScreenshotPlugin {
 
 #[cfg(feature = "bevy_ci_testing")]
 fn ci_testing_screenshot_at(
-    mut current_frame: bevy_ecs::prelude::Local<u32>,
-    ci_testing_config: bevy_ecs::prelude::Res<bevy_app::ci_testing::CiTestingConfig>,
+    mut current_frame: Local<u32>,
+    ci_testing_config: Res<bevy_app::ci_testing::CiTestingConfig>,
     mut screenshot_manager: ResMut<ScreenshotManager>,
     main_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
 ) {
@@ -268,7 +268,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 memory.texture.as_image_copy(),
                 wgpu::ImageCopyBuffer {
                     buffer: &memory.buffer,
-                    layout: crate::view::screenshot::layout_data(width, height, texture_format),
+                    layout: layout_data(width, height, texture_format),
                 },
                 Extent3d {
                     width,
@@ -290,10 +290,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
                 pass.set_pipeline(pipeline);
                 pass.set_bind_group(0, &memory.bind_group, &[]);

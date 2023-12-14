@@ -58,7 +58,7 @@ impl<M: Material> Plugin for PrepassPipelinePlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
             PREPASS_SHADER_HANDLE,
@@ -101,7 +101,7 @@ where
             .init_resource::<PreviousViewProjectionUniforms>();
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -125,7 +125,7 @@ impl<M: Material> Plugin for PrepassPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         let no_prepass_plugin_loaded = app.world.get_resource::<AnyPrepassPluginLoaded>().is_none();
 
         if no_prepass_plugin_loaded {
@@ -320,7 +320,7 @@ where
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
-        bind_group_layouts.insert(1, self.material_layout.clone());
+        bind_group_layouts.push(self.material_layout.clone());
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
@@ -421,7 +421,7 @@ where
             &mut shader_defs,
             &mut vertex_attributes,
         );
-        bind_group_layouts.insert(2, bind_group);
+        bind_group_layouts.insert(1, bind_group);
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
@@ -874,11 +874,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
 pub struct SetPrepassViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
     type Param = SRes<PrepassViewBindGroup>;
-    type ViewWorldQuery = (
+    type ViewData = (
         Read<ViewUniformOffset>,
         Option<Read<PreviousViewProjectionUniformOffset>>,
     );
-    type ItemWorldQuery = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
@@ -919,8 +919,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
 pub type DrawPrepass<M> = (
     SetItemPipeline,
     SetPrepassViewBindGroup<0>,
-    SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
+    SetMeshBindGroup<1>,
+    SetMaterialBindGroup<M, 2>,
     DrawMesh,
 );
 

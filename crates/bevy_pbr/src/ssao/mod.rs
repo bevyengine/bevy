@@ -199,7 +199,7 @@ impl ScreenSpaceAmbientOcclusionQualityLevel {
 struct SsaoNode {}
 
 impl ViewNode for SsaoNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static SsaoPipelineId,
         &'static SsaoBindGroups,
@@ -210,7 +210,7 @@ impl ViewNode for SsaoNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewQuery>,
+        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipelines = world.resource::<SsaoPipelines>();
@@ -238,6 +238,7 @@ impl ViewNode for SsaoNode {
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("ssao_preprocess_depth_pass"),
+                        timestamp_writes: None,
                     });
             preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
             preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
@@ -259,6 +260,7 @@ impl ViewNode for SsaoNode {
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("ssao_gtao_pass"),
+                        timestamp_writes: None,
                     });
             gtao_pass.set_pipeline(gtao_pipeline);
             gtao_pass.set_bind_group(0, &bind_groups.gtao_bind_group, &[]);
@@ -280,6 +282,7 @@ impl ViewNode for SsaoNode {
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("ssao_spatial_denoise_pass"),
+                        timestamp_writes: None,
                     });
             spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
             spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);

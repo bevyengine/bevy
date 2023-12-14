@@ -67,13 +67,17 @@ fn main() {
 
     if args.relayout {
         app.add_systems(Update, |mut style_query: Query<&mut Style>| {
-            style_query.for_each_mut(|mut style| style.set_changed());
+            style_query
+                .iter_mut()
+                .for_each(|mut style| style.set_changed());
         });
     }
 
     if args.recompute_text {
         app.add_systems(Update, |mut text_query: Query<&mut Text>| {
-            text_query.for_each_mut(|mut text| text.set_changed());
+            text_query
+                .iter_mut()
+                .for_each(|mut text| text.set_changed());
         });
     }
 

@@ -54,7 +54,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
-use crate::accessibility::{AccessKitAdapters, AccessibilityPlugin, WinitActionHandlers};
+use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionHandlers};
 
 use crate::converters::convert_winit_theme;
 #[cfg(target_arch = "wasm32")]
@@ -142,7 +142,7 @@ impl Plugin for WinitPlugin {
                     .chain(),
             );
 
-        app.add_plugins(AccessibilityPlugin);
+        app.add_plugins(AccessKitPlugin);
 
         #[cfg(target_arch = "wasm32")]
         app.add_plugins(CanvasParentResizePlugin);
@@ -429,7 +429,7 @@ pub fn winit_runner(mut app: App) {
         }
 
         match event {
-            event::Event::NewEvents(start_cause) => match start_cause {
+            Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
                     #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
@@ -480,7 +480,7 @@ pub fn winit_runner(mut app: App) {
                     }
                 }
             },
-            event::Event::WindowEvent {
+            Event::WindowEvent {
                 event, window_id, ..
             } => {
                 let (mut event_writers, winit_windows, mut windows, access_kit_adapters) =
@@ -545,7 +545,7 @@ pub fn winit_runner(mut app: App) {
                         window.set_physical_cursor_position(Some(physical_position));
                         event_writers.cursor_moved.send(CursorMoved {
                             window: window_entity,
-                            position: (physical_position / window.resolution.scale_factor())
+                            position: (physical_position / window.resolution.scale_factor() as f64)
                                 .as_vec2(),
                         });
                     }
@@ -596,7 +596,9 @@ pub fn winit_runner(mut app: App) {
                         }
                     },
                     WindowEvent::Touch(touch) => {
-                        let location = touch.location.to_logical(window.resolution.scale_factor());
+                        let location = touch
+                            .location
+                            .to_logical(window.resolution.scale_factor() as f64);
                         event_writers
                             .touch_input
                             .send(converters::convert_touch_input(touch, location));
@@ -619,7 +621,7 @@ pub fn winit_runner(mut app: App) {
                         );
 
                         let prior_factor = window.resolution.scale_factor();
-                        window.resolution.set_scale_factor(scale_factor);
+                        window.resolution.set_scale_factor(scale_factor as f32);
                         let new_factor = window.resolution.scale_factor();
 
                         if let Some(forced_factor) = window.resolution.scale_factor_override() {
@@ -628,7 +630,7 @@ pub fn winit_runner(mut app: App) {
                             // incorporates any resize constraints.
                             *new_inner_size =
                                 winit::dpi::LogicalSize::new(window.width(), window.height())
-                                    .to_physical::<u32>(forced_factor);
+                                    .to_physical::<u32>(forced_factor as f64);
                         } else if approx::relative_ne!(new_factor, prior_factor) {
                             event_writers.window_scale_factor_changed.send(
                                 WindowScaleFactorChanged {
@@ -638,8 +640,8 @@ pub fn winit_runner(mut app: App) {
                             );
                         }
 
-                        let new_logical_width = (new_inner_size.width as f64 / new_factor) as f32;
-                        let new_logical_height = (new_inner_size.height as f64 / new_factor) as f32;
+                        let new_logical_width = new_inner_size.width as f32 / new_factor;
+                        let new_logical_height = new_inner_size.height as f32 / new_factor;
                         if approx::relative_ne!(window.width(), new_logical_width)
                             || approx::relative_ne!(window.height(), new_logical_height)
                         {
@@ -740,7 +742,7 @@ pub fn winit_runner(mut app: App) {
                     cache.window = window.clone();
                 }
             }
-            event::Event::DeviceEvent {
+            Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
@@ -749,14 +751,14 @@ pub fn winit_runner(mut app: App) {
                     delta: Vec2::new(x as f32, y as f32),
                 });
             }
-            event::Event::Suspended => {
+            Event::Suspended => {
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.lifetime.send(ApplicationLifetime::Suspended);
                 // Mark the state as `WillSuspend`. This will let the schedule run one last time
                 // before actually suspending to let the application react
                 runner_state.active = ActiveState::WillSuspend;
             }
-            event::Event::Resumed => {
+            Event::Resumed => {
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 match runner_state.active {
                     ActiveState::NotYetStarted => {
@@ -807,7 +809,7 @@ pub fn winit_runner(mut app: App) {
                     *control_flow = ControlFlow::Poll;
                 }
             }
-            event::Event::MainEventsCleared => {
+            Event::MainEventsCleared => {
                 if runner_state.active.should_run() {
                     if runner_state.active == ActiveState::WillSuspend {
                         runner_state.active = ActiveState::Suspended;

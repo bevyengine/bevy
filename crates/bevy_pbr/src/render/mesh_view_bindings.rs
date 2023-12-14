@@ -274,7 +274,9 @@ fn layout_entries(
             .iter()
             .zip([17, 18, 19, 20])
         {
-            entries = entries.extend_with_indices(((binding as u32, *entry),));
+            if let Some(entry) = entry {
+                entries = entries.extend_with_indices(((binding as u32, *entry),));
+            }
         }
     }
 

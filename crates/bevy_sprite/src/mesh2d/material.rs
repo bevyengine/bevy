@@ -95,9 +95,9 @@ use crate::{
 ///     color: vec4<f32>,
 /// }
 ///
-/// @group(1) @binding(0) var<uniform> material: CustomMaterial;
-/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2) var color_sampler: sampler;
+/// @group(2) @binding(0) var<uniform> material: CustomMaterial;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -281,8 +281,8 @@ where
         }
         descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
-            self.material2d_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
+            self.material2d_layout.clone(),
         ];
 
         M::specialize(&mut descriptor, layout, key)?;
@@ -317,8 +317,8 @@ impl<M: Material2d> FromWorld for Material2dPipeline<M> {
 type DrawMaterial2d<M> = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
-    SetMaterial2dBindGroup<M, 1>,
-    SetMesh2dBindGroup<2>,
+    SetMesh2dBindGroup<1>,
+    SetMaterial2dBindGroup<M, 2>,
     DrawMesh2d,
 );
 
@@ -330,8 +330,8 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         SRes<RenderMaterials2d<M>>,
         SRes<RenderMaterial2dInstances<M>>,
     );
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(

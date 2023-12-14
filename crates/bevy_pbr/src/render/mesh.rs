@@ -75,7 +75,7 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 impl Plugin for MeshRenderPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -151,7 +151,7 @@ impl Plugin for MeshRenderPlugin {
         }
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finish(&self, app: &mut App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -339,9 +339,9 @@ pub struct MeshPipeline {
     /// Use code like this in custom shaders:
     /// ```wgsl
     /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-    /// @group(2) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
+    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
     /// ##else
-    /// @group(2) @binding(0) var<storage> mesh: array<Mesh>;
+    /// @group(1) @binding(0) var<storage> mesh: array<Mesh>;
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
@@ -448,14 +448,14 @@ impl MeshPipeline {
 
 impl GetBatchData for MeshPipeline {
     type Param = SRes<RenderMeshInstances>;
-    type Query = Entity;
-    type QueryFilter = With<Mesh3d>;
+    type Data = Entity;
+    type Filter = With<Mesh3d>;
     type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
     type BufferData = MeshUniform;
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Query>,
+        entity: &QueryItem<Self::Data>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
@@ -981,20 +981,20 @@ pub fn prepare_mesh_bind_group(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewWorldQuery = (
+    type ViewData = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<MeshViewBindGroup>,
     );
-    type ItemWorldQuery = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
         (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
             'w,
-            Self::ViewWorldQuery,
+            Self::ViewData,
         >,
         _entity: (),
         _: SystemParamItem<'w, '_, Self::Param>,
@@ -1018,8 +1018,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<SkinIndices>,
         SRes<MorphIndices>,
     );
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
@@ -1081,8 +1081,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
     #[inline]
     fn render<'w>(
         item: &P,

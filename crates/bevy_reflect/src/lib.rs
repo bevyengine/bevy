@@ -492,15 +492,6 @@ mod impls {
 
     mod std;
     mod uuid;
-
-    #[cfg(feature = "glam")]
-    pub use self::glam::*;
-    #[cfg(feature = "bevy_math")]
-    pub use self::rect::*;
-    #[cfg(feature = "smallvec")]
-    pub use self::smallvec::*;
-    pub use self::std::*;
-    pub use self::uuid::*;
 }
 
 mod enums;
@@ -522,7 +513,6 @@ pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
-pub use impls::*;
 pub use list::*;
 pub use map::*;
 pub use path::*;
@@ -1281,11 +1271,11 @@ mod tests {
         // TypeInfo
         let info = i32::type_info();
         assert_eq!(i32::type_path(), info.type_path());
-        assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
+        assert_eq!(TypeId::of::<i32>(), info.type_id());
 
         // TypeInfo (unsized)
         assert_eq!(
-            std::any::TypeId::of::<dyn Reflect>(),
+            TypeId::of::<dyn Reflect>(),
             <dyn Reflect as Typed>::type_info().type_id()
         );
 
@@ -1306,10 +1296,7 @@ mod tests {
             assert!(info.is::<MyStruct>());
             assert_eq!(MyStruct::type_path(), info.type_path());
             assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
-            assert_eq!(
-                std::any::TypeId::of::<i32>(),
-                info.field("foo").unwrap().type_id()
-            );
+            assert_eq!(TypeId::of::<i32>(), info.field("foo").unwrap().type_id());
             assert!(info.field("foo").unwrap().is::<i32>());
             assert_eq!("foo", info.field("foo").unwrap().name());
             assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
@@ -1940,6 +1927,73 @@ bevy_reflect::tests::Test {
         );
     }
 
+    #[test]
+    fn dynamic_types_debug_format() {
+        #[derive(Debug, Reflect)]
+        struct TestTupleStruct(u32);
+
+        #[derive(Debug, Reflect)]
+        enum TestEnum {
+            A(u32),
+            B,
+        }
+
+        #[derive(Debug, Reflect)]
+        // test DynamicStruct
+        struct TestStruct {
+            // test DynamicTuple
+            tuple: (u32, u32),
+            // test DynamicTupleStruct
+            tuple_struct: TestTupleStruct,
+            // test DynamicList
+            list: Vec<u32>,
+            // test DynamicArray
+            array: [u32; 3],
+            // test DynamicEnum
+            e: TestEnum,
+            // test DynamicMap
+            map: HashMap<u32, u32>,
+            // test reflected value
+            value: u32,
+        }
+        let mut map = HashMap::new();
+        map.insert(9, 10);
+        let mut test_struct = TestStruct {
+            tuple: (0, 1),
+            list: vec![2, 3, 4],
+            array: [5, 6, 7],
+            tuple_struct: TestTupleStruct(8),
+            e: TestEnum::A(11),
+            map,
+            value: 12,
+        }
+        .clone_value();
+        let test_struct = test_struct.downcast_mut::<DynamicStruct>().unwrap();
+
+        // test unknown DynamicStruct
+        let mut test_unknown_struct = DynamicStruct::default();
+        test_unknown_struct.insert("a", 13);
+        test_struct.insert("unknown_struct", test_unknown_struct);
+        // test unknown DynamicTupleStruct
+        let mut test_unknown_tuple_struct = DynamicTupleStruct::default();
+        test_unknown_tuple_struct.insert(14);
+        test_struct.insert("unknown_tuplestruct", test_unknown_tuple_struct);
+        assert_eq!(
+            format!("{:?}", test_struct),
+            "DynamicStruct(bevy_reflect::tests::TestStruct { \
+                tuple: DynamicTuple((0, 1)), \
+                tuple_struct: DynamicTupleStruct(bevy_reflect::tests::TestTupleStruct(8)), \
+                list: DynamicList([2, 3, 4]), \
+                array: DynamicArray([5, 6, 7]), \
+                e: DynamicEnum(A(11)), \
+                map: DynamicMap({9: 10}), \
+                value: 12, \
+                unknown_struct: DynamicStruct(_ { a: 13 }), \
+                unknown_tuplestruct: DynamicTupleStruct(_(14)) \
+            })"
+        );
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
@@ -1990,7 +2044,7 @@ bevy_reflect::tests::Test {
             let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
-                ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
+                Deserializer::from_str(data).expect("Failed to acquire deserializer");
 
             let dynamic_struct = de
                 .deserialize(&mut deserializer)
@@ -2047,7 +2101,7 @@ bevy_reflect::tests::Test {
             let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
-                ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
+                Deserializer::from_str(data).expect("Failed to acquire deserializer");
 
             let dynamic_struct = de
                 .deserialize(&mut deserializer)

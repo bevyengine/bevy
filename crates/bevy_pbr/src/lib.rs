@@ -265,7 +265,6 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AddClustersFlush,
                     SimulationLightSystems::AssignLightsToClusters,
                 )
                     .chain(),
@@ -274,7 +273,6 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
                     assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
@@ -308,7 +306,7 @@ impl Plugin for PbrPlugin {
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     check_light_mesh_visibility
                         .in_set(SimulationLightSystems::CheckLightVisibility)
-                        .after(VisibilitySystems::CalculateBoundsFlush)
+                        .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
@@ -337,18 +335,15 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(
-                ExtractSchedule,
-                (render::extract_clusters, render::extract_lights),
-            )
+            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
             .add_systems(
                 Render,
                 (
-                    render::prepare_lights
+                    prepare_lights
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_assets::<Image>),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
-                    render::prepare_clusters.in_set(RenderSet::PrepareResources),
+                    prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();

@@ -31,7 +31,7 @@ pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
-pub use instant::{Duration, Instant};
+pub use instant::{Duration, Instant, SystemTime};
 pub use petgraph;
 pub use thiserror;
 pub use tracing;
@@ -67,7 +67,7 @@ pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, BuildHasherDefau
 #[derive(Debug, Clone, Default)]
 pub struct FixedState;
 
-impl std::hash::BuildHasher for FixedState {
+impl BuildHasher for FixedState {
     type Hasher = AHasher;
 
     #[inline]

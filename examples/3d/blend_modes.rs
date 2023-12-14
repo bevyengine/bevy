@@ -290,7 +290,7 @@ fn example_control_system(
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::Up) {
         state.alpha = (state.alpha + time.delta_seconds()).min(1.0);
