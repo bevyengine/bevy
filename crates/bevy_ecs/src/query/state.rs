@@ -529,14 +529,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     #[inline]
-    pub(crate) fn get_component<'w, 's, 'r, T: Component>(
-        &'s self,
+    pub(crate) fn get_component<'w, T: Component>(
+        &self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> Result<&'r T, QueryComponentError>
-    where
-        'w: 'r,
-    {
+    ) -> Result<&'w T, QueryComponentError> {
         let entity_ref = world
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
@@ -566,14 +563,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If given a nonexisting entity or mismatched component, this will panic.
     #[inline]
-    pub(crate) fn component<'w, 's, 'r, T: Component>(
-        &'s self,
+    pub(crate) fn component<'w, T: Component>(
+        &self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> &'r T
-    where
-        'w: 'r,
-    {
+    ) -> &'w T {
         match self.get_component(world, entity) {
             Ok(component) => component,
             Err(error) => {
@@ -594,16 +588,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This function makes it possible to violate Rust's aliasing guarantees.
     /// You must make sure this call does not result in multiple mutable references to the same component.
     #[inline]
-    pub unsafe fn get_component_unchecked_mut<'w, 's, 'r, T: Component>(
-        &'s self,
+    pub unsafe fn get_component_unchecked_mut<'w, T: Component>(
+        &self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<Mut<'r, T>, QueryComponentError>
-    where
-        'w: 'r,
-    {
+    ) -> Result<Mut<'w, T>, QueryComponentError> {
         let entity_ref = world
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
