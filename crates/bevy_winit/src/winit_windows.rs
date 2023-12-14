@@ -82,7 +82,7 @@ impl WinitWindows {
 
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
+                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf.into()))
                 } else {
                     winit_window_builder.with_inner_size(logical_size)
                 }

@@ -3,6 +3,9 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::color::Color;
 
+/// Specifies the rendering properties of a sprite.
+///
+/// This is commonly used as a component within [`SpriteBundle`](crate::bundle::SpriteBundle).
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default)]
 #[repr(C)]

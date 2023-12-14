@@ -7,7 +7,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDescriptor},
+    render_resource::{LoadOp, Operations, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
@@ -66,9 +66,11 @@ impl Node for MainPass2dNode {
                         ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
                         ClearColorConfig::None => LoadOp::Load,
                     },
-                    store: true,
+                    store: StoreOp::Store,
                 }))],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {
@@ -88,9 +90,11 @@ impl Node for MainPass2dNode {
                 label: Some("reset_viewport_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
-                    store: true,
+                    store: StoreOp::Store,
                 }))],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
 
             render_context

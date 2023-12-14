@@ -10,7 +10,7 @@ mod state;
 mod world_query;
 
 pub use access::*;
-pub use bevy_ecs_macros::{WorldQueryData, WorldQueryFilter};
+pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use error::*;
 pub use fetch::*;
 pub use filter::*;
@@ -67,10 +67,10 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs_macros::{WorldQueryData, WorldQueryFilter};
+    use bevy_ecs_macros::{QueryData, QueryFilter};
 
     use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyWorldQueryData};
+    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData};
     use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
@@ -115,13 +115,13 @@ mod tests {
             let ns = (n - k + 1..=n).rev();
             ks.zip(ns).fold(1, |acc, (k, n)| acc * n / k)
         }
-        fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
+        fn assert_combination<D, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            Q: ReadOnlyWorldQueryData,
+            D: ReadOnlyQueryData,
             F: ArchetypeFilter,
         {
-            let mut query = world.query_filtered::<Q, F>();
-            let query_type = type_name::<QueryCombinationIter<Q, F, K>>();
+            let mut query = world.query_filtered::<D, F>();
+            let query_type = type_name::<QueryCombinationIter<D, F, K>>();
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
             let iter = query.iter_combinations::<K>(world);
@@ -129,24 +129,24 @@ mod tests {
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 5, query_type);
         }
-        fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
+        fn assert_all_sizes_equal<D, F>(world: &mut World, expected_size: usize)
         where
-            Q: ReadOnlyWorldQueryData,
+            D: ReadOnlyQueryData,
             F: ArchetypeFilter,
         {
-            let mut query = world.query_filtered::<Q, F>();
-            let query_type = type_name::<QueryState<Q, F>>();
+            let mut query = world.query_filtered::<D, F>();
+            let query_type = type_name::<QueryState<D, F>>();
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 0, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 1, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);
 
             let expected = expected_size;
-            assert_combination::<Q, F, 0>(world, choose(expected, 0));
-            assert_combination::<Q, F, 1>(world, choose(expected, 1));
-            assert_combination::<Q, F, 2>(world, choose(expected, 2));
-            assert_combination::<Q, F, 5>(world, choose(expected, 5));
-            assert_combination::<Q, F, 43>(world, choose(expected, 43));
-            assert_combination::<Q, F, 64>(world, choose(expected, 64));
+            assert_combination::<D, F, 0>(world, choose(expected, 0));
+            assert_combination::<D, F, 1>(world, choose(expected, 1));
+            assert_combination::<D, F, 2>(world, choose(expected, 2));
+            assert_combination::<D, F, 5>(world, choose(expected, 5));
+            assert_combination::<D, F, 43>(world, choose(expected, 43));
+            assert_combination::<D, F, 64>(world, choose(expected, 64));
         }
         fn assert_all_exact_sizes_iterator_equal(
             iterator: impl ExactSizeIterator,
@@ -501,8 +501,8 @@ mod tests {
     #[test]
     #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
     fn self_conflicting_worldquery() {
-        #[derive(WorldQueryData)]
-        #[world_query_data(mutable)]
+        #[derive(QueryData)]
+        #[query_data(mutable)]
         struct SelfConflicting {
             a: &'static mut A,
             b: &'static mut A,
@@ -538,7 +538,7 @@ mod tests {
         world.spawn_empty();
 
         {
-            #[derive(WorldQueryData)]
+            #[derive(QueryData)]
             struct CustomAB {
                 a: &'static A,
                 b: &'static B,
@@ -558,7 +558,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQueryData)]
+            #[derive(QueryData)]
             struct FancyParam {
                 e: Entity,
                 b: &'static B,
@@ -579,11 +579,11 @@ mod tests {
         }
 
         {
-            #[derive(WorldQueryData)]
+            #[derive(QueryData)]
             struct MaybeBSparse {
                 blah: Option<(&'static B, &'static Sparse)>,
             }
-            #[derive(WorldQueryData)]
+            #[derive(QueryData)]
             struct MatchEverything {
                 abcs: AnyOf<(&'static A, &'static B, &'static C)>,
                 opt_bsparse: MaybeBSparse,
@@ -618,11 +618,11 @@ mod tests {
         }
 
         {
-            #[derive(WorldQueryFilter)]
+            #[derive(QueryFilter)]
             struct AOrBFilter {
                 a: Or<(With<A>, With<B>)>,
             }
-            #[derive(WorldQueryFilter)]
+            #[derive(QueryFilter)]
             struct NoSparseThatsSlow {
                 no: Without<Sparse>,
             }
@@ -639,7 +639,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQueryFilter)]
+            #[derive(QueryFilter)]
             struct CSparseFilter {
                 tuple_structs_pls: With<C>,
                 ugh: With<Sparse>,
@@ -657,7 +657,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQueryFilter)]
+            #[derive(QueryFilter)]
             struct WithoutComps {
                 _1: Without<A>,
                 _2: Without<B>,
@@ -676,7 +676,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQueryData)]
+            #[derive(QueryData)]
             struct IterCombAB {
                 a: &'static A,
                 b: &'static B,

@@ -3,7 +3,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     prelude::{Component, With},
-    query::WorldQueryData,
+    query::QueryData,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -105,8 +105,8 @@ pub struct State {
 }
 
 /// Main query for [`ui_focus_system`]
-#[derive(WorldQueryData)]
-#[world_query_data(mutable)]
+#[derive(QueryData)]
+#[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,
@@ -181,7 +181,7 @@ pub fn ui_focus_system(
         .or_else(|| touches_input.first_pressed_position())
         // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
         // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|cursor_position| cursor_position / ui_scale.0 as f32);
+        .map(|cursor_position| cursor_position / ui_scale.0);
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
