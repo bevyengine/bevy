@@ -629,10 +629,10 @@ impl<'w> BundleInserter<'w> {
         bundle: T,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
-        let bundle_info = &*self.bundle_info;
-        let add_bundle = &*self.add_bundle;
-        let archetype = &*self.archetype;
         let trigger_hooks = |archetype: &Archetype, mut world: DeferredWorld| {
+            let bundle_info = &*self.bundle_info;
+            let add_bundle = &*self.add_bundle;
+
             if archetype.has_on_add() {
                 world.trigger_on_add(
                     entity,
@@ -656,6 +656,9 @@ impl<'w> BundleInserter<'w> {
                         &mut world.storages.sparse_sets
                     };
                     let table = &mut *self.table;
+                    let bundle_info = &*self.bundle_info;
+                    let add_bundle = &*self.add_bundle;
+
                     bundle_info.write_components(
                         table,
                         sparse_sets,
@@ -667,19 +670,20 @@ impl<'w> BundleInserter<'w> {
                     );
                 }
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
+                let archetype = &*self.archetype;
                 trigger_hooks(archetype, self.world.into_deferred());
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let new_location = {
                     // SAFETY: Mutable references do not alias and will be dropped after this block
-                    let table = &mut *self.table;
-                    let archetype = &mut *self.archetype;
-                    let new_archetype = &mut **new_archetype;
                     let (sparse_sets, entities) = {
                         let world = self.world.world_mut();
                         (&mut world.storages.sparse_sets, &mut world.entities)
                     };
+                    let table = &mut *self.table;
+                    let archetype = &mut *self.archetype;
+                    let new_archetype = &mut **new_archetype;
 
                     let result = archetype.swap_remove(location.archetype_row);
                     if let Some(swapped_entity) = result.swapped_entity {
@@ -698,6 +702,9 @@ impl<'w> BundleInserter<'w> {
                     }
                     let new_location = new_archetype.allocate(entity, result.table_row);
                     entities.set(entity.index(), new_location);
+
+                    let bundle_info = &*self.bundle_info;
+                    let add_bundle = &*self.add_bundle;
                     bundle_info.write_components(
                         table,
                         sparse_sets,
@@ -721,18 +728,20 @@ impl<'w> BundleInserter<'w> {
             } => {
                 let new_location = {
                     // SAFETY: Mutable references do not alias and will be dropped after this block
-                    let table = &mut *self.table;
-                    let new_table = &mut **new_table;
-                    let archetype = &mut *self.archetype;
-                    let new_archetype = &mut **new_archetype;
-                    let (archetypes, sparse_sets, entities) = {
+                    let (archetypes_ptr, sparse_sets, entities) = {
                         let world = self.world.world_mut();
+                        let archetype_ptr: *mut Archetype =
+                            world.archetypes.archetypes.as_mut_ptr();
                         (
-                            &mut world.archetypes,
+                            archetype_ptr,
                             &mut world.storages.sparse_sets,
                             &mut world.entities,
                         )
                     };
+                    let table = &mut *self.table;
+                    let new_table = &mut **new_table;
+                    let archetype = &mut *self.archetype;
+                    let new_archetype = &mut **new_archetype;
                     let result = archetype.swap_remove(location.archetype_row);
                     if let Some(swapped_entity) = result.swapped_entity {
                         let swapped_location =
@@ -765,7 +774,7 @@ impl<'w> BundleInserter<'w> {
                             new_archetype
                         } else {
                             // SAFETY: the only two borrowed archetypes are above and we just did collision checks
-                            &mut archetypes.archetypes[swapped_location.archetype_id.index()]
+                            &mut *archetypes_ptr.add(swapped_location.archetype_id.index())
                         };
 
                         entities.set(
@@ -781,6 +790,8 @@ impl<'w> BundleInserter<'w> {
                             .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                     }
 
+                    let bundle_info = &*self.bundle_info;
+                    let add_bundle = &*self.add_bundle;
                     bundle_info.write_components(
                         new_table,
                         sparse_sets,
@@ -873,17 +884,17 @@ impl<'w> BundleSpawner<'w> {
         bundle: T,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so this pointer always remain valid
-        let bundle_info = &*self.bundle_info;
         let location = {
             // SAFETY: Mutable references do not alias and will be dropped after this block
-            let table = &mut *self.table;
-            let archetype = &mut *self.archetype;
             let (sparse_sets, entities) = {
                 let world = self.world.world_mut();
                 (&mut world.storages.sparse_sets, &mut world.entities)
             };
+            let table = &mut *self.table;
+            let archetype = &mut *self.archetype;
             let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
+            let bundle_info = &*self.bundle_info;
             bundle_info.write_components(
                 table,
                 sparse_sets,
@@ -899,6 +910,7 @@ impl<'w> BundleSpawner<'w> {
 
         // SAFETY: We have no oustanding mutable references to world as they were dropped
         let archetype = &*self.archetype;
+        let bundle_info = &*self.bundle_info;
         let mut world = self.world.into_deferred();
         if archetype.has_on_add() {
             world.trigger_on_add(entity, bundle_info.iter_components());
