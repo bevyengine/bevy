@@ -6,9 +6,12 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
+        pipeline_keys::PipelineKey,
         render_resource::*,
     },
-    sprite::{Material2d, Material2dKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{
+        Material2d, Material2dPipelineKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle,
+    },
 };
 
 /// This vertex attribute supplies barycentric coordinates for each triangle.
@@ -71,7 +74,7 @@ impl Material2d for CustomMaterial {
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        _key: Material2dKey<Self>,
+        _key: PipelineKey<Material2dPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         let vertex_layout = layout.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),

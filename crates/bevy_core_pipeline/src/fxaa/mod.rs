@@ -10,6 +10,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    pipeline_keys::PipelineKey,
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_graph::ViewNodeRunner,
@@ -27,8 +28,9 @@ mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(PipelineKey, Reflect, Eq, PartialEq, Hash, Clone, Copy, Debug)]
 #[reflect(PartialEq, Hash)]
+#[repr(u8)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -152,7 +154,7 @@ pub struct CameraFxaaPipeline {
     pub pipeline_id: CachedRenderPipelineId,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct FxaaPipelineKey {
     edge_threshold: Sensitivity,
     edge_threshold_min: Sensitivity,
@@ -162,7 +164,7 @@ pub struct FxaaPipelineKey {
 impl SpecializedRenderPipeline for FxaaPipeline {
     type Key = FxaaPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("fxaa".into()),
             layout: vec![self.texture_bind_group.clone()],
@@ -202,7 +204,7 @@ pub fn prepare_fxaa_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &fxaa_pipeline,
-            FxaaPipelineKey {
+            pipeline_cache.pack_key(&FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,
                 edge_threshold_min: fxaa.edge_threshold_min,
                 texture_format: if view.hdr {
@@ -210,7 +212,7 @@ pub fn prepare_fxaa_pipelines(
                 } else {
                     TextureFormat::bevy_default()
                 },
-            },
+            }),
         );
 
         commands

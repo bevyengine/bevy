@@ -18,6 +18,8 @@ use bevy_math::vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
+    impl_has_world_key,
+    pipeline_keys::AddPipelineKey,
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -83,7 +85,8 @@ impl Plugin for TemporalAntiAliasPlugin {
                     core_3d::graph::node::BLOOM,
                     core_3d::graph::node::TONEMAPPING,
                 ],
-            );
+            )
+            .register_system_key::<TaaKey, With<ExtractedView>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -297,7 +300,7 @@ impl FromWorld for TaaPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 struct TaaPipelineKey {
     hdr: bool,
     reset: bool,
@@ -306,7 +309,7 @@ struct TaaPipelineKey {
 impl SpecializedRenderPipeline for TaaPipeline {
     type Key = TaaPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
 
         let format = if key.hdr {
@@ -468,20 +471,20 @@ fn prepare_taa_pipelines(
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
 ) {
     for (entity, view, taa_settings) in &views {
-        let mut pipeline_key = TaaPipelineKey {
+        let pipeline_key = TaaPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
         };
-        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
-
-        // Prepare non-reset pipeline anyways - it will be necessary next frame
-        if pipeline_key.reset {
-            pipeline_key.reset = false;
-            pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
-        }
+        let pipeline_id = pipelines.specialize(
+            &pipeline_cache,
+            &pipeline,
+            pipeline_cache.pack_key(&pipeline_key),
+        );
 
         commands
             .entity(entity)
             .insert(TemporalAntiAliasPipelineId(pipeline_id));
     }
 }
+
+impl_has_world_key!(TaaKey, TemporalAntiAliasSettings, "TAA");

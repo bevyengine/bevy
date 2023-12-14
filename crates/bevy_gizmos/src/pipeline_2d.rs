@@ -1,6 +1,6 @@
 use crate::{
     line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, StripKey, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -13,14 +13,14 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
+    pipeline_keys::{KeyRepack, PipelineKey, PipelineKeys},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
-    texture::BevyDefault,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::RenderLayers,
     Render, RenderApp, RenderSet,
 };
-use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
+use bevy_sprite::{Mesh2dPipeline, Mesh2dViewKey, SetMesh2dViewBindGroup};
 use bevy_utils::FloatOrd;
 
 pub struct LineGizmo2dPlugin;
@@ -69,26 +69,17 @@ impl FromWorld for LineGizmoPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey)]
 struct LineGizmoPipelineKey {
-    mesh_key: Mesh2dPipelineKey,
-    strip: bool,
+    view_key: Mesh2dViewKey,
+    strip: StripKey,
 }
 
 impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
-        let shader_defs = vec![
-            #[cfg(feature = "webgl")]
-            "SIXTEEN_BYTE_ALIGNMENT".into(),
-        ];
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
+        let shader_defs = key.shader_defs();
 
         let layout = vec![
             self.mesh_pipeline.view_layout.clone(),
@@ -100,14 +91,14 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 shader: LINE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: line_gizmo_vertex_buffer_layouts(key.strip),
+                buffers: line_gizmo_vertex_buffer_layouts(key.strip.0),
             },
             fragment: Some(FragmentState {
                 shader: LINE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_key.texture_format.format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -116,7 +107,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState {
-                count: key.mesh_key.msaa_samples(),
+                count: key.view_key.msaa.samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -139,39 +130,36 @@ fn queue_line_gizmos_2d(
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     config: Res<GizmoConfig>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
-        &ExtractedView,
         &mut RenderPhase<Transparent2d>,
         Option<&RenderLayers>,
+        &PipelineKeys,
     )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
-    for (view, mut transparent_phase, render_layers) in &mut views {
+    for (mut transparent_phase, render_layers, keys) in &mut views {
         let render_layers = render_layers.copied().unwrap_or_default();
         if !config.render_layers.intersects(&render_layers) {
             continue;
         }
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+
+        let Some(view_key) = keys.get_packed_key::<Mesh2dViewKey>() else {
+            continue;
+        };
 
         for (entity, handle) in &line_gizmos {
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
                 continue;
             };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &pipeline,
-                LineGizmoPipelineKey {
-                    mesh_key,
-                    strip: line_gizmo.strip,
-                },
-            );
+            let strip_key = pipeline_cache.pack_key(&StripKey(line_gizmo.strip));
+            let gizmo_key = LineGizmoPipelineKey::repack((view_key, strip_key));
+
+            let pipeline = pipelines.specialize(&pipeline_cache, &pipeline, gizmo_key);
 
             transparent_phase.add(Transparent2d {
                 entity,

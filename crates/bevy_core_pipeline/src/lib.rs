@@ -13,6 +13,7 @@ mod skybox;
 mod taa;
 pub mod tonemapping;
 pub mod upscaling;
+pub mod transmission;
 
 pub use skybox::Skybox;
 

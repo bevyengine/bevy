@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -8,6 +8,7 @@ use bevy_render::{
     color::Color,
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
+    pipeline_keys::{KeyShaderDefs, PipelineKey, SystemKey},
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
@@ -605,8 +606,12 @@ pub struct TransmittedShadowReceiver;
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
 ///
 /// Currently does not affect point lights.
-#[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(
+    PipelineKey, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default,
+)]
 #[reflect(Component, Default)]
+#[repr(u8)]
+#[custom_shader_defs]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.
     ///
@@ -2298,5 +2303,25 @@ mod test {
                 );
             }
         }
+    }
+}
+impl SystemKey for ShadowFilteringMethod {
+    type Param = ();
+
+    type Query = Option<Read<Self>>;
+
+    fn from_params(_: &(), shadow_method: Option<&Self>) -> Option<Self> {
+        Some(shadow_method.copied().unwrap_or_default())
+    }
+}
+
+impl KeyShaderDefs for ShadowFilteringMethod {
+    fn shader_defs(&self) -> Vec<bevy_render::render_resource::ShaderDefVal> {
+        vec![match self {
+            ShadowFilteringMethod::Hardware2x2 => "SHADOW_FILTER_METHOD_HARDWARE_2X2",
+            ShadowFilteringMethod::Castano13 => "SHADOW_FILTER_METHOD_CASTANO_13",
+            ShadowFilteringMethod::Jimenez14 => "SHADOW_FILTER_METHOD_JIMENEZ_14",
+        }
+        .into()]
     }
 }

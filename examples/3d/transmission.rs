@@ -22,8 +22,9 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
+        bloom::BloomSettings, prepass::DepthPrepass,
         tonemapping::Tonemapping,
+        transmission::ScreenSpaceTransmissionQuality,
     },
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,

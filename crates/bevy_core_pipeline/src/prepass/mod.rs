@@ -32,11 +32,12 @@ use std::{cmp::Reverse, ops::Range};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
+    pipeline_keys::{KeyShaderDefs, PipelineKey, SystemKey},
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use bevy_utils::{nonmax::NonMaxU32, FloatOrd, HashSet};
 
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
@@ -214,5 +215,59 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline_id
+    }
+}
+
+#[derive(Default, PipelineKey, Clone, Copy, Debug)]
+#[custom_shader_defs]
+pub struct PrepassKey {
+    pub depth: bool,
+    pub normal: bool,
+    pub motion_vector: bool,
+    pub deferred: bool,
+}
+impl SystemKey for PrepassKey {
+    type Param = ();
+    type Query = (
+        Has<DepthPrepass>,
+        Has<NormalPrepass>,
+        Has<MotionVectorPrepass>,
+        Has<DeferredPrepass>,
+    );
+
+    fn from_params(
+        _: &(),
+        (depth, normal, motion_vector, deferred): bevy_ecs::query::QueryItem<Self::Query>,
+    ) -> Option<Self> {
+        Some(Self {
+            depth,
+            normal,
+            motion_vector,
+            deferred,
+        })
+    }
+}
+
+impl KeyShaderDefs for PrepassKey {
+    fn shader_defs(&self) -> Vec<bevy_render::render_resource::ShaderDefVal> {
+        let mut defs = HashSet::default();
+        if self.depth {
+            defs.insert("DEPTH_PREPASS");
+        }
+        if self.normal {
+            defs.insert("NORMAL_PREPASS");
+            defs.insert("NORMAL_PREPASS_OR_DEFERRED_PREPASS");
+        }
+        if self.motion_vector {
+            defs.insert("MOTION_VECTOR_PREPASS");
+            defs.insert("MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS");
+        }
+        if self.deferred {
+            defs.insert("DEFERRED_PREPASS");
+            defs.insert("NORMAL_PREPASS_OR_DEFERRED_PREPASS");
+            defs.insert("MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS");
+        }
+
+        defs.into_iter().map(Into::into).collect()
     }
 }

@@ -1,9 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
-use bevy_core_pipeline::{
-    core_2d::Transparent2d,
-    tonemapping::{DebandDither, Tonemapping},
-};
+use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
@@ -11,7 +8,8 @@ use bevy_ecs::{
 };
 use bevy_log::error;
 use bevy_render::{
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshKey, MeshVertexBufferLayout},
+    pipeline_keys::{KeyRepack, PackedPipelineKey, PipelineKey, PipelineKeys},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -25,7 +23,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
+    view::{InheritedVisibility, ViewVisibility, Visibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -34,8 +32,8 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dViewKey,
+    RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -124,7 +122,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: Material2dKey<Self>,
+        key: PipelineKey<Material2dPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
@@ -210,68 +208,31 @@ pub struct Material2dPipeline<M: Material2d> {
     marker: PhantomData<M>,
 }
 
-pub struct Material2dKey<M: Material2d> {
-    pub mesh_key: Mesh2dPipelineKey,
+#[derive(PipelineKey)]
+pub struct Material2dPipelineKey<M: Material2d> {
+    pub view_key: Mesh2dViewKey,
+    pub mesh_key: MeshKey,
     pub bind_group_data: M::Data,
-}
-
-impl<M: Material2d> Eq for Material2dKey<M> where M::Data: PartialEq {}
-
-impl<M: Material2d> PartialEq for Material2dKey<M>
-where
-    M::Data: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data
-    }
-}
-
-impl<M: Material2d> Clone for Material2dKey<M>
-where
-    M::Data: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            mesh_key: self.mesh_key,
-            bind_group_data: self.bind_group_data.clone(),
-        }
-    }
-}
-
-impl<M: Material2d> Hash for Material2dKey<M>
-where
-    M::Data: Hash,
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.mesh_key.hash(state);
-        self.bind_group_data.hash(state);
-    }
-}
-
-impl<M: Material2d> Clone for Material2dPipeline<M> {
-    fn clone(&self) -> Self {
-        Self {
-            mesh2d_pipeline: self.mesh2d_pipeline.clone(),
-            material2d_layout: self.material2d_layout.clone(),
-            vertex_shader: self.vertex_shader.clone(),
-            fragment_shader: self.fragment_shader.clone(),
-            marker: PhantomData,
-        }
-    }
 }
 
 impl<M: Material2d> SpecializedMeshPipeline for Material2dPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    type Key = Material2dKey<M>;
+    type Key = Material2dPipelineKey<M>;
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
+        let mesh_pipeline_key = Mesh2dPipelineKey {
+            view_key: key.view_key,
+            mesh_key: key.mesh_key,
+        };
+        let mut descriptor = self
+            .mesh2d_pipeline
+            .specialize(key.construct(mesh_pipeline_key), layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -354,38 +315,20 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
-    match tonemapping {
-        Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
-        Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
-        Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-        Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
-        Tonemapping::SomewhatBoringDisplayTransform => {
-            Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-        }
-        Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-        Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material2d_meshes<M: Material2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials2d<M>>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
     mut views: Query<(
-        &ExtractedView,
         &VisibleEntities,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
         &mut RenderPhase<Transparent2d>,
+        &PipelineKeys,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -394,21 +337,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
+    for (visible_entities, mut transparent_phase, keys) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
-        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+        let Some(view_key) = keys.get_packed_key::<Mesh2dViewKey>() else {
+            continue;
+        };
 
-        if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
-            if let Some(DebandDither::Enabled) = dither {
-                view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
-            }
-        }
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
@@ -422,16 +357,15 @@ pub fn queue_material2d_meshes<M: Material2d>(
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let mesh_key =
-                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+
+            let mesh_key = mesh.packed_key;
+            let material_key = material2d.packed_key;
+            let composite_key = Material2dPipelineKey::repack((view_key, mesh_key, material_key));
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material2d_pipeline,
-                Material2dKey {
-                    mesh_key,
-                    bind_group_data: material2d.key.clone(),
-                },
+                composite_key,
                 &mesh.layout,
             );
 
@@ -470,7 +404,7 @@ pub struct Material2dBindGroupId(Option<BindGroupId>);
 pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
-    pub key: T::Data,
+    pub packed_key: PackedPipelineKey<T::Data>,
     pub depth_bias: f32,
 }
 
@@ -558,6 +492,7 @@ impl<M: Material2d> Default for PrepareNextFrameMaterials<M> {
 
 /// This system prepares all assets of the corresponding [`Material2d`] type
 /// which where extracted this frame for the GPU.
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_materials_2d<M: Material2d>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedMaterials2d<M>>,
@@ -566,6 +501,7 @@ pub fn prepare_materials_2d<M: Material2d>(
     images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<Material2dPipeline<M>>,
+    pipeline_cache: Res<PipelineCache>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets {
@@ -575,6 +511,7 @@ pub fn prepare_materials_2d<M: Material2d>(
             &images,
             &fallback_image,
             &pipeline,
+            &pipeline_cache,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
@@ -596,6 +533,7 @@ pub fn prepare_materials_2d<M: Material2d>(
             &images,
             &fallback_image,
             &pipeline,
+            &pipeline_cache,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(asset_id, prepared_asset);
@@ -613,6 +551,7 @@ fn prepare_material2d<M: Material2d>(
     images: &RenderAssets<Image>,
     fallback_image: &FallbackImage,
     pipeline: &Material2dPipeline<M>,
+    pipeline_cache: &PipelineCache,
 ) -> Result<PreparedMaterial2d<M>, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &pipeline.material2d_layout,
@@ -620,10 +559,11 @@ fn prepare_material2d<M: Material2d>(
         images,
         fallback_image,
     )?;
+    let packed_key = pipeline_cache.pack_key(&prepared.data);
     Ok(PreparedMaterial2d {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
-        key: prepared.data,
+        packed_key,
         depth_bias: material.depth_bias(),
     })
 }

@@ -4,8 +4,8 @@ mod ui_material_pipeline;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::render_phase::PhaseItem;
-use bevy_render::view::ViewVisibility;
+use bevy_render::view::{TextureFormatKey, ViewVisibility};
+use bevy_render::{pipeline_keys::PipelineKeys, render_phase::PhaseItem};
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -573,23 +573,26 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 UI_CAMERA_FAR,
             );
             let default_camera_view = commands
-                .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
-                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ),
-                    view_projection: None,
-                    hdr: camera.hdr,
-                    viewport: UVec4::new(
-                        physical_origin.x,
-                        physical_origin.y,
-                        physical_size.x,
-                        physical_size.y,
-                    ),
-                    color_grading: Default::default(),
-                })
+                .spawn((
+                    ExtractedView {
+                        projection: projection_matrix,
+                        transform: GlobalTransform::from_xyz(
+                            0.0,
+                            0.0,
+                            UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                        ),
+                        view_projection: None,
+                        hdr: camera.hdr,
+                        viewport: UVec4::new(
+                            physical_origin.x,
+                            physical_origin.y,
+                            physical_size.x,
+                            physical_size.y,
+                        ),
+                        color_grading: Default::default(),
+                    },
+                    PipelineKeys::default(),
+                ))
                 .id();
             commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),
@@ -733,17 +736,17 @@ pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(&mut RenderPhase<TransparentUi>, &PipelineKeys)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
-    for (view, mut transparent_phase) in &mut views {
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_pipeline,
-            UiPipelineKey { hdr: view.hdr },
-        );
+    for (mut transparent_phase, keys) in &mut views {
+        let Some(key) = keys.get_packed_key::<TextureFormatKey>() else {
+            continue;
+        };
+
+        let pipeline = pipelines.specialize(&pipeline_cache, &ui_pipeline, key);
         transparent_phase
             .items
             .reserve(extracted_uinodes.uinodes.len());

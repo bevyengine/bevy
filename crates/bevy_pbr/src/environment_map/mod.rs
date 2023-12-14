@@ -1,16 +1,26 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::prelude::Camera3d;
-use bevy_ecs::{prelude::Component, query::With};
+use bevy_ecs::{
+    prelude::Component,
+    query::With,
+    system::{
+        lifetimeless::{Read, SRes},
+        Res,
+    },
+};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    pipeline_keys::{AddPipelineKey, KeyShaderDefs, PipelineKey, SystemKey},
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_cube},
         *,
     },
     texture::{FallbackImageCubemap, Image},
+    view::ExtractedView,
+    RenderApp,
 };
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
@@ -29,6 +39,10 @@ impl Plugin for EnvironmentMapPlugin {
 
         app.register_type::<EnvironmentMapLight>()
             .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default());
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.register_system_key::<EnvironmentMapKey, With<ExtractedView>>();
+        }
     }
 }
 
@@ -88,4 +102,37 @@ pub fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
         texture_cube(TextureSampleType::Float { filterable: true }),
         sampler(SamplerBindingType::Filtering),
     ]
+}
+
+#[derive(PipelineKey, Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(u8)]
+#[custom_shader_defs]
+pub enum EnvironmentMapKey {
+    #[default]
+    Off,
+    On,
+}
+impl SystemKey for EnvironmentMapKey {
+    type Param = SRes<RenderAssets<Image>>;
+    type Query = Option<Read<EnvironmentMapLight>>;
+
+    fn from_params(
+        images: &Res<RenderAssets<Image>>,
+        env_map: Option<&EnvironmentMapLight>,
+    ) -> Option<Self> {
+        Some(if env_map.map_or(false, |map| map.is_loaded(images)) {
+            EnvironmentMapKey::On
+        } else {
+            EnvironmentMapKey::Off
+        })
+    }
+}
+
+impl KeyShaderDefs for EnvironmentMapKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        match self {
+            EnvironmentMapKey::Off => Vec::default(),
+            EnvironmentMapKey::On => vec!["ENVIRONMENT_MAP".into()],
+        }
+    }
 }

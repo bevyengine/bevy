@@ -1,10 +1,11 @@
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
+    pipeline_keys::{KeyRepack, KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -1033,6 +1034,7 @@ pub fn prepare_lights(
                             light_entity,
                             face_index,
                         },
+                        PipelineKeys::default(),
                     ))
                     .id();
                 view_lights.push(view_light_entity);
@@ -1088,6 +1090,7 @@ pub fn prepare_lights(
                     },
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
+                    PipelineKeys::default(),
                 ))
                 .id();
 
@@ -1157,6 +1160,7 @@ pub fn prepare_lights(
                             light_entity,
                             cascade_index,
                         },
+                        PipelineKeys::default(),
                     ))
                     .id();
                 view_lights.push(view_light_entity);
@@ -1560,7 +1564,7 @@ pub fn queue_shadows<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
-    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
+    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>, &PipelineKeys)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
     spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
@@ -1570,9 +1574,8 @@ pub fn queue_shadows<M: Material>(
     for (entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
-            let (light_entity, mut shadow_phase) =
+            let (light_entity, mut shadow_phase, keys) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();
-            let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
             let visible_entities = match light_entity {
                 LightEntity::Directional {
                     light_entity,
@@ -1598,6 +1601,12 @@ pub fn queue_shadows<M: Material>(
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
+
+            let Some(mut view_key) = keys.get_packed_key::<PbrViewKey>() else {
+                continue;
+            };
+            view_key.insert(&MsaaKey::Off, &pipeline_cache);
+
             for entity in visible_entities.iter().copied() {
                 let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                     continue;
@@ -1615,31 +1624,19 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 };
 
-                let mut mesh_key =
-                    MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                        | MeshPipelineKey::DEPTH_PREPASS;
-                if mesh.morph_targets.is_some() {
-                    mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-                }
-                if is_directional_light {
-                    mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
-                }
-                mesh_key |= match material.properties.alpha_mode {
+                let mut material_key = material.packed_key;
+                match material.properties.alpha_mode {
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
                     | AlphaMode::Premultiplied
-                    | AlphaMode::Add => MeshPipelineKey::MAY_DISCARD,
-                    _ => MeshPipelineKey::NONE,
+                    | AlphaMode::Add => material_key.insert(&MayDiscard(true), &pipeline_cache),
+                    _ => (),
                 };
-                let pipeline_id = pipelines.specialize(
-                    &pipeline_cache,
-                    &prepass_pipeline,
-                    MaterialPipelineKey {
-                        mesh_key,
-                        bind_group_data: material.key.clone(),
-                    },
-                    &mesh.layout,
-                );
+
+                let key = MaterialPipelineKey::repack((view_key, mesh.packed_key, material_key));
+
+                let pipeline_id =
+                    pipelines.specialize(&pipeline_cache, &prepass_pipeline, key, &mesh.layout);
 
                 let pipeline_id = match pipeline_id {
                     Ok(id) => id,
@@ -1784,5 +1781,38 @@ impl Node for ShadowPassNode {
         }
 
         Ok(())
+    }
+}
+
+#[derive(PipelineKey, Clone, Copy, Eq, PartialEq, Debug)]
+#[repr(u8)]
+#[custom_shader_defs]
+pub enum DepthClampOrthoKey {
+    Off,
+    On,
+}
+impl SystemKey for DepthClampOrthoKey {
+    type Param = ();
+    type Query = Option<Read<LightEntity>>;
+
+    fn from_params(_: &(), light: Option<&LightEntity>) -> Option<Self> {
+        Some(
+            if light.map_or(false, |light| {
+                matches!(light, LightEntity::Directional { .. })
+            }) {
+                DepthClampOrthoKey::On
+            } else {
+                DepthClampOrthoKey::Off
+            },
+        )
+    }
+}
+
+impl KeyShaderDefs for DepthClampOrthoKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        match self {
+            DepthClampOrthoKey::Off => Vec::default(),
+            DepthClampOrthoKey::On => vec!["DEPTH_CLAMP_ORTHO".into()],
+        }
     }
 }

@@ -13,6 +13,7 @@ use wgpu::{
 };
 
 use crate::{
+    pipeline_keys::PipelineKey,
     prelude::{Image, Shader},
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
@@ -216,7 +217,7 @@ impl FromWorld for ScreenshotToScreenPipeline {
 impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
     type Key = TextureFormat;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some(Cow::Borrowed("screenshot-to-screen")),
             layout: vec![self.bind_group_layout.clone()],
@@ -237,7 +238,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 entry_point: Cow::Borrowed("fs_main"),
                 shader_defs: vec![],
                 targets: vec![Some(wgpu::ColorTargetState {
-                    format: key,
+                    format: *key,
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],

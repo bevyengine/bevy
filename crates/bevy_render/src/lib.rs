@@ -13,6 +13,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod mesh;
+pub mod pipeline_keys;
 pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
@@ -43,11 +44,13 @@ pub use extract_param::Extract;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
+use pipeline_keys::PipelineKeyPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
+    pipeline_keys::KeyMetaStoreInitializer,
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
@@ -87,6 +90,8 @@ pub enum RenderSet {
     ManageViews,
     /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
     ManageViewsFlush,
+    /// Construct and cache entity pipeline keys for view entities or other entities that may be shared by multiple pipelines
+    PrepareKeys,
     /// Queue drawable entities as phase items in [`RenderPhase`](render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
@@ -145,6 +150,7 @@ impl Render {
                 ExtractCommands,
                 ManageViews,
                 ManageViewsFlush,
+                PrepareKeys,
                 Queue,
                 PhaseSort,
                 Prepare,
@@ -319,6 +325,7 @@ impl Plugin for RenderPlugin {
         };
 
         app.add_plugins((
+            PipelineKeyPlugin,
             ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
@@ -367,9 +374,14 @@ impl Plugin for RenderPlugin {
 
             let render_app = app.sub_app_mut(RenderApp);
 
+            let key_store = render_app
+                .world
+                .resource_mut::<KeyMetaStoreInitializer>()
+                .take_final();
+
             render_app
                 .insert_resource(instance)
-                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(PipelineCache::new(device.clone(), key_store))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)

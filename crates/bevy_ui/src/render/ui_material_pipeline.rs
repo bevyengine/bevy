@@ -16,11 +16,12 @@ use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
+    pipeline_keys::{KeyRepack, PackedPipelineKey, PipelineKey, PipelineKeys},
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, FallbackImage, Image},
+    texture::{FallbackImage, Image},
     view::*,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -148,7 +149,7 @@ where
 {
     type Key = UiMaterialKey<M>;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Vertex,
             vec![
@@ -174,11 +175,7 @@ where
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.texture_format.format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -589,7 +586,7 @@ impl<T: UiMaterial> Default for RenderUiMaterials<T> {
 pub struct PreparedUiMaterial<T: UiMaterial> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
-    pub key: T::Data,
+    pub packed_key: PackedPipelineKey<T::Data>,
 }
 
 #[derive(Resource)]
@@ -654,6 +651,7 @@ impl<M: UiMaterial> Default for PrepareNextFrameMaterials<M> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_ui_materials<M: UiMaterial>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedUiMaterials<M>>,
@@ -662,6 +660,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
     images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<UiMaterialPipeline<M>>,
+    pipeline_cache: Res<PipelineCache>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets {
@@ -671,6 +670,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
             &images,
             &fallback_image,
             &pipeline,
+            &pipeline_cache,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
@@ -692,6 +692,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
             &images,
             &fallback_image,
             &pipeline,
+            &pipeline_cache,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
@@ -709,13 +710,14 @@ fn prepare_ui_material<M: UiMaterial>(
     images: &RenderAssets<Image>,
     fallback_image: &Res<FallbackImage>,
     pipeline: &UiMaterialPipeline<M>,
+    pipeline_cache: &PipelineCache,
 ) -> Result<PreparedUiMaterial<M>, AsBindGroupError> {
     let prepared =
         material.as_bind_group(&pipeline.ui_layout, render_device, images, fallback_image)?;
     Ok(PreparedUiMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
-        key: prepared.data,
+        packed_key: pipeline_cache.pack_key(&prepared.data),
     })
 }
 
@@ -727,7 +729,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderUiMaterials<M>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(&mut RenderPhase<TransparentUi>, &PipelineKeys)>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -737,15 +739,15 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(&extracted_uinode.material) else {
             continue;
         };
-        for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_material_pipeline,
-                UiMaterialKey {
-                    hdr: view.hdr,
-                    bind_group_data: material.key.clone(),
-                },
-            );
+        for (mut transparent_phase, keys) in &mut views {
+            let Some(texture_format) = keys.get_packed_key() else {
+                continue;
+            };
+
+            let composite_key = UiMaterialKey::repack((texture_format, material.packed_key));
+
+            let pipeline =
+                pipelines.specialize(&pipeline_cache, &ui_material_pipeline, composite_key);
             transparent_phase
                 .items
                 .reserve(extracted_uinodes.uinodes.len());

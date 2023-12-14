@@ -6,6 +6,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayout, PrimitiveTopology},
+        pipeline_keys::PipelineKey,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
@@ -76,7 +77,7 @@ impl Material for LineMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        _key: MaterialPipelineKey<Self>,
+        _key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // This is the important part to tell bevy to render this material as a line between vertices
         descriptor.primitive.polygon_mode = PolygonMode::Line;

@@ -1,7 +1,8 @@
 use bevy_asset::{Asset, Handle};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
-    mesh::MeshVertexBufferLayout,
+    mesh::{MeshKey, MeshVertexBufferLayout},
+    pipeline_keys::PipelineKey,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
@@ -11,7 +12,10 @@ use bevy_render::{
     texture::{FallbackImage, Image},
 };
 
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
+use crate::{
+    AlphaKey, Material, MaterialKey, MaterialPipeline, MaterialPipelineKey, MayDiscard,
+    MeshPipeline, OpaqueMethodKey, PbrViewKey,
+};
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
@@ -20,9 +24,19 @@ pub struct MaterialExtensionPipeline {
     pub fragment_shader: Option<Handle<Shader>>,
 }
 
+#[derive(PipelineKey)]
 pub struct MaterialExtensionKey<E: MaterialExtension> {
-    pub mesh_key: MeshPipelineKey,
-    pub bind_group_data: E::Data,
+    pub alpha: AlphaKey,
+    pub opaque_method: OpaqueMethodKey,
+    pub may_discard: MayDiscard,
+    pub material_key: E::Data,
+}
+
+#[derive(PipelineKey)]
+pub struct MaterialExtensionPipelineKey<E: MaterialExtension> {
+    view_key: PbrViewKey,
+    mesh_key: MeshKey,
+    material_key: MaterialExtensionKey<E>,
 }
 
 /// A subset of the `Material` trait for defining extensions to a base `Material`, such as the builtin `StandardMaterial`.
@@ -68,7 +82,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialExtensionPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     /// Specialization for the base material is applied before this function is called.
     #[allow(unused_variables)]
     #[inline]
@@ -76,7 +90,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: MaterialExtensionKey<Self>,
+        key: PipelineKey<MaterialExtensionPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
@@ -215,7 +229,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: MaterialPipelineKey<Self>,
+        key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function
         let MaterialPipeline::<Self> {
@@ -233,9 +247,16 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             marker: Default::default(),
         };
         let base_key = MaterialPipelineKey::<B> {
+            view_key: key.view_key,
             mesh_key: key.mesh_key,
-            bind_group_data: key.bind_group_data.0,
+            material_key: MaterialKey {
+                alpha: key.material_key.alpha,
+                opaque_method: key.material_key.opaque_method,
+                may_discard: key.material_key.may_discard,
+                material_data: key.material_key.material_data.0.clone(),
+            },
         };
+        let base_key = key.construct(base_key);
         B::specialize(&base_pipeline, descriptor, layout, base_key)?;
 
         // Call the extended material's specialize function afterwards
@@ -247,6 +268,17 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             ..
         } = pipeline.clone();
 
+        let extension_key = MaterialExtensionPipelineKey::<E> {
+            view_key: key.view_key,
+            mesh_key: key.mesh_key,
+            material_key: MaterialExtensionKey {
+                alpha: key.material_key.alpha,
+                opaque_method: key.material_key.opaque_method,
+                may_discard: key.material_key.may_discard,
+                material_key: key.material_key.material_data.1.clone(),
+            },
+        };
+        let extension_key = key.construct(extension_key);
         E::specialize(
             &MaterialExtensionPipeline {
                 mesh_pipeline,
@@ -256,10 +288,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             },
             descriptor,
             layout,
-            MaterialExtensionKey {
-                mesh_key: key.mesh_key,
-                bind_group_data: key.bind_group_data.1,
-            },
+            extension_key,
         )
     }
 }

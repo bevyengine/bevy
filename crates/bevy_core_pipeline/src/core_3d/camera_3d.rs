@@ -1,6 +1,6 @@
 use crate::{
     clear_color::ClearColorConfig,
-    tonemapping::{DebandDither, Tonemapping},
+    tonemapping::{DebandDither, Tonemapping}, transmission::ScreenSpaceTransmissionQuality,
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -102,37 +102,6 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
             Camera3dDepthLoadOp::Load => LoadOp::Load,
         }
     }
-}
-
-/// The quality of the screen space transmission blur effect, applied to whatever's “behind” transmissive
-/// objects when their `roughness` is greater than `0.0`.
-///
-/// Higher qualities are more GPU-intensive.
-///
-/// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
-#[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
-#[reflect(Resource)]
-pub enum ScreenSpaceTransmissionQuality {
-    /// Best performance at the cost of quality. Suitable for lower end GPUs. (e.g. Mobile)
-    ///
-    /// `num_taps` = 4
-    Low,
-
-    /// A balanced option between quality and performance.
-    ///
-    /// `num_taps` = 8
-    #[default]
-    Medium,
-
-    /// Better quality. Suitable for high end GPUs. (e.g. Desktop)
-    ///
-    /// `num_taps` = 16
-    High,
-
-    /// The highest quality, suitable for non-realtime rendering. (e.g. Pre-rendered cinematics and photo mode)
-    ///
-    /// `num_taps` = 32
-    Ultra,
 }
 
 #[derive(Bundle)]

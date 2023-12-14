@@ -727,10 +727,11 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 }
 
 /// The pipeline key for [`StandardMaterial`].
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(PipelineKey, Clone, PartialEq, Eq, Hash)]
 pub struct StandardMaterialKey {
     normal_map: bool,
     cull_mode: Option<Face>,
+    // TODO do we really want 32 bits just for depth bias?
     depth_bias: i32,
     relief_mapping: bool,
 }
@@ -754,24 +755,25 @@ impl Material for StandardMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        key: MaterialPipelineKey<Self>,
+        key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
+        let standard_material_data = &key.material_key.material_data;
         if let Some(fragment) = descriptor.fragment.as_mut() {
             let shader_defs = &mut fragment.shader_defs;
 
-            if key.bind_group_data.normal_map {
+            if standard_material_data.normal_map {
                 shader_defs.push("STANDARDMATERIAL_NORMAL_MAP".into());
             }
-            if key.bind_group_data.relief_mapping {
+            if standard_material_data.relief_mapping {
                 shader_defs.push("RELIEF_MAPPING".into());
             }
         }
-        descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
+        descriptor.primitive.cull_mode = standard_material_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
         if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
-            depth_stencil.bias.constant = key.bind_group_data.depth_bias;
+            depth_stencil.bias.constant = standard_material_data.depth_bias;
         }
         Ok(())
     }

@@ -1,4 +1,5 @@
 use crate::{
+    pipeline_keys::{KeyMetaStore, PackedPipelineKey, PipelineKeyType},
     render_resource::{
         BindGroupLayout, BindGroupLayoutId, ComputePipeline, ComputePipelineDescriptor,
         RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
@@ -480,6 +481,7 @@ pub struct PipelineCache {
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    key_store: KeyMetaStore,
 }
 
 impl PipelineCache {
@@ -488,7 +490,7 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(device: RenderDevice, key_store: KeyMetaStore) -> Self {
         Self {
             shader_cache: ShaderCache::new(&device),
             device,
@@ -496,7 +498,17 @@ impl PipelineCache {
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            key_store,
         }
+    }
+
+    pub(crate) fn key_store(&self) -> &KeyMetaStore {
+        &self.key_store
+    }
+
+    /// Transform a `PipelineKeyType` into a `PackedPipelineKey`
+    pub fn pack_key<K: PipelineKeyType>(&self, value: &K) -> PackedPipelineKey<K> {
+        K::pack(value, &self.key_store)
     }
 
     /// Get the state of a cached render pipeline.

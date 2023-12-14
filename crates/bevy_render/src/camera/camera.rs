@@ -1,6 +1,7 @@
 use crate::{
     camera::CameraProjection,
     camera::{ManualTextureViewHandle, ManualTextureViews},
+    pipeline_keys::PipelineKeys,
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
@@ -719,6 +720,7 @@ pub fn extract_cameras(
                 },
                 visible_entities.clone(),
                 *frustum,
+                PipelineKeys::default(),
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {

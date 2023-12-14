@@ -426,7 +426,7 @@ pub fn prepare_windows(
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,
-                surface_configuration.format,
+                pipeline_cache.pack_key(&surface_configuration.format),
             );
             window.swap_chain_texture_view = Some(texture_view);
             window.screenshot_memory = Some(ScreenshotPreparedState {

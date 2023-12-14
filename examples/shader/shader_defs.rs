@@ -6,6 +6,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::MeshVertexBufferLayout,
+        pipeline_keys::PipelineKey,
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
@@ -63,9 +64,9 @@ impl Material for CustomMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        key: MaterialPipelineKey<Self>,
+        key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        if key.bind_group_data.is_red {
+        if key.material_key.material_data.is_red {
             let fragment = descriptor.fragment.as_mut().unwrap();
             fragment.shader_defs.push("IS_RED".into());
         }
@@ -86,7 +87,7 @@ pub struct CustomMaterial {
 // In this case, we specialize on whether or not to configure the "IS_RED" shader def.
 // Specialization keys should be kept as small / cheap to hash as possible,
 // as they will be used to look up the pipeline for each drawn entity with this material type.
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(PipelineKey, Eq, PartialEq, Hash, Clone)]
 pub struct CustomMaterialKey {
     is_red: bool,
 }

@@ -1,5 +1,6 @@
 use crate::{
     define_atomic_id,
+    pipeline_keys::{FixedSizeKey, PipelineKeyType},
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
@@ -237,7 +238,7 @@ impl Deref for BindGroup {
 ///
 /// Setting `bind_group_data` looks like this:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{color::Color, render_resource::AsBindGroup, pipeline_keys::PipelineKey};
 /// #[derive(AsBindGroup)]
 /// #[bind_group_data(CoolMaterialKey)]
 /// struct CoolMaterial {
@@ -246,7 +247,7 @@ impl Deref for BindGroup {
 ///     is_shaded: bool,
 /// }
 ///
-/// #[derive(Copy, Clone, Hash, Eq, PartialEq)]
+/// #[derive(PipelineKey, Copy, Clone, Hash, Eq, PartialEq)]
 /// struct CoolMaterialKey {
 ///     is_shaded: bool,
 /// }
@@ -261,7 +262,7 @@ impl Deref for BindGroup {
 /// ```
 pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
-    type Data: Send + Sync;
+    type Data: Send + Sync + PipelineKeyType + FixedSizeKey + Clone;
 
     /// label
     fn label() -> Option<&'static str> {

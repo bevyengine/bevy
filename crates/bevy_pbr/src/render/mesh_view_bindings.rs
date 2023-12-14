@@ -36,8 +36,8 @@ use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube
 
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, MeshPipeline, MeshPipelineKey, ScreenSpaceAmbientOcclusionTextures,
-    ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    GpuPointLights, LightMeta, MeshPipeline, ScreenSpaceAmbientOcclusionTextures, ShadowSamplers,
+    ViewClusterBindings, ViewShadowBindings,
 };
 
 #[derive(Clone)]
@@ -91,30 +91,6 @@ impl MeshPipelineViewLayoutKey {
                 .then_some("_deferred")
                 .unwrap_or_default(),
         )
-    }
-}
-
-impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
-    fn from(value: MeshPipelineKey) -> Self {
-        let mut result = MeshPipelineViewLayoutKey::empty();
-
-        if value.msaa_samples() > 1 {
-            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
-        }
-        if value.contains(MeshPipelineKey::DEPTH_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
-        }
-        if value.contains(MeshPipelineKey::NORMAL_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
-        }
-        if value.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
-        }
-        if value.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
-        }
-
-        result
     }
 }
 
@@ -384,7 +360,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
                 .unwrap_or(&fallback_ssao);
 
-            let layout = &mesh_pipeline.get_view_layout(
+            let layout = &mesh_pipeline.get_view_layout_old_key(
                 MeshPipelineViewLayoutKey::from(*msaa)
                     | MeshPipelineViewLayoutKey::from(prepass_textures),
             );

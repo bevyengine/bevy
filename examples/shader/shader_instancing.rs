@@ -7,12 +7,14 @@ use bevy::{
         system::{lifetimeless::*, SystemParamItem},
     },
     pbr::{
-        MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
+        AlphaKey, MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshBindGroup,
+        SetMeshViewBindGroup,
     },
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
+        pipeline_keys::{KeyRepack, PipelineKey, PipelineKeys},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -111,20 +113,24 @@ struct InstanceData {
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
-    msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &mut RenderPhase<Transparent3d>,
+        &PipelineKeys,
+    )>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+    for (view, mut transparent_phase, keys) in &mut views {
+        let Some(view_key) = keys.get_packed_key() else {
+            continue;
+        };
 
-    for (view, mut transparent_phase) in &mut views {
-        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for entity in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
@@ -133,7 +139,9 @@ fn queue_custom(
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let key = view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let mesh_key = mesh.packed_key;
+            let alpha_key = pipeline_cache.pack_key(&AlphaKey::Opaque);
+            let key = MeshPipelineKey::repack((view_key, mesh_key, alpha_key));
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
@@ -199,7 +207,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;

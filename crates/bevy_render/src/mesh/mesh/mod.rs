@@ -1,12 +1,14 @@
 mod conversions;
 pub mod skinning;
+use bevy_render_macros::PipelineKeyInRenderCrate;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
+    pipeline_keys::{KeyShaderDefs, PackedPipelineKey},
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::{Buffer, TextureView, VertexBufferLayout},
+    render_resource::{Buffer, PipelineCache, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
 use bevy_asset::{Asset, Handle};
@@ -1025,6 +1027,26 @@ impl From<&Indices> for IndexFormat {
     }
 }
 
+#[derive(PipelineKeyInRenderCrate, Debug, Clone, Copy)]
+pub struct MeshKey {
+    pub primitive_topology: PrimitiveTopology,
+    pub morph_targets: MorphTargetsKey,
+}
+
+#[derive(PipelineKeyInRenderCrate, Debug, Clone, Copy)]
+#[custom_shader_defs]
+pub struct MorphTargetsKey(pub bool);
+
+impl KeyShaderDefs for MorphTargetsKey {
+    fn shader_defs(&self) -> Vec<crate::render_resource::ShaderDefVal> {
+        if self.0 {
+            vec!["MORPH_TARGETS".into()]
+        } else {
+            Vec::default()
+        }
+    }
+}
+
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
 #[derive(Debug, Clone)]
@@ -1036,6 +1058,7 @@ pub struct GpuMesh {
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
     pub layout: MeshVertexBufferLayout,
+    pub packed_key: PackedPipelineKey<MeshKey>,
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -1053,7 +1076,11 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderAssets<Image>>,
+        SRes<PipelineCache>,
+    );
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -1063,7 +1090,7 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        (render_device, images): &mut SystemParamItem<Self::Param>,
+        (render_device, images, pipeline_cache): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -1088,6 +1115,11 @@ impl RenderAsset for Mesh {
 
         let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
 
+        let mesh_key = MeshKey {
+            primitive_topology: mesh.primitive_topology,
+            morph_targets: MorphTargetsKey(mesh.morph_targets.is_some()),
+        };
+
         Ok(GpuMesh {
             vertex_buffer,
             vertex_count: mesh.count_vertices() as u32,
@@ -1097,6 +1129,7 @@ impl RenderAsset for Mesh {
             morph_targets: mesh
                 .morph_targets
                 .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
+            packed_key: pipeline_cache.pack_key(&mesh_key),
         })
     }
 }

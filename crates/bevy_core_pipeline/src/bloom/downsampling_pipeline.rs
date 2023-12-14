@@ -7,6 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec4;
 use bevy_render::{
+    pipeline_keys::PipelineKey, 
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
@@ -27,7 +28,7 @@ pub struct BloomDownsamplingPipeline {
     pub sampler: Sampler,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct BloomDownsamplingPipelineKeys {
     prefilter: bool,
     first_downsample: bool,
@@ -82,7 +83,7 @@ impl FromWorld for BloomDownsamplingPipeline {
 impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
     type Key = BloomDownsamplingPipelineKeys;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let layout = vec![self.bind_group_layout.clone()];
 
         let entry_point = if key.first_downsample {
@@ -143,19 +144,19 @@ pub fn prepare_downsampling_pipeline(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            BloomDownsamplingPipelineKeys {
+            pipeline_cache.pack_key(&BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: false,
-            },
+            }),
         );
 
         let pipeline_first_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            BloomDownsamplingPipelineKeys {
+            pipeline_cache.pack_key(&BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: true,
-            },
+            }),
         );
 
         commands

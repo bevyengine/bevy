@@ -18,6 +18,8 @@ use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
+    impl_has_world_key,
+    pipeline_keys::AddPipelineKey,
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -28,7 +30,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{
@@ -75,6 +77,10 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         );
 
         app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.register_system_key::<SsaoKey, With<ExtractedView>>();
+        }
     }
 
     fn finish(&self, app: &mut App) {
@@ -447,23 +453,22 @@ impl FromWorld for SsaoPipelines {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 struct SsaoPipelineKey {
-    ssao_settings: ScreenSpaceAmbientOcclusionSettings,
+    slice_count: u8,
+    sample_count: u8,
     temporal_jitter: bool,
 }
 
 impl SpecializedComputePipeline for SsaoPipelines {
     type Key = SsaoPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
-        let (slice_count, samples_per_slice_side) = key.ssao_settings.quality_level.sample_counts();
-
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> ComputePipelineDescriptor {
         let mut shader_defs = vec![
-            ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
+            ShaderDefVal::Int("SLICE_COUNT".to_string(), key.slice_count as i32),
             ShaderDefVal::Int(
                 "SAMPLES_PER_SLICE_SIDE".to_string(),
-                samples_per_slice_side as i32,
+                key.sample_count as i32,
             ),
         ];
 
@@ -619,10 +624,11 @@ fn prepare_ssao_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            SsaoPipelineKey {
-                ssao_settings: ssao_settings.clone(),
+            pipeline_cache.pack_key(&SsaoPipelineKey {
+                slice_count: ssao_settings.quality_level.sample_counts().0 as u8,
+                sample_count: ssao_settings.quality_level.sample_counts().1 as u8,
                 temporal_jitter: temporal_jitter.is_some(),
-            },
+            }),
         );
 
         commands.entity(entity).insert(SsaoPipelineId(pipeline_id));
@@ -767,3 +773,9 @@ fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
 fn div_ceil(numerator: u32, denominator: u32) -> u32 {
     (numerator + denominator - 1) / denominator
 }
+
+impl_has_world_key!(
+    SsaoKey,
+    ScreenSpaceAmbientOcclusionSettings,
+    "SCREEN_SPACE_AMBIENT_OCCLUSION"
+);

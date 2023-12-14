@@ -1,28 +1,27 @@
 use crate::{
     line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, StripKey, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
-use bevy_core_pipeline::{
-    core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-};
+use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
-    query::Has,
+    query::With,
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::{lifetimeless::SRes, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
+use bevy_pbr::{MeshPipeline, PbrViewKey, SetMeshViewBindGroup};
 use bevy_render::{
+    pipeline_keys::{
+        AddPipelineKey, KeyRepack, KeyShaderDefs, PipelineKey, PipelineKeys, SystemKey,
+    },
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
-    texture::BevyDefault,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::{ExtractedView, RenderLayers},
     Render, RenderApp, RenderSet,
 };
 
@@ -41,7 +40,8 @@ impl Plugin for LineGizmo3dPlugin {
                 queue_line_gizmos_3d
                     .in_set(RenderSet::Queue)
                     .after(prepare_assets::<LineGizmo>),
-            );
+            )
+            .register_system_key::<GizmoConfigKey, With<ExtractedView>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -71,37 +71,50 @@ impl FromWorld for LineGizmoPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
-struct LineGizmoPipelineKey {
-    view_key: MeshPipelineKey,
-    strip: bool,
+#[derive(PipelineKey)]
+#[custom_shader_defs]
+struct GizmoConfigKey {
     perspective: bool,
+}
+
+impl SystemKey for GizmoConfigKey {
+    type Param = SRes<GizmoConfig>;
+    type Query = ();
+
+    fn from_params(config: &Res<GizmoConfig>, _: ()) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        Some(Self {
+            perspective: config.line_perspective,
+        })
+    }
+}
+
+impl KeyShaderDefs for GizmoConfigKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        self.perspective
+            .then_some("PERSPECTIVE".into())
+            .into_iter()
+            .collect()
+    }
+}
+
+#[derive(PipelineKey)]
+struct LineGizmoPipelineKey {
+    view_key: PbrViewKey,
+    perspective: GizmoConfigKey,
+    strip: StripKey,
 }
 
 impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = vec![
-            #[cfg(feature = "webgl")]
-            "SIXTEEN_BYTE_ALIGNMENT".into(),
-        ];
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
+        let shader_defs = key.shader_defs();
 
-        if key.perspective {
-            shader_defs.push("PERSPECTIVE".into());
-        }
-
-        let format = if key.view_key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(key.view_key.into())
-            .clone();
-
+        let view_key = &key.view_key;
+        let view_layout = self.mesh_pipeline.get_view_layout(view_key).clone();
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
         RenderPipelineDescriptor {
@@ -109,14 +122,14 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 shader: LINE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: line_gizmo_vertex_buffer_layouts(key.strip),
+                buffers: line_gizmo_vertex_buffer_layouts(key.strip.0),
             },
             fragment: Some(FragmentState {
                 shader: LINE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: view_key.texture_format.format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -131,7 +144,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 bias: DepthBiasState::default(),
             }),
             multisample: MultisampleState {
-                count: key.view_key.msaa_samples(),
+                count: view_key.msaa.samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -154,69 +167,39 @@ fn queue_line_gizmos_3d(
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     config: Res<GizmoConfig>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
-        &ExtractedView,
         &mut RenderPhase<Transparent3d>,
         Option<&RenderLayers>,
-        (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
-        ),
+        &PipelineKeys,
     )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
 
-    for (
-        view,
-        mut transparent_phase,
-        render_layers,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &mut views
-    {
+    for (mut transparent_phase, render_layers, keys) in &mut views {
         let render_layers = render_layers.copied().unwrap_or_default();
         if !config.render_layers.intersects(&render_layers) {
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
-
-        if normal_prepass {
-            view_key |= MeshPipelineKey::NORMAL_PREPASS;
-        }
-
-        if depth_prepass {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS;
-        }
-
-        if motion_vector_prepass {
-            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
-        }
-
-        if deferred_prepass {
-            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
-        }
+        let Some(view_key) = keys.get_packed_key::<PbrViewKey>() else {
+            continue;
+        };
+        let Some(config_key) = keys.get_packed_key::<GizmoConfigKey>() else {
+            continue;
+        };
 
         for (entity, handle) in &line_gizmos {
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
                 continue;
             };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &pipeline,
-                LineGizmoPipelineKey {
-                    view_key,
-                    strip: line_gizmo.strip,
-                    perspective: config.line_perspective,
-                },
-            );
+            let strip_key = pipeline_cache.pack_key(&StripKey(line_gizmo.strip));
+            let gizmo_key = LineGizmoPipelineKey::repack((view_key, config_key, strip_key));
+
+            let pipeline = pipelines.specialize(&pipeline_cache, &pipeline, gizmo_key);
 
             transparent_phase.add(Transparent3d {
                 entity,

@@ -1,12 +1,20 @@
 use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent, system::lifetimeless::Read};
 use bevy_math::{Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
+use bevy_render_macros::PipelineKeyInRenderCrate;
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    pipeline_keys::{AddPipelineKey, KeyShaderDefs, SystemKey},
+    render_resource::ShaderDefVal,
+    view::ExtractedView,
+    RenderApp,
+};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
 pub struct CameraProjectionPlugin<T: CameraProjection>(PhantomData<T>);
@@ -44,6 +52,10 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             );
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.register_system_key::<ViewProjectionKey, With<ExtractedView>>();
+        }
     }
 }
 
@@ -361,6 +373,40 @@ impl Default for OrthographicProjection {
             viewport_origin: Vec2::new(0.5, 0.5),
             scaling_mode: ScalingMode::WindowSize(1.0),
             area: Rect::new(-1.0, -1.0, 1.0, 1.0),
+        }
+    }
+}
+
+#[derive(PipelineKeyInRenderCrate, Default, Debug, Copy, Clone)]
+#[repr(u8)]
+#[custom_shader_defs]
+pub enum ViewProjectionKey {
+    #[default]
+    NonStandard,
+    Perspective,
+    Orthographic,
+}
+
+impl SystemKey for ViewProjectionKey {
+    type Param = ();
+
+    type Query = Option<Read<Projection>>;
+
+    fn from_params(_: &(), projection: Option<&Projection>) -> Option<Self> {
+        Some(match projection {
+            Some(Projection::Perspective(_)) => ViewProjectionKey::Perspective,
+            Some(Projection::Orthographic(_)) => ViewProjectionKey::Orthographic,
+            _ => ViewProjectionKey::NonStandard,
+        })
+    }
+}
+
+impl KeyShaderDefs for ViewProjectionKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        match self {
+            ViewProjectionKey::NonStandard => Vec::default(),
+            ViewProjectionKey::Perspective => vec!["VIEW_PROJECTION_PERSPECTIVE".into()],
+            ViewProjectionKey::Orthographic => vec!["VIEW_PROJECTION_ORTHOGRAPHIC".into()],
         }
     }
 }

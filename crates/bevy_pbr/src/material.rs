@@ -1,33 +1,30 @@
 use crate::*;
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
-use bevy_core_pipeline::{
-    core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
-        Transparent3d,
-    },
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    tonemapping::{DebandDither, Tonemapping},
+use bevy_core_pipeline::core_3d::{
+    AlphaMask3d, Camera3d, Opaque3d, Transmissive3d, Transparent3d,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::SRes, SystemParamItem},
+    system::{
+        lifetimeless::{Read, SRes},
+        SystemParamItem,
+    },
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::Projection,
-    camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshKey, MeshVertexBufferLayout},
+    pipeline_keys::{KeyRepack, KeyShaderDefs, PackedPipelineKey, PipelineKeys, SystemKey},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, VisibleEntities},
+    view::{ExtractedView, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
@@ -176,7 +173,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: MaterialPipelineKey<Self>,
+        key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
@@ -236,7 +233,8 @@ where
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
                     ),
-                );
+                )
+                .register_key::<AlphaKey>();
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
@@ -254,43 +252,11 @@ where
     }
 }
 
-/// A key uniquely identifying a specialized [`MaterialPipeline`].
+#[derive(PipelineKey)]
 pub struct MaterialPipelineKey<M: Material> {
-    pub mesh_key: MeshPipelineKey,
-    pub bind_group_data: M::Data,
-}
-
-impl<M: Material> Eq for MaterialPipelineKey<M> where M::Data: PartialEq {}
-
-impl<M: Material> PartialEq for MaterialPipelineKey<M>
-where
-    M::Data: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data
-    }
-}
-
-impl<M: Material> Clone for MaterialPipelineKey<M>
-where
-    M::Data: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            mesh_key: self.mesh_key,
-            bind_group_data: self.bind_group_data.clone(),
-        }
-    }
-}
-
-impl<M: Material> Hash for MaterialPipelineKey<M>
-where
-    M::Data: Hash,
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.mesh_key.hash(state);
-        self.bind_group_data.hash(state);
-    }
+    pub view_key: PbrViewKey,
+    pub mesh_key: MeshKey,
+    pub material_key: MaterialKey<M>,
 }
 
 /// Render pipeline data for a given [`Material`].
@@ -323,10 +289,20 @@ where
 
     fn specialize(
         &self,
-        key: Self::Key,
+        key: PipelineKey<Self::Key>,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
+        let mesh_pipeline_key = key.construct(MeshPipelineKey {
+            view_key: key.view_key,
+            mesh_key: key.mesh_key,
+            alpha_mode: key.material_key.alpha,
+        });
+        let mut descriptor = self.mesh_pipeline.specialize(mesh_pipeline_key, layout)?;
+        // add shader defs for the full key (including non-MeshPipelineKey parts of the key)
+        descriptor.vertex.shader_defs.extend(key.shader_defs());
+        if let Some(frag) = descriptor.fragment.as_mut() {
+            frag.shader_defs.extend(key.shader_defs());
+        }
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -404,52 +380,6 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
 
-const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
-    match alpha_mode {
-        // Premultiplied and Add share the same pipeline key
-        // They're made distinct in the PBR shader, via `premultiply_alpha()`
-        AlphaMode::Premultiplied | AlphaMode::Add => MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA,
-        AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
-        AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
-        AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
-        _ => MeshPipelineKey::NONE,
-    }
-}
-
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
-    match tonemapping {
-        Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
-        Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
-        Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-        Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
-        Tonemapping::SomewhatBoringDisplayTransform => {
-            MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-        }
-        Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-        Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-    }
-}
-
-const fn screen_space_specular_transmission_pipeline_key(
-    screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
-) -> MeshPipelineKey {
-    match screen_space_transmissive_blur_quality {
-        ScreenSpaceTransmissionQuality::Low => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW
-        }
-        ScreenSpaceTransmissionQuality::Medium => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM
-        }
-        ScreenSpaceTransmissionQuality::High => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH
-        }
-        ScreenSpaceTransmissionQuality::Ultra => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
-        }
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
@@ -459,29 +389,14 @@ pub fn queue_material_meshes<M: Material>(
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
     mut views: Query<(
+        &PipelineKeys,
         &ExtractedView,
         &VisibleEntities,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&EnvironmentMapLight>,
-        Option<&ShadowFilteringMethod>,
-        Option<&ScreenSpaceAmbientOcclusionSettings>,
-        (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
-        ),
-        Option<&Camera3d>,
-        Option<&TemporalJitter>,
-        Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
@@ -491,17 +406,9 @@ pub fn queue_material_meshes<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
+        keys,
         view,
         visible_entities,
-        tonemapping,
-        dither,
-        environment_map,
-        shadow_filter_method,
-        ssao,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-        camera_3d,
-        temporal_jitter,
-        projection,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transmissive_phase,
@@ -513,72 +420,12 @@ pub fn queue_material_meshes<M: Material>(
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let Some(view_key) = keys.get_packed_key::<PbrViewKey>() else {
+            continue;
+        };
 
-        if normal_prepass {
-            view_key |= MeshPipelineKey::NORMAL_PREPASS;
-        }
-
-        if depth_prepass {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS;
-        }
-
-        if motion_vector_prepass {
-            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
-        }
-
-        if deferred_prepass {
-            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
-        }
-
-        if temporal_jitter.is_some() {
-            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
-        }
-
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-
-        if environment_map_loaded {
-            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
-        }
-
-        if let Some(projection) = projection {
-            view_key |= match projection {
-                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
-                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
-            };
-        }
-
-        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
-            ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
-            }
-            ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
-            }
-            ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
-            }
-        }
-
-        if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
-            if let Some(DebandDither::Enabled) = dither {
-                view_key |= MeshPipelineKey::DEBAND_DITHER;
-            }
-        }
-        if ssao.is_some() {
-            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
-        }
-        if let Some(camera_3d) = camera_3d {
-            view_key |= screen_space_specular_transmission_pipeline_key(
-                camera_3d.screen_space_specular_transmission_quality,
-            );
-        }
         let rangefinder = view.rangefinder3d();
+
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
@@ -599,22 +446,14 @@ pub fn queue_material_meshes<M: Material>(
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
 
-            let mut mesh_key = view_key;
-
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-
-            if mesh.morph_targets.is_some() {
-                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-            }
-            mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+            let mesh_key = mesh.packed_key;
+            let material_key = material.packed_key;
+            let composite_key = MaterialPipelineKey::repack((view_key, mesh_key, material_key));
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material_pipeline,
-                MaterialPipelineKey {
-                    mesh_key,
-                    bind_group_data: material.key.clone(),
-                },
+                composite_key,
                 &mesh.layout,
             );
             let pipeline_id = match pipeline_id {
@@ -761,7 +600,7 @@ pub struct MaterialProperties {
 pub struct PreparedMaterial<T: Material> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
-    pub key: T::Data,
+    pub packed_key: PackedPipelineKey<MaterialKey<T>>,
     pub properties: MaterialProperties,
 }
 
@@ -861,6 +700,7 @@ pub fn prepare_materials<M: Material>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
     default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
+    pipeline_cache: Res<PipelineCache>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets.into_iter() {
@@ -871,6 +711,7 @@ pub fn prepare_materials<M: Material>(
             &fallback_image,
             &pipeline,
             default_opaque_render_method.0,
+            &pipeline_cache,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
@@ -893,6 +734,7 @@ pub fn prepare_materials<M: Material>(
             &fallback_image,
             &pipeline,
             default_opaque_render_method.0,
+            &pipeline_cache,
         ) {
             Ok(prepared_asset) => {
                 render_materials.insert(id, prepared_asset);
@@ -911,6 +753,7 @@ fn prepare_material<M: Material>(
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,
     default_opaque_render_method: OpaqueRendererMethod,
+    pipeline_cache: &PipelineCache,
 ) -> Result<PreparedMaterial<M>, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &pipeline.material_layout,
@@ -923,10 +766,21 @@ fn prepare_material<M: Material>(
         OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
         OpaqueRendererMethod::Auto => default_opaque_render_method,
     };
+    let key = MaterialKey {
+        alpha: material.alpha_mode().into(),
+        opaque_method: match method {
+            OpaqueRendererMethod::Forward => OpaqueMethodKey::Forward,
+            OpaqueRendererMethod::Deferred => OpaqueMethodKey::Deferred,
+            OpaqueRendererMethod::Auto => unreachable!(),
+        },
+        may_discard: MayDiscard(matches!(material.alpha_mode(), AlphaMode::Mask(_))),
+        material_data: prepared.data,
+    };
+    let packed_key = pipeline_cache.pack_key(&key);
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
-        key: prepared.data,
+        packed_key,
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
@@ -934,4 +788,119 @@ fn prepare_material<M: Material>(
             render_method: method,
         },
     })
+}
+
+#[derive(PipelineKey, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+#[custom_shader_defs]
+pub enum AlphaKey {
+    Opaque,
+    AlphaBlend,
+    AlphaPremultiplied,
+    AlphaMultiply,
+    AlphaMask,
+}
+
+impl KeyShaderDefs for AlphaKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        match self {
+            AlphaKey::Opaque => vec![],
+            AlphaKey::AlphaBlend => vec!["BLEND_ALPHA"],
+            AlphaKey::AlphaPremultiplied => vec!["BLEND_PREMULTIPLIED_ALPHA", "PREMULTIPLY_ALPHA"],
+            AlphaKey::AlphaMultiply => vec!["BLEND_MULTIPLY", "PREMULTIPLY_ALPHA"],
+            AlphaKey::AlphaMask => vec!["MAY_DISCARD"],
+        }
+        .into_iter()
+        .map(Into::into)
+        .collect()
+    }
+}
+
+impl From<AlphaMode> for AlphaKey {
+    fn from(value: AlphaMode) -> Self {
+        match value {
+            AlphaMode::Opaque => AlphaKey::Opaque,
+            AlphaMode::Mask(_) => AlphaKey::AlphaMask,
+            AlphaMode::Blend => AlphaKey::AlphaBlend,
+            AlphaMode::Premultiplied | AlphaMode::Add => AlphaKey::AlphaPremultiplied,
+            AlphaMode::Multiply => AlphaKey::AlphaMultiply,
+        }
+    }
+}
+
+#[derive(PipelineKey, Clone, Copy)]
+#[custom_shader_defs]
+pub struct MayDiscard(pub bool);
+
+impl KeyShaderDefs for MayDiscard {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        if self.0 {
+            vec!["MAY_DISCARD".into()]
+        } else {
+            vec![]
+        }
+    }
+}
+
+#[derive(PipelineKey, Clone, Copy, PartialEq)]
+#[repr(u8)]
+pub enum OpaqueMethodKey {
+    Forward,
+    Deferred,
+}
+
+#[derive(PipelineKey, Clone, Copy)]
+pub struct MaterialKey<M: Material> {
+    pub alpha: AlphaKey,
+    pub opaque_method: OpaqueMethodKey,
+    pub may_discard: MayDiscard,
+    pub material_data: M::Data,
+}
+
+#[derive(PipelineKey, Clone, Copy)]
+#[repr(u8)]
+#[custom_shader_defs]
+pub enum ScreenSpaceTransmissionQualityKey {
+    None,
+    Low,
+    Medium,
+    High,
+    Ultra,
+}
+
+impl SystemKey for ScreenSpaceTransmissionQualityKey {
+    type Param = ();
+
+    type Query = Option<Read<Camera3d>>;
+
+    fn from_params(_: &(), camera: Option<&Camera3d>) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let Some(camera) = camera else {
+            return Some(ScreenSpaceTransmissionQualityKey::None);
+        };
+        Some(match camera.screen_space_specular_transmission_quality {
+            ScreenSpaceTransmissionQuality::Low => Self::Low,
+            ScreenSpaceTransmissionQuality::Medium => Self::Medium,
+            ScreenSpaceTransmissionQuality::High => Self::High,
+            ScreenSpaceTransmissionQuality::Ultra => Self::Ultra,
+        })
+    }
+}
+
+impl KeyShaderDefs for ScreenSpaceTransmissionQualityKey {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
+        let taps = match self {
+            ScreenSpaceTransmissionQualityKey::None => return Vec::default(),
+            ScreenSpaceTransmissionQualityKey::Low => 4,
+            ScreenSpaceTransmissionQualityKey::Medium => 8,
+            ScreenSpaceTransmissionQualityKey::High => 16,
+            ScreenSpaceTransmissionQualityKey::Ultra => 32,
+        };
+        vec![ShaderDefVal::UInt(
+            "SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS".into(),
+            taps,
+        )]
+    }
 }

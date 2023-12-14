@@ -9,6 +9,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
+    pipeline_keys::PipelineKey,
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_resource::{
@@ -192,7 +193,7 @@ impl FromWorld for CASPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct CASPipelineKey {
     texture_format: TextureFormat,
     denoise: bool,
@@ -201,7 +202,7 @@ pub struct CASPipelineKey {
 impl SpecializedRenderPipeline for CASPipeline {
     type Key = CASPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
         if key.denoise {
             shader_defs.push("RCAS_DENOISE".into());
@@ -239,14 +240,14 @@ fn prepare_cas_pipelines(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
-            CASPipelineKey {
+            pipeline_cache.pack_key(&CASPipelineKey {
                 denoise: cas_settings.0,
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
                     TextureFormat::bevy_default()
                 },
-            },
+            }),
         );
 
         commands.entity(entity).insert(ViewCASPipeline(pipeline_id));

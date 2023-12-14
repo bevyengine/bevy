@@ -9,6 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
+    pipeline_keys::PipelineKey, 
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
@@ -28,7 +29,7 @@ pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PipelineKey, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
     final_pipeline: bool,
@@ -60,7 +61,7 @@ impl FromWorld for BloomUpsamplingPipeline {
 impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
     type Key = BloomUpsamplingPipelineKeys;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: PipelineKey<Self::Key>) -> RenderPipelineDescriptor {
         let texture_format = if key.final_pipeline {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -139,19 +140,19 @@ pub fn prepare_upsampling_pipeline(
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            BloomUpsamplingPipelineKeys {
+            pipeline_cache.pack_key(&BloomUpsamplingPipelineKeys {
                 composite_mode: settings.composite_mode,
                 final_pipeline: false,
-            },
+            }),
         );
 
         let pipeline_final_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
-            BloomUpsamplingPipelineKeys {
+            pipeline_cache.pack_key(&BloomUpsamplingPipelineKeys {
                 composite_mode: settings.composite_mode,
                 final_pipeline: true,
-            },
+            }),
         );
 
         commands.entity(entity).insert(UpsamplingPipelineIds {

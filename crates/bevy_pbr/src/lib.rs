@@ -15,6 +15,10 @@ mod render;
 mod ssao;
 
 pub use alpha::*;
+use bevy_core_pipeline::{
+    prepass::PrepassKey,
+    tonemapping::{DebandDitherKey, Tonemapping}, transmission::ScreenSpaceTransmissionQuality,
+};
 pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
@@ -56,20 +60,23 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{CameraUpdateSystem, Projection},
+    camera::{
+        ViewProjectionKey, {CameraUpdateSystem, Projection},
+    },
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
+    pipeline_keys::{AddPipelineKey, KeyPrimitive, PipelineKey},
     prelude::Color,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
     render_resource::Shader,
     texture::Image,
-    view::VisibilitySystems,
+    view::{ExtractedView, MsaaKey, TextureFormatKey, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-use environment_map::EnvironmentMapPlugin;
+use environment_map::{EnvironmentMapKey, EnvironmentMapPlugin};
 
 use crate::deferred::DeferredPbrLightingPlugin;
 
@@ -358,6 +365,12 @@ impl Plugin for PbrPlugin {
             draw_3d_graph::node::SHADOW_PASS,
             bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
         );
+
+        render_app
+            .register_system_key::<DepthClampOrthoKey, With<ExtractedView>>()
+            .register_system_key::<ShadowFilteringMethod, With<ExtractedView>>()
+            .register_system_key::<ScreenSpaceTransmissionQuality, With<ExtractedView>>()
+            .register_composite_key::<PbrViewKey, With<ExtractedView>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -371,3 +384,22 @@ impl Plugin for PbrPlugin {
             .init_resource::<GlobalLightMeta>();
     }
 }
+
+#[derive(PipelineKey, Clone, Copy)]
+pub struct PbrViewKey {
+    pub texture_format: TextureFormatKey,
+    pub tonemapping: Tonemapping,
+    pub deband: DebandDitherKey,
+    pub prepass: PrepassKey,
+    pub environment_map: EnvironmentMapKey,
+    pub ssao: SsaoKey,
+    pub depth_clamp_ortho: DepthClampOrthoKey,
+    pub msaa: MsaaKey,
+    pub shadow_method: ShadowFilteringMethod,
+    pub projection: ViewProjectionKey,
+    pub transmission_quality: ScreenSpaceTransmissionQuality,
+}
+// TODO move optional things from PbrViewKey over here
+#[derive(PipelineKey)]
+#[dynamic_key]
+pub struct PbrViewKeyDynamic(KeyPrimitive);

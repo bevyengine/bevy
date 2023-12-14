@@ -7,6 +7,7 @@ use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
+    pipeline_keys::PipelineKey,
     prelude::*,
     render_resource::*,
 };
@@ -210,7 +211,7 @@ impl Material for WireframeMaterial {
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
-        _key: MaterialPipelineKey<Self>,
+        _key: PipelineKey<MaterialPipelineKey<Self>>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
