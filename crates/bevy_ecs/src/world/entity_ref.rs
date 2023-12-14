@@ -4,8 +4,7 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    observer::{AttachObserver, EcsEvent, ObserverBuilder, Observers},
-    prelude::Observer,
+    observer::{AttachObserver, EcsEvent, ObserverBuilder, ObserverCallback, Observers},
     query::{WorldQueryData, WorldQueryFilter},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
@@ -1148,7 +1147,7 @@ impl<'w> EntityWorldMut<'w> {
     /// In order to trigger the callback the entity must also match the query when the event is fired.
     pub fn observe<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
-        callback: fn(Observer<E, Q, F>),
+        callback: impl ObserverCallback<E, Q, F> + 'static,
     ) -> &mut Self {
         let observer = ObserverBuilder::new(self.world)
             .source(self.entity)

@@ -6,8 +6,7 @@ use crate::{
     bundle::Bundle,
     component::ComponentId,
     entity::{Entities, Entity},
-    observer::EcsEvent,
-    prelude::Observer,
+    observer::{EcsEvent, ObserverCallback},
     query::{WorldQueryData, WorldQueryFilter},
     system::{RunSystemWithInput, SystemId},
     world::{EntityWorldMut, FromWorld, World},
@@ -940,11 +939,12 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// In order to trigger the callback the entity must also match the query when the event is fired.
     pub fn observe<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
-        callback: fn(Observer<E, Q, F>),
+        callback: impl ObserverCallback<E, Q, F> + 'static,
     ) -> &mut Self {
-        self.commands.add(Observe::<E, Q, F> {
+        self.commands.add(Observe::<E, Q, F, _> {
             entity: self.entity,
             callback,
+            marker: PhantomData::default(),
         });
         self
     }
@@ -1193,15 +1193,26 @@ impl Command for LogComponents {
 
 /// A [`Command`] that spawns an observer attached to a specific entity.
 #[derive(Debug)]
-pub struct Observe<E: EcsEvent, Q: WorldQueryData, F: WorldQueryFilter> {
+pub struct Observe<
+    E: EcsEvent,
+    Q: WorldQueryData,
+    F: WorldQueryFilter,
+    C: ObserverCallback<E, Q, F>,
+> {
     /// The entity that will be observed.
     pub entity: Entity,
     /// The callback to run when the event is observed.
-    pub callback: fn(Observer<E, Q, F>),
+    pub callback: C,
+    /// Marker for type parameters
+    pub marker: PhantomData<dyn ObserverCallback<E, Q, F>>,
 }
 
-impl<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static> Command
-    for Observe<E, Q, F>
+impl<
+        E: EcsEvent,
+        Q: WorldQueryData + 'static,
+        F: WorldQueryFilter + 'static,
+        C: ObserverCallback<E, Q, F> + 'static,
+    > Command for Observe<E, Q, F, C>
 {
     fn apply(self, world: &mut World) {
         world.entity_mut(self.entity).observe(self.callback);

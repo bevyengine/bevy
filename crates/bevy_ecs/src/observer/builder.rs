@@ -69,7 +69,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     /// Spawns the resulting observer into the world.
     pub fn run<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
-        callback: fn(Observer<E, Q, F>),
+        callback: impl ObserverCallback<E, Q, F> + 'static,
     ) -> Entity {
         let entity = self.enqueue(callback);
         self.world.flush_commands();
@@ -91,7 +91,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     /// Enqueues a command to spawn the resulting observer in the world.
     pub fn enqueue<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
-        callback: fn(Observer<E, Q, F>),
+        callback: impl ObserverCallback<E, Q, F> + 'static,
     ) -> Entity {
         self.world
             .spawn_observer::<E, Q, F>(ObserverComponent::from(self.descriptor.clone(), callback))

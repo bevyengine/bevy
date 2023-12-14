@@ -124,7 +124,7 @@ impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
     }
 }
 
-#[derive(Default, Clone, Component)]
+#[derive(Default, Clone)]
 pub(crate) struct ObserverDescriptor {
     events: Vec<ComponentId>,
     components: Vec<ComponentId>,
@@ -141,8 +141,8 @@ pub struct ObserverTrigger {
 
 #[derive(Default, Debug)]
 pub(crate) struct CachedObservers {
-    component_observers: HashMap<ComponentId, EntityHashMap<Entity, ObserverCallback>>,
-    entity_observers: EntityHashMap<Entity, EntityHashMap<Entity, ObserverCallback>>,
+    component_observers: HashMap<ComponentId, EntityHashMap<Entity, ObserverRunner>>,
+    entity_observers: EntityHashMap<Entity, EntityHashMap<Entity, ObserverRunner>>,
 }
 
 /// Metadata for observers. Stores a cache mapping event ids to the registered observers.
@@ -196,7 +196,7 @@ impl Observers {
             let cache = self.get_observers(event);
             for &component in &observer.descriptor.components {
                 let observers = cache.component_observers.entry(component).or_default();
-                observers.insert(entity, observer.callback);
+                observers.insert(entity, observer.runner);
                 if observers.len() == 1 {
                     if let Some(flag) = Self::is_archetype_cached(event) {
                         archetypes.update_flags(component, flag, true);
@@ -205,7 +205,7 @@ impl Observers {
             }
             for &source in &observer.descriptor.sources {
                 let observers = cache.entity_observers.entry(source).or_default();
-                observers.insert(entity, observer.callback);
+                observers.insert(entity, observer.runner);
             }
         }
     }
@@ -259,7 +259,7 @@ impl Observers {
         // Run entity observers for source
         if let Some(observers) = observers.entity_observers.get(&source) {
             observers.iter().for_each(|(&observer, runner)| {
-                (runner.run)(
+                (runner)(
                     world.reborrow(),
                     ObserverTrigger {
                         observer,
@@ -268,14 +268,13 @@ impl Observers {
                         source,
                     },
                     data.into(),
-                    runner.callback,
                 );
             });
         }
         // Run component observers for ANY
         if let Some(observers) = observers.component_observers.get(&ANY) {
             observers.iter().for_each(|(&observer, runner)| {
-                (runner.run)(
+                (runner)(
                     world.reborrow(),
                     ObserverTrigger {
                         observer,
@@ -284,7 +283,6 @@ impl Observers {
                         source,
                     },
                     data.into(),
-                    runner.callback,
                 )
             })
         }
@@ -292,7 +290,7 @@ impl Observers {
         for component in components {
             if let Some(observers) = observers.component_observers.get(&component) {
                 observers.iter().for_each(|(&observer, runner)| {
-                    (runner.run)(
+                    (runner)(
                         world.reborrow(),
                         ObserverTrigger {
                             observer,
@@ -301,7 +299,6 @@ impl Observers {
                             source,
                         },
                         data.into(),
-                        runner.callback,
                     );
                 });
             }
@@ -444,7 +441,7 @@ impl World {
     /// For observing events targetting a specific entity see [`EntityWorldMut::observe`].
     pub fn observer<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
         &mut self,
-        callback: fn(Observer<E, Q, F>),
+        callback: impl ObserverCallback<E, Q, F> + 'static,
     ) -> Entity {
         ObserverBuilder::new(self).run(callback)
     }

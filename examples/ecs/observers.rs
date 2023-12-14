@@ -24,6 +24,7 @@ fn setup(world: &mut World) {
     // Triggered when &CompA is added to any component that also has ComponentB
     // This can take any query types that implement WorldQueryData and WorldQueryFilter
     let observer = world.observer(|mut observer: Observer<OnAdd, &CompA, With<CompB>>| {
+        println!("Hello");
         // Get source entity that triggered the observer
         let source = observer.source();
         // Able to read requested component data as if it was a query
