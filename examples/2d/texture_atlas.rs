@@ -211,7 +211,7 @@ fn create_texture_atlas(
 
     // Update the sampling settings of the texture atlas
     let image = textures.get_mut(&texture_atlas.texture).unwrap();
-    image.sampler_descriptor = sampling.unwrap_or_default();
+    image.sampler = sampling.unwrap_or_default();
 
     texture_atlas
 }
@@ -243,7 +243,7 @@ fn create_label(
     text_style: TextStyle,
 ) {
     commands.spawn(Text2dBundle {
-        text: Text::from_section(text, text_style).with_alignment(TextAlignment::Center),
+        text: Text::from_section(text, text_style).with_justify(JustifyText::Center),
         transform: Transform {
             translation: Vec3::new(translation.0, translation.1, translation.2),
             ..default()
