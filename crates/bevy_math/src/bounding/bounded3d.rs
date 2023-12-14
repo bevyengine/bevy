@@ -71,87 +71,93 @@ impl BoundingVolume for Aabb3d {
     }
 }
 
-#[test]
-fn test_aabb3d_center() {
-    let aabb = Aabb3d {
-        min: Vec3::new(-0.5, -1., -0.5),
-        max: Vec3::new(1., 1., 2.),
-    };
-    assert!((aabb.center() - Vec3::new(0.25, 0., 0.75)).length() < 0.0001);
-    let aabb = Aabb3d {
-        min: Vec3::new(5., 5., -10.),
-        max: Vec3::new(10., 10., -5.),
-    };
-    assert!((aabb.center() - Vec3::new(7.5, 7.5, -7.5)).length() < 0.0001);
-}
+#[cfg(test)]
+mod aabb3d_tests {
+    use super::Aabb3d;
+    use crate::{bounding::BoundingVolume, Vec3};
 
-#[test]
-fn test_aabb3d_area() {
-    let aabb = Aabb3d {
-        min: Vec3::new(-1., -1., -1.),
-        max: Vec3::new(1., 1., 1.),
-    };
-    assert!((aabb.visible_area() - 12.).abs() < 0.0001);
-    let aabb = Aabb3d {
-        min: Vec3::new(0., 0., 0.),
-        max: Vec3::new(1., 0.5, 0.25),
-    };
-    assert!((aabb.visible_area() - 0.875).abs() < 0.0001);
-}
+    #[test]
+    fn center() {
+        let aabb = Aabb3d {
+            min: Vec3::new(-0.5, -1., -0.5),
+            max: Vec3::new(1., 1., 2.),
+        };
+        assert!((aabb.center() - Vec3::new(0.25, 0., 0.75)).length() < std::f32::EPSILON);
+        let aabb = Aabb3d {
+            min: Vec3::new(5., 5., -10.),
+            max: Vec3::new(10., 10., -5.),
+        };
+        assert!((aabb.center() - Vec3::new(7.5, 7.5, -7.5)).length() < std::f32::EPSILON);
+    }
 
-#[test]
-fn test_aabb3d_contains() {
-    let a = Aabb3d {
-        min: Vec3::new(-1., -1., -1.),
-        max: Vec3::new(1., 1., 1.),
-    };
-    let b = Aabb3d {
-        min: Vec3::new(-2., -1., -1.),
-        max: Vec3::new(1., 1., 1.),
-    };
-    assert!(!a.contains(&b));
-    let b = Aabb3d {
-        min: Vec3::new(-0.25, -0.8, -0.9),
-        max: Vec3::new(1., 1., 0.9),
-    };
-    assert!(a.contains(&b));
-}
+    #[test]
+    fn area() {
+        let aabb = Aabb3d {
+            min: Vec3::new(-1., -1., -1.),
+            max: Vec3::new(1., 1., 1.),
+        };
+        assert!((aabb.visible_area() - 12.).abs() < std::f32::EPSILON);
+        let aabb = Aabb3d {
+            min: Vec3::new(0., 0., 0.),
+            max: Vec3::new(1., 0.5, 0.25),
+        };
+        assert!((aabb.visible_area() - 0.875).abs() < std::f32::EPSILON);
+    }
 
-#[test]
-fn test_aabb3d_merged() {
-    let a = Aabb3d {
-        min: Vec3::new(-1., -1., -1.),
-        max: Vec3::new(1., 0.5, 1.),
-    };
-    let b = Aabb3d {
-        min: Vec3::new(-2., -0.5, -0.),
-        max: Vec3::new(0.75, 1., 2.),
-    };
-    let merged = a.merged(&b);
-    assert!((merged.min - Vec3::new(-2., -1., -1.)).length() < 0.0001);
-    assert!((merged.max - Vec3::new(1., 1., 2.)).length() < 0.0001);
-}
+    #[test]
+    fn contains() {
+        let a = Aabb3d {
+            min: Vec3::new(-1., -1., -1.),
+            max: Vec3::new(1., 1., 1.),
+        };
+        let b = Aabb3d {
+            min: Vec3::new(-2., -1., -1.),
+            max: Vec3::new(1., 1., 1.),
+        };
+        assert!(!a.contains(&b));
+        let b = Aabb3d {
+            min: Vec3::new(-0.25, -0.8, -0.9),
+            max: Vec3::new(1., 1., 0.9),
+        };
+        assert!(a.contains(&b));
+    }
 
-#[test]
-fn test_aabb3d_padded() {
-    let a = Aabb3d {
-        min: Vec3::new(-1., -1., -1.),
-        max: Vec3::new(1., 1., 1.),
-    };
-    let padded = a.padded((Vec3::ONE, Vec3::Y));
-    assert!((padded.min - Vec3::new(-2., -2., -2.)).length() < 0.0001);
-    assert!((padded.max - Vec3::new(1., 2., 1.)).length() < 0.0001);
-}
+    #[test]
+    fn merged() {
+        let a = Aabb3d {
+            min: Vec3::new(-1., -1., -1.),
+            max: Vec3::new(1., 0.5, 1.),
+        };
+        let b = Aabb3d {
+            min: Vec3::new(-2., -0.5, -0.),
+            max: Vec3::new(0.75, 1., 2.),
+        };
+        let merged = a.merged(&b);
+        assert!((merged.min - Vec3::new(-2., -1., -1.)).length() < std::f32::EPSILON);
+        assert!((merged.max - Vec3::new(1., 1., 2.)).length() < std::f32::EPSILON);
+    }
 
-#[test]
-fn test_aabb3d_shrunk() {
-    let a = Aabb3d {
-        min: Vec3::new(-1., -1., -1.),
-        max: Vec3::new(1., 1., 1.),
-    };
-    let shrunk = a.shrunk((Vec3::ONE, Vec3::Y));
-    assert!((shrunk.min - Vec3::new(-0., -0., -0.)).length() < 0.0001);
-    assert!((shrunk.max - Vec3::new(1., 0., 1.)).length() < 0.0001);
+    #[test]
+    fn padded() {
+        let a = Aabb3d {
+            min: Vec3::new(-1., -1., -1.),
+            max: Vec3::new(1., 1., 1.),
+        };
+        let padded = a.padded((Vec3::ONE, Vec3::Y));
+        assert!((padded.min - Vec3::new(-2., -2., -2.)).length() < std::f32::EPSILON);
+        assert!((padded.max - Vec3::new(1., 2., 1.)).length() < std::f32::EPSILON);
+    }
+
+    #[test]
+    fn shrunk() {
+        let a = Aabb3d {
+            min: Vec3::new(-1., -1., -1.),
+            max: Vec3::new(1., 1., 1.),
+        };
+        let shrunk = a.shrunk((Vec3::ONE, Vec3::Y));
+        assert!((shrunk.min - Vec3::new(-0., -0., -0.)).length() < std::f32::EPSILON);
+        assert!((shrunk.max - Vec3::new(1., 0., 1.)).length() < std::f32::EPSILON);
+    }
 }
 
 /// A bounding sphere
@@ -223,64 +229,71 @@ impl BoundingVolume for BoundingSphere {
     }
 }
 
-#[test]
-fn test_bounding_sphere_area() {
-    let sphere = BoundingSphere {
-        center: Vec3::ONE,
-        radius: 5.,
-    };
-    assert!((sphere.visible_area() - 157.0796).abs() < 0.001);
-}
+#[cfg(test)]
+mod bounding_sphere_tests {
+    use super::BoundingSphere;
+    use crate::{bounding::BoundingVolume, Vec3};
 
-#[test]
-fn test_bounding_sphere_contains() {
-    let a = BoundingSphere {
-        center: Vec3::ONE,
-        radius: 5.,
-    };
-    let b = BoundingSphere {
-        center: Vec3::new(5.5, 1., 1.),
-        radius: 1.,
-    };
-    assert!(!a.contains(&b));
-    let b = BoundingSphere {
-        center: Vec3::new(1., -3.5, 1.),
-        radius: 0.5,
-    };
-    assert!(a.contains(&b));
-}
+    #[test]
+    fn area() {
+        let sphere = BoundingSphere {
+            center: Vec3::ONE,
+            radius: 5.,
+        };
+        // Since this number is messy we check it with a higher threshold
+        assert!((sphere.visible_area() - 157.0796).abs() < 0.001);
+    }
 
-#[test]
-fn test_bounding_sphere_merged() {
-    let a = BoundingSphere {
-        center: Vec3::ONE,
-        radius: 5.,
-    };
-    let b = BoundingSphere {
-        center: Vec3::new(1., 1., -4.),
-        radius: 1.,
-    };
-    let merged = a.merged(&b);
-    assert!((merged.center - Vec3::new(1., 1., 0.5)).length() < 0.0001);
-    assert!((merged.radius - 5.5).abs() < 0.0001);
-}
+    #[test]
+    fn contains() {
+        let a = BoundingSphere {
+            center: Vec3::ONE,
+            radius: 5.,
+        };
+        let b = BoundingSphere {
+            center: Vec3::new(5.5, 1., 1.),
+            radius: 1.,
+        };
+        assert!(!a.contains(&b));
+        let b = BoundingSphere {
+            center: Vec3::new(1., -3.5, 1.),
+            radius: 0.5,
+        };
+        assert!(a.contains(&b));
+    }
 
-#[test]
-fn test_bounding_sphere_padded() {
-    let a = BoundingSphere {
-        center: Vec3::ONE,
-        radius: 5.,
-    };
-    let padded = a.padded(1.25);
-    assert!((padded.radius - 6.25).abs() < 0.0001);
-}
+    #[test]
+    fn merged() {
+        let a = BoundingSphere {
+            center: Vec3::ONE,
+            radius: 5.,
+        };
+        let b = BoundingSphere {
+            center: Vec3::new(1., 1., -4.),
+            radius: 1.,
+        };
+        let merged = a.merged(&b);
+        assert!((merged.center - Vec3::new(1., 1., 0.5)).length() < std::f32::EPSILON);
+        assert!((merged.radius - 5.5).abs() < std::f32::EPSILON);
+    }
 
-#[test]
-fn test_bounding_sphere_shrunk() {
-    let a = BoundingSphere {
-        center: Vec3::ONE,
-        radius: 5.,
-    };
-    let shrunk = a.shrunk(0.5);
-    assert!((shrunk.radius - 4.5).abs() < 0.0001);
+    #[test]
+    fn padded() {
+        let a = BoundingSphere {
+            center: Vec3::ONE,
+            radius: 5.,
+        };
+        let padded = a.padded(1.25);
+        assert!((padded.radius - 6.25).abs() < std::f32::EPSILON);
+    }
+
+    #[test]
+    fn shrunk() {
+        let a = BoundingSphere {
+            center: Vec3::ONE,
+            radius: 5.,
+        };
+        let shrunk = a.shrunk(0.5);
+        assert!((shrunk.radius - 4.5).abs() < std::f32::EPSILON);
+    }
 }
