@@ -65,9 +65,8 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let render_app = match app.get_sub_app_mut(RenderApp) {
-        Ok(render_app) => render_app,
-        Err(_) => return,
+    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
     };
 
     render_app
@@ -391,13 +390,12 @@ pub fn extract_uinode_outlines(
             &GlobalTransform,
             &Outline,
             &ViewVisibility,
-            Option<&Parent>,
+            Option<&CalculatedClip>,
         )>,
     >,
-    clip_query: Query<&CalculatedClip>,
 ) {
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, view_visibility, maybe_parent) in uinode_query.iter() {
+    for (node, global_transform, outline, view_visibility, maybe_clip) in uinode_query.iter() {
         // Skip invisible outlines
         if !view_visibility.get()
             || outline.color.is_fully_transparent()
@@ -405,10 +403,6 @@ pub fn extract_uinode_outlines(
         {
             continue;
         }
-
-        // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
-        let clip =
-            maybe_parent.and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
 
         // Calculate the outline rects.
         let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
@@ -461,7 +455,7 @@ pub fn extract_uinode_outlines(
                         },
                         image,
                         atlas_size: None,
-                        clip,
+                        clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
                     },

@@ -271,7 +271,7 @@ impl Display for UntypedAssetId {
 impl PartialEq for UntypedAssetId {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.internal().eq(&other.internal())
+        self.type_id() == other.type_id() && self.internal().eq(&other.internal())
     }
 }
 

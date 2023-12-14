@@ -287,7 +287,6 @@ where
     Self: Sized,
 {
     /// Convert into a [`SystemConfigs`].
-    #[doc(hidden)]
     fn into_configs(self) -> SystemConfigs;
 
     /// Add these systems to the provided `set`.
@@ -483,6 +482,11 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemConfigs {
+        self.run_if_dyn(new_condition(condition));
+        self
+    }
+
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
         self.ambiguous_with_inner(set.intern());
@@ -491,11 +495,6 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn ambiguous_with_all(mut self) -> Self {
         self.ambiguous_with_all_inner();
-        self
-    }
-
-    fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemConfigs {
-        self.run_if_dyn(new_condition(condition));
         self
     }
 

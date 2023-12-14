@@ -410,7 +410,7 @@ pub fn resolve_outlines_system(
             .max(0.);
 
         node.outline_offset = outline
-            .width
+            .offset
             .resolve(node.size().x, viewport_size)
             .unwrap_or(0.)
             .max(0.);

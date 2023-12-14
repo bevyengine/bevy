@@ -89,6 +89,11 @@ where
     }
 
     #[inline]
+    fn is_exclusive(&self) -> bool {
+        true
+    }
+
+    #[inline]
     fn has_deferred(&self) -> bool {
         // exclusive systems have no deferred system params
         false
@@ -121,19 +126,6 @@ where
     }
 
     #[inline]
-    fn is_exclusive(&self) -> bool {
-        true
-    }
-
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, _world: &mut World) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
@@ -160,6 +152,14 @@ where
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 }
 

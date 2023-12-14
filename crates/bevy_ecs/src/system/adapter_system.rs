@@ -139,16 +139,16 @@ where
         self.system.check_change_tick(change_tick);
     }
 
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        self.system.default_system_sets()
+    }
+
     fn get_last_run(&self) -> crate::component::Tick {
         self.system.get_last_run()
     }
 
     fn set_last_run(&mut self, last_run: crate::component::Tick) {
         self.system.set_last_run(last_run);
-    }
-
-    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        self.system.default_system_sets()
     }
 }
 

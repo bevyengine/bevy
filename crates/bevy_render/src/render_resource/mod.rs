@@ -2,6 +2,7 @@ mod batched_uniform_buffer;
 mod bind_group;
 mod bind_group_entries;
 mod bind_group_layout;
+mod bind_group_layout_entries;
 mod buffer;
 mod buffer_vec;
 mod gpu_array_buffer;
@@ -17,6 +18,7 @@ mod uniform_buffer;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;
+pub use bind_group_layout_entries::*;
 pub use buffer::*;
 pub use buffer_vec::*;
 pub use gpu_array_buffer::*;
@@ -44,7 +46,7 @@ pub use wgpu::{
     PushConstantRange, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, RenderPipelineDescriptor as RawRenderPipelineDescriptor,
     SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess,
+    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess, StoreOp,
     TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
     TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,

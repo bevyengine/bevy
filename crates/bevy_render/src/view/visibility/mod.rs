@@ -46,7 +46,7 @@ pub enum Visibility {
 }
 
 // Allows `&Visibility == Visibility`
-impl std::cmp::PartialEq<Visibility> for &Visibility {
+impl PartialEq<Visibility> for &Visibility {
     #[inline]
     fn eq(&self, other: &Visibility) -> bool {
         **self == *other
@@ -54,7 +54,7 @@ impl std::cmp::PartialEq<Visibility> for &Visibility {
 }
 
 // Allows `Visibility == &Visibility`
-impl std::cmp::PartialEq<&Visibility> for Visibility {
+impl PartialEq<&Visibility> for Visibility {
     #[inline]
     fn eq(&self, other: &&Visibility) -> bool {
         *self == **other
@@ -262,7 +262,7 @@ pub fn calculate_bounds(
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).insert(aabb);
+                commands.entity(entity).try_insert(aabb);
             }
         }
     }
