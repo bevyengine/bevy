@@ -48,7 +48,6 @@ fn setup_ui(mut cmd: Commands) {
                 "Resolution",
                 TextStyle {
                     font_size: 50.0,
-                    color: Color::BLACK,
                     ..default()
                 },
             ),
@@ -59,7 +58,7 @@ fn setup_ui(mut cmd: Commands) {
 
 /// This system shows how to request the window to a new resolution
 fn toggle_resolution(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut windows: Query<&mut Window>,
     resolution: Res<ResolutionSettings>,
 ) {

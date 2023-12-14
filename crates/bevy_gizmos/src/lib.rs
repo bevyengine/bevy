@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
@@ -14,8 +13,11 @@
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
-//! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+//! See the documentation on [`Gizmos`] for more examples.
 
+pub mod arcs;
+pub mod arrows;
+pub mod circles;
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
@@ -37,7 +39,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{ROQueryItem, Without},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
@@ -52,10 +54,9 @@ use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
-        BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
-        VertexFormat, VertexStepMode,
+        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
+        ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
     view::RenderLayers,
@@ -77,7 +78,9 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
+        app.register_type::<GizmoConfig>()
+            .register_type::<AabbGizmoConfig>()
+            .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
@@ -116,26 +119,21 @@ impl Plugin for GizmoPlugin {
         };
 
         let render_device = render_app.world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(LineGizmoUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("LineGizmoUniform layout"),
-        });
+        let layout = render_device.create_bind_group_layout(
+            "LineGizmoUniform layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX,
+                uniform_buffer::<LineGizmoUniform>(true),
+            ),
+        );
 
         render_app.insert_resource(LineGizmoUniformBindgroupLayout { layout });
     }
 }
 
 /// A [`Resource`] that stores configuration for gizmos.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
@@ -155,6 +153,8 @@ pub struct GizmoConfig {
     pub line_perspective: bool,
     /// How closer to the camera than real geometry the line should be.
     ///
+    /// In 2D this setting has no effect and is effectively always -1.
+    ///
     /// Value between -1 and 1 (inclusive).
     /// * 0 means that there is no change to the line position when rendering
     /// * 1 means it is furthest away from camera as possible
@@ -162,7 +162,7 @@ pub struct GizmoConfig {
     ///
     /// This is typically useful if you are drawing wireframes on top of polygons
     /// and your wireframe is z-fighting (flickering on/off) with your main model.
-    /// You would set this value to a negative number close to 0.0.
+    /// You would set this value to a negative number close to 0.
     pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
@@ -186,7 +186,7 @@ impl Default for GizmoConfig {
 }
 
 /// Configuration for drawing the [`Aabb`] component on entities.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Reflect)]
 pub struct AabbGizmoConfig {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///
@@ -420,29 +420,26 @@ fn prepare_line_gizmo_bind_group(
 ) {
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
-            bindgroup: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("LineGizmoUniform bindgroup"),
-                layout: &line_gizmo_uniform_layout.layout,
-            }),
+            bindgroup: render_device.create_bind_group(
+                "LineGizmoUniform bindgroup",
+                &line_gizmo_uniform_layout.layout,
+                &BindGroupEntries::single(binding),
+            ),
         });
     }
 }
 
 struct SetLineGizmoBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
+    type ViewData = ();
+    type ItemData = Read<DynamicUniformIndex<LineGizmoUniform>>;
     type Param = SRes<LineGizmoUniformBindgroup>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        uniform_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewData>,
+        uniform_index: ROQueryItem<'w, Self::ItemData>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -457,15 +454,15 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<LineGizmo>>;
+    type ViewData = ();
+    type ItemData = Read<Handle<LineGizmo>>;
     type Param = SRes<RenderAssets<LineGizmo>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewData>,
+        handle: ROQueryItem<'w, Self::ItemData>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

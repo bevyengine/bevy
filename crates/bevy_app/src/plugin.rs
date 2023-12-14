@@ -51,7 +51,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         std::any::type_name::<Self>()
     }
 
-    /// If the plugin can be meaningfully instantiated several times in an [`App`](crate::App),
+    /// If the plugin can be meaningfully instantiated several times in an [`App`],
     /// override this method to return `false`.
     fn is_unique(&self) -> bool {
         true

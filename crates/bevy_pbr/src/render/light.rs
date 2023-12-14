@@ -1,13 +1,4 @@
-use crate::{
-    directional_light_order, point_light_order, AlphaMode, AmbientLight, Cascade,
-    CascadeShadowConfig, Cascades, CascadesVisibleEntities, Clusters, CubemapVisibleEntities,
-    DirectionalLight, DirectionalLightShadowMap, DrawPrepass, EnvironmentMapLight,
-    GlobalVisiblePointLights, Material, MaterialPipelineKey, MeshPipeline, MeshPipelineKey,
-    NotShadowCaster, PointLight, PointLightShadowMap, PrepassPipeline, RenderMaterials, SpotLight,
-    VisiblePointLights,
-};
-use bevy_asset::Handle;
-use bevy_core_pipeline::core_3d::Transparent3d;
+use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
@@ -16,13 +7,11 @@ use bevy_render::{
     mesh::Mesh,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
-    render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
-    },
+    render_phase::*,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, ViewVisibility, VisibleEntities},
+    view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -32,6 +21,8 @@ use bevy_utils::{
     HashMap,
 };
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
+
+use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -57,6 +48,7 @@ pub struct ExtractedDirectionalLight {
     shadow_normal_bias: f32,
     cascade_shadow_config: CascadeShadowConfig,
     cascades: HashMap<Entity, Vec<Cascade>>,
+    render_layers: RenderLayers,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -178,6 +170,7 @@ pub struct GpuDirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
+    render_layers: u32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -219,7 +212,6 @@ pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
 #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
-pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
@@ -273,9 +265,13 @@ pub struct ExtractedClustersPointLights {
 
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
+    views: Extract<Query<(Entity, &Clusters, &Camera)>>,
 ) {
-    for (entity, clusters) in &views {
+    for (entity, clusters, camera) in &views {
+        if !camera.is_active {
+            continue;
+        }
+
         commands.get_or_spawn(entity).insert((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),
@@ -321,6 +317,7 @@ pub fn extract_lights(
                 &CascadeShadowConfig,
                 &GlobalTransform,
                 &ViewVisibility,
+                Option<&RenderLayers>,
             ),
             Without<SpotLight>,
         >,
@@ -436,6 +433,7 @@ pub fn extract_lights(
         cascade_config,
         transform,
         view_visibility,
+        maybe_layers,
     ) in &directional_lights
     {
         if !view_visibility.get() {
@@ -455,6 +453,7 @@ pub fn extract_lights(
                 shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
                 cascade_shadow_config: cascade_config.clone(),
                 cascades: cascades.cascades.clone(),
+                render_layers: maybe_layers.copied().unwrap_or_default(),
             },
             render_visible_entities,
         ));
@@ -889,6 +888,7 @@ pub fn prepare_lights(
             num_cascades: num_cascades as u32,
             cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
             depth_texture_base_index: num_directional_cascades_enabled as u32,
+            render_layers: light.render_layers.bits(),
         };
         if index < directional_shadow_enabled_count {
             num_directional_cascades_enabled += num_cascades;
@@ -913,7 +913,7 @@ pub fn prepare_lights(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: SHADOW_FORMAT,
+                format: CORE_3D_DEPTH_FORMAT,
                 label: Some("point_light_shadow_map_texture"),
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
@@ -934,7 +934,7 @@ pub fn prepare_lights(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: SHADOW_FORMAT,
+                format: CORE_3D_DEPTH_FORMAT,
                 label: Some("directional_light_shadow_map_texture"),
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
@@ -1173,7 +1173,7 @@ pub fn prepare_lights(
                     dimension: Some(TextureViewDimension::CubeArray),
                     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                     dimension: Some(TextureViewDimension::Cube),
-                    aspect: TextureAspect::All,
+                    aspect: TextureAspect::DepthOnly,
                     base_mip_level: 0,
                     mip_level_count: None,
                     base_array_layer: 0,
@@ -1188,7 +1188,7 @@ pub fn prepare_lights(
                 dimension: Some(TextureViewDimension::D2Array),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 dimension: Some(TextureViewDimension::D2),
-                aspect: TextureAspect::All,
+                aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
                 mip_level_count: None,
                 base_array_layer: 0,
@@ -1553,9 +1553,10 @@ pub fn prepare_clusters(
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    casting_meshes: Query<(&Handle<Mesh>, &Handle<M>), Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
@@ -1598,15 +1599,22 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) else {
+                let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                     continue;
                 };
-                let Some(mesh) = render_meshes.get(mesh_handle) else {
+                if !mesh_instance.shadow_caster {
+                    continue;
+                }
+                let Some(material_asset_id) = render_material_instances.get(&entity) else {
                     continue;
                 };
-                let Some(material) = render_materials.get(&material_handle.id()) else {
+                let Some(material) = render_materials.get(material_asset_id) else {
                     continue;
                 };
+                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                    continue;
+                };
+
                 let mut mesh_key =
                     MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                         | MeshPipelineKey::DEPTH_PREPASS;
@@ -1763,10 +1771,12 @@ impl Node for ShadowPassNode {
                             view: &view_light.depth_texture_view,
                             depth_ops: Some(Operations {
                                 load: LoadOp::Clear(0.0),
-                                store: true,
+                                store: StoreOp::Store,
                             }),
                             stencil_ops: None,
                         }),
+                        timestamp_writes: None,
+                        occlusion_query_set: None,
                     });
 
                 shadow_phase.render(&mut render_pass, world, view_light_entity);

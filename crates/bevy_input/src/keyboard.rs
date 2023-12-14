@@ -1,6 +1,6 @@
 //! The keyboard input functionality.
 
-use crate::{ButtonState, Input};
+use crate::{ButtonInput, ButtonState};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -19,8 +19,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// ## Usage
 ///
-/// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
-/// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
+/// The event is consumed inside of the [`keyboard_input_system`]
+/// to update the [`Input<KeyCode>`](ButtonInput<KeyCode>) resource.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -39,15 +39,15 @@ pub struct KeyboardInput {
     pub window: Entity,
 }
 
-/// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.
+/// Updates the [`ButtonInput<KeyCode>`] resource with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
 ///
-/// The main difference between the [`KeyboardInput`] event and the [`Input<KeyCode>`] or [`Input<ScanCode>`] resources is that
-/// the latter have convenient functions such as [`Input::pressed`], [`Input::just_pressed`] and [`Input::just_released`].
+/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] or [`ButtonInput<ScanCode>`] resources is that
+/// the latter have convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
 pub fn keyboard_input_system(
-    mut scan_input: ResMut<Input<ScanCode>>,
-    mut key_input: ResMut<Input<KeyCode>>,
+    mut scan_input: ResMut<ButtonInput<ScanCode>>,
+    mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
@@ -70,16 +70,16 @@ pub fn keyboard_input_system(
     }
 }
 
-/// The key code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
+/// The key code of a [`KeyboardInput`].
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Res<Input<KeyCode>>`.
-/// The resource values are mapped to the current layout of the keyboard and correlate to an [`ScanCode`](ScanCode).
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<Input<KeyCode>>`.
+/// The resource values are mapped to the current layout of the keyboard and correlate to an [`ScanCode`].
 ///
 /// ## Updating
 ///
-/// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
+/// The resource is updated inside of the [`keyboard_input_system`].
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -443,16 +443,16 @@ pub enum KeyCode {
     Cut,
 }
 
-/// The scan code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
+/// The scan code of a [`KeyboardInput`].
 ///
 /// ## Usage
 ///
-/// It is used as the generic `<T>` value of an [`Input`](crate::Input) to create a `Res<Input<ScanCode>>`.
-/// The resource values are mapped to the physical location of a key on the keyboard and correlate to an [`KeyCode`](KeyCode)
+/// It is used as the generic `<T>` value of an [`ButtonInput`] to create a `Res<Input<ScanCode>>`.
+/// The resource values are mapped to the physical location of a key on the keyboard and correlate to an [`KeyCode`]
 ///
 /// ## Updating
 ///
-/// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
+/// The resource is updated inside of the [`keyboard_input_system`].
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(

@@ -7,7 +7,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// Examples of all of these cursors can be found [here](https://www.w3schools.com/cssref/playit.php?filename=playcss_cursor&preval=crosshair).
 /// This `enum` is simply a copy of a similar `enum` found in [`winit`](https://docs.rs/winit/latest/winit/window/enum.CursorIcon.html).
-/// `winit`, in turn, mostly copied cursor types available in the browser.
+/// `winit`, in turn, is based upon the [CSS3 UI spec](https://www.w3.org/TR/css-ui-3/#cursor).
+///
+/// See the [`window_settings`] example for usage.
+///
+/// [`window_settings`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
 #[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
 #[cfg_attr(
     feature = "serialize",

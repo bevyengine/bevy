@@ -39,7 +39,7 @@ fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCou
 }
 
 fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
-    commands.insert_resource(time.clone());
+    commands.insert_resource(**time);
 }
 
 /// Contains global values useful when writing shaders.

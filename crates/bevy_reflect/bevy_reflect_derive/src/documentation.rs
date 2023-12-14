@@ -1,6 +1,6 @@
 //! Contains code related to documentation reflection (requires the `documentation` feature).
 
-use crate::fq_std::FQOption;
+use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Attribute, Expr, ExprLit, Lit, Meta};

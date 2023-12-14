@@ -43,13 +43,13 @@ fn setup(
     // to load.
     // If you want to keep the assets in the folder alive, make sure you store the returned handle
     // somewhere.
-    let _loaded_folder: Handle<LoadedFolder> = asset_server.load_folder("models/monkey");
+    let _loaded_folder: Handle<LoadedFolder> = asset_server.load_folder("models/torus");
 
     // If you want a handle to a specific asset in a loaded folder, the easiest way to get one is to call load.
     // It will _not_ be loaded a second time.
     // The LoadedFolder asset will ultimately also hold handles to the assets, but waiting for it to load
     // and finding the right handle is more work!
-    let monkey_handle = asset_server.load("models/monkey/Monkey.gltf#Mesh0/Primitive0");
+    let torus_handle = asset_server.load("models/torus/torus.gltf#Mesh0/Primitive0");
 
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
@@ -57,9 +57,9 @@ fn setup(
         ..default()
     });
 
-    // monkey
+    // torus
     commands.spawn(PbrBundle {
-        mesh: monkey_handle,
+        mesh: torus_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(-3.0, 0.0, 0.0),
         ..default()

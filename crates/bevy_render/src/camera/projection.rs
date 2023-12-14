@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_math::{Mat4, Rect, Vec2};
+use bevy_math::{Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
@@ -58,6 +58,7 @@ pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
@@ -99,6 +100,13 @@ impl CameraProjection for Projection {
         match self {
             Projection::Perspective(projection) => projection.far(),
             Projection::Orthographic(projection) => projection.far(),
+        }
+    }
+
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+        match self {
+            Projection::Perspective(projection) => projection.get_frustum_corners(z_near, z_far),
+            Projection::Orthographic(projection) => projection.get_frustum_corners(z_near, z_far),
         }
     }
 }
@@ -152,6 +160,24 @@ impl CameraProjection for PerspectiveProjection {
 
     fn far(&self) -> f32 {
         self.far
+    }
+
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+        let tan_half_fov = (self.fov / 2.).tan();
+        let a = z_near.abs() * tan_half_fov;
+        let b = z_far.abs() * tan_half_fov;
+        let aspect_ratio = self.aspect_ratio;
+        // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+        [
+            Vec3A::new(a * aspect_ratio, -a, z_near),  // bottom right
+            Vec3A::new(a * aspect_ratio, a, z_near),   // top right
+            Vec3A::new(-a * aspect_ratio, a, z_near),  // top left
+            Vec3A::new(-a * aspect_ratio, -a, z_near), // bottom left
+            Vec3A::new(b * aspect_ratio, -b, z_far),   // bottom right
+            Vec3A::new(b * aspect_ratio, b, z_far),    // top right
+            Vec3A::new(-b * aspect_ratio, b, z_far),   // top left
+            Vec3A::new(-b * aspect_ratio, -b, z_far),  // bottom left
+        ]
     }
 }
 
@@ -308,6 +334,21 @@ impl CameraProjection for OrthographicProjection {
 
     fn far(&self) -> f32 {
         self.far
+    }
+
+    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+        let area = self.area;
+        // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+        [
+            Vec3A::new(area.max.x, area.min.y, z_near), // bottom right
+            Vec3A::new(area.max.x, area.max.y, z_near), // top right
+            Vec3A::new(area.min.x, area.max.y, z_near), // top left
+            Vec3A::new(area.min.x, area.min.y, z_near), // bottom left
+            Vec3A::new(area.max.x, area.min.y, z_far),  // bottom right
+            Vec3A::new(area.max.x, area.max.y, z_far),  // top right
+            Vec3A::new(area.min.x, area.max.y, z_far),  // top left
+            Vec3A::new(area.min.x, area.min.y, z_far),  // bottom left
+        ]
     }
 }
 

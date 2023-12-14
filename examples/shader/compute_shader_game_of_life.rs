@@ -9,7 +9,7 @@ use bevy::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
-        render_resource::*,
+        render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
@@ -107,14 +107,11 @@ fn prepare_bind_group(
     render_device: Res<RenderDevice>,
 ) {
     let view = gpu_images.get(&game_of_life_image.0).unwrap();
-    let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-        label: None,
-        layout: &pipeline.texture_bind_group_layout,
-        entries: &[BindGroupEntry {
-            binding: 0,
-            resource: BindingResource::TextureView(&view.texture_view),
-        }],
-    });
+    let bind_group = render_device.create_bind_group(
+        None,
+        &pipeline.texture_bind_group_layout,
+        &BindGroupEntries::single(&view.texture_view),
+    );
     commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
 }
 
@@ -127,22 +124,13 @@ pub struct GameOfLifePipeline {
 
 impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
-        let texture_bind_group_layout =
-            world
-                .resource::<RenderDevice>()
-                .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                    label: None,
-                    entries: &[BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::StorageTexture {
-                            access: StorageTextureAccess::ReadWrite,
-                            format: TextureFormat::Rgba8Unorm,
-                            view_dimension: TextureViewDimension::D2,
-                        },
-                        count: None,
-                    }],
-                });
+        let texture_bind_group_layout = world.resource::<RenderDevice>().create_bind_group_layout(
+            None,
+            &BindGroupLayoutEntries::single(
+                ShaderStages::COMPUTE,
+                texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::ReadWrite),
+            ),
+        );
         let shader = world
             .resource::<AssetServer>()
             .load("shaders/game_of_life.wgsl");

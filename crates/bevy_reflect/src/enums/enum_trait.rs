@@ -1,4 +1,4 @@
-use crate::{DynamicEnum, Reflect, VariantInfo, VariantType};
+use crate::{DynamicEnum, Reflect, TypePath, TypePathTable, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::slice::Iter;
@@ -84,8 +84,8 @@ use std::slice::Iter;
 ///
 /// [enum-like]: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html
 /// [reflection]: crate
-/// [`None`]: core::option::Option<T>::None
-/// [`Some`]: core::option::Option<T>::Some
+/// [`None`]: Option<T>::None
+/// [`Some`]: Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect
 pub trait Enum: Reflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
@@ -126,15 +126,14 @@ pub trait Enum: Reflect {
     }
     /// Returns the full path to the current variant.
     fn variant_path(&self) -> String {
-        format!("{}::{}", self.type_name(), self.variant_name())
+        format!("{}::{}", self.reflect_type_path(), self.variant_name())
     }
 }
 
 /// A container for compile-time enum info, used by [`TypeInfo`](crate::TypeInfo).
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
-    name: &'static str,
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
@@ -148,10 +147,9 @@ impl EnumInfo {
     ///
     /// # Arguments
     ///
-    /// * `name`: The name of this enum (_without_ generics or lifetimes)
     /// * `variants`: The variants of this enum in the order they are defined
     ///
-    pub fn new<TEnum: Enum>(name: &'static str, variants: &[VariantInfo]) -> Self {
+    pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
         let variant_indices = variants
             .iter()
             .enumerate()
@@ -161,8 +159,7 @@ impl EnumInfo {
         let variant_names = variants.iter().map(|variant| variant.name()).collect();
 
         Self {
-            name,
-            type_name: std::any::type_name::<TEnum>(),
+            type_path: TypePathTable::of::<TEnum>(),
             type_id: TypeId::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
@@ -204,7 +201,7 @@ impl EnumInfo {
     ///
     /// This does _not_ check if the given variant exists.
     pub fn variant_path(&self, name: &str) -> String {
-        format!("{}::{name}", self.type_name())
+        format!("{}::{name}", self.type_path())
     }
 
     /// Checks if a variant with the given name exists within this enum.
@@ -222,20 +219,21 @@ impl EnumInfo {
         self.variants.len()
     }
 
-    /// The name of the enum.
+    /// A representation of the type path of the value.
     ///
-    /// This does _not_ include any generics or lifetimes.
-    ///
-    /// For example, `foo::bar::Baz<'a, T>` would simply be `Baz`.
-    pub fn name(&self) -> &'static str {
-        self.name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
     }
 
-    /// The [type name] of the enum.
+    /// The [stable, full type path] of the value.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the enum.

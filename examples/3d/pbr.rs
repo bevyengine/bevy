@@ -74,7 +74,6 @@ fn setup(
             "Perceptual Roughness",
             TextStyle {
                 font_size: 36.0,
-                color: Color::WHITE,
                 ..default()
             },
         )
@@ -91,7 +90,6 @@ fn setup(
             "Metallic",
             TextStyle {
                 font_size: 36.0,
-                color: Color::WHITE,
                 ..default()
             },
         ),

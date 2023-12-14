@@ -34,7 +34,7 @@ fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
         FogSettings {
-            color: Color::rgba(0.05, 0.05, 0.05, 1.0),
+            color: Color::rgba(0.25, 0.25, 0.25, 1.0),
             falloff: FogFalloff::Linear {
                 start: 5.0,
                 end: 20.0,
@@ -159,7 +159,7 @@ fn update_system(
     mut camera: Query<(&mut FogSettings, &mut Transform)>,
     mut text: Query<&mut Text>,
     time: Res<Time>,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
 ) {
     let now = time.elapsed_seconds();
     let delta = time.delta_seconds();

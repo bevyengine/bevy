@@ -1,9 +1,9 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, Outline, Style, UiScale};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     event::EventReader,
     query::{With, Without},
@@ -19,9 +19,10 @@ use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::Taffy;
+use thiserror::Error;
 
 pub struct LayoutContext {
-    pub scale_factor: f64,
+    pub scale_factor: f32,
     pub physical_size: Vec2,
     pub min_size: f32,
     pub max_size: f32,
@@ -29,7 +30,7 @@ pub struct LayoutContext {
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+    fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
@@ -228,10 +229,12 @@ with UI components as a child of an entity without UI components, results may be
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum LayoutError {
+    #[error("Invalid hierarchy")]
     InvalidHierarchy,
-    TaffyError(taffy::error::TaffyError),
+    #[error("Taffy error: {0}")]
+    TaffyError(#[from] taffy::error::TaffyError),
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
@@ -342,14 +345,17 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
+
             let rounded_size = round_layout_coords(absolute_location + layout_size)
                 - round_layout_coords(absolute_location);
+
             let rounded_location =
                 round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size {
+            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
                 node.calculated_size = rounded_size;
+                node.unrounded_size = layout_size;
             }
             if transform.translation.truncate() != rounded_location {
                 transform.translation = rounded_location.extend(0.);
@@ -376,10 +382,38 @@ pub fn ui_layout_system(
             &ui_surface,
             &mut node_transform_query,
             &just_children_query,
-            inverse_target_scale_factor as f32,
+            inverse_target_scale_factor,
             Vec2::ZERO,
             Vec2::ZERO,
         );
+    }
+}
+
+/// Resolve and update the widths of Node outlines
+pub fn resolve_outlines_system(
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    mut outlines_query: Query<(&Outline, &mut Node)>,
+) {
+    let viewport_size = primary_window
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO)
+        / ui_scale.0;
+
+    for (outline, mut node) in outlines_query.iter_mut() {
+        let node = node.bypass_change_detection();
+        node.outline_width = outline
+            .width
+            .resolve(node.size().x, viewport_size)
+            .unwrap_or(0.)
+            .max(0.);
+
+        node.outline_offset = outline
+            .offset
+            .resolve(node.size().x, viewport_size)
+            .unwrap_or(0.)
+            .max(0.);
     }
 }
 
@@ -772,7 +806,7 @@ mod tests {
             .copied()
             .collect::<Vec<Entity>>();
 
-        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f64).recip()) {
+        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f32).recip()) {
             let mut s = r;
             while s <= 5. {
                 world.resource_mut::<UiScale>().0 = s;

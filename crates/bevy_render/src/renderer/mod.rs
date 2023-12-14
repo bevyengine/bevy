@@ -88,9 +88,16 @@ pub fn render_system(world: &mut World) {
 
     // update the time and send it to the app world
     let time_sender = world.resource::<TimeSender>();
-    time_sender.0.try_send(Instant::now()).expect(
-        "The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",
-    );
+    if let Err(error) = time_sender.0.try_send(Instant::now()) {
+        match error {
+            bevy_time::TrySendError::Full(_) => {
+                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
+            }
+            bevy_time::TrySendError::Disconnected(_) => {
+                // ignore disconnected errors, the main world probably just got dropped during shutdown
+            }
+        }
+    }
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
@@ -98,7 +105,7 @@ pub fn render_system(world: &mut World) {
 pub struct RenderQueue(pub Arc<Queue>);
 
 /// The handle to the physical device being used for rendering.
-/// See [`wgpu::Adapter`] for more info.
+/// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
 pub struct RenderAdapter(pub Arc<Adapter>);
 
@@ -259,6 +266,9 @@ pub async fn initialize_renderer(
             max_bindings_per_bind_group: limits
                 .max_bindings_per_bind_group
                 .min(constrained_limits.max_bindings_per_bind_group),
+            max_non_sampler_bindings: limits
+                .max_non_sampler_bindings
+                .min(constrained_limits.max_non_sampler_bindings),
         };
     }
 

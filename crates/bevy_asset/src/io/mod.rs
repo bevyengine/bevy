@@ -1,5 +1,13 @@
+#[cfg(all(feature = "file_watcher", target_arch = "wasm32"))]
+compile_error!(
+    "The \"file_watcher\" feature for hot reloading does not work \
+    on WASM.\nDisable \"file_watcher\" \
+    when compiling to WASM"
+);
+
 #[cfg(target_os = "android")]
 pub mod android;
+pub mod embedded;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod file;
 pub mod gated;
@@ -8,13 +16,12 @@ pub mod processor_gated;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
-mod provider;
+mod source;
 
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
-pub use provider::*;
+pub use source::*;
 
 use bevy_utils::BoxedFuture;
-use crossbeam_channel::Sender;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::{
@@ -64,13 +71,6 @@ pub trait AssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<bool, AssetReaderError>>;
-
-    /// Returns an Asset watcher that will send events on the given channel.
-    /// If this reader does not support watching for changes, this will return [`None`].
-    fn watch_for_changes(
-        &self,
-        event_sender: Sender<AssetSourceEvent>,
-    ) -> Option<Box<dyn AssetWatcher>>;
 
     /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
     /// function that wraps [`AssetReader::read_meta`] by default.
@@ -179,7 +179,7 @@ pub trait AssetWriter: Send + Sync + 'static {
 }
 
 /// An "asset source change event" that occurs whenever asset (or asset metadata) is created/added/removed
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AssetSourceEvent {
     /// An asset at this path was added.
     AddedAsset(PathBuf),
@@ -218,8 +218,6 @@ pub enum AssetSourceEvent {
 
 /// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
 /// [`AssetWatcher`] has not been dropped.
-///
-/// See [`AssetReader::watch_for_changes`].
 pub trait AssetWatcher: Send + Sync + 'static {}
 
 /// An [`AsyncRead`] implementation capable of reading a [`Vec<u8>`].
@@ -240,10 +238,10 @@ impl VecReader {
 
 impl AsyncRead for VecReader {
     fn poll_read(
-        mut self: std::pin::Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
-    ) -> std::task::Poll<futures_io::Result<usize>> {
+    ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.bytes.len() {
             Poll::Ready(Ok(0))
         } else {

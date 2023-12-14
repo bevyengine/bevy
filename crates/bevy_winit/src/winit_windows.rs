@@ -1,10 +1,9 @@
 #![warn(missing_docs)]
-use std::sync::atomic::Ordering;
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{NodeBuilder, NodeClassSet, Role, Tree, TreeUpdate},
-    AccessKitEntityExt, AccessibilityRequested,
+    accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
+    AccessibilityRequested,
 };
 use bevy_ecs::entity::Entity;
 
@@ -83,7 +82,7 @@ impl WinitWindows {
 
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
+                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf.into()))
                 } else {
                     winit_window_builder.with_inner_size(logical_size)
                 }
@@ -151,17 +150,17 @@ impl WinitWindows {
         root_builder.set_name(name.into_boxed_str());
         let root = root_builder.build(&mut NodeClassSet::lock_global());
 
-        let accesskit_window_id = entity.to_node_id();
+        let accesskit_window_id = NodeId(entity.to_bits());
         let handler = WinitActionHandler::default();
-        let accessibility_requested = (*accessibility_requested).clone();
+        let accessibility_requested = accessibility_requested.clone();
         let adapter = Adapter::with_action_handler(
             &winit_window,
             move || {
-                accessibility_requested.store(true, Ordering::SeqCst);
+                accessibility_requested.set(true);
                 TreeUpdate {
                     nodes: vec![(accesskit_window_id, root)],
                     tree: Some(Tree::new(accesskit_window_id)),
-                    focus: None,
+                    focus: accesskit_window_id,
                 }
             },
             Box::new(handler.clone()),
@@ -240,7 +239,7 @@ impl WinitWindows {
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_fitting_videomode(
-    monitor: &winit::monitor::MonitorHandle,
+    monitor: &MonitorHandle,
     width: u32,
     height: u32,
 ) -> winit::monitor::VideoMode {
@@ -274,7 +273,7 @@ pub fn get_fitting_videomode(
 /// Gets the "best" videomode from a monitor.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
+pub fn get_best_videomode(monitor: &MonitorHandle) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;
@@ -294,21 +293,19 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
 
 pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode) {
     let grab_result = match grab_mode {
-        bevy_window::CursorGrabMode::None => {
-            winit_window.set_cursor_grab(winit::window::CursorGrabMode::None)
-        }
-        bevy_window::CursorGrabMode::Confined => winit_window
+        CursorGrabMode::None => winit_window.set_cursor_grab(winit::window::CursorGrabMode::None),
+        CursorGrabMode::Confined => winit_window
             .set_cursor_grab(winit::window::CursorGrabMode::Confined)
             .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Locked)),
-        bevy_window::CursorGrabMode::Locked => winit_window
+        CursorGrabMode::Locked => winit_window
             .set_cursor_grab(winit::window::CursorGrabMode::Locked)
             .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Confined)),
     };
 
     if let Err(err) = grab_result {
         let err_desc = match grab_mode {
-            bevy_window::CursorGrabMode::Confined | bevy_window::CursorGrabMode::Locked => "grab",
-            bevy_window::CursorGrabMode::None => "ungrab",
+            CursorGrabMode::Confined | CursorGrabMode::Locked => "grab",
+            CursorGrabMode::None => "ungrab",
         };
 
         bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);

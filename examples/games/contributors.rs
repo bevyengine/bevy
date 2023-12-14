@@ -1,6 +1,9 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{prelude::*, utils::HashSet};
+use bevy::{
+    prelude::*,
+    utils::{thiserror, HashSet},
+};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
@@ -146,13 +149,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 60.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             ),
             TextSection::from_style(TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 60.0,
-                color: Color::WHITE,
+                ..default()
             }),
         ])
         .with_style(Style {
@@ -309,9 +312,13 @@ fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
 enum LoadContributorsError {
-    IO(io::Error),
-    Var(VarError),
+    #[error("An IO error occurred while reading the git log.")]
+    Io(#[from] io::Error),
+    #[error("The CARGO_MANIFEST_DIR environment variable was not set.")]
+    Var(#[from] VarError),
+    #[error("The git process did not return a stdout handle.")]
     Stdout,
 }
 
@@ -321,14 +328,13 @@ enum LoadContributorsError {
 /// This function only works if `git` is installed and
 /// the program is run through `cargo`.
 fn contributors() -> Result<Contributors, LoadContributorsError> {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(LoadContributorsError::Var)?;
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
 
     let mut cmd = std::process::Command::new("git")
         .args(["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
-        .spawn()
-        .map_err(LoadContributorsError::IO)?;
+        .spawn()?;
 
     let stdout = cmd.stdout.take().ok_or(LoadContributorsError::Stdout)?;
 
