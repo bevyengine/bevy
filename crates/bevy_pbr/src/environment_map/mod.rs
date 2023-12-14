@@ -6,7 +6,11 @@ use bevy_core_pipeline::{
     core_3d::{self, CORE_3D},
     prelude::Camera3d,
 };
-use bevy_ecs::{prelude::Component, query::With, schedule::IntoSystemConfigs};
+use bevy_ecs::{
+    prelude::Component,
+    query::{QueryItem, With},
+    schedule::IntoSystemConfigs,
+};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -129,11 +133,11 @@ impl EnvironmentMapLight {
 }
 
 impl ExtractComponent for EnvironmentMapLight {
-    type Query = &'static Self;
+    type Data = &'static Self;
     type Filter = With<Camera3d>;
     type Out = Self;
 
-    fn extract_component(item: bevy_ecs::query::QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<'_, Self::Data>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }

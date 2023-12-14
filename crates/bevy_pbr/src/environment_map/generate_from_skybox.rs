@@ -463,13 +463,13 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
 pub struct GenerateEnvironmentMapLightNode;
 
 impl ViewNode for GenerateEnvironmentMapLightNode {
-    type ViewQuery = &'static GenerateEnvironmentMapLightBindGroups;
+    type ViewData = &'static GenerateEnvironmentMapLightBindGroups;
 
     fn run(
         &self,
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        bind_groups: QueryItem<Self::ViewQuery>,
+        bind_groups: QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -490,6 +490,7 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
         let command_encoder = render_context.command_encoder();
         let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("generate_environment_map_light_pass"),
+            timestamp_writes: None,
         });
 
         pass.set_pipeline(downsample_pipeline);
