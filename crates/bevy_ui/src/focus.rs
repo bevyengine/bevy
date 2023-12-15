@@ -3,11 +3,11 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     prelude::{Component, With},
-    query::WorldQuery,
+    query::QueryData,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
-use bevy_input::{mouse::MouseButton, touch::Touches, Input};
+use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
@@ -105,8 +105,8 @@ pub struct State {
 }
 
 /// Main query for [`ui_focus_system`]
-#[derive(WorldQuery)]
-#[world_query(mutable)]
+#[derive(QueryData)]
+#[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,
@@ -128,7 +128,7 @@ pub fn ui_focus_system(
     camera_query: Query<(Entity, &Camera, Option<&UiCameraConfig>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
     ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
@@ -187,7 +187,7 @@ pub fn ui_focus_system(
         })
         // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
         // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|(entity, cursor_position)| (entity, cursor_position / ui_scale.0 as f32))
+        .map(|(entity, cursor_position)| (entity, cursor_position / ui_scale.0))
         .collect();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,

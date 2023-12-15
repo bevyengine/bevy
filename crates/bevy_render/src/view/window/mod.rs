@@ -266,7 +266,7 @@ pub fn prepare_windows(
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
                 // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
-                let mut format = *formats.get(0).expect("No supported formats for surface");
+                let mut format = *formats.first().expect("No supported formats for surface");
                 for available_format in formats {
                     // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
                     if available_format == TextureFormat::Rgba8UnormSrgb
@@ -284,7 +284,7 @@ pub fn prepare_windows(
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
                 PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,

@@ -3,7 +3,7 @@ use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DeriveInput, Path};
 
-pub(crate) fn bevy_asset_path() -> syn::Path {
+pub(crate) fn bevy_asset_path() -> Path {
     BevyManifest::default().get_path("bevy_asset")
 }
 

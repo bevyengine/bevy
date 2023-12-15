@@ -18,19 +18,18 @@ pub use time::*;
 pub use timer::*;
 pub use virt::*;
 
-use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::{tracing::warn, Duration, Instant};
-pub use crossbeam_channel::TrySendError;
-use crossbeam_channel::{Receiver, Sender};
-
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
     pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
-use bevy_app::{prelude::*, RunFixedUpdateLoop};
+use bevy_app::{prelude::*, RunFixedMainLoop};
+use bevy_ecs::event::{event_queue_update_system, EventUpdateSignal};
 use bevy_ecs::prelude::*;
+use bevy_utils::{tracing::warn, Duration, Instant};
+pub use crossbeam_channel::TrySendError;
+use crossbeam_channel::{Receiver, Sender};
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
@@ -58,7 +57,11 @@ impl Plugin for TimePlugin {
                 First,
                 (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
             )
-            .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
+            .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
+
+        // ensure the events are not dropped until `FixedMain` systems can observe them
+        app.init_resource::<EventUpdateSignal>()
+            .add_systems(FixedPostUpdate, event_queue_update_system);
 
         #[cfg(feature = "bevy_ci_testing")]
         if let Some(ci_testing_config) = app

@@ -65,9 +65,8 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let render_app = match app.get_sub_app_mut(RenderApp) {
-        Ok(render_app) => render_app,
-        Err(_) => return,
+    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
     };
 
     render_app
@@ -329,7 +328,7 @@ pub fn extract_uinode_borders(
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
-            / ui_scale.0 as f32;
+            / ui_scale.0;
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
@@ -413,16 +412,16 @@ pub fn extract_uinode_outlines(
             &GlobalTransform,
             &Outline,
             &ViewVisibility,
+            Option<&CalculatedClip>,
             Option<&Parent>,
             Option<&TargetCamera>,
         )>,
     >,
-    clip_query: Query<&CalculatedClip>,
 ) {
     // If there is only one camera, we use it as default
     let default_single_camera = camera_query.get_single().ok();
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, view_visibility, maybe_parent, camera) in &uinode_query {
+    for (node, global_transform, outline, view_visibility, maybe_clip, maybe_parent, camera) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };
@@ -433,10 +432,6 @@ pub fn extract_uinode_outlines(
         {
             continue;
         }
-
-        // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
-        let clip =
-            maybe_parent.and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
 
         // Calculate the outline rects.
         let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
@@ -489,7 +484,7 @@ pub fn extract_uinode_outlines(
                         },
                         image,
                         atlas_size: None,
-                        clip,
+                        clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
                         camera_entity,
@@ -583,7 +578,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    let scale = (ui_scale.0 as f32).recip();
+    let scale = (ui_scale.0).recip();
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
@@ -675,12 +670,12 @@ pub fn extract_text_uinodes(
             continue;
         }
 
-        let scale_factor = (camera_query
+        let scale_factor = camera_query
             .get(camera_entity)
             .ok()
             .and_then(|(_, c)| c.target_scaling_factor())
             .unwrap_or(1.0)
-            * ui_scale.0) as f32;
+            * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();
 
         let mut affine = global_transform.affine();

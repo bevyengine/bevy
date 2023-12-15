@@ -23,7 +23,7 @@ use taffy::Taffy;
 use thiserror::Error;
 
 pub struct LayoutContext {
-    pub scale_factor: f64,
+    pub scale_factor: f32,
     pub physical_size: Vec2,
     pub min_size: f32,
     pub max_size: f32,
@@ -31,7 +31,7 @@ pub struct LayoutContext {
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f64, physical_size: Vec2) -> Self {
+    fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
@@ -382,7 +382,7 @@ pub fn ui_layout_system(
                 &ui_surface,
                 &mut node_transform_query,
                 &just_children_query,
-                inverse_target_scale_factor as f32,
+                inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
             );
@@ -448,7 +448,7 @@ pub fn resolve_outlines_system(
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
         .unwrap_or(Vec2::ZERO)
-        / ui_scale.0 as f32;
+        / ui_scale.0;
 
     for (outline, mut node) in outlines_query.iter_mut() {
         let node = node.bypass_change_detection();
@@ -459,7 +459,7 @@ pub fn resolve_outlines_system(
             .max(0.);
 
         node.outline_offset = outline
-            .width
+            .offset
             .resolve(node.size().x, viewport_size)
             .unwrap_or(0.)
             .max(0.);
@@ -880,7 +880,7 @@ mod tests {
             .copied()
             .collect::<Vec<Entity>>();
 
-        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f64).recip()) {
+        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f32).recip()) {
             let mut s = r;
             while s <= 5. {
                 world.resource_mut::<UiScale>().0 = s;

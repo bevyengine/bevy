@@ -25,6 +25,7 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
+    has_deferred: bool,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -40,6 +41,7 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
+            has_deferred: false,
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -67,6 +69,18 @@ impl SystemMeta {
     pub fn set_non_send(&mut self) {
         self.is_send = false;
     }
+
+    /// Returns true if the system has deferred [`SystemParam`]'s
+    #[inline]
+    pub fn has_deferred(&self) -> bool {
+        self.has_deferred
+    }
+
+    /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
+    /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
+    pub fn set_has_deferred(&mut self) {
+        self.has_deferred = true;
+    }
 }
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
@@ -75,7 +89,7 @@ impl SystemMeta {
 ///
 /// This is a powerful and convenient tool for working with exclusive world access,
 /// allowing you to fetch data from the [`World`] as if you were running a [`System`].
-/// However, simply calling `world::run_system(my_system)` using a [`World::run_system`](crate::system::World::run_system)
+/// However, simply calling `world::run_system(my_system)` using a [`World::run_system`](World::run_system)
 /// can be significantly simpler and ensures that change detection and command flushing work as expected.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
@@ -92,7 +106,7 @@ impl SystemMeta {
 /// - [`Local`](crate::system::Local) variables that hold state
 /// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
 ///
-/// Note that this is automatically handled for you when using a [`World::run_system`](crate::system::World::run_system).
+/// Note that this is automatically handled for you when using a [`World::run_system`](World::run_system).
 ///
 /// # Example
 ///
@@ -465,6 +479,11 @@ where
     }
 
     #[inline]
+    fn has_deferred(&self) -> bool {
+        self.system_meta.has_deferred
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
@@ -485,14 +504,6 @@ where
         let out = self.func.run(input, params);
         self.system_meta.last_run = change_tick;
         out
-    }
-
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
     }
 
     #[inline]
@@ -532,6 +543,14 @@ where
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 }
 

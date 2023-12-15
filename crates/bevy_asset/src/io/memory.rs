@@ -216,10 +216,10 @@ struct DataReader {
 
 impl AsyncRead for DataReader {
     fn poll_read(
-        mut self: std::pin::Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
-    ) -> std::task::Poll<futures_io::Result<usize>> {
+    ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.data.value().len() {
             Poll::Ready(Ok(0))
         } else {
@@ -286,7 +286,7 @@ impl AssetReader for MemoryAssetReader {
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
         Box::pin(async move { Ok(self.root.get_dir(path).is_some()) })
     }
 }

@@ -444,7 +444,7 @@ impl<'a> ReflectStruct<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
-    /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method
+    /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](ReflectMeta) method
     pub fn get_type_registration(
         &self,
         where_clause_options: &WhereClauseOptions,
@@ -457,7 +457,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<syn::Type> {
+    pub fn active_types(&self) -> Vec<Type> {
         self.active_fields()
             .map(|field| field.data.ty.clone())
             .collect()
@@ -605,14 +605,14 @@ pub(crate) enum ReflectTypePath<'a> {
     ///
     /// May have a separate alias path used for the `TypePath` implementation.
     ///
-    /// Module and crate are found with [`module_path!()`](core::module_path),
+    /// Module and crate are found with [`module_path!()`](module_path),
     /// if there is no custom path specified.
     Internal {
         ident: &'a Ident,
         custom_path: Option<Path>,
         generics: &'a Generics,
     },
-    /// Any [`syn::Type`] with only a defined `type_path` and `short_type_path`.
+    /// Any [`Type`] with only a defined `type_path` and `short_type_path`.
     #[allow(dead_code)]
     // Not currently used but may be useful in the future due to its generality.
     Anonymous {
