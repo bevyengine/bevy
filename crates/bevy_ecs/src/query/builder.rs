@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{component::ComponentId, prelude::*};
 
-use super::{FilteredAccess, WorldQueryData, WorldQueryFilter};
+use super::{FilteredAccess, QueryData, QueryFilter};
 
 /// Builder struct to create [`QueryState`] instances at runtime.
 ///
@@ -32,22 +32,22 @@ use super::{FilteredAccess, WorldQueryData, WorldQueryFilter};
 /// // Consume the QueryState
 /// let (entity, b) = query.single(&world);
 ///```
-pub struct QueryBuilder<'w, Q: WorldQueryData = (), F: WorldQueryFilter = ()> {
+pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
     world: &'w mut World,
     or: bool,
     first: bool,
-    _marker: PhantomData<(Q, F)>,
+    _marker: PhantomData<(D, F)>,
 }
 
-impl<'w, Q: WorldQueryData, F: WorldQueryFilter> QueryBuilder<'w, Q, F> {
+impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// Creates a new builder with the accesses required for `Q` and `F`
     pub fn new(world: &'w mut World) -> Self {
-        let fetch_state = Q::init_state(world);
+        let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
 
         let mut access = FilteredAccess::default();
-        Q::update_component_access(&fetch_state, &mut access);
+        D::update_component_access(&fetch_state, &mut access);
 
         // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
         // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
@@ -94,7 +94,7 @@ impl<'w, Q: WorldQueryData, F: WorldQueryFilter> QueryBuilder<'w, Q, F> {
     }
 
     /// Adds accesses required for `T` to self.
-    pub fn data<T: WorldQueryData>(&mut self) -> &mut Self {
+    pub fn data<T: QueryData>(&mut self) -> &mut Self {
         let state = T::init_state(self.world);
         let mut access = FilteredAccess::default();
         T::update_component_access(&state, &mut access);
@@ -103,7 +103,7 @@ impl<'w, Q: WorldQueryData, F: WorldQueryFilter> QueryBuilder<'w, Q, F> {
     }
 
     /// Adds filter from `T` to self.
-    pub fn filter<T: WorldQueryFilter>(&mut self) -> &mut Self {
+    pub fn filter<T: QueryFilter>(&mut self) -> &mut Self {
         let state = T::init_state(self.world);
         let mut access = FilteredAccess::default();
         T::update_component_access(&state, &mut access);
@@ -213,22 +213,22 @@ impl<'w, Q: WorldQueryData, F: WorldQueryFilter> QueryBuilder<'w, Q, F> {
     /// This will maintain all exisiting accesses.
     ///
     /// If including a filter type see [`Self::transmute_filtered`]
-    pub fn transmute<NewQ: WorldQueryData>(&mut self) -> &mut QueryBuilder<'w, NewQ> {
-        self.transmute_filtered::<NewQ, ()>()
+    pub fn transmute<NewD: QueryData>(&mut self) -> &mut QueryBuilder<'w, NewD> {
+        self.transmute_filtered::<NewD, ()>()
     }
 
     /// Transmute the existing builder adding required accesses.
     /// This will maintain all existing accesses.
-    pub fn transmute_filtered<NewQ: WorldQueryData, NewF: WorldQueryFilter>(
+    pub fn transmute_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
-    ) -> &mut QueryBuilder<'w, NewQ, NewF> {
-        let mut fetch_state = NewQ::init_state(self.world);
+    ) -> &mut QueryBuilder<'w, NewD, NewF> {
+        let mut fetch_state = NewD::init_state(self.world);
         let filter_state = NewF::init_state(self.world);
 
-        NewQ::set_access(&mut fetch_state, &self.access);
+        NewD::set_access(&mut fetch_state, &self.access);
 
         let mut access = FilteredAccess::default();
-        NewQ::update_component_access(&fetch_state, &mut access);
+        NewD::update_component_access(&fetch_state, &mut access);
         NewF::update_component_access(&filter_state, &mut access);
 
         self.extend_access(access);
@@ -242,8 +242,8 @@ impl<'w, Q: WorldQueryData, F: WorldQueryFilter> QueryBuilder<'w, Q, F> {
     ///
     /// Takes `&mut self` to access the innner world reference while initializing
     /// state for the new [`QueryState`]
-    pub fn build(&mut self) -> QueryState<Q, F> {
-        QueryState::<Q, F>::from_builder(self)
+    pub fn build(&mut self) -> QueryState<D, F> {
+        QueryState::<D, F>::from_builder(self)
     }
 }
 

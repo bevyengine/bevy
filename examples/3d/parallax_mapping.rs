@@ -79,7 +79,7 @@ impl CurrentMethod {
 }
 
 fn update_parallax_depth_scale(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
@@ -111,7 +111,7 @@ fn update_parallax_depth_scale(
 }
 
 fn switch_method(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut text: Query<&mut Text>,
     mut current: Local<CurrentMethod>,
@@ -130,7 +130,7 @@ fn switch_method(
 }
 
 fn update_parallax_layers(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
     mut text: Query<&mut Text>,
@@ -187,7 +187,7 @@ const CAMERA_POSITIONS: &[Transform] = &[
 fn move_camera(
     mut camera: Query<&mut Transform, With<CameraController>>,
     mut current_view: Local<usize>,
-    button: Res<Input<MouseButton>>,
+    button: Res<ButtonInput<MouseButton>>,
 ) {
     let mut camera = camera.single_mut();
     if button.just_pressed(MouseButton::Left) {

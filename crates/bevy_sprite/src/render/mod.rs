@@ -756,6 +756,7 @@ pub fn prepare_sprites(
     }
 }
 
+/// [`RenderCommand`] for sprite rendering.
 pub type DrawSprite = (
     SetItemPipeline,
     SetSpriteViewBindGroup<0>,
@@ -766,8 +767,8 @@ pub type DrawSprite = (
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = SRes<SpriteMeta>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
+    type ViewData = Read<ViewUniformOffset>;
+    type ItemData = ();
 
     fn render<'w>(
         _item: &P,
@@ -787,8 +788,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<ImageBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+    type ViewData = ();
+    type ItemData = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
@@ -814,8 +815,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+    type ViewData = ();
+    type ItemData = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,

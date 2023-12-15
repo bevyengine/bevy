@@ -31,8 +31,8 @@ fn mesh2d_position_local_to_clip(model: mat4x4<f32>, vertex_position: vec4<f32>)
 
 fn mesh2d_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> vec3<f32> {
     return mat2x4_f32_to_mat3x3_unpack(
-        mesh[instance_index].inverse_transpose_model_a,
-        mesh[instance_index].inverse_transpose_model_b,
+        mesh[get_instance_index(instance_index)].inverse_transpose_model_a,
+        mesh[get_instance_index(instance_index)].inverse_transpose_model_b,
     ) * vertex_normal;
 }
 

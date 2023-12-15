@@ -52,7 +52,7 @@ pub trait Command: Send + 'static {
     fn apply(self, world: &mut World);
 }
 
-/// A [`Command`] queue to perform impactful changes to the [`World`].
+/// A [`Command`] queue to perform structural changes to the [`World`].
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
@@ -812,9 +812,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityWorldMut::remove`](EntityWorldMut::remove) for more
-    /// details.
-    ///
     /// # Example
     ///
     /// ```
@@ -859,6 +856,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Despawns the entity.
     ///
     /// See [`World::despawn`] for more details.
+    ///
+    /// # Note
+    ///
+    /// This won't clean up external references to the entity (such as parent-child relationships
+    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
     ///
     /// # Panics
     ///
@@ -905,6 +907,51 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     pub fn add<C: EntityCommand>(&mut self, command: C) -> &mut Self {
         self.commands.add(command.with_entity(self.entity));
+        self
+    }
+
+    /// Removes all components except the given [`Bundle`] from the entity.
+    ///
+    /// This can also be used to remove all the components from the entity by passing it an empty Bundle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // You can retain a pre-defined Bundle of components,
+    ///         // with this removing only the Defense component
+    ///         .retain::<CombatBundle>()
+    ///         // You can also retain only a single component
+    ///         .retain::<Health>()
+    ///         // And you can remove all the components by passing in an empty Bundle
+    ///         .retain::<()>();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
+    /// ```
+    pub fn retain<T>(&mut self) -> &mut Self
+    where
+        T: Bundle,
+    {
+        self.commands.add(Retain::<T>::new(self.entity));
         self
     }
 
@@ -1014,6 +1061,11 @@ where
 
 /// A [`Command`] that despawns a specific entity.
 /// This will emit a warning if the entity does not exist.
+///
+/// # Note
+///
+/// This won't clean up external references to the entity (such as parent-child relationships
+/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
 #[derive(Debug)]
 pub struct Despawn {
     /// The entity that will be despawned.
@@ -1089,6 +1141,37 @@ where
 
 impl<T> Remove<T> {
     /// Creates a [`Command`] which will remove the specified [`Entity`] when applied.
+    pub const fn new(entity: Entity) -> Self {
+        Self {
+            entity,
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// A [`Command`] that removes components from an entity.
+/// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
+/// Any components in the bundle that aren't found on the entity will be ignored.
+#[derive(Debug)]
+pub struct Retain<T> {
+    /// The entity from which the components will be removed.
+    pub entity: Entity,
+    _marker: PhantomData<T>,
+}
+
+impl<T> Command for Retain<T>
+where
+    T: Bundle,
+{
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
+            entity_mut.retain::<T>();
+        }
+    }
+}
+
+impl<T> Retain<T> {
+    /// Creates a [`Command`] which will remove all but the specified components when applied.
     pub const fn new(entity: Entity) -> Self {
         Self {
             entity,

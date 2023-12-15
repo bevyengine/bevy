@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
-        query::{QueryBuilder, WorldQueryData},
+        query::{QueryBuilder, QueryData},
         world::FilteredEntityMut,
     },
     ptr::OwningPtr,
@@ -181,7 +181,7 @@ fn main() {
     }
 }
 
-fn parse_term<Q: WorldQueryData>(
+fn parse_term<Q: QueryData>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
     components: &HashMap<String, ComponentId>,
@@ -222,7 +222,7 @@ fn parse_term<Q: WorldQueryData>(
     }
 }
 
-fn parse_query<Q: WorldQueryData>(
+fn parse_query<Q: QueryData>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
     components: &HashMap<String, ComponentId>,
