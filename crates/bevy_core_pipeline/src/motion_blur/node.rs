@@ -22,7 +22,7 @@ use super::{
 pub struct MotionBlurNode;
 
 impl ViewNode for MotionBlurNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ViewTarget,
         &'static MotionBlurPipelineId,
         &'static ViewPrepassTextures,
@@ -31,7 +31,7 @@ impl ViewNode for MotionBlurNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, pipeline_id, prepass_textures): QueryItem<Self::ViewQuery>,
+        (view_target, pipeline_id, prepass_textures): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let motion_blur_pipeline = world.resource::<MotionBlurPipeline>();
@@ -103,6 +103,8 @@ impl ViewNode for MotionBlurNode {
                 ops: Operations::default(),
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         render_pass.set_render_pipeline(pipeline);
