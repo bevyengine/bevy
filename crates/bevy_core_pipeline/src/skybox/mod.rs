@@ -15,12 +15,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_cube, uniform_buffer},
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-        DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
-        TextureFormat, TextureSampleType, VertexState,
+        *,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
@@ -85,12 +80,12 @@ pub struct Skybox {
 }
 
 impl ExtractComponent for Skybox {
-    type Query = (&'static Self, Option<&'static ExposureSettings>);
+    type Data = (&'static Self, Option<&'static ExposureSettings>);
     type Filter = ();
     type Out = (Self, SkyboxUniforms);
 
     fn extract_component(
-        (skybox, exposure_settings): QueryItem<'_, Self::Query>,
+        (skybox, exposure_settings): QueryItem<'_, Self::Data>,
     ) -> Option<Self::Out> {
         let exposure = exposure_settings
             .map(|e| e.exposure())
