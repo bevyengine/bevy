@@ -64,8 +64,8 @@ struct Unused;
 /// they are read only (except for local parameters which can be mutable).
 /// It returns a bool which determines if the system should run.
 fn has_user_input(
-    keyboard_input: Res<Input<KeyCode>>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     touch_input: Res<Touches>,
 ) -> bool {
     keyboard_input.just_pressed(KeyCode::Space)

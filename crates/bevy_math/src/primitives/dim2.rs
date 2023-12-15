@@ -3,6 +3,7 @@ use crate::Vec2;
 
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
 
 impl Direction2d {
@@ -27,7 +28,15 @@ impl Direction2d {
         )
     }
 
-    /// Create a direction from a [`Vec2`] that is already normalized
+    /// Create a direction from its `x` and `y` components.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
+        Self::new(Vec2::new(x, y))
+    }
+
+    /// Create a direction from a [`Vec2`] that is already normalized.
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
@@ -85,6 +94,20 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Plane2d {
+    /// Create a new `Plane2d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
+    pub fn new(normal: Vec2) -> Self {
+        Self {
+            normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
+        }
+    }
+}
 
 /// An infinite line along a direction in 2D space.
 ///
