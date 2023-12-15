@@ -1,8 +1,8 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypePathTable, UnnamedField,
+    self as bevy_reflect, DynamicTuple, Reflect, ReflectMut, ReflectOwned, ReflectRef, Tuple,
+    TypeInfo, TypePath, TypePathTable, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -390,6 +390,15 @@ impl Debug for DynamicTupleStruct {
     }
 }
 
+impl From<DynamicTuple> for DynamicTupleStruct {
+    fn from(value: DynamicTuple) -> Self {
+        Self {
+            represented_type: None,
+            fields: Box::new(value).drain(),
+        }
+    }
+}
+
 /// Compares a [`TupleStruct`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
@@ -442,9 +451,14 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 #[inline]
 pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
-    f: &mut std::fmt::Formatter<'_>,
+    f: &mut Formatter<'_>,
 ) -> std::fmt::Result {
-    let mut debug = f.debug_tuple(dyn_tuple_struct.reflect_type_path());
+    let mut debug = f.debug_tuple(
+        dyn_tuple_struct
+            .get_represented_type_info()
+            .map(|s| s.type_path())
+            .unwrap_or("_"),
+    );
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }

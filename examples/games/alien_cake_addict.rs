@@ -1,9 +1,5 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
@@ -196,7 +192,7 @@ fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Wi
 // control the game character
 fn move_player(
     mut commands: Commands,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut game: ResMut<Game>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time>,
@@ -380,7 +376,7 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
 // restart the game when pressing spacebar
 fn gameover_keyboard(
     mut next_state: ResMut<NextState<GameState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         next_state.set(GameState::Playing);

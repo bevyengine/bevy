@@ -9,7 +9,7 @@
 // XeGTAO does a 3x3 filter, on two pixels at a time per compute thread, applied twice
 // We do a 3x3 filter, on 1 pixel per compute thread, applied once
 
-#import bevy_render::view View
+#import bevy_render::view::View
 
 @group(0) @binding(0) var ambient_occlusion_noisy: texture_2d<f32>;
 @group(0) @binding(1) var depth_differences: texture_2d<u32>;

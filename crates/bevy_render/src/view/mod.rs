@@ -9,6 +9,7 @@ use crate::{
     camera::{ExposureSettings, ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
+    primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -169,8 +170,10 @@ pub struct ViewUniform {
     exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
+    frustum: [Vec4; 6],
     color_grading: ColorGrading,
     mip_bias: f32,
+    render_layers: u32,
 }
 
 #[derive(Resource, Default)]
@@ -354,8 +357,10 @@ pub fn prepare_view_uniforms(
         Entity,
         Option<&ExtractedCamera>,
         &ExtractedView,
+        Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
+        Option<&RenderLayers>,
     )>,
 ) {
     let view_iter = views.iter();
@@ -367,7 +372,16 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (entity, extracted_camera, extracted_view, temporal_jitter, mip_bias) in &views {
+    for (
+        entity,
+        extracted_camera,
+        extracted_view,
+        frustum,
+        temporal_jitter,
+        mip_bias,
+        maybe_layers,
+    ) in &views
+    {
         let viewport = extracted_view.viewport.as_vec4();
         let unjittered_projection = extracted_view.projection;
         let mut projection = unjittered_projection;
@@ -388,6 +402,11 @@ pub fn prepare_view_uniforms(
                 .unwrap_or_else(|| projection * inverse_view)
         };
 
+        // Map Frustum type to shader array<vec4<f32>, 6>
+        let frustum = frustum
+            .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
+            .unwrap_or([Vec4::ZERO; 6]);
+
         let view_uniforms = ViewUniformOffset {
             offset: writer.write(&ViewUniform {
                 view_proj,
@@ -402,8 +421,10 @@ pub fn prepare_view_uniforms(
                     .map(|c| c.exposure)
                     .unwrap_or_else(|| ExposureSettings::default().exposure()),
                 viewport,
+                frustum,
                 color_grading: extracted_view.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+                render_layers: maybe_layers.copied().unwrap_or_default().bits(),
             }),
         };
 

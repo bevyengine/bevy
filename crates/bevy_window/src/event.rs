@@ -57,7 +57,7 @@ pub struct WindowCreated {
 /// be closed. This will be sent when the close button of the window is pressed.
 ///
 /// If the default [`WindowPlugin`] is used, these events are handled
-/// by closing the corresponding [`Window`].  
+/// by closing the corresponding [`Window`].
 /// To disable this behavior, set `close_when_requested` on the [`WindowPlugin`]
 /// to `false`.
 ///
@@ -236,6 +236,29 @@ pub struct WindowFocused {
     pub focused: bool,
 }
 
+/// The window has been occluded (completely hidden from view).
+///
+/// This is different to window visibility as it depends on
+/// whether the window is closed, minimised, set invisible,
+/// or fully occluded by another window.
+///
+/// It is the translated version of [`WindowEvent::Occluded`] from the `winit` crate.
+///
+/// [`WindowEvent::Occluded`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.Occluded
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowOccluded {
+    /// Window that changed occluded state.
+    pub window: Entity,
+    /// Whether it was occluded (true) or not occluded (false).
+    pub occluded: bool,
+}
+
 /// An event that indicates a window's scale factor has changed.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
@@ -329,4 +352,23 @@ pub struct WindowThemeChanged {
     pub window: Entity,
     /// The new system theme.
     pub theme: WindowTheme,
+}
+
+/// Application lifetime events
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum ApplicationLifetime {
+    /// The application just started.
+    Started,
+    /// The application was suspended.
+    ///
+    /// On Android, applications have one frame to react to this event before being paused in the background.
+    Suspended,
+    /// The application was resumed.
+    Resumed,
 }

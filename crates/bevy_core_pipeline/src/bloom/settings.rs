@@ -24,7 +24,6 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// blurred (lower frequency) images generated from the camera's view.
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
-#[allow(clippy::doc_markdown)]
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default)]
 pub struct BloomSettings {
@@ -183,12 +182,12 @@ pub enum BloomCompositeMode {
 }
 
 impl ExtractComponent for BloomSettings {
-    type Query = (&'static Self, &'static Camera);
+    type Data = (&'static Self, &'static Camera);
 
     type Filter = ();
     type Out = (Self, BloomUniforms);
 
-    fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+    fn extract_component((settings, camera): QueryItem<'_, Self::Data>) -> Option<Self::Out> {
         match (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),

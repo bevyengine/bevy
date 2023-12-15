@@ -54,7 +54,7 @@ impl ReflectBundle {
         (self.0.from_world)(world)
     }
 
-    /// Insert a reflected [`Bundle`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
+    /// Insert a reflected [`Bundle`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(&self, entity: &mut EntityWorldMut, bundle: &dyn Reflect) {
         (self.0.insert)(entity, bundle);
     }
@@ -118,7 +118,6 @@ impl ReflectBundle {
     /// and copy the subset of function pointers you care about.
     ///
     /// [`TypeRegistration::data::<ReflectBundle>`]: bevy_reflect::TypeRegistration::data
-    /// [`TypeRegistry::get`]: bevy_reflect::TypeRegistry::get
     pub fn fn_pointers(&self) -> &ReflectBundleFns {
         &self.0
     }

@@ -5,10 +5,6 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::prelude::*;
 
 fn main() {
@@ -132,7 +128,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
 const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {

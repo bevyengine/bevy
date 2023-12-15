@@ -98,7 +98,7 @@ pub(crate) mod test_setup {
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
         mut mode: ResMut<ExampleMode>,
-        mouse_button_input: Res<Input<KeyCode>>,
+        mouse_button_input: Res<ButtonInput<KeyCode>>,
     ) {
         if mouse_button_input.just_pressed(KeyCode::Space) {
             *mode = match *mode {
@@ -177,7 +177,6 @@ pub(crate) mod test_setup {
                     "Press spacebar to cycle modes\n",
                     TextStyle {
                         font_size: 50.0,
-                        color: Color::WHITE,
                         ..default()
                     },
                 ),

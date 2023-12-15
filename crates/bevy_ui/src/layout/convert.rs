@@ -17,9 +17,9 @@ impl Val {
         match self {
             Val::Auto => taffy::style::LengthPercentageAuto::Auto,
             Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
-            Val::Px(value) => taffy::style::LengthPercentageAuto::Points(
-                (context.scale_factor * value as f64) as f32,
-            ),
+            Val::Px(value) => {
+                taffy::style::LengthPercentageAuto::Points(context.scale_factor * value)
+            }
             Val::VMin(value) => {
                 taffy::style::LengthPercentageAuto::Points(context.min_size * value / 100.)
             }
@@ -218,6 +218,7 @@ impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
             JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart.into(),
             JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd.into(),
             JustifyContent::Center => taffy::style::JustifyContent::Center.into(),
+            JustifyContent::Stretch => taffy::style::JustifyContent::Stretch.into(),
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween.into(),
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround.into(),
             JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly.into(),
@@ -349,7 +350,7 @@ impl GridTrack {
     ) -> taffy::style::NonRepeatedTrackSizingFunction {
         let min = self.min_sizing_function.into_taffy(context);
         let max = self.max_sizing_function.into_taffy(context);
-        taffy::style_helpers::minmax(min, max)
+        style_helpers::minmax(min, max)
     }
 }
 
@@ -361,7 +362,7 @@ impl RepeatedGridTrack {
         if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
             let min = self.tracks[0].min_sizing_function.into_taffy(context);
             let max = self.tracks[0].max_sizing_function.into_taffy(context);
-            let taffy_track = taffy::style_helpers::minmax(min, max);
+            let taffy_track = style_helpers::minmax(min, max);
             taffy::style::TrackSizingFunction::Single(taffy_track)
         } else {
             let taffy_tracks: Vec<_> = self
@@ -370,22 +371,18 @@ impl RepeatedGridTrack {
                 .map(|track| {
                     let min = track.min_sizing_function.into_taffy(context);
                     let max = track.max_sizing_function.into_taffy(context);
-                    taffy::style_helpers::minmax(min, max)
+                    style_helpers::minmax(min, max)
                 })
                 .collect();
 
             match self.repetition {
-                GridTrackRepetition::Count(count) => {
-                    taffy::style_helpers::repeat(count, taffy_tracks)
+                GridTrackRepetition::Count(count) => style_helpers::repeat(count, taffy_tracks),
+                GridTrackRepetition::AutoFit => {
+                    style_helpers::repeat(taffy::style::GridTrackRepetition::AutoFit, taffy_tracks)
                 }
-                GridTrackRepetition::AutoFit => taffy::style_helpers::repeat(
-                    taffy::style::GridTrackRepetition::AutoFit,
-                    taffy_tracks,
-                ),
-                GridTrackRepetition::AutoFill => taffy::style_helpers::repeat(
-                    taffy::style::GridTrackRepetition::AutoFill,
-                    taffy_tracks,
-                ),
+                GridTrackRepetition::AutoFill => {
+                    style_helpers::repeat(taffy::style::GridTrackRepetition::AutoFill, taffy_tracks)
+                }
             }
         }
     }
@@ -400,7 +397,7 @@ mod tests {
         use sh::TaffyZero;
         use taffy::style_helpers as sh;
 
-        let bevy_style = crate::Style {
+        let bevy_style = Style {
             display: Display::Flex,
             position_type: PositionType::Absolute,
             left: Val::ZERO,

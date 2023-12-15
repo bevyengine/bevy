@@ -53,7 +53,13 @@ impl Measure for TextMeasure {
         _available_height: AvailableSpace,
     ) -> Vec2 {
         let x = width.unwrap_or_else(|| match available_width {
-            AvailableSpace::Definite(x) => x.clamp(self.info.min.x, self.info.max.x),
+            AvailableSpace::Definite(x) => {
+                // It is possible for the "min content width" to be larger than
+                // the "max content width" when soft-wrapping right-aligned text
+                // and possibly other situations.
+
+                x.max(self.info.min.x).min(self.info.max.x)
+            }
             AvailableSpace::MinContent => self.info.min.x,
             AvailableSpace::MaxContent => self.info.max.x,
         });
@@ -74,7 +80,7 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
-    scale_factor: f64,
+    scale_factor: f32,
     text: Ref<Text>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
@@ -111,7 +117,7 @@ fn create_text_measure(
 /// color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 /// method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
-    mut last_scale_factor: Local<f64>,
+    mut last_scale_factor: Local<f32>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
@@ -152,8 +158,8 @@ fn queue_text(
     texture_atlases: &mut Assets<TextureAtlas>,
     textures: &mut Assets<Image>,
     text_settings: &TextSettings,
-    scale_factor: f64,
-    inverse_scale_factor: f64,
+    scale_factor: f32,
+    inverse_scale_factor: f32,
     text: &Text,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
@@ -167,8 +173,8 @@ fn queue_text(
         } else {
             // `scale_factor` is already multiplied by `UiScale`
             Vec2::new(
-                (node.unrounded_size.x as f64 * scale_factor) as f32,
-                (node.unrounded_size.y as f64 * scale_factor) as f32,
+                node.unrounded_size.x * scale_factor,
+                node.unrounded_size.y * scale_factor,
             )
         };
 
@@ -176,7 +182,7 @@ fn queue_text(
             fonts,
             &text.sections,
             scale_factor,
-            text.alignment,
+            text.justify,
             text.linebreak_behavior,
             physical_node_size,
             font_atlas_sets,
@@ -214,7 +220,7 @@ fn queue_text(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    mut last_scale_factor: Local<f64>,
+    mut last_scale_factor: Local<f32>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     text_settings: Res<TextSettings>,

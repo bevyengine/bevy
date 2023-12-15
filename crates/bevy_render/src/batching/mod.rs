@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     prelude::Res,
-    query::{QueryItem, ReadOnlyWorldQuery},
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::{Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::nonmax::NonMaxU32;
@@ -57,8 +57,8 @@ impl<T: PartialEq> BatchMeta<T> {
 /// items.
 pub trait GetBatchData {
     type Param: SystemParam + 'static;
-    type Query: ReadOnlyWorldQuery;
-    type QueryFilter: ReadOnlyWorldQuery;
+    type Data: ReadOnlyQueryData;
+    type Filter: QueryFilter;
     /// Data used for comparison between phase items. If the pipeline id, draw
     /// function id, per-instance data buffer dynamic offset and this data
     /// matches, the draws can be batched.
@@ -72,7 +72,7 @@ pub trait GetBatchData {
     /// for the `CompareData`.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: &QueryItem<Self::Query>,
+        query_item: &QueryItem<Self::Data>,
     ) -> (Self::BufferData, Option<Self::CompareData>);
 }
 
@@ -81,7 +81,7 @@ pub trait GetBatchData {
 pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
     mut views: Query<&mut RenderPhase<I>>,
-    query: Query<F::Query, F::QueryFilter>,
+    query: Query<F::Data, F::Filter>,
     param: StaticSystemParam<F::Param>,
 ) {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
@@ -97,7 +97,11 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
         *item.batch_range_mut() = index..index + 1;
         *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 
-        compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
+        if I::AUTOMATIC_BATCHING {
+            compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
+        } else {
+            None
+        }
     };
 
     for mut phase in &mut views {

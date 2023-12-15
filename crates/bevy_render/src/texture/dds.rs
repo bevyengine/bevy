@@ -1,6 +1,8 @@
-use ddsfile::{D3DFormat, Dds, DxgiFormat};
+use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu::{
+    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+};
 
 use super::{CompressedImageFormats, Image, TextureError};
 
@@ -18,14 +20,29 @@ pub fn dds_buffer_to_image(
         )));
     }
     let mut image = Image::default();
+    let is_cubemap = dds.header.caps2.contains(Caps2::CUBEMAP);
+    let mut depth_or_array_layers = if dds.get_num_array_layers() > 1 {
+        dds.get_num_array_layers()
+    } else {
+        dds.get_depth()
+    };
+    if is_cubemap {
+        if !dds.header.caps2.contains(
+            Caps2::CUBEMAP_NEGATIVEX
+                | Caps2::CUBEMAP_NEGATIVEY
+                | Caps2::CUBEMAP_NEGATIVEZ
+                | Caps2::CUBEMAP_POSITIVEX
+                | Caps2::CUBEMAP_POSITIVEY
+                | Caps2::CUBEMAP_POSITIVEZ,
+        ) {
+            return Err(TextureError::IncompleteCubemap);
+        }
+        depth_or_array_layers *= 6;
+    }
     image.texture_descriptor.size = Extent3d {
         width: dds.get_width(),
         height: dds.get_height(),
-        depth_or_array_layers: if dds.get_num_array_layers() > 1 {
-            dds.get_num_array_layers()
-        } else {
-            dds.get_depth()
-        },
+        depth_or_array_layers,
     }
     .physical_size(texture_format);
     image.texture_descriptor.mip_level_count = dds.get_num_mipmap_levels();
@@ -37,6 +54,17 @@ pub fn dds_buffer_to_image(
     } else {
         TextureDimension::D1
     };
+    if is_cubemap {
+        let dimension = if image.texture_descriptor.size.depth_or_array_layers > 6 {
+            TextureViewDimension::CubeArray
+        } else {
+            TextureViewDimension::Cube
+        };
+        image.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension: Some(dimension),
+            ..Default::default()
+        });
+    }
     image.data = dds.data;
     Ok(image)
 }

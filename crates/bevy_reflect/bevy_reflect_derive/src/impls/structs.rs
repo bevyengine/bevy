@@ -19,12 +19,12 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 .ident
                 .as_ref()
                 .map(|i| i.to_string())
-                .unwrap_or_else(|| field.index.to_string())
+                .unwrap_or_else(|| field.declaration_index.to_string())
         })
         .collect::<Vec<String>>();
     let field_idents = reflect_struct
         .active_fields()
-        .map(|field| ident_or_index(field.data.ident.as_ref(), field.index))
+        .map(|field| ident_or_index(field.data.ident.as_ref(), field.declaration_index))
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
@@ -50,7 +50,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
     let field_generator = {
         let docs = reflect_struct
             .active_fields()
-            .map(|field| quote::ToTokens::to_token_stream(&field.doc));
+            .map(|field| ToTokens::to_token_stream(&field.doc));
         quote! {
             #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names).with_docs(#docs) ,)*
         }

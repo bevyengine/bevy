@@ -1,10 +1,10 @@
-#import bevy_pbr::forward_io VertexOutput
+#import bevy_pbr::forward_io::VertexOutput
 
 struct LineMaterial {
     color: vec4<f32>,
 };
 
-@group(1) @binding(0) var<uniform> material: LineMaterial;
+@group(2) @binding(0) var<uniform> material: LineMaterial;
 
 @fragment
 fn fragment(

@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
@@ -73,50 +71,38 @@ pub struct RenderPlugin {
 
 /// The labels of the default App rendering sets.
 ///
-/// The sets run in the order listed, with [`apply_deferred`] inserted between each set.
-///
-/// The `*Flush` sets are assigned to the copy of [`apply_deferred`]
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// The copy of [`apply_deferred`] that runs at the beginning of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
-    /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
-    ManageViewsFlush,
     /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
-    /// A sub-set within Queue where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
     QueueMeshes,
-    // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
+    // TODO: This could probably be moved in favor of a system ordering abstraction in `Render` or `Queue`
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
-    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
+    /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.
     Prepare,
-    /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bind groups.
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
-    /// A sub-set within Prepare for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
-    PrepareFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Render`](RenderSet::Render).
-    RenderFlush,
     /// Cleanup render resources here.
     Cleanup,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Cleanup`](RenderSet::Cleanup).
-    CleanupFlush,
 }
 
 /// The main render schedule.
@@ -126,45 +112,27 @@ pub struct Render;
 impl Render {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
-    /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_deferred`] is inserted into each `*Flush` set.
+    /// The sets defined in this enum are configured to run in order.
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
         let mut schedule = Schedule::new(Self);
 
-        // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_systems((
-            apply_deferred.in_set(ManageViewsFlush),
-            apply_deferred.in_set(PrepareResourcesFlush),
-            apply_deferred.in_set(RenderFlush),
-            apply_deferred.in_set(PrepareFlush),
-            apply_deferred.in_set(CleanupFlush),
-        ));
-
         schedule.configure_sets(
             (
                 ExtractCommands,
                 ManageViews,
-                ManageViewsFlush,
                 Queue,
                 PhaseSort,
                 Prepare,
-                PrepareFlush,
                 Render,
-                RenderFlush,
                 Cleanup,
-                CleanupFlush,
             )
                 .chain(),
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_sets(
-            QueueMeshes
-                .in_set(RenderSet::Queue)
-                .after(prepare_assets::<Mesh>),
-        );
+        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));
         schedule.configure_sets(
             (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
@@ -181,7 +149,7 @@ impl Render {
 /// running the next frame while rendering the current frame.
 ///
 /// This schedule is run on the main world, but its buffers are not applied
-/// via [`Schedule::apply_deferred`](bevy_ecs::schedule::Schedule) until it is returned to the render world.
+/// until it is returned to the render world.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
 pub struct ExtractSchedule;
 
@@ -253,6 +221,7 @@ impl Plugin for RenderPlugin {
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
                 ));
+                // SAFETY: Plugins should be set up on the main thread.
                 unsafe { initialize_render_app(app) };
             }
             RenderCreation::Automatic(render_creation) => {
@@ -272,9 +241,11 @@ impl Plugin for RenderPlugin {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
                             backends,
                             dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
+                            flags: settings.instance_flags,
+                            gles_minor_version: settings.gles3_minor_version,
                         });
+                        // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
-                            // SAFETY: Plugins should be set up on the main thread.
                             let handle = wrapper.get_handle();
                             instance
                                 .create_surface(&handle)
@@ -315,6 +286,7 @@ impl Plugin for RenderPlugin {
                     #[cfg(not(target_arch = "wasm32"))]
                     futures_lite::future::block_on(async_renderer);
 
+                    // SAFETY: Plugins should be set up on the main thread.
                     unsafe { initialize_render_app(app) };
                 }
             }
@@ -406,7 +378,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = App::empty();
-    render_app.main_schedule_label = Box::new(Render);
+    render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     extract_schedule.set_apply_final_deferred(false);
@@ -455,7 +427,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                 "An entity was spawned after the entity list was cleared last frame and before the extract schedule began. This is not supported",
             );
 
-            // This is safe given the clear_entities call in the past frame and the assert above
+            // SAFETY: This is safe given the clear_entities call in the past frame and the assert above
             unsafe {
                 render_app
                     .world
@@ -475,7 +447,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 fn apply_extract_commands(render_world: &mut World) {
     render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
         schedules
-            .get_mut(&ExtractSchedule)
+            .get_mut(ExtractSchedule)
             .unwrap()
             .apply_deferred(render_world);
     });

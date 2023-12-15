@@ -309,6 +309,30 @@ impl Rect {
         r
     }
 
+    /// Build a new rectangle from this one with its coordinates expressed
+    /// relative to `other` in a normalized ([0..1] x [0..1]) coordinate system.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
+    /// let r = Rect::new(2., 3., 4., 6.);
+    /// let s = Rect::new(0., 0., 10., 10.);
+    /// let n = r.normalize(s);
+    ///
+    /// assert_eq!(n.min.x, 0.2);
+    /// assert_eq!(n.min.y, 0.3);
+    /// assert_eq!(n.max.x, 0.4);
+    /// assert_eq!(n.max.y, 0.6);
+    /// ```
+    pub fn normalize(&self, other: Self) -> Self {
+        let outer_size = other.size();
+        Self {
+            min: (self.min - other.min) / outer_size,
+            max: (self.max - other.min) / outer_size,
+        }
+    }
+
     /// Returns self as [`IRect`] (i32)
     #[inline]
     pub fn as_irect(&self) -> IRect {

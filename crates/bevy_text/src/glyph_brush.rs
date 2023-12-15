@@ -12,7 +12,7 @@ use glyph_brush_layout::{
 
 use crate::{
     error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, FontAtlasWarning,
-    GlyphAtlasInfo, TextAlignment, TextSettings, YAxisOrientation,
+    GlyphAtlasInfo, JustifyText, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -36,7 +36,7 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Vec2,
-        text_alignment: TextAlignment,
+        text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
@@ -115,9 +115,9 @@ impl GlyphBrush {
 
                 if !text_settings.allow_dynamic_font_size
                     && !font_atlas_warning.warned
-                    && font_atlas_set.len() > text_settings.max_font_atlases.get()
+                    && font_atlas_set.len() > text_settings.soft_max_font_atlases.get()
                 {
-                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.max_font_atlases.get());
+                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.soft_max_font_atlases.get());
                     font_atlas_warning.warned = true;
                 }
 
@@ -208,7 +208,7 @@ impl GlyphPlacementAdjuster {
 pub(crate) fn compute_text_bounds<T>(
     section_glyphs: &[SectionGlyph],
     get_scaled_font: impl Fn(usize) -> PxScaleFont<T>,
-) -> bevy_math::Rect
+) -> Rect
 where
     T: ab_glyph::Font,
 {

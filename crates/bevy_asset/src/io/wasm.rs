@@ -77,7 +77,7 @@ impl AssetReader for HttpWasmAssetReader {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(async move {
-            let meta_path = get_meta_path(path);
+            let meta_path = get_meta_path(&self.root_path.join(path));
             Ok(self.fetch_bytes(meta_path).await?)
         })
     }

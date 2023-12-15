@@ -13,7 +13,7 @@ use crate::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
+    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
@@ -72,7 +72,12 @@ impl AssetProcessor {
         // The asset processor uses its own asset server with its own id space
         let mut sources = source.build_sources(false, false);
         sources.gate_on_processor(data.clone());
-        let server = AssetServer::new(sources, AssetServerMode::Processed, false);
+        let server = AssetServer::new_with_meta_check(
+            sources,
+            AssetServerMode::Processed,
+            AssetMetaCheck::Always,
+            false,
+        );
         Self { server, data }
     }
 
@@ -416,7 +421,7 @@ impl AssetProcessor {
         scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
         source: &'scope AssetSource,
         path: PathBuf,
-    ) -> bevy_utils::BoxedFuture<'scope, Result<(), AssetReaderError>> {
+    ) -> BoxedFuture<'scope, Result<(), AssetReaderError>> {
         Box::pin(async move {
             if source.reader().is_directory(&path).await? {
                 let mut path_stream = source.reader().read_directory(&path).await?;
@@ -506,7 +511,7 @@ impl AssetProcessor {
                                 .await?
                                 && contains_files;
                     }
-                    if !contains_files {
+                    if !contains_files && path.parent().is_some() {
                         if let Some(writer) = clean_empty_folders_writer {
                             // it is ok for this to fail as it is just a cleanup job.
                             let _ = writer.remove_empty_directory(&path).await;
@@ -660,7 +665,7 @@ impl AssetProcessor {
         source: &AssetSource,
         asset_path: &AssetPath<'static>,
     ) -> Result<ProcessResult, ProcessError> {
-        // TODO: The extension check was removed now tht AssetPath is the input. is that ok?
+        // TODO: The extension check was removed now that AssetPath is the input. is that ok?
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing {:?}", asset_path);
         let server = &self.server;

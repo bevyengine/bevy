@@ -2,14 +2,12 @@ use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
     DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
-    ReflectDeserialize, StructInfo, StructVariantInfo, Tuple, TupleInfo, TupleStruct,
-    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField,
-    VariantInfo,
+    ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo,
+    TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField, VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{
-    self, DeserializeSeed, EnumAccess, Error, IgnoredAny, MapAccess, SeqAccess, VariantAccess,
-    Visitor,
+    DeserializeSeed, EnumAccess, Error, IgnoredAny, MapAccess, SeqAccess, VariantAccess, Visitor,
 };
 use serde::Deserialize;
 use std::any::TypeId;
@@ -27,6 +25,8 @@ pub trait DeserializeValue {
 trait StructLikeInfo {
     fn get_path(&self) -> &str;
     fn get_field(&self, name: &str) -> Option<&NamedField>;
+    fn field_at(&self, index: usize) -> Option<&NamedField>;
+    fn get_field_len(&self) -> usize;
     fn iter_fields(&self) -> Iter<'_, NamedField>;
 }
 
@@ -49,8 +49,16 @@ impl StructLikeInfo for StructInfo {
         self.type_path()
     }
 
+    fn field_at(&self, index: usize) -> Option<&NamedField> {
+        self.field_at(index)
+    }
+
     fn get_field(&self, name: &str) -> Option<&NamedField> {
         self.field(name)
+    }
+
+    fn get_field_len(&self) -> usize {
+        self.field_len()
     }
 
     fn iter_fields(&self) -> Iter<'_, NamedField> {
@@ -65,7 +73,7 @@ impl Container for StructInfo {
         registry: &'a TypeRegistry,
     ) -> Result<&'a TypeRegistration, E> {
         let field = self.field_at(index).ok_or_else(|| {
-            de::Error::custom(format_args!(
+            Error::custom(format_args!(
                 "no field at index {} on struct {}",
                 index,
                 self.type_path(),
@@ -80,8 +88,16 @@ impl StructLikeInfo for StructVariantInfo {
         self.name()
     }
 
+    fn field_at(&self, index: usize) -> Option<&NamedField> {
+        self.field_at(index)
+    }
+
     fn get_field(&self, name: &str) -> Option<&NamedField> {
         self.field(name)
+    }
+
+    fn get_field_len(&self) -> usize {
+        self.field_len()
     }
 
     fn iter_fields(&self) -> Iter<'_, NamedField> {
@@ -96,7 +112,7 @@ impl Container for StructVariantInfo {
         registry: &'a TypeRegistry,
     ) -> Result<&'a TypeRegistration, E> {
         let field = self.field_at(index).ok_or_else(|| {
-            de::Error::custom(format_args!(
+            Error::custom(format_args!(
                 "no field at index {} on variant {}",
                 index,
                 self.name(),
@@ -120,6 +136,54 @@ impl TupleLikeInfo for TupleInfo {
     }
 }
 
+impl Container for TupleInfo {
+    fn get_field_registration<'a, E: Error>(
+        &self,
+        index: usize,
+        registry: &'a TypeRegistry,
+    ) -> Result<&'a TypeRegistration, E> {
+        let field = self.field_at(index).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field at index {} on tuple {}",
+                index,
+                self.type_path(),
+            ))
+        })?;
+        get_registration(field.type_id(), field.type_path(), registry)
+    }
+}
+
+impl TupleLikeInfo for TupleStructInfo {
+    fn get_path(&self) -> &str {
+        self.type_path()
+    }
+
+    fn get_field(&self, index: usize) -> Option<&UnnamedField> {
+        self.field_at(index)
+    }
+
+    fn get_field_len(&self) -> usize {
+        self.field_len()
+    }
+}
+
+impl Container for TupleStructInfo {
+    fn get_field_registration<'a, E: Error>(
+        &self,
+        index: usize,
+        registry: &'a TypeRegistry,
+    ) -> Result<&'a TypeRegistration, E> {
+        let field = self.field_at(index).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field at index {} on tuple struct {}",
+                index,
+                self.type_path(),
+            ))
+        })?;
+        get_registration(field.type_id(), field.type_path(), registry)
+    }
+}
+
 impl TupleLikeInfo for TupleVariantInfo {
     fn get_path(&self) -> &str {
         self.name()
@@ -131,6 +195,23 @@ impl TupleLikeInfo for TupleVariantInfo {
 
     fn get_field_len(&self) -> usize {
         self.field_len()
+    }
+}
+
+impl Container for TupleVariantInfo {
+    fn get_field_registration<'a, E: Error>(
+        &self,
+        index: usize,
+        registry: &'a TypeRegistry,
+    ) -> Result<&'a TypeRegistration, E> {
+        let field = self.field_at(index).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field at index {} on tuple variant {}",
+                index,
+                self.name(),
+            ))
+        })?;
+        get_registration(field.type_id(), field.type_path(), registry)
     }
 }
 
@@ -171,7 +252,7 @@ impl<'de> Deserialize<'de> for Ident {
         impl<'de> Visitor<'de> for IdentVisitor {
             type Value = Ident;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
                 formatter.write_str("identifier")
             }
 
@@ -199,7 +280,7 @@ struct U32Visitor;
 impl<'de> Visitor<'de> for U32Visitor {
     type Value = u32;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("u32")
     }
 
@@ -231,8 +312,6 @@ impl<'de> Visitor<'de> for U32Visitor {
 /// [`TypedReflectDeserializer`] may be used instead to avoid requiring these entries.
 ///
 /// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`DynamicStruct`]: crate::DynamicStruct
-/// [`DynamicList`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
 /// [type path]: crate::TypePath::type_path
 pub struct UntypedReflectDeserializer<'a> {
@@ -264,7 +343,7 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
 /// This deserializer expects a string containing the _full_ [type path] of the
 /// type to find the `TypeRegistration` of.
 ///
-/// [`&TypeRegistration`]: crate::TypeRegistration
+/// [`&TypeRegistration`]: TypeRegistration
 /// [type path]: crate::TypePath::type_path
 pub struct TypeRegistrationDeserializer<'a> {
     registry: &'a TypeRegistry,
@@ -288,7 +367,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
         impl<'de, 'a> Visitor<'de> for TypeRegistrationVisitor<'a> {
             type Value = &'a TypeRegistration;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
                 formatter.write_str("string containing `type` entry for the reflected value")
             }
 
@@ -313,7 +392,7 @@ struct UntypedReflectDeserializerVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     type Value = Box<dyn Reflect>;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("map containing `type` and `value` entries for the reflected value")
     }
 
@@ -351,10 +430,7 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
 ///
 /// If the type is not known ahead of time, use [`UntypedReflectDeserializer`] instead.
 ///
-/// [`TypeInfo`]: crate::TypeInfo
 /// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`DynamicStruct`]: crate::DynamicStruct
-/// [`DynamicList`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
 pub struct TypedReflectDeserializer<'a> {
     registration: &'a TypeRegistration,
@@ -444,6 +520,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     tuple_info.field_len(),
                     TupleVisitor {
                         tuple_info,
+                        registration: self.registration,
                         registry: self.registry,
                     },
                 )?;
@@ -475,7 +552,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             }
             TypeInfo::Value(_) => {
                 // This case should already be handled
-                Err(de::Error::custom(format_args!(
+                Err(Error::custom(format_args!(
                     "the TypeRegistration for {type_path} doesn't have ReflectDeserialize",
                 )))
             }
@@ -492,7 +569,7 @@ struct StructVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     type Value = DynamicStruct;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected struct value")
     }
 
@@ -500,43 +577,14 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     where
         V: MapAccess<'de>,
     {
-        visit_struct(&mut map, self.struct_info, self.registry)
+        visit_struct(&mut map, self.struct_info, self.registration, self.registry)
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
-        let mut index = 0usize;
-        let mut output = DynamicStruct::default();
-
-        let ignored_len = self
-            .registration
-            .data::<SerializationData>()
-            .map(|data| data.len())
-            .unwrap_or(0);
-        let field_len = self.struct_info.field_len().saturating_sub(ignored_len);
-
-        if field_len == 0 {
-            // Handle unit structs and ignored fields
-            return Ok(output);
-        }
-
-        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
-            registration: self
-                .struct_info
-                .get_field_registration(index, self.registry)?,
-            registry: self.registry,
-        })? {
-            let name = self.struct_info.field_at(index).unwrap().name();
-            output.insert_boxed(name, value);
-            index += 1;
-            if index >= self.struct_info.field_len() {
-                break;
-            }
-        }
-
-        Ok(output)
+        visit_struct_seq(&mut seq, self.struct_info, self.registration, self.registry)
     }
 }
 
@@ -549,7 +597,7 @@ struct TupleStructVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
     type Value = DynamicTupleStruct;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected tuple struct value")
     }
 
@@ -557,71 +605,26 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
     where
         V: SeqAccess<'de>,
     {
-        let mut index = 0usize;
-        let mut tuple_struct = DynamicTupleStruct::default();
-
-        let ignored_len = self
-            .registration
-            .data::<SerializationData>()
-            .map(|data| data.len())
-            .unwrap_or(0);
-        let field_len = self
-            .tuple_struct_info
-            .field_len()
-            .saturating_sub(ignored_len);
-
-        if field_len == 0 {
-            // Handle unit structs and ignored fields
-            return Ok(tuple_struct);
-        }
-
-        let get_field_registration = |index: usize| -> Result<&'a TypeRegistration, V::Error> {
-            let field = self.tuple_struct_info.field_at(index).ok_or_else(|| {
-                de::Error::custom(format_args!(
-                    "no field at index {} on tuple {}",
-                    index,
-                    self.tuple_struct_info.type_path(),
-                ))
-            })?;
-            get_registration(field.type_id(), field.type_path(), self.registry)
-        };
-
-        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
-            registration: get_field_registration(index)?,
-            registry: self.registry,
-        })? {
-            tuple_struct.insert_boxed(value);
-            index += 1;
-            if index >= self.tuple_struct_info.field_len() {
-                break;
-            }
-        }
-
-        let ignored_len = self
-            .registration
-            .data::<SerializationData>()
-            .map(|data| data.len())
-            .unwrap_or(0);
-        if tuple_struct.field_len() != self.tuple_struct_info.field_len() - ignored_len {
-            return Err(Error::invalid_length(
-                tuple_struct.field_len(),
-                &self.tuple_struct_info.field_len().to_string().as_str(),
-            ));
-        }
-
-        Ok(tuple_struct)
+        visit_tuple(
+            &mut seq,
+            self.tuple_struct_info,
+            self.registration,
+            self.registry,
+        )
+        .map(DynamicTupleStruct::from)
     }
 }
 
 struct TupleVisitor<'a> {
     tuple_info: &'static TupleInfo,
+    registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
 }
 
 impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
     type Value = DynamicTuple;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected tuple value")
     }
 
@@ -629,7 +632,7 @@ impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
     where
         V: SeqAccess<'de>,
     {
-        visit_tuple(&mut seq, self.tuple_info, self.registry)
+        visit_tuple(&mut seq, self.tuple_info, self.registration, self.registry)
     }
 }
 
@@ -641,7 +644,7 @@ struct ArrayVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
     type Value = DynamicArray;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected array value")
     }
 
@@ -681,7 +684,7 @@ struct ListVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
     type Value = DynamicList;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected list value")
     }
 
@@ -713,7 +716,7 @@ struct MapVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
     type Value = DynamicMap;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected map value")
     }
 
@@ -756,7 +759,7 @@ struct EnumVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
     type Value = DynamicEnum;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected enum value")
     }
 
@@ -782,9 +785,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 )?
                 .into(),
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
-                let field = tuple_info.field_at(0).unwrap();
-                let registration =
-                    get_registration(field.type_id(), field.type_path(), self.registry)?;
+                let registration = tuple_info.get_field_registration(0, self.registry)?;
                 let value = variant.newtype_variant_seed(TypedReflectDeserializer {
                     registration,
                     registry: self.registry,
@@ -871,7 +872,7 @@ struct StructVariantVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
     type Value = DynamicStruct;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected struct variant value")
     }
 
@@ -879,43 +880,14 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
     where
         V: MapAccess<'de>,
     {
-        visit_struct(&mut map, self.struct_info, self.registry)
+        visit_struct(&mut map, self.struct_info, self.registration, self.registry)
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
-        let mut index = 0usize;
-        let mut output = DynamicStruct::default();
-
-        let ignored_len = self
-            .registration
-            .data::<SerializationData>()
-            .map(|data| data.len())
-            .unwrap_or(0);
-        let field_len = self.struct_info.field_len().saturating_sub(ignored_len);
-
-        if field_len == 0 {
-            // Handle all fields being ignored
-            return Ok(output);
-        }
-
-        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
-            registration: self
-                .struct_info
-                .get_field_registration(index, self.registry)?,
-            registry: self.registry,
-        })? {
-            let name = self.struct_info.field_at(index).unwrap().name();
-            output.insert_boxed(name, value);
-            index += 1;
-            if index >= self.struct_info.field_len() {
-                break;
-            }
-        }
-
-        Ok(output)
+        visit_struct_seq(&mut seq, self.struct_info, self.registration, self.registry)
     }
 }
 
@@ -928,7 +900,7 @@ struct TupleVariantVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
     type Value = DynamicTuple;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected tuple variant value")
     }
 
@@ -936,19 +908,7 @@ impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
     where
         V: SeqAccess<'de>,
     {
-        let ignored_len = self
-            .registration
-            .data::<SerializationData>()
-            .map(|data| data.len())
-            .unwrap_or(0);
-        let field_len = self.tuple_info.field_len().saturating_sub(ignored_len);
-
-        if field_len == 0 {
-            // Handle all fields being ignored
-            return Ok(DynamicTuple::default());
-        }
-
-        visit_tuple(&mut seq, self.tuple_info, self.registry)
+        visit_tuple(&mut seq, self.tuple_info, self.registration, self.registry)
     }
 }
 
@@ -1005,6 +965,7 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
 fn visit_struct<'de, T, V>(
     map: &mut V,
     info: &'static T,
+    registration: &TypeRegistration,
     registry: &TypeRegistry,
 ) -> Result<DynamicStruct, V::Error>
 where
@@ -1029,49 +990,101 @@ where
         dynamic_struct.insert_boxed(&key, value);
     }
 
+    if let Some(serialization_data) = registration.data::<SerializationData>() {
+        for (skipped_index, skipped_field) in serialization_data.iter_skipped() {
+            let Some(field) = info.field_at(*skipped_index) else {
+                continue;
+            };
+            dynamic_struct.insert_boxed(field.name(), skipped_field.generate_default());
+        }
+    }
+
     Ok(dynamic_struct)
 }
 
 fn visit_tuple<'de, T, V>(
     seq: &mut V,
     info: &T,
+    registration: &TypeRegistration,
     registry: &TypeRegistry,
 ) -> Result<DynamicTuple, V::Error>
 where
-    T: TupleLikeInfo,
+    T: TupleLikeInfo + Container,
     V: SeqAccess<'de>,
 {
     let mut tuple = DynamicTuple::default();
-    let mut index = 0usize;
-
-    let get_field_registration = |index: usize| -> Result<&TypeRegistration, V::Error> {
-        let field = info.get_field(index).ok_or_else(|| {
-            Error::invalid_length(index, &info.get_field_len().to_string().as_str())
-        })?;
-        get_registration(field.type_id(), field.type_path(), registry)
-    };
-
-    while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
-        registration: get_field_registration(index)?,
-        registry,
-    })? {
-        tuple.insert_boxed(value);
-        index += 1;
-        if index >= info.get_field_len() {
-            break;
-        }
-    }
 
     let len = info.get_field_len();
 
-    if tuple.field_len() != len {
-        return Err(Error::invalid_length(
-            tuple.field_len(),
-            &len.to_string().as_str(),
-        ));
+    if len == 0 {
+        // Handle empty tuple/tuple struct
+        return Ok(tuple);
+    }
+
+    let serialization_data = registration.data::<SerializationData>();
+
+    for index in 0..len {
+        if let Some(value) = serialization_data.and_then(|data| data.generate_default(index)) {
+            tuple.insert_boxed(value);
+            continue;
+        }
+
+        let value = seq
+            .next_element_seed(TypedReflectDeserializer {
+                registration: info.get_field_registration(index, registry)?,
+                registry,
+            })?
+            .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
+        tuple.insert_boxed(value);
     }
 
     Ok(tuple)
+}
+
+fn visit_struct_seq<'de, T, V>(
+    seq: &mut V,
+    info: &T,
+    registration: &TypeRegistration,
+    registry: &TypeRegistry,
+) -> Result<DynamicStruct, V::Error>
+where
+    T: StructLikeInfo + Container,
+    V: SeqAccess<'de>,
+{
+    let mut dynamic_struct = DynamicStruct::default();
+
+    let len = info.get_field_len();
+
+    if len == 0 {
+        // Handle unit structs
+        return Ok(dynamic_struct);
+    }
+
+    let serialization_data = registration.data::<SerializationData>();
+
+    for index in 0..len {
+        let name = info.field_at(index).unwrap().name();
+
+        if serialization_data
+            .map(|data| data.is_field_skipped(index))
+            .unwrap_or_default()
+        {
+            if let Some(value) = serialization_data.unwrap().generate_default(index) {
+                dynamic_struct.insert_boxed(name, value);
+            }
+            continue;
+        }
+
+        let value = seq
+            .next_element_seed(TypedReflectDeserializer {
+                registration: info.get_field_registration(index, registry)?,
+                registry,
+            })?
+            .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
+        dynamic_struct.insert_boxed(name, value);
+    }
+
+    Ok(dynamic_struct)
 }
 
 fn get_registration<'a, E: Error>(

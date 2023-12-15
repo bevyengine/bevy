@@ -128,6 +128,8 @@ pub struct AssetSourceBuilder {
                 + Sync,
         >,
     >,
+    pub watch_warning: Option<&'static str>,
+    pub processed_watch_warning: Option<&'static str>,
 }
 
 impl AssetSourceBuilder {
@@ -156,23 +158,31 @@ impl AssetSourceBuilder {
 
         if watch {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.watcher.as_mut().and_then(|w|(w)(sender)) {
+            match self.watcher.as_mut().and_then(|w| (w)(sender)) {
                 Some(w) => {
                     source.watcher = Some(w);
                     source.event_receiver = Some(receiver);
-                },
-                None => warn!("{id} does not have an AssetWatcher configured. Consider enabling the `file_watcher` feature. Note that Web and Android do not currently support watching assets."),
+                }
+                None => {
+                    if let Some(warning) = self.watch_warning {
+                        warn!("{id} does not have an AssetWatcher configured. {warning}");
+                    }
+                }
             }
         }
 
         if watch_processed {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.processed_watcher.as_mut().and_then(|w|(w)(sender)) {
+            match self.processed_watcher.as_mut().and_then(|w| (w)(sender)) {
                 Some(w) => {
                     source.processed_watcher = Some(w);
                     source.processed_event_receiver = Some(receiver);
-                },
-                None => warn!("{id} does not have a processed AssetWatcher configured. Consider enabling the `file_watcher` feature. Note that Web and Android do not currently support watching assets."),
+                }
+                None => {
+                    if let Some(warning) = self.processed_watch_warning {
+                        warn!("{id} does not have a processed AssetWatcher configured. {warning}");
+                    }
+                }
             }
         }
         Some(source)
@@ -238,23 +248,42 @@ impl AssetSourceBuilder {
         self
     }
 
+    /// Enables a warning for the unprocessed source watcher, which will print when watching is enabled and the unprocessed source doesn't have a watcher.
+    pub fn with_watch_warning(mut self, warning: &'static str) -> Self {
+        self.watch_warning = Some(warning);
+        self
+    }
+
+    /// Enables a warning for the processed source watcher, which will print when watching is enabled and the processed source doesn't have a watcher.
+    pub fn with_processed_watch_warning(mut self, warning: &'static str) -> Self {
+        self.processed_watch_warning = Some(warning);
+        self
+    }
+
     /// Returns a builder containing the "platform default source" for the given `path` and `processed_path`.
     /// For most platforms, this will use [`FileAssetReader`](crate::io::file::FileAssetReader) / [`FileAssetWriter`](crate::io::file::FileAssetWriter),
     /// but some platforms (such as Android) have their own default readers / writers / watchers.
-    pub fn platform_default(path: &str, processed_path: &str) -> Self {
-        Self::default()
+    pub fn platform_default(path: &str, processed_path: Option<&str>) -> Self {
+        let default = Self::default()
             .with_reader(AssetSource::get_default_reader(path.to_string()))
             .with_writer(AssetSource::get_default_writer(path.to_string()))
             .with_watcher(AssetSource::get_default_watcher(
                 path.to_string(),
                 Duration::from_millis(300),
             ))
-            .with_processed_reader(AssetSource::get_default_reader(processed_path.to_string()))
-            .with_processed_writer(AssetSource::get_default_writer(processed_path.to_string()))
-            .with_processed_watcher(AssetSource::get_default_watcher(
-                processed_path.to_string(),
-                Duration::from_millis(300),
-            ))
+            .with_watch_warning(AssetSource::get_default_watch_warning());
+        if let Some(processed_path) = processed_path {
+            default
+                .with_processed_reader(AssetSource::get_default_reader(processed_path.to_string()))
+                .with_processed_writer(AssetSource::get_default_writer(processed_path.to_string()))
+                .with_processed_watcher(AssetSource::get_default_watcher(
+                    processed_path.to_string(),
+                    Duration::from_millis(300),
+                ))
+                .with_processed_watch_warning(AssetSource::get_default_watch_warning())
+        } else {
+            default
+        }
     }
 }
 
@@ -315,7 +344,7 @@ impl AssetSourceBuilders {
     }
 
     /// Initializes the default [`AssetSourceBuilder`] if it has not already been set.
-    pub fn init_default_source(&mut self, path: &str, processed_path: &str) {
+    pub fn init_default_source(&mut self, path: &str, processed_path: Option<&str>) {
         self.default
             .get_or_insert_with(|| AssetSourceBuilder::platform_default(path, processed_path));
     }
@@ -421,6 +450,16 @@ impl AssetSource {
             #[cfg(any(target_arch = "wasm32", target_os = "android"))]
             return None;
         }
+    }
+
+    /// Returns the default non-existent [`AssetWatcher`] warning for the current platform.
+    pub fn get_default_watch_warning() -> &'static str {
+        #[cfg(target_arch = "wasm32")]
+        return "Web does not currently support watching assets.";
+        #[cfg(target_os = "android")]
+        return "Android does not currently support watching assets.";
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        return "Consider enabling the `file_watcher` feature.";
     }
 
     /// Returns a builder function for this platform's default [`AssetWatcher`]. `path` is the relative path to

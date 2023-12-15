@@ -188,7 +188,7 @@ fn setup(
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 18.0,
-        color: Color::BLACK,
+        ..default()
     };
 
     let label_text_style = TextStyle {
@@ -290,7 +290,7 @@ fn example_control_system(
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::Up) {
         state.alpha = (state.alpha + time.delta_seconds()).min(1.0);

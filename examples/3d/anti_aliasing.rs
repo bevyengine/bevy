@@ -1,9 +1,5 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use std::f32::consts::PI;
 
 use bevy::{
@@ -17,8 +13,8 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
-        render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
-        texture::ImageSampler,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };
 
@@ -32,7 +28,7 @@ fn main() {
 }
 
 fn modify_aa(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut camera: Query<
         (
             Entity,
@@ -117,7 +113,7 @@ fn modify_aa(
 }
 
 fn modify_sharpening(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
 ) {
     for mut cas in &mut query {
@@ -263,8 +259,8 @@ fn setup(
 ) {
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
         ..default()
     });
 
@@ -325,6 +321,18 @@ fn setup(
             enabled: false,
             ..default()
         },
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+        },
+        FogSettings {
+            color: Color::rgba_u8(43, 44, 47, 255),
+            falloff: FogFalloff::Linear {
+                start: 1.0,
+                end: 4.0,
+            },
+            ..default()
+        },
     ));
 
     // example instructions
@@ -371,6 +379,6 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     );
-    img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
 }

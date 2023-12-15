@@ -2,7 +2,8 @@
 //! pipeline for 2d meshes.
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
-#![allow(clippy::type_complexity)]
+//!
+//! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
@@ -150,24 +151,19 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             false => TextureFormat::bevy_default(),
         };
 
-        // Meshes typically live in bind group 2. Because we are using bind group 1
-        // we need to add the MESH_BINDGROUP_1 shader def so that the bindings are correctly
-        // linked in the shader.
-        let shader_defs = vec!["MESH_BINDGROUP_1".into()];
-
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
                 entry_point: "vertex".into(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: vec![],
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
-                shader_defs,
+                shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
@@ -219,8 +215,7 @@ type DrawColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_bindings mesh
-#import bevy_sprite::mesh2d_functions as MeshFunctions
+#import bevy_sprite::mesh2d_functions
 
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {
@@ -241,8 +236,8 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // Project the world position of the mesh into screen position
-    let model = MeshFunctions::get_model_matrix(vertex.instance_index);
-    out.clip_position = MeshFunctions::mesh2d_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
+    let model = mesh2d_functions::get_model_matrix(vertex.instance_index);
+    out.clip_position = mesh2d_functions::mesh2d_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
     // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
     out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
     return out;

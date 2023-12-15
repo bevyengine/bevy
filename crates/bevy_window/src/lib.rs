@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
@@ -94,11 +93,13 @@ impl Plugin for WindowPlugin {
             .add_event::<ReceivedCharacter>()
             .add_event::<Ime>()
             .add_event::<WindowFocused>()
+            .add_event::<WindowOccluded>()
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
-            .add_event::<WindowThemeChanged>();
+            .add_event::<WindowThemeChanged>()
+            .add_event::<ApplicationLifetime>();
 
         if let Some(primary_window) = &self.primary_window {
             let initial_focus = app
@@ -137,11 +138,13 @@ impl Plugin for WindowPlugin {
             .register_type::<CursorLeft>()
             .register_type::<ReceivedCharacter>()
             .register_type::<WindowFocused>()
+            .register_type::<WindowOccluded>()
             .register_type::<WindowScaleFactorChanged>()
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
-            .register_type::<WindowThemeChanged>();
+            .register_type::<WindowThemeChanged>()
+            .register_type::<ApplicationLifetime>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()

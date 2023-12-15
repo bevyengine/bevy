@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    utils::Duration,
     window::{PresentMode, WindowResolution},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
@@ -123,7 +124,9 @@ fn main() {
                 counter_system,
             ),
         )
-        .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP))
+        .insert_resource(Time::<Fixed>::from_duration(Duration::from_secs_f32(
+            FIXED_TIMESTEP,
+        )))
         .run();
 }
 
@@ -282,7 +285,7 @@ fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
     time: Res<Time>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
@@ -558,7 +561,7 @@ fn init_materials(
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(ColorMaterial {
         color: Color::WHITE,
-        texture: textures.get(0).cloned(),
+        texture: textures.first().cloned(),
     }));
 
     let mut color_rng = StdRng::seed_from_u64(42);

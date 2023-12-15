@@ -1,0 +1,5 @@
+# Flag to notify the compiler we're building for the iOS simulator from an Apple silicon mac
+# This needs some workarounds for now
+# See https://github.com/bevyengine/bevy/pull/10178 - remove if it's not needed anymore.
+[target.aarch64-apple-ios-sim]
+rustflags = ["--cfg=ios_simulator"]

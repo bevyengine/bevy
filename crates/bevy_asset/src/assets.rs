@@ -1,9 +1,10 @@
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle};
+use crate::{self as bevy_asset, LoadState};
+use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
 };
-use bevy_reflect::{Reflect, Uuid};
+use bevy_reflect::{Reflect, TypePath, Uuid};
 use bevy_utils::HashMap;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -74,15 +75,23 @@ impl AssetIndexAllocator {
     }
 }
 
+/// A "loaded asset" containing the untyped handle for an asset stored in a given [`AssetPath`].
+///
+/// [`AssetPath`]: crate::AssetPath
+#[derive(Asset, TypePath)]
+pub struct LoadedUntypedAsset {
+    #[dependency]
+    pub handle: UntypedHandle,
+}
+
 // PERF: do we actually need this to be an enum? Can we just use an "invalid" generation instead
 #[derive(Default)]
 enum Entry<A: Asset> {
+    /// None is an indicator that this entry does not have live handles.
     #[default]
     None,
-    Some {
-        value: Option<A>,
-        generation: u32,
-    },
+    /// Some is an indicator that there is a live handle active for the entry at this [`AssetIndex`]
+    Some { value: Option<A>, generation: u32 },
 }
 
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
@@ -141,7 +150,26 @@ impl<A: Asset> DenseAssetStorage<A> {
     }
 
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
-    pub(crate) fn remove(&mut self, index: AssetIndex) -> Option<A> {
+    /// This will recycle the id and allow new entries to be inserted.
+    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<A> {
+        self.remove_internal(index, |dense_storage| {
+            dense_storage.storage[index.index as usize] = Entry::None;
+            dense_storage.allocator.recycle(index);
+        })
+    }
+
+    /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
+    /// This will _not_ recycle the id. New values with the current ID can still be inserted. The ID will
+    /// not be reused until [`DenseAssetStorage::remove_dropped`] is called.
+    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<A> {
+        self.remove_internal(index, |_| {})
+    }
+
+    fn remove_internal(
+        &mut self,
+        index: AssetIndex,
+        removed_action: impl FnOnce(&mut Self),
+    ) -> Option<A> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
             Entry::None => return None,
@@ -156,8 +184,7 @@ impl<A: Asset> DenseAssetStorage<A> {
                 }
             }
         };
-        self.storage[index.index as usize] = Entry::None;
-        self.allocator.recycle(index);
+        removed_action(self);
         value
     }
 
@@ -383,9 +410,23 @@ impl<A: Asset> Assets<A> {
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         match id {
-            AssetId::Index { index, .. } => self.dense_storage.remove(index),
+            AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
+    }
+
+    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    pub(crate) fn remove_dropped(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+        let id: AssetId<A> = id.into();
+        let result = match id {
+            AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index),
+            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
+        };
+        if result.is_some() {
+            self.queued_events.push(AssetEvent::Removed { id });
+        }
+        result
     }
 
     /// Returns `true` if there are no assets in this collection.
@@ -456,16 +497,21 @@ impl<A: Asset> Assets<A> {
         let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id;
-            if !assets.contains(id.typed()) {
-                not_ready.push(drop_event);
-                continue;
-            }
             if drop_event.asset_server_managed {
-                if infos.process_handle_drop(id.untyped(TypeId::of::<A>())) {
-                    assets.remove(id.typed());
+                let untyped = id.untyped(TypeId::of::<A>());
+                if let Some(info) = infos.get(untyped) {
+                    if info.load_state == LoadState::Loading
+                        || info.load_state == LoadState::NotLoaded
+                    {
+                        not_ready.push(drop_event);
+                        continue;
+                    }
+                }
+                if infos.process_handle_drop(untyped) {
+                    assets.remove_dropped(id.typed());
                 }
             } else {
-                assets.remove(id.typed());
+                assets.remove_dropped(id.typed());
             }
         }
         // TODO: this is _extremely_ inefficient find a better fix

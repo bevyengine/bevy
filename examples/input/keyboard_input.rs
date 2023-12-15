@@ -10,7 +10,7 @@ fn main() {
 }
 
 /// This system prints 'A' key state
-fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>) {
+fn keyboard_input_system(keyboard_input: Res<ButtonInput<KeyCode>>) {
     if keyboard_input.pressed(KeyCode::A) {
         info!("'A' currently pressed");
     }
