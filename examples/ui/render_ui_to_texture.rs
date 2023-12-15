@@ -91,7 +91,7 @@ fn setup(
                 background_color: Color::GOLD.into(),
                 ..default()
             },
-            UiCamera(texture_camera),
+            TargetCamera(texture_camera),
         ))
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(

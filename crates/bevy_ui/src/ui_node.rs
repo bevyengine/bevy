@@ -1715,10 +1715,18 @@ mod tests {
     }
 }
 
+/// Indicates that this root [`Node`] entity should be rendered to a specific camera.
+/// UI then will be layed out respecting the camera's viewport and scale factor, and
+/// rendered to this camera's [`bevy_render::camera::RenderTarget`].
+///
+/// Setting this component on a non-root node will have no effect. It will be overriden
+/// by the root node's component.
+///
+/// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
-pub struct UiCamera(pub Entity);
+pub struct TargetCamera(pub Entity);
 
-impl UiCamera {
+impl TargetCamera {
     pub fn entity(&self) -> Entity {
         self.0
     }

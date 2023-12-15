@@ -86,7 +86,7 @@ fn setup(
     // Set up UI
     commands
         .spawn((
-            UiCamera(left_camera),
+            TargetCamera(left_camera),
             NodeBundle {
                 style: Style {
                     width: Val::Percent(100.),
@@ -109,7 +109,7 @@ fn setup(
 
     commands
         .spawn((
-            UiCamera(right_camera),
+            TargetCamera(right_camera),
             NodeBundle {
                 style: Style {
                     width: Val::Percent(100.),
@@ -232,16 +232,16 @@ fn set_camera_viewports(
 #[allow(clippy::type_complexity)]
 fn button_system(
     interaction_query: Query<
-        (&Interaction, &UiCamera, &RotateCamera),
+        (&Interaction, &TargetCamera, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    for (interaction, ui_camera, RotateCamera(direction)) in &interaction_query {
+    for (interaction, target_camera, RotateCamera(direction)) in &interaction_query {
         if let Interaction::Pressed = *interaction {
-            // Since UiCamera propagates to the children, we can use it to find
+            // Since TargetCamera propagates to the children, we can use it to find
             // which side of the screen the button is on.
-            if let Ok(mut camera_transform) = camera_query.get_mut(ui_camera.entity()) {
+            if let Ok(mut camera_transform) = camera_query.get_mut(target_camera.entity()) {
                 let angle = match direction {
                     Direction::Left => -0.1,
                     Direction::Right => 0.1,

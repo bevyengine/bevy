@@ -16,7 +16,7 @@ use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     Style, UiImage, UiScale, UiTextureAtlasImage, Val,
 };
-use crate::{Outline, UiCamera};
+use crate::{Outline, TargetCamera};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -191,7 +191,7 @@ pub fn extract_atlas_uinodes(
                 Option<&CalculatedClip>,
                 &Handle<TextureAtlas>,
                 &UiTextureAtlasImage,
-                Option<&UiCamera>,
+                Option<&TargetCamera>,
             ),
             Without<UiImage>,
         >,
@@ -211,7 +211,7 @@ pub fn extract_atlas_uinodes(
         camera,
     ) in uinode_query.iter()
     {
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };
         // Skip invisible and completely transparent nodes
@@ -296,7 +296,7 @@ pub fn extract_uinode_borders(
                 Option<&Parent>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
-                Option<&UiCamera>,
+                Option<&TargetCamera>,
             ),
             Without<ContentSize>,
         >,
@@ -310,7 +310,7 @@ pub fn extract_uinode_borders(
     for (node, global_transform, style, border_color, parent, view_visibility, clip, camera) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };
         // Skip invisible borders
@@ -414,7 +414,7 @@ pub fn extract_uinode_outlines(
             &Outline,
             &ViewVisibility,
             Option<&Parent>,
-            Option<&UiCamera>,
+            Option<&TargetCamera>,
         )>,
     >,
     clip_query: Query<&CalculatedClip>,
@@ -423,7 +423,7 @@ pub fn extract_uinode_outlines(
     let default_single_camera = camera_query.get_single().ok();
     let image = AssetId::<Image>::default();
     for (node, global_transform, outline, view_visibility, maybe_parent, camera) in &uinode_query {
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };
         // Skip invisible outlines
@@ -514,7 +514,7 @@ pub fn extract_uinodes(
                 Option<&UiImage>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
-                Option<&UiCamera>,
+                Option<&TargetCamera>,
             ),
             Without<UiTextureAtlasImage>,
         >,
@@ -525,7 +525,7 @@ pub fn extract_uinodes(
     for (entity, uinode, transform, color, maybe_image, view_visibility, clip, camera) in
         uinode_query.iter()
     {
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };
         // Skip invisible and completely transparent nodes
@@ -658,7 +658,7 @@ pub fn extract_text_uinodes(
             &TextLayoutInfo,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&UiCamera>,
+            Option<&TargetCamera>,
         )>,
     >,
 ) {
@@ -667,7 +667,7 @@ pub fn extract_text_uinodes(
     for (uinode, global_transform, text, text_layout_info, view_visibility, clip, camera) in
         uinode_query.iter()
     {
-        let Some(camera_entity) = camera.map(UiCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)

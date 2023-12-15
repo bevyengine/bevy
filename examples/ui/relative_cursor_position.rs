@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     commands
-        .spawn((NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.0),
@@ -39,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        },))
+        })
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {

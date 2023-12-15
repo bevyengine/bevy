@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Outline, Style, UiCamera, UiScale};
+use crate::{ContentSize, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -249,8 +249,8 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<(Entity, Option<&UiCamera>), (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>, Option<&UiCamera>), With<Node>>,
+    root_node_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Without<Parent>)>,
+    style_query: Query<(Entity, Ref<Style>, Option<&TargetCamera>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
@@ -268,8 +268,11 @@ pub fn ui_layout_system(
 
     // If there is only one camera, we use it as default
     let default_single_camera = cameras.get_single().ok().map(|(entity, _)| entity);
-    let camera_with_default =
-        |ui_camera: Option<&UiCamera>| ui_camera.map(UiCamera::entity).or(default_single_camera);
+    let camera_with_default = |target_camera: Option<&TargetCamera>| {
+        target_camera
+            .map(TargetCamera::entity)
+            .or(default_single_camera)
+    };
 
     let resized_windows: HashSet<Entity> = resize_events.read().map(|event| event.window).collect();
     let calculate_camera_layout_info = |camera: &Camera| {
@@ -291,12 +294,12 @@ pub fn ui_layout_system(
 
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     let mut camera_layout_info: HashMap<Entity, CameraLayoutInfo> = HashMap::new();
-    for (entity, ui_camera) in &root_node_query {
-        match camera_with_default(ui_camera) {
+    for (entity, target_camera) in &root_node_query {
+        match camera_with_default(target_camera) {
             Some(camera_entity) => {
                 let Ok((_, camera)) = cameras.get(camera_entity) else {
                     warn!(
-                        "UiCamera is pointing to a camera {:?} which doesn't exist",
+                        "TargetCamera is pointing to a camera {:?} which doesn't exist",
                         camera_entity
                     );
                     continue;
@@ -312,7 +315,7 @@ pub fn ui_layout_system(
                 } else {
                     warn!(
                         "Multiple cameras found, causing UI target ambiguity. \
-                        To fix this, add an explicit `UiCamera` component to root UI node {:?}",
+                        To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
                         entity
                     );
                 }
@@ -322,9 +325,9 @@ pub fn ui_layout_system(
     }
 
     // Resize all nodes
-    for (entity, style, ui_camera) in style_query.iter() {
+    for (entity, style, target_camera) in style_query.iter() {
         if let Some(camera) =
-            camera_with_default(ui_camera).and_then(|c| camera_layout_info.get(&c))
+            camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
         {
             if camera.resized
                 || !scale_factor_events.is_empty()
@@ -337,8 +340,6 @@ pub fn ui_layout_system(
                 );
                 ui_surface.upsert_node(entity, &style, &layout_context);
             }
-        } else {
-            continue;
         }
     }
     scale_factor_events.clear();
@@ -498,7 +499,7 @@ mod tests {
     use crate::layout::round_layout_coords;
     use crate::prelude::*;
     use crate::ui_layout_system;
-    use crate::update::update_ui_camera_system;
+    use crate::update::update_target_camera_system;
     use crate::ContentSize;
     use crate::UiSurface;
     use bevy_asset::AssetEvent;
@@ -553,7 +554,7 @@ mod tests {
         world.spawn((
             Window {
                 resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..Default::default()
+                ..default()
             },
             PrimaryWindow,
         ));
@@ -564,7 +565,7 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
-                update_ui_camera_system,
+                update_target_camera_system,
                 apply_deferred,
                 ui_layout_system,
             )

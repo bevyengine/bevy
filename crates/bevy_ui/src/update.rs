@@ -1,6 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, OverflowAxis, Style, UiCamera};
+use crate::{CalculatedClip, OverflowAxis, Style, TargetCamera};
 
 use super::Node;
 use bevy_ecs::{
@@ -94,26 +94,26 @@ fn update_clipping(
     }
 }
 
-pub fn update_ui_camera_system(
+pub fn update_target_camera_system(
     mut commands: Commands,
     changed_root_nodes_query: Query<
-        (Entity, Option<&UiCamera>),
-        (With<Node>, Without<Parent>, Changed<UiCamera>),
+        (Entity, Option<&TargetCamera>),
+        (With<Node>, Without<Parent>, Changed<TargetCamera>),
     >,
-    changed_children_query: Query<(Entity, Option<&UiCamera>), (With<Node>, Changed<Children>)>,
+    changed_children_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Changed<Children>)>,
     children_query: Query<&Children, With<Node>>,
-    node_query: Query<Option<&UiCamera>, With<Node>>,
+    node_query: Query<Option<&TargetCamera>, With<Node>>,
 ) {
     // Track updated entities to prevent redundant updates, as `Commands` changes are deferred,
     // and updates done for changed_children_query can overlap with itself or with root_node_query
     let mut updated_entities = HashSet::new();
 
-    // Assuming that UiCamera is manually set on the root node only,
+    // Assuming that TargetCamera is manually set on the root node only,
     // update root nodes first, since it implies the biggest change
-    for (root_node, camera) in &changed_root_nodes_query {
-        update_children_ui_camera(
+    for (root_node, target_camera) in &changed_root_nodes_query {
+        update_children_target_camera(
             root_node,
-            camera,
+            target_camera,
             &node_query,
             &children_query,
             &mut commands,
@@ -121,13 +121,13 @@ pub fn update_ui_camera_system(
         );
     }
 
-    // If the root node UiCamera was changed, then every child is updated
+    // If the root node TargetCamera was changed, then every child is updated
     // by this point, and iteration will be skipped.
     // Otherwise, update changed children
-    for (parent, camera) in &changed_children_query {
-        update_children_ui_camera(
+    for (parent, target_camera) in &changed_children_query {
+        update_children_target_camera(
             parent,
-            camera,
+            target_camera,
             &node_query,
             &children_query,
             &mut commands,
@@ -136,10 +136,10 @@ pub fn update_ui_camera_system(
     }
 }
 
-fn update_children_ui_camera(
+fn update_children_target_camera(
     entity: Entity,
-    camera_to_set: Option<&UiCamera>,
-    node_query: &Query<Option<&UiCamera>, With<Node>>,
+    camera_to_set: Option<&TargetCamera>,
+    node_query: &Query<Option<&TargetCamera>, With<Node>>,
     children_query: &Query<&Children, With<Node>>,
     commands: &mut Commands,
     updated_entities: &mut HashSet<Entity>,
@@ -159,12 +159,12 @@ fn update_children_ui_camera(
                 commands.entity(child).insert(camera.clone());
             }
             None => {
-                commands.entity(child).remove::<UiCamera>();
+                commands.entity(child).remove::<TargetCamera>();
             }
         }
         updated_entities.insert(child);
 
-        update_children_ui_camera(
+        update_children_target_camera(
             child,
             camera_to_set,
             node_query,
