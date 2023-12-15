@@ -26,12 +26,8 @@ fn generate_tbn(normal: vec3<f32>) -> mat3x3<f32> {
     var bitangent = vec3(0.0, 1.0, 0.0);
 
     let n_dot_up = dot(normal, bitangent);
-    if 1.0 - abs(n_dot_up) <= 0.0000001 {
-        if n_dot_up > 0.0 {
-            bitangent = vec3(0.0, 0.0, 1.0);
-        } else {
-            bitangent = vec3(0.0, 0.0, -1.0);
-        }
+    if abs(n_dot_up) >= 0.9999999 {
+        bitangent = vec3(0.0, 0.0, sign(n_dot_up));
     }
 
     let tangent = normalize(cross(bitangent, normal));

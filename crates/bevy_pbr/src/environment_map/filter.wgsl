@@ -169,11 +169,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
     color /= color.a;
-
-    color.r = max(0.0, color.r);
-    color.g = max(0.0, color.g);
-    color.b = max(0.0, color.b);
-    color.a = 1.0;
+    color = vec4(max(color.rgb, vec3(0.0)), 1.0);
 
     switch level {
         case 0u: { textureStore(text_out0, id.xy, id.z, color); }
