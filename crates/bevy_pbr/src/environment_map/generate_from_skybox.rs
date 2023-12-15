@@ -24,6 +24,13 @@ use bevy_render::{
 use bevy_utils::default;
 use std::num::NonZeroU64;
 
+// WARNING: Do not adjust these constants without adjusting the shader code
+const DIFFUSE_MAP_SIZE: u32 = 64;
+const SPECULAR_MAP_SIZE: u32 = 128;
+const SPECULAR_MAP_MIP_COUNT: u32 = 7;
+
+const FILTER_COEFFICIENTS_SIZE: Option<NonZeroU64> = NonZeroU64::new(40320);
+
 /// Automatically generate an [`EnvironmentMapLight`] from a [`Skybox`].
 ///
 /// Usage:
@@ -50,23 +57,15 @@ impl GenerateEnvironmentMapLight {
     }
 }
 
-#[derive(Reflect, Clone, Copy)]
+#[derive(Reflect, Clone, Copy, Default)]
 pub enum GenerateEnvironmentMapLightTextureFormat {
     /// 4 bytes per pixel (smaller and faster), but may not be able to represent as wide a range of lighting values.
     /// This is the [`Default`] on non-WASM platforms.
+    #[cfg_attr(not(target_arch = "wasm32"), default)]
     Rg11b10Float,
     /// 8 bytes per pixel. This is the [`Default`], and only supported option for `WebGPU`.
+    #[cfg_attr(target_arch = "wasm32", default)]
     Rgba16Float,
-}
-
-impl Default for GenerateEnvironmentMapLightTextureFormat {
-    fn default() -> Self {
-        if cfg!(target_arch = "wasm32") {
-            Self::Rgba16Float
-        } else {
-            Self::Rg11b10Float
-        }
-    }
 }
 
 impl GenerateEnvironmentMapLightTextureFormat {
@@ -151,7 +150,7 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
                     texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
                     texture_storage_2d_array(texture_format, StorageTextureAccess::WriteOnly),
                     sampler(SamplerBindingType::Filtering),
-                    uniform_buffer_sized(false, NonZeroU64::new(40320)),
+                    uniform_buffer_sized(false, FILTER_COEFFICIENTS_SIZE),
                 ),
             ),
         );
@@ -218,8 +217,8 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
         let texture_format = gen_env_map_light.texture_format.as_wgpu();
 
         let diffuse_size = Extent3d {
-            width: 64,
-            height: 64,
+            width: DIFFUSE_MAP_SIZE,
+            height: DIFFUSE_MAP_SIZE,
             depth_or_array_layers: 6,
         };
         let diffuse_map = Image {
@@ -254,16 +253,19 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
         };
 
         let specular_size = Extent3d {
-            width: 128,
-            height: 128,
+            width: SPECULAR_MAP_SIZE,
+            height: SPECULAR_MAP_SIZE,
             depth_or_array_layers: 6,
         };
         let specular_map = Image {
-            data: vec![0; texture_byte_count(specular_size, 7, texture_format)],
+            data: vec![
+                0;
+                texture_byte_count(specular_size, SPECULAR_MAP_MIP_COUNT, texture_format)
+            ],
             texture_descriptor: TextureDescriptor {
                 label: Some("generate_environment_map_light_specular_map_texture"),
                 size: specular_size,
-                mip_level_count: 7,
+                mip_level_count: SPECULAR_MAP_MIP_COUNT,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: texture_format,
@@ -283,7 +285,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
                 dimension: Some(TextureViewDimension::Cube),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
-                mip_level_count: Some(7),
+                mip_level_count: Some(SPECULAR_MAP_MIP_COUNT),
                 base_array_layer: 0,
                 array_layer_count: Some(6),
             }),
@@ -505,13 +507,16 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
         // PERF: Don't filter to generate the first mip level, just downsample and copy the skybox texture directly
         pass.set_pipeline(filter_pipeline);
         pass.set_bind_group(0, &bind_groups.filter, &[]);
+        // 342 * 64 (workgroup size) = 21888
+        // 128 * 128 + 64 * 64 + 32 * 32 + 16 * 16 + 8 * 8 + 4 * 4 = 21840
+        // 128 is SPECULAR_MAP_SIZE, and then halved SPECULAR_MAP_MIP_COUNT times
         pass.dispatch_workgroups(342, 6, 1);
 
         // PERF: At this point, may want to copy the specular map to a compressed texture format
 
         pass.set_pipeline(diffuse_convolution_pipeline);
         pass.set_bind_group(0, &bind_groups.diffuse_convolution, &[]);
-        pass.dispatch_workgroups(8, 8, 6);
+        pass.dispatch_workgroups(DIFFUSE_MAP_SIZE / 8, DIFFUSE_MAP_SIZE / 8, 6);
 
         Ok(())
     }
@@ -520,11 +525,12 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
 fn texture_byte_count(mut size: Extent3d, mip_count: u32, texture_format: TextureFormat) -> usize {
     let mut total_size = 0;
     for _ in 0..mip_count {
-        total_size += size.volume() * texture_format.block_size(None).unwrap() as usize;
+        total_size += size.volume();
         size.width /= 2;
         size.height /= 2;
     }
-    total_size
+    let block_size = texture_format.block_size(None).unwrap() as usize;
+    total_size * block_size
 }
 
 fn cube_view(mip_level: u32, cubemap: &GpuImage) -> TextureView {
