@@ -262,7 +262,7 @@ pub fn ui_layout_system(
     struct CameraLayoutInfo {
         size: UVec2,
         resized: bool,
-        scale_factor: f64,
+        scale_factor: f32,
         root_nodes: Vec<Entity>,
     }
 

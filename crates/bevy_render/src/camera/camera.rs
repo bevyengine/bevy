@@ -223,7 +223,7 @@ impl Camera {
     }
 
     #[inline]
-    pub fn target_scaling_factor(&self) -> Option<f64> {
+    pub fn target_scaling_factor(&self) -> Option<f32> {
         self.computed.target_info.as_ref().map(|t| t.scale_factor)
     }
 
@@ -638,7 +638,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                     ) {
                         let resize_factor = new_scale_factor / old_scale_factor;
                         if let Some(ref mut viewport) = camera.viewport {
-                            let resize = |vec: UVec2| (vec.as_dvec2() * resize_factor).as_uvec2();
+                            let resize = |vec: UVec2| (vec.as_vec2() * resize_factor).as_uvec2();
                             viewport.physical_position = resize(viewport.physical_position);
                             viewport.physical_size = resize(viewport.physical_size);
                             viewport_size = Some(viewport.physical_size);

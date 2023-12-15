@@ -413,7 +413,6 @@ pub fn extract_uinode_outlines(
             &Outline,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&Parent>,
             Option<&TargetCamera>,
         )>,
     >,
@@ -421,7 +420,7 @@ pub fn extract_uinode_outlines(
     // If there is only one camera, we use it as default
     let default_single_camera = camera_query.get_single().ok();
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, view_visibility, maybe_clip, maybe_parent, camera) in &uinode_query {
+    for (node, global_transform, outline, view_visibility, maybe_clip, camera) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };
