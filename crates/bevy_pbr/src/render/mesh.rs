@@ -844,6 +844,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
             },
         ));
 
+        #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+        shader_defs.push("ENVIRONMENT_MAP_LIGHT_PROBES".into());
+
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {

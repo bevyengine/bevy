@@ -35,10 +35,10 @@ use bevy_render::render_resource::binding_types::texture_cube;
 use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
 
 use crate::{
-    environment_map::{self, RenderViewEnvironmentMaps},
+    environment_map::{self, RenderViewBindGroupEntries, RenderViewEnvironmentMaps},
     prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
-    LightProbesBuffer, MeshPipeline, MeshPipelineKey, ScreenSpaceAmbientOcclusionTextures,
-    ShadowSamplers, ViewClusterBindings, ViewShadowBindings, LightProbesUniform,
+    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey,
+    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
 };
 
 #[derive(Clone)]
@@ -257,7 +257,8 @@ fn layout_entries(
     let environment_map_entries = environment_map::get_bind_group_layout_entries();
     entries = entries.extend_with_indices((
         (13, environment_map_entries[0]),
-        (15, environment_map_entries[1]),
+        (14, environment_map_entries[1]),
+        (15, environment_map_entries[2]),
     ));
 
     // Tonemapping
@@ -414,29 +415,15 @@ pub fn prepare_mesh_view_bind_groups(
             // the borrow check complains).
             let prepass_bindings;
 
-            let (mut texture_views, mut sampler) = (vec![], None);
-            if let Some(environment_maps) = render_view_environment_maps {
-                for &cubemap_id in &environment_maps.binding_index_to_cubemap {
-                    match images.get(cubemap_id) {
-                        None => texture_views.push(&*fallback_image.cube.texture_view),
-                        Some(image) => {
-                            if sampler.is_none() {
-                                sampler = Some(&image.sampler);
-                            }
-                            texture_views.push(&*image.texture_view);
-                        }
-                    }
-                }
-            }
-
-            // Need at least one texture.
-            if texture_views.is_empty() {
-                texture_views.push(&*fallback_image.cube.texture_view);
-            }
-
+            let bind_group_entries = RenderViewBindGroupEntries::get(
+                render_view_environment_maps,
+                &images,
+                &*fallback_image,
+            );
             entries = entries.extend_with_indices((
-                (13, texture_views.as_slice()),
-                (15, sampler.unwrap_or(&fallback_image.cube.sampler)),
+                (13, bind_group_entries.diffuse_texture_views()),
+                (14, bind_group_entries.specular_texture_views()),
+                (15, bind_group_entries.sampler),
             ));
 
             let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);

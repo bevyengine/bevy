@@ -55,7 +55,7 @@ fn setup(
     camera_transform: Res<CameraTransform>,
 ) {
     // camera
-    let spawn = commands.spawn((
+    commands.spawn((
         Camera3dBundle {
             camera: Camera {
                 hdr: true,

@@ -62,11 +62,8 @@ pub struct RenderReflectionProbe {
     /// The half-extents of the bounding cube.
     half_extents: Vec3,
 
-    /// The index of the environment map in the diffuse cubemap texture array.
-    diffuse_cubemap_index: i32,
-
-    /// The index of the environment map in the specular cubemap texture array.
-    specular_cubemap_index: i32,
+    /// The index of the environment map in the diffuse and specular cubemap texture array.
+    cubemap_index: i32,
 }
 
 /// A per-view shader uniform that specifies all the light probes that the view
@@ -80,15 +77,10 @@ pub struct LightProbesUniform {
     /// The number of reflection probes in the list.
     reflection_probe_count: i32,
 
-    /// The index of the diffuse environment map associated with the view
-    /// itself. This is used as a fallback if no reflection probe in the list
-    /// contains the fragment.
-    diffuse_cubemap_index: i32,
-
-    /// The index of the specular environment map associated with the view
-    /// itself. This is used as a fallback if no reflection probe in the list
-    /// contains the fragment.
-    specular_cubemap_index: i32,
+    /// The index of the diffuse and specular environment maps associated with
+    /// the view itself. This is used as a fallback if no reflection probe in
+    /// the list contains the fragment.
+    cubemap_index: i32,
 }
 
 /// A map from each camera to the light probe uniform associated with it.
@@ -216,44 +208,27 @@ pub fn gather_light_probes(
         let mut light_probes_uniform = LightProbesUniform {
             reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
             reflection_probe_count: light_probes.len().min(MAX_VIEW_REFLECTION_PROBES) as i32,
-            diffuse_cubemap_index: match view_environment_maps {
+            cubemap_index: match view_environment_maps {
                 Some(&EnvironmentMapLight {
                     ref diffuse_map,
-                    specular_map: _,
-                }) if image_assets.get(diffuse_map).is_some() => {
-                    render_view_environment_maps.get_or_insert_cubemap(&diffuse_map.id()) as i32
-                }
-                _ => -1,
-            },
-            specular_cubemap_index: match view_environment_maps {
-                Some(&EnvironmentMapLight {
-                    diffuse_map: _,
                     ref specular_map,
-                }) if image_assets.get(specular_map).is_some() => {
-                    render_view_environment_maps.get_or_insert_cubemap(&specular_map.id()) as i32
+                }) if image_assets.get(diffuse_map).is_some()
+                    && image_assets.get(specular_map).is_some() =>
+                {
+                    render_view_environment_maps.get_or_insert_cubemap(&EnvironmentMapIds {
+                        diffuse: diffuse_map.id(),
+                        specular: specular_map.id(),
+                    }) as i32
                 }
                 _ => -1,
             },
         };
 
-        // Now that we have the list of sorted reflection probes, build up the
-        // list for the GPU.
-        let light_probe_count = light_probes.len().min(MAX_VIEW_REFLECTION_PROBES);
-        for light_probe_index in 0..light_probe_count {
-            let diffuse_cubemap_index = render_view_environment_maps
-                .get_or_insert_cubemap(&light_probes[light_probe_index].environment_maps.diffuse)
-                as i32;
-            let specular_cubemap_index = render_view_environment_maps
-                .get_or_insert_cubemap(&light_probes[light_probe_index].environment_maps.specular)
-                as i32;
-
-            light_probes_uniform.reflection_probes[light_probe_index] = RenderReflectionProbe {
-                inverse_transform: light_probes[light_probe_index].inverse_transform,
-                half_extents: light_probes[light_probe_index].half_extents,
-                diffuse_cubemap_index,
-                specular_cubemap_index,
-            };
-        }
+        maybe_gather_reflection_probes(
+            &mut light_probes_uniform,
+            &mut render_view_environment_maps,
+            &light_probes,
+        );
 
         // Insert the result.
         light_probes_uniforms.insert(view_entity, light_probes_uniform);
@@ -279,6 +254,34 @@ pub fn gather_light_probes(
         // Extents of the bounding box.
         half_extents: Vec3,
         environment_maps: EnvironmentMapIds,
+    }
+
+    #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+    fn maybe_gather_reflection_probes(
+        _: &mut LightProbesUniform,
+        _: &mut RenderViewEnvironmentMaps,
+        _: &[LightProbeInfo],
+    ) {
+    }
+
+    #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+    fn maybe_gather_reflection_probes(
+        light_probes_uniform: &mut LightProbesUniform,
+        render_view_environment_maps: &mut RenderViewEnvironmentMaps,
+        light_probes: &[LightProbeInfo],
+    ) {
+        let light_probe_count = light_probes.len().min(MAX_VIEW_REFLECTION_PROBES);
+        for light_probe_index in 0..light_probe_count {
+            let cubemap_index = render_view_environment_maps
+                .get_or_insert_cubemap(&light_probes[light_probe_index].environment_maps)
+                as i32;
+
+            light_probes_uniform.reflection_probes[light_probe_index] = RenderReflectionProbe {
+                inverse_transform: light_probes[light_probe_index].inverse_transform,
+                half_extents: light_probes[light_probe_index].half_extents,
+                cubemap_index,
+            };
+        }
     }
 }
 
@@ -312,8 +315,7 @@ impl Default for LightProbesUniform {
         Self {
             reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
             reflection_probe_count: 0,
-            diffuse_cubemap_index: -1,
-            specular_cubemap_index: -1,
+            cubemap_index: -1,
         }
     }
 }

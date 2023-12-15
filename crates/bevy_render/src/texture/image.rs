@@ -459,9 +459,7 @@ impl Default for Image {
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING
-                    | wgpu::TextureUsages::COPY_DST
-                    | wgpu::TextureUsages::COPY_SRC,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             },
             sampler: ImageSampler::Default,
