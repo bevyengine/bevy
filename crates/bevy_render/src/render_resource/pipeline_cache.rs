@@ -206,10 +206,16 @@ impl ShaderCache {
             }
         }
 
-        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[(
-            DownlevelFlags::MULTISAMPLED_SHADING,
-            Capabilities::MULTISAMPLED_SHADING,
-        )];
+        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[
+            (
+                DownlevelFlags::MULTISAMPLED_SHADING,
+                Capabilities::MULTISAMPLED_SHADING,
+            ),
+            (
+                DownlevelFlags::CUBE_ARRAY_TEXTURES,
+                Capabilities::CUBE_ARRAY_TEXTURES,
+            ),
+        ];
         let downlevel_flags = render_adapter.get_downlevel_capabilities().flags;
         for (downlevel_flag, capability) in DOWNLEVEL_FLAGS_CAPABILITIES {
             if downlevel_flags.contains(*downlevel_flag) {

@@ -2,6 +2,7 @@
 
 use bevy_math::{Vec2, Vec3};
 
+/// The side where a collision occurred, as returned by [`collide`].
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Collision {
     Left,

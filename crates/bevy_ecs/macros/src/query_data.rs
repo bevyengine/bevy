@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Default)]
-struct WorldQueryDataAttributes {
+struct QueryDataAttributes {
     pub is_mutable: bool,
 
     pub derive_args: Punctuated<Meta, syn::token::Comma>,
@@ -29,20 +29,20 @@ mod field_attr_keywords {
     syn::custom_keyword!(ignore);
 }
 
-pub static WORLD_QUERY_DATA_ATTRIBUTE_NAME: &str = "world_query_data";
+pub static QUERY_DATA_ATTRIBUTE_NAME: &str = "query_data";
 
-pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
+pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
 
     let ast = parse_macro_input!(input as DeriveInput);
     let visibility = ast.vis;
 
-    let mut attributes = WorldQueryDataAttributes::default();
+    let mut attributes = QueryDataAttributes::default();
     for attr in &ast.attrs {
         if !attr
             .path()
             .get_ident()
-            .map_or(false, |ident| ident == WORLD_QUERY_DATA_ATTRIBUTE_NAME)
+            .map_or(false, |ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
         {
             continue;
         }
@@ -85,7 +85,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
             }
             Ok(())
         })
-        .unwrap_or_else(|_| panic!("Invalid `{WORLD_QUERY_DATA_ATTRIBUTE_NAME}` attribute format"));
+        .unwrap_or_else(|_| panic!("Invalid `{QUERY_DATA_ATTRIBUTE_NAME}` attribute format"));
     }
 
     let path = bevy_ecs_path();
@@ -137,7 +137,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
     let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
         return syn::Error::new(
             Span::call_site(),
-            "#[derive(WorldQueryData)]` only supports structs",
+            "#[derive(QueryData)]` only supports structs",
         )
         .into_compile_error()
         .into();
@@ -151,7 +151,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
     let mut read_only_field_types = Vec::new();
     for (i, field) in fields.iter().enumerate() {
         let attrs = match read_world_query_field_info(field) {
-            Ok(WorldQueryDataFieldInfo { attrs }) => attrs,
+            Ok(QueryDataFieldInfo { attrs }) => attrs,
             Err(e) => return e.into_compile_error().into(),
         };
 
@@ -171,7 +171,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
         field_visibilities.push(field.vis.clone());
         let field_ty = field.ty.clone();
         field_types.push(quote!(#field_ty));
-        read_only_field_types.push(quote!(<#field_ty as #path::query::WorldQueryData>::ReadOnly));
+        read_only_field_types.push(quote!(<#field_ty as #path::query::QueryData>::ReadOnly));
     }
 
     let derive_args = &attributes.derive_args;
@@ -274,7 +274,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
         let read_only_data_impl = if attributes.is_mutable {
             quote! {
                 /// SAFETY: we assert fields are readonly below
-                unsafe impl #user_impl_generics #path::query::WorldQueryData
+                unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
                 }
@@ -285,7 +285,7 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
 
         quote! {
             /// SAFETY: we assert fields are readonly below
-            unsafe impl #user_impl_generics #path::query::WorldQueryData
+            unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
             }
@@ -296,24 +296,24 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
 
     let read_only_data_impl = quote! {
         /// SAFETY: we assert fields are readonly below
-        unsafe impl #user_impl_generics #path::query::ReadOnlyWorldQueryData
+        unsafe impl #user_impl_generics #path::query::ReadOnlyQueryData
         for #read_only_struct_name #user_ty_generics #user_where_clauses {}
     };
 
     let read_only_asserts = if attributes.is_mutable {
         quote! {
             // Double-check that the data fetched by `<_ as WorldQuery>::ReadOnly` is read-only.
-            // This is technically unnecessary as `<_ as WorldQuery>::ReadOnly: ReadOnlyWorldQueryData`
-            // but to protect against future mistakes we assert the assoc type implements `ReadOnlyWorldQueryData` anyway
+            // This is technically unnecessary as `<_ as WorldQuery>::ReadOnly: ReadOnlyQueryData`
+            // but to protect against future mistakes we assert the assoc type implements `ReadOnlyQueryData` anyway
             #( assert_readonly::<#read_only_field_types>(); )*
         }
     } else {
         quote! {
-            // Statically checks that the safety guarantee of `ReadOnlyWorldQueryData` for `$fetch_struct_name` actually holds true.
-            // We need this to make sure that we don't compile `ReadOnlyWorldQueryData` if our struct contains nested `WorldQueryData`
+            // Statically checks that the safety guarantee of `ReadOnlyQueryData` for `$fetch_struct_name` actually holds true.
+            // We need this to make sure that we don't compile `ReadOnlyQueryData` if our struct contains nested `QueryData`
             // members that don't implement it. I.e.:
             // ```
-            // #[derive(WorldQueryData)]
+            // #[derive(QueryData)]
             // pub struct Foo { a: &'static mut MyComponent }
             // ```
             #( assert_readonly::<#field_types>(); )*
@@ -352,13 +352,13 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
         const _: () = {
             fn assert_readonly<T>()
             where
-                T: #path::query::ReadOnlyWorldQueryData,
+                T: #path::query::ReadOnlyQueryData,
             {
             }
 
             fn assert_data<T>()
             where
-                T: #path::query::WorldQueryData,
+                T: #path::query::QueryData,
             {
             }
 
@@ -385,26 +385,26 @@ pub fn derive_world_query_data_impl(input: TokenStream) -> TokenStream {
     })
 }
 
-struct WorldQueryDataFieldInfo {
-    /// All field attributes except for `world_query_data` ones.
+struct QueryDataFieldInfo {
+    /// All field attributes except for `query_data` ones.
     attrs: Vec<Attribute>,
 }
 
-fn read_world_query_field_info(field: &Field) -> syn::Result<WorldQueryDataFieldInfo> {
+fn read_world_query_field_info(field: &Field) -> syn::Result<QueryDataFieldInfo> {
     let mut attrs = Vec::new();
     for attr in &field.attrs {
         if attr
             .path()
             .get_ident()
-            .map_or(false, |ident| ident == WORLD_QUERY_DATA_ATTRIBUTE_NAME)
+            .map_or(false, |ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
         {
             return Err(syn::Error::new_spanned(
                 attr,
-                "#[derive(WorldQueryData)] does not support field attributes.",
+                "#[derive(QueryData)] does not support field attributes.",
             ));
         }
         attrs.push(attr.clone());
     }
 
-    Ok(WorldQueryDataFieldInfo { attrs })
+    Ok(QueryDataFieldInfo { attrs })
 }
