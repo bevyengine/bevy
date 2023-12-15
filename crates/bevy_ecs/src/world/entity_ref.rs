@@ -1429,8 +1429,9 @@ pub struct FilteredEntityRef<'w> {
 impl<'w> FilteredEntityRef<'w> {
     /// # Safety
     /// - `cell` must have permission to mutate every component of the entity.
-    /// - No accesses to any of the entity's components may exist
-    ///   at the same time as the returned [`FilteredEntityMut`].
+    /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
+    /// - If `access` takes a read on a component, no mutable references to that component
+    /// may exist at the same time as the returned [`FilteredEntityRef`].
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
         Self { entity, access }
     }
@@ -1438,7 +1439,8 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&FilteredEntityRef`, but you need `FilteredEntityRef`.
     pub fn reborrow(&mut self) -> FilteredEntityRef<'_> {
-        // SAFETY: We have exclusive access to the entire entity and its components.
+        // SAFETY: We have exclusive access to `self` and the safety requirements were met
+        // when creating `self`.
         unsafe { Self::new(self.entity, self.access.clone()) }
     }
 
@@ -1587,7 +1589,7 @@ impl<'w> FilteredEntityRef<'w> {
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
     fn from(entity_mut: FilteredEntityMut<'w>) -> Self {
         // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
         unsafe { FilteredEntityRef::new(entity_mut.entity, entity_mut.access) }
     }
 }
@@ -1595,7 +1597,7 @@ impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
 impl<'a> From<&'a FilteredEntityMut<'_>> for FilteredEntityRef<'a> {
     fn from(entity_mut: &'a FilteredEntityMut<'_>) -> Self {
         // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
         unsafe { FilteredEntityRef::new(entity_mut.entity, entity_mut.access.clone()) }
     }
 }
@@ -1608,9 +1610,11 @@ pub struct FilteredEntityMut<'w> {
 
 impl<'w> FilteredEntityMut<'w> {
     /// # Safety
-    /// - `cell` must have permission to mutate every component of the entity.
-    /// - No accesses to any of the entity's components may exist
-    ///   at the same time as the returned [`FilteredEntityMut`].
+    /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
+    /// - If `acccess` takes read access to a component no mutable reference to that
+    /// component can exist at the same time as the returned [`FilteredEntityMut`]
+    /// - If `access` takes write access to a component, no reference to that component
+    /// may exist at the same time as the returned [`FilteredEntityMut`]
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
         Self { entity, access }
     }

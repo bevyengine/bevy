@@ -73,7 +73,7 @@ impl<'w, Q: WorldQueryData, F: WorldQueryFilter> QueryBuilder<'w, Q, F> {
         self.world
     }
 
-    /// Returns a reference to the world passed to [`Self::new`].
+    /// Returns a mutable reference to the world passed to [`Self::new`].
     pub fn world_mut(&mut self) -> &mut World {
         self.world
     }
