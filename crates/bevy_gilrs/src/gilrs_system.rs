@@ -12,10 +12,10 @@ use bevy_utils::Uuid;
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
 
 // Note: cannot impl From<> due to orphan rule and crate dependencies
-fn info_from_gilrs_gamepad(value: gilrs::Gamepad) -> GamepadInfo {
+fn info_from_gilrs_gamepad(gamepad: gilrs::Gamepad) -> GamepadInfo {
     GamepadInfo {
-        name: value.name().into(),
-        uuid: Uuid::from_bytes(value.uuid()),
+        name: gamepad.name().into(),
+        uuid: Uuid::from_bytes(gamepad.uuid()),
     }
 }
 

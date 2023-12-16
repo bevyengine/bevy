@@ -110,10 +110,11 @@ pub struct GamepadInfo {
     /// The display name of the gamepad.
     ///
     /// This name is generally defined by the OS. For example on Windows the
-    /// name may be "HID-compliant game controller". This is a display name,
-    /// with no guarantee of unicity; if a user has two devices from the same
-    /// make and model, chances are this name will be the same. For a unique
-    /// identifier stable across runs, see [`uuid`] instead.
+    /// name may be "HID-compliant game controller". The name is not unique,
+    /// typically two gamepads of the same model will have the same name.
+    /// For a unique identifier stable across runs, see [`uuid`] instead.
+    ///
+    /// [`uuid`]: GamepadInfo::uuid
     pub name: String,
 
     /// The unique identifier of the gamepad.
