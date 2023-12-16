@@ -1,6 +1,35 @@
 //! Environment maps and reflection probes.
+//!
+//! An *environment map* consists of a pair of diffuse and specular cubemaps
+//! that together reflect the static surrounding area of a region in space. When
+//! available, the PBR shader uses these to apply diffuse light and calculate
+//! specular reflections.
+//!
+//! Environment maps come in two flavors, depending on what other components the
+//! entities they're attached to have:
+//!
+//! 1. If attached to a view, they represent the objects located a very far
+//!    distance from the view, in a similar manner to a skybox.
+//!
+//! 2. If attached to a [`LightProbe`], environment maps represent the immediate
+//!    surroundings of a specific location in the scene. These types of
+//!    environment maps are known as *reflection probes*.
+//!    [`ReflectionProbeBundle`] is available as a mechanism to conveniently add
+//!    these to a scene.
+//!
+//! Typically, environment maps are static (i.e. "baked", calculated ahead of
+//! time) and so only reflect fixed static geometry. Environment map textures
+//! can be generated from panoramas via the [glTF IBL Sampler].
+//!
+//! Currently, reflection probes (i.e. environment maps attached to light
+//! probes) use binding arrays (also known as bindless textures) and
+//! consequently aren't supported on WebGL 2 or WebGPU. Reflection probes are
+//! also unsupported if GLSL is in use, due to `naga` limitations. Environment
+//! maps attached to views are, however, supported on all platforms.
+//!
+//! [glTF IBL Sampler]: https://github.com/KhronosGroup/glTF-IBL-Sampler
 
-use std::{num::NonZeroU32, ops::Deref};
+use std::ops::Deref;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
@@ -19,7 +48,11 @@ use bevy_render::{
     texture::{FallbackImage, Image},
     RenderApp,
 };
+
+#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 use bevy_utils::HashMap;
+#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+use std::num::NonZeroU32;
 
 use crate::LightProbe;
 
@@ -27,53 +60,112 @@ use crate::LightProbe;
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
 
+/// Adds support for environment maps.
+///
+/// See the documentation in [`crate::environment_map`] for detailed information
+/// on environment maps.
 pub struct EnvironmentMapPlugin;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct EnvironmentMapIds {
-    pub diffuse: AssetId<Image>,
-    pub specular: AssetId<Image>,
-}
-
+/// A pair of cubemap textures that represent the surroundings of a specific
+/// area in space.
+///
+/// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
 pub struct EnvironmentMapLight {
+    /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,
+    /// The sharper, mipmapped image that represents specular radiance
+    /// surrounding a region.
     pub specular_map: Handle<Image>,
 }
 
+/// Like [`EnvironmentMapLight`], but contains asset IDs instead of handles.
+///
+/// This is for use in the render app.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct EnvironmentMapIds {
+    /// The blurry image that represents diffuse radiance surrounding a region.
+    pub(crate) diffuse: AssetId<Image>,
+    /// The sharper, mipmapped image that represents specular radiance
+    /// surrounding a region.
+    pub(crate) specular: AssetId<Image>,
+}
+
+/// A convenient bundle that contains everything needed to make an entity a
+/// reflection probe.
+///
+/// A reflection probe is a type of environment map that specifies the light
+/// surrounding a region in space. For more information, see
+/// [`crate::environment_map`].
 #[derive(Bundle)]
 pub struct ReflectionProbeBundle {
+    /// Contains a transform that specifies the position of this reflection probe in space.
     pub spatial: SpatialBundle,
+    /// Marks this environment map as a light probe.
     pub light_probe: LightProbe,
+    /// The cubemaps that make up this environment map.
     pub environment_map: EnvironmentMapLight,
 }
 
+/// A component, part of the render world, that stores the mapping from
+/// environment map ID to texture index in the diffuse and specular binding
+/// arrays.
+///
+/// Cubemap textures belonging to environment maps are collected into binding
+/// arrays, and the index of each texture is presented to the shader for runtime
+/// lookup.
+///
+/// This component is attached to each view in the render world, because each
+/// view may have a different set of cubemaps that it considers and therefore
+/// cubemap indices are per-view.
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 #[derive(Component, Default)]
 pub struct RenderViewEnvironmentMaps {
+    /// The list of environment maps presented to the shader, in order.
     binding_index_to_cubemap: Vec<EnvironmentMapIds>,
+    /// The reverse of `binding_index_to_cubemap`: a map from the environment
+    /// map IDs to the index in `binding_index_to_cubemap`.
     cubemap_to_binding_index: HashMap<EnvironmentMapIds, u32>,
 }
 
+/// A component, part of the render world, that stores the ID of the environment
+/// map attached to each view.
+///
+/// This is a simplified version of the structure used when binding arrays are
+/// not available on the current platform.
 #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
 #[derive(Component, Default)]
-pub struct RenderViewEnvironmentMaps {
+pub(crate) struct RenderViewEnvironmentMaps {
     cubemap: Option<EnvironmentMapIds>,
 }
 
+/// All the bind group entries necessary for PBR shaders to access the
+/// environment maps exposed to a view.
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 pub(crate) struct RenderViewBindGroupEntries<'a> {
+    /// A texture view of each diffuse cubemap, in the same order that they are
+    /// supplied to the view (i.e. in the same order as
+    /// `binding_index_to_cubemap` in [`RenderViewEnvironmentMaps`]).
+    ///
     /// This is a vector of `wgpu::TextureView`s. But we don't want to import
     /// `wgpu` in this crate, so we refer to it indirectly like this.
     diffuse_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+
+    /// As above, but for specular cubemaps.
     specular_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+
+    /// The sampler used to sample elements of both `diffuse_texture_views` and
+    /// `specular_texture_views`.
     pub(crate) sampler: &'a Sampler,
 }
 
+/// All the bind group entries necessary for PBR shaders to access the
+/// environment maps exposed to a view.
+///
+/// This is the version used when binding arrays are not available on the
+/// current platform.
 #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
 pub(crate) struct RenderViewBindGroupEntries<'a> {
-    /// This is a `wgpu::TextureView`. But we don't want to import `wgpu` in
-    /// this crate, so we refer to it indirectly like this.
     diffuse_texture_view: &'a TextureView,
     specular_texture_view: &'a TextureView,
     pub(crate) sampler: &'a Sampler,
@@ -110,18 +202,22 @@ impl ExtractInstance for EnvironmentMapIds {
 }
 
 impl RenderViewEnvironmentMaps {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 }
 
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 impl RenderViewEnvironmentMaps {
-    pub fn is_empty(&self) -> bool {
+    /// Returns true if there are no environment maps for this view or false if
+    /// there are such environment maps.
+    pub(crate) fn is_empty(&self) -> bool {
         self.binding_index_to_cubemap.is_empty()
     }
 
-    pub fn get_or_insert_cubemap(&mut self, cubemap_id: &EnvironmentMapIds) -> u32 {
+    /// Adds a cubemap to the list of bindings, if it wasn't there already, and
+    /// returns its index within that list.
+    pub(crate) fn get_or_insert_cubemap(&mut self, cubemap_id: &EnvironmentMapIds) -> u32 {
         *self
             .cubemap_to_binding_index
             .entry(*cubemap_id)
@@ -135,11 +231,15 @@ impl RenderViewEnvironmentMaps {
 
 #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
 impl RenderViewEnvironmentMaps {
-    pub fn is_empty(&self) -> bool {
+    /// Returns true if there is no environment map for this view or false if
+    /// there is such an environment map.
+    pub(crate) fn is_empty(&self) -> bool {
         self.cubemap.is_none()
     }
 
-    pub fn get_or_insert_cubemap(&mut self, cubemap_id: &EnvironmentMapIds) -> u32 {
+    /// Sets the environment map attached to this view, replacing the previous
+    /// one if any.
+    pub(crate) fn get_or_insert_cubemap(&mut self, cubemap_id: &EnvironmentMapIds) -> u32 {
         self.cubemap = Some(*cubemap_id);
         0
     }
@@ -197,7 +297,8 @@ impl<'a> RenderViewBindGroupEntries<'a> {
             }
         }
 
-        // Need at least one texture.
+        // We need at least one texture in the binding array to avoid `wgpu`
+        // errors, so push the fallback image if necessary.
         if diffuse_texture_views.is_empty() {
             diffuse_texture_views.push(&*fallback_image.cube.texture_view);
             specular_texture_views.push(&*fallback_image.cube.texture_view);
@@ -239,6 +340,8 @@ impl<'a> RenderViewBindGroupEntries<'a> {
     }
 }
 
+/// Adds a diffuse or specular texture view to the `texture_views` list, and
+/// populates `sampler` if this is the first such view.
 fn add_texture_view<'a>(
     texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
     sampler: &mut Option<&'a Sampler>,
@@ -247,11 +350,16 @@ fn add_texture_view<'a>(
     fallback_image: &'a FallbackImage,
 ) {
     match images.get(image_id) {
-        None => texture_views.push(&*fallback_image.cube.texture_view),
+        None => {
+            // Use the fallback image if the cubemap isn't loaded yet.
+            texture_views.push(&*fallback_image.cube.texture_view)
+        }
         Some(image) => {
+            // If this is the first texture view, populate `sampler`.
             if sampler.is_none() {
                 *sampler = Some(&image.sampler);
             }
+
             texture_views.push(&*image.texture_view);
         }
     }
@@ -259,10 +367,14 @@ fn add_texture_view<'a>(
 
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 impl<'a> RenderViewBindGroupEntries<'a> {
+    /// Returns a list of texture views of each diffuse cubemap, in binding
+    /// order.
     pub(crate) fn diffuse_texture_views(&'a self) -> &'a [&'a <TextureView as Deref>::Target] {
         self.diffuse_texture_views.as_slice()
     }
 
+    /// Returns a list of texture views of each specular cubemap, in binding
+    /// order.
     pub(crate) fn specular_texture_views(&'a self) -> &'a [&'a <TextureView as Deref>::Target] {
         self.specular_texture_views.as_slice()
     }
@@ -270,10 +382,12 @@ impl<'a> RenderViewBindGroupEntries<'a> {
 
 #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
 impl<'a> RenderViewBindGroupEntries<'a> {
+    /// Returns the texture view corresponding to the view's diffuse cubemap.
     pub(crate) fn diffuse_texture_views(&self) -> &'a TextureView {
         &self.diffuse_texture_view
     }
 
+    /// Returns the texture view corresponding to the view's specular cubemap.
     pub(crate) fn specular_texture_views(&self) -> &'a TextureView {
         &self.specular_texture_view
     }

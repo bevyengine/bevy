@@ -54,7 +54,7 @@ pub struct LightProbe {
 
 /// A GPU type that stores information about a reflection probe.
 #[derive(Clone, Copy, ShaderType, Default)]
-pub struct RenderReflectionProbe {
+struct RenderReflectionProbe {
     /// The transform from the world space to the model space. This is used to
     /// efficiently check for bounding box intersection.
     inverse_transform: Mat4,
@@ -85,16 +85,16 @@ pub struct LightProbesUniform {
 
 /// A map from each camera to the light probe uniform associated with it.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct RenderLightProbes(EntityHashMap<Entity, LightProbesUniform>);
+struct RenderLightProbes(EntityHashMap<Entity, LightProbesUniform>);
 
 /// A GPU buffer that stores information about all light probes.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct LightProbesBuffer(pub DynamicUniformBuffer<LightProbesUniform>);
+pub struct LightProbesBuffer(DynamicUniformBuffer<LightProbesUniform>);
 
 /// A component attached to each camera in the render world that stores the
 /// index of the [LightProbesUniform] in the [LightProbesBuffer].
 #[derive(Component, Default, Deref, DerefMut)]
-pub struct ViewLightProbesUniformOffset(pub u32);
+pub struct ViewLightProbesUniformOffset(u32);
 
 /// Information that [`gather_light_probes`] keeps about each light probe.
 #[derive(Clone, Copy)]
@@ -150,7 +150,7 @@ impl Plugin for LightProbePlugin {
 /// performing frustum culling and distance sorting in the process.
 ///
 /// This populates the [`LightProbesUniforms`] resource.
-pub fn gather_light_probes(
+fn gather_light_probes(
     mut light_probes_uniforms: ResMut<RenderLightProbes>,
     image_assets: Res<RenderAssets<Image>>,
     light_probe_query: Extract<Query<(&LightProbe, &GlobalTransform, &EnvironmentMapLight)>>,
@@ -206,7 +206,7 @@ pub fn gather_light_probes(
 }
 
 /// Uploads the result of [`gather_light_probes`] to the GPU.
-pub fn upload_light_probes(
+fn upload_light_probes(
     mut commands: Commands,
     light_probes_uniforms: Res<RenderLightProbes>,
     mut light_probes_buffer: ResMut<LightProbesBuffer>,

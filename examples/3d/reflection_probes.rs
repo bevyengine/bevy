@@ -2,9 +2,9 @@
 //!
 //! Press Space to switch between no reflections, environment map reflections
 //! (i.e. the skybox only, not the cubes), and a full reflection probe that
-//! reflects the skybox and the cubes.
-//!
-//! Press Enter to pause rotation.
+//! reflects the skybox and the cubes. Press Enter to pause rotation.
+//! 
+//! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::core_pipeline::Skybox;
 use bevy::math::Vec3A;
