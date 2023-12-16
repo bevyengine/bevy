@@ -97,11 +97,11 @@ impl Plugin for EnvironmentMapPlugin {
 }
 
 impl ExtractInstance for EnvironmentMapIds {
-    type Query = Read<EnvironmentMapLight>;
+    type Data = Read<EnvironmentMapLight>;
 
     type Filter = ();
 
-    fn extract(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+    fn extract(item: QueryItem<'_, Self::Data>) -> Option<Self> {
         Some(EnvironmentMapIds {
             diffuse: item.diffuse_map.id(),
             specular: item.specular_map.id(),

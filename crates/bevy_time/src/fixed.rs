@@ -1,8 +1,9 @@
+use bevy_app::FixedMain;
 use bevy_ecs::world::World;
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
-use crate::{time::Time, virt::Virtual, FixedUpdate};
+use crate::{time::Time, virt::Virtual};
 
 /// The fixed timestep game clock following virtual time.
 ///
@@ -12,7 +13,8 @@ use crate::{time::Time, virt::Virtual, FixedUpdate};
 /// It is automatically inserted as a resource by
 /// [`TimePlugin`](crate::TimePlugin) and updated based on
 /// [`Time<Virtual>`](Virtual). The fixed clock is automatically set as the
-/// generic [`Time`] resource during [`FixedUpdate`] schedule processing.
+/// generic [`Time`] resource during [`FixedUpdate`](bevy_app::FixedUpdate)
+/// schedule processing.
 ///
 /// The fixed timestep clock advances in fixed-size increments, which is
 /// extremely useful for writing logic (like physics) that should have
@@ -26,7 +28,9 @@ use crate::{time::Time, virt::Virtual, FixedUpdate};
 /// frame). Additionally, the value is a power of two which losslessly converts
 /// into [`f32`] and [`f64`].
 ///
-/// To run a system on a fixed timestep, add it to the [`FixedUpdate`] schedule.
+/// To run a system on a fixed timestep, add it to one of the [`FixedMain`]
+/// schedules, most commonly [`FixedUpdate`](bevy_app::FixedUpdate).
+///
 /// This schedule is run a number of times between
 /// [`PreUpdate`](bevy_app::PreUpdate) and [`Update`](bevy_app::Update)
 /// according to the accumulated [`overstep()`](Time::overstep) time divided by
@@ -43,20 +47,21 @@ use crate::{time::Time, virt::Virtual, FixedUpdate};
 /// means it is affected by [`pause()`](Time::pause),
 /// [`set_relative_speed()`](Time::set_relative_speed) and
 /// [`set_max_delta()`](Time::set_max_delta) from virtual time. If the virtual
-/// clock is paused, the [`FixedUpdate`] schedule will not run. It is guaranteed
-/// that the [`elapsed()`](Time::elapsed) time in `Time<Fixed>` is always
-/// between the previous `elapsed()` and the current `elapsed()` value in
-/// `Time<Virtual>`, so the values are compatible.
+/// clock is paused, the [`FixedUpdate`](bevy_app::FixedUpdate) schedule will
+/// not run. It is guaranteed that the [`elapsed()`](Time::elapsed) time in
+/// `Time<Fixed>` is always between the previous `elapsed()` and the current
+/// `elapsed()` value in `Time<Virtual>`, so the values are compatible.
 ///
 /// Changing the timestep size while the game is running should not normally be
 /// done, as having a regular interval is the point of this schedule, but it may
 /// be necessary for effects like "bullet-time" if the normal granularity of the
 /// fixed timestep is too big for the slowed down time. In this case,
 /// [`set_timestep()`](Time::set_timestep) and be called to set a new value. The
-/// new value will be used immediately for the next run of the [`FixedUpdate`]
-/// schedule, meaning that it will affect the [`delta()`](Time::delta) value for
-/// the very next [`FixedUpdate`], even if it is still during the same frame.
-/// Any [`overstep()`](Time::overstep) present in the accumulator will be
+/// new value will be used immediately for the next run of the
+/// [`FixedUpdate`](bevy_app::FixedUpdate) schedule, meaning that it will affect
+/// the [`delta()`](Time::delta) value for the very next
+/// [`FixedUpdate`](bevy_app::FixedUpdate), even if it is still during the same
+/// frame. Any [`overstep()`](Time::overstep) present in the accumulator will be
 /// processed according to the new [`timestep()`](Time::timestep) value.
 #[derive(Debug, Copy, Clone, Reflect)]
 pub struct Fixed {
@@ -225,14 +230,14 @@ impl Default for Fixed {
     }
 }
 
-/// Runs [`FixedUpdate`] zero or more times based on delta of
+/// Runs [`FixedMain`] zero or more times based on delta of
 /// [`Time<Virtual>`](Virtual) and [`Time::overstep`]
-pub fn run_fixed_update_schedule(world: &mut World) {
+pub fn run_fixed_main_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
 
     // Run the schedule until we run out of accumulated time
-    let _ = world.try_schedule_scope(FixedUpdate, |world, schedule| {
+    let _ = world.try_schedule_scope(FixedMain, |world, schedule| {
         while world.resource_mut::<Time<Fixed>>().expend() {
             *world.resource_mut::<Time>() = world.resource::<Time<Fixed>>().as_generic();
             schedule.run(world);

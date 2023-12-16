@@ -39,11 +39,13 @@ smallvec = "1.6"
 thread_local = "1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = { version = "0.10" }
+naga_oil = { version = "0.11" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.10", default-features = false, features = ["test_shader"] }
+naga_oil = { version = "0.11", default-features = false, features = [
+  "test_shader",
+] }
 
 [lints]
 workspace = true

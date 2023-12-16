@@ -307,7 +307,7 @@ impl App {
         }
 
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
-        (runner)(app);
+        runner(app);
     }
 
     /// Check the state of all plugins already added to this app. This is usually called by the
@@ -418,7 +418,7 @@ impl App {
         self
     }
 
-    /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
     pub fn configure_sets(
         &mut self,

@@ -555,7 +555,7 @@ mod tests {
     fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
-            if (predicate)(&mut app.world).is_some() {
+            if predicate(&mut app.world).is_some() {
                 return;
             }
         }
