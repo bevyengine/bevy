@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         CameraController::default(),
         Skybox {
             image: skybox_handle.clone(),
-            brightness: 1.0,
+            brightness: 150.0,
         },
     ));
 
