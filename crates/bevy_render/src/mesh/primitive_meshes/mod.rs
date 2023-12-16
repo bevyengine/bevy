@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 mod capsule;
 mod circle;
 mod cone;
