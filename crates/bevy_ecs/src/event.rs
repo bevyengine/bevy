@@ -653,8 +653,12 @@ pub struct EventIteratorWithId<'a, E: Event> {
 impl<'a, E: Event> EventIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
-        let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
-        let b_index = (reader.last_event_count).saturating_sub(events.events_b.start_event_count);
+        let a_index = reader
+            .last_event_count
+            .saturating_sub(events.events_a.start_event_count);
+        let b_index = reader
+            .last_event_count
+            .saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
         let b = events.events_b.get(b_index..).unwrap_or_default();
 

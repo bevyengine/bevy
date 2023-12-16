@@ -313,7 +313,7 @@ impl BlobVec {
         let drop = self.drop;
         let value = self.swap_remove_and_forget_unchecked(index);
         if let Some(drop) = drop {
-            (drop)(value);
+            drop(value);
         }
     }
 
