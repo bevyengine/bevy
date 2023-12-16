@@ -37,7 +37,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        environment_map::EnvironmentMapLight,
+        environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
         fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         light_probe::LightProbe,

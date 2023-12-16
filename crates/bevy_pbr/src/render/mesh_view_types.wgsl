@@ -116,7 +116,9 @@ struct ReflectionProbe {
 };
 
 struct LightProbes {
-    reflection_probes: array<ReflectionProbe, 4u>,
+    // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
+    reflection_probes: array<ReflectionProbe, 8u>,
     reflection_probe_count: i32,
+    // -1 if no cubemap is associated.
     cubemap_index: i32,
 };

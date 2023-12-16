@@ -4,25 +4,28 @@ use std::{num::NonZeroU32, ops::Deref};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
-use bevy_ecs::{component::Component, query::QueryItem, system::lifetimeless::Read};
+use bevy_ecs::{
+    bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
+};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_instances::{ExtractInstance, ExtractInstancesPlugin},
+    prelude::SpatialBundle,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, IntoBindingArray, Sampler, SamplerBindingType,
-        Shader, TextureSampleType, TextureView,
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
+        TextureSampleType, TextureView,
     },
     texture::{FallbackImage, Image},
     RenderApp,
 };
 use bevy_utils::HashMap;
 
+use crate::LightProbe;
+
 /// A handle to the environment map helper shader.
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
-
-const MAX_REFLECTION_PROBES: u32 = 32;
 
 pub struct EnvironmentMapPlugin;
 
@@ -36,6 +39,13 @@ pub struct EnvironmentMapIds {
 pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,
     pub specular_map: Handle<Image>,
+}
+
+#[derive(Bundle)]
+pub struct ReflectionProbeBundle {
+    pub spatial: SpatialBundle,
+    pub light_probe: LightProbe,
+    pub environment_map: EnvironmentMapLight,
 }
 
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
@@ -137,11 +147,13 @@ impl RenderViewEnvironmentMaps {
 
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
+    use crate::MAX_VIEW_REFLECTION_PROBES;
+
     [
         binding_types::texture_cube(TextureSampleType::Float { filterable: true })
-            .count(NonZeroU32::new(MAX_REFLECTION_PROBES).unwrap()),
+            .count(NonZeroU32::new(MAX_VIEW_REFLECTION_PROBES as _).unwrap()),
         binding_types::texture_cube(TextureSampleType::Float { filterable: true })
-            .count(NonZeroU32::new(MAX_REFLECTION_PROBES).unwrap()),
+            .count(NonZeroU32::new(MAX_VIEW_REFLECTION_PROBES as _).unwrap()),
         binding_types::sampler(SamplerBindingType::Filtering),
     ]
 }

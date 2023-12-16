@@ -3,6 +3,8 @@
 //! Press Space to switch between no reflections, environment map reflections
 //! (i.e. the skybox only, not the cubes), and a full reflection probe that
 //! reflects the skybox and the cubes.
+//!
+//! Press Enter to pause rotation.
 
 use bevy::core_pipeline::Skybox;
 use bevy::math::Vec3A;
@@ -11,12 +13,25 @@ use bevy::prelude::*;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
+// Rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.005;
 
-static HELP_TEXT: &str = "Press Space to switch reflection mode";
+static STOP_ROTATION_HELP_TEXT: &str = "Press Enter to stop rotation";
+static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";
+
+static REFLECTION_MODE_HELP_TEXT: &str = "Press Space to switch reflection mode";
+
+// The mode the application is in.
+#[derive(Resource)]
+struct AppStatus {
+    // Which environment maps the user has requested to display.
+    reflection_mode: ReflectionMode,
+    // Whether the user has requested the scene to rotate.
+    rotating: bool,
+}
 
 // Which environment maps the user has requested to display.
-#[derive(Clone, Copy, PartialEq, Resource, Default)]
+#[derive(Clone, Copy)]
 enum ReflectionMode {
     // No environment maps are shown.
     None = 0,
@@ -24,7 +39,6 @@ enum ReflectionMode {
     EnvironmentMap = 1,
     // Both a world environment map and a reflection probe are present. The
     // reflection probe is shown in the sphere.
-    #[default]
     ReflectionProbe = 2,
 }
 
@@ -51,30 +65,51 @@ fn main() {
     // Create the app.
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<ReflectionMode>()
+        .init_resource::<AppStatus>()
         .init_resource::<Cubemaps>()
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, add_environment_map_to_camera)
         .add_systems(Update, change_reflection_type)
-        .add_systems(Update, rotate_camera)
+        .add_systems(Update, toggle_rotation)
+        .add_systems(
+            Update,
+            rotate_camera
+                .after(toggle_rotation)
+                .after(change_reflection_type),
+        )
+        .add_systems(Update, update_text.after(rotate_camera))
         .run();
 }
 
-// Initializes the scene.
+// Spawns all the scene objects.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    reflection_mode: Res<ReflectionMode>,
+    app_status: Res<AppStatus>,
     cubemaps: Res<Cubemaps>,
 ) {
-    // Spawn the cubes, light, and camera.
+    spawn_scene(&mut commands, &asset_server);
+    spawn_sphere(&mut commands, &mut meshes, &mut materials);
+    spawn_reflection_probe(&mut commands, &cubemaps);
+    spawn_text(&mut commands, &asset_server, &app_status);
+}
+
+// Spawns the cubes, light, and camera.
+fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/cubes/Cubes.glb#Scene0"),
         ..SceneBundle::default()
     });
+}
 
+// Creates the sphere mesh and spawns it.
+fn spawn_sphere(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
     // Create a sphere mesh.
     let sphere_mesh = meshes.add(
         Mesh::try_from(shape::Icosphere {
@@ -96,14 +131,32 @@ fn setup(
         transform: Transform::default(),
         ..PbrBundle::default()
     });
+}
 
-    // Create the reflection probe.
-    create_reflection_probe(&mut commands, &cubemaps);
+// Spawns the reflection probe.
+fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
+    commands.spawn(ReflectionProbeBundle {
+        spatial: SpatialBundle {
+            transform: Transform::IDENTITY,
+            ..SpatialBundle::default()
+        },
+        light_probe: LightProbe {
+            // 1.1 because the sphere's radius is 1.0 and we want to fully enclose it.
+            half_extents: Vec3A::splat(1.1),
+        },
+        environment_map: EnvironmentMapLight {
+            diffuse_map: cubemaps.diffuse.clone(),
+            specular_map: cubemaps.specular_reflection_probe.clone(),
+        },
+    });
+}
 
+// Spawns the help text.
+fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, app_status: &AppStatus) {
     // Create the text.
     commands.spawn(
         TextBundle {
-            text: create_text(*reflection_mode, &asset_server),
+            text: app_status.create_text(&asset_server),
             ..TextBundle::default()
         }
         .with_style(Style {
@@ -113,26 +166,6 @@ fn setup(
             ..default()
         }),
     );
-}
-
-// Creates the reflection probe, which is a box that refers to an environment
-// map and encloses the objects that are to be affected by it (in this case, the
-// sphere).
-fn create_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
-    commands.spawn((
-        SpatialBundle {
-            transform: Transform::IDENTITY,
-            ..SpatialBundle::default()
-        },
-        LightProbe {
-            // 1.1 because the sphere's radius is 1.0 and we want to fully enclose it.
-            half_extents: Vec3A::splat(1.1),
-        },
-        EnvironmentMapLight {
-            diffuse_map: cubemaps.diffuse.clone(),
-            specular_map: cubemaps.specular_reflection_probe.clone(),
-        },
-    ));
 }
 
 // Adds a world environment map to the camera. This separate system is needed because the camera is
@@ -151,16 +184,13 @@ fn add_environment_map_to_camera(
     }
 }
 
-// The system that handles switching between different reflection modes.
-#[allow(clippy::too_many_arguments)]
+// A system that handles switching between different reflection modes.
 fn change_reflection_type(
     mut commands: Commands,
     light_probe_query: Query<Entity, With<LightProbe>>,
     camera_query: Query<Entity, With<Camera3d>>,
-    mut text_query: Query<&mut Text>,
     keyboard: Res<Input<KeyCode>>,
-    mut reflection_mode: ResMut<ReflectionMode>,
-    asset_server: Res<AssetServer>,
+    mut app_status: ResMut<AppStatus>,
     cubemaps: Res<Cubemaps>,
 ) {
     // Only do anything if space was pressed.
@@ -169,20 +199,21 @@ fn change_reflection_type(
     }
 
     // Switch reflection mode.
-    *reflection_mode = ReflectionMode::try_from((*reflection_mode as u32 + 1) % 3).unwrap();
+    app_status.reflection_mode =
+        ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 3).unwrap();
 
     // Add or remove the light probe.
     for light_probe in light_probe_query.iter() {
         commands.entity(light_probe).despawn();
     }
-    match *reflection_mode {
+    match app_status.reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
-        ReflectionMode::ReflectionProbe => create_reflection_probe(&mut commands, &cubemaps),
+        ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
     }
 
     // Add or remove the environment map from the camera.
     for camera in camera_query.iter() {
-        match *reflection_mode {
+        match app_status.reflection_mode {
             ReflectionMode::None => {
                 commands.entity(camera).remove::<EnvironmentMapLight>();
             }
@@ -193,10 +224,23 @@ fn change_reflection_type(
             }
         }
     }
+}
 
-    // Update text.
+// A system that handles enabling and disabling rotation.
+fn toggle_rotation(keyboard: Res<Input<KeyCode>>, mut app_status: ResMut<AppStatus>) {
+    if keyboard.just_pressed(KeyCode::Return) {
+        app_status.rotating = !app_status.rotating;
+    }
+}
+
+// A system that updates the help text.
+fn update_text(
+    mut text_query: Query<&mut Text>,
+    app_status: Res<AppStatus>,
+    asset_server: Res<AssetServer>,
+) {
     for mut text in text_query.iter_mut() {
-        *text = create_text(*reflection_mode, &asset_server);
+        *text = app_status.create_text(&asset_server);
     }
 }
 
@@ -224,15 +268,28 @@ impl Display for ReflectionMode {
     }
 }
 
-fn create_text(reflection_mode: ReflectionMode, asset_server: &AssetServer) -> Text {
-    Text::from_section(
-        format!("{}\n{}", reflection_mode, HELP_TEXT),
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 24.0,
-            color: Color::ANTIQUE_WHITE,
-        },
-    )
+impl AppStatus {
+    // Constructs the help text at the bottom of the screen based on the
+    // application status.
+    fn create_text(&self, asset_server: &AssetServer) -> Text {
+        let rotation_help_text = if self.rotating {
+            STOP_ROTATION_HELP_TEXT
+        } else {
+            START_ROTATION_HELP_TEXT
+        };
+
+        Text::from_section(
+            format!(
+                "{}\n{}\n{}",
+                self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
+            ),
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 24.0,
+                color: Color::ANTIQUE_WHITE,
+            },
+        )
+    }
 }
 
 // Creates the world environment map light, used as a fallback if no reflection
@@ -245,7 +302,14 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
 }
 
 // Rotates the camera a bit every frame.
-fn rotate_camera(mut camera_query: Query<&mut Transform, With<Camera3d>>) {
+fn rotate_camera(
+    mut camera_query: Query<&mut Transform, With<Camera3d>>,
+    app_status: Res<AppStatus>,
+) {
+    if !app_status.rotating {
+        return;
+    }
+
     for mut transform in camera_query.iter_mut() {
         transform.translation = Vec2::from_angle(ROTATION_SPEED)
             .rotate(transform.translation.xz())
@@ -266,6 +330,15 @@ impl FromWorld for Cubemaps {
             specular_reflection_probe: asset_server
                 .load("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
             skybox: asset_server.load("textures/pisa_cubemap_rgb9e5_zstd.ktx2"),
+        }
+    }
+}
+
+impl Default for AppStatus {
+    fn default() -> Self {
+        Self {
+            reflection_mode: ReflectionMode::ReflectionProbe,
+            rotating: true,
         }
     }
 }

@@ -34,9 +34,9 @@ use crate::{
 ///
 /// Because the fragment shader does a linear search through the list for each
 /// fragment, this number needs to be relatively small.
-pub const MAX_VIEW_REFLECTION_PROBES: usize = 4;
+pub const MAX_VIEW_REFLECTION_PROBES: usize = 8;
 
-/// Adds support for light probes, cuboid bounding regions that apply global
+/// Adds support for light probes: cuboid bounding regions that apply global
 /// illumination to objects within them.
 pub struct LightProbePlugin;
 
@@ -96,6 +96,18 @@ pub struct LightProbesBuffer(pub DynamicUniformBuffer<LightProbesUniform>);
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ViewLightProbesUniformOffset(pub u32);
 
+/// Information that [`gather_light_probes`] keeps about each light probe.
+#[derive(Clone, Copy)]
+struct LightProbeInfo {
+    // The transform from world space to light probe space.
+    inverse_transform: Mat4,
+    // The transform from light probe space to world space.
+    affine_transform: Affine3A,
+    // Extents of the bounding box.
+    half_extents: Vec3,
+    environment_maps: EnvironmentMapIds,
+}
+
 impl LightProbe {
     /// Creates a new light probe component with the given half-extents.
     #[inline]
@@ -116,7 +128,9 @@ impl Default for LightProbe {
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<LightProbe>();
+    }
 
+    fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -153,139 +167,45 @@ pub fn gather_light_probes(
     >,
     mut commands: Commands,
 ) {
-    // Create [`RenderLightProbe`]s for every light probe in the scene.
-    let mut light_probes: SmallVec<[LightProbeInfo; 8]> = SmallVec::new();
-    for (light_probe, light_probe_transform, environment_map) in light_probe_query.iter() {
-        if image_assets.get(&environment_map.diffuse_map).is_none()
-            || image_assets.get(&environment_map.specular_map).is_none()
-        {
-            continue;
-        }
-
-        light_probes.push(LightProbeInfo {
-            affine_transform: light_probe_transform.affine(),
-            inverse_transform: light_probe_transform.compute_matrix().inverse(),
-            half_extents: light_probe.half_extents.into(),
-            environment_maps: EnvironmentMapIds {
-                diffuse: environment_map.diffuse_map.id(),
-                specular: environment_map.specular_map.id(),
-            },
-        })
-    }
+    // Create [`LightProbeInfo`] for every light probe in the scene.
+    let light_probes: SmallVec<[LightProbeInfo; 8]> = light_probe_query
+        .iter()
+        .filter_map(|query_row| LightProbeInfo::new(query_row, &image_assets))
+        .collect();
 
     // Build up the light probes uniform and the key table.
     light_probes_uniforms.clear();
     for (view_entity, view_transform, view_frustum, view_environment_maps) in view_query.iter() {
-        let mut render_view_environment_maps = RenderViewEnvironmentMaps::new();
-
         // Cull light probes outside the view frustum.
-        let mut view_light_probes: SmallVec<[LightProbeInfo; 8]> = SmallVec::new();
-        for light_probe_info in &light_probes {
-            // FIXME: Should we intersect with the far plane?
-            if view_frustum.intersects_obb(
-                &Aabb {
-                    center: Vec3A::default(),
-                    half_extents: light_probe_info.half_extents.into(),
-                },
-                &light_probe_info.affine_transform,
-                true,
-                false,
-            ) {
-                view_light_probes.push(*light_probe_info);
-            }
-        }
+        let mut view_light_probes: SmallVec<[LightProbeInfo; 8]> = light_probes
+            .iter()
+            .filter(|light_probe_info| light_probe_info.frustum_cull(view_frustum))
+            .cloned()
+            .collect();
 
         // Sort by distance to camera.
         view_light_probes.sort_by_cached_key(|light_probe_info| {
-            FloatOrd(
-                (light_probe_info.affine_transform.translation
-                    - view_transform.translation_vec3a())
-                .length_squared(),
-            )
+            light_probe_info.camera_distance_sort_key(view_transform)
         });
 
         // Create the light probes uniform.
-        let mut light_probes_uniform = LightProbesUniform {
-            reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
-            reflection_probe_count: light_probes.len().min(MAX_VIEW_REFLECTION_PROBES) as i32,
-            cubemap_index: match view_environment_maps {
-                Some(&EnvironmentMapLight {
-                    ref diffuse_map,
-                    ref specular_map,
-                }) if image_assets.get(diffuse_map).is_some()
-                    && image_assets.get(specular_map).is_some() =>
-                {
-                    render_view_environment_maps.get_or_insert_cubemap(&EnvironmentMapIds {
-                        diffuse: diffuse_map.id(),
-                        specular: specular_map.id(),
-                    }) as i32
-                }
-                _ => -1,
-            },
-        };
+        let (light_probes_uniform, render_view_environment_maps) =
+            LightProbesUniform::build(view_environment_maps, &image_assets, &light_probes);
 
-        maybe_gather_reflection_probes(
-            &mut light_probes_uniform,
-            &mut render_view_environment_maps,
-            &light_probes,
-        );
-
-        // Insert the result.
+        // Record the uniforms.
         light_probes_uniforms.insert(view_entity, light_probes_uniform);
 
+        // Record the per-view environment maps.
+        let mut commands = commands.get_or_spawn(view_entity);
         if render_view_environment_maps.is_empty() {
-            commands
-                .get_or_spawn(view_entity)
-                .remove::<RenderViewEnvironmentMaps>();
+            commands.remove::<RenderViewEnvironmentMaps>();
         } else {
-            commands
-                .get_or_spawn(view_entity)
-                .insert(render_view_environment_maps);
-        }
-    }
-
-    // Information that this function keeps about each light probe.
-    #[derive(Clone, Copy)]
-    struct LightProbeInfo {
-        // The transform from world space to light probe space.
-        inverse_transform: Mat4,
-        // The transform from light probe space to world space.
-        affine_transform: Affine3A,
-        // Extents of the bounding box.
-        half_extents: Vec3,
-        environment_maps: EnvironmentMapIds,
-    }
-
-    #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
-    fn maybe_gather_reflection_probes(
-        _: &mut LightProbesUniform,
-        _: &mut RenderViewEnvironmentMaps,
-        _: &[LightProbeInfo],
-    ) {
-    }
-
-    #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
-    fn maybe_gather_reflection_probes(
-        light_probes_uniform: &mut LightProbesUniform,
-        render_view_environment_maps: &mut RenderViewEnvironmentMaps,
-        light_probes: &[LightProbeInfo],
-    ) {
-        let light_probe_count = light_probes.len().min(MAX_VIEW_REFLECTION_PROBES);
-        for light_probe_index in 0..light_probe_count {
-            let cubemap_index = render_view_environment_maps
-                .get_or_insert_cubemap(&light_probes[light_probe_index].environment_maps)
-                as i32;
-
-            light_probes_uniform.reflection_probes[light_probe_index] = RenderReflectionProbe {
-                inverse_transform: light_probes[light_probe_index].inverse_transform,
-                half_extents: light_probes[light_probe_index].half_extents,
-                cubemap_index,
-            };
+            commands.insert(render_view_environment_maps);
         }
     }
 }
 
-/// Runs after [gather_light_probes] and uploads the result to the GPU.
+/// Uploads the result of [`gather_light_probes`] to the GPU.
 pub fn upload_light_probes(
     mut commands: Commands,
     light_probes_uniforms: Res<RenderLightProbes>,
@@ -317,5 +237,117 @@ impl Default for LightProbesUniform {
             reflection_probe_count: 0,
             cubemap_index: -1,
         }
+    }
+}
+
+impl LightProbesUniform {
+    fn build(
+        view_environment_maps: Option<&EnvironmentMapLight>,
+        image_assets: &RenderAssets<Image>,
+        light_probes: &[LightProbeInfo],
+    ) -> (LightProbesUniform, RenderViewEnvironmentMaps) {
+        let mut render_view_environment_maps = RenderViewEnvironmentMaps::new();
+        let mut uniform = LightProbesUniform {
+            reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
+            reflection_probe_count: light_probes.len().min(MAX_VIEW_REFLECTION_PROBES) as i32,
+            cubemap_index: match view_environment_maps {
+                Some(&EnvironmentMapLight {
+                    ref diffuse_map,
+                    ref specular_map,
+                }) if image_assets.get(diffuse_map).is_some()
+                    && image_assets.get(specular_map).is_some() =>
+                {
+                    render_view_environment_maps.get_or_insert_cubemap(&EnvironmentMapIds {
+                        diffuse: diffuse_map.id(),
+                        specular: specular_map.id(),
+                    }) as i32
+                }
+                _ => -1,
+            },
+        };
+
+        uniform.maybe_gather_reflection_probes(&mut render_view_environment_maps, &light_probes);
+        (uniform, render_view_environment_maps)
+    }
+
+    #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+    fn maybe_gather_reflection_probes(
+        &mut self,
+        _: &mut RenderViewEnvironmentMaps,
+        _: &[LightProbeInfo],
+    ) {
+    }
+
+    #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+    fn maybe_gather_reflection_probes(
+        &mut self,
+        render_view_environment_maps: &mut RenderViewEnvironmentMaps,
+        light_probes: &[LightProbeInfo],
+    ) {
+        let light_probe_count = light_probes.len().min(MAX_VIEW_REFLECTION_PROBES);
+        for light_probe_index in 0..light_probe_count {
+            let cubemap_index = render_view_environment_maps
+                .get_or_insert_cubemap(&light_probes[light_probe_index].environment_maps)
+                as i32;
+
+            self.reflection_probes[light_probe_index] = RenderReflectionProbe {
+                inverse_transform: light_probes[light_probe_index].inverse_transform,
+                half_extents: light_probes[light_probe_index].half_extents,
+                cubemap_index,
+            };
+        }
+    }
+}
+
+impl LightProbeInfo {
+    /// Given the set of light probe components, constructs and returns
+    /// [`LightProbeInfo`]. This is done for every light probe in the scene
+    /// every frame.
+    fn new(
+        (light_probe, light_probe_transform, environment_map): (
+            &LightProbe,
+            &GlobalTransform,
+            &EnvironmentMapLight,
+        ),
+        image_assets: &RenderAssets<Image>,
+    ) -> Option<LightProbeInfo> {
+        if image_assets.get(&environment_map.diffuse_map).is_none()
+            || image_assets.get(&environment_map.specular_map).is_none()
+        {
+            return None;
+        }
+
+        Some(LightProbeInfo {
+            affine_transform: light_probe_transform.affine(),
+            inverse_transform: light_probe_transform.compute_matrix().inverse(),
+            half_extents: light_probe.half_extents.into(),
+            environment_maps: EnvironmentMapIds {
+                diffuse: environment_map.diffuse_map.id(),
+                specular: environment_map.specular_map.id(),
+            },
+        })
+    }
+
+    /// Returns true if this light probe is in the viewing frustum of the camera
+    /// or false if it isn't.
+    fn frustum_cull(&self, view_frustum: &Frustum) -> bool {
+        view_frustum.intersects_obb(
+            &Aabb {
+                center: Vec3A::default(),
+                half_extents: self.half_extents.into(),
+            },
+            &self.affine_transform,
+            true,
+            false,
+        )
+    }
+
+    /// Returns the squared distance from this light probe to the camera,
+    /// suitable for distance sorting.
+    fn camera_distance_sort_key(&self, view_transform: &GlobalTransform) -> FloatOrd {
+        FloatOrd(
+            (self.affine_transform.translation - view_transform.translation_vec3a())
+                .length_squared(),
+        )
     }
 }

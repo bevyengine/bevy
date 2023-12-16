@@ -411,10 +411,6 @@ pub fn prepare_mesh_view_bind_groups(
                 (12, ssao_view),
             ));
 
-            // This needs to go up here to ensure correct drop order (otherwise
-            // the borrow check complains).
-            let prepass_bindings;
-
             let bind_group_entries = RenderViewBindGroupEntries::get(
                 render_view_environment_maps,
                 &images,
@@ -430,6 +426,7 @@ pub fn prepare_mesh_view_bind_groups(
             entries = entries.extend_with_indices(((16, lut_bindings.0), (17, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling
+            let prepass_bindings;
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
             {
                 prepass_bindings = prepass::get_bindings(prepass_textures);
