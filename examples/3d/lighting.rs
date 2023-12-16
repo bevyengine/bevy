@@ -12,7 +12,11 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<Parameters>()
+        .insert_resource(Parameters(PhysicalCameraParameters {
+            aperture_f_stops: 1.0,
+            shutter_speed_s: 1.0 / 15.0,
+            sensitivity_iso: 400.0,
+        }))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_exposure, movement, animate_light_direction))
         .run();
@@ -216,7 +220,7 @@ fn setup(
     // directional 'sun' light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 1000.0,
+            illuminance: 100.0,
             shadows_enabled: true,
             ..default()
         },
