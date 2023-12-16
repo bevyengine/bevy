@@ -35,8 +35,19 @@ fn environment_map_light(
             reflection_probe_index < light_probes.reflection_probe_count;
             reflection_probe_index += 1) {
         let reflection_probe = light_probes.reflection_probes[reflection_probe_index];
-        let probe_space_pos =
-            (reflection_probe.inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
+
+        // Transpose the inverse transpose transform to recover the inverse
+        // transform.
+        let inverse_transpose_transform = mat4x4<f32>(
+            reflection_probe.inverse_transpose_transform[0],
+            reflection_probe.inverse_transpose_transform[1],
+            reflection_probe.inverse_transpose_transform[2],
+            vec4<f32>(0.0, 0.0, 0.0, 1.0));
+        let inverse_transform = transpose(inverse_transpose_transform);
+
+        // Check to see if the transformed point is inside the unit cube
+        // centered at the origin.
+        let probe_space_pos = (inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
         if (all(abs(probe_space_pos) <= vec3(0.5))) {
             cubemap_index = reflection_probe.cubemap_index;
             break;

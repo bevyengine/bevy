@@ -111,7 +111,9 @@ struct ClusterOffsetsAndCounts {
 #endif
 
 struct ReflectionProbe {
-    inverse_transform: mat4x4<f32>,
+    // This is stored as the transpose in order to save space in this structure.
+    // It'll be transposed in the `environment_map_light` function.
+    inverse_transpose_transform: mat3x4<f32>,
     cubemap_index: i32,
 };
 

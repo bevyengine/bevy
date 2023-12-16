@@ -7,6 +7,7 @@
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::core_pipeline::Skybox;
+use bevy::math::vec3;
 use bevy::pbr::EnvironmentMapLight;
 use bevy::prelude::*;
 

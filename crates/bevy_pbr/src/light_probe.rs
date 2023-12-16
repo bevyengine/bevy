@@ -11,7 +11,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_math::{Affine3A, Mat4, Vec3A};
+use bevy_math::{Affine3A, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     primitives::{Aabb, Frustum},
@@ -42,9 +42,14 @@ pub struct LightProbePlugin;
 
 /// A cuboid region that provides global illumination to all fragments inside it.
 ///
+/// The light probe range is conceptually a unit cube (1×1×1) centered on the
+/// origin.  The [`Transform`] applied to this entity can scale, rotate, or
+/// translate that cube so that it contains all fragments that should take this
+/// light probe into account.
+///
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination. At present, the only supported type of illumination is
-/// the [EnvironmentMapLight].
+/// the [`EnvironmentMapLight`].
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct LightProbe;
@@ -54,9 +59,10 @@ pub struct LightProbe;
 struct RenderReflectionProbe {
     /// The transform from the world space to the model space. This is used to
     /// efficiently check for bounding box intersection.
-    inverse_transform: Mat4,
+    inverse_transpose_transform: [Vec4; 3],
 
-    /// The index of the environment map in the diffuse and specular cubemap texture array.
+    /// The index of the environment map in the diffuse and specular cubemap
+    /// binding arrays.
     cubemap_index: i32,
 }
 
@@ -92,6 +98,7 @@ pub struct ViewLightProbesUniformOffset(u32);
 
 /// Information that [`gather_light_probes`] keeps about each light probe.
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 struct LightProbeInfo {
     // The transform from world space to light probe space.
     inverse_transform: Mat4,
@@ -103,7 +110,7 @@ struct LightProbeInfo {
 }
 
 impl LightProbe {
-    /// Creates a new light probe component with the given half-extents.
+    /// Creates a new light probe component.
     #[inline]
     pub fn new() -> Self {
         Self
@@ -175,7 +182,7 @@ fn gather_light_probes(
 
         // Create the light probes uniform.
         let (light_probes_uniform, render_view_environment_maps) =
-            LightProbesUniform::build(view_environment_maps, &image_assets, &light_probes);
+            LightProbesUniform::build(view_environment_maps, &view_light_probes, &image_assets);
 
         // Record the uniforms.
         light_probes_uniforms.insert(view_entity, light_probes_uniform);
@@ -198,7 +205,7 @@ fn upload_light_probes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    // Get the writer.
+    // Get the uniform buffer writer.
     let Some(mut writer) =
         light_probes_buffer.get_writer(light_probes_uniforms.len(), &render_device, &render_queue)
     else {
@@ -226,12 +233,22 @@ impl Default for LightProbesUniform {
 }
 
 impl LightProbesUniform {
+    /// Constructs a [`LightProbesUniform`] containing all the environment maps
+    /// that fragments rendered by a single view need to consider.
+    ///
+    /// The `view_environment_maps` parameter describes the environment maps
+    /// attached to the view. The `light_probes` parameter is expected to be the
+    /// list of light probes in the scene, sorted by increasing view distance
+    /// from the camera.
     fn build(
         view_environment_maps: Option<&EnvironmentMapLight>,
-        image_assets: &RenderAssets<Image>,
         light_probes: &[LightProbeInfo],
+        image_assets: &RenderAssets<Image>,
     ) -> (LightProbesUniform, RenderViewEnvironmentMaps) {
         let mut render_view_environment_maps = RenderViewEnvironmentMaps::new();
+
+        // Initialize the uniform to only contain the view environment map, if
+        // applicable.
         let mut uniform = LightProbesUniform {
             reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
             reflection_probe_count: light_probes.len().min(MAX_VIEW_REFLECTION_PROBES) as i32,
@@ -251,18 +268,14 @@ impl LightProbesUniform {
             },
         };
 
+        // Add reflection probes from the scene, if supported by the current
+        // platform.
         uniform.maybe_gather_reflection_probes(&mut render_view_environment_maps, &light_probes);
         (uniform, render_view_environment_maps)
     }
 
-    #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
-    fn maybe_gather_reflection_probes(
-        &mut self,
-        _: &mut RenderViewEnvironmentMaps,
-        _: &[LightProbeInfo],
-    ) {
-    }
-
+    /// Gathers up all reflection probes in the scene and writes them into this
+    /// uniform and `render_view_environment_maps`.
     #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
     fn maybe_gather_reflection_probes(
         &mut self,
@@ -271,15 +284,38 @@ impl LightProbesUniform {
     ) {
         let light_probe_count = light_probes.len().min(MAX_VIEW_REFLECTION_PROBES);
         for light_probe_index in 0..light_probe_count {
+            // Determine the index of the cubemap in the binding array.
             let cubemap_index = render_view_environment_maps
                 .get_or_insert_cubemap(&light_probes[light_probe_index].environment_maps)
                 as i32;
 
+            // Transpose the inverse transform to compress the structure on the
+            // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
+            // to recover the original inverse transform.
+            let inverse_transpose_transform = light_probes[light_probe_index]
+                .inverse_transform
+                .transpose();
+
+            // Write in the reflection probe data.
             self.reflection_probes[light_probe_index] = RenderReflectionProbe {
-                inverse_transform: light_probes[light_probe_index].inverse_transform,
+                inverse_transpose_transform: [
+                    inverse_transpose_transform.x_axis,
+                    inverse_transpose_transform.y_axis,
+                    inverse_transpose_transform.z_axis,
+                ],
                 cubemap_index,
             };
         }
+    }
+
+    /// This is the version of `maybe_gather_reflection_probes` used on
+    /// platforms in which binding arrays aren't available. It's simply a no-op.
+    #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+    fn maybe_gather_reflection_probes(
+        &mut self,
+        _: &mut RenderViewEnvironmentMaps,
+        _: &[LightProbeInfo],
+    ) {
     }
 }
 

@@ -29,8 +29,6 @@
 //!
 //! [glTF IBL Sampler]: https://github.com/KhronosGroup/glTF-IBL-Sampler
 
-use std::ops::Deref;
-
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_ecs::{
@@ -86,7 +84,7 @@ pub struct EnvironmentMapLight {
 pub(crate) struct EnvironmentMapIds {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub(crate) diffuse: AssetId<Image>,
-    /// The sharper, mipmapped image that represents specular radiance
+    /// The typically-sharper, mipmapped image that represents specular radiance
     /// surrounding a region.
     pub(crate) specular: AssetId<Image>,
 }
@@ -135,7 +133,7 @@ pub struct RenderViewEnvironmentMaps {
 /// not available on the current platform.
 #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
 #[derive(Component, Default)]
-pub(crate) struct RenderViewEnvironmentMaps {
+pub struct RenderViewEnvironmentMaps {
     cubemap: Option<EnvironmentMapIds>,
 }
 
@@ -149,10 +147,10 @@ pub(crate) struct RenderViewBindGroupEntries<'a> {
     ///
     /// This is a vector of `wgpu::TextureView`s. But we don't want to import
     /// `wgpu` in this crate, so we refer to it indirectly like this.
-    diffuse_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+    diffuse_texture_views: Vec<&'a <TextureView as std::ops::Deref>::Target>,
 
     /// As above, but for specular cubemaps.
-    specular_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+    specular_texture_views: Vec<&'a <TextureView as std::ops::Deref>::Target>,
 
     /// The sampler used to sample elements of both `diffuse_texture_views` and
     /// `specular_texture_views`.
@@ -344,8 +342,9 @@ impl<'a> RenderViewBindGroupEntries<'a> {
 
 /// Adds a diffuse or specular texture view to the `texture_views` list, and
 /// populates `sampler` if this is the first such view.
+#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 fn add_texture_view<'a>(
-    texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
+    texture_views: &mut Vec<&'a <TextureView as std::ops::Deref>::Target>,
     sampler: &mut Option<&'a Sampler>,
     image_id: AssetId<Image>,
     images: &'a RenderAssets<Image>,
@@ -371,13 +370,17 @@ fn add_texture_view<'a>(
 impl<'a> RenderViewBindGroupEntries<'a> {
     /// Returns a list of texture views of each diffuse cubemap, in binding
     /// order.
-    pub(crate) fn diffuse_texture_views(&'a self) -> &'a [&'a <TextureView as Deref>::Target] {
+    pub(crate) fn diffuse_texture_views(
+        &'a self,
+    ) -> &'a [&'a <TextureView as std::ops::Deref>::Target] {
         self.diffuse_texture_views.as_slice()
     }
 
     /// Returns a list of texture views of each specular cubemap, in binding
     /// order.
-    pub(crate) fn specular_texture_views(&'a self) -> &'a [&'a <TextureView as Deref>::Target] {
+    pub(crate) fn specular_texture_views(
+        &'a self,
+    ) -> &'a [&'a <TextureView as std::ops::Deref>::Target] {
         self.specular_texture_views.as_slice()
     }
 }
