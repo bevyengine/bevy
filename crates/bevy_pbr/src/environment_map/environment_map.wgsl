@@ -56,13 +56,13 @@ fn environment_map_light(
     }
 
     let irradiance = textureSampleLevel(
-        bindings::diffuse_environment_maps[max(cubemap_index, 0)],
+        bindings::diffuse_environment_maps[cubemap_index],
         bindings::environment_map_sampler,
         vec3(N.xy, -N.z),
         0.0).rgb;
 
     let radiance = textureSampleLevel(
-        bindings::specular_environment_maps[max(cubemap_index, 0)],
+        bindings::specular_environment_maps[cubemap_index],
         bindings::environment_map_sampler,
         vec3(R.xy, -R.z),
         radiance_level).rgb;
