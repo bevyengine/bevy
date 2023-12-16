@@ -213,8 +213,8 @@ where
     T: ab_glyph::Font,
 {
     let mut text_bounds = Rect {
-        min: Vec2::splat(std::f32::MAX),
-        max: Vec2::splat(std::f32::MIN),
+        min: Vec2::splat(f32::MAX),
+        max: Vec2::splat(f32::MIN),
     };
 
     for sg in section_glyphs {
