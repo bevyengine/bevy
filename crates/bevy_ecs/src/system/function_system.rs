@@ -520,7 +520,7 @@ where
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+        assert_eq!(self.world_id, Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let old_generation =
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());

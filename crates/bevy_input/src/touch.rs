@@ -481,7 +481,7 @@ mod test {
         assert!(touches.pressed.get(&touch_event.id).is_none());
         let touch = touches.just_released.get(&touch_event.id).unwrap();
         // Make sure the position is updated from TouchPhase::Moved and TouchPhase::Ended
-        assert!(touch.previous_position != touch.position);
+        assert_ne!(touch.previous_position, touch.position);
     }
 
     #[test]
