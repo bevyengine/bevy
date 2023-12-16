@@ -138,8 +138,8 @@ impl PhysicalCameraParameters {
 impl Default for PhysicalCameraParameters {
     fn default() -> Self {
         Self {
-            aperture_f_stops: 4.0,
-            shutter_speed_s: 1.0 / 250.0,
+            aperture_f_stops: 1.0,
+            shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
         }
     }
