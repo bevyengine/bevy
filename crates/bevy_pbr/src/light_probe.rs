@@ -11,7 +11,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
+use bevy_math::{Affine3A, Mat4, Vec3A};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     primitives::{Aabb, Frustum},
@@ -45,12 +45,9 @@ pub struct LightProbePlugin;
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination. At present, the only supported type of illumination is
 /// the [EnvironmentMapLight].
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default)]
-pub struct LightProbe {
-    /// The influence range of the light probe.
-    pub half_extents: Vec3A,
-}
+pub struct LightProbe;
 
 /// A GPU type that stores information about a reflection probe.
 #[derive(Clone, Copy, ShaderType, Default)]
@@ -58,9 +55,6 @@ struct RenderReflectionProbe {
     /// The transform from the world space to the model space. This is used to
     /// efficiently check for bounding box intersection.
     inverse_transform: Mat4,
-
-    /// The half-extents of the bounding cube.
-    half_extents: Vec3,
 
     /// The index of the environment map in the diffuse and specular cubemap texture array.
     cubemap_index: i32,
@@ -103,25 +97,16 @@ struct LightProbeInfo {
     inverse_transform: Mat4,
     // The transform from light probe space to world space.
     affine_transform: Affine3A,
-    // Extents of the bounding box.
-    half_extents: Vec3,
+    // The diffuse and specular environment maps associated with this light
+    // probe.
     environment_maps: EnvironmentMapIds,
 }
 
 impl LightProbe {
     /// Creates a new light probe component with the given half-extents.
     #[inline]
-    pub fn new(half_extents: Vec3A) -> Self {
-        Self { half_extents }
-    }
-}
-
-impl Default for LightProbe {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            half_extents: Vec3A::splat(1.0),
-        }
+    pub fn new() -> Self {
+        Self
     }
 }
 
@@ -153,7 +138,7 @@ impl Plugin for LightProbePlugin {
 fn gather_light_probes(
     mut light_probes_uniforms: ResMut<RenderLightProbes>,
     image_assets: Res<RenderAssets<Image>>,
-    light_probe_query: Extract<Query<(&LightProbe, &GlobalTransform, &EnvironmentMapLight)>>,
+    light_probe_query: Extract<Query<(&GlobalTransform, &EnvironmentMapLight), With<LightProbe>>>,
     view_query: Extract<
         Query<
             (
@@ -292,7 +277,6 @@ impl LightProbesUniform {
 
             self.reflection_probes[light_probe_index] = RenderReflectionProbe {
                 inverse_transform: light_probes[light_probe_index].inverse_transform,
-                half_extents: light_probes[light_probe_index].half_extents,
                 cubemap_index,
             };
         }
@@ -304,11 +288,7 @@ impl LightProbeInfo {
     /// [`LightProbeInfo`]. This is done for every light probe in the scene
     /// every frame.
     fn new(
-        (light_probe, light_probe_transform, environment_map): (
-            &LightProbe,
-            &GlobalTransform,
-            &EnvironmentMapLight,
-        ),
+        (light_probe_transform, environment_map): (&GlobalTransform, &EnvironmentMapLight),
         image_assets: &RenderAssets<Image>,
     ) -> Option<LightProbeInfo> {
         if image_assets.get(&environment_map.diffuse_map).is_none()
@@ -320,7 +300,6 @@ impl LightProbeInfo {
         Some(LightProbeInfo {
             affine_transform: light_probe_transform.affine(),
             inverse_transform: light_probe_transform.compute_matrix().inverse(),
-            half_extents: light_probe.half_extents.into(),
             environment_maps: EnvironmentMapIds {
                 diffuse: environment_map.diffuse_map.id(),
                 specular: environment_map.specular_map.id(),
@@ -334,7 +313,7 @@ impl LightProbeInfo {
         view_frustum.intersects_obb(
             &Aabb {
                 center: Vec3A::default(),
-                half_extents: self.half_extents.into(),
+                half_extents: Vec3A::splat(0.5),
             },
             &self.affine_transform,
             true,

@@ -3,11 +3,10 @@
 //! Press Space to switch between no reflections, environment map reflections
 //! (i.e. the skybox only, not the cubes), and a full reflection probe that
 //! reflects the skybox and the cubes. Press Enter to pause rotation.
-//! 
+//!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::core_pipeline::Skybox;
-use bevy::math::Vec3A;
 use bevy::pbr::EnvironmentMapLight;
 use bevy::prelude::*;
 
@@ -137,13 +136,11 @@ fn spawn_sphere(
 fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn(ReflectionProbeBundle {
         spatial: SpatialBundle {
-            transform: Transform::IDENTITY,
+            // 2.1 because the sphere's radius is 1.0 and we want to fully enclose it.
+            transform: Transform::from_scale(Vec3::splat(2.1)),
             ..SpatialBundle::default()
         },
-        light_probe: LightProbe {
-            // 1.1 because the sphere's radius is 1.0 and we want to fully enclose it.
-            half_extents: Vec3A::splat(1.1),
-        },
+        light_probe: LightProbe::default(),
         environment_map: EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),

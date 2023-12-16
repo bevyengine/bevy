@@ -37,7 +37,7 @@ fn environment_map_light(
         let reflection_probe = light_probes.reflection_probes[reflection_probe_index];
         let probe_space_pos =
             (reflection_probe.inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
-        if (all(abs(probe_space_pos) <= reflection_probe.half_extents)) {
+        if (all(abs(probe_space_pos) <= vec3(0.5))) {
             cubemap_index = reflection_probe.cubemap_index;
             break;
         }
