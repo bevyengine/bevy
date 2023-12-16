@@ -380,15 +380,15 @@ mod tests {
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::INFINITY, 0.0)),
+            Direction2d::new(Vec2::new(f32::INFINITY, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::NEG_INFINITY, 0.0)),
+            Direction2d::new(Vec2::new(f32::NEG_INFINITY, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::NAN, 0.0)),
+            Direction2d::new(Vec2::new(f32::NAN, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
     }
