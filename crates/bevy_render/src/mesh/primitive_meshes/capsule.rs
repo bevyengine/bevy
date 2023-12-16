@@ -233,7 +233,7 @@ impl CapsuleMesh {
                 let fac = h as f32 * to_fac;
                 let cmpl_fac = 1.0 - fac;
                 let t_texture = cmpl_fac * vt_aspect_north + fac * vt_aspect_south;
-                let z = -half_length * fac;
+                let z = half_length - 2.0 * half_length * fac;
 
                 for (j, s_texture) in s_texture_cache.iter().enumerate().take(lonsp1) {
                     let j_mod = j % longitudes;
