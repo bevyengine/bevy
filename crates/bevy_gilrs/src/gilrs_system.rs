@@ -8,16 +8,23 @@ use bevy_input::gamepad::{
 use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
 use bevy_input::prelude::{GamepadAxis, GamepadButton};
 use bevy_input::Axis;
+use bevy_utils::Uuid;
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
+
+// Note: cannot impl From<> due to orphan rule and crate dependencies
+fn info_from_gilrs_gamepad(value: gilrs::Gamepad) -> GamepadInfo {
+    GamepadInfo {
+        name: value.name().into(),
+        uuid: Uuid::from_bytes(value.uuid()),
+    }
+}
 
 pub fn gilrs_event_startup_system(
     gilrs: NonSend<Gilrs>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
 ) {
     for (id, gamepad) in gilrs.gamepads() {
-        let info = GamepadInfo {
-            name: gamepad.name().into(),
-        };
+        let info = info_from_gilrs_gamepad(gamepad);
 
         connection_events.send(GamepadConnectionEvent {
             gamepad: convert_gamepad_id(id),
@@ -43,9 +50,7 @@ pub fn gilrs_event_system(
         match gilrs_event.event {
             EventType::Connected => {
                 let pad = gilrs.gamepad(gilrs_event.id);
-                let info = GamepadInfo {
-                    name: pad.name().into(),
-                };
+                let info = info_from_gilrs_gamepad(pad);
 
                 events.send(
                     GamepadConnectionEvent::new(gamepad, GamepadConnection::Connected(info)).into(),
