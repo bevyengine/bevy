@@ -110,7 +110,7 @@ impl ExposureSettings {
 impl Default for ExposureSettings {
     fn default() -> Self {
         Self {
-            ev100: Self::EV100_OVERCAST,
+            ev100: Self::EV100_INDOOR,
         }
     }
 }
