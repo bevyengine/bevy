@@ -287,7 +287,7 @@ fn setup(
 }
 
 fn update_exposure(
-    key_input: Res<Input<KeyCode>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
     mut query: Query<&mut ExposureSettings>,
     mut text: Query<&mut Text>,
