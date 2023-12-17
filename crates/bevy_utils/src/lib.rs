@@ -35,6 +35,7 @@ pub use instant::{Duration, Instant, SystemTime};
 pub use petgraph;
 pub use thiserror;
 pub use tracing;
+pub use smallvec;
 
 #[allow(missing_docs)]
 pub mod nonmax {
