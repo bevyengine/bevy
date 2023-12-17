@@ -32,6 +32,7 @@ impl Default for ConicalFrustumMesh {
 impl ConicalFrustumMesh {
     /// Creates a new [`ConicalFrustumMesh`] from the given top and bottom radii, a height,
     /// and a resolution used for the top and bottom.
+    #[inline]
     pub const fn new(radius_top: f32, radius_bottom: f32, height: f32, resolution: usize) -> Self {
         Self {
             frustum: ConicalFrustum {
@@ -45,12 +46,14 @@ impl ConicalFrustumMesh {
     }
 
     /// Sets the number of vertices used for the top and bottom of the conical frustum.
+    #[inline]
     pub const fn resolution(mut self, resolution: usize) -> Self {
         self.resolution = resolution;
         self
     }
 
     /// Sets the number of horizontal lines subdividing the lateral surface of the conical frustum.
+    #[inline]
     pub const fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
         self

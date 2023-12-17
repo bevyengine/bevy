@@ -12,6 +12,7 @@ pub struct RegularPolygonMesh {
 }
 
 impl MeshFacingExtension for RegularPolygonMesh {
+    #[inline]
     fn facing(mut self, facing: Facing) -> Self {
         self.facing = facing;
         self
@@ -25,6 +26,7 @@ impl RegularPolygonMesh {
     /// # Panics
     ///
     /// Panics if `circumradius` is non-positive.
+    #[inline]
     pub fn new(circumradius: f32, sides: usize) -> Self {
         Self {
             polygon: RegularPolygon::new(circumradius, sides),

@@ -55,6 +55,7 @@ pub struct SphereMesh {
 
 impl SphereMesh {
     /// Creates a new [`SphereMesh`] from a radius and [`SphereKind`].
+    #[inline]
     pub const fn new(radius: f32, kind: SphereKind) -> Self {
         Self {
             sphere: Sphere { radius },
@@ -63,6 +64,7 @@ impl SphereMesh {
     }
 
     /// Sets the [`SphereKind`] that will be used for building the mesh.
+    #[inline]
     pub const fn set_kind(mut self, kind: SphereKind) -> Self {
         self.kind = kind;
         self

@@ -33,6 +33,7 @@ impl TorusMesh {
     ///
     /// The inner radius is the radius of the hole, and the outer radius
     /// is the radius of the entire object.
+    #[inline]
     pub fn new(inner_radius: f32, outer_radius: f32) -> Self {
         Self {
             torus: Torus::new(inner_radius, outer_radius),
@@ -44,6 +45,7 @@ impl TorusMesh {
     ///
     /// A resolution of `4` would make the torus appear rectangular,
     /// while a resolution of `32` resembles a circular ring.
+    #[inline]
     pub const fn major_resolution(mut self, resolution: usize) -> Self {
         self.major_resolution = resolution;
         self
@@ -51,6 +53,7 @@ impl TorusMesh {
 
     /// Sets the number of vertices used for each circular segment
     /// in the ring or tube of the torus.
+    #[inline]
     pub const fn minor_resolution(mut self, resolution: usize) -> Self {
         self.minor_resolution = resolution;
         self

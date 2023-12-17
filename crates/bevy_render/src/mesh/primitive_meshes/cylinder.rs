@@ -33,6 +33,7 @@ impl Default for CylinderMesh {
 impl CylinderMesh {
     /// Creates a new [`CylinderMesh`] from the given radius, a height,
     /// and a resolution used for the top and bottom.
+    #[inline]
     pub fn new(radius: f32, height: f32, resolution: u32) -> Self {
         Self {
             cylinder: Cylinder::new(radius, height),
@@ -42,6 +43,7 @@ impl CylinderMesh {
     }
 
     /// Sets the number of vertices used for the top and bottom of the cylinder.
+    #[inline]
     pub const fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
@@ -49,6 +51,7 @@ impl CylinderMesh {
 
     /// Sets the number of segments along the height of the cylinder.
     /// Must be greater than `0` for geometry to be generated.
+    #[inline]
     pub const fn segments(mut self, segments: u32) -> Self {
         self.segments = segments;
         self

@@ -52,6 +52,7 @@ impl CapsuleMesh {
     ///
     /// Note that `height` is the distance between the centers of the hemispheres.
     /// `radius` will be added to both ends to get the real height of the mesh.
+    #[inline]
     pub fn new(radius: f32, height: f32, longitudes: usize, latitudes: usize) -> Self {
         Self {
             capsule: Capsule::new(radius, height),
@@ -62,24 +63,28 @@ impl CapsuleMesh {
     }
 
     /// Sets the number of horizontal lines subdividing the cylindrical part of the capsule.
+    #[inline]
     pub const fn rings(mut self, rings: usize) -> Self {
         self.rings = rings;
         self
     }
 
     /// Sets the number of vertical lines subdividing the hemispheres of the capsule.
+    #[inline]
     pub const fn longitudes(mut self, longitudes: usize) -> Self {
         self.longitudes = longitudes;
         self
     }
 
     /// Sets the number of horizontal lines subdividing the hemispheres of the capsule.
+    #[inline]
     pub const fn latitudes(mut self, latitudes: usize) -> Self {
         self.latitudes = latitudes;
         self
     }
 
     /// Sets the manner in which UV coordinates are distributed vertically.
+    #[inline]
     pub const fn uv_profile(mut self, uv_profile: CapsuleUvProfile) -> Self {
         self.uv_profile = uv_profile;
         self

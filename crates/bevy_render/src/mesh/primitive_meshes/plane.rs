@@ -27,6 +27,7 @@ impl PlaneMesh {
     /// # Panics
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
     pub fn new(normal: Vec3, size: Vec2) -> Self {
         Self {
             plane: Plane3d::new(normal),
@@ -35,6 +36,7 @@ impl PlaneMesh {
     }
 
     /// Sets the size of the plane mesh.
+    #[inline]
     pub fn size(mut self, size: Vec2) -> Self {
         self.half_size = size / 2.0;
         self

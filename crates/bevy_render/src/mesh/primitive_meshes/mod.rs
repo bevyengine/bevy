@@ -61,6 +61,7 @@ pub enum Facing {
 
 impl Facing {
     /// Returns `1` if the facing direction is positive `X`, `Y`, or `Z`, and `-1` otherwise.
+    #[inline]
     pub const fn signum(&self) -> i8 {
         match self {
             Facing::X | Facing::Y | Facing::Z => 1,
@@ -75,6 +76,7 @@ impl Facing {
     /// ```
     /// assert_eq!(Facing::X.to_array(), [1.0, 0.0, 0.0]);
     /// ```
+    #[inline]
     pub const fn to_array(&self) -> [f32; 3] {
         match self {
             Facing::X => [1.0, 0.0, 0.0],
@@ -93,31 +95,37 @@ pub trait MeshFacingExtension: Sized {
     fn facing(self, facing: Facing) -> Self;
 
     /// Set the [`Facing`] direction to `+X`.
+    #[inline]
     fn facing_x(self) -> Self {
         self.facing(Facing::X)
     }
 
     /// Set the [`Facing`] direction to `+Y`.
+    #[inline]
     fn facing_y(self) -> Self {
         self.facing(Facing::Y)
     }
 
     /// Set the [`Facing`] direction to `+Z`.
+    #[inline]
     fn facing_z(self) -> Self {
         self.facing(Facing::Z)
     }
 
     /// Set the [`Facing`] direction to `-X`.
+    #[inline]
     fn facing_neg_x(self) -> Self {
         self.facing(Facing::NegX)
     }
 
     /// Set the [`Facing`] direction to `-Y`.
+    #[inline]
     fn facing_neg_y(self) -> Self {
         self.facing(Facing::NegY)
     }
 
     /// Set the [`Facing`] direction to `-Z`.
+    #[inline]
     fn facing_neg_z(self) -> Self {
         self.facing(Facing::NegZ)
     }

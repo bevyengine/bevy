@@ -14,6 +14,7 @@ pub struct RectangleMesh {
 }
 
 impl MeshFacingExtension for RectangleMesh {
+    #[inline]
     fn facing(mut self, facing: Facing) -> Self {
         self.facing = facing;
         self
@@ -22,6 +23,7 @@ impl MeshFacingExtension for RectangleMesh {
 
 impl RectangleMesh {
     /// Creates a new [`RectangleMesh`] from a given radius and vertex count.
+    #[inline]
     pub fn new(width: f32, height: f32) -> Self {
         Self {
             rectangle: Rectangle::new(width, height),

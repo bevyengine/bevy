@@ -29,6 +29,7 @@ impl Default for EllipseMesh {
 }
 
 impl MeshFacingExtension for EllipseMesh {
+    #[inline]
     fn facing(mut self, facing: Facing) -> Self {
         self.facing = facing;
         self
@@ -37,6 +38,7 @@ impl MeshFacingExtension for EllipseMesh {
 
 impl EllipseMesh {
     /// Creates a new [`EllipseMesh`] from a given half width and half height and a vertex count.
+    #[inline]
     pub const fn new(half_width: f32, half_height: f32, resolution: usize) -> Self {
         Self {
             ellipse: Ellipse {
@@ -49,6 +51,7 @@ impl EllipseMesh {
     }
 
     /// Sets the number of vertices used for the ellipse mesh.
+    #[inline]
     #[doc(alias = "vertices")]
     pub const fn resolution(mut self, resolution: usize) -> Self {
         self.resolution = resolution;

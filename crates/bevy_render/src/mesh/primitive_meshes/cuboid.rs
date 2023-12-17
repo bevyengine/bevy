@@ -12,6 +12,7 @@ pub struct CuboidMesh {
 
 impl CuboidMesh {
     /// Creates a new [`CuboidMesh`] from a full `X`, `Y`, and `Z` length.
+    #[inline]
     pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self {
             cuboid: Cuboid::new(x_length, y_length, z_length),

@@ -28,6 +28,7 @@ impl Default for CircleMesh {
 }
 
 impl MeshFacingExtension for CircleMesh {
+    #[inline]
     fn facing(mut self, facing: Facing) -> Self {
         self.facing = facing;
         self
@@ -36,6 +37,7 @@ impl MeshFacingExtension for CircleMesh {
 
 impl CircleMesh {
     /// Creates a new [`CircleMesh`] from a given radius and vertex count.
+    #[inline]
     pub const fn new(radius: f32, resolution: usize) -> Self {
         Self {
             circle: Circle { radius },
@@ -45,6 +47,7 @@ impl CircleMesh {
     }
 
     /// Sets the number of resolution used for the circle mesh.
+    #[inline]
     #[doc(alias = "vertices")]
     pub const fn resolution(mut self, resolution: usize) -> Self {
         self.resolution = resolution;

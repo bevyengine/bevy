@@ -25,6 +25,7 @@ impl Default for ConeMesh {
 impl ConeMesh {
     /// Creates a new [`ConeMesh`] from a given radius, height,
     /// and number of vertices used for the base of the cone.
+    #[inline]
     pub const fn new(radius: f32, height: f32, resolution: usize) -> Self {
         Self {
             cone: Cone { radius, height },
@@ -33,6 +34,7 @@ impl ConeMesh {
     }
 
     /// Sets the number of vertices used for the base of the cone.
+    #[inline]
     pub const fn resolution(mut self, resolution: usize) -> Self {
         self.resolution = resolution;
         self

@@ -17,6 +17,7 @@ pub struct Triangle2dMesh {
 }
 
 impl MeshFacingExtension for Triangle2dMesh {
+    #[inline]
     fn facing(mut self, facing: Facing) -> Self {
         self.facing = facing;
         self
@@ -25,6 +26,7 @@ impl MeshFacingExtension for Triangle2dMesh {
 
 impl Triangle2dMesh {
     /// Creates a new [`Triangle2dMesh`] from points `a`, `b`, and `c`.
+    #[inline]
     pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             triangle: Triangle2d::new(a, b, c),
