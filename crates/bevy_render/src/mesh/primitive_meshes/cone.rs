@@ -3,10 +3,14 @@ use crate::mesh::{Indices, Mesh};
 use bevy_math::primitives::Cone;
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with a [`Cone`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct ConeMesh {
+    /// The [`Cone`] shape.
     pub cone: Cone,
-    pub resolution: u32,
+    /// The number of vertices used for the base of the cone.
+    /// The default is `32`.
+    pub resolution: usize,
 }
 
 impl Default for ConeMesh {
@@ -19,20 +23,31 @@ impl Default for ConeMesh {
 }
 
 impl ConeMesh {
-    pub fn resolution(mut self, resolution: usize) -> Self {
-        self.resolution = resolution as u32;
+    /// Creates a new [`ConeMesh`] from a given radius, height,
+    /// and number of vertices used for the base of the cone.
+    pub const fn new(radius: f32, height: f32, resolution: usize) -> Self {
+        Self {
+            cone: Cone { radius, height },
+            resolution,
+        }
+    }
+
+    /// Sets the number of vertices used for the base of the cone.
+    pub const fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
         self
     }
 
+    /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
         let Cone { radius, height } = self.cone;
         let num_vertices = self.resolution * 2 + 1;
         let num_indices = self.resolution * 3;
 
-        let mut positions = Vec::with_capacity(num_vertices as usize);
-        let mut normals = Vec::with_capacity(num_vertices as usize);
-        let mut uvs = Vec::with_capacity(num_vertices as usize);
-        let mut indices = Vec::with_capacity(num_indices as usize);
+        let mut positions = Vec::with_capacity(num_vertices);
+        let mut normals = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let mut indices = Vec::with_capacity(num_indices);
 
         // Tip
         positions.push([0.0, self.cone.height / 2.0, 0.0]);
@@ -60,13 +75,13 @@ impl ConeMesh {
         }
 
         for j in 0..self.resolution {
-            indices.extend_from_slice(&[0, j + 1, j]);
+            indices.extend_from_slice(&[0, j as u32 + 1, j as u32]);
         }
 
         indices.extend(&[0, positions.len() as u32 - 1, positions.len() as u32 - 2]);
 
         // Base
-        let base = CircleMesh::new(radius, self.resolution as usize).facing_neg_y();
+        let base = CircleMesh::new(radius, self.resolution).facing_neg_y();
         base.build_mesh_data(
             [0.0, -height / 2.0, 0.0],
             &mut indices,

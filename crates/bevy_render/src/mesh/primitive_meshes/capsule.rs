@@ -16,12 +16,22 @@ pub enum CapsuleUvProfile {
     Fixed,
 }
 
+/// A builder used for creating a [`Mesh`] with a [`Capsule`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct CapsuleMesh {
+    /// The [`Capsule`] shape.
     pub capsule: Capsule,
+    /// The number of horizontal lines subdividing the cylindrical part of the capsule.
+    /// The default is `0`.
     pub rings: usize,
+    /// The number of vertical lines subdividing the hemispheres of the capsule.
+    /// The default is `32`.
     pub longitudes: usize,
+    /// The number of horizontal lines subdividing the hemispheres of the capsule.
+    /// The default is `16`.
     pub latitudes: usize,
+    /// The manner in which UV coordinates are distributed vertically.
+    /// The default is [`CapsuleUvProfile::Aspect`].
     pub uv_profile: CapsuleUvProfile,
 }
 
@@ -38,26 +48,44 @@ impl Default for CapsuleMesh {
 }
 
 impl CapsuleMesh {
-    pub fn rings(mut self, rings: usize) -> Self {
+    /// Creates a new [`CapsuleMesh`] from a given radius, height, longitudes and latitudes.
+    ///
+    /// Note that `height` is the distance between the centers of the hemispheres.
+    /// `radius` will be added to both ends to get the real height of the mesh.
+    pub fn new(radius: f32, height: f32, longitudes: usize, latitudes: usize) -> Self {
+        Self {
+            capsule: Capsule::new(radius, height),
+            longitudes,
+            latitudes,
+            ..Default::default()
+        }
+    }
+
+    /// Sets the number of horizontal lines subdividing the cylindrical part of the capsule.
+    pub const fn rings(mut self, rings: usize) -> Self {
         self.rings = rings;
         self
     }
 
-    pub fn longitudes(mut self, longitudes: usize) -> Self {
+    /// Sets the number of vertical lines subdividing the hemispheres of the capsule.
+    pub const fn longitudes(mut self, longitudes: usize) -> Self {
         self.longitudes = longitudes;
         self
     }
 
-    pub fn latitudes(mut self, latitudes: usize) -> Self {
+    /// Sets the number of horizontal lines subdividing the hemispheres of the capsule.
+    pub const fn latitudes(mut self, latitudes: usize) -> Self {
         self.latitudes = latitudes;
         self
     }
 
-    pub fn uv_profile(mut self, uv_profile: CapsuleUvProfile) -> Self {
+    /// Sets the manner in which UV coordinates are distributed vertically.
+    pub const fn uv_profile(mut self, uv_profile: CapsuleUvProfile) -> Self {
         self.uv_profile = uv_profile;
         self
     }
 
+    /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
         // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
         let CapsuleMesh {

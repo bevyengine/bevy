@@ -3,9 +3,13 @@ use crate::mesh::Indices;
 use bevy_math::primitives::Rectangle;
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with a [`Rectangle`] shape.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RectangleMesh {
+    /// The [`Rectangle`] shape.
     pub rectangle: Rectangle,
+    /// The XYZ direction that the mesh is facing.
+    /// The default is [`Facing::Z`].
     pub facing: Facing,
 }
 
@@ -25,7 +29,8 @@ impl RectangleMesh {
         }
     }
 
-    fn build(&self) -> Mesh {
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
         let [hw, hh] = [self.rectangle.half_width, self.rectangle.half_height];
         let positions = match self.facing {
             Facing::Z | Facing::NegZ => vec![

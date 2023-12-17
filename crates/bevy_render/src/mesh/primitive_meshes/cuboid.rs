@@ -3,23 +3,27 @@ use crate::mesh::Indices;
 use bevy_math::primitives::Cuboid;
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with a [`Cuboid`] shape.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CuboidMesh {
+    /// The [`Cuboid`] shape.
     pub cuboid: Cuboid,
 }
 
 impl CuboidMesh {
+    /// Creates a new [`CuboidMesh`] from a full `X`, `Y`, and `Z` length.
     pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self {
             cuboid: Cuboid::new(x_length, y_length, z_length),
         }
     }
 
+    /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
         let min = -self.cuboid.half_extents;
         let max = self.cuboid.half_extents;
 
-        // suppose Y-up right hand, and camera look from +z to -z
+        // Suppose Y-up right hand, and camera look from +Z to -Z
         let vertices = &[
             // Front
             ([min.x, min.y, max.z], [0.0, 0.0, 1.0], [0.0, 0.0]),

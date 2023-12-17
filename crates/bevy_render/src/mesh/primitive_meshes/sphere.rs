@@ -7,6 +7,7 @@ use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;
 
+/// An error when creating an icosphere [`Mesh`] from a [`SphereMesh`].
 #[derive(Clone, Copy, Debug, Error)]
 pub enum IcosphereError {
     #[error("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
@@ -16,16 +17,23 @@ pub enum IcosphereError {
     },
 }
 
+/// A type of sphere mesh.
 #[derive(Clone, Copy, Debug)]
 pub enum SphereKind {
+    /// An icosphere, a spherical mesh that consists of equally sized triangles.
     Ico {
         /// The number of subdivisions applied.
+        /// The number of faces quadruples with each subdivision.
         subdivisions: usize,
     },
+    /// A UV sphere, a spherical mesh that consists of quadrilaterals
+    /// apart from triangles at the top and bottom.
     Uv {
-        /// Longitudinal sectors
+        /// The number of longitudinal sectors, aka the horizontal resolution.
+        #[doc(alias = "horizontal_resolution")]
         sectors: usize,
-        /// Latitudinal stacks
+        /// The number of latitudinal stacks, aka the vertical resolution.
+        #[doc(alias = "vertical_resolution")]
         stacks: usize,
     },
 }
@@ -36,33 +44,48 @@ impl Default for SphereKind {
     }
 }
 
+/// A builder used for creating a [`Mesh`] with an [`Sphere`] shape.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SphereMesh {
+    /// The [`Sphere`] shape.
     pub sphere: Sphere,
+    /// The type of sphere mesh that will be built.
     pub kind: SphereKind,
 }
 
 impl SphereMesh {
-    /// Builds a sphere mesh according to the configuration in `self`.
+    /// Creates a new [`SphereMesh`] from a radius and [`SphereKind`].
+    pub const fn new(radius: f32, kind: SphereKind) -> Self {
+        Self {
+            sphere: Sphere { radius },
+            kind,
+        }
+    }
+
+    /// Sets the [`SphereKind`] that will be used for building the mesh.
+    pub const fn set_kind(mut self, kind: SphereKind) -> Self {
+        self.kind = kind;
+        self
+    }
+
+    /// Builds a [`Mesh`] according to the configuration in `self`.
     ///
     /// # Panics
     ///
     /// Panics if the sphere is a `SphereKind::Ico` with a subdivision count
     /// that is greater than or equal to `80` because there will be too many vertices.
-    fn build(&self) -> Mesh {
+    pub fn build(&self) -> Mesh {
         match self.kind {
             SphereKind::Ico { subdivisions } => self.ico(subdivisions).unwrap(),
             SphereKind::Uv { sectors, stacks } => self.uv(sectors, stacks),
         }
     }
 
-    /// Sets the [`SphereKind`] that will be used for building the mesh.
-    pub fn set_kind(mut self, kind: SphereKind) -> Self {
-        self.kind = kind;
-        self
-    }
-
-    /// Create an icosphere mesh with the given number of subdivisions.
+    /// Creates an icosphere mesh with the given number of subdivisions.
+    ///
+    /// The number of faces quadruples with each subdivision.
+    /// If there are `80` or more subdivisions, the vertex count will be too large,
+    /// and an [`IcosphereError`] is returned.
     pub fn ico(&self, subdivisions: usize) -> Result<Mesh, IcosphereError> {
         if subdivisions >= 80 {
             /*
@@ -140,8 +163,8 @@ impl SphereMesh {
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs))
     }
 
-    /// Creates a UV sphere mesh with the given number of
-    /// longitudinal sectors and latitudinal stacks.
+    /// Creates a UV sphere [`Mesh`] with the given number of
+    /// longitudinal sectors and latitudinal stacks, aka horizontal and vertical resolution.
     pub fn uv(&self, sectors: usize, stacks: usize) -> Mesh {
         // Largely inspired from http://www.songho.ca/opengl/gl_sphere.html
 

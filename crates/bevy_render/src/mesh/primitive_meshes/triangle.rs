@@ -6,9 +6,13 @@ use bevy_math::{
 };
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with a [`Triangle2d`] shape.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Triangle2dMesh {
+    /// The [`Triangle2d`] shape.
     pub triangle: Triangle2d,
+    /// The XYZ direction that the mesh is facing.
+    /// The default is [`Facing::Z`].
     pub facing: Facing,
 }
 
@@ -20,7 +24,7 @@ impl MeshFacingExtension for Triangle2dMesh {
 }
 
 impl Triangle2dMesh {
-    /// Creates a new [`Triangle2dMesh`] from a given radius and vertex count.
+    /// Creates a new [`Triangle2dMesh`] from points `a`, `b`, and `c`.
     pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             triangle: Triangle2d::new(a, b, c),
@@ -28,6 +32,7 @@ impl Triangle2dMesh {
         }
     }
 
+    /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
         let [a, b, c] = self.triangle.vertices;
 

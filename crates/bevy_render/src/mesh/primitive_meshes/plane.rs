@@ -3,9 +3,12 @@ use crate::mesh::Indices;
 use bevy_math::{primitives::Plane3d, Quat, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with a [`Plane3d`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct PlaneMesh {
+    /// The [`Plane3d`] shape.
     pub plane: Plane3d,
+    /// Half the size of the plane mesh.
     pub half_size: Vec2,
 }
 
@@ -31,12 +34,14 @@ impl PlaneMesh {
         }
     }
 
+    /// Sets the size of the plane mesh.
     pub fn size(mut self, size: Vec2) -> Self {
         self.half_size = size / 2.0;
         self
     }
 
-    fn build(&self) -> Mesh {
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
         let rotation = Quat::from_rotation_arc(Vec3::Y, *self.plane.normal);
         let positions = vec![
             rotation * Vec3::new(self.half_size.x, 0.0, -self.half_size.y),

@@ -3,12 +3,17 @@ use crate::mesh::Mesh;
 use super::{Facing, MeshFacingExtension, Meshable};
 use bevy_math::primitives::{Circle, RegularPolygon};
 
+/// A builder used for creating a [`Mesh`] with a [`Circle`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct CircleMesh {
-    /// The circle shape.
+    /// The [`Circle`] shape.
     pub circle: Circle,
     /// The number of vertices used for the circle mesh.
-    pub vertices: usize,
+    /// The default is `32`.
+    #[doc(alias = "vertices")]
+    pub resolution: usize,
+    /// The XYZ direction that the mesh is facing.
+    /// The default is [`Facing::Z`].
     pub facing: Facing,
 }
 
@@ -16,7 +21,7 @@ impl Default for CircleMesh {
     fn default() -> Self {
         Self {
             circle: Circle::default(),
-            vertices: 32,
+            resolution: 32,
             facing: Facing::Z,
         }
     }
@@ -31,23 +36,24 @@ impl MeshFacingExtension for CircleMesh {
 
 impl CircleMesh {
     /// Creates a new [`CircleMesh`] from a given radius and vertex count.
-    pub const fn new(radius: f32, vertices: usize) -> Self {
+    pub const fn new(radius: f32, resolution: usize) -> Self {
         Self {
             circle: Circle { radius },
-            vertices,
+            resolution,
             facing: Facing::Z,
         }
     }
 
-    /// Sets the number of vertices used for the circle mesh.
-    #[doc(alias = "segments")]
-    pub const fn vertices(mut self, vertices: usize) -> Self {
-        self.vertices = vertices;
+    /// Sets the number of resolution used for the circle mesh.
+    #[doc(alias = "vertices")]
+    pub const fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
         self
     }
 
+    /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
-        RegularPolygon::new(self.circle.radius, self.vertices)
+        RegularPolygon::new(self.circle.radius, self.resolution)
             .mesh()
             .facing(self.facing)
             .build()
@@ -61,7 +67,7 @@ impl CircleMesh {
         normals: &mut Vec<[f32; 3]>,
         uvs: &mut Vec<[f32; 2]>,
     ) {
-        RegularPolygon::new(self.circle.radius, self.vertices)
+        RegularPolygon::new(self.circle.radius, self.resolution)
             .mesh()
             .facing(self.facing)
             .build_mesh_data(translation, indices, positions, normals, uvs);

@@ -390,16 +390,16 @@ impl Default for RegularPolygon {
 
 impl RegularPolygon {
     /// Create a new `RegularPolygon`
-    /// from the radius of the circumcircle and number of sides
+    /// from the radius of the circumcircle and a number of sides
     ///
     /// # Panics
     ///
-    /// Panics if `circumcircle_radius` is non-positive
-    pub fn new(circumcircle_radius: f32, sides: usize) -> Self {
-        assert!(circumcircle_radius > 0.0);
+    /// Panics if `circumradius` is non-positive
+    pub fn new(circumradius: f32, sides: usize) -> Self {
+        assert!(circumradius > 0.0);
         Self {
             circumcircle: Circle {
-                radius: circumcircle_radius,
+                radius: circumradius,
             },
             sides,
         }

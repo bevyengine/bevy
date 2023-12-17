@@ -1,3 +1,5 @@
+//! Mesh generation for [primitive shapes](bevy_math::primitives).
+
 #![warn(missing_docs)]
 
 mod capsule;
@@ -28,20 +30,32 @@ pub use torus::TorusMesh;
 
 use super::Mesh;
 
+/// A trait for shapes that can be turned into a [`Mesh`].
 pub trait Meshable {
+    /// The output of [`Self::mesh`]. This can either be a [`Mesh`]
+    /// or a builder used for creating a [`Mesh`].
     type Output;
 
+    /// Creates a [`Mesh`] for a shape.
     fn mesh(&self) -> Self::Output;
 }
 
+/// The cartesian axis that a [`Mesh`] should be facing upon creation.
+/// This is either positive or negative `X`, `Y`, or `Z`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Facing {
+    /// Facing the `+X` direction.
     X = 1,
+    /// Facing the `+Y` direction.
     Y = 2,
+    /// Facing the `+Z` direction.
     #[default]
     Z = 3,
+    /// Facing the `-X` direction.
     NegX = -1,
+    /// Facing the `-Y` direction.
     NegY = -2,
+    /// Facing the `-Z` direction.
     NegZ = -3,
 }
 
@@ -58,7 +72,7 @@ impl Facing {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// assert_eq!(Facing::X.to_array(), [1.0, 0.0, 0.0]);
     /// ```
     pub const fn to_array(&self) -> [f32; 3] {
@@ -73,29 +87,37 @@ impl Facing {
     }
 }
 
+/// An extension trait for methods related to setting a specific [`Facing`] direction.
 pub trait MeshFacingExtension: Sized {
+    /// Set the [`Facing`] direction.
     fn facing(self, facing: Facing) -> Self;
 
+    /// Set the [`Facing`] direction to `+X`.
     fn facing_x(self) -> Self {
         self.facing(Facing::X)
     }
 
+    /// Set the [`Facing`] direction to `+Y`.
     fn facing_y(self) -> Self {
         self.facing(Facing::Y)
     }
 
+    /// Set the [`Facing`] direction to `+Z`.
     fn facing_z(self) -> Self {
         self.facing(Facing::Z)
     }
 
+    /// Set the [`Facing`] direction to `-X`.
     fn facing_neg_x(self) -> Self {
         self.facing(Facing::NegX)
     }
 
+    /// Set the [`Facing`] direction to `-Y`.
     fn facing_neg_y(self) -> Self {
         self.facing(Facing::NegY)
     }
 
+    /// Set the [`Facing`] direction to `-Z`.
     fn facing_neg_z(self) -> Self {
         self.facing(Facing::NegZ)
     }

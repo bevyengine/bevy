@@ -3,40 +3,76 @@ use crate::mesh::{Indices, Mesh};
 use bevy_math::{primitives::Torus, Vec3};
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with a [`Torus`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct TorusMesh {
+    /// The [`Torus`] shape.
     pub torus: Torus,
-    pub subdivisions_segments: usize,
-    pub subdivisions_sides: usize,
+    /// The number of segments used for the main ring of the torus.
+    ///
+    /// A resolution of `4` would make the torus appear rectangular,
+    /// while a resolution of `32` resembles a circular ring.
+    pub major_resolution: usize,
+    /// The number of vertices used for each circular segment
+    /// in the ring or tube of the torus.
+    pub minor_resolution: usize,
 }
 
 impl Default for TorusMesh {
     fn default() -> Self {
         Self {
             torus: Torus::default(),
-            subdivisions_segments: 32,
-            subdivisions_sides: 24,
+            major_resolution: 32,
+            minor_resolution: 24,
         }
     }
 }
 
 impl TorusMesh {
+    /// Creates a new [`TorusMesh`] from an inner and outer radius.
+    ///
+    /// The inner radius is the radius of the hole, and the outer radius
+    /// is the radius of the entire object.
+    pub fn new(inner_radius: f32, outer_radius: f32) -> Self {
+        Self {
+            torus: Torus::new(inner_radius, outer_radius),
+            ..Default::default()
+        }
+    }
+
+    /// Sets the number of segments used for the main ring of the torus.
+    ///
+    /// A resolution of `4` would make the torus appear rectangular,
+    /// while a resolution of `32` resembles a circular ring.
+    pub const fn major_resolution(mut self, resolution: usize) -> Self {
+        self.major_resolution = resolution;
+        self
+    }
+
+    /// Sets the number of vertices used for each circular segment
+    /// in the ring or tube of the torus.
+    pub const fn minor_resolution(mut self, resolution: usize) -> Self {
+        self.minor_resolution = resolution;
+        self
+    }
+
+    /// Builds a [`Mesh`] according to the configuration in `self`.
     pub fn build(&self) -> Mesh {
         // code adapted from http://apparat-engine.blogspot.com/2013/04/procedural-meshes-torus.html
         // (source code at https://github.com/SEilers/Apparat)
 
-        let n_vertices = (self.subdivisions_segments + 1) * (self.subdivisions_sides + 1);
+        let n_vertices = (self.major_resolution + 1) * (self.minor_resolution + 1);
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
 
-        let segment_stride = 2.0 * std::f32::consts::PI / self.subdivisions_segments as f32;
-        let side_stride = 2.0 * std::f32::consts::PI / self.subdivisions_sides as f32;
+        let segment_stride = 2.0 * std::f32::consts::PI / self.major_resolution as f32;
+        let side_stride = 2.0 * std::f32::consts::PI / self.minor_resolution as f32;
 
-        for segment in 0..=self.subdivisions_segments {
+        for segment in 0..=self.major_resolution {
             let theta = segment_stride * segment as f32;
 
-            for side in 0..=self.subdivisions_sides {
+            for side in 0..=self.minor_resolution {
                 let phi = side_stride * side as f32;
 
                 let position = Vec3::new(
@@ -55,21 +91,21 @@ impl TorusMesh {
                 positions.push(position.into());
                 normals.push(normal.into());
                 uvs.push([
-                    segment as f32 / self.subdivisions_segments as f32,
-                    side as f32 / self.subdivisions_sides as f32,
+                    segment as f32 / self.major_resolution as f32,
+                    side as f32 / self.minor_resolution as f32,
                 ]);
             }
         }
 
-        let n_faces = (self.subdivisions_segments) * (self.subdivisions_sides);
+        let n_faces = (self.major_resolution) * (self.minor_resolution);
         let n_triangles = n_faces * 2;
         let n_indices = n_triangles * 3;
 
         let mut indices: Vec<u32> = Vec::with_capacity(n_indices);
 
-        let n_vertices_per_row = self.subdivisions_sides + 1;
-        for segment in 0..self.subdivisions_segments {
-            for side in 0..self.subdivisions_sides {
+        let n_vertices_per_row = self.minor_resolution + 1;
+        for segment in 0..self.major_resolution {
+            for side in 0..self.minor_resolution {
                 let lt = side + segment * n_vertices_per_row;
                 let rt = (side + 1) + segment * n_vertices_per_row;
 
@@ -91,16 +127,6 @@ impl TorusMesh {
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-    }
-
-    pub fn subdivisions_segments(mut self, subdivisions: usize) -> Self {
-        self.subdivisions_segments = subdivisions;
-        self
-    }
-
-    pub fn subdivisions_sides(mut self, subdivisions: usize) -> Self {
-        self.subdivisions_sides = subdivisions;
-        self
     }
 }
 

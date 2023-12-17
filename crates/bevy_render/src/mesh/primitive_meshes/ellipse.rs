@@ -4,12 +4,17 @@ use super::{Facing, MeshFacingExtension, Meshable};
 use bevy_math::primitives::Ellipse;
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with an [`Ellipse`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct EllipseMesh {
-    /// The ellipse shape.
+    /// The [`Ellipse`] shape.
     pub ellipse: Ellipse,
     /// The number of vertices used for the ellipse mesh.
-    pub vertices: usize,
+    /// The default is `32`.
+    #[doc(alias = "vertices")]
+    pub resolution: usize,
+    /// The XYZ direction that the mesh is facing.
+    /// The default is [`Facing::Z`].
     pub facing: Facing,
 }
 
@@ -17,7 +22,7 @@ impl Default for EllipseMesh {
     fn default() -> Self {
         Self {
             ellipse: Ellipse::default(),
-            vertices: 32,
+            resolution: 32,
             facing: Facing::Z,
         }
     }
@@ -32,29 +37,30 @@ impl MeshFacingExtension for EllipseMesh {
 
 impl EllipseMesh {
     /// Creates a new [`EllipseMesh`] from a given half width and half height and a vertex count.
-    pub const fn new(half_width: f32, half_height: f32, vertices: usize) -> Self {
+    pub const fn new(half_width: f32, half_height: f32, resolution: usize) -> Self {
         Self {
             ellipse: Ellipse {
                 half_width,
                 half_height,
             },
-            vertices,
+            resolution,
             facing: Facing::Z,
         }
     }
 
     /// Sets the number of vertices used for the ellipse mesh.
-    #[doc(alias = "segments")]
-    pub const fn vertices(mut self, vertices: usize) -> Self {
-        self.vertices = vertices;
+    #[doc(alias = "vertices")]
+    pub const fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
         self
     }
 
+    /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
-        let mut indices = Vec::with_capacity((self.vertices - 2) * 3);
-        let mut positions = Vec::with_capacity(self.vertices);
-        let mut normals = Vec::with_capacity(self.vertices);
-        let mut uvs = Vec::with_capacity(self.vertices);
+        let mut indices = Vec::with_capacity((self.resolution - 2) * 3);
+        let mut positions = Vec::with_capacity(self.resolution);
+        let mut normals = Vec::with_capacity(self.resolution);
+        let mut uvs = Vec::with_capacity(self.resolution);
 
         self.build_mesh_data(
             [0.0; 3],
@@ -79,7 +85,7 @@ impl EllipseMesh {
         normals: &mut Vec<[f32; 3]>,
         uvs: &mut Vec<[f32; 2]>,
     ) {
-        let sides = self.vertices;
+        let sides = self.resolution;
         let [trans_x, trans_y, trans_z] = translation;
 
         let index_offset = positions.len() as u32;

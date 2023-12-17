@@ -6,10 +6,17 @@ use crate::mesh::{
 use bevy_math::primitives::Cylinder;
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with a [`Cylinder`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct CylinderMesh {
+    /// The [`Cylinder`] shape.
     pub cylinder: Cylinder,
+    /// The number of vertices used for the top and bottom of the cylinder.
+    /// The default is `32`.
     pub resolution: u32,
+    /// The number of segments along the height of the cylinder.
+    /// Must be greater than `0` for geometry to be generated.
+    /// The default is `1`.
     pub segments: u32,
 }
 
@@ -24,16 +31,30 @@ impl Default for CylinderMesh {
 }
 
 impl CylinderMesh {
-    pub fn resolution(mut self, resolution: u32) -> Self {
+    /// Creates a new [`CylinderMesh`] from the given radius, a height,
+    /// and a resolution used for the top and bottom.
+    pub fn new(radius: f32, height: f32, resolution: u32) -> Self {
+        Self {
+            cylinder: Cylinder::new(radius, height),
+            resolution,
+            ..Default::default()
+        }
+    }
+
+    /// Sets the number of vertices used for the top and bottom of the cylinder.
+    pub const fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
 
-    pub fn segments(mut self, segments: u32) -> Self {
+    /// Sets the number of segments along the height of the cylinder.
+    /// Must be greater than `0` for geometry to be generated.
+    pub const fn segments(mut self, segments: u32) -> Self {
         self.segments = segments;
         self
     }
 
+    /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
         let resolution = self.resolution;
         let segments = self.segments;
