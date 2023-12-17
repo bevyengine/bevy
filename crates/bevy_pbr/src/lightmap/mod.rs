@@ -122,7 +122,9 @@ impl Plugin for LightmapPlugin {
             "lightmap.wgsl",
             Shader::from_wgsl
         );
+    }
 
+    fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
