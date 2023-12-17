@@ -9,7 +9,7 @@ use bevy_ecs::{
     query::With,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Local, Query, Res, ResMut, Resource},
 };
 use bevy_math::{Affine3A, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -23,7 +23,6 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd};
-use smallvec::SmallVec;
 
 use crate::{
     environment_map::{EnvironmentMapIds, RenderViewEnvironmentMaps},
@@ -157,23 +156,29 @@ fn gather_light_probes(
             With<Camera3d>,
         >,
     >,
+    mut light_probes: Local<Vec<LightProbeInfo>>,
+    mut view_light_probes: Local<Vec<LightProbeInfo>>,
     mut commands: Commands,
 ) {
     // Create [`LightProbeInfo`] for every light probe in the scene.
-    let light_probes: SmallVec<[LightProbeInfo; 8]> = light_probe_query
-        .iter()
-        .filter_map(|query_row| LightProbeInfo::new(query_row, &image_assets))
-        .collect();
+    light_probes.clear();
+    light_probes.extend(
+        light_probe_query
+            .iter()
+            .filter_map(|query_row| LightProbeInfo::new(query_row, &image_assets)),
+    );
 
     // Build up the light probes uniform and the key table.
     light_probes_uniforms.clear();
     for (view_entity, view_transform, view_frustum, view_environment_maps) in view_query.iter() {
         // Cull light probes outside the view frustum.
-        let mut view_light_probes: SmallVec<[LightProbeInfo; 8]> = light_probes
-            .iter()
-            .filter(|light_probe_info| light_probe_info.frustum_cull(view_frustum))
-            .cloned()
-            .collect();
+        view_light_probes.clear();
+        view_light_probes.extend(
+            light_probes
+                .iter()
+                .filter(|light_probe_info| light_probe_info.frustum_cull(view_frustum))
+                .cloned(),
+        );
 
         // Sort by distance to camera.
         view_light_probes.sort_by_cached_key(|light_probe_info| {
