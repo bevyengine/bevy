@@ -360,8 +360,14 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     ///
     /// # Safety
     ///
-    /// This will create a query that could violate memory safety rules. Make sure that this is only
-    /// called in ways that ensure the queries have unique mutable access.
+    /// * `world` must have permission to access any component data specified in `state`'s [`archetype_component_access`].
+    /// * Any mutable component accesses must be unique.
+    ///
+    /// [`archetype_component_access`]: QueryState::archetype_component_access
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to create `state`.
     #[inline]
     pub unsafe fn new(
         world: UnsafeWorldCell<'w>,
