@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::{Command, Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
-use smallvec::SmallVec;
+use bevy_utils::smallvec::{smallvec, SmallVec};
 
 // Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
 // even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
@@ -24,7 +24,7 @@ fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     if let Some(mut children) = parent.get_mut::<Children>() {
         children.0.push(child);
     } else {
-        parent.insert(Children(smallvec::smallvec![child]));
+        parent.insert(Children(smallvec![child]));
     }
 }
 
@@ -696,7 +696,7 @@ mod tests {
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
     };
-    use smallvec::{smallvec, SmallVec};
+    use bevy_utils::smallvec::{smallvec, SmallVec};
 
     use bevy_ecs::{
         component::Component,
