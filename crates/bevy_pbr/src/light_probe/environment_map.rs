@@ -375,11 +375,11 @@ impl<'a> RenderViewBindGroupEntries<'a> {
 impl<'a> RenderViewBindGroupEntries<'a> {
     /// Returns the texture view corresponding to the view's diffuse cubemap.
     pub(crate) fn diffuse_texture_views(&self) -> &'a TextureView {
-        &self.diffuse_texture_view
+        self.diffuse_texture_view
     }
 
     /// Returns the texture view corresponding to the view's specular cubemap.
     pub(crate) fn specular_texture_views(&self) -> &'a TextureView {
-        &self.specular_texture_view
+        self.specular_texture_view
     }
 }
