@@ -16,7 +16,7 @@ mod sphere;
 mod torus;
 mod triangle;
 
-pub use capsule::CapsuleMesh;
+pub use capsule::{CapsuleMesh, CapsuleUvProfile};
 pub use circle::CircleMesh;
 pub use cone::ConeMesh;
 pub use conical_frustum::ConicalFrustumMesh;
@@ -26,7 +26,7 @@ pub use ellipse::EllipseMesh;
 pub use plane::PlaneMesh;
 pub use rectangle::RectangleMesh;
 pub use regular_polygon::RegularPolygonMesh;
-pub use sphere::{SphereKind, SphereMesh};
+pub use sphere::{IcosphereError, SphereKind, SphereMesh};
 pub use torus::TorusMesh;
 pub use triangle::Triangle2dMesh;
 
