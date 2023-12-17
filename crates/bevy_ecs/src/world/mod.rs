@@ -1186,8 +1186,8 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Return's `true` if a resource of type `R` exists and was added since the world's
-    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    /// Returns `true` if a resource of type `R` exists and was added since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
     /// - When called from an exclusive system, this will check for additions since the system last ran.
@@ -1200,8 +1200,8 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Return's `true` if a resource with id `component_id` exists and was added since the world's
-    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    /// Returns `true` if a resource with id `component_id` exists and was added since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
     /// - When called from an exclusive system, this will check for additions since the system last ran.
@@ -1219,8 +1219,8 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Return's `true` if a resource of type `R` exists and was modified since the world's
-    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    /// Returns `true` if a resource of type `R` exists and was modified since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
     /// - When called from an exclusive system, this will check for changes since the system last ran.
@@ -1233,8 +1233,8 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Return's `true` if a resource with id `component_id` exists and was modified since the world's
-    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    /// Returns `true` if a resource with id `component_id` exists and was modified since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
     /// - When called from an exclusive system, this will check for changes since the system last ran.
