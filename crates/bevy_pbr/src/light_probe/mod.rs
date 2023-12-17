@@ -49,9 +49,9 @@ pub struct LightProbePlugin;
 /// A cuboid region that provides global illumination to all fragments inside it.
 ///
 /// The light probe range is conceptually a unit cube (1×1×1) centered on the
-/// origin.  The [`Transform`] applied to this entity can scale, rotate, or
-/// translate that cube so that it contains all fragments that should take this
-/// light probe into account.
+/// origin.  The [`bevy_transform::prelude::Transform`] applied to this entity
+/// can scale, rotate, or translate that cube so that it contains all fragments
+/// that should take this light probe into account.
 ///
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination. At present, the only supported type of illumination is
@@ -155,7 +155,8 @@ impl Plugin for LightProbePlugin {
 /// Gathers up all light probes in the scene and assigns them to views,
 /// performing frustum culling and distance sorting in the process.
 ///
-/// This populates the [`LightProbesUniforms`] resource.
+/// This populates the
+/// [`crate::light_probe::environment_map::LightProbesUniforms`] resource.
 fn gather_light_probes(
     mut light_probes_uniforms: ResMut<RenderLightProbes>,
     image_assets: Res<RenderAssets<Image>>,
