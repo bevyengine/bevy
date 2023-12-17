@@ -103,16 +103,18 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(50.0))
+                .into(),
+        ),
         material: forward_mat_h.clone(),
         ..default()
     });
 
-    let cube_h = meshes.add(Mesh::from(shape::Cube { size: 0.1 }));
-    let sphere_h = meshes.add(Mesh::from(shape::UVSphere {
-        radius: 0.125,
-        ..default()
-    }));
+    let cube_h = meshes.add(primitives::Cuboid::from_size(Vec3::splat(0.1)).into());
+    let sphere_h = meshes.add(primitives::Sphere { radius: 0.125 }.mesh().uv(36, 18));
 
     // Cubes
     commands.spawn(PbrBundle {
@@ -196,7 +198,7 @@ fn setup(
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            mesh: meshes.add(Mesh::from(primitives::Cuboid::default())),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("888888").unwrap(),
                 unlit: true,
@@ -257,7 +259,7 @@ fn setup_parallax(
     let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
     normal.0 = Some(normal_handle);
 
-    let mut cube: Mesh = shape::Cube { size: 0.15 }.into();
+    let mut cube: Mesh = primitives::Cuboid::from_size(Vec3::splat(0.15)).into();
 
     // NOTE: for normal maps and depth maps to work, the mesh
     // needs tangents generated.

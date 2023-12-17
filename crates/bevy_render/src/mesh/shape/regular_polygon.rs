@@ -1,107 +1,90 @@
-use crate::mesh::{Indices, Mesh};
-use wgpu::PrimitiveTopology;
+use super::{Facing, Mesh, MeshFacingExtension, Meshable};
+use bevy_math::primitives::{Ellipse, RegularPolygon};
 
-/// A regular polygon in the `XY` plane
-#[derive(Debug, Copy, Clone)]
-pub struct RegularPolygon {
-    /// Circumscribed radius in the `XY` plane.
+/// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RegularPolygonMesh {
+    /// The [`RegularPolygon`] shape.
+    pub polygon: RegularPolygon,
+    /// The XYZ direction that the mesh is facing.
+    /// The default is [`Facing::Z`].
+    pub facing: Facing,
+}
+
+impl MeshFacingExtension for RegularPolygonMesh {
+    #[inline]
+    fn facing(mut self, facing: Facing) -> Self {
+        self.facing = facing;
+        self
+    }
+}
+
+impl RegularPolygonMesh {
+    /// Creates a new [`RegularPolygonMesh`] from the radius
+    /// of the circumcircle and a number of sides.
     ///
-    /// In other words, the vertices of this polygon will all touch a circle of this radius.
-    pub radius: f32,
-    /// Number of sides.
-    pub sides: usize,
-}
-
-impl Default for RegularPolygon {
-    fn default() -> Self {
+    /// # Panics
+    ///
+    /// Panics if `circumradius` is non-positive.
+    #[inline]
+    pub fn new(circumradius: f32, sides: usize) -> Self {
         Self {
-            radius: 0.5,
-            sides: 6,
+            polygon: RegularPolygon::new(circumradius, sides),
+            ..Default::default()
         }
+    }
+
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
+        // The ellipse mesh is just a regular polygon with two radii
+        Ellipse {
+            half_width: self.polygon.circumcircle.radius,
+            half_height: self.polygon.circumcircle.radius,
+        }
+        .mesh()
+        .resolution(self.polygon.sides)
+        .facing(self.facing)
+        .build()
+    }
+
+    pub(super) fn build_mesh_data(
+        &self,
+        translation: [f32; 3],
+        indices: &mut Vec<u32>,
+        positions: &mut Vec<[f32; 3]>,
+        normals: &mut Vec<[f32; 3]>,
+        uvs: &mut Vec<[f32; 2]>,
+    ) {
+        Ellipse {
+            half_width: self.polygon.circumcircle.radius,
+            half_height: self.polygon.circumcircle.radius,
+        }
+        .mesh()
+        .resolution(self.polygon.sides)
+        .facing(self.facing)
+        .build_mesh_data(translation, indices, positions, normals, uvs);
     }
 }
 
-impl RegularPolygon {
-    /// Creates a regular polygon in the `XY` plane
-    pub fn new(radius: f32, sides: usize) -> Self {
-        Self { radius, sides }
-    }
-}
+impl Meshable for RegularPolygon {
+    type Output = RegularPolygonMesh;
 
-impl From<RegularPolygon> for Mesh {
-    fn from(polygon: RegularPolygon) -> Self {
-        let RegularPolygon { radius, sides } = polygon;
-
-        debug_assert!(sides > 2, "RegularPolygon requires at least 3 sides.");
-
-        let mut positions = Vec::with_capacity(sides);
-        let mut normals = Vec::with_capacity(sides);
-        let mut uvs = Vec::with_capacity(sides);
-
-        let step = std::f32::consts::TAU / sides as f32;
-        for i in 0..sides {
-            let theta = std::f32::consts::FRAC_PI_2 - i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
-
-            positions.push([cos * radius, sin * radius, 0.0]);
-            normals.push([0.0, 0.0, 1.0]);
-            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-        }
-
-        let mut indices = Vec::with_capacity((sides - 2) * 3);
-        for i in 1..(sides as u32 - 1) {
-            // Vertices are generated in CW order above, hence the reversed indices here
-            // to emit triangle vertices in CCW order.
-            indices.extend_from_slice(&[0, i + 1, i]);
-        }
-
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_indices(Some(Indices::U32(indices)))
-    }
-}
-
-/// A circle in the `XY` plane
-#[derive(Debug, Copy, Clone)]
-pub struct Circle {
-    /// Inscribed radius in the `XY` plane.
-    pub radius: f32,
-    /// The number of vertices used.
-    pub vertices: usize,
-}
-
-impl Default for Circle {
-    fn default() -> Self {
-        Self {
-            radius: 0.5,
-            vertices: 64,
-        }
-    }
-}
-
-impl Circle {
-    /// Creates a circle in the `XY` plane
-    pub fn new(radius: f32) -> Self {
-        Self {
-            radius,
+    fn mesh(&self) -> Self::Output {
+        RegularPolygonMesh {
+            polygon: *self,
             ..Default::default()
         }
     }
 }
 
-impl From<Circle> for RegularPolygon {
-    fn from(circle: Circle) -> Self {
-        Self {
-            radius: circle.radius,
-            sides: circle.vertices,
-        }
+impl From<RegularPolygon> for Mesh {
+    fn from(polygon: RegularPolygon) -> Self {
+        polygon.mesh().build()
     }
 }
 
-impl From<Circle> for Mesh {
-    fn from(circle: Circle) -> Self {
-        Mesh::from(RegularPolygon::from(circle))
+impl From<RegularPolygonMesh> for Mesh {
+    fn from(polygon: RegularPolygonMesh) -> Self {
+        polygon.build()
     }
 }

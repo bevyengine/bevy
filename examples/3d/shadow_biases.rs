@@ -41,10 +41,11 @@ fn setup(
         ..default()
     });
     let sphere_handle = meshes.add(
-        Mesh::try_from(shape::Icosphere {
+        primitives::Sphere {
             radius: sphere_radius,
-            ..default()
-        })
+        }
+        .mesh()
+        .ico(5)
         .unwrap(),
     );
 
@@ -112,7 +113,12 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(2.0 * spawn_plane_depth).into()),
+        mesh: meshes.add(
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(2.0 * spawn_plane_depth))
+                .into(),
+        ),
         material: white_handle,
         ..default()
     });

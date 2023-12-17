@@ -72,12 +72,23 @@ impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
         let mut meshes = world.resource_mut::<Assets<Mesh>>();
         Self {
-            circle: meshes.add(shape::Circle::new(BUTTON_RADIUS).into()).into(),
-            triangle: meshes
-                .add(shape::RegularPolygon::new(BUTTON_RADIUS, 3).into())
+            circle: meshes
+                .add(
+                    primitives::Circle {
+                        radius: BUTTON_RADIUS,
+                    }
+                    .into(),
+                )
                 .into(),
-            start_pause: meshes.add(shape::Quad::new(START_SIZE).into()).into(),
-            trigger: meshes.add(shape::Quad::new(TRIGGER_SIZE).into()).into(),
+            triangle: meshes
+                .add(primitives::RegularPolygon::new(BUTTON_RADIUS, 3).into())
+                .into(),
+            start_pause: meshes
+                .add(primitives::Rectangle::from_size(START_SIZE).into())
+                .into(),
+            trigger: meshes
+                .add(primitives::Rectangle::from_size(TRIGGER_SIZE).into())
+                .into(),
         }
     }
 }

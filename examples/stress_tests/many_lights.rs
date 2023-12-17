@@ -48,19 +48,13 @@ fn setup(
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: RADIUS,
-                subdivisions: 9,
-            })
-            .unwrap(),
-        ),
+        mesh: meshes.add(primitives::Sphere { radius: RADIUS }.mesh().ico(9).unwrap()),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(Mesh::from(primitives::Cuboid::default()));
     let material = materials.add(StandardMaterial {
         base_color: Color::PINK,
         ..default()

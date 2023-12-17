@@ -1,7 +1,7 @@
-//! Shows how to render a polygonal [`Mesh`], generated from a [`Quad`] primitive, in a 2D scene.
+//! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D scene.
 //! Adds a texture and colored vertices, giving per-vertex tinting.
 //!
-//! [`Quad`]: shape::Quad
+//! [`Rectangle`]: primitives::Rectangle
 
 use bevy::{
     prelude::*,
@@ -23,9 +23,9 @@ fn setup(
 ) {
     // Load the Bevy logo as a texture
     let texture_handle = asset_server.load("branding/banner.png");
-    // Build a default quad mesh
-    let mut mesh = Mesh::from(shape::Quad::default());
-    // Build vertex colors for the quad. One entry per vertex (the corners of the quad)
+    // Build a default rectangle mesh
+    let mut mesh = Mesh::from(primitives::Rectangle::default());
+    // Build vertex colors for the rectangle. One entry per vertex (the corners of the rectangle)
     let vertex_colors: Vec<[f32; 4]> = vec![
         Color::RED.as_rgba_f32(),
         Color::GREEN.as_rgba_f32(),
@@ -40,7 +40,7 @@ fn setup(
     // Spawn camera
     commands.spawn(Camera2dBundle::default());
 
-    // Spawn the quad with vertex colors
+    // Spawn the rectangle with vertex colors
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone(),
         transform: Transform::from_translation(Vec3::new(-96., 0., 0.))
@@ -49,7 +49,7 @@ fn setup(
         ..default()
     });
 
-    // Spawning the quad with vertex colors and a texture results in tinting
+    // Spawning the rectangle with vertex colors and a texture results in tinting
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle,
         transform: Transform::from_translation(Vec3::new(96., 0., 0.))

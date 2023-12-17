@@ -35,6 +35,27 @@ impl PlaneMesh {
         }
     }
 
+    /// Creates a new [`PlaneMesh`] from the given size, with the normal pointing upwards.
+    #[inline]
+    pub fn from_size(size: Vec2) -> Self {
+        Self {
+            half_size: 2.0 * size,
+            ..Default::default()
+        }
+    }
+
+    /// Sets the normal of the plane, aka the direction the plane is facing.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
+    #[doc(alias = "facing")]
+    pub fn normal(mut self, normal: Vec3) -> Self {
+        self.plane = Plane3d::new(normal);
+        self
+    }
+
     /// Sets the size of the plane mesh.
     #[inline]
     pub fn size(mut self, size: Vec2) -> Self {

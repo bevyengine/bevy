@@ -206,7 +206,7 @@ fn setup(
         textures,
         materials,
         quad: meshes
-            .add(Mesh::from(shape::Quad::new(Vec2::splat(
+            .add(Mesh::from(primitives::Rectangle::from_size(Vec2::splat(
                 BIRD_TEXTURE_SIZE as f32,
             ))))
             .into(),

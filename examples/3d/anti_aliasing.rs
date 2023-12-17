@@ -259,7 +259,12 @@ fn setup(
 ) {
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(50.0))
+                .into(),
+        ),
         material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
         ..default()
     });
@@ -272,7 +277,7 @@ fn setup(
     // Cubes
     for i in 0..5 {
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.25 })),
+            mesh: meshes.add(Mesh::from(primitives::Cuboid::from_size(Vec3::splat(0.25)))),
             material: cube_material.clone(),
             transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
             ..default()

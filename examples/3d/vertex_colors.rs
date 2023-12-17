@@ -17,13 +17,18 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
+        mesh: meshes.add(
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(5.0))
+                .into(),
+        ),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
     // cube
     // Assign vertex colors based on vertex positions
-    let mut colorful_cube = Mesh::from(shape::Cube { size: 1.0 });
+    let mut colorful_cube = Mesh::from(primitives::Cuboid::default());
     if let Some(VertexAttributeValues::Float32x3(positions)) =
         colorful_cube.attribute(Mesh::ATTRIBUTE_POSITION)
     {

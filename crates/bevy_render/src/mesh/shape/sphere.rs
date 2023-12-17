@@ -88,6 +88,8 @@ impl SphereMesh {
     /// The number of faces quadruples with each subdivision.
     /// If there are `80` or more subdivisions, the vertex count will be too large,
     /// and an [`IcosphereError`] is returned.
+    ///
+    /// A good default is `5` subdivisions.
     pub fn ico(&self, subdivisions: usize) -> Result<Mesh, IcosphereError> {
         if subdivisions >= 80 {
             /*
@@ -167,6 +169,8 @@ impl SphereMesh {
 
     /// Creates a UV sphere [`Mesh`] with the given number of
     /// longitudinal sectors and latitudinal stacks, aka horizontal and vertical resolution.
+    ///
+    /// A good default is `32` sectors and `18` stacks.
     pub fn uv(&self, sectors: usize, stacks: usize) -> Mesh {
         // Largely inspired from http://www.songho.ca/opengl/gl_sphere.html
 

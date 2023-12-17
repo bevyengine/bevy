@@ -76,7 +76,12 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(50.0))
+                .into(),
+        ),
         material: materials.add(Color::SILVER.into()),
         ..default()
     });

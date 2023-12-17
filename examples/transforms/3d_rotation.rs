@@ -26,7 +26,7 @@ fn setup(
     // Spawn a cube to rotate.
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(Mesh::from(primitives::Cuboid::default())),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()

@@ -1,79 +1,108 @@
-use crate::mesh::{Indices, Mesh};
+use super::Meshable;
+use crate::mesh::{
+    shape::{CircleMesh, MeshFacingExtension},
+    Indices, Mesh,
+};
+use bevy_math::primitives::Cylinder;
 use wgpu::PrimitiveTopology;
 
-/// A cylinder which stands on the XZ plane
+/// A builder used for creating a [`Mesh`] with a [`Cylinder`] shape.
 #[derive(Clone, Copy, Debug)]
-pub struct Cylinder {
-    /// Radius in the XZ plane.
-    pub radius: f32,
-    /// Height of the cylinder in the Y axis.
-    pub height: f32,
-    /// The number of vertices around each horizontal slice of the cylinder. If you are looking at the cylinder from
-    /// above, this is the number of points you will see on the circle.
-    /// A higher number will make it appear more circular.
+pub struct CylinderMesh {
+    /// The [`Cylinder`] shape.
+    pub cylinder: Cylinder,
+    /// The number of vertices used for the top and bottom of the cylinder.
+    /// The default is `32`.
     pub resolution: u32,
-    /// The number of segments between the two ends. Setting this to 1 will have triangles spanning the full
-    /// height of the cylinder. Setting it to 2 will have two sets of triangles with a horizontal slice in the middle of
-    /// cylinder. Greater numbers increase triangles/slices in the same way.
+    /// The number of segments along the height of the cylinder.
+    /// Must be greater than `0` for geometry to be generated.
+    /// The default is `1`.
     pub segments: u32,
 }
 
-impl Default for Cylinder {
+impl Default for CylinderMesh {
     fn default() -> Self {
         Self {
-            radius: 0.5,
-            height: 1.0,
-            resolution: 16,
+            cylinder: Cylinder::default(),
+            resolution: 32,
             segments: 1,
         }
     }
 }
 
-impl From<Cylinder> for Mesh {
-    fn from(c: Cylinder) -> Self {
-        debug_assert!(c.radius > 0.0);
-        debug_assert!(c.height > 0.0);
-        debug_assert!(c.resolution > 2);
-        debug_assert!(c.segments > 0);
+impl CylinderMesh {
+    /// Creates a new [`CylinderMesh`] from the given radius, a height,
+    /// and a resolution used for the top and bottom.
+    #[inline]
+    pub fn new(radius: f32, height: f32, resolution: u32) -> Self {
+        Self {
+            cylinder: Cylinder::new(radius, height),
+            resolution,
+            ..Default::default()
+        }
+    }
 
-        let num_rings = c.segments + 1;
-        let num_vertices = c.resolution * 2 + num_rings * (c.resolution + 1);
-        let num_faces = c.resolution * (num_rings - 2);
-        let num_indices = (2 * num_faces + 2 * (c.resolution - 1) * 2) * 3;
+    /// Sets the number of vertices used for the top and bottom of the cylinder.
+    #[inline]
+    pub const fn resolution(mut self, resolution: u32) -> Self {
+        self.resolution = resolution;
+        self
+    }
+
+    /// Sets the number of segments along the height of the cylinder.
+    /// Must be greater than `0` for geometry to be generated.
+    #[inline]
+    pub const fn segments(mut self, segments: u32) -> Self {
+        self.segments = segments;
+        self
+    }
+
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
+        let resolution = self.resolution;
+        let segments = self.segments;
+
+        debug_assert!(resolution > 2);
+        debug_assert!(segments > 0);
+
+        let num_rings = segments + 1;
+        let num_vertices = resolution * 2 + num_rings * (resolution + 1);
+        let num_faces = resolution * (num_rings - 2);
+        let num_indices = (2 * num_faces + 2 * (resolution - 1) * 2) * 3;
 
         let mut positions = Vec::with_capacity(num_vertices as usize);
         let mut normals = Vec::with_capacity(num_vertices as usize);
         let mut uvs = Vec::with_capacity(num_vertices as usize);
         let mut indices = Vec::with_capacity(num_indices as usize);
 
-        let step_theta = std::f32::consts::TAU / c.resolution as f32;
-        let step_y = c.height / c.segments as f32;
+        let step_theta = std::f32::consts::TAU / resolution as f32;
+        let step_y = 2.0 * self.cylinder.half_height / segments as f32;
 
         // rings
 
         for ring in 0..num_rings {
-            let y = -c.height / 2.0 + ring as f32 * step_y;
+            let y = -self.cylinder.half_height + ring as f32 * step_y;
 
-            for segment in 0..=c.resolution {
+            for segment in 0..=resolution {
                 let theta = segment as f32 * step_theta;
                 let (sin, cos) = theta.sin_cos();
 
-                positions.push([c.radius * cos, y, c.radius * sin]);
+                positions.push([self.cylinder.radius * cos, y, self.cylinder.radius * sin]);
                 normals.push([cos, 0., sin]);
                 uvs.push([
-                    segment as f32 / c.resolution as f32,
-                    ring as f32 / c.segments as f32,
+                    segment as f32 / resolution as f32,
+                    ring as f32 / segments as f32,
                 ]);
             }
         }
 
         // barrel skin
 
-        for i in 0..c.segments {
-            let ring = i * (c.resolution + 1);
-            let next_ring = (i + 1) * (c.resolution + 1);
+        for i in 0..segments {
+            let ring = i * (resolution + 1);
+            let next_ring = (i + 1) * (resolution + 1);
 
-            for j in 0..c.resolution {
+            for j in 0..resolution {
                 indices.extend_from_slice(&[
                     ring + j,
                     next_ring + j,
@@ -85,43 +114,50 @@ impl From<Cylinder> for Mesh {
             }
         }
 
-        // caps
-
-        let mut build_cap = |top: bool| {
-            let offset = positions.len() as u32;
-            let (y, normal_y, winding) = if top {
-                (c.height / 2., 1., (1, 0))
-            } else {
-                (c.height / -2., -1., (0, 1))
-            };
-
-            for i in 0..c.resolution {
-                let theta = i as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
-
-                positions.push([cos * c.radius, y, sin * c.radius]);
-                normals.push([0.0, normal_y, 0.0]);
-                uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-            }
-
-            for i in 1..(c.resolution - 1) {
-                indices.extend_from_slice(&[
-                    offset,
-                    offset + i + winding.0,
-                    offset + i + winding.1,
-                ]);
-            }
-        };
-
-        // top
-
-        build_cap(true);
-        build_cap(false);
+        // Top and bottom
+        let base = CircleMesh::new(self.cylinder.radius, self.resolution as usize).facing_y();
+        base.build_mesh_data(
+            [0.0, self.cylinder.half_height, 0.0],
+            &mut indices,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+        );
+        base.facing_neg_y().build_mesh_data(
+            [0.0, -self.cylinder.half_height, 0.0],
+            &mut indices,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+        );
 
         Mesh::new(PrimitiveTopology::TriangleList)
             .with_indices(Some(Indices::U32(indices)))
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    }
+}
+
+impl Meshable for Cylinder {
+    type Output = CylinderMesh;
+
+    fn mesh(&self) -> Self::Output {
+        CylinderMesh {
+            cylinder: *self,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Cylinder> for Mesh {
+    fn from(cylinder: Cylinder) -> Self {
+        cylinder.mesh().build()
+    }
+}
+
+impl From<CylinderMesh> for Mesh {
+    fn from(cylinder: CylinderMesh) -> Self {
+        cylinder.build()
     }
 }

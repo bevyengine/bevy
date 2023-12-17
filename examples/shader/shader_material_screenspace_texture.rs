@@ -25,7 +25,12 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
+        mesh: meshes.add(
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(5.0))
+                .into(),
+        ),
         material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -35,7 +40,7 @@ fn setup(
     });
 
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Mesh::from(primitives::Cuboid::default())),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: custom_materials.add(CustomMaterial {
             texture: asset_server.load(

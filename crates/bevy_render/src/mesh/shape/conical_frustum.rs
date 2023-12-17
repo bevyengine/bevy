@@ -1,8 +1,5 @@
-use super::Meshable;
-use crate::mesh::{
-    primitive_meshes::{CircleMesh, MeshFacingExtension},
-    Indices, Mesh,
-};
+use super::{CircleMesh, MeshFacingExtension, Meshable};
+use crate::mesh::{Indices, Mesh};
 use bevy_math::{primitives::ConicalFrustum, Vec3};
 use wgpu::PrimitiveTopology;
 

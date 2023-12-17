@@ -48,7 +48,9 @@ fn setup(
 
     // Circle mesh
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(100.).into()).into(),
+        mesh: meshes
+            .add(primitives::Circle { radius: 100. }.into())
+            .into(),
         // 4. Put something bright in a dark environment to see the effect
         material: materials.add(ColorMaterial::from(Color::rgb(7.5, 0.0, 7.5))),
         transform: Transform::from_translation(Vec3::new(-200., 0., 0.)),
@@ -58,7 +60,7 @@ fn setup(
     // Hexagon mesh
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes
-            .add(shape::RegularPolygon::new(100., 6).into())
+            .add(primitives::RegularPolygon::new(100., 6).into())
             .into(),
         // 4. Put something bright in a dark environment to see the effect
         material: materials.add(ColorMaterial::from(Color::rgb(6.25, 9.4, 9.1))),

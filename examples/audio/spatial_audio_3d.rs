@@ -22,10 +22,7 @@ fn setup(
     // sound emitter
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: 0.2,
-                ..default()
-            })),
+            mesh: meshes.add(primitives::Sphere { radius: 0.2 }.mesh().uv(32, 18)),
             material: materials.add(Color::BLUE.into()),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
@@ -43,7 +40,7 @@ fn setup(
         .with_children(|parent| {
             // left ear indicator
             parent.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
+                mesh: meshes.add(Mesh::from(primitives::Cuboid::from_size(Vec3::splat(0.2)))),
                 material: materials.add(Color::RED.into()),
                 transform: Transform::from_translation(listener.left_ear_offset),
                 ..default()
@@ -51,7 +48,7 @@ fn setup(
 
             // right ear indicator
             parent.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
+                mesh: meshes.add(Mesh::from(primitives::Cuboid::from_size(Vec3::splat(0.2)))),
                 material: materials.add(Color::GREEN.into()),
                 transform: Transform::from_translation(listener.right_ear_offset),
                 ..default()
