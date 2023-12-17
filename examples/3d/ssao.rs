@@ -1,9 +1,5 @@
 //! A scene showcasing screen space ambient occlusion.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
     pbr::{
@@ -131,7 +127,7 @@ fn update(
     mut text: Query<&mut Text>,
     mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let mut sphere = sphere.single_mut();

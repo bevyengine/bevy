@@ -28,7 +28,7 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
-/// specified [`TextAlignment`](crate::text::TextAlignment).
+/// specified [`JustifyText`](crate::text::JustifyText).
 ///
 /// Note: only characters that are completely out of the bounds will be truncated, so this is not a
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
@@ -99,7 +99,7 @@ pub fn extract_text2d_sprite(
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
-        .map(|window| window.resolution.scale_factor() as f32)
+        .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
@@ -196,7 +196,7 @@ pub fn update_text2d_layout(
                 &fonts,
                 &text.sections,
                 scale_factor,
-                text.alignment,
+                text.justify,
                 text.linebreak_behavior,
                 text_bounds,
                 &mut font_atlas_sets,
@@ -225,6 +225,6 @@ pub fn update_text2d_layout(
 }
 
 /// Scales `value` by `factor`.
-pub fn scale_value(value: f32, factor: f64) -> f32 {
-    (value as f64 * factor) as f32
+pub fn scale_value(value: f32, factor: f32) -> f32 {
+    value * factor
 }

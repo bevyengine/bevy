@@ -3,9 +3,9 @@
 //! Illustrates:
 //!
 //! - How to access and modify individual morph target weights.
-//!   See the [`update_weights`] system for details.
-//! - How to read morph target names in [`name_morphs`].
-//! - How to play morph target animations in [`setup_animations`].
+//!   See the `update_weights` system for details.
+//! - How to read morph target names in `name_morphs`.
+//! - How to play morph target animations in `setup_animations`.
 
 use bevy::prelude::*;
 use std::f32::consts::PI;

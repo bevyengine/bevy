@@ -6,7 +6,8 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
+        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
+        ReadOnlyQueryData,
     },
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
@@ -152,24 +153,22 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>
-    ReadOnlySystemParam for Query<'w, 's, Q, F>
+unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Query<'w, 's, D, F>
 {
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
-    for Query<'_, '_, Q, F>
-{
-    type State = QueryState<Q, F>;
-    type Item<'w, 's> = Query<'w, 's, Q, F>;
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new(world);
         assert_component_access_compatibility(
             &system_meta.name,
-            std::any::type_name::<Q>(),
+            std::any::type_name::<D>(),
             std::any::type_name::<F>(),
             &system_meta.component_access_set,
             &state.component_access,
@@ -259,7 +258,7 @@ fn assert_component_access_compatibility(
 ///     // ...
 /// }
 /// #
-/// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
+/// # let mut bad_system_system = IntoSystem::into_system(bad_system);
 /// # let mut world = World::new();
 /// # bad_system_system.initialize(&mut world);
 /// # bad_system_system.run((), &mut world);
@@ -322,7 +321,7 @@ fn assert_component_access_compatibility(
 ///         &World,
 ///     )>,
 /// ) {
-///     for event in set.p0().iter() {
+///     for event in set.p0().read() {
 ///         // ...
 ///         # let _event = event;
 ///     }
@@ -402,7 +401,6 @@ impl_param_set!();
 /// }
 /// ```
 ///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
@@ -901,7 +899,8 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Deferred<'s, T>;
 
-    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        system_meta.set_has_deferred();
         SyncCell::new(T::from_world(world))
     }
 
@@ -1244,7 +1243,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 ///
 /// Component change ticks that are more recent than `last_run` will be detected by the system.
 /// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
-/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](crate::change_detection::ResMut).
+/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
     last_run: Tick,
@@ -1410,7 +1409,7 @@ all_tuples!(impl_system_param_tuple, 0, 16, P);
 /// [`SystemParam`]: super::SystemParam
 pub mod lifetimeless {
     /// A [`Query`](super::Query) with `'static` lifetimes.
-    pub type SQuery<Q, F = ()> = super::Query<'static, 'static, Q, F>;
+    pub type SQuery<D, F = ()> = super::Query<'static, 'static, D, F>;
     /// A shorthand for writing `&'static T`.
     pub type Read<T> = &'static T;
     /// A shorthand for writing `&'static mut T`.
@@ -1557,7 +1556,6 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        query::{ReadOnlyWorldQuery, WorldQuery},
         system::{assert_is_system, Query},
     };
     use std::{cell::RefCell, marker::PhantomData};
@@ -1569,10 +1567,10 @@ mod tests {
         pub struct SpecialQuery<
             'w,
             's,
-            Q: WorldQuery + Send + Sync + 'static,
-            F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
+            D: QueryData + Send + Sync + 'static,
+            F: QueryFilter + Send + Sync + 'static = (),
         > {
-            _query: Query<'w, 's, Q, F>,
+            _query: Query<'w, 's, D, F>,
         }
 
         fn my_system(_: SpecialQuery<(), ()>) {}
@@ -1689,11 +1687,11 @@ mod tests {
     #[test]
     fn system_param_where_clause() {
         #[derive(SystemParam)]
-        pub struct WhereParam<'w, 's, Q>
+        pub struct WhereParam<'w, 's, D>
         where
-            Q: 'static + WorldQuery,
+            D: 'static + QueryData,
         {
-            _q: Query<'w, 's, Q, ()>,
+            _q: Query<'w, 's, D, ()>,
         }
 
         fn my_system(_: WhereParam<()>) {}

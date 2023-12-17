@@ -96,6 +96,8 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
     gizmos
         .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, Color::BLACK)
         .circle_segments(64);
+
+    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, Color::YELLOW);
 }
 
 fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
@@ -104,7 +106,11 @@ fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
 }
 
-fn update_config(mut config: ResMut<GizmoConfig>, keyboard: Res<Input<KeyCode>>, time: Res<Time>) {
+fn update_config(
+    mut config: ResMut<GizmoConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+) {
     if keyboard.just_pressed(KeyCode::D) {
         config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
     }

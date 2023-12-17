@@ -4,7 +4,6 @@
 //! instantiated or removed from a world to allow composition. Scenes can be serialized/deserialized,
 //! for example to save part of the world state to a file.
 
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 mod bundle;
@@ -17,6 +16,9 @@ mod scene_spawner;
 
 #[cfg(feature = "serialize")]
 pub mod serde;
+
+/// Rusty Object Notation, a crate used to serialize and deserialize bevy scenes.
+pub use bevy_asset::ron;
 
 use bevy_ecs::schedule::IntoSystemConfigs;
 pub use bundle::*;

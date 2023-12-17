@@ -15,7 +15,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{BreakLineOn, Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
+use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -245,9 +245,9 @@ impl TextBundle {
         }
     }
 
-    /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
-    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
-        self.text.alignment = alignment;
+    /// Returns this [`TextBundle`] with a new [`JustifyText`] on [`Text`].
+    pub const fn with_text_justify(mut self, justify: JustifyText) -> Self {
+        self.text.justify = justify;
         self
     }
 
@@ -344,6 +344,9 @@ impl Default for ButtonBundle {
 }
 
 /// A UI node that is rendered using a [`UiMaterial`]
+///
+/// Adding a `BackgroundColor` component to an entity with this bundle will ignore the custom
+/// material and use the background color instead.
 #[derive(Bundle, Clone, Debug)]
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node

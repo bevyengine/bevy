@@ -446,7 +446,7 @@ fn extract_bool(
     mut mapper: impl FnMut(&LitBool) -> LitBool,
 ) -> Result<LitBool, syn::Error> {
     match value {
-        syn::Expr::Lit(syn::ExprLit {
+        Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Bool(lit),
             ..
         }) => Ok(mapper(lit)),

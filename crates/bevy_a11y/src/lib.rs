@@ -1,7 +1,6 @@
 //! Accessibility for Bevy
 
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![forbid(unsafe_code)]
 
 use std::sync::{

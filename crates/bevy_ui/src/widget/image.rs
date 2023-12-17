@@ -78,7 +78,7 @@ type UpdateImageFilter = With<Node>;
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    mut previous_combined_scale_factor: Local<f64>,
+    mut previous_combined_scale_factor: Local<f32>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
@@ -101,7 +101,7 @@ pub fn update_image_content_size_system(
                 image_size.size = size;
                 content_size.set(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
-                    size: size * combined_scale_factor as f32,
+                    size: size * combined_scale_factor,
                 });
             }
         }
@@ -112,7 +112,7 @@ pub fn update_image_content_size_system(
 
 /// Updates content size of the node based on the texture atlas sprite
 pub fn update_atlas_content_size_system(
-    mut previous_combined_scale_factor: Local<f64>,
+    mut previous_combined_scale_factor: Local<f32>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     atlases: Res<Assets<TextureAtlas>>,
@@ -143,7 +143,7 @@ pub fn update_atlas_content_size_system(
                 image_size.size = size;
                 content_size.set(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
-                    size: size * combined_scale_factor as f32,
+                    size: size * combined_scale_factor,
                 });
             }
         }
