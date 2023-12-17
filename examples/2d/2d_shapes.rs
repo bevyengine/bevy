@@ -16,7 +16,7 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    // Circle mesh
+    // Circle
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes
             .add(primitives::Circle { radius: 50.0 }.into())
@@ -26,7 +26,7 @@ fn setup(
         ..default()
     });
 
-    // Rectangle sprite
+    // Ellipse
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes
             .add(primitives::Ellipse::new(50.0, 100.0).into())
@@ -36,7 +36,7 @@ fn setup(
         ..default()
     });
 
-    // Rectangle mesh
+    // Rectangle
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes
             .add(primitives::Rectangle::new(50.0, 100.0).into())
@@ -46,7 +46,7 @@ fn setup(
         ..default()
     });
 
-    // Hexagon mesh
+    // Hexagon
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes
             .add(primitives::RegularPolygon::new(50.0, 6).into())
