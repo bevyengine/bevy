@@ -258,6 +258,8 @@ impl<'a> RenderViewBindGroupEntries<'a> {
         images: &'a RenderAssets<Image>,
         fallback_image: &'a FallbackImage,
     ) -> RenderViewBindGroupEntries<'a> {
+        use crate::MAX_VIEW_REFLECTION_PROBES;
+
         let mut diffuse_texture_views = vec![];
         let mut specular_texture_views = vec![];
         let mut sampler = None;
@@ -281,12 +283,16 @@ impl<'a> RenderViewBindGroupEntries<'a> {
             }
         }
 
-        // We need at least one texture in the binding array to avoid `wgpu`
-        // errors, so push the fallback image if necessary.
-        if diffuse_texture_views.is_empty() {
-            diffuse_texture_views.push(&*fallback_image.cube.texture_view);
-            specular_texture_views.push(&*fallback_image.cube.texture_view);
-        }
+        // Pad out the bindings to the size of the binding array using fallback
+        // textures. This is necessary on D3D12.
+        diffuse_texture_views.resize(
+            MAX_VIEW_REFLECTION_PROBES,
+            &*fallback_image.cube.texture_view,
+        );
+        specular_texture_views.resize(
+            MAX_VIEW_REFLECTION_PROBES,
+            &*fallback_image.cube.texture_view,
+        );
 
         RenderViewBindGroupEntries {
             diffuse_texture_views,
