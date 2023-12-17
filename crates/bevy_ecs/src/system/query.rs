@@ -356,7 +356,7 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if the world used to create `state` is not `world`.
+    /// This will panic if `world` does not match the one used to create `state`.
     ///
     /// # Safety
     ///
@@ -364,10 +364,6 @@ impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     /// * Any mutable component accesses must be unique.
     ///
     /// [`archetype_component_access`]: QueryState::archetype_component_access
-    ///
-    /// # Panics
-    ///
-    /// If `world` does not match the one used to create `state`.
     #[inline]
     pub unsafe fn new(
         world: UnsafeWorldCell<'w>,
