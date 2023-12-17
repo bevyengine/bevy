@@ -155,10 +155,9 @@ impl Plugin for LightProbePlugin {
 /// Gathers up all light probes in the scene and assigns them to views,
 /// performing frustum culling and distance sorting in the process.
 ///
-/// This populates the
-/// [`crate::light_probe::environment_map::LightProbesUniforms`] resource.
+/// This populates the [`RenderLightProbes`] resource.
 fn gather_light_probes(
-    mut light_probes_uniforms: ResMut<RenderLightProbes>,
+    mut render_light_probes: ResMut<RenderLightProbes>,
     image_assets: Res<RenderAssets<Image>>,
     light_probe_query: Extract<Query<(&GlobalTransform, &EnvironmentMapLight), With<LightProbe>>>,
     view_query: Extract<
@@ -185,7 +184,7 @@ fn gather_light_probes(
     );
 
     // Build up the light probes uniform and the key table.
-    light_probes_uniforms.clear();
+    render_light_probes.clear();
     for (view_entity, view_transform, view_frustum, view_environment_maps) in view_query.iter() {
         // Cull light probes outside the view frustum.
         view_light_probes.clear();
@@ -206,7 +205,7 @@ fn gather_light_probes(
             LightProbesUniform::build(view_environment_maps, &view_light_probes, &image_assets);
 
         // Record the uniforms.
-        light_probes_uniforms.insert(view_entity, light_probes_uniform);
+        render_light_probes.insert(view_entity, light_probes_uniform);
 
         // Record the per-view environment maps.
         let mut commands = commands.get_or_spawn(view_entity);
