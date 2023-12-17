@@ -14,7 +14,7 @@ use crate::{
 use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
-use bevy_math::{UVec2, Vec2};
+use bevy_math::{AspectRatio, UVec2, Vec2};
 use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -539,10 +539,10 @@ impl Image {
         self.texture_descriptor.size.height
     }
 
-    /// Returns the aspect ratio (height/width) of a 2D image.
+    /// Returns the aspect ratio (width / height) of a 2D image.
     #[inline]
-    pub fn aspect_ratio(&self) -> f32 {
-        self.height() as f32 / self.width() as f32
+    pub fn aspect_ratio(&self) -> AspectRatio {
+        AspectRatio::from_pixels(self.width(), self.height())
     }
 
     /// Returns the size of a 2D image as f32.
@@ -573,8 +573,9 @@ impl Image {
     /// # Panics
     /// Panics if the `new_size` does not have the same volume as to old one.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
-        assert!(
-            new_size.volume() == self.texture_descriptor.size.volume(),
+        assert_eq!(
+            new_size.volume(),
+            self.texture_descriptor.size.volume(),
             "Incompatible sizes: old = {:?} new = {:?}",
             self.texture_descriptor.size,
             new_size
@@ -592,8 +593,8 @@ impl Image {
     /// the `layers`.
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
-        assert!(self.texture_descriptor.dimension == TextureDimension::D2);
-        assert!(self.texture_descriptor.size.depth_or_array_layers == 1);
+        assert_eq!(self.texture_descriptor.dimension, TextureDimension::D2);
+        assert_eq!(self.texture_descriptor.size.depth_or_array_layers, 1);
         assert_eq!(self.height() % layers, 0);
 
         self.reinterpret_size(Extent3d {

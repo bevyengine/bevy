@@ -66,7 +66,7 @@ fn assign_clips(
 }
 
 fn handle_inputs(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut animation_player: Query<(&mut AnimationPlayer, &mut Clips, Entity, Option<&Name>)>,
 ) {
     for (mut player, mut clips, entity, name) in &mut animation_player {

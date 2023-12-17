@@ -4,7 +4,8 @@ use crate::renderer::{
 use std::borrow::Cow;
 
 pub use wgpu::{
-    Backends, Dx12Compiler, Features as WgpuFeatures, Limits as WgpuLimits, PowerPreference,
+    Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
+    Limits as WgpuLimits, PowerPreference,
 };
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
@@ -44,6 +45,11 @@ pub struct WgpuSettings {
     pub constrained_limits: Option<WgpuLimits>,
     /// The shader compiler to use for the DX12 backend.
     pub dx12_shader_compiler: Dx12Compiler,
+    /// Allows you to choose which minor version of GLES3 to use (3.0, 3.1, 3.2, or automatic)
+    /// This only applies when using ANGLE and the GL backend.
+    pub gles3_minor_version: Gles3MinorVersion,
+    /// These are for controlling WGPU's debug information to eg. enable validation and shader debug info in release builds.
+    pub instance_flags: InstanceFlags,
 }
 
 impl Default for WgpuSettings {
@@ -82,6 +88,10 @@ impl Default for WgpuSettings {
                 dxc_path: None,
             });
 
+        let gles3_minor_version = wgpu::util::gles_minor_version_from_env().unwrap_or_default();
+
+        let instance_flags = InstanceFlags::default().with_env();
+
         Self {
             device_label: Default::default(),
             backends,
@@ -92,6 +102,8 @@ impl Default for WgpuSettings {
             limits,
             constrained_limits: None,
             dx12_shader_compiler: dx12_compiler,
+            gles3_minor_version,
+            instance_flags,
         }
     }
 }

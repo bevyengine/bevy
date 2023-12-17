@@ -42,7 +42,7 @@ struct Config {
     fancy: bool,
 }
 
-fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
+fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::Up) {
         config.line_count += 10_000;
     }

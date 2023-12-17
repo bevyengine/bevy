@@ -459,8 +459,8 @@ impl MeshPipeline {
 
 impl GetBatchData for MeshPipeline {
     type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
-    type Query = Entity;
-    type QueryFilter = With<Mesh3d>;
+    type Data = Entity;
+    type Filter = With<Mesh3d>;
 
     // The material bind group ID, the mesh ID, and the lightmap ID,
     // respectively.
@@ -470,7 +470,7 @@ impl GetBatchData for MeshPipeline {
 
     fn get_batch_data(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Query>,
+        entity: &QueryItem<Self::Data>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
@@ -1026,20 +1026,20 @@ pub fn prepare_mesh_bind_group(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewWorldQuery = (
+    type ViewData = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<MeshViewBindGroup>,
     );
-    type ItemWorldQuery = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
         (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
             'w,
-            Self::ViewWorldQuery,
+            Self::ViewData,
         >,
         _entity: (),
         _: SystemParamItem<'w, '_, Self::Param>,
@@ -1064,8 +1064,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<MorphIndices>,
         SRes<RenderLightmaps>,
     );
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
@@ -1134,8 +1134,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
     #[inline]
     fn render<'w>(
         item: &P,
