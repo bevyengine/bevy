@@ -25,8 +25,10 @@ pub use cylinder::CylinderMesh;
 pub use ellipse::EllipseMesh;
 pub use plane::PlaneMesh;
 pub use rectangle::RectangleMesh;
+pub use regular_polygon::RegularPolygonMesh;
 pub use sphere::SphereMesh;
 pub use torus::TorusMesh;
+pub use triangle::Triangle2dMesh;
 
 use super::Mesh;
 
