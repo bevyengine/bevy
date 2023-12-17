@@ -7,7 +7,6 @@
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::core_pipeline::Skybox;
-use bevy::math::vec3;
 use bevy::pbr::EnvironmentMapLight;
 use bevy::prelude::*;
 
@@ -137,8 +136,8 @@ fn spawn_sphere(
 fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn(ReflectionProbeBundle {
         spatial: SpatialBundle {
-            // 2.1 because the sphere's radius is 1.0 and we want to fully enclose it.
-            transform: Transform::from_scale(Vec3::splat(2.1)),
+            // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
+            transform: Transform::from_scale(Vec3::splat(2.0)),
             ..SpatialBundle::default()
         },
         light_probe: LightProbe::default(),
