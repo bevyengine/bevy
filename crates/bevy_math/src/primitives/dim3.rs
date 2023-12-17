@@ -393,15 +393,15 @@ mod test {
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(std::f32::INFINITY, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(std::f32::NEG_INFINITY, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(std::f32::NAN, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
     }
