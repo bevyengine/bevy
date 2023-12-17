@@ -76,6 +76,7 @@ impl Facing {
     /// # Example
     ///
     /// ```
+    /// # use bevy_render::prelude::Facing;
     /// assert_eq!(Facing::X.to_array(), [1.0, 0.0, 0.0]);
     /// ```
     #[inline]
