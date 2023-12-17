@@ -92,7 +92,7 @@ struct RenderLightProbes(EntityHashMap<Entity, LightProbesUniform>);
 pub struct LightProbesBuffer(DynamicUniformBuffer<LightProbesUniform>);
 
 /// A component attached to each camera in the render world that stores the
-/// index of the [LightProbesUniform] in the [LightProbesBuffer].
+/// index of the [`LightProbesUniform`] in the [`LightProbesBuffer`].
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ViewLightProbesUniformOffset(u32);
 
@@ -253,9 +253,9 @@ impl LightProbesUniform {
             reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
             reflection_probe_count: light_probes.len().min(MAX_VIEW_REFLECTION_PROBES) as i32,
             cubemap_index: match view_environment_maps {
-                Some(&EnvironmentMapLight {
-                    ref diffuse_map,
-                    ref specular_map,
+                Some(EnvironmentMapLight {
+                    diffuse_map,
+                    specular_map,
                 }) if image_assets.get(diffuse_map).is_some()
                     && image_assets.get(specular_map).is_some() =>
                 {
@@ -270,7 +270,7 @@ impl LightProbesUniform {
 
         // Add reflection probes from the scene, if supported by the current
         // platform.
-        uniform.maybe_gather_reflection_probes(&mut render_view_environment_maps, &light_probes);
+        uniform.maybe_gather_reflection_probes(&mut render_view_environment_maps, light_probes);
         (uniform, render_view_environment_maps)
     }
 
@@ -282,22 +282,23 @@ impl LightProbesUniform {
         render_view_environment_maps: &mut RenderViewEnvironmentMaps,
         light_probes: &[LightProbeInfo],
     ) {
-        let light_probe_count = light_probes.len().min(MAX_VIEW_REFLECTION_PROBES);
-        for light_probe_index in 0..light_probe_count {
+        for (reflection_probe, light_probe) in self
+            .reflection_probes
+            .iter_mut()
+            .zip(light_probes.iter().take(MAX_VIEW_REFLECTION_PROBES))
+        {
             // Determine the index of the cubemap in the binding array.
             let cubemap_index = render_view_environment_maps
-                .get_or_insert_cubemap(&light_probes[light_probe_index].environment_maps)
+                .get_or_insert_cubemap(&light_probe.environment_maps)
                 as i32;
 
             // Transpose the inverse transform to compress the structure on the
             // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
             // to recover the original inverse transform.
-            let inverse_transpose_transform = light_probes[light_probe_index]
-                .inverse_transform
-                .transpose();
+            let inverse_transpose_transform = light_probe.inverse_transform.transpose();
 
             // Write in the reflection probe data.
-            self.reflection_probes[light_probe_index] = RenderReflectionProbe {
+            *reflection_probe = RenderReflectionProbe {
                 inverse_transpose_transform: [
                     inverse_transpose_transform.x_axis,
                     inverse_transpose_transform.y_axis,

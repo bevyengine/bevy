@@ -72,7 +72,7 @@ pub struct EnvironmentMapPlugin;
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,
-    /// The sharper, mipmapped image that represents specular radiance
+    /// The typically-sharper, mipmapped image that represents specular radiance
     /// surrounding a region.
     pub specular_map: Handle<Image>,
 }
@@ -134,6 +134,7 @@ pub struct RenderViewEnvironmentMaps {
 #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
 #[derive(Component, Default)]
 pub struct RenderViewEnvironmentMaps {
+    /// The environment map attached to the view, if any.
     cubemap: Option<EnvironmentMapIds>,
 }
 
@@ -164,8 +165,12 @@ pub(crate) struct RenderViewBindGroupEntries<'a> {
 /// current platform.
 #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
 pub(crate) struct RenderViewBindGroupEntries<'a> {
+    /// The texture view of the view's diffuse cubemap.
     diffuse_texture_view: &'a TextureView,
+    /// The texture view of the view's specular cubemap.
     specular_texture_view: &'a TextureView,
+    /// The sampler used to sample elements of both `diffuse_texture_view` and
+    /// `specular_texture_view`.
     pub(crate) sampler: &'a Sampler,
 }
 
@@ -245,6 +250,8 @@ impl RenderViewEnvironmentMaps {
     }
 }
 
+/// Returns the bind group layout entries for the environment map diffuse and
+/// specular binding arrays respectively, in addition to the sampler.
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
     use crate::MAX_VIEW_REFLECTION_PROBES;
@@ -258,6 +265,8 @@ pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3
     ]
 }
 
+/// Returns the bind group layout entries for the environment map diffuse and
+/// specular textures respectively, in addition to the sampler.
 #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
 pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
     [
@@ -268,6 +277,8 @@ pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3
 }
 
 impl<'a> RenderViewBindGroupEntries<'a> {
+    /// Looks up and returns the bindings for the environment map diffuse and
+    /// specular binding arrays respectively, as well as the sampler.
     #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
     pub(crate) fn get(
         render_view_environment_maps: Option<&RenderViewEnvironmentMaps>,
@@ -311,6 +322,8 @@ impl<'a> RenderViewBindGroupEntries<'a> {
         }
     }
 
+    /// Looks up and returns the bindings for the environment map diffuse and
+    /// specular bindings respectively, as well as the sampler.
     #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
     pub(crate) fn get(
         render_view_environment_maps: Option<&RenderViewEnvironmentMaps>,
@@ -353,7 +366,7 @@ fn add_texture_view<'a>(
     match images.get(image_id) {
         None => {
             // Use the fallback image if the cubemap isn't loaded yet.
-            texture_views.push(&*fallback_image.cube.texture_view)
+            texture_views.push(&*fallback_image.cube.texture_view);
         }
         Some(image) => {
             // If this is the first texture view, populate `sampler`.

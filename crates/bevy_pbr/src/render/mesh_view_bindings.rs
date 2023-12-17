@@ -406,7 +406,7 @@ pub fn prepare_mesh_view_bind_groups(
             let bind_group_entries = RenderViewBindGroupEntries::get(
                 render_view_environment_maps,
                 &images,
-                &*fallback_image,
+                &fallback_image,
             );
             entries = entries.extend_with_indices((
                 (13, bind_group_entries.diffuse_texture_views()),
