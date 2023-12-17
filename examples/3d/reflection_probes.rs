@@ -139,7 +139,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
             transform: Transform::from_scale(Vec3::splat(2.0)),
             ..SpatialBundle::default()
         },
-        light_probe: LightProbe::default(),
+        light_probe: LightProbe,
         environment_map: EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
@@ -152,7 +152,7 @@ fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, app_status: &
     // Create the text.
     commands.spawn(
         TextBundle {
-            text: app_status.create_text(&asset_server),
+            text: app_status.create_text(asset_server),
             ..TextBundle::default()
         }
         .with_style(Style {
