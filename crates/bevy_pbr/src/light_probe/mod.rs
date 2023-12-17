@@ -1,6 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin};
+use bevy_asset::load_internal_asset;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -14,9 +15,10 @@ use bevy_ecs::{
 use bevy_math::{Affine3A, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
-    render_resource::{DynamicUniformBuffer, ShaderType},
+    render_resource::{DynamicUniformBuffer, Shader, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -24,10 +26,12 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd};
 
-use crate::{
-    environment_map::{EnvironmentMapIds, RenderViewEnvironmentMaps},
-    EnvironmentMapLight,
+use crate::light_probe::environment_map::{
+    EnvironmentMapIds, EnvironmentMapLight, RenderViewEnvironmentMaps,
+    ENVIRONMENT_MAP_SHADER_HANDLE,
 };
+
+pub mod environment_map;
 
 /// The maximum number of reflection probes that each view will consider.
 ///
@@ -37,6 +41,9 @@ pub const MAX_VIEW_REFLECTION_PROBES: usize = 8;
 
 /// Adds support for light probes: cuboid bounding regions that apply global
 /// illumination to objects within them.
+///
+/// This also adds support for view environment maps: diffuse and specular
+/// cubemaps applied to all objects that a view renders.
 pub struct LightProbePlugin;
 
 /// A cuboid region that provides global illumination to all fragments inside it.
@@ -118,6 +125,13 @@ impl LightProbe {
 
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            ENVIRONMENT_MAP_SHADER_HANDLE,
+            "environment_map.wgsl",
+            Shader::from_wgsl
+        );
+
         app.register_type::<LightProbe>();
     }
 
@@ -127,6 +141,7 @@ impl Plugin for LightProbePlugin {
         };
 
         render_app
+            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<RenderLightProbes>()
             .add_systems(ExtractSchedule, gather_light_probes)

@@ -29,14 +29,13 @@
 //!
 //! [glTF IBL Sampler]: https://github.com/KhronosGroup/glTF-IBL-Sampler
 
-use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
     bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_instances::{ExtractInstance, ExtractInstancesPlugin},
+    extract_instances::ExtractInstance,
     prelude::SpatialBundle,
     render_asset::RenderAssets,
     render_resource::{
@@ -44,7 +43,6 @@ use bevy_render::{
         TextureSampleType, TextureView,
     },
     texture::{FallbackImage, Image},
-    RenderApp,
 };
 
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
@@ -57,12 +55,6 @@ use crate::LightProbe;
 /// A handle to the environment map helper shader.
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
-
-/// Adds support for environment maps.
-///
-/// See the documentation in [`crate::environment_map`] for detailed information
-/// on environment maps.
-pub struct EnvironmentMapPlugin;
 
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.
@@ -172,25 +164,6 @@ pub(crate) struct RenderViewBindGroupEntries<'a> {
     /// The sampler used to sample elements of both `diffuse_texture_view` and
     /// `specular_texture_view`.
     pub(crate) sampler: &'a Sampler,
-}
-
-impl Plugin for EnvironmentMapPlugin {
-    fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            ENVIRONMENT_MAP_SHADER_HANDLE,
-            "environment_map.wgsl",
-            Shader::from_wgsl
-        );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
-    }
 }
 
 impl ExtractInstance for EnvironmentMapIds {
