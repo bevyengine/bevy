@@ -229,13 +229,11 @@ impl From<&Source> for naga_oil::compose::ShaderType {
         match value {
             Source::Wgsl(_) => naga_oil::compose::ShaderType::Wgsl,
             #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
-            Source::Glsl(_, shader_stage) => {
-                match shader_stage {
-                    naga::ShaderStage::Vertex => naga_oil::compose::ShaderType::GlslVertex,
-                    naga::ShaderStage::Fragment => naga_oil::compose::ShaderType::GlslFragment,
-                    naga::ShaderStage::Compute => panic!("glsl compute not yet implemented"),
-                }
-            }
+            Source::Glsl(_, shader_stage) => match shader_stage {
+                naga::ShaderStage::Vertex => naga_oil::compose::ShaderType::GlslVertex,
+                naga::ShaderStage::Fragment => naga_oil::compose::ShaderType::GlslFragment,
+                naga::ShaderStage::Compute => panic!("glsl compute not yet implemented"),
+            },
             #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
             Source::Glsl(_, _) => panic!(
                 "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"

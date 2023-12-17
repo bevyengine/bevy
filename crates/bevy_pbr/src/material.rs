@@ -1,4 +1,4 @@
-use crate::{*, environment_map::RenderViewEnvironmentMaps};
+use crate::{environment_map::RenderViewEnvironmentMaps, *};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
