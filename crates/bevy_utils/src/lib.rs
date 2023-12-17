@@ -33,9 +33,9 @@ pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant, SystemTime};
 pub use petgraph;
+pub use smallvec;
 pub use thiserror;
 pub use tracing;
-pub use smallvec;
 
 #[allow(missing_docs)]
 pub mod nonmax {
