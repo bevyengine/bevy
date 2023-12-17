@@ -319,13 +319,18 @@ fn rotate_camera(
 impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
+
+        // Just use the specular map for the skybox since it's not too blurry.
+        // In reality you wouldn't do this--you'd use a real skybox texture--but
+        // reusing the textures like this saves space in the Bevy repository.
+        let specular_map = asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
+
         Cubemaps {
             diffuse: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_environment_map: asset_server
-                .load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             specular_reflection_probe: asset_server
                 .load("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
-            skybox: asset_server.load("textures/pisa_cubemap_rgb9e5_zstd.ktx2"),
+            specular_environment_map: specular_map.clone(),
+            skybox: specular_map,
         }
     }
 }
