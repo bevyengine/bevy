@@ -313,7 +313,7 @@ impl BlobVec {
         let drop = self.drop;
         let value = self.swap_remove_and_forget_unchecked(index);
         if let Some(drop) = drop {
-            (drop)(value);
+            drop(value);
         }
     }
 
@@ -472,7 +472,7 @@ mod tests {
     use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;
-    use std::{alloc::Layout, cell::RefCell, rc::Rc};
+    use std::{alloc::Layout, cell::RefCell, mem, rc::Rc};
 
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
@@ -626,7 +626,9 @@ mod tests {
         let mut count = 0;
 
         let mut q = world.query::<&Zst>();
-        for &Zst in q.iter(&world) {
+        for zst in q.iter(&world) {
+            // Ensure that the references returned are properly aligned.
+            assert_eq!(zst as *const Zst as usize % mem::align_of::<Zst>(), 0);
             count += 1;
         }
 

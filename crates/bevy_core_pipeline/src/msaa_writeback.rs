@@ -86,9 +86,11 @@ impl Node for MsaaWritebackNode {
                 // the MSAA resolve step.
                 color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Clear(Default::default()),
-                    store: true,
+                    store: StoreOp::Store,
                 }))],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
 
             let bind_group = render_context.render_device().create_bind_group(

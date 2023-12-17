@@ -46,7 +46,7 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
-        scale_factor: f64,
+        scale_factor: f32,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
@@ -129,7 +129,7 @@ impl TextMeasureInfo {
     pub fn from_text(
         text: &Text,
         fonts: &Assets<Font>,
-        scale_factor: f64,
+        scale_factor: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         let sections = &text.sections;
         for section in sections {

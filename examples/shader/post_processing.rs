@@ -116,7 +116,7 @@ impl ViewNode for PostProcessNode {
     // but it's not a normal system so we need to define it manually.
     //
     // This query will only run on the view entity
-    type ViewQuery = (
+    type ViewData = (
         &'static ViewTarget,
         // This makes sure the node only runs on cameras with the PostProcessSettings component
         &'static PostProcessSettings,
@@ -133,7 +133,7 @@ impl ViewNode for PostProcessNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, _post_process_settings): QueryItem<Self::ViewQuery>,
+        (view_target, _post_process_settings): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
@@ -198,6 +198,8 @@ impl ViewNode for PostProcessNode {
                 ops: Operations::default(),
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,

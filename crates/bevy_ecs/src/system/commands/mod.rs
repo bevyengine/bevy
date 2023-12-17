@@ -812,9 +812,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityWorldMut::remove`](EntityWorldMut::remove) for more
-    /// details.
-    ///
     /// # Example
     ///
     /// ```
@@ -859,6 +856,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Despawns the entity.
     ///
     /// See [`World::despawn`] for more details.
+    ///
+    /// # Note
+    ///
+    /// This won't clean up external references to the entity (such as parent-child relationships
+    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
     ///
     /// # Panics
     ///
@@ -911,9 +913,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Removes all components except the given [`Bundle`] from the entity.
     ///
     /// This can also be used to remove all the components from the entity by passing it an empty Bundle.
-    ///
-    /// See [`EntityWorldMut::retain`](EntityWorldMut::retain) for more
-    /// details.
     ///
     /// # Example
     ///
@@ -1062,6 +1061,11 @@ where
 
 /// A [`Command`] that despawns a specific entity.
 /// This will emit a warning if the entity does not exist.
+///
+/// # Note
+///
+/// This won't clean up external references to the entity (such as parent-child relationships
+/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
 #[derive(Debug)]
 pub struct Despawn {
     /// The entity that will be despawned.
@@ -1293,7 +1297,7 @@ mod tests {
             .spawn((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
-        assert!(world.entities().len() == 1);
+        assert_eq!(world.entities().len(), 1);
         let results = world
             .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)

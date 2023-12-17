@@ -29,10 +29,6 @@ impl SystemExecutor for SingleThreadedExecutor {
         ExecutorKind::SingleThreaded
     }
 
-    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
-        self.apply_final_deferred = apply_final_deferred;
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
@@ -104,6 +100,10 @@ impl SystemExecutor for SingleThreadedExecutor {
         }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
+    }
+
+    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
+        self.apply_final_deferred = apply_final_deferred;
     }
 }
 

@@ -50,6 +50,8 @@ impl From<RegularPolygon> for Mesh {
 
         let mut indices = Vec::with_capacity((sides - 2) * 3);
         for i in 1..(sides as u32 - 1) {
+            // Vertices are generated in CW order above, hence the reversed indices here
+            // to emit triangle vertices in CCW order.
             indices.extend_from_slice(&[0, i + 1, i]);
         }
 
