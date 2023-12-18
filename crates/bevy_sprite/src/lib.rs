@@ -120,10 +120,10 @@ pub fn calculate_bounds_2d(
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlas>>,
     meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
-    sprites_without_aabb: Query<
+    sprites_to_recalculate_aabb: Query<
         (Entity, &Sprite, &Handle<Image>),
         (
-            Or<(Without<Aabb>, Changed<Aabb>)>,
+            Or<(Without<Aabb>, Changed<Sprite>)>,
             Without<NoFrustumCulling>,
         ),
     >,
@@ -139,7 +139,7 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite, texture_handle) in &sprites_without_aabb {
+    for (entity, sprite, texture_handle) in &sprites_to_recalculate_aabb {
         if let Some(size) = sprite
             .custom_size
             .or_else(|| images.get(texture_handle).map(|image| image.size_f32()))
