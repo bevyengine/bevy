@@ -569,7 +569,7 @@ impl<'w, 's> Commands<'w, 's> {
         system: S,
     ) -> SystemId<I, O> {
         let entity = self.spawn_empty().id();
-        self.queue.push(RegisterSystem::new(system, entity.clone()));
+        self.queue.push(RegisterSystem::new(system, entity));
         SystemId(entity, std::marker::PhantomData)
     }
 
