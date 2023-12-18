@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
+use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -59,7 +60,7 @@ impl ViewNode for PrepassNode {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK.into()),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
             view_prepass_textures
@@ -73,7 +74,7 @@ impl ViewNode for PrepassNode {
                         // Blue channel doesn't matter, but set to 0.0 for possible faster clear
                         // https://gpuopen.com/performance/#clears
                         load: LoadOp::Clear(Color::BLACK.into()),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
             // Use None in place of Deferred attachments
@@ -95,10 +96,12 @@ impl ViewNode for PrepassNode {
                     view: &view_depth_texture.view,
                     depth_ops: Some(Operations {
                         load: LoadOp::Clear(0.0),
-                        store: true,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);

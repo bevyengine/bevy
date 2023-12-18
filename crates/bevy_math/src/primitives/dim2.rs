@@ -28,7 +28,15 @@ impl Direction2d {
         )
     }
 
-    /// Create a direction from a [`Vec2`] that is already normalized
+    /// Create a direction from its `x` and `y` components.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
+        Self::new(Vec2::new(x, y))
+    }
+
+    /// Create a direction from a [`Vec2`] that is already normalized.
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
@@ -372,15 +380,15 @@ mod tests {
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::INFINITY, 0.0)),
+            Direction2d::new(Vec2::new(f32::INFINITY, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::NEG_INFINITY, 0.0)),
+            Direction2d::new(Vec2::new(f32::NEG_INFINITY, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::NAN, 0.0)),
+            Direction2d::new(Vec2::new(f32::NAN, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
     }

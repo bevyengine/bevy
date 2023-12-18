@@ -28,7 +28,15 @@ impl Direction3d {
         )
     }
 
-    /// Create a direction from a [`Vec3`] that is already normalized
+    /// Create a direction from its `x`, `y`, and `z` components.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
+        Self::new(Vec3::new(x, y, z))
+    }
+
+    /// Create a direction from a [`Vec3`] that is already normalized.
     pub fn from_normalized(value: Vec3) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
@@ -385,15 +393,15 @@ mod test {
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(std::f32::INFINITY, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(std::f32::NEG_INFINITY, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(std::f32::NAN, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
     }

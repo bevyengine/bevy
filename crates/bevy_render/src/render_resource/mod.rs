@@ -46,7 +46,7 @@ pub use wgpu::{
     PushConstantRange, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, RenderPipelineDescriptor as RawRenderPipelineDescriptor,
     SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess,
+    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess, StoreOp,
     TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
     TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
