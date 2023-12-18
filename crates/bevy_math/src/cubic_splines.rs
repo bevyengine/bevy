@@ -389,10 +389,10 @@ impl<P: Point> CubicNurbs<P> {
             .map(Into::into)
             .unwrap_or_else(|| vec![1.0; control_points_len]);
 
-        // Unwrap is safe because the length was checked before
-        let knot_vector: Vec<f32> = knot_vector
-            .map(Into::into)
-            .unwrap_or_else(|| Self::open_uniform_knot_vector(control_points_len).unwrap());
+        let knot_vector: Vec<f32> = knot_vector.map(Into::into).unwrap_or_else(|| {
+            Self::open_uniform_knot_vector(control_points_len)
+                .expect("The amount of control points was checked")
+        });
 
         let knot_vector_expected_length = Self::knot_vector_length(control_points_len);
 
