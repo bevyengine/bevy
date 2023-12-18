@@ -406,18 +406,8 @@ impl<P: Point> CubicNurbs<P> {
 
         // Check the knot vector for being nondescending (previous elements is less than or equal
         // to the next)
-        {
-            let mut is_nondescending = true;
-
-            for window_slice in knot_vector.windows(2) {
-                let prev = window_slice[0];
-                let next = window_slice[1];
-                is_nondescending = is_nondescending && (prev <= next);
-            }
-
-            if !is_nondescending {
-                return Err(CubicNurbsError::InvalidKnotVectorValues);
-            }
+        if !knot_vector.windows(2).any(|win| win[0] > win[1]) {
+            return Err(CubicNurbsError::InvalidKnotVectorValues);
         }
 
         // Check the weights vector length
