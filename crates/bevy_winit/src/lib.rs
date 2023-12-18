@@ -47,7 +47,7 @@ use bevy_window::{
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 #[cfg(target_os = "android")]
-pub use winit::platform::android::activity::*;
+pub use winit::platform::android::activity as android_activity;
 
 use winit::{
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
