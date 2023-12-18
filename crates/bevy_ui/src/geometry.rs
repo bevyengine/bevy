@@ -539,7 +539,6 @@ impl Default for UiRect {
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
-    use bevy_math::vec2;
 
     #[test]
     fn val_evaluate() {
