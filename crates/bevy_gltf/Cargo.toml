@@ -9,7 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["extensions"]
 pbr_transmission_textures = []
 extensions = ["gltf/extensions"]
 
