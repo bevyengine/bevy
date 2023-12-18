@@ -406,7 +406,7 @@ impl<P: Point> CubicNurbs<P> {
 
         // Check the knot vector for being nondescending (previous elements is less than or equal
         // to the next)
-        if !knot_vector.windows(2).any(|win| win[0] > win[1]) {
+        if knot_vector.windows(2).any(|win| win[0] > win[1]) {
             return Err(CubicNurbsError::InvalidKnotVectorValues);
         }
 
