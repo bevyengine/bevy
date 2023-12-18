@@ -14,7 +14,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Deferred, Resource, SystemBuffer, SystemMeta};
+use super::{Deferred, Resource, SystemBuffer, SystemMeta, RegisterSystem, IntoSystem};
 
 /// A [`World`] mutation.
 ///
@@ -548,6 +548,22 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
         self.queue
             .push(RunSystemWithInput::new_with_input(id, input));
+    }
+
+    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    ///
+    /// It's possible to register the same systems more than once, they'll be stored separately.
+    ///
+    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// This allows for running systems in a pushed-based fashion.
+    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// due to its better performance and abillity to run non-conflicting systems simultaneously.
+    pub fn register_system<I: 'static + Send, O: 'static + Send, M, S: IntoSystem<I, O, M> + 'static>(&mut self, system: S) -> SystemId<I, O> {
+        let entity = self.spawn_empty().id();
+        self.queue
+            .push(RegisterSystem::new(system, entity.clone()));
+        SystemId(entity, std::marker::PhantomData)
     }
 
     /// Pushes a generic [`Command`] to the command queue.
