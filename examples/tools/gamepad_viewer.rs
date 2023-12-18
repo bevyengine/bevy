@@ -446,7 +446,7 @@ fn setup_connected(mut commands: Commands) {
 
 fn update_buttons(
     gamepads: Res<Gamepads>,
-    button_inputs: Res<Input<GamepadButton>>,
+    button_inputs: Res<ButtonInput<GamepadButton>>,
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
 ) {

@@ -1051,8 +1051,8 @@ mod tests {
         for tracker in query.iter(&world) {
             let ticks_since_insert = change_tick.relative_to(*tracker.ticks.added).get();
             let ticks_since_change = change_tick.relative_to(*tracker.ticks.changed).get();
-            assert!(ticks_since_insert == MAX_CHANGE_AGE);
-            assert!(ticks_since_change == MAX_CHANGE_AGE);
+            assert_eq!(ticks_since_insert, MAX_CHANGE_AGE);
+            assert_eq!(ticks_since_change, MAX_CHANGE_AGE);
         }
     }
 

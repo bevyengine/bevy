@@ -111,7 +111,7 @@ fn setup_instructions(mut commands: Commands) {
     );
 }
 
-fn toggle_system(keycode: Res<Input<KeyCode>>, mut fog: Query<&mut FogSettings>) {
+fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut FogSettings>) {
     let mut fog_settings = fog.single_mut();
 
     if keycode.just_pressed(KeyCode::Space) {

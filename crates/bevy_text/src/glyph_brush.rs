@@ -12,7 +12,7 @@ use glyph_brush_layout::{
 
 use crate::{
     error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, FontAtlasWarning,
-    GlyphAtlasInfo, TextAlignment, TextSettings, YAxisOrientation,
+    GlyphAtlasInfo, JustifyText, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -36,7 +36,7 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Vec2,
-        text_alignment: TextAlignment,
+        text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
@@ -213,8 +213,8 @@ where
     T: ab_glyph::Font,
 {
     let mut text_bounds = Rect {
-        min: Vec2::splat(std::f32::MAX),
-        max: Vec2::splat(std::f32::MIN),
+        min: Vec2::splat(f32::MAX),
+        max: Vec2::splat(f32::MIN),
     };
 
     for sg in section_glyphs {

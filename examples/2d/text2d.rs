@@ -38,14 +38,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 60.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextAlignment::Center;
+    let text_justification = JustifyText::Center;
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
     commands.spawn((
         Text2dBundle {
             text: Text::from_section("translation", text_style.clone())
-                .with_alignment(text_alignment),
+                .with_justify(text_justification),
             ..default()
         },
         AnimateTranslation,
@@ -53,7 +53,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing rotation
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("rotation", text_style.clone()).with_alignment(text_alignment),
+            text: Text::from_section("rotation", text_style.clone())
+                .with_justify(text_justification),
             ..default()
         },
         AnimateRotation,
@@ -61,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("scale", text_style).with_alignment(text_alignment),
+            text: Text::from_section("scale", text_style).with_justify(text_justification),
             ..default()
         },
         AnimateScale,
@@ -91,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "this text wraps in the box\n(Unicode linebreaks)",
                         slightly_smaller_text_style.clone(),
                     )],
-                    alignment: TextAlignment::Left,
+                    justify: JustifyText::Left,
                     linebreak_behavior: BreakLineOn::WordBoundary,
                 },
                 text_2d_bounds: Text2dBounds {
@@ -123,7 +124,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "this text wraps in the box\n(AnyCharacter linebreaks)",
                         slightly_smaller_text_style.clone(),
                     )],
-                    alignment: TextAlignment::Left,
+                    justify: JustifyText::Left,
                     linebreak_behavior: BreakLineOn::AnyCharacter,
                 },
                 text_2d_bounds: Text2dBounds {
