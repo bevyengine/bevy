@@ -374,6 +374,27 @@ impl<I: 'static + Send> Command for RunSystemWithInput<I> {
     }
 }
 
+/// The [`Command`] type for [`World::register_system_with_entity`].
+///
+/// This command needs an already boxed system to register, and an already spawned entity
+pub struct RegisterSystem<I: 'static, O: 'static> {
+    system: BoxedSystem<I, O>,
+    entity: Entity
+}
+
+impl <I: 'static, O: 'static>RegisterSystem<I, O> {
+    /// Creates a new [Command] struct, which can be added to [Commands](crate::system::Commands)
+    pub fn new<M, S: IntoSystem<I, O, M> + 'static>(system: S, entity: Entity) -> Self {
+        Self { system: Box::new(IntoSystem::into_system(system)), entity }
+    }
+}
+
+impl <I: 'static + Send, O: 'static + Send>Command for RegisterSystem<I, O> {
+    fn apply(self, world: &mut World) {
+        let _ = world.register_boxed_system_with_entity(self.system, self.entity);
+    }
+}
+
 /// An operation with stored systems failed.
 #[derive(Error)]
 pub enum RegisteredSystemError<I = (), O = ()> {
