@@ -109,6 +109,29 @@ impl World {
         )
     }
 
+    /// Register a system with a given entity and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    ///
+    /// This allows lazy creation of systems so Commands can register systems and return [`SystemId`]
+    /// Returns None if the given entity doesn't exist.
+    pub fn register_boxed_system_with_entity<I: 'static, O: 'static>(
+        &mut self,
+        system: BoxedSystem<I, O>,
+        entity: Entity
+    ) -> Option<SystemId<I, O>> {
+        if let Some(mut entity) = self.get_entity_mut(entity) {
+            Some(SystemId(entity.insert(
+                RegisteredSystem {
+                    initialized: false,
+                    system
+                })
+                .id(),
+                std::marker::PhantomData
+            ))
+        } else {
+            None
+        }
+    }
+
     /// Removes a registered system and returns the system, if it exists.
     /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it afterwards will result in errors.
     /// Re-adding the removed system will register it on a new [`SystemId`].
