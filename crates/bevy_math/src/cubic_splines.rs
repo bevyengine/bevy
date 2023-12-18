@@ -328,8 +328,7 @@ pub enum CubicNurbsError {
     },
 }
 
-/// A spline interpolated continuously across the nearest four control points. The curve does not
-/// pass through any of the control points unless there is a knot with multiplicity of 4.
+/// A spline interpolated continuously across the nearest four control points.
 ///
 /// ### Interpolation
 /// The curve does not pass through control points, unless the knot vector has 4 consecutive values
