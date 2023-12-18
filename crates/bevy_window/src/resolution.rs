@@ -77,7 +77,7 @@ impl LogicalSize {
         self.x.min(self.y)
     }
 
-    /// Returns the minimum between either width or height.
+    /// Returns the maximum between either width or height.
     #[inline]
     pub fn max_element(self) -> f32 {
         self.x.max(self.y)
