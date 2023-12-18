@@ -64,6 +64,13 @@ use std::{
 };
 
 /// Contains the default Bevy rendering backend based on wgpu.
+///
+/// Rendering is done in a [`SubApp`], which exchanges data with the main app
+/// between main schedule iterations.
+///
+/// Rendering can be executed between iterations of the main schedule,
+/// or it can be executed in parallel with main schedule when
+/// [`PipelinedRenderingPlugin`](pipelined_rendering::PipelinedRenderingPlugin) is enabled.
 #[derive(Default)]
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
