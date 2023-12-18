@@ -121,15 +121,17 @@ impl World {
         system: BoxedSystem<I, O>,
         entity: Entity,
     ) -> Option<SystemId<I, O>> {
-        self.get_entity_mut(entity).map(|mut entity| SystemId(
-            entity
-                .insert(RegisteredSystem {
-                    initialized: false,
-                    system,
-                })
-                .id(),
-            std::marker::PhantomData,
-        ))
+        self.get_entity_mut(entity).map(|mut entity| {
+            SystemId(
+                entity
+                    .insert(RegisteredSystem {
+                        initialized: false,
+                        system,
+                    })
+                    .id(),
+                std::marker::PhantomData,
+            )
+        })
     }
 
     /// Removes a registered system and returns the system, if it exists.
