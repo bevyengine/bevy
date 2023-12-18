@@ -433,8 +433,8 @@ impl<P: Point> CubicNurbs<P> {
 
     /// Generates a uniform knot vector that will generate the same curve as [`CubicBSpline`].
     ///
-    /// "Uniform" means that teh difference between two knot values next to each other is the same
-    /// through teh entire knot vector.
+    /// "Uniform" means that the difference between two knot values next to each other is the same
+    /// through the entire knot vector.
     ///
     /// Will return `None` if there are less than 4 control points
     pub fn uniform_knot_vector(control_points: usize) -> Option<Vec<f32>> {
@@ -497,7 +497,7 @@ impl<P: Point> CubicNurbs<P> {
     }
 
     /// Normalizes weights vector using L0 norm.
-    /// The resulting weight vector's values will add up to be equal the amoutn of values in teh
+    /// The resulting weight vector's values will add up to be equal the amoutn of values in the
     /// weights vector
     fn normalize_weights(weights: &mut [f32]) {
         let g = weights.len() as f32;
