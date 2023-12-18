@@ -556,7 +556,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    /// This allows for running systems in a pushed-based fashion.
+    /// This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and abillity to run non-conflicting systems simultaneously.
     pub fn register_system<
