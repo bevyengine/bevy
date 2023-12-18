@@ -418,7 +418,7 @@ impl<P: Point> CubicNurbs<P> {
             });
         }
 
-        Self::normalize_weights(&mut weights);
+        weights = Self::normalize_weights(weights);
 
         control_points
             .iter_mut()
@@ -495,11 +495,11 @@ impl<P: Point> CubicNurbs<P> {
     /// Normalizes weights vector using L0 norm.
     /// The resulting weight vector's values will add up to be equal the amoutn of values in the
     /// weights vector
-    fn normalize_weights(weights: &mut [f32]) {
+    fn normalize_weights(weights: Vec<f32>) -> Vec<f32> {
         let g = weights.len() as f32;
         let weights_sum: f32 = weights.iter().sum();
         let mul = g / weights_sum;
-        weights.iter_mut().for_each(|w| *w *= mul);
+        weights.into_iter().map(|w| w * mul).collect()
     }
 }
 impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
