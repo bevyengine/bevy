@@ -26,12 +26,12 @@ impl Val {
             Val::VMax(value) => {
                 taffy::style::LengthPercentageAuto::Points(context.max_size * value / 100.)
             }
-            Val::Vw(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.x * value / 100.)
-            }
-            Val::Vh(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.y * value / 100.)
-            }
+            Val::Vw(value) => taffy::style::LengthPercentageAuto::Points(
+                context.physical_size.x as f32 * value / 100.,
+            ),
+            Val::Vh(value) => taffy::style::LengthPercentageAuto::Points(
+                context.physical_size.y as f32 * value / 100.,
+            ),
         }
     }
 
@@ -390,6 +390,8 @@ impl RepeatedGridTrack {
 
 #[cfg(test)]
 mod tests {
+    use bevy_window::PhysicalSize;
+
     use super::*;
 
     #[test]
@@ -464,7 +466,7 @@ mod tests {
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
         };
-        let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
+        let viewport_values = LayoutContext::new(1.0, PhysicalSize::new(800, 600));
         let taffy_style = from_style(&viewport_values, &bevy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
@@ -601,7 +603,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
+        let context = LayoutContext::new(2.0, PhysicalSize::new(800, 600));
         let cases = [
             (Val::Auto, LengthPercentage::Points(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),

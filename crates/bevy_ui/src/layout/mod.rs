@@ -16,26 +16,28 @@ use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::{default, HashMap};
-use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
+use bevy_window::{
+    LogicalSize, PhysicalSize, PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged,
+};
 use std::fmt;
 use taffy::Taffy;
 use thiserror::Error;
 
 pub struct LayoutContext {
     pub scale_factor: f32,
-    pub physical_size: Vec2,
+    pub physical_size: PhysicalSize,
     pub min_size: f32,
     pub max_size: f32,
 }
 
 impl LayoutContext {
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f32, physical_size: Vec2) -> Self {
+    fn new(scale_factor: f32, physical_size: PhysicalSize) -> Self {
         Self {
             scale_factor,
             physical_size,
-            min_size: physical_size.x.min(physical_size.y),
-            max_size: physical_size.x.max(physical_size.y),
+            min_size: physical_size.x.min(physical_size.y) as f32,
+            max_size: physical_size.x.max(physical_size.y) as f32,
         }
     }
 }
@@ -263,9 +265,9 @@ pub fn ui_layout_system(
             (
                 entity,
                 primary_window.resolution.scale_factor(),
-                Vec2::new(
-                    primary_window.resolution.physical_width() as f32,
-                    primary_window.resolution.physical_height() as f32,
+                PhysicalSize::new(
+                    primary_window.resolution.physical_width(),
+                    primary_window.resolution.physical_height(),
                 ),
             )
         } else {
@@ -397,8 +399,8 @@ pub fn resolve_outlines_system(
 ) {
     let viewport_size = primary_window
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO)
+        .map(|window| LogicalSize::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(LogicalSize::new(0.0, 0.0))
         / ui_scale.0;
 
     for (outline, mut node) in outlines_query.iter_mut() {
@@ -463,6 +465,7 @@ mod tests {
     use bevy_math::Vec2;
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
+    use bevy_window::LogicalSize;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
     use bevy_window::WindowResized;
@@ -489,7 +492,7 @@ mod tests {
         // spawn a dummy primary window
         world.spawn((
             Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+                resolution: WindowResolution::new(LogicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
                 ..Default::default()
             },
             PrimaryWindow,

@@ -11,6 +11,7 @@ use bevy_a11y::Focus;
 mod cursor;
 mod event;
 mod raw_handle;
+mod resolution;
 mod system;
 mod window;
 
@@ -18,6 +19,7 @@ pub use crate::raw_handle::*;
 
 pub use cursor::*;
 pub use event::*;
+pub use resolution::*;
 pub use system::*;
 pub use window::*;
 
@@ -25,9 +27,9 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
-        ReceivedCharacter, Window, WindowMoved, WindowPlugin, WindowPosition,
-        WindowResizeConstraints,
+        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, LogicalSize,
+        MonitorSelection, PhysicalSize, ReceivedCharacter, Window, WindowMoved, WindowPlugin,
+        WindowPosition, WindowResizeConstraints,
     };
 }
 

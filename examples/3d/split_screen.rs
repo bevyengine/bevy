@@ -100,7 +100,7 @@ fn set_camera_viewports(
         let mut left_camera = left_camera.single_mut();
         left_camera.viewport = Some(Viewport {
             physical_position: UVec2::new(0, 0),
-            physical_size: UVec2::new(
+            physical_size: PhysicalSize::new(
                 window.resolution.physical_width() / 2,
                 window.resolution.physical_height(),
             ),
@@ -110,7 +110,7 @@ fn set_camera_viewports(
         let mut right_camera = right_camera.single_mut();
         right_camera.viewport = Some(Viewport {
             physical_position: UVec2::new(window.resolution.physical_width() / 2, 0),
-            physical_size: UVec2::new(
+            physical_size: PhysicalSize::new(
                 window.resolution.physical_width() / 2,
                 window.resolution.physical_height(),
             ),

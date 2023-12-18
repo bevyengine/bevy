@@ -26,7 +26,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{FloatOrd, HashMap, HashSet};
-use bevy_window::{PrimaryWindow, Window};
+use bevy_window::{LogicalSize, PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 
 use crate::*;
@@ -370,8 +370,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO)
+        .map(|window| LogicalSize::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(LogicalSize::new(0.0, 0.0))
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;

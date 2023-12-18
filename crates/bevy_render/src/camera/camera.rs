@@ -27,7 +27,8 @@ use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
-    NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
+    LogicalSize, NormalizedWindowRef, PhysicalSize, PrimaryWindow, Window, WindowCreated,
+    WindowRef, WindowResized,
 };
 use std::{borrow::Cow, ops::Range};
 use wgpu::{BlendState, LoadOp, TextureFormat};
@@ -47,7 +48,7 @@ pub struct Viewport {
     pub physical_position: UVec2,
     /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
     /// The origin of the rectangle is in the top-left corner.
-    pub physical_size: UVec2,
+    pub physical_size: PhysicalSize,
     /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
     pub depth: Range<f32>,
 }
@@ -66,7 +67,7 @@ impl Default for Viewport {
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
     /// The physical size of this render target (ignores scale factor).
-    pub physical_size: UVec2,
+    pub physical_size: PhysicalSize,
     /// The scale factor of this render target.
     pub scale_factor: f32,
 }
@@ -77,7 +78,7 @@ pub struct ComputedCameraValues {
     projection_matrix: Mat4,
     target_info: Option<RenderTargetInfo>,
     // position and size of the `Viewport`
-    old_viewport_size: Option<UVec2>,
+    old_viewport_size: Option<PhysicalSize>,
 }
 
 /// The defining [`Component`] for camera entities,
@@ -138,9 +139,9 @@ impl Default for Camera {
 impl Camera {
     /// Converts a physical size in this `Camera` to a logical size.
     #[inline]
-    pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
+    pub fn to_logical(&self, physical_size: PhysicalSize) -> Option<LogicalSize> {
         let scale = self.computed.target_info.as_ref()?.scale_factor;
-        Some(physical_size.as_vec2() / scale)
+        Some(physical_size.to_logical(scale))
     }
 
     /// The rendered physical bounds [`URect`] of the camera. If the `viewport` field is
@@ -153,7 +154,8 @@ impl Camera {
             .as_ref()
             .map(|v| v.physical_position)
             .unwrap_or(UVec2::ZERO);
-        let max = min + self.physical_viewport_size()?;
+        let viewport_size: UVec2 = self.physical_viewport_size()?.into();
+        let max: UVec2 = min + viewport_size;
         Some(URect { min, max })
     }
 
@@ -164,8 +166,8 @@ impl Camera {
     pub fn logical_viewport_rect(&self) -> Option<Rect> {
         let URect { min, max } = self.physical_viewport_rect()?;
         Some(Rect {
-            min: self.to_logical(min)?,
-            max: self.to_logical(max)?,
+            min: self.to_logical(PhysicalSize::new(min.x, min.y))?.into(),
+            max: self.to_logical(PhysicalSize::new(max.x, max.y))?.into(),
         })
     }
 
@@ -183,10 +185,10 @@ impl Camera {
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
     ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
     #[inline]
-    pub fn logical_viewport_size(&self) -> Option<Vec2> {
+    pub fn logical_viewport_size(&self) -> Option<LogicalSize> {
         self.viewport
             .as_ref()
-            .and_then(|v| self.to_logical(v.physical_size))
+            .and_then(|v| self.to_logical(PhysicalSize::new(v.physical_size.x, v.physical_size.y)))
             .or_else(|| self.logical_target_size())
     }
 
@@ -195,7 +197,7 @@ impl Camera {
     /// the current [`RenderTarget`].
     /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
     #[inline]
-    pub fn physical_viewport_size(&self) -> Option<UVec2> {
+    pub fn physical_viewport_size(&self) -> Option<PhysicalSize> {
         self.viewport
             .as_ref()
             .map(|v| v.physical_size)
@@ -206,7 +208,7 @@ impl Camera {
     /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
     /// For logic that requires the size of the actually rendered area, prefer [`Camera::logical_viewport_size`].
     #[inline]
-    pub fn logical_target_size(&self) -> Option<Vec2> {
+    pub fn logical_target_size(&self) -> Option<LogicalSize> {
         self.computed
             .target_info
             .as_ref()
@@ -217,7 +219,7 @@ impl Camera {
     /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
     /// For logic that requires the size of the actually rendered area, prefer [`Camera::physical_viewport_size`].
     #[inline]
-    pub fn physical_target_size(&self) -> Option<UVec2> {
+    pub fn physical_target_size(&self) -> Option<PhysicalSize> {
         self.computed.target_info.as_ref().map(|t| t.physical_size)
     }
 
@@ -243,7 +245,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Option<Vec2> {
-        let target_size = self.logical_viewport_size()?;
+        let target_size: Vec2 = self.logical_viewport_size()?.into();
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
@@ -275,7 +277,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
     ) -> Option<Ray3d> {
-        let target_size = self.logical_viewport_size()?;
+        let target_size: Vec2 = self.logical_viewport_size()?.into();
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
@@ -311,7 +313,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
     ) -> Option<Vec2> {
-        let target_size = self.logical_viewport_size()?;
+        let target_size: Vec2 = self.logical_viewport_size()?.into();
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
@@ -509,7 +511,7 @@ impl NormalizedRenderTarget {
                 .into_iter()
                 .find(|(entity, _)| *entity == window_ref.entity())
                 .map(|(_, window)| RenderTargetInfo {
-                    physical_size: UVec2::new(
+                    physical_size: PhysicalSize::new(
                         window.resolution.physical_width(),
                         window.resolution.physical_height(),
                     ),
@@ -518,13 +520,13 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
                 Some(RenderTargetInfo {
-                    physical_size: image.size(),
+                    physical_size: PhysicalSize::new(image.size().x, image.size().y),
                     scale_factor: 1.0,
                 })
             }
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| RenderTargetInfo {
-                    physical_size: tex.size,
+                    physical_size: PhysicalSize::new(tex.size.x, tex.size.y),
                     scale_factor: 1.0,
                 })
             }
@@ -625,8 +627,8 @@ pub fn camera_system<T: CameraProjection + Component>(
 #[derive(Component, Debug)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
-    pub physical_viewport_size: Option<UVec2>,
-    pub physical_target_size: Option<UVec2>,
+    pub physical_viewport_size: Option<PhysicalSize>,
+    pub physical_target_size: Option<PhysicalSize>,
     pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
     pub order: isize,

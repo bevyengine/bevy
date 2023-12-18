@@ -185,7 +185,7 @@ fn prepare_deferred_lighting_id_textures(
         if let Some(UVec2 {
             x: width,
             y: height,
-        }) = camera.physical_target_size
+        }) = camera.physical_target_size.map(|x| x.into())
         {
             let texture_descriptor = TextureDescriptor {
                 label: Some("deferred_lighting_id_depth_texture_a"),

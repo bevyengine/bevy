@@ -7,7 +7,7 @@ use bevy_hierarchy::Parent;
 use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
-use bevy_window::{PrimaryWindow, Window};
+use bevy_window::{LogicalSize, PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -255,7 +255,11 @@ pub fn extract_atlas_uinodes(
     }
 }
 
-pub(crate) fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
+pub(crate) fn resolve_border_thickness(
+    value: Val,
+    parent_width: f32,
+    viewport_size: LogicalSize,
+) -> f32 {
     match value {
         Val::Auto => 0.,
         Val::Px(px) => px.max(0.),
@@ -292,8 +296,8 @@ pub fn extract_uinode_borders(
 
     let ui_logical_viewport_size = windows
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO)
+        .map(|window| LogicalSize::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(LogicalSize::new(0.0, 0.0))
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;

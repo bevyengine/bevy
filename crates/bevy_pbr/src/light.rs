@@ -17,6 +17,7 @@ use bevy_render::{
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{tracing::warn, HashMap};
+use bevy_window::PhysicalSize;
 
 use crate::*;
 
@@ -726,7 +727,7 @@ impl Default for ClusterConfig {
 }
 
 impl ClusterConfig {
-    fn dimensions_for_screen_size(&self, screen_size: UVec2) -> UVec3 {
+    fn dimensions_for_screen_size(&self, screen_size: PhysicalSize) -> UVec3 {
         match &self {
             ClusterConfig::None => UVec3::ZERO,
             ClusterConfig::Single => UVec3::ONE,
@@ -809,11 +810,12 @@ pub struct Clusters {
 }
 
 impl Clusters {
-    fn update(&mut self, screen_size: UVec2, requested_dimensions: UVec3) {
+    fn update(&mut self, screen_size: PhysicalSize, requested_dimensions: UVec3) {
         debug_assert!(
             requested_dimensions.x > 0 && requested_dimensions.y > 0 && requested_dimensions.z > 0
         );
 
+        let screen_size: UVec2 = screen_size.into();
         let tile_size = (screen_size.as_vec2() / requested_dimensions.xy().as_vec2())
             .ceil()
             .as_uvec2()
@@ -1034,7 +1036,13 @@ fn cluster_space_light_aabb(
     )
 }
 
-fn screen_to_view(screen_size: Vec2, inverse_projection: Mat4, screen: Vec2, ndc_z: f32) -> Vec4 {
+fn screen_to_view(
+    screen_size: PhysicalSize,
+    inverse_projection: Mat4,
+    screen: Vec2,
+    ndc_z: f32,
+) -> Vec4 {
+    let screen_size: Vec2 = screen_size.into();
     let tex_coord = screen / screen_size;
     let clip = Vec4::new(
         tex_coord.x * 2.0 - 1.0,
@@ -1059,7 +1067,7 @@ fn compute_aabb_for_cluster(
     z_near: f32,
     z_far: f32,
     tile_size: Vec2,
-    screen_size: Vec2,
+    screen_size: PhysicalSize,
     inverse_projection: Mat4,
     is_orthographic: bool,
     cluster_dimensions: UVec3,
@@ -1723,7 +1731,7 @@ pub(crate) fn assign_lights_to_clusters(
                                         first_slice_depth,
                                         far_z,
                                         clusters.tile_size.as_vec2(),
-                                        screen_size.as_vec2(),
+                                        screen_size,
                                         inverse_projection,
                                         is_orthographic,
                                         clusters.dimensions,
@@ -2245,7 +2253,7 @@ pub fn check_light_mesh_visibility(
 mod test {
     use super::*;
 
-    fn test_cluster_tiling(config: ClusterConfig, screen_size: UVec2) -> Clusters {
+    fn test_cluster_tiling(config: ClusterConfig, screen_size: PhysicalSize) -> Clusters {
         let dims = config.dimensions_for_screen_size(screen_size);
 
         // note: near & far do not affect tiling
@@ -2273,7 +2281,7 @@ mod test {
     fn test_default_cluster_setup_small_screensizes() {
         for x in 1..100 {
             for y in 1..100 {
-                let screen_size = UVec2::new(x, y);
+                let screen_size = PhysicalSize::new(x, y);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
                     clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
@@ -2287,13 +2295,13 @@ mod test {
     fn test_default_cluster_setup_small_x() {
         for x in 1..10 {
             for y in 1..5000 {
-                let screen_size = UVec2::new(x, y);
+                let screen_size = PhysicalSize::new(x, y);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
                     clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
                 );
 
-                let screen_size = UVec2::new(y, x);
+                let screen_size = PhysicalSize::new(y, x);
                 let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
                 assert!(
                     clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
