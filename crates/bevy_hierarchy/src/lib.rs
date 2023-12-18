@@ -15,7 +15,7 @@
 //!
 //! More advanced users may also appreciate
 //! [query extension methods] to traverse hierarchies,
-//! and [events] to notify hiearchical changes.
+//! and [events] to notify hierarchical changes.
 //! There is also a [diagnostic plugin] to validate property propagation.
 //!
 //! # Hierarchy management
