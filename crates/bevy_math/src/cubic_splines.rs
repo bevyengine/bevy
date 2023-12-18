@@ -441,8 +441,11 @@ impl<P: Point> CubicNurbs<P> {
         if control_points < 4 {
             return None;
         }
-        let length = control_points + 4;
-        Some((0..length).map(|v| v as f32).collect())
+        Some(
+            (0..Self::knot_vector_length(control_points))
+                .map(|v| v as f32)
+                .collect(),
+        )
     }
 
     /// Generates an open uniform knot vector, which makes the ends of the curve pass through the
