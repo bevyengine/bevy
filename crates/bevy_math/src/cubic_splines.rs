@@ -497,7 +497,7 @@ impl<P: Point> CubicNurbs<P> {
     /// weights vector
     fn normalize_weights(weights: &mut [f32]) {
         let g = weights.len() as f32;
-        let weights_sum = weights.iter().fold(0.0, |sum, w| sum + w);
+        let weights_sum: f32 = weights.iter().sum();
         let mul = g / weights_sum;
         weights.iter_mut().for_each(|w| *w *= mul);
     }
