@@ -272,7 +272,7 @@ mod test {
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()
-            .expect("Could not find initial AABB");
+            .expect("Could not find second AABB");
 
         // Check that the AABBs are not equal
         assert_ne!(first_aabb, second_aabb);
