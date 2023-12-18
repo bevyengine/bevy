@@ -13,8 +13,6 @@ mod loader;
 mod vertex_attributes;
 pub use loader::*;
 
-pub type SerdeValue = serde_json::Value;
-
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
@@ -100,6 +98,9 @@ pub struct Gltf {
     /// Named animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
     pub named_animations: HashMap<String, Handle<AnimationClip>>,
+    /// The gltf root of the gltf. Only has a value when `GltfLoaderSettings::include_source` is true and when the `extensions` flag is enabled.
+    #[cfg(feature = "extensions")]
+    pub source: Option<gltf::Gltf>,
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
