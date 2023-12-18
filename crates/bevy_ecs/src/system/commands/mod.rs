@@ -801,13 +801,13 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///   commands.entity(player.entity)
     ///    // You can try_insert individual components:
     ///     .try_insert(Defense(10))
-    ///     
+    ///
     ///    // You can also insert tuples of components:
     ///     .try_insert(CombatBundle {
     ///         health: Health(100),
     ///         strength: Strength(40),
     ///     });
-    ///    
+    ///
     ///    // Suppose this occurs in a parallel adjacent system or process
     ///    commands.entity(player.entity)
     ///      .despawn();
