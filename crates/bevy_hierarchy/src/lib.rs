@@ -34,7 +34,8 @@
 //! ## Despawning entities
 //!
 //! The commands and methods provided by `bevy_ecs` to despawn entities
-//! are not capable of despawning hierarchies of entities, invalidating them.
+//! are not capable of automatically despawning hierarchies of entities.
+//! In most cases, these operations will invalidate the hierarchy.
 //! Instead, you should use the provided [hierarchical despawn extension methods].
 //!
 //! [command]: BuildChildren
