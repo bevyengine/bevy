@@ -378,7 +378,7 @@ impl<I: 'static + Send> Command for RunSystemWithInput<I> {
     }
 }
 
-/// The [`Command`] type for [`World::register_system_with_entity`].
+/// The [`Command`] type for [`World::register_boxed_system_with_entity`].
 ///
 /// This command needs an already boxed system to register, and an already spawned entity
 pub struct RegisterSystem<I: 'static, O: 'static> {
