@@ -478,16 +478,12 @@ impl<P: Point> CubicNurbs<P> {
     /// Based on <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
     fn generate_matrix(knot_vector_segment: &[f32; 8]) -> [[f32; 4]; 4] {
         let t = knot_vector_segment;
-        let i = 3;
-        let m00 = (t[i + 1] - t[i]).powi(2) / ((t[i + 1] - t[i - 1]) * (t[i + 1] - t[i - 2]));
-        let m02 = (t[i] - t[i - 1]).powi(2) / ((t[i + 2] - t[i - 1]) * (t[i + 1] - t[i - 1]));
-        let m12 = (3.0 * (t[i + 1] - t[i]) * (t[i] - t[i - 1]))
-            / ((t[i + 2] - t[i - 1]) * (t[i + 1] - t[i - 1]));
-        let m22 = 3.0 * (t[i + 1] - t[i]).powi(2) / ((t[i + 2] - t[i - 1]) * (t[i + 1] - t[i - 1]));
-        let m33 = (t[i + 1] - t[i]).powi(2) / ((t[i + 3] - t[i]) * (t[i + 2] - t[i]));
-        let m32 = -m22 / 3.0
-            - m33
-            - (t[i + 1] - t[i]).powi(2) / ((t[i + 2] - t[i]) * (t[i + 2] - t[i - 1]));
+        let m00 = (t[4] - t[3]).powi(2) / ((t[4] - t[2]) * (t[4] - t[1]));
+        let m02 = (t[3] - t[2]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m12 = (3.0 * (t[4] - t[3]) * (t[3] - t[2])) / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m22 = 3.0 * (t[4] - t[3]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m33 = (t[4] - t[3]).powi(2) / ((t[3 + 3] - t[3]) * (t[5] - t[3]));
+        let m32 = -m22 / 3.0 - m33 - (t[4] - t[3]).powi(2) / ((t[5] - t[3]) * (t[5] - t[2]));
         [
             [m00, 1.0 - m00 - m02, m02, 0.0],
             [-3.0 * m00, 3.0 * m00 - m12, m12, 0.0],
