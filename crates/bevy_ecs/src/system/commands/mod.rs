@@ -14,7 +14,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Deferred, Resource, SystemBuffer, SystemMeta, RegisterSystem, IntoSystem};
+use super::{Deferred, IntoSystem, RegisterSystem, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -559,10 +559,17 @@ impl<'w, 's> Commands<'w, 's> {
     /// This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and abillity to run non-conflicting systems simultaneously.
-    pub fn register_system<I: 'static + Send, O: 'static + Send, M, S: IntoSystem<I, O, M> + 'static>(&mut self, system: S) -> SystemId<I, O> {
+    pub fn register_system<
+        I: 'static + Send,
+        O: 'static + Send,
+        M,
+        S: IntoSystem<I, O, M> + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) -> SystemId<I, O> {
         let entity = self.spawn_empty().id();
-        self.queue
-            .push(RegisterSystem::new(system, entity.clone()));
+        self.queue.push(RegisterSystem::new(system, entity.clone()));
         SystemId(entity, std::marker::PhantomData)
     }
 

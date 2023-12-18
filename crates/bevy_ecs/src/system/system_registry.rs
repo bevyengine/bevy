@@ -39,7 +39,10 @@ impl<I, O> RemovedSystem<I, O> {
 /// These are opaque identifiers, keyed to a specific [`World`],
 /// and are created via [`World::register_system`].
 #[derive(Eq)]
-pub struct SystemId<I = (), O = ()>(pub(crate) Entity,pub(crate) std::marker::PhantomData<fn(I) -> O>);
+pub struct SystemId<I = (), O = ()>(
+    pub(crate) Entity,
+    pub(crate) std::marker::PhantomData<fn(I) -> O>,
+);
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
 impl<I, O> Copy for SystemId<I, O> {}
@@ -116,16 +119,17 @@ impl World {
     pub fn register_boxed_system_with_entity<I: 'static, O: 'static>(
         &mut self,
         system: BoxedSystem<I, O>,
-        entity: Entity
+        entity: Entity,
     ) -> Option<SystemId<I, O>> {
         if let Some(mut entity) = self.get_entity_mut(entity) {
-            Some(SystemId(entity.insert(
-                RegisteredSystem {
-                    initialized: false,
-                    system
-                })
-                .id(),
-                std::marker::PhantomData
+            Some(SystemId(
+                entity
+                    .insert(RegisteredSystem {
+                        initialized: false,
+                        system,
+                    })
+                    .id(),
+                std::marker::PhantomData,
             ))
         } else {
             None
@@ -379,17 +383,20 @@ impl<I: 'static + Send> Command for RunSystemWithInput<I> {
 /// This command needs an already boxed system to register, and an already spawned entity
 pub struct RegisterSystem<I: 'static, O: 'static> {
     system: BoxedSystem<I, O>,
-    entity: Entity
+    entity: Entity,
 }
 
-impl <I: 'static, O: 'static>RegisterSystem<I, O> {
+impl<I: 'static, O: 'static> RegisterSystem<I, O> {
     /// Creates a new [Command] struct, which can be added to [Commands](crate::system::Commands)
     pub fn new<M, S: IntoSystem<I, O, M> + 'static>(system: S, entity: Entity) -> Self {
-        Self { system: Box::new(IntoSystem::into_system(system)), entity }
+        Self {
+            system: Box::new(IntoSystem::into_system(system)),
+            entity,
+        }
     }
 }
 
-impl <I: 'static + Send, O: 'static + Send>Command for RegisterSystem<I, O> {
+impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
     fn apply(self, world: &mut World) {
         let _ = world.register_boxed_system_with_entity(self.system, self.entity);
     }
