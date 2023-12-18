@@ -10,6 +10,7 @@
 //! or <https://doc.rust-lang.org/rust-by-example/generics.html>
 
 use bevy::prelude::*;
+use system_with_generic_system_param::*;
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
 enum AppState {
@@ -40,6 +41,8 @@ fn main() {
             (
                 print_text_system,
                 transition_to_in_game_system.run_if(in_state(AppState::MainMenu)),
+                system_with_generic::<ResMut<ResourceA>>,
+                system_with_generic::<ResMut<ResourceB>>,
             ),
         )
         // Cleanup systems.
@@ -86,4 +89,64 @@ fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, Wit
     for e in &query {
         commands.entity(e).despawn_recursive();
     }
+}
+
+mod system_with_generic_system_param {
+    use super::*;
+    use bevy::ecs::system::{SystemParam, SystemParamItem};
+
+    pub trait MyTrait {
+        fn calculate_something(&mut self) {}
+    }
+
+    #[derive(Resource)]
+    pub struct ResourceA(pub usize);
+
+    impl MyTrait for ResMut<'_, ResourceA> {
+        fn calculate_something(&mut self) {
+            // dbg!(self.0);
+            self.0 = 5;
+        }
+    }
+
+    #[derive(Resource)]
+    pub struct ResourceB(pub usize);
+    impl MyTrait for ResMut<'_, ResourceB> {
+        fn calculate_something(&mut self) {
+            // dbg!(self.0);
+            self.0 = 10;
+        }
+    }
+
+    pub fn system_with_generic<S: SystemParam>(mut param: SystemParamItem<S>)
+    where
+        for<'w, 's> S::Item<'w, 's>: MyTrait,
+    {
+        param.calculate_something();
+    }
+}
+
+mod system_param_in_associated_type {
+    use super::*;
+    use bevy::ecs::system::{lifetimeless::SRes, StaticSystemParam, SystemParam, SystemParamItem};
+
+    #[derive(Resource)]
+    struct ResourceA;
+
+    pub trait MyTrait {
+        type Param: SystemParam + 'static;
+
+        fn do_something(&self, param: &mut SystemParamItem<Self::Param>) -> u32;
+    }
+
+    struct ItemA;
+    impl MyTrait for ItemA {
+        type Param = SRes<ResourceA>;
+
+        fn do_something(&self, param: &mut SystemParamItem<Self::Param>) -> u32 {
+            todo!()
+        }
+    }
+
+    fn system<S: MyTrait>(param: StaticSystemParam<<S as MyTrait>::Param>) {}
 }
