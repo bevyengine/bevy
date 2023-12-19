@@ -47,7 +47,7 @@ use bevy_window::{
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 #[cfg(target_os = "android")]
-pub use winit::platform::android::activity::AndroidApp;
+pub use winit::platform::android::activity as android_activity;
 
 use winit::{
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
@@ -63,7 +63,8 @@ use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin
 /// [`AndroidApp`] provides an interface to query the application state as well as monitor events
 /// (for example lifecycle and input events).
 #[cfg(target_os = "android")]
-pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
+pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
+    std::sync::OnceLock::new();
 
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
