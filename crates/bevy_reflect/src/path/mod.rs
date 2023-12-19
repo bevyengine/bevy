@@ -410,12 +410,28 @@ impl<const N: usize> From<[OffsetAccess; N]> for ParsedPath {
 }
 impl From<Vec<Access<'static>>> for ParsedPath {
     fn from(value: Vec<Access<'static>>) -> Self {
-        ParsedPath(value.into_iter().map(|access| OffsetAccess { access, offset: None }).collect())
+        ParsedPath(
+            value
+                .into_iter()
+                .map(|access| OffsetAccess {
+                    access,
+                    offset: None,
+                })
+                .collect(),
+        )
     }
 }
 impl<const N: usize> From<[Access<'static>; N]> for ParsedPath {
     fn from(value: [Access<'static>; N]) -> Self {
-        ParsedPath(value.into_iter().map(|access| OffsetAccess { access, offset: None }).collect())
+        ParsedPath(
+            value
+                .into_iter()
+                .map(|access| OffsetAccess {
+                    access,
+                    offset: None,
+                })
+                .collect(),
+        )
     }
 }
 
