@@ -338,7 +338,7 @@ fn prepare_bloom_textures(
         if let Some(UVec2 {
             x: width,
             y: height,
-        }) = camera.physical_viewport_size.map(|x| x.into())
+        }) = camera.physical_viewport_size.map(|x| *x)
         {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
             let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;

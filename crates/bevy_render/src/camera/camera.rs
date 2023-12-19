@@ -154,8 +154,8 @@ impl Camera {
             .as_ref()
             .map(|v| v.physical_position)
             .unwrap_or(UVec2::ZERO);
-        let viewport_size: UVec2 = self.physical_viewport_size()?.into();
-        let max: UVec2 = min + viewport_size;
+        let viewport_size = self.physical_viewport_size()?;
+        let max = min + *viewport_size;
         Some(URect { min, max })
     }
 
@@ -166,8 +166,8 @@ impl Camera {
     pub fn logical_viewport_rect(&self) -> Option<Rect> {
         let URect { min, max } = self.physical_viewport_rect()?;
         Some(Rect {
-            min: self.to_logical(PhysicalSize::new(min.x, min.y))?.into(),
-            max: self.to_logical(PhysicalSize::new(max.x, max.y))?.into(),
+            min: *self.to_logical(PhysicalSize::new(min.x, min.y))?,
+            max: *self.to_logical(PhysicalSize::new(max.x, max.y))?,
         })
     }
 
@@ -245,7 +245,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Option<Vec2> {
-        let target_size: Vec2 = self.logical_viewport_size()?.into();
+        let target_size = self.logical_viewport_size()?;
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
@@ -253,7 +253,7 @@ impl Camera {
         }
 
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
+        let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * *target_size;
         // Flip the Y co-ordinate origin from the bottom to the top.
         viewport_position.y = target_size.y - viewport_position.y;
         Some(viewport_position)
@@ -277,10 +277,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
     ) -> Option<Ray3d> {
-        let target_size: Vec2 = self.logical_viewport_size()?.into();
+        let target_size = self.logical_viewport_size()?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
-        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+        let ndc = viewport_position * 2. / *target_size - Vec2::ONE;
 
         let ndc_to_world =
             camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
@@ -313,10 +313,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
     ) -> Option<Vec2> {
-        let target_size: Vec2 = self.logical_viewport_size()?.into();
+        let target_size = self.logical_viewport_size()?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
-        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+        let ndc = viewport_position * 2. / *target_size - Vec2::ONE;
 
         let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
 

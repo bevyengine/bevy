@@ -155,6 +155,7 @@ impl Plugin for WindowPlugin {
             .register_type::<CursorIcon>()
             .register_type::<CursorGrabMode>()
             .register_type::<CompositeAlphaMode>()
+            .register_type::<PhysicalSize>()
             .register_type::<WindowResolution>()
             .register_type::<WindowPosition>()
             .register_type::<WindowMode>()

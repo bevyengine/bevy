@@ -368,13 +368,13 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
 ) {
-    let ui_logical_viewport_size = windows
+    let mut ui_logical_viewport_size = windows
         .get_single()
         .map(|window| LogicalSize::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(LogicalSize::new(0.0, 0.0))
-        // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-        // so we have to divide by `UiScale` to get the size of the UI viewport.
-        / ui_scale.0;
+        .unwrap_or(LogicalSize::new(0.0, 0.0));
+    // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+    // so we have to divide by `UiScale` to get the size of the UI viewport.
+    ui_logical_viewport_size.extents /= ui_scale.0;
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((entity, uinode, style, transform, handle, view_visibility, clip)) =
             uinode_query.get(*entity)

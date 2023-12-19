@@ -397,11 +397,11 @@ pub fn resolve_outlines_system(
     ui_scale: Res<UiScale>,
     mut outlines_query: Query<(&Outline, &mut Node)>,
 ) {
-    let viewport_size = primary_window
+    let mut viewport_size = primary_window
         .get_single()
         .map(|window| LogicalSize::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(LogicalSize::new(0.0, 0.0))
-        / ui_scale.0;
+        .unwrap_or(LogicalSize::new(0.0, 0.0));
+    viewport_size.extents /= ui_scale.0;
 
     for (outline, mut node) in outlines_query.iter_mut() {
         let node = node.bypass_change_detection();

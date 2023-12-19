@@ -10,7 +10,8 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{default, tracing::debug, HashMap, HashSet};
 use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
+    CompositeAlphaMode, PhysicalSize, PresentMode, PrimaryWindow, RawHandleWrapper, Window,
+    WindowClosed,
 };
 use std::{
     ops::{Deref, DerefMut},
@@ -57,8 +58,7 @@ pub struct ExtractedWindow {
     /// An entity that contains the components in [`Window`].
     pub entity: Entity,
     pub handle: RawHandleWrapper,
-    pub physical_width: u32,
-    pub physical_height: u32,
+    pub physical_size: PhysicalSize,
     pub present_mode: PresentMode,
     /// Note: this will not always be the swap chain texture view. When taking a screenshot,
     /// this will point to an alternative texture instead to allow for copying the render result
@@ -127,8 +127,7 @@ fn extract_windows(
         let extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
             entity,
             handle: handle.clone(),
-            physical_width: new_width,
-            physical_height: new_height,
+            physical_size: PhysicalSize::new(new_width, new_height),
             present_mode: window.present_mode,
             swap_chain_texture: None,
             swap_chain_texture_view: None,
@@ -142,21 +141,21 @@ fn extract_windows(
 
         // NOTE: Drop the swap chain frame here
         extracted_window.swap_chain_texture_view = None;
-        extracted_window.size_changed = new_width != extracted_window.physical_width
-            || new_height != extracted_window.physical_height;
+        extracted_window.size_changed = new_width != extracted_window.physical_size.x
+            || new_height != extracted_window.physical_size.y;
         extracted_window.present_mode_changed =
             window.present_mode != extracted_window.present_mode;
 
         if extracted_window.size_changed {
             debug!(
                 "Window size changed from {}x{} to {}x{}",
-                extracted_window.physical_width,
-                extracted_window.physical_height,
+                extracted_window.physical_size.x,
+                extracted_window.physical_size.y,
                 new_width,
                 new_height
             );
-            extracted_window.physical_width = new_width;
-            extracted_window.physical_height = new_height;
+            extracted_window.physical_size.x = new_width;
+            extracted_window.physical_size.y = new_height;
         }
 
         if extracted_window.present_mode_changed {
@@ -282,8 +281,8 @@ pub fn prepare_windows(
 
         let surface_configuration = wgpu::SurfaceConfiguration {
             format: surface_data.format,
-            width: window.physical_width,
-            height: window.physical_height,
+            width: window.physical_size.x,
+            height: window.physical_size.y,
             usage: TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
@@ -411,8 +410,7 @@ pub fn prepare_windows(
             let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("screenshot-transfer-buffer"),
                 size: screenshot::get_aligned_size(
-                    window.physical_width,
-                    window.physical_height,
+                    window.physical_size,
                     surface_data.format.pixel_size() as u32,
                 ) as u64,
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,

@@ -1,17 +1,24 @@
 //! Provides [`PhysicalSize`] and [`LogicalSize`] structs to help resolution calulations.
 
-use std::ops::Div;
+use std::ops::{Deref, DerefMut};
 
 use bevy_math::{UVec2, Vec2};
-use bevy_reflect::Reflect;
+use bevy_reflect::prelude::{Reflect, ReflectDefault};
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A width and height in physical pixels.
 #[derive(Reflect, Default, Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct PhysicalSize {
-    /// The width in physical pixels.
-    pub x: u32,
-    /// The height in physical pixels.
-    pub y: u32,
+    /// The extents in physical pixels.
+    pub extents: UVec2,
 }
 
 impl PhysicalSize {
@@ -19,8 +26,7 @@ impl PhysicalSize {
     #[inline]
     pub fn new(physical_width: u32, physical_height: u32) -> Self {
         Self {
-            x: physical_width,
-            y: physical_height,
+            extents: UVec2::new(physical_width, physical_height),
         }
     }
 
@@ -31,25 +37,45 @@ impl PhysicalSize {
     }
 }
 
-impl From<PhysicalSize> for UVec2 {
-    fn from(value: PhysicalSize) -> Self {
-        UVec2::new(value.x, value.y)
+impl Deref for PhysicalSize {
+    type Target = UVec2;
+
+    fn deref(&self) -> &Self::Target {
+        &self.extents
     }
 }
 
-impl From<PhysicalSize> for Vec2 {
-    fn from(value: PhysicalSize) -> Self {
-        Vec2::new(value.x as f32, value.y as f32)
+impl DerefMut for PhysicalSize {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.extents
+    }
+}
+
+impl From<(u32, u32)> for PhysicalSize {
+    fn from(value: (u32, u32)) -> Self {
+        PhysicalSize::new(value.0, value.1)
     }
 }
 
 /// A width and height in logical pixels.
 #[derive(Reflect, Default, Debug, Copy, Clone, PartialEq)]
 pub struct LogicalSize {
-    /// The width in logical pixels.
-    pub x: f32,
-    /// The height in logical pixels.
-    pub y: f32,
+    /// The extents in logical pixels.
+    pub extents: Vec2,
+}
+
+impl Deref for LogicalSize {
+    type Target = Vec2;
+
+    fn deref(&self) -> &Self::Target {
+        &self.extents
+    }
+}
+
+impl DerefMut for LogicalSize {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.extents
+    }
 }
 
 impl LogicalSize {
@@ -57,8 +83,7 @@ impl LogicalSize {
     #[inline]
     pub fn new(logical_width: f32, logical_height: f32) -> Self {
         Self {
-            x: logical_width,
-            y: logical_height,
+            extents: Vec2::new(logical_width, logical_height),
         }
     }
 
@@ -70,32 +95,10 @@ impl LogicalSize {
             (self.y * scale_factor) as u32,
         )
     }
-
-    /// Returns the minimum between either width or height.
-    #[inline]
-    pub fn min_element(self) -> f32 {
-        self.x.min(self.y)
-    }
-
-    /// Returns the maximum between either width or height.
-    #[inline]
-    pub fn max_element(self) -> f32 {
-        self.x.max(self.y)
-    }
 }
 
-impl From<LogicalSize> for Vec2 {
-    fn from(value: LogicalSize) -> Self {
-        Vec2::new(value.x, value.y)
-    }
-}
-
-impl Div<f32> for LogicalSize {
-    type Output = LogicalSize;
-    fn div(self, rhs: f32) -> Self::Output {
-        Self {
-            x: self.x.div(rhs),
-            y: self.y.div(rhs),
-        }
+impl From<(f32, f32)> for LogicalSize {
+    fn from(value: (f32, f32)) -> Self {
+        LogicalSize::new(value.0, value.1)
     }
 }

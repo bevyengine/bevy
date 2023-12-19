@@ -815,7 +815,6 @@ impl Clusters {
             requested_dimensions.x > 0 && requested_dimensions.y > 0 && requested_dimensions.z > 0
         );
 
-        let screen_size: UVec2 = screen_size.into();
         let tile_size = (screen_size.as_vec2() / requested_dimensions.xy().as_vec2())
             .ceil()
             .as_uvec2()
@@ -1042,8 +1041,7 @@ fn screen_to_view(
     screen: Vec2,
     ndc_z: f32,
 ) -> Vec4 {
-    let screen_size: Vec2 = screen_size.into();
-    let tex_coord = screen / screen_size;
+    let tex_coord = screen / screen_size.as_vec2();
     let clip = Vec4::new(
         tex_coord.x * 2.0 - 1.0,
         (1.0 - tex_coord.y) * 2.0 - 1.0,
