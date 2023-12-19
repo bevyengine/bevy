@@ -51,6 +51,18 @@ impl DerefMut for PhysicalSize {
     }
 }
 
+impl From<UVec2> for PhysicalSize {
+    fn from(value: UVec2) -> Self {
+        PhysicalSize::new(value.x, value.y)
+    }
+}
+
+impl From<[u32; 2]> for PhysicalSize {
+    fn from(value: [u32; 2]) -> Self {
+        PhysicalSize::new(value[0], value[1])
+    }
+}
+
 impl From<(u32, u32)> for PhysicalSize {
     fn from(value: (u32, u32)) -> Self {
         PhysicalSize::new(value.0, value.1)
@@ -100,6 +112,18 @@ impl LogicalSize {
             (self.x * scale_factor) as u32,
             (self.y * scale_factor) as u32,
         )
+    }
+}
+
+impl From<Vec2> for LogicalSize {
+    fn from(value: Vec2) -> Self {
+        LogicalSize::new(value.x, value.y)
+    }
+}
+
+impl From<[f32; 2]> for LogicalSize {
+    fn from(value: [f32; 2]) -> Self {
+        LogicalSize::new(value[0], value[1])
     }
 }
 
