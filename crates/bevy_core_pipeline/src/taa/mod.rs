@@ -168,7 +168,7 @@ impl Default for TemporalAntiAliasSettings {
 pub struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static TemporalAntiAliasHistoryTextures,
@@ -181,7 +181,7 @@ impl ViewNode for TemporalAntiAliasNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {

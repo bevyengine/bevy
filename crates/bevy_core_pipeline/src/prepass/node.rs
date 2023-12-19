@@ -26,7 +26,7 @@ use super::{AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, ViewPrepassTex
 pub struct PrepassNode;
 
 impl ViewNode for PrepassNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3dPrepass>,
         &'static RenderPhase<AlphaMask3dPrepass>,
@@ -46,7 +46,7 @@ impl ViewNode for PrepassNode {
             view_depth_texture,
             view_prepass_textures,
             deferred_prepass,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
