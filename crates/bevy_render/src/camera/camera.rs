@@ -520,7 +520,7 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
                 Some(RenderTargetInfo {
-                    physical_size: PhysicalSize::new(image.size().x, image.size().y),
+                    physical_size: image.size().into(),
                     scale_factor: 1.0,
                 })
             }
