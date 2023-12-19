@@ -288,6 +288,7 @@ fn setup(
     // Light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -324,6 +325,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 150.0,
         },
         FogSettings {
             color: Color::rgba_u8(43, 44, 47, 255),
