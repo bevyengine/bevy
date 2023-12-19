@@ -19,10 +19,10 @@ type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
 pub enum ReflectPathError<'a> {
     /// An error caused by trying to access a path that's not able to be accessed,
     /// see [access::Error] for details.
-    #[error("at {offset} in path specification: {error}")]
+    #[error("at {} in path specification: {error}", offset.map(|v| v.to_string()).unwrap_or("{unknown}".to_string()))]
     InvalidAccess {
         /// Position in the path string.
-        offset: usize,
+        offset: Option<usize>,
         /// The underlying error.
         error: access::Error<'a>,
     },
@@ -79,13 +79,13 @@ pub trait ReflectPath<'a>: Sized {
 impl<'a> ReflectPath<'a> for &'a str {
     fn reflect_element(self, mut root: &dyn Reflect) -> PathResult<'a, &dyn Reflect> {
         for (access, offset) in PathParser::new(self) {
-            root = access?.element(root, offset)?;
+            root = access?.element(root, Some(offset))?;
         }
         Ok(root)
     }
     fn reflect_element_mut(self, mut root: &mut dyn Reflect) -> PathResult<'a, &mut dyn Reflect> {
         for (access, offset) in PathParser::new(self) {
-            root = access?.element_mut(root, offset)?;
+            root = access?.element_mut(root, Some(offset))?;
         }
         Ok(root)
     }
@@ -275,11 +275,22 @@ pub trait GetPath: Reflect {
 // Implement `GetPath` for `dyn Reflect`
 impl<T: Reflect + ?Sized> GetPath for T {}
 
-/// An [`Access`] combined with an `offset` for extra context.
+/// An [`Access`] combined with an `offset` for improved error reporting.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct OffsetAccess {
-    access: Access<'static>,
-    offset: usize,
+    /// The [`Access`] itself.
+    pub access: Access<'static>,
+    /// A character offset in the string the path was parsed from.
+    pub offset: Option<usize>,
+}
+
+impl From<Access<'static>> for OffsetAccess {
+    fn from(access: Access<'static>) -> Self {
+        OffsetAccess {
+            access,
+            offset: None,
+        }
+    }
 }
 
 /// A pre-parsed path to an element within a type.
@@ -354,7 +365,7 @@ impl ParsedPath {
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {
                 access: access?.as_static(),
-                offset,
+                offset: Some(offset),
             });
         }
         Ok(Self(parts))
@@ -367,7 +378,7 @@ impl ParsedPath {
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {
                 access: access?,
-                offset,
+                offset: Some(offset),
             });
         }
         Ok(Self(parts))
@@ -387,9 +398,24 @@ impl<'a> ReflectPath<'a> for &'a ParsedPath {
         Ok(root)
     }
 }
-impl<I: Into<Vec<OffsetAccess>>> From<I> for ParsedPath {
-    fn from(value: I) -> Self {
-        ParsedPath(value.into())
+impl From<Vec<OffsetAccess>> for ParsedPath {
+    fn from(value: Vec<OffsetAccess>) -> Self {
+        ParsedPath(value)
+    }
+}
+impl<const N: usize> From<[OffsetAccess; N]> for ParsedPath {
+    fn from(value: [OffsetAccess; N]) -> Self {
+        ParsedPath(value.to_vec())
+    }
+}
+impl From<Vec<Access<'static>>> for ParsedPath {
+    fn from(value: Vec<Access<'static>>) -> Self {
+        ParsedPath(value.into_iter().map(|access| OffsetAccess { access, offset: None }).collect())
+    }
+}
+impl<const N: usize> From<[Access<'static>; N]> for ParsedPath {
+    fn from(value: [Access<'static>; N]) -> Self {
+        ParsedPath(value.into_iter().map(|access| OffsetAccess { access, offset: None }).collect())
     }
 }
 
@@ -476,7 +502,10 @@ mod tests {
     }
 
     fn offset(access: Access<'static>, offset: usize) -> OffsetAccess {
-        OffsetAccess { access, offset }
+        OffsetAccess {
+            access,
+            offset: Some(offset),
+        }
     }
 
     fn access_field(field: &'static str) -> Access {
@@ -496,7 +525,10 @@ mod tests {
             expected,
             access: ParsedPath::parse_static(access).unwrap()[1].access.clone(),
         };
-        ReflectPathError::InvalidAccess { offset, error }
+        ReflectPathError::InvalidAccess {
+            offset: Some(offset),
+            error,
+        }
     }
 
     #[test]
@@ -659,7 +691,7 @@ mod tests {
         assert_eq!(
             a.reflect_path("x.notreal").err().unwrap(),
             ReflectPathError::InvalidAccess {
-                offset: 2,
+                offset: Some(2),
                 error: access::Error::MissingAccess {
                     ty: TypeKind::Struct,
                     access: access_field("notreal"),
@@ -670,7 +702,7 @@ mod tests {
         assert_eq!(
             a.reflect_path("unit_variant.0").err().unwrap(),
             ReflectPathError::InvalidAccess {
-                offset: 13,
+                offset: Some(13),
                 error: access::Error::InvalidEnumVariant {
                     actual: VariantType::Unit,
                     expected: VariantType::Tuple,

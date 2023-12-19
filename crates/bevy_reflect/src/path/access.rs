@@ -8,7 +8,7 @@ use thiserror::Error;
 
 type InnerResult<'a, T> = Result<Option<T>, Error<'a>>;
 
-/// An error originating from an access of a reflected type.
+/// An error originating from an [`Access`] of a reflected type.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error<'a> {
     /// An error that occurs when a certain type doesn't
@@ -57,7 +57,7 @@ pub enum Error<'a> {
 }
 
 impl<'a> Error<'a> {
-    fn with_offset(self, offset: usize) -> ReflectPathError<'a> {
+    fn with_offset(self, offset: Option<usize>) -> ReflectPathError<'a> {
         ReflectPathError::InvalidAccess {
             offset,
             error: self,
@@ -193,7 +193,7 @@ impl<'a> Access<'a> {
     pub(super) fn element<'r>(
         &self,
         base: &'r dyn Reflect,
-        offset: usize,
+        offset: Option<usize>,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'a>> {
         let ty = base.reflect_ref().into();
         self.element_inner(base)
@@ -256,7 +256,7 @@ impl<'a> Access<'a> {
     pub(super) fn element_mut<'r>(
         &self,
         base: &'r mut dyn Reflect,
-        offset: usize,
+        offset: Option<usize>,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'a>> {
         let ty = base.reflect_ref().into();
         self.element_inner_mut(base)
