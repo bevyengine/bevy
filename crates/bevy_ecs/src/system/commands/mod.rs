@@ -570,7 +570,10 @@ impl<'w, 's> Commands<'w, 's> {
     ) -> SystemId<I, O> {
         let entity = self.spawn_empty().id();
         self.queue.push(RegisterSystem::new(system, entity));
-        SystemId(entity, std::marker::PhantomData)
+        SystemId {
+            entity,
+            marker: std::marker::PhantomData,
+        }
     }
 
     /// Pushes a generic [`Command`] to the command queue.
