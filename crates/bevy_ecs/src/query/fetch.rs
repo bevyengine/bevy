@@ -1117,7 +1117,7 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// # Footguns
 ///
 /// Note that a `Query<Has<T>>` will match all existing entities.
-/// Beware! Even if it matches all entites, it doesn't mean that `query.get(entity)`
+/// Beware! Even if it matches all entities, it doesn't mean that `query.get(entity)`
 /// will always return `Ok(bool)`.
 ///
 /// In the case of a non-existent entity, such as a despawned one, it will return `Err`.
