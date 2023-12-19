@@ -192,6 +192,19 @@ impl Default for PerspectiveProjection {
     }
 }
 
+/// Scaling mode for [`OrthographicProjection`].
+///
+/// # Examples
+///
+/// Configure the orthographic projection to two world units per window height:
+///
+/// ```
+/// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
+/// let projection = Projection::Orthographic(OrthographicProjection {
+///    scaling_mode: ScalingMode::FixedVertical(2.0),
+///    ..OrthographicProjection::default()
+/// });
+/// ```
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
@@ -223,6 +236,18 @@ pub enum ScalingMode {
 ///
 /// Note that the scale of the projection and the apparent size of objects are inversely proportional.
 /// As the size of the projection increases, the size of objects decreases.
+///
+/// # Examples
+///
+/// Configure the orthographic projection to one world unit per 100 window pixels:
+///
+/// ```
+/// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
+/// let projection = Projection::Orthographic(OrthographicProjection {
+///     scaling_mode: ScalingMode::WindowSize(100.0),
+///     ..OrthographicProjection::default()
+/// });
+/// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
