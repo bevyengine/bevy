@@ -255,12 +255,6 @@ pub struct OrthographicProjection {
     ///
     /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
-    /// Scales the projection in world units.
-    ///
-    /// As scale increases, the apparent size of objects decreases, and vice versa.
-    ///
-    /// Defaults to `1.0`
-    pub scale: f32,
     /// The area that the projection covers relative to `viewport_origin`.
     ///
     /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
@@ -325,10 +319,10 @@ impl CameraProjection for OrthographicProjection {
         let origin_y = projection_height * self.viewport_origin.y;
 
         self.area = Rect::new(
-            self.scale * -origin_x,
-            self.scale * -origin_y,
-            self.scale * (projection_width - origin_x),
-            self.scale * (projection_height - origin_y),
+            -origin_x,
+            -origin_y,
+            projection_width - origin_x,
+            projection_height - origin_y,
         );
     }
 
@@ -355,7 +349,6 @@ impl CameraProjection for OrthographicProjection {
 impl Default for OrthographicProjection {
     fn default() -> Self {
         OrthographicProjection {
-            scale: 1.0,
             near: 0.0,
             far: 1000.0,
             viewport_origin: Vec2::new(0.5, 0.5),
