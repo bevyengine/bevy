@@ -630,7 +630,7 @@ impl Default for WindowResolution {
 }
 
 impl WindowResolution {
-    /// Creates a new [`WindowResolution`].
+    /// Creates a new [`WindowResolution`] with a scale factor of 1.0.
     pub fn new(logical_size: LogicalSize) -> Self {
         Self {
             physical_width: logical_size.x as u32,

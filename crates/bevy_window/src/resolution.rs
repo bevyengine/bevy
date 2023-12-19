@@ -5,7 +5,7 @@ use std::ops::Div;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::Reflect;
 
-/// A [`PhysicalSize`] is the width and height using physical pixels.
+/// A width and height in physical pixels.
 #[derive(Reflect, Default, Debug, Copy, Clone, PartialEq)]
 pub struct PhysicalSize {
     /// The width in physical pixels.
@@ -43,12 +43,12 @@ impl From<PhysicalSize> for Vec2 {
     }
 }
 
-/// A [`LogicalSize`] is the width and height using logical pixels
+/// A width and height in logical pixels.
 #[derive(Reflect, Default, Debug, Copy, Clone, PartialEq)]
 pub struct LogicalSize {
-    /// The width in logical pixels
+    /// The width in logical pixels.
     pub x: f32,
-    /// The height in logical pixels
+    /// The height in logical pixels.
     pub y: f32,
 }
 
