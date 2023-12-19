@@ -10,7 +10,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
 
-use crate::{CursorIcon, LogicalSize};
+use crate::{CursorIcon, LogicalSize, PhysicalSize};
 
 /// Marker [`Component`] for the window considered the primary window.
 ///
@@ -604,10 +604,8 @@ impl WindowPosition {
 )]
 #[reflect(Debug, PartialEq, Default)]
 pub struct WindowResolution {
-    /// Width of the window in physical pixels.
-    physical_width: u32,
-    /// Height of the window in physical pixels.
-    physical_height: u32,
+    /// Size of the window in physical pixels.
+    physical_size: PhysicalSize,
     /// Code-provided ratio of physical size to logical size.
     ///
     /// Should be used instead of `scale_factor` when set.
@@ -621,8 +619,7 @@ pub struct WindowResolution {
 impl Default for WindowResolution {
     fn default() -> Self {
         WindowResolution {
-            physical_width: 1280,
-            physical_height: 720,
+            physical_size: PhysicalSize::new(1280, 720),
             scale_factor_override: None,
             scale_factor: 1.0,
         }
@@ -633,8 +630,7 @@ impl WindowResolution {
     /// Creates a new [`WindowResolution`] with a scale factor of 1.0.
     pub fn new(logical_size: LogicalSize) -> Self {
         Self {
-            physical_width: logical_size.x as u32,
-            physical_height: logical_size.y as u32,
+            physical_size: logical_size.to_physical(1.0),
             ..Default::default()
         }
     }
@@ -648,25 +644,25 @@ impl WindowResolution {
     /// The window's client area width in logical pixels.
     #[inline]
     pub fn width(&self) -> f32 {
-        self.physical_width() as f32 / self.scale_factor()
+        self.physical_size.to_logical(self.scale_factor).x
     }
 
     /// The window's client area height in logical pixels.
     #[inline]
     pub fn height(&self) -> f32 {
-        self.physical_height() as f32 / self.scale_factor()
+        self.physical_size.to_logical(self.scale_factor).y
     }
 
     /// The window's client area width in physical pixels.
     #[inline]
     pub fn physical_width(&self) -> u32 {
-        self.physical_width
+        self.physical_size.x
     }
 
     /// The window's client area height in physical pixels.
     #[inline]
     pub fn physical_height(&self) -> u32 {
-        self.physical_height
+        self.physical_size.y
     }
 
     /// The ratio of physical pixels to logical pixels.
@@ -708,8 +704,8 @@ impl WindowResolution {
     /// prefer to use [`WindowResolution::set`].
     #[inline]
     pub fn set_physical_resolution(&mut self, width: u32, height: u32) {
-        self.physical_width = width;
-        self.physical_height = height;
+        self.physical_size.x = width;
+        self.physical_size.y = height;
     }
 
     /// Set the window's scale factor, this may get overridden by the backend.
