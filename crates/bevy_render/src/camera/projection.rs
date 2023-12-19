@@ -251,7 +251,7 @@ pub struct OrthographicProjection {
     /// Defaults to `(0.5, 0.5)`, which makes scaling affect opposite sides equally, keeping the center
     /// point of the viewport centered.
     pub viewport_origin: Vec2,
-    /// How the projection will scale when the viewport is resized.
+    /// How the projection will scale to the viewport.
     ///
     /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
