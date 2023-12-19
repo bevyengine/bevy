@@ -364,7 +364,7 @@ impl ParsedPath {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {
-                access: access?.as_static(),
+                access: access?.into_owned(),
                 offset: Some(offset),
             });
         }
@@ -709,7 +709,7 @@ mod tests {
             ReflectPathError::InvalidAccess {
                 offset: Some(2),
                 error: access::Error::MissingAccess {
-                    ty: TypeKind::Struct,
+                    kind: TypeKind::Struct,
                     access: access_field("notreal"),
                 },
             }

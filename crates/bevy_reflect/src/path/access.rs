@@ -14,14 +14,14 @@ pub enum Error<'a> {
     /// An error that occurs when a certain type doesn't
     /// contain the value contained in the [`Access`].
     #[error(
-        "the current {ty} doesn't have the {} {}",
+        "the current {kind} doesn't have the {} {}",
         access.kind(),
         access.display_value(),
     )]
     MissingAccess {
-        /// The type of the object being accessed.
-        ty: TypeKind,
-        /// The [`Access`] used on the object.
+        /// The kind of the type being accessed.
+        kind: TypeKind,
+        /// The [`Access`] used on the type.
         access: Access<'a>,
     },
 
@@ -161,12 +161,12 @@ impl fmt::Display for Access<'_> {
 }
 
 impl<'a> Access<'a> {
+    /// Converts this into an "owned" value.
+    ///
     /// If the [`Access`] is of variant [`Field`](Access::Field),
     /// the field's [`Cow<str>`] will be converted to it's owned
-    /// counterpart, which doesn't require a lifetime.
-    ///
-    /// Otherwise does nothing.
-    pub fn as_static(self) -> Access<'static> {
+    /// counterpart, which doesn't require a reference.
+    pub fn into_owned(self) -> Access<'static> {
         match self {
             Self::Field(value) => Access::Field(Cow::Owned(value.to_string())),
             Self::FieldIndex(value) => Access::FieldIndex(value),
@@ -195,11 +195,11 @@ impl<'a> Access<'a> {
         base: &'r dyn Reflect,
         offset: Option<usize>,
     ) -> Result<&'r dyn Reflect, ReflectPathError<'a>> {
-        let ty = base.reflect_ref().into();
+        let kind = base.reflect_ref().into();
         self.element_inner(base)
             .and_then(|maybe| {
                 maybe.ok_or(Error::MissingAccess {
-                    ty,
+                    kind,
                     access: self.clone(),
                 })
             })
@@ -258,11 +258,11 @@ impl<'a> Access<'a> {
         base: &'r mut dyn Reflect,
         offset: Option<usize>,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'a>> {
-        let ty = base.reflect_ref().into();
+        let kind = base.reflect_ref().into();
         self.element_inner_mut(base)
             .and_then(|maybe| {
                 maybe.ok_or(Error::MissingAccess {
-                    ty,
+                    kind,
                     access: self.clone(),
                 })
             })
