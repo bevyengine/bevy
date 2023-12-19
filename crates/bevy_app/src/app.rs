@@ -423,10 +423,10 @@ impl App {
     ///
     /// It's possible to register the same systems more than once, they'll be stored separately.
     ///
-    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// This is different from adding systems to a [`Schedule`](bevy_ecs::schedule::Schedule),
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
     /// This allows for running systems in a push-based fashion.
-    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// Using a [`Schedule`](bevy_ecs::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
     pub fn register_one_shot_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
