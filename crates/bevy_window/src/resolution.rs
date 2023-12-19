@@ -59,6 +59,12 @@ impl From<(u32, u32)> for PhysicalSize {
 
 /// A width and height in logical pixels.
 #[derive(Reflect, Default, Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct LogicalSize {
     /// The extents in logical pixels.
     pub extents: Vec2,
