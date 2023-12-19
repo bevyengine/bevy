@@ -168,7 +168,7 @@ impl<'a> Access<'a> {
     /// counterpart, which doesn't require a reference.
     pub fn into_owned(self) -> Access<'static> {
         match self {
-            Self::Field(value) => Access::Field(Cow::Owned(value.to_string())),
+            Self::Field(value) => Access::Field(Cow::Owned(value.into_owned())),
             Self::FieldIndex(value) => Access::FieldIndex(value),
             Self::TupleIndex(value) => Access::TupleIndex(value),
             Self::ListIndex(value) => Access::ListIndex(value),
