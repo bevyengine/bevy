@@ -8,7 +8,7 @@ use bevy_reflect::Reflect;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use crate::WindowTheme;
+use crate::{LogicalSize, WindowTheme};
 
 /// A window event that is sent whenever a window's logical size has changed.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
@@ -21,10 +21,8 @@ use crate::WindowTheme;
 pub struct WindowResized {
     /// Window that has changed.
     pub window: Entity,
-    /// The new logical width of the window.
-    pub width: f32,
-    /// The new logical height of the window.
-    pub height: f32,
+    /// The new logical size of the window.
+    pub size: LogicalSize,
 }
 
 /// An event that indicates all of the application's windows should be redrawn,

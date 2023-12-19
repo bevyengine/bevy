@@ -6,6 +6,7 @@ use bevy_ecs::prelude::*;
 use bevy_log::{error, info, info_span};
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
+use bevy_window::PhysicalSize;
 use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
@@ -175,15 +176,18 @@ pub(crate) fn align_byte_size(value: u32) -> u32 {
     value + (COPY_BYTES_PER_ROW_ALIGNMENT - (value % COPY_BYTES_PER_ROW_ALIGNMENT))
 }
 
-pub(crate) fn get_aligned_size(width: u32, height: u32, pixel_size: u32) -> u32 {
-    height * align_byte_size(width * pixel_size)
+pub(crate) fn get_aligned_size(physical_size: PhysicalSize, pixel_size: u32) -> u32 {
+    physical_size.y * align_byte_size(physical_size.x * pixel_size)
 }
 
-pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> ImageDataLayout {
+pub(crate) fn layout_data(physical_size: PhysicalSize, format: TextureFormat) -> ImageDataLayout {
     ImageDataLayout {
-        bytes_per_row: if height > 1 {
+        bytes_per_row: if physical_size.y > 1 {
             // 1 = 1 row
-            Some(get_aligned_size(width, 1, format.pixel_size() as u32))
+            Some(get_aligned_size(
+                (physical_size.x, 1).into(),
+                format.pixel_size() as u32,
+            ))
         } else {
             None
         },
@@ -260,19 +264,17 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
 
     for window in windows.values() {
         if let Some(memory) = &window.screenshot_memory {
-            let width = window.physical_width;
-            let height = window.physical_height;
             let texture_format = window.swap_chain_texture_format.unwrap();
 
             encoder.copy_texture_to_buffer(
                 memory.texture.as_image_copy(),
                 wgpu::ImageCopyBuffer {
                     buffer: &memory.buffer,
-                    layout: layout_data(width, height, texture_format),
+                    layout: layout_data(window.physical_size, texture_format),
                 },
                 Extent3d {
-                    width,
-                    height,
+                    width: window.physical_size.x,
+                    height: window.physical_size.y,
                     ..Default::default()
                 },
             );
@@ -311,8 +313,8 @@ pub(crate) fn collect_screenshots(world: &mut World) {
     let mut windows = world.resource_mut::<ExtractedWindows>();
     for window in windows.values_mut() {
         if let Some(screenshot_func) = window.screenshot_func.take() {
-            let width = window.physical_width;
-            let height = window.physical_height;
+            let width = window.physical_size.x;
+            let height = window.physical_size.y;
             let texture_format = window.swap_chain_texture_format.unwrap();
             let pixel_size = texture_format.pixel_size();
             let ScreenshotPreparedState { buffer, .. } = window.screenshot_memory.take().unwrap();

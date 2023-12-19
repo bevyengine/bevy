@@ -87,6 +87,6 @@ fn on_resize_system(
     let mut text = q.single_mut();
     for e in resize_reader.read() {
         // When resolution is being changed
-        text.sections[0].value = format!("{:.1} x {:.1}", e.width, e.height);
+        text.sections[0].value = format!("{:.1} x {:.1}", e.size.x, e.size.y);
     }
 }

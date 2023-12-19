@@ -38,7 +38,7 @@ use bevy_utils::{
 };
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
-    FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
+    FileDragAndDrop, Ime, LogicalSize, PhysicalSize, ReceivedCharacter, RequestRedraw, Window,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
     WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
     WindowThemeChanged,
@@ -524,8 +524,7 @@ pub fn winit_runner(mut app: App) {
 
                         event_writers.window_resized.send(WindowResized {
                             window: window_entity,
-                            width: window.width(),
-                            height: window.height(),
+                            size: LogicalSize::new(window.width(), window.height()),
                         });
                     }
                     WindowEvent::CloseRequested => {
@@ -640,15 +639,15 @@ pub fn winit_runner(mut app: App) {
                             );
                         }
 
-                        let new_logical_width = new_inner_size.width as f32 / new_factor;
-                        let new_logical_height = new_inner_size.height as f32 / new_factor;
-                        if approx::relative_ne!(window.width(), new_logical_width)
-                            || approx::relative_ne!(window.height(), new_logical_height)
+                        let new_logical_size =
+                            PhysicalSize::new(new_inner_size.width, new_inner_size.height)
+                                .to_logical(new_factor);
+                        if approx::relative_ne!(window.width(), new_logical_size.x)
+                            || approx::relative_ne!(window.height(), new_logical_size.y)
                         {
                             event_writers.window_resized.send(WindowResized {
                                 window: window_entity,
-                                width: new_logical_width,
-                                height: new_logical_height,
+                                size: new_logical_size,
                             });
                         }
                         window
