@@ -84,7 +84,7 @@ impl Plugin for ViewPlugin {
 ///     .run();
 /// ```
 #[derive(
-    Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
+    Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, Eq, PartialOrd, Ord, Debug,
 )]
 #[reflect(Resource)]
 pub enum Msaa {
