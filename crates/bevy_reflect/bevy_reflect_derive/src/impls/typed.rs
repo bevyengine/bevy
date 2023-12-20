@@ -1,3 +1,5 @@
+use std::iter;
+
 use crate::utility::{extend_where_clause, StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 
@@ -48,10 +50,9 @@ pub(crate) enum TypedProperty {
     TypePath,
 }
 
-pub(crate) fn impl_type_path(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
-) -> proc_macro2::TokenStream {
+pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+    let where_clause_options = &WhereClauseOptions::new(meta, iter::empty(), iter::empty());
+
     if !meta.traits().type_path_attrs().should_auto_derive() {
         return proc_macro2::TokenStream::new();
     }

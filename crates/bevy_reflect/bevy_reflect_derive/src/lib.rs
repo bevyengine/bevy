@@ -39,7 +39,6 @@ use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
-use utility::WhereClauseOptions;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
@@ -286,7 +285,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
     let type_path_impl = impls::impl_type_path(
         derive_data.meta(),
         // Use `WhereClauseOptions::new_value` here so we don't enforce reflection bounds
-        &WhereClauseOptions::new_value(derive_data.meta()),
+        // &WhereClauseOptions::new_value(derive_data.meta()),
     );
 
     TokenStream::from(quote! {
@@ -613,7 +612,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(type_path, ReflectTraits::default());
 
-    let type_path_impl = impls::impl_type_path(&meta, &WhereClauseOptions::new_value(&meta));
+    let type_path_impl = impls::impl_type_path(&meta);
 
     TokenStream::from(quote! {
         const _: () = {
