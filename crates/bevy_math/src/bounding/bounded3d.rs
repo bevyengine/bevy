@@ -10,6 +10,7 @@ pub trait Bounded3d {
 }
 
 /// A 3D axis-aligned bounding box
+#[derive(Clone, Debug)]
 pub struct Aabb3d {
     /// The minimum point of the box
     min: Vec3,
@@ -19,7 +20,7 @@ pub struct Aabb3d {
 
 impl BoundingVolume for Aabb3d {
     type Position = Vec3;
-    type Padding = (Vec3, Vec3);
+    type Padding = Vec3;
 
     #[inline(always)]
     fn center(&self) -> Self::Position {
@@ -53,8 +54,8 @@ impl BoundingVolume for Aabb3d {
     #[inline(always)]
     fn padded(&self, amount: Self::Padding) -> Self {
         let b = Self {
-            min: self.min - amount.0,
-            max: self.max + amount.1,
+            min: self.min - amount,
+            max: self.max + amount,
         };
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y && b.min.z <= b.max.z);
         b
@@ -63,8 +64,8 @@ impl BoundingVolume for Aabb3d {
     #[inline(always)]
     fn shrunk(&self, amount: Self::Padding) -> Self {
         let b = Self {
-            min: self.min + amount.0,
-            max: self.max - amount.1,
+            min: self.min + amount,
+            max: self.max - amount,
         };
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y && b.min.z <= b.max.z);
         b
@@ -147,9 +148,9 @@ mod aabb3d_tests {
             min: Vec3::new(-1., -1., -1.),
             max: Vec3::new(1., 1., 1.),
         };
-        let padded = a.padded((Vec3::ONE, Vec3::Y));
+        let padded = a.padded(Vec3::ONE);
         assert!((padded.min - Vec3::new(-2., -2., -2.)).length() < std::f32::EPSILON);
-        assert!((padded.max - Vec3::new(1., 2., 1.)).length() < std::f32::EPSILON);
+        assert!((padded.max - Vec3::new(2., 2., 2.)).length() < std::f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -157,12 +158,12 @@ mod aabb3d_tests {
     #[test]
     fn shrunk() {
         let a = Aabb3d {
-            min: Vec3::new(-1., -1., -1.),
-            max: Vec3::new(1., 1., 1.),
+            min: Vec3::new(-2., -2., -2.),
+            max: Vec3::new(2., 2., 2.),
         };
-        let shrunk = a.shrunk((Vec3::ONE, Vec3::Y));
-        assert!((shrunk.min - Vec3::new(-0., -0., -0.)).length() < std::f32::EPSILON);
-        assert!((shrunk.max - Vec3::new(1., 0., 1.)).length() < std::f32::EPSILON);
+        let shrunk = a.shrunk(Vec3::ONE);
+        assert!((shrunk.min - Vec3::new(-1., -1., -1.)).length() < std::f32::EPSILON);
+        assert!((shrunk.max - Vec3::new(1., 1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -171,7 +172,7 @@ mod aabb3d_tests {
 use crate::primitives::Sphere;
 
 /// A bounding sphere
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BoundingSphere {
     /// The center of the bounding sphere
     center: Vec3,
@@ -286,7 +287,7 @@ mod bounding_sphere_tests {
 
     #[test]
     fn merged() {
-        // When merging two circles that don't contain eachother, we find a center position that
+        // When merging two circles that don't contain each other, we find a center position that
         // contains both
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let b = BoundingSphere::new(Vec3::new(1., 1., -4.), 1.);

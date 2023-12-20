@@ -6,18 +6,26 @@
 //! - [`Bounded2d`]/[`Bounded3d`] are abstractions for shapes to generate [`BoundingVolume`]s
 
 /// A trait that generalizes different bounding volumes.
-/// It supports both 2D and 3D bounding shapes.
+/// Bounding volumes are simplified shapes that are used to get simpler ways to check for
+/// overlapping elements or finding intersections.
+///
+/// This trait supports both 2D and 3D bounding shapes.
 pub trait BoundingVolume {
     /// The position type used for the volume. This should be `Vec2` for 2D and `Vec3` for 3D.
     type Position: Clone + Copy + PartialEq;
-    /// The type used for the `padded` and `shrunk` methods. For example, a `f32` radius for
+    /// The type used for the `padded` and `shrunk` methods. For example, an `f32` radius for
     /// circles and spheres.
     type Padding;
 
     /// Returns the center of the bounding volume.
     fn center(&self) -> Self::Position;
 
-    /// Computes the maximum surface area of the bounding volume that is visible from any angle.
+    /// Computes the visible surface area of the bounding volume.
+    /// This method can be useful to make decisions about merging bounding volumes,
+    /// using a Surface Area Heuristics.
+    ///
+    /// For 2D shapes this would simply be the area of the shape.
+    /// For 3D shapes this would usually be half the area of the shape.
     fn visible_area(&self) -> f32;
 
     /// Checks if this bounding volume contains another one.
@@ -26,14 +34,18 @@ pub trait BoundingVolume {
     /// Computes the smallest bounding volume that contains both `self` and `other`.
     fn merged(&self, other: &Self) -> Self;
 
-    /// Increases the size of this bounding volume by the given amount.
+    /// Expand the bounding volume in each direction by the given amount
     fn padded(&self, amount: Self::Padding) -> Self;
 
-    /// Decreases the size of this bounding volume by the given amount.
+    /// Shrink the bounding volume in each direction by the given amount
     fn shrunk(&self, amount: Self::Padding) -> Self;
 }
 
-/// A trait that generalizes intersection tests against a volume
+/// A trait that generalizes intersection tests against a volume.
+/// Intersection tests can take many shapes, for example:
+/// - Raycasting
+/// - Testing for overlap
+/// - Checking if an object is within the view frustum of a camera
 pub trait IntersectsVolume<Volume: BoundingVolume> {
     /// Check if a volume intersects with this intersection test
     fn intersects(&self, volume: &Volume) -> bool;

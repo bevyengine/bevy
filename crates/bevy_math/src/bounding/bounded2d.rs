@@ -2,7 +2,6 @@ use super::BoundingVolume;
 use crate::prelude::Vec2;
 
 /// A trait with methods that return 2D bounded volumes for a shape
-#[doc(alias = "BoundingRectangle")]
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
     /// The rotation is in radians, clockwise, with 0 meaning no rotation.
@@ -12,6 +11,8 @@ pub trait Bounded2d {
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
+#[doc(alias = "BoundingRectangle")]
+#[derive(Clone, Debug)]
 pub struct Aabb2d {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
@@ -21,7 +22,7 @@ pub struct Aabb2d {
 
 impl BoundingVolume for Aabb2d {
     type Position = Vec2;
-    type Padding = (Vec2, Vec2);
+    type Padding = Vec2;
 
     #[inline(always)]
     fn center(&self) -> Self::Position {
@@ -53,8 +54,8 @@ impl BoundingVolume for Aabb2d {
     #[inline(always)]
     fn padded(&self, amount: Self::Padding) -> Self {
         let b = Self {
-            min: self.min - amount.0,
-            max: self.max + amount.1,
+            min: self.min - amount,
+            max: self.max + amount,
         };
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
         b
@@ -63,8 +64,8 @@ impl BoundingVolume for Aabb2d {
     #[inline(always)]
     fn shrunk(&self, amount: Self::Padding) -> Self {
         let b = Self {
-            min: self.min + amount.0,
-            max: self.max - amount.1,
+            min: self.min + amount,
+            max: self.max - amount,
         };
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
         b
@@ -147,9 +148,9 @@ mod aabb2d_tests {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
-        let padded = a.padded((Vec2::ONE, Vec2::Y));
+        let padded = a.padded(Vec2::ONE);
         assert!((padded.min - Vec2::new(-2., -2.)).length() < std::f32::EPSILON);
-        assert!((padded.max - Vec2::new(1., 2.)).length() < std::f32::EPSILON);
+        assert!((padded.max - Vec2::new(2., 2.)).length() < std::f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -157,12 +158,12 @@ mod aabb2d_tests {
     #[test]
     fn shrunk() {
         let a = Aabb2d {
-            min: Vec2::new(-1., -1.),
-            max: Vec2::new(1., 1.),
+            min: Vec2::new(-2., -2.),
+            max: Vec2::new(2., 2.),
         };
-        let shrunk = a.shrunk((Vec2::ONE, Vec2::Y));
-        assert!((shrunk.min - Vec2::new(-0., -0.)).length() < std::f32::EPSILON);
-        assert!((shrunk.max - Vec2::new(1., 0.)).length() < std::f32::EPSILON);
+        let shrunk = a.shrunk(Vec2::ONE);
+        assert!((shrunk.min - Vec2::new(-1., -1.)).length() < std::f32::EPSILON);
+        assert!((shrunk.max - Vec2::new(1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -171,7 +172,7 @@ mod aabb2d_tests {
 use crate::primitives::Circle;
 
 /// A bounding circle
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,
@@ -277,7 +278,7 @@ mod bounding_circle_tests {
 
     #[test]
     fn merged() {
-        // When merging two circles that don't contain eachother, we find a center position that
+        // When merging two circles that don't contain each other, we find a center position that
         // contains both
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let b = BoundingCircle::new(Vec2::new(1., -4.), 1.);
