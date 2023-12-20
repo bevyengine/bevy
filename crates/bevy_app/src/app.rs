@@ -351,7 +351,7 @@ impl App {
         self.plugins_state = PluginsState::Cleaned;
     }
 
-    /// Initializes a [`State`] from its [`Default`] state.
+    /// Initializes a [`State`] with standard starting values.
     ///
     /// If the [`State`] already exists, nothing happens.
     ///
@@ -367,7 +367,7 @@ impl App {
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
-    pub fn init_state<S: States>(&mut self) -> &mut Self {
+    pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
