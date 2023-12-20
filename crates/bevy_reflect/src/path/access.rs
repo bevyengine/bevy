@@ -8,7 +8,7 @@ use thiserror::Error;
 
 type InnerResult<'a, T> = Result<Option<T>, Error<'a>>;
 
-/// An error originating from an [`Access`] of a reflected type.
+/// An error originating from an [`Access`] of an element within a type.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error<'a> {
     /// An error that occurs when a certain type doesn't
@@ -135,6 +135,7 @@ impl From<VariantType> for TypeKind {
 }
 
 /// A singular element access within a path.
+/// Multiple accesses can be combined into a [`ParsedPath`](super::ParsedPath).
 ///
 /// Can be applied to a [`dyn Reflect`](Reflect) to get a reference to the targeted element.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

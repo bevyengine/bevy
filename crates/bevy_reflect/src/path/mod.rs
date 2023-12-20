@@ -275,7 +275,7 @@ pub trait GetPath: Reflect {
 // Implement `GetPath` for `dyn Reflect`
 impl<T: Reflect + ?Sized> GetPath for T {}
 
-/// An [`Access`] combined with an `offset` for improved error reporting.
+/// An [`Access`] combined with an `offset` for more helpful error reporting.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct OffsetAccess {
     /// The [`Access`] itself.
@@ -301,16 +301,53 @@ impl From<Access<'static>> for OffsetAccess {
 /// This struct may be used like [`GetPath`] but removes the cost of parsing the path
 /// string at each element access.
 ///
-/// It's recommended to use this in place of `GetPath` when the path string is
+/// It's recommended to use this in place of [`GetPath`] when the path string is
 /// unlikely to be changed and will be accessed repeatedly.
+///
+/// ## Examples
+///
+/// Parsing a [`&'static str`](str):
+/// ```
+/// # use bevy_reflect::ParsedPath;
+/// let my_static_string: &'static str = "bar#0.1[2].0";
+/// // Breakdown:
+/// //   "bar" - Access struct field named "bar"
+/// //   "#0" - Access struct field at index 0
+/// //   ".1" - Access tuple struct field at index 1
+/// //   "[2]" - Access list element at index 2
+/// //   ".0" - Access tuple variant field at index 0
+/// let my_path = ParsedPath::parse_static(my_static_string);
+/// ```
+/// Parsing a non-static [`&str`](str):
+/// ```
+/// # use bevy_reflect::ParsedPath;
+/// let my_string = String::from("bar#0.1[2].0");
+/// // Breakdown:
+/// //   "bar" - Access struct field named "bar"
+/// //   "#0" - Access struct field at index 0
+/// //   ".1" - Access tuple struct field at index 1
+/// //   "[2]" - Access list element at index 2
+/// //   ".0" - Access tuple variant field at index 0
+/// let my_path = ParsedPath::parse(&my_string);
+/// ```
+/// Manually constructing a [`ParsedPath`]:
+/// ```
+/// # use std::borrow::Cow;
+/// # use bevy_reflect::access::Access;
+/// # use bevy_reflect::ParsedPath;
+/// let path_elements = [
+///     Access::Field(Cow::Borrowed("bar")),
+///     Access::FieldIndex(0),
+///     Access::TupleIndex(1),
+///     Access::ListIndex(2),
+///     Access::TupleIndex(1),
+/// ];
+/// let my_path = ParsedPath::from(path_elements);
+/// ```
+///
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct ParsedPath(
-    /// This is a vector of pre-parsed accesses.
-    ///
-    /// Each item in the slice contains the access along with the character
-    /// index of the start of the access within the parsed path string.
-    ///
-    /// The index is mainly used for more helpful error reporting.
+    /// This is a vector of pre-parsed [`OffsetAccess`]es.
     pub Vec<OffsetAccess>,
 );
 
