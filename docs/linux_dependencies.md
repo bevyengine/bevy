@@ -190,3 +190,18 @@ If you have issues with `winit` such as `Failed to initialize backend!` or simil
 [build]
 rustflags = ["-C", "target-feature=-crt-static"]
 ```
+
+## [Solus](https://getsol.us)
+
+```sh
+sudo eopkg it -c system.devel
+sudo eopkg it g++ libx11-devel alsa-lib-devel
+```
+
+If using Wayland, you may also need to install
+
+```sh
+sudo eopkg it wayland-devel libxkbcommon-devel
+```
+
+Compiling with clang is also possible - replace the `g++` package with `llvm-clang`

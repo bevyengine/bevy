@@ -304,7 +304,7 @@ impl App {
         }
 
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
-        (runner)(app);
+        runner(app);
     }
 
     /// Check the state of all plugins already added to this app. This is usually called by the

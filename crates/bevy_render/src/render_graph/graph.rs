@@ -755,28 +755,33 @@ mod tests {
         graph.add_slot_edge("C", 0, "D", 0);
 
         assert!(input_nodes("A", &graph).is_empty(), "A has no inputs");
-        assert!(
-            output_nodes("A", &graph) == HashSet::from_iter(vec![c_id]),
+        assert_eq!(
+            output_nodes("A", &graph),
+            HashSet::from_iter(vec![c_id]),
             "A outputs to C"
         );
 
         assert!(input_nodes("B", &graph).is_empty(), "B has no inputs");
-        assert!(
-            output_nodes("B", &graph) == HashSet::from_iter(vec![c_id]),
+        assert_eq!(
+            output_nodes("B", &graph),
+            HashSet::from_iter(vec![c_id]),
             "B outputs to C"
         );
 
-        assert!(
-            input_nodes("C", &graph) == HashSet::from_iter(vec![a_id, b_id]),
+        assert_eq!(
+            input_nodes("C", &graph),
+            HashSet::from_iter(vec![a_id, b_id]),
             "A and B input to C"
         );
-        assert!(
-            output_nodes("C", &graph) == HashSet::from_iter(vec![d_id]),
+        assert_eq!(
+            output_nodes("C", &graph),
+            HashSet::from_iter(vec![d_id]),
             "C outputs to D"
         );
 
-        assert!(
-            input_nodes("D", &graph) == HashSet::from_iter(vec![c_id]),
+        assert_eq!(
+            input_nodes("D", &graph),
+            HashSet::from_iter(vec![c_id]),
             "C inputs to D"
         );
         assert!(output_nodes("D", &graph).is_empty(), "D has no outputs");
@@ -880,20 +885,24 @@ mod tests {
 
         graph.add_node_edges(&["A", "B", "C"]);
 
-        assert!(
-            output_nodes("A", &graph) == HashSet::from_iter(vec![b_id]),
+        assert_eq!(
+            output_nodes("A", &graph),
+            HashSet::from_iter(vec![b_id]),
             "A -> B"
         );
-        assert!(
-            input_nodes("B", &graph) == HashSet::from_iter(vec![a_id]),
+        assert_eq!(
+            input_nodes("B", &graph),
+            HashSet::from_iter(vec![a_id]),
             "A -> B"
         );
-        assert!(
-            output_nodes("B", &graph) == HashSet::from_iter(vec![c_id]),
+        assert_eq!(
+            output_nodes("B", &graph),
+            HashSet::from_iter(vec![c_id]),
             "B -> C"
         );
-        assert!(
-            input_nodes("C", &graph) == HashSet::from_iter(vec![b_id]),
+        assert_eq!(
+            input_nodes("C", &graph),
+            HashSet::from_iter(vec![b_id]),
             "B -> C"
         );
     }

@@ -1675,7 +1675,7 @@ impl ScheduleGraph {
             let a_systems = set_system_bitsets.get(a).unwrap();
             let b_systems = set_system_bitsets.get(b).unwrap();
 
-            if !(a_systems.is_disjoint(b_systems)) {
+            if !a_systems.is_disjoint(b_systems) {
                 return Err(ScheduleBuildError::SetsHaveOrderButIntersect(
                     self.get_node_name(a),
                     self.get_node_name(b),

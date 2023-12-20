@@ -1114,6 +1114,16 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities
 /// have the component `T`  but don't actually care about the component's value.
 ///
+/// # Footguns
+///
+/// Note that a `Query<Has<T>>` will match all existing entities.
+/// Beware! Even if it matches all entities, it doesn't mean that `query.get(entity)`
+/// will always return `Ok(bool)`.
+///
+/// In the case of a non-existent entity, such as a despawned one, it will return `Err`.
+/// A workaround is to replace `query.get(entity).unwrap()` by
+/// `query.get(entity).unwrap_or_default()`.
+///
 /// # Examples
 ///
 /// ```
