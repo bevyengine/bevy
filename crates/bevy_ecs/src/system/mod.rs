@@ -1602,6 +1602,10 @@ mod tests {
             unimplemented!()
         }
 
+        fn exclusive_in_out_2<A, B>( _: &mut World, _: In<A>) -> B {
+            unimplemented!()
+        }
+
         fn static_system_param(_: StaticSystemParam<Query<'static, 'static, &W<u32>>>) {
             unimplemented!()
         }
@@ -1624,6 +1628,7 @@ mod tests {
         assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
         assert_is_system(static_system_param);
         assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
+        assert_is_system(exclusive_in_out_2::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
         assert_is_system(exclusive_with_state);
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
