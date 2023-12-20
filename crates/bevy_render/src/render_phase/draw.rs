@@ -150,7 +150,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
 ///
 /// # Example
 ///
-/// The `DrawPbr` draw function is created from the following render command
+/// The `DrawMaterial` draw function is created from the following render command
 /// tuple. Const generics are used to set specific bind group locations:
 ///
 /// ```

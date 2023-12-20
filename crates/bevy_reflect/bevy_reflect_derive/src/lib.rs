@@ -378,7 +378,6 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Types can be passed with or without registering type data:
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// # use bevy_reflect_derive::impl_reflect_value;
 /// impl_reflect_value!(my_crate::Foo);
 /// impl_reflect_value!(my_crate::Bar(Debug, Default, Serialize, Deserialize));
 /// ```
@@ -386,7 +385,6 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Generic types can also specify their parameters and bounds:
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// # use bevy_reflect_derive::impl_reflect_value;
 /// impl_reflect_value!(my_crate::Foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
 /// ```
 ///
