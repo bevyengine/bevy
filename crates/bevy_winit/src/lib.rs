@@ -761,7 +761,7 @@ pub fn winit_runner(mut app: App) {
 
                         app.world.entity_mut(entity).insert(wrapper);
                     }
-                    *control_flow = ControlFlow::Poll;
+                    event_loop.set_control_flow(ControlFlow::Poll);
                 }
             }
             Event::AboutToWait => {
@@ -776,7 +776,7 @@ pub fn winit_runner(mut app: App) {
                                 app.world.query_filtered::<Entity, With<PrimaryWindow>>();
                             let entity = query.single(&app.world);
                             app.world.entity_mut(entity).remove::<RawHandleWrapper>();
-                            *control_flow = ControlFlow::Wait;
+                            event_loop.set_control_flow(ControlFlow::Wait);
                         }
                     }
                     let (config, windows) = focused_windows_state.get(&app.world);
