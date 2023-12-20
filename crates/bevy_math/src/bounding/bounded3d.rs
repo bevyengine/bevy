@@ -213,8 +213,8 @@ impl BoundingVolume for BoundingSphere {
 
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
-        let furthest_point = (other.center - self.center).length() + other.radius();
-        furthest_point <= self.radius()
+        let diff = self.radius() - other.radius();
+        self.center.distance_squared(other.center) <= diff.powi(2).copysign(diff)
     }
 
     #[inline(always)]
