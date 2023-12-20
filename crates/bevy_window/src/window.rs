@@ -10,7 +10,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
 
-use crate::{CursorIcon, LogicalSize, PhysicalSize};
+use crate::{CursorIcon, PhysicalSize};
 
 /// Marker [`Component`] for the window considered the primary window.
 ///
@@ -628,9 +628,9 @@ impl Default for WindowResolution {
 
 impl WindowResolution {
     /// Creates a new [`WindowResolution`] with a scale factor of 1.0.
-    pub fn new(logical_size: LogicalSize) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Self {
-            physical_size: logical_size.to_physical(1.0),
+            physical_size: PhysicalSize::new(width, height),
             ..Default::default()
         }
     }
@@ -733,7 +733,7 @@ where
     I: Into<f32>,
 {
     fn from((width, height): (I, I)) -> WindowResolution {
-        WindowResolution::new(LogicalSize::new(width.into(), height.into()))
+        WindowResolution::new(width.into() as u32, height.into() as u32)
     }
 }
 
@@ -742,19 +742,19 @@ where
     I: Into<f32>,
 {
     fn from([width, height]: [I; 2]) -> WindowResolution {
-        WindowResolution::new(LogicalSize::new(width.into(), height.into()))
+        WindowResolution::new(width.into() as u32, height.into() as u32)
     }
 }
 
 impl From<Vec2> for WindowResolution {
     fn from(res: Vec2) -> WindowResolution {
-        WindowResolution::new(LogicalSize::new(res.x, res.y))
+        WindowResolution::new(res.x as u32, res.y as u32)
     }
 }
 
 impl From<DVec2> for WindowResolution {
     fn from(res: DVec2) -> WindowResolution {
-        WindowResolution::new(LogicalSize::new(res.x as f32, res.y as f32))
+        WindowResolution::new(res.x as u32, res.y as u32)
     }
 }
 
@@ -1108,7 +1108,7 @@ mod tests {
     #[test]
     fn cursor_position_within_window_bounds() {
         let mut window = Window {
-            resolution: WindowResolution::new(LogicalSize::new(800., 600.)),
+            resolution: WindowResolution::new(800, 600),
             ..Default::default()
         };
 
@@ -1136,7 +1136,7 @@ mod tests {
     #[test]
     fn cursor_position_not_within_window_bounds() {
         let mut window = Window {
-            resolution: WindowResolution::new(LogicalSize::new(800., 600.)),
+            resolution: WindowResolution::new(800, 600),
             ..Default::default()
         };
 

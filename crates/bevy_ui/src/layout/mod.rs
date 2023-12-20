@@ -465,7 +465,6 @@ mod tests {
     use bevy_math::Vec2;
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
-    use bevy_window::LogicalSize;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
     use bevy_window::WindowResized;
@@ -479,8 +478,8 @@ mod tests {
     }
 
     // these window dimensions are easy to convert to and from percentage values
-    const WINDOW_WIDTH: f32 = 1000.;
-    const WINDOW_HEIGHT: f32 = 100.;
+    const WINDOW_WIDTH: u32 = 1000;
+    const WINDOW_HEIGHT: u32 = 100;
 
     fn setup_ui_test_world() -> (World, Schedule) {
         let mut world = World::new();
@@ -492,7 +491,7 @@ mod tests {
         // spawn a dummy primary window
         world.spawn((
             Window {
-                resolution: WindowResolution::new(LogicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT)),
+                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
                 ..Default::default()
             },
             PrimaryWindow,
@@ -538,8 +537,8 @@ mod tests {
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity).unwrap();
-            assert_eq!(layout.size.width, WINDOW_WIDTH);
-            assert_eq!(layout.size.height, WINDOW_HEIGHT);
+            assert_eq!(layout.size.width, WINDOW_WIDTH as f32);
+            assert_eq!(layout.size.height, WINDOW_HEIGHT as f32);
         }
     }
 

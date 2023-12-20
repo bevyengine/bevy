@@ -15,8 +15,7 @@ fn main() {
             primary_window: Some(Window {
                 title: "Many Debug Lines".to_string(),
                 present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(LogicalSize::new(1920.0, 1080.0))
-                    .with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
