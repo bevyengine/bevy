@@ -282,11 +282,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let type_path_impl = impls::impl_type_path(
-        derive_data.meta(),
-        // Use `WhereClauseOptions::new_value` here so we don't enforce reflection bounds
-        // &WhereClauseOptions::new_value(derive_data.meta()),
-    );
+    let type_path_impl = impls::impl_type_path(derive_data.meta());
 
     TokenStream::from(quote! {
         const _: () = {
