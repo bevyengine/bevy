@@ -128,7 +128,7 @@ fn setup_pyramid_scene(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(0.0, 1.0, 0.0),
         point_light: PointLight {
-            intensity: 1500.,
+            intensity: 300_000.,
             range: 100.,
             shadows_enabled: true,
             ..default()
