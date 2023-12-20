@@ -149,7 +149,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// Multiple render commands can be combined together by wrapping them in a tuple.
 ///
 /// # Example
-/// 
+///
 /// The `DrawPbr` draw function is created from the following render command
 /// tuple. Const generics are used to set specific bind group locations:
 ///
