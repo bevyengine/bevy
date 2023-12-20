@@ -5,31 +5,29 @@ use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, window::Win
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
-const MAX_WIDTH: u16 = 401;
-const MAX_HEIGHT: u16 = 401;
-const MIN_WIDTH: u16 = 1;
-const MIN_HEIGHT: u16 = 1;
-const RESIZE_STEP: u16 = 4;
+const MAX_WIDTH: u32 = 401;
+const MAX_HEIGHT: u32 = 401;
+const MIN_WIDTH: u32 = 1;
+const MIN_HEIGHT: u32 = 1;
+const RESIZE_STEP: u32 = 4;
 
 #[derive(Resource)]
 struct Dimensions {
-    width: u16,
-    height: u16,
+    width: u32,
+    height: u32,
 }
 
 fn main() {
     App::new()
-        .add_plugins(
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    resolution: WindowResolution::new(MAX_WIDTH as u32, MAX_HEIGHT as u32)
-                        .with_scale_factor_override(1.0),
-                    title: "Resizing".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                resolution:
+                    WindowResolution::new(MAX_WIDTH, MAX_HEIGHT).with_scale_factor_override(1.0),
+                title: "Resizing".into(),
                 ..default()
             }),
-        )
+            ..default()
+        }))
         .insert_resource(Dimensions {
             width: MAX_WIDTH,
             height: MAX_HEIGHT,
