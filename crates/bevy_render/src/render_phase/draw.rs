@@ -149,15 +149,21 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// Multiple render commands can be combined together by wrapping them in a tuple.
 ///
 /// # Example
+/// 
 /// The `DrawPbr` draw function is created from the following render command
 /// tuple. Const generics are used to set specific bind group locations:
 ///
-/// ```ignore
-/// pub type DrawPbr = (
+/// ```
+/// # use bevy_render::render_phase::SetItemPipeline;
+/// # struct SetMeshViewBindGroup<const N: usize>;
+/// # struct SetMeshBindGroup<const N: usize>;
+/// # struct SetMaterialBindGroup<M, const N: usize>(core::marker::PhantomData<M>);
+/// # struct DrawMesh;
+/// pub type DrawMaterial<M> = (
 ///     SetItemPipeline,
 ///     SetMeshViewBindGroup<0>,
-///     SetStandardMaterialBindGroup<1>,
-///     SetTransformBindGroup<2>,
+///     SetMeshBindGroup<1>,
+///     SetMaterialBindGroup<M, 2>,
 ///     DrawMesh,
 /// );
 /// ```

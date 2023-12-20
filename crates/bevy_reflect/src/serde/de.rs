@@ -219,7 +219,7 @@ impl Container for TupleVariantInfo {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```ignore (Cant import private struct from doctest)
 /// let expected = vec!["foo", "bar", "baz"];
 /// assert_eq!("`foo`, `bar`, `baz`", format!("{}", ExpectedValues(expected)));
 /// ```

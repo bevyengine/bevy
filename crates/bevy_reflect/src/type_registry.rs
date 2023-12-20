@@ -101,8 +101,8 @@ impl TypeRegistry {
     }
 
     /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
-    /// ```rust,ignore
-    /// #[derive(Reflect)]
+    /// ```ignore (Neither bevy_ecs nor serde "derive" is availible.)
+    /// #[derive(Component, serde::Serialize, serde::Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
     pub fn register<T>(&mut self)
