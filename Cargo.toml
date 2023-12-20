@@ -130,7 +130,7 @@ bevy_ui = [
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Adds support for rendering gizmos
-bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_pbr"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
