@@ -154,8 +154,7 @@ impl Camera {
             .as_ref()
             .map(|v| v.physical_position)
             .unwrap_or(UVec2::ZERO);
-        let viewport_size = self.physical_viewport_size()?;
-        let max = min + *viewport_size;
+        let max = min + *self.physical_viewport_size()?;
         Some(URect { min, max })
     }
 
@@ -166,8 +165,8 @@ impl Camera {
     pub fn logical_viewport_rect(&self) -> Option<Rect> {
         let URect { min, max } = self.physical_viewport_rect()?;
         Some(Rect {
-            min: *self.to_logical(PhysicalSize::new(min.x, min.y))?,
-            max: *self.to_logical(PhysicalSize::new(max.x, max.y))?,
+            min: *self.to_logical(min.into())?,
+            max: *self.to_logical(max.into())?,
         })
     }
 
@@ -188,7 +187,7 @@ impl Camera {
     pub fn logical_viewport_size(&self) -> Option<LogicalSize> {
         self.viewport
             .as_ref()
-            .and_then(|v| self.to_logical(PhysicalSize::new(v.physical_size.x, v.physical_size.y)))
+            .and_then(|v| self.to_logical(v.physical_size))
             .or_else(|| self.logical_target_size())
     }
 
@@ -526,7 +525,7 @@ impl NormalizedRenderTarget {
             }
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| RenderTargetInfo {
-                    physical_size: PhysicalSize::new(tex.size.x, tex.size.y),
+                    physical_size: tex.size.into(),
                     scale_factor: 1.0,
                 })
             }
