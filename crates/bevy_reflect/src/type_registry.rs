@@ -101,7 +101,7 @@ impl TypeRegistry {
     }
 
     /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
-    /// ```ignore (Neither bevy_ecs nor serde "derive" is availible.)
+    /// ```ignore (Neither bevy_ecs nor serde "derive" are available.)
     /// #[derive(Component, serde::Serialize, serde::Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
