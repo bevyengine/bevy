@@ -559,6 +559,31 @@ impl<'w, 's> Commands<'w, 's> {
     /// This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    ///
+    /// If you want to prevent Commands from registrating the same system multiple times, consider using [`Local`](crate::system::Local)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, system::SystemId};
+    ///
+    /// #[derive(Resource)]
+    /// struct Counter(i32);
+    ///
+    /// fn register_system(mut local_system: Local<Option<SystemId>>, mut commands: Commands) {
+    ///     if let Some(system) = *local_system {
+    ///         commands.run_system(system);
+    ///     } else {
+    ///         *local_system = Some(commands.register_one_shot_system(increment_counter));
+    ///     }
+    /// }
+    ///
+    /// fn increment_counter(mut value: ResMut<Counter>) {
+    ///     value.0 += 1;
+    /// }
+    ///
+    /// # bevy_ecs::system::assert_is_system(register_system);
+    /// ```
     pub fn register_one_shot_system<
         I: 'static + Send,
         O: 'static + Send,
