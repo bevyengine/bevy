@@ -138,19 +138,16 @@ impl Plugin for LogPlugin {
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
 
-        let log_events = LogEvents(Arc::new(Mutex::new(Vec::new())));
+        // Log events
+        let log_events = LogEvents::default();
+        let log_event_resource = LogEventResource(log_events.clone());
+        let log_event_layer = LogEventLayer(log_events);
 
-        let log_event_handler = LogEventLayer {
-            events: log_events.0.clone(),
-        };
+        app.insert_resource(log_event_resource)
+            .add_event::<LogEvent>()
+            .add_systems(Update, transfer_log_events);
 
-        app.insert_resource(log_events);
-        app.add_event::<LogMessage>();
-        app.add_systems(Update, transfer_log_events);
-
-        let subscriber = Registry::default()
-            .with(filter_layer)
-            .with(log_event_handler);
+        let subscriber = Registry::default().with(filter_layer).with(log_event_layer);
 
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
@@ -236,7 +233,7 @@ impl Plugin for LogPlugin {
 ///
 /// This event is helpful for creating custom log viewing systems such as consoles and terminals.
 #[derive(Event, Debug, Clone)]
-pub struct LogMessage {
+pub struct LogEvent {
     /// The message contents.
     pub message: String,
     /// The name of the span described by this metadata.
@@ -266,23 +263,29 @@ pub struct LogMessage {
     pub time: SystemTime,
 }
 
-/// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](bevy_ecs::event::Events<LogEvent>).
-fn transfer_log_events(handler: Res<LogEvents>, mut log_events: EventWriter<LogMessage>) {
+/// Transfers information from the [`LogEventResource`] resource to [`Events<LogEvent>`](bevy_ecs::event::Events<LogEvent>).
+fn transfer_log_events(handler: Res<LogEventResource>, mut log_events: EventWriter<LogEvent>) {
     let events = &mut *handler.0.lock().unwrap();
     if !events.is_empty() {
         log_events.send_batch(std::mem::take(events));
     }
 }
 
-/// This struct temporarily stores [`LogMessage`]s before they are
-/// written to [`EventWriter<LogMessage>`] by [`transfer_log_events`].
-#[derive(Resource)]
-struct LogEvents(Arc<Mutex<Vec<LogMessage>>>);
+/// This type holds an [`Arc`], of which there are 2 instances.
+/// One in the ECS (stored in [`LogEventResource`]), and one in the [`LogEventLayer`].
+///
+/// This allows the [`LogEventLayer`] to send [`LogEvent`]s to [`LogEventResource`].
+type LogEvents = Arc<Mutex<Vec<LogEvent>>>;
 
-/// A [`Layer`] that captures log events and saves them to [`LogEvents`].
-struct LogEventLayer {
-    events: Arc<Mutex<Vec<LogMessage>>>,
-}
+/// This resource temporarily stores [`LogEvent`]s before they are
+/// written to [`EventWriter<LogEvent>`] by [`transfer_log_events`].
+///
+/// Read the docs of [`LogEvents`] for more.
+#[derive(Resource)]
+struct LogEventResource(LogEvents);
+
+/// A tracing [`Layer`] that captures log events and saves them to [`LogEventResource`] via [`LogEvents`].
+struct LogEventLayer(LogEvents);
 impl<S: Subscriber> Layer<S> for LogEventLayer {
     fn on_event(
         &self,
@@ -293,7 +296,7 @@ impl<S: Subscriber> Layer<S> for LogEventLayer {
         event.record(&mut LogEventVisitor(&mut message));
         if let Some(message) = message {
             let metadata = event.metadata();
-            self.events.lock().unwrap().push(LogMessage {
+            self.0.lock().unwrap().push(LogEvent {
                 message,
                 name: metadata.name(),
                 target: metadata.target(),
@@ -307,7 +310,7 @@ impl<S: Subscriber> Layer<S> for LogEventLayer {
     }
 }
 
-/// A [`Visit`]or that records log messages that are transfered to [`LogEventLayer`].
+/// A [`Visit`]or that records log events that are transfered to [`LogEventLayer`].
 struct LogEventVisitor<'a>(&'a mut Option<String>);
 impl<'a> Visit for LogEventVisitor<'a> {
     fn record_debug(
