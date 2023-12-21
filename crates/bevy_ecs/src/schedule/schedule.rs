@@ -586,7 +586,7 @@ impl ScheduleGraph {
     /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
-    fn process_configs<T: ProcessNodeConfig>(
+    pub fn process_configs<T: ProcessNodeConfig>(
         &mut self,
         configs: NodeConfigs<T>,
         collect_nodes: bool,
@@ -1409,7 +1409,7 @@ impl ScheduleGraph {
 }
 
 /// Values returned by [`ScheduleGraph::process_configs`]
-struct ProcessConfigsResult {
+pub struct ProcessConfigsResult {
     /// All nodes contained inside this process_configs call's [`NodeConfigs`] hierarchy,
     /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
@@ -1420,7 +1420,7 @@ struct ProcessConfigsResult {
 }
 
 /// Trait used by [`ScheduleGraph::process_configs`] to process a single [`NodeConfig`].
-trait ProcessNodeConfig: Sized {
+pub trait ProcessNodeConfig: Sized {
     /// Process a single [`NodeConfig`].
     fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
 }
