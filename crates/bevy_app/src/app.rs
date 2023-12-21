@@ -391,8 +391,6 @@ impl App {
     /// Inserts a specific [`State`] to the current [`App`] and
     /// overrides any [`State`] previously added of the same type.
     ///
-    /// If the [`State`] already exists, nothing happens.
-    ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
     /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
