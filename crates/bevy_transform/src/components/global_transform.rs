@@ -115,7 +115,7 @@ impl GlobalTransform {
     /// Say you have an entity `e1` that you want to turn into a child of `e2`,
     /// but you want `e1` to keep the same global transform, even after re-parenting. You would use:
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
     /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
     /// # use bevy_hierarchy::{prelude::Parent, BuildChildren};

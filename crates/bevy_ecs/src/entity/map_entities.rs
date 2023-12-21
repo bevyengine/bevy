@@ -12,7 +12,7 @@ use bevy_utils::EntityHashMap;
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::entity::{EntityMapper, MapEntities};
 ///

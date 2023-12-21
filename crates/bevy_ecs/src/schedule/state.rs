@@ -28,7 +28,7 @@ pub use bevy_ecs_macros::States;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::States;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]

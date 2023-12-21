@@ -553,7 +553,7 @@ impl Components {
     /// Returns [`None`] if the `Component` type has not
     /// yet been initialized using [`Components::init_component()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -591,7 +591,7 @@ impl Components {
     /// Returns [`None`] if the `Resource` type has not
     /// yet been initialized using [`Components::init_resource()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -807,7 +807,7 @@ impl ComponentTicks {
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
     /// let component_ticks: ComponentTicks = unimplemented!();
@@ -823,7 +823,7 @@ impl ComponentTicks {
 /// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific type.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
 /// #[derive(Component)]
 /// struct Player;

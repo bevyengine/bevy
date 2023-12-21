@@ -99,7 +99,7 @@ impl Debug for App {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// # use bevy_app::{App, AppLabel, SubApp, Main};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
@@ -641,7 +641,7 @@ impl App {
     /// This vector will be length zero if no plugins of that type have been added.
     /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # #[derive(Default)]
     /// # struct ImagePlugin {
@@ -739,7 +739,7 @@ impl App {
     /// this method can be used to insert additional type data.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use bevy_app::App;
     /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
     ///
@@ -893,7 +893,7 @@ impl App {
     ///
     /// ## Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
@@ -931,7 +931,7 @@ impl App {
     ///
     /// ## Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
