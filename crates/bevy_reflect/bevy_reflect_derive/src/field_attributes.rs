@@ -6,7 +6,7 @@
 
 use crate::REFLECT_ATTRIBUTE_NAME;
 use syn::meta::ParseNestedMeta;
-use syn::{Attribute, LitStr, Token};
+use syn::{Attribute, Token};
 
 pub(crate) static IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
@@ -98,14 +98,13 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: ParseNestedMeta) -> Result<(), 
     if meta.path.is_ident(DEFAULT_ATTR) {
         // Allow:
         // - `#[reflect(default)]`
-        // - `#[reflect(default = "path::to::func")]`
+        // - `#[reflect(default = path::to::func)]`
         if !matches!(args.default, DefaultBehavior::Required) {
             return Err(meta.error(format!("only one of [{:?}] is allowed", [DEFAULT_ATTR])));
         }
 
         if meta.input.peek(Token![=]) {
-            let lit = meta.value()?.parse::<LitStr>()?;
-            args.default = DefaultBehavior::Func(lit.parse()?);
+            args.default = DefaultBehavior::Func(meta.value()?.parse()?);
         } else {
             args.default = DefaultBehavior::Default;
         }
