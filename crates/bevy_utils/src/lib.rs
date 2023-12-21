@@ -34,7 +34,7 @@ pub use hashbrown;
 pub use petgraph;
 pub use thiserror;
 pub use tracing;
-pub use web_time::{Duration, Instant};
+pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
 #[allow(missing_docs)]
 pub mod nonmax {
