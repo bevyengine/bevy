@@ -85,12 +85,12 @@ fn update_parallax_depth_scale(
     mut depth_update: Local<bool>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Key1) {
+    if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.max(0.0);
         *depth_update = true;
     }
-    if input.just_pressed(KeyCode::Key2) {
+    if input.just_pressed(KeyCode::Digit2) {
         target_depth.0 += DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.min(MAX_DEPTH);
         *depth_update = true;
@@ -135,10 +135,10 @@ fn update_parallax_layers(
     mut target_layers: Local<TargetLayers>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Key3) {
+    if input.just_pressed(KeyCode::Digit3) {
         target_layers.0 -= 1.0;
         target_layers.0 = target_layers.0.max(0.0);
-    } else if input.just_pressed(KeyCode::Key4) {
+    } else if input.just_pressed(KeyCode::Digit4) {
         target_layers.0 += 1.0;
     } else {
         return;

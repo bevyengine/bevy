@@ -27,7 +27,7 @@ use crate::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, WinitWindows,
+    get_best_videomode, get_fitting_videomode, WindowAndInputEventWriters, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -138,6 +138,7 @@ pub struct CachedWindow {
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
+    mut event_writers: WindowAndInputEventWriters<'_>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
         if let Some(winit_window) = winit_windows.get_window(entity) {
@@ -174,7 +175,9 @@ pub(crate) fn changed_windows(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
-                winit_window.set_inner_size(physical_size);
+                if let Some(size_now) = winit_window.request_inner_size(physical_size) {
+                    crate::react_to_resize(&mut window, size_now, &mut event_writers, entity);
+                }
             }
 
             if window.physical_cursor_position() != cache.window.physical_cursor_position() {
@@ -298,10 +301,10 @@ pub(crate) fn changed_windows(
             }
 
             if window.ime_position != cache.window.ime_position {
-                winit_window.set_ime_position(LogicalPosition::new(
-                    window.ime_position.x,
-                    window.ime_position.y,
-                ));
+                winit_window.set_ime_cursor_area(
+                    LogicalPosition::new(window.ime_position.x, window.ime_position.y),
+                    PhysicalSize::new(10, 10),
+                );
             }
 
             if window.window_theme != cache.window.window_theme {

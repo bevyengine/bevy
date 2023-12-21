@@ -31,7 +31,7 @@ fn canvas_parent_resize_event_handler(
 ) {
     for event in resize_events.receiver.try_iter() {
         if let Some(window) = winit_windows.get_window(event.window) {
-            window.set_inner_size(event.size);
+            let _ = window.request_inner_size(event.size);
         }
     }
 }
