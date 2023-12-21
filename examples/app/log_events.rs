@@ -4,7 +4,7 @@
 
 use std::time::SystemTime;
 
-use bevy::log::{Level, LogMessage};
+use bevy::log::{Level, LogEvent};
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -38,10 +38,10 @@ fn setup(mut commands: Commands) {
 // This system reads all incoming logs and then outputs them to the `ConsoleText` entity
 fn log_system(
     mut query: Query<&mut Text, With<ConsoleText>>,
-    mut log_messages: EventReader<LogMessage>,
+    mut log_events: EventReader<LogEvent>,
 ) {
     let mut text = query.single_mut();
-    for LogMessage {
+    for LogEvent {
         message,
         name,
         target,
@@ -50,7 +50,7 @@ fn log_system(
         file,
         line,
         time,
-    } in log_messages.read()
+    } in log_events.read()
     {
         // This part is just pushing a bunch of `TextSection`s to the UI.
 
