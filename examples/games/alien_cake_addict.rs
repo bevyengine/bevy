@@ -23,7 +23,7 @@ fn main() {
             5.0,
             TimerMode::Repeating,
         )))
-        .add_state::<GameState>()
+        .init_state::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
