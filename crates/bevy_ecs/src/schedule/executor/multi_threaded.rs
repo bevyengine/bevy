@@ -128,10 +128,6 @@ impl SystemExecutor for MultiThreadedExecutor {
         ExecutorKind::MultiThreaded
     }
 
-    fn set_apply_final_deferred(&mut self, value: bool) {
-        self.apply_final_deferred = value;
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
@@ -260,6 +256,10 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.evaluated_sets.clear();
         self.skipped_systems.clear();
         self.completed_systems.clear();
+    }
+
+    fn set_apply_final_deferred(&mut self, value: bool) {
+        self.apply_final_deferred = value;
     }
 }
 
@@ -683,7 +683,7 @@ fn apply_deferred(
     unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<BoxedSystem>],
     world: &mut World,
-) -> Result<(), Box<dyn std::any::Any + Send>> {
+) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = unsafe { &mut *systems[system_index].get() };

@@ -76,7 +76,7 @@ pub enum UiSystem {
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
 #[derive(Debug, Reflect, Resource, Deref, DerefMut)]
-pub struct UiScale(pub f64);
+pub struct UiScale(pub f32);
 
 impl Default for UiScale {
     fn default() -> Self {
@@ -191,13 +191,12 @@ impl Plugin for UiPlugin {
             ),
         );
 
-        crate::render::build_ui_render(app);
+        build_ui_render(app);
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app.init_resource::<UiPipeline>();

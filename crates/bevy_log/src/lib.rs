@@ -11,6 +11,8 @@
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
 
+mod once;
+
 #[cfg(feature = "trace")]
 use std::panic;
 use std::{
@@ -32,6 +34,8 @@ pub mod prelude {
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
+
+    pub use crate::{debug_once, error_once, info_once, trace_once, warn_once};
 }
 
 use bevy_ecs::{

@@ -346,7 +346,7 @@ impl<E: Event> Events<E> {
     }
 }
 
-impl<E: Event> std::iter::Extend<E> for Events<E> {
+impl<E: Event> Extend<E> for Events<E> {
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = E>,
@@ -616,8 +616,12 @@ impl<'a, E: Event> Iterator for EventIterator<'a, E> {
         self.iter.next().map(|(event, _)| event)
     }
 
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.iter.nth(n).map(|(event, _)| event)
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
     }
 
     fn last(self) -> Option<Self::Item>
@@ -627,12 +631,8 @@ impl<'a, E: Event> Iterator for EventIterator<'a, E> {
         self.iter.last().map(|(event, _)| event)
     }
 
-    fn count(self) -> usize {
-        self.iter.count()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(|(event, _)| event)
     }
 }
 
@@ -653,8 +653,12 @@ pub struct EventIteratorWithId<'a, E: Event> {
 impl<'a, E: Event> EventIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
-        let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
-        let b_index = (reader.last_event_count).saturating_sub(events.events_b.start_event_count);
+        let a_index = reader
+            .last_event_count
+            .saturating_sub(events.events_a.start_event_count);
+        let b_index = reader
+            .last_event_count
+            .saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
         let b = events.events_b.get(b_index..).unwrap_or_default();
 
@@ -696,16 +700,13 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
         }
     }
 
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
-            self.reader.last_event_count += n + 1;
-            self.unread -= n + 1;
-            Some((event, *event_id))
-        } else {
-            self.reader.last_event_count += self.unread;
-            self.unread = 0;
-            None
-        }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.chain.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.reader.last_event_count += self.unread;
+        self.unread
     }
 
     fn last(self) -> Option<Self::Item>
@@ -717,13 +718,16 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
         Some((event, *event_id))
     }
 
-    fn count(self) -> usize {
-        self.reader.last_event_count += self.unread;
-        self.unread
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.chain.size_hint()
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
+            self.reader.last_event_count += n + 1;
+            self.unread -= n + 1;
+            Some((event, *event_id))
+        } else {
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
+            None
+        }
     }
 }
 
@@ -733,8 +737,30 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
-/// A system that calls [`Events::update`] once per frame.
-pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
+#[doc(hidden)]
+#[derive(Resource, Default)]
+pub struct EventUpdateSignal(bool);
+
+/// A system that queues a call to [`Events::update`].
+pub fn event_queue_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
+    if let Some(mut s) = signal {
+        s.0 = true;
+    }
+}
+
+/// A system that calls [`Events::update`].
+pub fn event_update_system<T: Event>(
+    signal: Option<ResMut<EventUpdateSignal>>,
+    mut events: ResMut<Events<T>>,
+) {
+    if let Some(mut s) = signal {
+        // If we haven't got a signal to update the events, but we *could* get such a signal
+        // return early and update the events later.
+        if !std::mem::replace(&mut s.0, false) {
+            return;
+        }
+    }
+
     events.update();
 }
 

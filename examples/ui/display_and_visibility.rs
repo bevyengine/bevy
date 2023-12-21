@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             text: Text::from_section(
                 "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left",                
                 text_style.clone(),
-            ).with_alignment(TextAlignment::Center),
+            ).with_justify(JustifyText::Center),
             style: Style {
                 margin: UiRect::bottom(Val::Px(10.)),
                 ..Default::default()
@@ -158,14 +158,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     text: Text::from_section(
                         "Display::None\nVisibility::Hidden\nVisibility::Inherited",
                         TextStyle { color: HIDDEN_COLOR, ..text_style.clone() }
-                        ).with_alignment(TextAlignment::Center),
+                        ).with_justify(JustifyText::Center),
                     ..Default::default()
                     });
                     builder.spawn(TextBundle {
                         text: Text::from_section(
                             "-\n-\n-",
                             TextStyle { color: Color::DARK_GRAY, ..text_style.clone() }
-                            ).with_alignment(TextAlignment::Center),
+                            ).with_justify(JustifyText::Center),
                         ..Default::default()
                         });
                     builder.spawn(TextBundle::from_section(
@@ -425,7 +425,7 @@ where
                     format!("{}::{:?}", Target::<T>::NAME, T::default()),
                     text_style,
                 )
-                .with_text_alignment(TextAlignment::Center),
+                .with_text_justify(JustifyText::Center),
             );
         });
 }

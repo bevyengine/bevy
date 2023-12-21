@@ -53,7 +53,7 @@ fn get_base_effects(
         strong_motor,
     }: GamepadRumbleIntensity,
     duration: Duration,
-) -> Vec<ff::BaseEffect> {
+) -> Vec<BaseEffect> {
     let mut effects = Vec::new();
     if strong_motor > 0. {
         effects.push(BaseEffect {

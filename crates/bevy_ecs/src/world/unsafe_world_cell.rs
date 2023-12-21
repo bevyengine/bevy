@@ -56,7 +56,7 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 /// struct OnlyComponentAccessWorld<'w>(UnsafeWorldCell<'w>);
 ///
 /// impl<'w> OnlyResourceAccessWorld<'w> {
-///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'w, T>> {
+///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'_, T>> {
 ///         // SAFETY: resource access is allowed through this UnsafeWorldCell
 ///         unsafe { self.0.get_resource_mut::<T>() }
 ///     }
@@ -144,7 +144,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { &mut *self.0 }
     }
 
-    /// Gets a reference to the [`&World`](crate::world::World) this [`UnsafeWorldCell`] belongs to.
+    /// Gets a reference to the [`&World`](World) this [`UnsafeWorldCell`] belongs to.
     /// This can be used for arbitrary shared/readonly access.
     ///
     /// # Safety
@@ -656,9 +656,8 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(self, type_id: TypeId) -> bool {
-        let id = match self.world.components().get_id(type_id) {
-            Some(id) => id,
-            None => return false,
+        let Some(id) = self.world.components().get_id(type_id) else {
+            return false;
         };
         self.contains_id(id)
     }

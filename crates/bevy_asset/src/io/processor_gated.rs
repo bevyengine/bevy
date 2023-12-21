@@ -118,7 +118,7 @@ impl AssetReader for ProcessorGatedReader {
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
         Box::pin(async move {
             trace!(
                 "Waiting for processing to finish before reading directory {:?}",
@@ -149,7 +149,7 @@ impl<'a> TransactionLockedReader<'a> {
 
 impl<'a> AsyncRead for TransactionLockedReader<'a> {
     fn poll_read(
-        mut self: std::pin::Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
     ) -> std::task::Poll<futures_io::Result<usize>> {

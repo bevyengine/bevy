@@ -88,9 +88,7 @@ pub struct App {
 impl Debug for App {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "App {{ sub_apps: ")?;
-        f.debug_map()
-            .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
-            .finish()?;
+        f.debug_map().entries(self.sub_apps.iter()).finish()?;
         write!(f, "}}")
     }
 }
@@ -176,9 +174,7 @@ impl SubApp {
 impl Debug for SubApp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "SubApp {{ app: ")?;
-        f.debug_map()
-            .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
-            .finish()?;
+        f.debug_map().entries(self.app.sub_apps.iter()).finish()?;
         write!(f, "}}")
     }
 }
@@ -190,6 +186,7 @@ impl Default for App {
         app.init_resource::<AppTypeRegistry>();
 
         app.add_plugins(MainSchedulePlugin);
+
         app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
@@ -281,7 +278,7 @@ impl App {
     ///
     /// # `run()` might not return
     ///
-    /// Calls to [`App::run()`] might never return.
+    /// Calls to [`App::run()`] will never return on iOS and Web.
     ///
     /// In simple and *headless* applications, one can expect that execution will
     /// proceed, normally, after calling [`run()`](App::run()) but this is not the case for
@@ -292,10 +289,7 @@ impl App {
     /// window is closed and that event loop terminates – behavior of processes that
     /// do not is often platform dependent or undocumented.
     ///
-    /// By default, *Bevy* uses the `winit` crate for window creation. See
-    /// [`WinitSettings::return_from_run`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run)
-    /// for further discussion of this topic and for a mechanism to require that [`App::run()`]
-    /// *does* return – albeit one that carries its own caveats and disclaimers.
+    /// By default, *Bevy* uses the `winit` crate for window creation.
     ///
     /// # Panics
     ///
@@ -310,7 +304,7 @@ impl App {
         }
 
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
-        (runner)(app);
+        runner(app);
     }
 
     /// Check the state of all plugins already added to this app. This is usually called by the
@@ -421,7 +415,7 @@ impl App {
         self
     }
 
-    /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
     pub fn configure_sets(
         &mut self,
@@ -888,7 +882,7 @@ impl App {
         self
     }
 
-    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
+    /// When doing [ambiguity checking](ScheduleBuildSettings) this
     /// ignores systems that are ambiguous on [`Component`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
@@ -926,7 +920,7 @@ impl App {
         self
     }
 
-    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
+    /// When doing [ambiguity checking](ScheduleBuildSettings) this
     /// ignores systems that are ambiguous on [`Resource`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
@@ -1003,19 +997,19 @@ mod tests {
 
     struct PluginA;
     impl Plugin for PluginA {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginB;
     impl Plugin for PluginB {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginC<T>(T);
     impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginD;
     impl Plugin for PluginD {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
         fn is_unique(&self) -> bool {
             false
         }
@@ -1048,10 +1042,10 @@ mod tests {
         struct PluginRun;
         struct InnerPlugin;
         impl Plugin for InnerPlugin {
-            fn build(&self, _: &mut crate::App) {}
+            fn build(&self, _: &mut App) {}
         }
         impl Plugin for PluginRun {
-            fn build(&self, app: &mut crate::App) {
+            fn build(&self, app: &mut App) {
                 app.add_plugins(InnerPlugin).run();
             }
         }
