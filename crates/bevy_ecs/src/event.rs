@@ -484,7 +484,15 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// # Limitations
+/// # Concurrently
+///
+/// `EventWriter` param has [`ResMut<Events<T>>`](Events) inside. So two systems declaring `EventWriter<T>` params
+/// for the same `<T>` won't be executed concurrently.
+///
+/// This does not apply to [`EventReader<T>`](EventReader) though: reader systems are executed concurrently
+/// (but not with `EventWriter<T>` systems).
+///
+/// # Untyped events
 ///
 /// `EventWriter` can only send events of one specific type, which must be known at compile-time.
 /// This is not a problem most of the time, but you may find a situation where you cannot know
