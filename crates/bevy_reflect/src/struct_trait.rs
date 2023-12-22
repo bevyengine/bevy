@@ -3,7 +3,7 @@ use crate::{
     TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::{Entry, HashMap};
+use bevy_utils::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::{
     any::{Any, TypeId},
@@ -301,16 +301,14 @@ impl DynamicStruct {
     ///
     /// If the field already exists, it is overwritten.
     pub fn insert_boxed<'a>(&mut self, name: impl Into<Cow<'a, str>>, value: Box<dyn Reflect>) {
-        let name = Cow::Owned(name.into().into_owned());
-        match self.field_indices.entry(name) {
-            Entry::Occupied(entry) => {
-                self.fields[*entry.get()] = value;
-            }
-            Entry::Vacant(entry) => {
-                self.fields.push(value);
-                self.field_names.push(entry.key().clone());
-                entry.insert(self.fields.len() - 1);
-            }
+        let name: Cow<str> = name.into();
+        if let Some(index) = self.field_indices.get(&name) {
+            self.fields[*index] = value;
+        } else {
+            self.fields.push(value);
+            self.field_indices
+                .insert(Cow::Owned(name.clone().into_owned()), self.fields.len() - 1);
+            self.field_names.push(Cow::Owned(name.into_owned()));
         }
     }
 
@@ -318,12 +316,7 @@ impl DynamicStruct {
     ///
     /// If the field already exists, it is overwritten.
     pub fn insert<'a, T: Reflect>(&mut self, name: impl Into<Cow<'a, str>>, value: T) {
-        let name = name.into();
-        if let Some(index) = self.field_indices.get(&name) {
-            self.fields[*index] = Box::new(value);
-        } else {
-            self.insert_boxed(name, Box::new(value));
-        }
+        self.insert_boxed(name, Box::new(value));
     }
 
     /// Gets the index of the field with the given name.
