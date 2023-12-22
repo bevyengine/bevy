@@ -407,6 +407,11 @@ impl<E: Event> DerefMut for EventSequence<E> {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
+///
+/// # Concurrency
+///
+/// Unlike [`EventWriter<T>`], systems with `EventReader<T>` param can be executed concurrently
+/// (but not concurrently with `EventWriter<T>` systems for the same `<T>`).
 #[derive(SystemParam, Debug)]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
@@ -484,13 +489,10 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// # Concurrently
+/// # Concurrency
 ///
 /// `EventWriter` param has [`ResMut<Events<T>>`](Events) inside. So two systems declaring `EventWriter<T>` params
 /// for the same `<T>` won't be executed concurrently.
-///
-/// This does not apply to [`EventReader<T>`](EventReader) though: reader systems are executed concurrently
-/// (but not with `EventWriter<T>` systems).
 ///
 /// # Untyped events
 ///
