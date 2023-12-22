@@ -34,7 +34,7 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
-    FileDragAndDrop, Ime, LogicalSize, PhysicalSize, ReceivedCharacter, RequestRedraw, Window,
+    FileDragAndDrop, Ime, PhysicalSize, ReceivedCharacter, RequestRedraw, Window,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
     WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
     WindowThemeChanged,
@@ -850,7 +850,6 @@ fn react_to_resize(
 
     event_writers.window_resized.send(WindowResized {
         window: window_entity,
-        width: window.width(),
-        height: window.height(),
+        size: (window.width(), window.height()).into(),
     });
 }
