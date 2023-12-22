@@ -300,8 +300,8 @@ impl DynamicStruct {
     /// Inserts a field named `name` with value `value` into the struct.
     ///
     /// If the field already exists, it is overwritten.
-    pub fn insert_boxed(&mut self, name: &str, value: Box<dyn Reflect>) {
-        let name = Cow::Owned(name.to_string());
+    pub fn insert_boxed<'a>(&mut self, name: impl Into<Cow<'a, str>>, value: Box<dyn Reflect>) {
+        let name = Cow::Owned(name.into().into_owned());
         match self.field_indices.entry(name) {
             Entry::Occupied(entry) => {
                 self.fields[*entry.get()] = value;
@@ -317,8 +317,9 @@ impl DynamicStruct {
     /// Inserts a field named `name` with the typed value `value` into the struct.
     ///
     /// If the field already exists, it is overwritten.
-    pub fn insert<T: Reflect>(&mut self, name: &str, value: T) {
-        if let Some(index) = self.field_indices.get(name) {
+    pub fn insert<'a, T: Reflect>(&mut self, name: impl Into<Cow<'a, str>>, value: T) {
+        let name = name.into();
+        if let Some(index) = self.field_indices.get(&name) {
             self.fields[*index] = Box::new(value);
         } else {
             self.insert_boxed(name, Box::new(value));
