@@ -23,7 +23,7 @@ concurrent-queue = "2.0.0"
 wasm-bindgen-futures = "0.4"
 
 [dev-dependencies]
-instant = { version = "0.1", features = ["wasm-bindgen"] }
+web-time = { version = "0.2" }
 
 [lints]
 workspace = true

@@ -23,7 +23,7 @@ fn main() {
             5.0,
             TimerMode::Repeating,
         )))
-        .add_state::<GameState>()
+        .init_state::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
@@ -201,28 +201,28 @@ fn move_player(
         let mut moved = false;
         let mut rotation = 0.0;
 
-        if keyboard_input.pressed(KeyCode::Up) {
+        if keyboard_input.pressed(KeyCode::ArrowUp) {
             if game.player.i < BOARD_SIZE_I - 1 {
                 game.player.i += 1;
             }
             rotation = -PI / 2.;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Down) {
+        if keyboard_input.pressed(KeyCode::ArrowDown) {
             if game.player.i > 0 {
                 game.player.i -= 1;
             }
             rotation = PI / 2.;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Right) {
+        if keyboard_input.pressed(KeyCode::ArrowRight) {
             if game.player.j < BOARD_SIZE_J - 1 {
                 game.player.j += 1;
             }
             rotation = PI;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Left) {
+        if keyboard_input.pressed(KeyCode::ArrowLeft) {
             if game.player.j > 0 {
                 game.player.j -= 1;
             }

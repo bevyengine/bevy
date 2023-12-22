@@ -194,7 +194,7 @@ impl WinitWindows {
             use winit::platform::web::WindowExtWebSys;
 
             if window.canvas.is_none() {
-                let canvas = winit_window.canvas();
+                let canvas = winit_window.canvas().expect("Failed to retrieve canvas.");
 
                 let window = web_sys::window().unwrap();
                 let document = window.document().unwrap();

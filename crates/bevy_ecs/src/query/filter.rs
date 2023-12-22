@@ -525,6 +525,36 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
 ///
+/// # Time complexity
+///
+/// `Added` is not [`ArchetypeFilter`], which practically means that
+/// if query (with `T` component filter) matches million entities,
+/// `Added<T>` filter will iterate over all of them even if none of them were just added.
+///
+/// For example, these two systems are roughly equivalent in terms of performance:
+///
+/// ```
+/// # use bevy_ecs::change_detection::{DetectChanges, Ref};
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Added;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// # #[derive(Component)]
+/// # struct Transform;
+///
+/// fn system1(q: Query<&MyComponent, Added<Transform>>) {
+///     for item in &q { /* component added */ }
+/// }
+///
+/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+///     for item in &q {
+///         if item.1.is_added() { /* component added */ }
+///     }
+/// }
+/// ```
+///
 /// # Examples
 ///
 /// ```
@@ -698,6 +728,37 @@ impl<T: Component> QueryFilter for Added<T> {
 /// (like entity creation or entity component addition or removal)
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
+///
+/// # Time complexity
+///
+/// `Changed` is not [`ArchetypeFilter`], which practically means that
+/// if query (with `T` component filter) matches million entities,
+/// `Changed<T>` filter will iterate over all of them even if none of them were changed.
+///
+/// For example, these two systems are roughly equivalent in terms of performance:
+///
+/// ```
+/// # use bevy_ecs::change_detection::DetectChanges;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::world::Ref;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// # #[derive(Component)]
+/// # struct Transform;
+///
+/// fn system1(q: Query<&MyComponent, Changed<Transform>>) {
+///     for item in &q { /* component changed */ }
+/// }
+///
+/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+///     for item in &q {
+///         if item.1.is_changed() { /* component changed */ }
+///     }
+/// }
+/// ```
 ///
 /// # Examples
 ///

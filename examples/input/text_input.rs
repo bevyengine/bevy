@@ -169,7 +169,9 @@ fn listen_received_character_events(
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
     for event in events.read() {
-        edit_text.single_mut().sections[0].value.push(event.char);
+        edit_text.single_mut().sections[0]
+            .value
+            .push_str(&event.char);
     }
 }
 
@@ -180,7 +182,7 @@ fn listen_keyboard_input_events(
 ) {
     for event in events.read() {
         match event.key_code {
-            Some(KeyCode::Return) => {
+            KeyCode::Enter => {
                 let (entity, text) = edit_text.single();
                 commands.entity(entity).insert(Bubble {
                     timer: Timer::from_seconds(5.0, TimerMode::Once),
@@ -191,7 +193,7 @@ fn listen_keyboard_input_events(
                     ..default()
                 });
             }
-            Some(KeyCode::Back) => {
+            KeyCode::Backspace => {
                 edit_text.single_mut().1.sections[0].value.pop();
             }
             _ => continue,
