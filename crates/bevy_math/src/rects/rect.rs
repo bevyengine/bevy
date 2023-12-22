@@ -12,9 +12,9 @@ use crate::{IRect, URect, Vec2};
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rect {
-    /// The minimum corner point of the rect.
+    /// The minimum (bottom-left) corner point of the rect.
     pub min: Vec2,
-    /// The maximum corner point of the rect.
+    /// The maximum (top-right) corner point of the rect.
     pub max: Vec2,
 }
 
