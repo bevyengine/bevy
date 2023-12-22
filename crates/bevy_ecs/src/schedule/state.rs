@@ -24,7 +24,7 @@ pub use bevy_ecs_macros::States;
 /// You can access the current state of type `T` with the [`State<T>`] resource,
 /// and the queued state with the [`NextState<T>`] resource.
 ///
-/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Variant>`] schedules,
+/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T::Variant>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
 ///
 /// # Example
