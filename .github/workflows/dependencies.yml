@@ -9,11 +9,8 @@ on:
     paths:
       - '**/Cargo.toml'
       - 'deny.toml'
-    branches-ignore:
-      - 'dependabot/**'
-      - staging-squash-merge.tmp
-  schedule:
-    - cron: "0 0 * * 0"
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,7 +19,7 @@ jobs:
   check-advisories:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
@@ -32,17 +29,42 @@ jobs:
   check-bans:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      # on main, prepare a new cargo tree output and cache it
+      - name: On main, prepare new cargo tree cache
+        if: github.ref == 'refs/heads/main'
+        run: cargo tree --depth 3 > cargo-tree-from-main
+      - name: On main, save the new cargo tree cache
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v3
+        with:
+          path: cargo-tree-from-main
+          key: cargo-tree-from-main    
+      # on other branch, restore the cached cargo tree output
+      - name: On PR, restore cargo tree cache
+        uses: actions/cache/restore@v3
+        if: github.ref != 'refs/heads/main'
+        with:
+          path: cargo-tree-from-main
+          key: cargo-tree-from-main
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # if not on main, check that the cargo tree output is unchanged
+      - name: Check if the cargo tree changed from main
+        if: github.ref != 'refs/heads/main'
+        continue-on-error: true
+        id: cargo-tree-changed
+        run: diff cargo-tree-from-main <(cargo tree --depth 3)
       - name: Install cargo-deny
         run: cargo install cargo-deny
+      # if the check was not a success (either skipped because on main or failed because of a change), run the check
       - name: Check for banned and duplicated dependencies
+        if: steps.cargo-tree-changed.outcome != 'success'
         run: cargo deny check bans
 
   check-licenses:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
@@ -52,7 +74,7 @@ jobs:
   check-sources:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
         run: cargo install cargo-deny

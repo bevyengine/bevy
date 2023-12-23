@@ -1,15 +1,14 @@
+use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_math::Vec4;
-use bevy_reflect::{prelude::*, TypeUuid};
+use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*, texture::Image,
 };
 
-use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
-
-pub const COLOR_MATERIAL_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3253086872234592509);
+pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(3253086872234592509);
 
 #[derive(Default)]
 pub struct ColorMaterialPlugin;
@@ -23,25 +22,22 @@ impl Plugin for ColorMaterialPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugin(Material2dPlugin::<ColorMaterial>::default())
+        app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
-        app.world
-            .resource_mut::<Assets<ColorMaterial>>()
-            .set_untracked(
-                Handle::<ColorMaterial>::default(),
-                ColorMaterial {
-                    color: Color::rgb(1.0, 0.0, 1.0),
-                    ..Default::default()
-                },
-            );
+        app.world.resource_mut::<Assets<ColorMaterial>>().insert(
+            Handle::<ColorMaterial>::default(),
+            ColorMaterial {
+                color: Color::rgb(1.0, 0.0, 1.0),
+                ..Default::default()
+            },
+        );
     }
 }
 
 /// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
-#[derive(AsBindGroup, Reflect, FromReflect, Debug, Clone, TypeUuid)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug)]
-#[uuid = "e228a544-e3ca-4e1e-bb9d-4d8bc1ad8c19"]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {
     pub color: Color,
@@ -110,7 +106,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
 
 impl Material2d for ColorMaterial {
     fn fragment_shader() -> ShaderRef {
-        COLOR_MATERIAL_SHADER_HANDLE.typed().into()
+        COLOR_MATERIAL_SHADER_HANDLE.into()
     }
 }
 

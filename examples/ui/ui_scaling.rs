@@ -1,11 +1,8 @@
-//! This example illustrates the [`UIScale`] resource from `bevy_ui`.
+//! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
 use bevy::{prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, SystemLabel)]
-struct ApplyScaling;
 
 fn main() {
     App::new()
@@ -19,13 +16,15 @@ fn main() {
             target_scale: 1.0,
             target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
         })
-        .add_startup_system(setup)
-        .add_system(apply_scaling.label(ApplyScaling))
-        .add_system(change_scaling.before(ApplyScaling))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (change_scaling, apply_scaling.after(change_scaling)),
+        )
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
@@ -37,13 +36,11 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
+                width: Val::Percent(50.0),
+                height: Val::Percent(50.0),
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    left: Val::Percent(25.),
-                    top: Val::Percent(25.),
-                    ..default()
-                },
+                left: Val::Percent(25.),
+                top: Val::Percent(25.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
                 ..default()
@@ -55,7 +52,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(40.), Val::Px(40.)),
+                        width: Val::Px(40.0),
+                        height: Val::Px(40.0),
                         ..default()
                     },
                     background_color: Color::RED.into(),
@@ -66,7 +64,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                 });
             parent.spawn(NodeBundle {
                 style: Style {
-                    size: Size::new(Val::Percent(15.), Val::Percent(15.)),
+                    width: Val::Percent(15.0),
+                    height: Val::Percent(15.0),
                     ..default()
                 },
                 background_color: Color::BLUE.into(),
@@ -74,7 +73,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             });
             parent.spawn(ImageBundle {
                 style: Style {
-                    size: Size::new(Val::Px(30.0), Val::Px(30.0)),
+                    width: Val::Px(30.0),
+                    height: Val::Px(30.0),
                     ..default()
                 },
                 image: asset_server.load("branding/icon.png").into(),
@@ -84,13 +84,13 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
 }
 
 /// System that changes the scale of the ui when pressing up or down on the keyboard.
-fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
-    if input.just_pressed(KeyCode::Up) {
+fn change_scaling(input: Res<ButtonInput<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         let scale = (ui_scale.target_scale * 2.0).min(8.);
         ui_scale.set_scale(scale);
         info!("Scaling up! Scale: {}", ui_scale.target_scale);
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         let scale = (ui_scale.target_scale / 2.0).max(1. / 8.);
         ui_scale.set_scale(scale);
         info!("Scaling down! Scale: {}", ui_scale.target_scale);
@@ -99,21 +99,21 @@ fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>)
 
 #[derive(Resource)]
 struct TargetScale {
-    start_scale: f64,
-    target_scale: f64,
+    start_scale: f32,
+    target_scale: f32,
     target_time: Timer,
 }
 
 impl TargetScale {
-    fn set_scale(&mut self, scale: f64) {
+    fn set_scale(&mut self, scale: f32) {
         self.start_scale = self.current_scale();
         self.target_scale = scale;
         self.target_time.reset();
     }
 
-    fn current_scale(&self) -> f64 {
-        let completion = self.target_time.percent();
-        let multiplier = ease_in_expo(completion as f64);
+    fn current_scale(&self) -> f32 {
+        let completion = self.target_time.fraction();
+        let multiplier = ease_in_expo(completion);
         self.start_scale + (self.target_scale - self.start_scale) * multiplier
     }
 
@@ -136,13 +136,13 @@ fn apply_scaling(
         return;
     }
 
-    ui_scale.scale = target_scale.current_scale();
+    ui_scale.0 = target_scale.current_scale();
 }
 
-fn ease_in_expo(x: f64) -> f64 {
+fn ease_in_expo(x: f32) -> f32 {
     if x == 0. {
         0.
     } else {
-        (2.0f64).powf(5. * x - 5.)
+        2.0f32.powf(5. * x - 5.)
     }
 }

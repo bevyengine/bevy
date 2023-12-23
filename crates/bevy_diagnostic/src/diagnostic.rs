@@ -1,11 +1,12 @@
-use bevy_ecs::system::Resource;
+use bevy_app::App;
+use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
 use bevy_log::warn;
 use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
 use std::{borrow::Cow, collections::VecDeque};
 
 use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
 
-/// Unique identifier for a [Diagnostic]
+/// Unique identifier for a [`Diagnostic`].
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DiagnosticId(pub Uuid);
 
@@ -21,7 +22,7 @@ impl Default for DiagnosticId {
     }
 }
 
-/// A single measurement of a [Diagnostic]
+/// A single measurement of a [`Diagnostic`].
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
     pub time: Instant,
@@ -44,16 +45,14 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    /// Add a new value as a [`DiagnosticMeasurement`]. Its timestamp will be [`Instant::now`].
-    pub fn add_measurement(&mut self, value: f64) {
-        let time = Instant::now();
-
+    /// Add a new value as a [`DiagnosticMeasurement`].
+    pub fn add_measurement(&mut self, measurement: DiagnosticMeasurement) {
         if let Some(previous) = self.measurement() {
-            let delta = (time - previous.time).as_secs_f64();
+            let delta = (measurement.time - previous.time).as_secs_f64();
             let alpha = (delta / self.ema_smoothing_factor).clamp(0.0, 1.0);
-            self.ema += alpha * (value - self.ema);
+            self.ema += alpha * (measurement.value - self.ema);
         } else {
-            self.ema = value;
+            self.ema = measurement.value;
         }
 
         if self.max_history_length > 1 {
@@ -63,14 +62,13 @@ impl Diagnostic {
                 }
             }
 
-            self.sum += value;
+            self.sum += measurement.value;
         } else {
             self.history.clear();
-            self.sum = value;
+            self.sum = measurement.value;
         }
 
-        self.history
-            .push_back(DiagnosticMeasurement { time, value });
+        self.history.push_back(measurement);
     }
 
     /// Create a new diagnostic with the given ID, name and maximum history.
@@ -111,7 +109,7 @@ impl Diagnostic {
     /// The smoothing factor used for the exponential smoothing used for
     /// [`smoothed`](Self::smoothed).
     ///
-    /// If measurements come in less fequently than `smoothing_factor` seconds
+    /// If measurements come in less frequently than `smoothing_factor` seconds
     /// apart, no smoothing will be applied. As measurements come in more
     /// frequently, the smoothing takes a greater effect such that it takes
     /// approximately `smoothing_factor` seconds for 83% of an instantaneous
@@ -197,16 +195,18 @@ impl Diagnostic {
     }
 }
 
-/// A collection of [Diagnostic]s
+/// A collection of [`Diagnostic`]s.
 #[derive(Debug, Default, Resource)]
-pub struct Diagnostics {
+pub struct DiagnosticsStore {
     // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
     // runs when all diagnostics are inserted in the same order.
     diagnostics: StableHashMap<DiagnosticId, Diagnostic>,
 }
 
-impl Diagnostics {
+impl DiagnosticsStore {
     /// Add a new [`Diagnostic`].
+    ///
+    /// If possible, prefer calling [`App::register_diagnostic`].
     pub fn add(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.insert(diagnostic.id, diagnostic);
     }
@@ -227,6 +227,25 @@ impl Diagnostics {
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
+    /// Return an iterator over all [`Diagnostic`]s.
+    pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
+        self.diagnostics.values()
+    }
+
+    /// Return an iterator over all [`Diagnostic`]s, by mutable reference.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Diagnostic> {
+        self.diagnostics.values_mut()
+    }
+}
+
+/// Record new [`DiagnosticMeasurement`]'s.
+#[derive(SystemParam)]
+pub struct Diagnostics<'w, 's> {
+    store: Res<'w, DiagnosticsStore>,
+    queue: Deferred<'s, DiagnosticsBuffer>,
+}
+
+impl<'w, 's> Diagnostics<'w, 's> {
     /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
     /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
     /// costly to calculate.
@@ -234,17 +253,65 @@ impl Diagnostics {
     where
         F: FnOnce() -> f64,
     {
-        if let Some(diagnostic) = self
-            .diagnostics
-            .get_mut(&id)
+        if self
+            .store
+            .get(id)
             .filter(|diagnostic| diagnostic.is_enabled)
+            .is_some()
         {
-            diagnostic.add_measurement(value());
+            let measurement = DiagnosticMeasurement {
+                time: Instant::now(),
+                value: value(),
+            };
+            self.queue.0.insert(id, measurement);
         }
     }
+}
 
-    /// Return an iterator over all [`Diagnostic`].
-    pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
-        self.diagnostics.values()
+#[derive(Default)]
+struct DiagnosticsBuffer(StableHashMap<DiagnosticId, DiagnosticMeasurement>);
+
+impl SystemBuffer for DiagnosticsBuffer {
+    fn apply(
+        &mut self,
+        _system_meta: &bevy_ecs::system::SystemMeta,
+        world: &mut bevy_ecs::world::World,
+    ) {
+        let mut diagnostics = world.resource_mut::<DiagnosticsStore>();
+        for (id, measurement) in self.0.drain() {
+            if let Some(diagnostic) = diagnostics.get_mut(id) {
+                diagnostic.add_measurement(measurement);
+            }
+        }
+    }
+}
+
+/// Extend [`App`] with new `register_diagnostic` function.
+pub trait RegisterDiagnostic {
+    fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self;
+}
+
+impl RegisterDiagnostic for App {
+    /// Register a new [`Diagnostic`] with an [`App`].
+    ///
+    /// Will initialize a [`DiagnosticsStore`] if it doesn't exist.
+    ///
+    /// ```rust
+    /// use bevy_app::App;
+    /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticId, RegisterDiagnostic};
+    ///
+    /// const UNIQUE_DIAG_ID: DiagnosticId = DiagnosticId::from_u128(42);
+    ///
+    /// App::new()
+    ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_ID, "example", 10))
+    ///     .add_plugins(DiagnosticsPlugin)
+    ///     .run();
+    /// ```
+    fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
+        self.init_resource::<DiagnosticsStore>();
+        let mut diagnostics = self.world.resource_mut::<DiagnosticsStore>();
+        diagnostics.add(diagnostic);
+
+        self
     }
 }

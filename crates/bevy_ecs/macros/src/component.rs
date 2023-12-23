@@ -1,8 +1,25 @@
-use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
-use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
+use quote::quote;
+use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Path, Result};
+
+pub fn derive_event(input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    ast.generics
+        .make_where_clause()
+        .predicates
+        .push(parse_quote! { Self: Send + Sync + 'static });
+
+    let struct_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
+        }
+    })
+}
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -48,8 +65,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     })
 }
 
-pub const COMPONENT: Symbol = Symbol("component");
-pub const STORAGE: Symbol = Symbol("storage");
+pub const COMPONENT: &str = "component";
+pub const STORAGE: &str = "storage";
 
 struct Attrs {
     storage: StorageTy,
@@ -66,49 +83,27 @@ const TABLE: &str = "Table";
 const SPARSE_SET: &str = "SparseSet";
 
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
-    let meta_items = bevy_macro_utils::parse_attrs(ast, COMPONENT)?;
-
     let mut attrs = Attrs {
         storage: StorageTy::Table,
     };
 
-    for meta in meta_items {
-        use syn::{
-            Meta::NameValue,
-            NestedMeta::{Lit, Meta},
-        };
-        match meta {
-            Meta(NameValue(m)) if m.path == STORAGE => {
-                attrs.storage = match get_lit_str(STORAGE, &m.lit)?.value().as_str() {
-                    TABLE => StorageTy::Table,
-                    SPARSE_SET => StorageTy::SparseSet,
+    for meta in ast.attrs.iter().filter(|a| a.path().is_ident(COMPONENT)) {
+        meta.parse_nested_meta(|nested| {
+            if nested.path.is_ident(STORAGE) {
+                attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
+                    s if s == TABLE => StorageTy::Table,
+                    s if s == SPARSE_SET => StorageTy::SparseSet,
                     s => {
-                        return Err(Error::new_spanned(
-                            m.lit,
-                            format!(
-                                "Invalid storage type `{}`, expected '{}' or '{}'.",
-                                s, TABLE, SPARSE_SET
-                            ),
-                        ))
+                        return Err(nested.error(format!(
+                            "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
+                        )));
                     }
                 };
+                Ok(())
+            } else {
+                Err(nested.error("Unsupported attribute"))
             }
-            Meta(meta_item) => {
-                return Err(Error::new_spanned(
-                    meta_item.path(),
-                    format!(
-                        "unknown component attribute `{}`",
-                        meta_item.path().into_token_stream()
-                    ),
-                ));
-            }
-            Lit(lit) => {
-                return Err(Error::new_spanned(
-                    lit,
-                    "unexpected literal in component attribute",
-                ))
-            }
-        }
+        })?;
     }
 
     Ok(attrs)

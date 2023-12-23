@@ -3,6 +3,7 @@ use xshell::{cmd, Shell};
 use bitflags::bitflags;
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Check: u32 {
         const FORMAT = 0b00000001;
         const CLIPPY = 0b00000010;
@@ -15,17 +16,6 @@ bitflags! {
         const COMPILE_CHECK = 0b100000000;
     }
 }
-
-const CLIPPY_FLAGS: [&str; 8] = [
-    "-Aclippy::type_complexity",
-    "-Wclippy::doc_markdown",
-    "-Wclippy::redundant_else",
-    "-Wclippy::match_same_arms",
-    "-Wclippy::semicolon_if_nothing_returned",
-    "-Wclippy::explicit_iter_loop",
-    "-Wclippy::map_flatten",
-    "-Dwarnings",
-];
 
 fn main() {
     // When run locally, results may differ from actual CI runs triggered by
@@ -81,19 +71,40 @@ fn main() {
         // - Type complexity must be ignored because we use huge templates for queries
         cmd!(
             sh,
-            "cargo clippy --workspace --all-targets --all-features -- {CLIPPY_FLAGS...}"
+            "cargo clippy --workspace --all-targets --all-features -- -Dwarnings"
         )
         .run()
         .expect("Please fix clippy errors in output above.");
     }
 
     if what_to_run.contains(Check::COMPILE_FAIL) {
-        // Run UI tests (they do not get executed with the workspace tests)
-        // - See crates/bevy_ecs_compile_fail_tests/README.md
-        let _subdir = sh.push_dir("crates/bevy_ecs_compile_fail_tests");
-        cmd!(sh, "cargo test --target-dir ../../target")
-            .run()
-            .expect("Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+        {
+            // ECS Compile Fail Tests
+            // Run UI tests (they do not get executed with the workspace tests)
+            // - See crates/bevy_ecs_compile_fail_tests/README.md
+            let _subdir = sh.push_dir("crates/bevy_ecs_compile_fail_tests");
+            cmd!(sh, "cargo test --target-dir ../../target")
+                .run()
+                .expect("Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+        }
+        {
+            // Reflect Compile Fail Tests
+            // Run tests (they do not get executed with the workspace tests)
+            // - See crates/bevy_reflect_compile_fail_tests/README.md
+            let _subdir = sh.push_dir("crates/bevy_reflect_compile_fail_tests");
+            cmd!(sh, "cargo test --target-dir ../../target")
+                .run()
+                .expect("Compiler errors of the Reflect compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+        }
+        {
+            // Macro Compile Fail Tests
+            // Run tests (they do not get executed with the workspace tests)
+            // - See crates/bevy_macros_compile_fail_tests/README.md
+            let _subdir = sh.push_dir("crates/bevy_macros_compile_fail_tests");
+            cmd!(sh, "cargo test --target-dir ../../target")
+                .run()
+                .expect("Compiler errors of the macros compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+        }
     }
 
     if what_to_run.contains(Check::TEST) {
@@ -121,7 +132,7 @@ fn main() {
         .expect("Please fix doc warnings in output above.");
     }
 
-    if what_to_run.contains(Check::COMPILE_FAIL) {
+    if what_to_run.contains(Check::BENCH_CHECK) {
         let _subdir = sh.push_dir("benches");
         // Check that benches are building
         cmd!(sh, "cargo check --benches --target-dir ../target")
@@ -133,13 +144,13 @@ fn main() {
         // Build examples and check they compile
         cmd!(sh, "cargo check --workspace --examples")
             .run()
-            .expect("Please fix failing doc-tests in output above.");
+            .expect("Please fix compiler errors for examples in output above.");
     }
 
     if what_to_run.contains(Check::COMPILE_CHECK) {
-        // Build examples and check they compile
+        // Build bevy and check that it compiles
         cmd!(sh, "cargo check --workspace")
             .run()
-            .expect("Please fix failing doc-tests in output above.");
+            .expect("Please fix compiler errors in output above.");
     }
 }

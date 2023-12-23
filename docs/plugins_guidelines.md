@@ -34,7 +34,7 @@ You can specify the dependency [both as a version and with git](https://doc.rust
 
 You can use one of these badges to communicate to your users how closely you intend to track Bevy's main branch.
 
-<!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code colum -->
+<!-- MD033 - The Badges could be downsized, without the inline HTML due to the large code column -->
 <!-- markdownlint-disable-next-line MD033 -->
 |<div style="width:100px">badge</div>|<div style="width:200px">description</div>|code|
 |-|-|-|
@@ -71,18 +71,18 @@ In the case of a Bevy plugin, a few screenshots or movies/animated GIFs from you
 
 Additionally, it can be helpful to list:
 
-* Stages added by the plugin
-* Systems used
+* SystemSets available from your plugin
+  * if important, also mention their execution order
 * Components available from your plugin
 
 ### Indicate Compatible Versions
 
 Indicating which version of your plugin works with which version of Bevy can be helpful for your users. Some of your users may be using an older version of Bevy for any number of reasons. You can help them find which version of your plugin they should use. This can be shown as a simple table in your readme with each version of Bevy and the corresponding compatible version of your plugin.
 
-|bevy|bevy_awesome_plugin|
-|---|---|
-|0.5|0.3|
-|0.4|0.1|
+| bevy | bevy_awesome_plugin |
+|------|---------------------|
+| 0.5  | 0.3                 |
+| 0.4  | 0.1                 |
 
 ## Tests and CI
 

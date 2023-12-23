@@ -6,57 +6,55 @@
 //
 // Tweaks by mrDIMAS - https://github.com/FyroxEngine/Fyrox/blob/master/src/renderer/shaders/fxaa_fs.glsl
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
+#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
-@group(0) @binding(0)
-var screenTexture: texture_2d<f32>;
-@group(0) @binding(1)
-var samp: sampler;
+@group(0) @binding(0) var screenTexture: texture_2d<f32>;
+@group(0) @binding(1) var samp: sampler;
 
 // Trims the algorithm from processing darks.
 #ifdef EDGE_THRESH_MIN_LOW
-    let EDGE_THRESHOLD_MIN: f32 = 0.0833;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0833;
 #endif
 
 #ifdef EDGE_THRESH_MIN_MEDIUM
-    let EDGE_THRESHOLD_MIN: f32 = 0.0625;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0625;
 #endif
 
 #ifdef EDGE_THRESH_MIN_HIGH
-    let EDGE_THRESHOLD_MIN: f32 = 0.0312;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0312;
 #endif
 
 #ifdef EDGE_THRESH_MIN_ULTRA
-    let EDGE_THRESHOLD_MIN: f32 = 0.0156;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0156;
 #endif
 
 #ifdef EDGE_THRESH_MIN_EXTREME
-    let EDGE_THRESHOLD_MIN: f32 = 0.0078;
+    const EDGE_THRESHOLD_MIN: f32 = 0.0078;
 #endif
 
 // The minimum amount of local contrast required to apply algorithm.
 #ifdef EDGE_THRESH_LOW
-    let EDGE_THRESHOLD_MAX: f32 = 0.250;
+    const EDGE_THRESHOLD_MAX: f32 = 0.250;
 #endif
 
 #ifdef EDGE_THRESH_MEDIUM
-    let EDGE_THRESHOLD_MAX: f32 = 0.166;
+    const EDGE_THRESHOLD_MAX: f32 = 0.166;
 #endif
 
 #ifdef EDGE_THRESH_HIGH
-    let EDGE_THRESHOLD_MAX: f32 = 0.125;
+    const EDGE_THRESHOLD_MAX: f32 = 0.125;
 #endif
 
 #ifdef EDGE_THRESH_ULTRA
-    let EDGE_THRESHOLD_MAX: f32 = 0.063;
+    const EDGE_THRESHOLD_MAX: f32 = 0.063;
 #endif
 
 #ifdef EDGE_THRESH_EXTREME
-    let EDGE_THRESHOLD_MAX: f32 = 0.031;
+    const EDGE_THRESHOLD_MAX: f32 = 0.031;
 #endif
 
-let ITERATIONS: i32 = 12; //default is 12
-let SUBPIXEL_QUALITY: f32 = 0.75;
+const ITERATIONS: i32 = 12; //default is 12
+const SUBPIXEL_QUALITY: f32 = 0.75;
 // #define QUALITY(q) ((q) < 5 ? 1.0 : ((q) > 5 ? ((q) < 10 ? 2.0 : ((q) < 11 ? 4.0 : 8.0)) : 1.5))
 fn QUALITY(q: i32) -> f32 {
     switch (q) {
@@ -77,7 +75,6 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let resolution = vec2<f32>(textureDimensions(screenTexture));
-    let fragCoord = in.position.xy;
     let inverseScreenSize = 1.0 / resolution.xy;
     let texCoord = in.position.xy * inverseScreenSize;
 
@@ -87,7 +84,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Luma at the current fragment
     let lumaCenter = rgb2luma(colorCenter);
 
-    // Luma at the four direct neighbours of the current fragment.
+    // Luma at the four direct neighbors of the current fragment.
     let lumaDown = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(0, -1)).rgb);
     let lumaUp = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(0, 1)).rgb);
     let lumaLeft = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(-1, 0)).rgb);
@@ -238,7 +235,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Is the luma at center smaller than the local average ?
     let isLumaCenterSmaller = lumaCenter < lumaLocalAverage;
 
-    // If the luma at center is smaller than at its neighbour, the delta luma at each end should be positive (same variation).
+    // If the luma at center is smaller than at its neighbor, the delta luma at each end should be positive (same variation).
     let correctVariation1 = (lumaEnd1 < 0.0) != isLumaCenterSmaller;
     let correctVariation2 = (lumaEnd2 < 0.0) != isLumaCenterSmaller;
 

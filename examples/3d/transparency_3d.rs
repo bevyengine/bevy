@@ -6,10 +6,10 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(fade_transparency)
+        .add_systems(Startup, setup)
+        .add_systems(Update, fade_transparency)
         .run();
 }
 
@@ -20,16 +20,19 @@ fn setup(
 ) {
     // opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 6.0 })),
+        mesh: meshes.add(shape::Plane::from_size(6.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
     // transparent sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 3,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial {
             // Alpha channel of the color controls transparency.
             // We set it to 0.0 here, because it will be changed over time in the
@@ -46,10 +49,13 @@ fn setup(
     });
     // transparent unlit sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 3,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial {
             base_color: Color::rgba(0.2, 0.7, 0.1, 0.0),
             alpha_mode: AlphaMode::Mask(0.5),
@@ -71,10 +77,13 @@ fn setup(
     });
     // opaque sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 3,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
         material: materials.add(Color::rgb(0.7, 0.2, 0.1).into()),
         transform: Transform::from_xyz(0.0, 0.5, -1.5),
         ..default()
@@ -98,10 +107,10 @@ fn setup(
 
 /// Fades the alpha channel of all materials between 0 and 1 over time.
 /// Each blend mode responds differently to this:
-/// - `Opaque`: Ignores alpha channel altogether, these materials stay completely opaque.
-/// - `Mask(f32)`: Object appears when the alpha value goes above the mask's threshold, disappears
+/// - [`Opaque`](AlphaMode::Opaque): Ignores alpha channel altogether, these materials stay completely opaque.
+/// - [`Mask(f32)`](AlphaMode::Mask): Object appears when the alpha value goes above the mask's threshold, disappears
 ///                when the alpha value goes back below the threshold.
-/// - `Blend`: Object fades in and out smoothly.
+/// - [`Blend`](AlphaMode::Blend): Object fades in and out smoothly.
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (time.elapsed_seconds().sin() / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {

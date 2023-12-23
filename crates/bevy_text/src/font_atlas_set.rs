@@ -1,8 +1,10 @@
-use crate::{error::TextError, Font, FontAtlas, TextSettings};
+use crate::{error::TextError, Font, FontAtlas};
 use ab_glyph::{GlyphId, OutlinedGlyph, Point};
+use bevy_asset::{AssetEvent, AssetId};
 use bevy_asset::{Assets, Handle};
+use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::FloatOrd;
@@ -10,14 +12,36 @@ use bevy_utils::HashMap;
 
 type FontSizeKey = FloatOrd;
 
-#[derive(TypeUuid)]
-#[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
-pub struct FontAtlasSet {
-    font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
-    queue: Vec<FontSizeKey>,
+#[derive(Default, Resource)]
+pub struct FontAtlasSets {
+    // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
+    pub(crate) sets: HashMap<AssetId<Font>, FontAtlasSet>,
 }
 
-#[derive(Debug, Clone)]
+impl FontAtlasSets {
+    pub fn get(&self, id: impl Into<AssetId<Font>>) -> Option<&FontAtlasSet> {
+        let id: AssetId<Font> = id.into();
+        self.sets.get(&id)
+    }
+}
+
+pub fn remove_dropped_font_atlas_sets(
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_events: EventReader<AssetEvent<Font>>,
+) {
+    // Clean up font atlas sets for removed fonts
+    for event in font_events.read() {
+        if let AssetEvent::Removed { id } = event {
+            font_atlas_sets.sets.remove(id);
+        }
+    }
+}
+
+pub struct FontAtlasSet {
+    font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
+}
+
+#[derive(Debug, Clone, Reflect)]
 pub struct GlyphAtlasInfo {
     pub texture_atlas: Handle<TextureAtlas>,
     pub glyph_index: usize,
@@ -27,7 +51,6 @@ impl Default for FontAtlasSet {
     fn default() -> Self {
         FontAtlasSet {
             font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
-            queue: Vec::new(),
         }
     }
 }
@@ -52,22 +75,7 @@ impl FontAtlasSet {
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
         outlined_glyph: OutlinedGlyph,
-        text_settings: &TextSettings,
     ) -> Result<GlyphAtlasInfo, TextError> {
-        if !text_settings.allow_dynamic_font_size {
-            if self.font_atlases.len() >= text_settings.max_font_atlases.get() {
-                return Err(TextError::ExceedMaxTextAtlases(
-                    text_settings.max_font_atlases.get(),
-                ));
-            }
-        } else {
-            // Clear last space in queue to make room for new font size
-            while self.queue.len() >= text_settings.max_font_atlases.get() - 1 {
-                if let Some(font_size_key) = self.queue.pop() {
-                    self.font_atlases.remove(&font_size_key);
-                }
-            }
-        }
         let glyph = outlined_glyph.glyph();
         let glyph_id = glyph.id;
         let glyph_position = glyph.position;
@@ -82,7 +90,7 @@ impl FontAtlasSet {
                     Vec2::splat(512.0),
                 )]
             });
-        self.queue.insert(0, FloatOrd(font_size));
+
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
             atlas.add_glyph(
@@ -99,8 +107,8 @@ impl FontAtlasSet {
                 .texture_descriptor
                 .size
                 .height
-                .max(glyph_texture.texture_descriptor.size.width);
-            // Pick the higher  of 512 or the smallest power of 2 greater than glyph_max_size
+                .max(glyph_texture.width());
+            // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
             let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
             font_atlases.push(FontAtlas::new(
                 textures,
@@ -129,12 +137,6 @@ impl FontAtlasSet {
         glyph_id: GlyphId,
         position: Point,
     ) -> Option<GlyphAtlasInfo> {
-        // Move to front of used queue.
-        let some_index = self.queue.iter().position(|x| *x == FloatOrd(font_size));
-        if let Some(index) = some_index {
-            let key = self.queue.remove(index);
-            self.queue.insert(0, key);
-        }
         self.font_atlases
             .get(&FloatOrd(font_size))
             .and_then(|font_atlases| {
@@ -150,5 +152,15 @@ impl FontAtlasSet {
                         glyph_index,
                     })
             })
+    }
+
+    /// Returns the number of font atlases in this set
+    pub fn len(&self) -> usize {
+        self.font_atlases.len()
+    }
+
+    /// Returns `true` if the font atlas set contains no elements
+    pub fn is_empty(&self) -> bool {
+        self.font_atlases.is_empty()
     }
 }

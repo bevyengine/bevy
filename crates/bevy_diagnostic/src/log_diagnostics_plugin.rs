@@ -1,11 +1,17 @@
-use super::{Diagnostic, DiagnosticId, Diagnostics};
+use super::{Diagnostic, DiagnosticId, DiagnosticsStore};
 use bevy_app::prelude::*;
-use bevy_ecs::system::{Res, ResMut, Resource};
+use bevy_ecs::prelude::*;
 use bevy_log::{debug, info};
-use bevy_time::{Time, Timer, TimerMode};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_utils::Duration;
 
-/// An App Plugin that logs diagnostics to the console
+/// An App Plugin that logs diagnostics to the console.
+///
+/// Diagnostics are collected by plugins such as
+/// [`FrameTimeDiagnosticsPlugin`](crate::FrameTimeDiagnosticsPlugin)
+/// or can be provided by the user.
+///
+/// When no diagnostics are provided, this plugin does nothing.
 pub struct LogDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,
@@ -37,9 +43,9 @@ impl Plugin for LogDiagnosticsPlugin {
         });
 
         if self.debug {
-            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_debug_system);
+            app.add_systems(PostUpdate, Self::log_diagnostics_debug_system);
         } else {
-            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system);
+            app.add_systems(PostUpdate, Self::log_diagnostics_system);
         }
     }
 }
@@ -82,10 +88,10 @@ impl LogDiagnosticsPlugin {
 
     fn log_diagnostics_system(
         mut state: ResMut<LogDiagnosticsState>,
-        time: Res<Time>,
-        diagnostics: Res<Diagnostics>,
+        time: Res<Time<Real>>,
+        diagnostics: Res<DiagnosticsStore>,
     ) {
-        if state.timer.tick(time.raw_delta()).finished() {
+        if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().flat_map(|id| {
                     diagnostics
@@ -107,10 +113,10 @@ impl LogDiagnosticsPlugin {
 
     fn log_diagnostics_debug_system(
         mut state: ResMut<LogDiagnosticsState>,
-        time: Res<Time>,
-        diagnostics: Res<Diagnostics>,
+        time: Res<Time<Real>>,
+        diagnostics: Res<DiagnosticsStore>,
     ) {
-        if state.timer.tick(time.raw_delta()).finished() {
+        if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().flat_map(|id| {
                     diagnostics

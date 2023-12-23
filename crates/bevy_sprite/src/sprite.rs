@@ -1,9 +1,13 @@
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::color::Color;
 
+/// Specifies the rendering properties of a sprite.
+///
+/// This is commonly used as a component within [`SpriteBundle`](crate::bundle::SpriteBundle).
 #[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default)]
 #[repr(C)]
 pub struct Sprite {
     /// The sprite's color tint
@@ -24,7 +28,7 @@ pub struct Sprite {
 
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
 /// It defaults to `Anchor::Center`.
-#[derive(Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[doc(alias = "pivot")]
 pub enum Anchor {
     #[default]

@@ -1,6 +1,9 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{prelude::*, utils::HashSet};
+use bevy::{
+    prelude::*,
+    utils::{thiserror, HashSet},
+};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
@@ -11,13 +14,17 @@ use std::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_contributor_selection)
-        .add_startup_system(setup)
-        .add_system(velocity_system)
-        .add_system(move_system)
-        .add_system(collision_system)
-        .add_system(select_system)
         .init_resource::<SelectionState>()
+        .add_systems(Startup, (setup_contributor_selection, setup))
+        .add_systems(
+            Update,
+            (
+                velocity_system,
+                move_system,
+                collision_system,
+                select_system,
+            ),
+        )
         .run();
 }
 
@@ -142,13 +149,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 60.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             ),
             TextSection::from_style(TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 60.0,
-                color: Color::WHITE,
+                ..default()
             }),
         ])
         .with_style(Style {
@@ -217,7 +224,7 @@ fn select(
     text.sections[1].style.color = sprite.color;
 }
 
-/// Change the modulate color to the "deselected" colour and push
+/// Change the modulate color to the "deselected" color and push
 /// the object to the back.
 fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
     sprite.color = Color::hsla(
@@ -245,21 +252,19 @@ fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collision_system(
-    windows: Res<Windows>,
+    windows: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let Some(window) = windows.get_primary() else {
-        return;
-    };
+    let window = windows.single();
 
     let ceiling = window.height() / 2.;
-    let ground = -(window.height() / 2.);
+    let ground = -window.height() / 2.;
 
-    let wall_left = -(window.width() / 2.);
+    let wall_left = -window.width() / 2.;
     let wall_right = window.width() / 2.;
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.
-    let max_bounce_height = window.height() - SPRITE_SIZE * 2.0;
+    let max_bounce_height = (window.height() - SPRITE_SIZE * 2.0).max(0.0);
 
     let mut rng = rand::thread_rng();
 
@@ -274,7 +279,7 @@ fn collision_system(
             transform.translation.y = ground + SPRITE_SIZE / 2.0;
 
             // How high this birb will bounce.
-            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..max_bounce_height);
+            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..=max_bounce_height);
 
             // Apply the velocity that would bounce the birb up to bounce_height.
             velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();
@@ -307,9 +312,13 @@ fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
 enum LoadContributorsError {
-    IO(io::Error),
-    Var(VarError),
+    #[error("An IO error occurred while reading the git log.")]
+    Io(#[from] io::Error),
+    #[error("The CARGO_MANIFEST_DIR environment variable was not set.")]
+    Var(#[from] VarError),
+    #[error("The git process did not return a stdout handle.")]
     Stdout,
 }
 
@@ -319,20 +328,19 @@ enum LoadContributorsError {
 /// This function only works if `git` is installed and
 /// the program is run through `cargo`.
 fn contributors() -> Result<Contributors, LoadContributorsError> {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(LoadContributorsError::Var)?;
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
 
     let mut cmd = std::process::Command::new("git")
         .args(["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
-        .spawn()
-        .map_err(LoadContributorsError::IO)?;
+        .spawn()?;
 
     let stdout = cmd.stdout.take().ok_or(LoadContributorsError::Stdout)?;
 
     let contributors = BufReader::new(stdout)
         .lines()
-        .filter_map(|x| x.ok())
+        .map_while(|x| x.ok())
         .collect();
 
     Ok(contributors)

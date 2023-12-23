@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_ecs::system::{ReadOnlySystemParamFetch, SystemParam, SystemState};
+use bevy_ecs::system::{ReadOnlySystemParam, SystemParam, SystemState};
 
 #[derive(Component)]
 struct Foo;
@@ -18,8 +18,8 @@ fn main() {
     assert_readonly::<Mutable>();
 }
 
-fn assert_readonly<P: SystemParam>()
+fn assert_readonly<P>()
 where
-    <P as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+    P: ReadOnlySystemParam,
 {
 }

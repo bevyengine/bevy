@@ -11,8 +11,8 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_startup_system(setup)
-        .add_system(rotate)
+        .add_systems(Startup, setup)
+        .add_systems(Update, rotate)
         .run();
 }
 
@@ -20,7 +20,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 14.;
+const X_EXTENT: f32 = 14.5;
 
 fn setup(
     mut commands: Commands,
@@ -38,7 +38,8 @@ fn setup(
         meshes.add(shape::Box::default().into()),
         meshes.add(shape::Capsule::default().into()),
         meshes.add(shape::Torus::default().into()),
-        meshes.add(shape::Icosphere::default().into()),
+        meshes.add(shape::Cylinder::default().into()),
+        meshes.add(shape::Icosphere::default().try_into().unwrap()),
         meshes.add(shape::UVSphere::default().into()),
     ];
 
@@ -74,7 +75,7 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane { size: 50. }.into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
         material: materials.add(Color::SILVER.into()),
         ..default()
     });

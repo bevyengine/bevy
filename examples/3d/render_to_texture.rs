@@ -3,7 +3,6 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -17,9 +16,8 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(cube_rotator_system)
-        .add_system(rotator_system)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (cube_rotator_system, rotator_system))
         .run();
 }
 
@@ -55,6 +53,7 @@ fn setup(
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         },
         ..default()
     };
@@ -88,21 +87,26 @@ fn setup(
     ));
 
     // Light
-    // NOTE: Currently lights are shared between passes - see https://github.com/bevyengine/bevy/issues/3462
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        ..default()
-    });
+    // NOTE: we add the light to all layers so it affects both the rendered-to-texture cube, and the cube on which we display the texture
+    // Setting the layer to RenderLayers::layer(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
+    // Setting the layer to RenderLayers::layer(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
+    commands.spawn((
+        PointLightBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+            ..default()
+        },
+        RenderLayers::all(),
+    ));
 
     commands.spawn((
         Camera3dBundle {
             camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::WHITE),
+                clear_color: Color::WHITE.into(),
                 ..default()
             },
             camera: Camera {
                 // render before the "main pass" camera
-                priority: -1,
+                order: -1,
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },

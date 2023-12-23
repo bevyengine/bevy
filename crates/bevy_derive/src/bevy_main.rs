@@ -4,17 +4,17 @@ use syn::{parse_macro_input, ItemFn};
 
 pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
-    assert!(
-        input.sig.ident == "main",
-        "`bevy_main` can only be used on a function called 'main'.",
+    assert_eq!(
+        input.sig.ident, "main",
+        "`bevy_main` can only be used on a function called 'main'."
     );
 
     TokenStream::from(quote! {
-        // use ndk-glue macro to create an activity: https://github.com/rust-windowing/android-ndk-rs/tree/master/ndk-macro
+        #[no_mangle]
         #[cfg(target_os = "android")]
-        #[cfg_attr(target_os = "android", bevy::ndk_glue::main(backtrace = "on", ndk_glue = "bevy::ndk_glue"))]
-        fn android_main() {
-            main()
+        fn android_main(android_app: bevy::winit::android_activity::AndroidApp) {
+            let _ = bevy::winit::ANDROID_APP.set(android_app);
+            main();
         }
 
         #[no_mangle]

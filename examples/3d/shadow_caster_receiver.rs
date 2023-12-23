@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{NotShadowCaster, NotShadowReceiver},
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -16,9 +16,8 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(toggle_light)
-        .add_system(toggle_shadows)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (toggle_light, toggle_shadows))
         .run();
 }
 
@@ -37,10 +36,13 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(Mesh::from(shape::Icosphere {
-        radius: sphere_radius,
-        ..default()
-    }));
+    let sphere_handle = meshes.add(
+        Mesh::try_from(shape::Icosphere {
+            radius: sphere_radius,
+            ..default()
+        })
+        .unwrap(),
+    );
 
     // sphere - initially a caster
     commands.spawn(PbrBundle {
@@ -64,7 +66,7 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+            mesh: meshes.add(shape::Plane::from_size(20.0).into()),
             material: materials.add(Color::GREEN.into()),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
@@ -75,7 +77,7 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
+        mesh: meshes.add(shape::Plane::from_size(20.0).into()),
         material: white_handle,
         ..default()
     });
@@ -97,15 +99,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
-            shadow_projection: OrthographicProjection {
-                left: -10.0,
-                right: 10.0,
-                bottom: -10.0,
-                top: 10.0,
-                near: -50.0,
-                far: 50.0,
-                ..default()
-            },
             shadows_enabled: true,
             ..default()
         },
@@ -115,6 +108,12 @@ fn setup(
             PI / 2.,
             -PI / 4.,
         )),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 7.0,
+            maximum_distance: 25.0,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 
@@ -127,11 +126,11 @@ fn setup(
 }
 
 fn toggle_light(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
 ) {
-    if input.just_pressed(KeyCode::L) {
+    if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
@@ -153,7 +152,7 @@ fn toggle_light(
 
 fn toggle_shadows(
     mut commands: Commands,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
         Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
         Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
@@ -161,7 +160,7 @@ fn toggle_shadows(
         Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
     )>,
 ) {
-    if input.just_pressed(KeyCode::C) {
+    if input.just_pressed(KeyCode::KeyC) {
         println!("Toggling casters");
         for entity in queries.p0().iter() {
             commands.entity(entity).remove::<NotShadowCaster>();
@@ -170,7 +169,7 @@ fn toggle_shadows(
             commands.entity(entity).insert(NotShadowCaster);
         }
     }
-    if input.just_pressed(KeyCode::R) {
+    if input.just_pressed(KeyCode::KeyR) {
         println!("Toggling receivers");
         for entity in queries.p1().iter() {
             commands.entity(entity).remove::<NotShadowReceiver>();

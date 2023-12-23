@@ -1,6 +1,7 @@
 use bevy_ecs::{
     component::Component,
-    schedule::{Stage, SystemStage},
+    prelude::EntityWorldMut,
+    schedule::{ExecutorKind, Schedule},
     world::World,
 };
 use criterion::{BenchmarkId, Criterion};
@@ -8,69 +9,43 @@ use criterion::{BenchmarkId, Criterion};
 #[derive(Component)]
 struct A<const N: u16>(f32);
 
-fn setup(system_count: usize) -> (World, SystemStage) {
+fn setup(system_count: usize) -> (World, Schedule) {
     let mut world = World::new();
     fn empty() {}
-    let mut stage = SystemStage::parallel();
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
     for _ in 0..system_count {
-        stage.add_system(empty);
+        schedule.add_systems(empty);
     }
-    stage.run(&mut world);
-    (world, stage)
+    schedule.run(&mut world);
+    (world, schedule)
 }
 
+fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
+    if i & 1 << B != 0 {
+        entity.insert(A::<B>(1.0));
+    }
+}
 /// create `count` entities with distinct archetypes
 fn add_archetypes(world: &mut World, count: u16) {
     for i in 0..count {
         let mut e = world.spawn_empty();
-        if i & 1 << 0 != 0 {
-            e.insert(A::<0>(1.0));
-        }
-        if i & 1 << 1 != 0 {
-            e.insert(A::<1>(1.0));
-        }
-        if i & 1 << 2 != 0 {
-            e.insert(A::<2>(1.0));
-        }
-        if i & 1 << 3 != 0 {
-            e.insert(A::<3>(1.0));
-        }
-        if i & 1 << 4 != 0 {
-            e.insert(A::<4>(1.0));
-        }
-        if i & 1 << 5 != 0 {
-            e.insert(A::<5>(1.0));
-        }
-        if i & 1 << 6 != 0 {
-            e.insert(A::<6>(1.0));
-        }
-        if i & 1 << 7 != 0 {
-            e.insert(A::<7>(1.0));
-        }
-        if i & 1 << 8 != 0 {
-            e.insert(A::<8>(1.0));
-        }
-        if i & 1 << 9 != 0 {
-            e.insert(A::<9>(1.0));
-        }
-        if i & 1 << 10 != 0 {
-            e.insert(A::<10>(1.0));
-        }
-        if i & 1 << 11 != 0 {
-            e.insert(A::<11>(1.0));
-        }
-        if i & 1 << 12 != 0 {
-            e.insert(A::<12>(1.0));
-        }
-        if i & 1 << 13 != 0 {
-            e.insert(A::<13>(1.0));
-        }
-        if i & 1 << 14 != 0 {
-            e.insert(A::<14>(1.0));
-        }
-        if i & 1 << 15 != 0 {
-            e.insert(A::<15>(1.0));
-        }
+        insert_if_bit_enabled::<0>(&mut e, i);
+        insert_if_bit_enabled::<1>(&mut e, i);
+        insert_if_bit_enabled::<2>(&mut e, i);
+        insert_if_bit_enabled::<3>(&mut e, i);
+        insert_if_bit_enabled::<4>(&mut e, i);
+        insert_if_bit_enabled::<5>(&mut e, i);
+        insert_if_bit_enabled::<6>(&mut e, i);
+        insert_if_bit_enabled::<7>(&mut e, i);
+        insert_if_bit_enabled::<8>(&mut e, i);
+        insert_if_bit_enabled::<9>(&mut e, i);
+        insert_if_bit_enabled::<10>(&mut e, i);
+        insert_if_bit_enabled::<11>(&mut e, i);
+        insert_if_bit_enabled::<12>(&mut e, i);
+        insert_if_bit_enabled::<13>(&mut e, i);
+        insert_if_bit_enabled::<14>(&mut e, i);
+        insert_if_bit_enabled::<15>(&mut e, i);
     }
 }
 
@@ -78,13 +53,13 @@ pub fn no_archetypes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("no_archetypes");
     for i in 0..=5 {
         let system_count = i * 20;
-        let (mut world, mut stage) = setup(system_count);
+        let (mut world, mut schedule) = setup(system_count);
         group.bench_with_input(
             BenchmarkId::new("system_count", system_count),
             &system_count,
             |bencher, &_system_count| {
                 bencher.iter(|| {
-                    stage.run(&mut world);
+                    schedule.run(&mut world);
                 });
             },
         );
@@ -101,15 +76,15 @@ pub fn added_archetypes(criterion: &mut Criterion) {
             |bencher, &archetype_count| {
                 bencher.iter_batched(
                     || {
-                        let (mut world, stage) = setup(SYSTEM_COUNT);
+                        let (mut world, schedule) = setup(SYSTEM_COUNT);
                         add_archetypes(&mut world, archetype_count);
-                        (world, stage)
+                        (world, schedule)
                     },
-                    |(mut world, mut stage)| {
-                        stage.run(&mut world);
+                    |(mut world, mut schedule)| {
+                        schedule.run(&mut world);
                     },
                     criterion::BatchSize::LargeInput,
-                )
+                );
             },
         );
     }

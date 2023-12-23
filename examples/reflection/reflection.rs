@@ -18,14 +18,22 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .register_type::<Foo>()
         .register_type::<Bar>()
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
 /// Deriving `Reflect` implements the relevant reflection traits. In this case, it implements the
 /// `Reflect` trait and the `Struct` trait `derive(Reflect)` assumes that all fields also implement
 /// Reflect.
+///
+/// All fields in a reflected item will need to be `Reflect` as well. You can opt a field out of
+/// reflection by using the `#[reflect(ignore)]` attribute.
+/// If you choose to ignore a field, you need to let the automatically-derived `FromReflect` implementation
+/// how to handle the field.
+/// To do this, you can either define a `#[reflect(default = "...")]` attribute on the ignored field, or
+/// opt-out of `FromReflect`'s auto-derive using the `#[reflect(from_reflect = false)]` attribute.
 #[derive(Reflect)]
+#[reflect(from_reflect = false)]
 pub struct Foo {
     a: usize,
     nested: Bar,
@@ -40,6 +48,7 @@ pub struct Bar {
     b: usize,
 }
 
+#[derive(Default)]
 pub struct NonReflectedValue {
     _a: usize,
 }

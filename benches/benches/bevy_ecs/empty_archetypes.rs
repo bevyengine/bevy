@@ -1,9 +1,4 @@
-use bevy_ecs::{
-    component::Component,
-    prelude::*,
-    schedule::{Stage, SystemStage},
-    world::World,
-};
+use bevy_ecs::{component::Component, prelude::*, world::World};
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
@@ -80,14 +75,14 @@ fn par_for_each(
     });
 }
 
-fn setup(parallel: bool, setup: impl FnOnce(&mut SystemStage)) -> (World, SystemStage) {
+fn setup(parallel: bool, setup: impl FnOnce(&mut Schedule)) -> (World, Schedule) {
     let mut world = World::new();
-    let mut stage = SystemStage::parallel();
+    let mut schedule = Schedule::default();
     if parallel {
         world.insert_resource(ComputeTaskPool(TaskPool::default()));
     }
-    setup(&mut stage);
-    (world, stage)
+    setup(&mut schedule);
+    (world, schedule)
 }
 
 /// create `count` entities with distinct archetypes
@@ -158,8 +153,8 @@ fn add_archetypes(world: &mut World, count: u16) {
 fn empty_archetypes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("empty_archetypes");
     for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
-        let (mut world, mut stage) = setup(true, |stage| {
-            stage.add_system(iter);
+        let (mut world, mut schedule) = setup(true, |schedule| {
+            schedule.add_systems(iter);
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
@@ -177,20 +172,20 @@ fn empty_archetypes(criterion: &mut Criterion) {
         e.insert(A::<10>(1.0));
         e.insert(A::<11>(1.0));
         e.insert(A::<12>(1.0));
-        stage.run(&mut world);
+        schedule.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("iter", archetype_count),
             &archetype_count,
             |bencher, &_| {
                 bencher.iter(|| {
-                    stage.run(&mut world);
+                    schedule.run(&mut world);
                 })
             },
         );
     }
     for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
-        let (mut world, mut stage) = setup(true, |stage| {
-            stage.add_system(for_each);
+        let (mut world, mut schedule) = setup(true, |schedule| {
+            schedule.add_systems(for_each);
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
@@ -208,20 +203,20 @@ fn empty_archetypes(criterion: &mut Criterion) {
         e.insert(A::<10>(1.0));
         e.insert(A::<11>(1.0));
         e.insert(A::<12>(1.0));
-        stage.run(&mut world);
+        schedule.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("for_each", archetype_count),
             &archetype_count,
             |bencher, &_| {
                 bencher.iter(|| {
-                    stage.run(&mut world);
+                    schedule.run(&mut world);
                 })
             },
         );
     }
     for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
-        let (mut world, mut stage) = setup(true, |stage| {
-            stage.add_system(par_for_each);
+        let (mut world, mut schedule) = setup(true, |schedule| {
+            schedule.add_systems(par_for_each);
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
@@ -239,13 +234,13 @@ fn empty_archetypes(criterion: &mut Criterion) {
         e.insert(A::<10>(1.0));
         e.insert(A::<11>(1.0));
         e.insert(A::<12>(1.0));
-        stage.run(&mut world);
+        schedule.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("par_for_each", archetype_count),
             &archetype_count,
             |bencher, &_| {
                 bencher.iter(|| {
-                    stage.run(&mut world);
+                    schedule.run(&mut world);
                 })
             },
         );

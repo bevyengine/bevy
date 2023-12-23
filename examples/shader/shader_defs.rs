@@ -3,7 +3,7 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     render::{
         mesh::MeshVertexBufferLayout,
         render_resource::{
@@ -14,9 +14,8 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_startup_system(setup)
+        .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -68,15 +67,14 @@ impl Material for CustomMaterial {
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.is_red {
             let fragment = descriptor.fragment.as_mut().unwrap();
-            fragment.shader_defs.push("IS_RED".to_string());
+            fragment.shader_defs.push("IS_RED".into());
         }
         Ok(())
     }
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 #[bind_group_data(CustomMaterialKey)]
 pub struct CustomMaterial {
     #[uniform(0)]

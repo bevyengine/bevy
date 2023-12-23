@@ -38,7 +38,7 @@ For more advice on writing examples, see the [relevant section](../../CONTRIBUTI
 4. In Queries, prefer `With<T>` filters over actually fetching unused data with `&T`.
 5. Prefer disjoint queries using `With` and `Without` over param sets when you need more than one query in a single system.
 6. Prefer structs with named fields over tuple structs except in the case of single-field wrapper types.
-7. Use enum-labels over string-labels for system / stage / etc. labels.
+7. Use enum-labels over string-labels for app / schedule / etc. labels.
 
 ## "Feature" examples
 

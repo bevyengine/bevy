@@ -1,3 +1,4 @@
+use bevy_ecs::prelude::Component;
 use raw_window_handle::{
     HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle,
 };
@@ -7,9 +8,11 @@ use raw_window_handle::{
 /// Depending on the platform, the underlying pointer-containing handle cannot be used on all threads,
 /// and so we cannot simply make it (or any type that has a safe operation to get a [`RawWindowHandle`] or [`RawDisplayHandle`])
 /// thread-safe.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
+    /// Raw handle to a window.
     pub window_handle: RawWindowHandle,
+    /// Raw handle to the display server.
     pub display_handle: RawDisplayHandle,
 }
 
@@ -23,14 +26,6 @@ impl RawHandleWrapper {
     pub unsafe fn get_handle(&self) -> ThreadLockedRawWindowHandleWrapper {
         ThreadLockedRawWindowHandleWrapper(self.clone())
     }
-
-    pub fn get_display_handle(&self) -> RawDisplayHandle {
-        self.display_handle
-    }
-
-    pub fn get_window_handle(&self) -> RawWindowHandle {
-        self.window_handle
-    }
 }
 
 // SAFETY: [`RawHandleWrapper`] is just a normal "raw pointer", which doesn't impl Send/Sync. However the pointer is only
@@ -39,6 +34,7 @@ impl RawHandleWrapper {
 // A recommendation for this pattern (and more context) is available here:
 // https://github.com/rust-windowing/raw-window-handle/issues/59
 unsafe impl Send for RawHandleWrapper {}
+// SAFETY: This is safe for the same reasons as the Send impl above.
 unsafe impl Sync for RawHandleWrapper {}
 
 /// A [`RawHandleWrapper`] that cannot be sent across threads.
@@ -58,7 +54,7 @@ pub struct ThreadLockedRawWindowHandleWrapper(RawHandleWrapper);
 // and so exposing a safe method to get a [`RawWindowHandle`] directly would be UB.
 unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
     fn raw_window_handle(&self) -> RawWindowHandle {
-        self.0.get_window_handle()
+        self.0.window_handle
     }
 }
 
@@ -70,6 +66,6 @@ unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
 // and so exposing a safe method to get a [`RawDisplayHandle`] directly would be UB.
 unsafe impl HasRawDisplayHandle for ThreadLockedRawWindowHandleWrapper {
     fn raw_display_handle(&self) -> RawDisplayHandle {
-        self.0.get_display_handle()
+        self.0.display_handle
     }
 }
