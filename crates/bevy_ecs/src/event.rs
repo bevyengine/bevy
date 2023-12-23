@@ -411,7 +411,7 @@ impl<E: Event> DerefMut for EventSequence<E> {
 /// # Concurrency
 ///
 /// Unlike [`EventWriter<T>`], systems with `EventReader<T>` param can be executed concurrently
-/// (but not concurrently with `EventWriter<T>` systems for the same `<T>`).
+/// (but not concurrently with `EventWriter<T>` systems for the same event type).
 #[derive(SystemParam, Debug)]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
@@ -492,7 +492,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// # Concurrency
 ///
 /// `EventWriter` param has [`ResMut<Events<T>>`](Events) inside. So two systems declaring `EventWriter<T>` params
-/// for the same `<T>` won't be executed concurrently.
+/// for the same event type won't be executed concurrently.
 ///
 /// # Untyped events
 ///
