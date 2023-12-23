@@ -565,7 +565,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, system::SystemId};
+    /// # use bevy_ecs::{prelude::*, system::{SystemId, CommandQueue}};
     ///
     /// #[derive(Resource)]
     /// struct Counter(i32);
@@ -582,6 +582,21 @@ impl<'w, 's> Commands<'w, 's> {
     ///     value.0 += 1;
     /// }
     ///
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut queue_1 = CommandQueue::default();
+    /// # let systemid = {
+    /// #   let mut commands = Commands::new(&mut queue_1, &world);
+    /// #   commands.register_one_shot_system(increment_counter)
+    /// # };
+    /// # let mut queue_2 = CommandQueue::default();
+    /// # {
+    /// #   let mut commands = Commands::new(&mut queue_2, &world);
+    /// #   commands.run_system(systemid);
+    /// # }
+    /// # queue_1.append(&mut queue_2);
+    /// # queue_1.apply(&mut world);
+    /// # assert_eq!(1, world.resource::<Counter>().0);
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
     pub fn register_one_shot_system<
