@@ -620,10 +620,10 @@ impl Default for WindowResolution {
 impl WindowResolution {
     /// Creates a new [`WindowResolution`] with a scale factor of 1.0.
     /// 
-    /// The scale factor of [`WindowResolution`] in [`Window`] is set by the windowing backend. 
-    pub fn new(width: u32, height: u32) -> Self {
+    /// The scale factor of [`WindowResolution`] in [`Window`] is determined by the windowing backend. 
+    pub fn new(logical_width: u32, logical_height: u32) -> Self {
         Self {
-            physical_size: PhysicalSize::new(width, height),
+            physical_size: PhysicalSize::new(logical_width, logical_height),
             ..Default::default()
         }
     }
