@@ -32,6 +32,7 @@ pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
 pub use petgraph;
+pub use smallvec;
 pub use thiserror;
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
