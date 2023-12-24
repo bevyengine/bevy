@@ -94,7 +94,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 
 impl_downcast!(Plugin);
 
-impl<T: Fn(&mut App)> Plugin for T {
+impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
     fn build(&self, app: &mut App) {
         self(app);
     }
