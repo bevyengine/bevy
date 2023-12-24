@@ -750,6 +750,50 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 }
 
 impl Material for StandardMaterial {
+    fn fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.into()
+    }
+
+    #[inline]
+    fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
+    }
+
+    #[inline]
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
+        match self.opaque_render_method {
+            // For now, diffuse transmission doesn't work under deferred rendering as we don't pack
+            // the required data into the GBuffer. If this material is set to `Auto`, we report it as
+            // `Forward` so that it's rendered correctly, even when the `DefaultOpaqueRendererMethod`
+            // is set to `Deferred`.
+            //
+            // If the developer explicitly sets the `OpaqueRendererMethod` to `Deferred`, we assume
+            // they know what they're doing and don't override it.
+            OpaqueRendererMethod::Auto if self.diffuse_transmission > 0.0 => {
+                OpaqueRendererMethod::Forward
+            }
+            other => other,
+        }
+    }
+
+    #[inline]
+    fn depth_bias(&self) -> f32 {
+        self.depth_bias
+    }
+
+    #[inline]
+    fn reads_view_transmission_texture(&self) -> bool {
+        self.specular_transmission > 0.0
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        PBR_PREPASS_SHADER_HANDLE.into()
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.into()
+    }
+
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
@@ -774,49 +818,5 @@ impl Material for StandardMaterial {
             depth_stencil.bias.constant = key.bind_group_data.depth_bias;
         }
         Ok(())
-    }
-
-    fn prepass_fragment_shader() -> ShaderRef {
-        PBR_PREPASS_SHADER_HANDLE.into()
-    }
-
-    fn deferred_fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
-    }
-
-    fn fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
-    }
-
-    #[inline]
-    fn alpha_mode(&self) -> AlphaMode {
-        self.alpha_mode
-    }
-
-    #[inline]
-    fn depth_bias(&self) -> f32 {
-        self.depth_bias
-    }
-
-    #[inline]
-    fn reads_view_transmission_texture(&self) -> bool {
-        self.specular_transmission > 0.0
-    }
-
-    #[inline]
-    fn opaque_render_method(&self) -> OpaqueRendererMethod {
-        match self.opaque_render_method {
-            // For now, diffuse transmission doesn't work under deferred rendering as we don't pack
-            // the required data into the GBuffer. If this material is set to `Auto`, we report it as
-            // `Forward` so that it's rendered correctly, even when the `DefaultOpaqueRendererMethod`
-            // is set to `Deferred`.
-            //
-            // If the developer explicitly sets the `OpaqueRendererMethod` to `Deferred`, we assume
-            // they know what they're doing and don't override it.
-            OpaqueRendererMethod::Auto if self.diffuse_transmission > 0.0 => {
-                OpaqueRendererMethod::Forward
-            }
-            other => other,
-        }
     }
 }

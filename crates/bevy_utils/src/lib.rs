@@ -211,6 +211,11 @@ pub struct PassHasher {
 }
 
 impl Hasher for PassHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
     fn write(&mut self, _bytes: &[u8]) {
         panic!("can only hash u64 using PassHasher");
     }
@@ -218,11 +223,6 @@ impl Hasher for PassHasher {
     #[inline]
     fn write_u64(&mut self, i: u64) {
         self.hash = i;
-    }
-
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.hash
     }
 }
 
@@ -281,6 +281,11 @@ pub struct EntityHasher {
 }
 
 impl Hasher for EntityHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
     fn write(&mut self, _bytes: &[u8]) {
         panic!("can only hash u64 using EntityHasher");
     }
@@ -316,11 +321,6 @@ impl Hasher for EntityHasher {
 
         // This is `(MAGIC * index + generation) << 32 + index`, in a single instruction.
         self.hash = bits.wrapping_mul(UPPER_PHI);
-    }
-
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.hash
     }
 }
 
