@@ -21,31 +21,31 @@ use std::any::Any;
 /// * once the app started, it will wait for all registered [`Plugin::ready`] to return `true`
 /// * it will then call all registered [`Plugin::finish`]
 /// * and call all registered [`Plugin::cleanup`]
-/// 
+///
 /// ## Defining a plugin.
-/// 
+///
 /// Most plugins are simply a function that adds configuration to an [`App`].
-/// 
+///
 /// ```
 /// # use bevy_app::{App, Update};
 /// App::new().add_plugins(my_plugin);
-/// 
+///
 /// // This function implements `Plugin`, along with every other `fn(&mut World)`.
 /// pub fn my_plugin(app: &mut App) {
 ///     app.add_systems(Update, hello_world);
 /// }
 /// # fn hello_world() {}
 /// ```
-/// 
+///
 /// For more advanced use cases, the `Plugin` trait can be implemented manually for a type.
-/// 
+///
 /// ```
 /// # use bevy_app::*;
 /// pub struct AccessibilityPlugin {
 ///     pub flicker_damping: bool,
 ///     // ...
 /// }
-/// 
+///
 /// impl Plugin for AccessibilityPlugin {
 ///     fn build(&self, app: &mut App) {
 ///         if self.flicker_damping {
