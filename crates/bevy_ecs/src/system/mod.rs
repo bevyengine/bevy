@@ -1717,12 +1717,12 @@ mod tests {
         let mut sched = Schedule::default();
         sched.add_systems(
             (
-                (|mut res: ResMut<C>| {
+                |mut res: ResMut<C>| {
                     res.0 += 1;
-                }),
-                (|mut res: ResMut<C>| {
+                },
+                |mut res: ResMut<C>| {
                     res.0 += 2;
-                }),
+                },
             )
                 .distributive_run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
         );
