@@ -24,7 +24,7 @@ use std::any::Any;
 ///
 /// ## Defining a plugin.
 ///
-/// Most plugins are simply a function that adds configuration to an [`App`].
+/// Most plugins are simply functions that add configuration to an [`App`].
 ///
 /// ```
 /// # use bevy_app::{App, Update};
