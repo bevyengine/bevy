@@ -645,25 +645,33 @@ impl<'w, 's> Commands<'w, 's> {
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
-pub trait EntityCommand: Send + 'static {
+pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, id: Entity, world: &mut World);
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    fn with_entity(self, id: Entity) -> WithEntity<Self>
+    fn with_entity(self, id: Entity) -> WithEntity<Marker, Self>
     where
         Self: Sized,
     {
-        WithEntity { cmd: self, id }
+        WithEntity {
+            cmd: self,
+            id,
+            marker: PhantomData,
+        }
     }
 }
 
 /// Turns an [`EntityCommand`] type into a [`Command`] type.
-pub struct WithEntity<C: EntityCommand> {
+pub struct WithEntity<Marker, C: EntityCommand<Marker>> {
     cmd: C,
     id: Entity,
+    marker: PhantomData<fn() -> Marker>,
 }
 
-impl<C: EntityCommand> Command for WithEntity<C> {
+impl<M, C: EntityCommand<M>> Command for WithEntity<M, C>
+where
+    M: 'static,
+{
     #[inline]
     fn apply(self, world: &mut World) {
         self.cmd.apply(self.id, world);
@@ -981,12 +989,21 @@ where
     }
 }
 
-impl<F> EntityCommand for F
+impl<F> EntityCommand<World> for F
 where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) {
         self(world.entity_mut(id));
+    }
+}
+
+impl<F> EntityCommand for F
+where
+    F: FnOnce(Entity, &mut World) + Send + 'static,
+{
+    fn apply(self, id: Entity, world: &mut World) {
+        self(id, world);
     }
 }
 
