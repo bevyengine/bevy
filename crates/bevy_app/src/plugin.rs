@@ -30,7 +30,7 @@ use std::any::Any;
 /// # use bevy_app::{App, Update};
 /// App::new().add_plugins(my_plugin).run();
 ///
-/// // This function implements `Plugin`, along with every other `fn(&mut World)`.
+/// // This function implements `Plugin`, along with every other `fn(&mut App)`.
 /// pub fn my_plugin(app: &mut App) {
 ///     app.add_systems(Update, hello_world);
 /// }
