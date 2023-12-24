@@ -566,6 +566,9 @@ impl Mesh {
     }
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
+    ///
+    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
+    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
     pub fn compute_aabb(&self) -> Option<Aabb> {
         let Some(VertexAttributeValues::Float32x3(values)) =
             self.attribute(Mesh::ATTRIBUTE_POSITION)

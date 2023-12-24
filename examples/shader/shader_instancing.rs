@@ -68,11 +68,11 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 struct InstanceMaterialData(Vec<InstanceData>);
 
 impl ExtractComponent for InstanceMaterialData {
-    type Query = &'static InstanceMaterialData;
+    type Data = &'static InstanceMaterialData;
     type Filter = ();
     type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+    fn extract_component(item: QueryItem<'_, Self::Data>) -> Option<Self> {
         Some(InstanceMaterialData(item.0.clone()))
     }
 }
@@ -237,8 +237,8 @@ pub struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<InstanceBuffer>;
+    type ViewData = ();
+    type ItemData = Read<InstanceBuffer>;
 
     #[inline]
     fn render<'w>(

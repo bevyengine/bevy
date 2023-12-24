@@ -1,3 +1,4 @@
+//! Provides 2D sprite rendering functionality.
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
@@ -40,11 +41,13 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
+/// Adds support for 2D sprite rendering.
 #[derive(Default)]
 pub struct SpritePlugin;
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
 
+/// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SpriteSystem {
     ExtractSprites,
@@ -117,9 +120,12 @@ pub fn calculate_bounds_2d(
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlas>>,
     meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
-    sprites_without_aabb: Query<
+    sprites_to_recalculate_aabb: Query<
         (Entity, &Sprite, &Handle<Image>),
-        (Without<Aabb>, Without<NoFrustumCulling>),
+        (
+            Or<(Without<Aabb>, Changed<Sprite>)>,
+            Without<NoFrustumCulling>,
+        ),
     >,
     atlases_without_aabb: Query<
         (Entity, &TextureAtlasSprite, &Handle<TextureAtlas>),
@@ -133,7 +139,7 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite, texture_handle) in &sprites_without_aabb {
+    for (entity, sprite, texture_handle) in &sprites_to_recalculate_aabb {
         if let Some(size) = sprite
             .custom_size
             .or_else(|| images.get(texture_handle).map(|image| image.size_f32()))
@@ -158,5 +164,117 @@ pub fn calculate_bounds_2d(
             };
             commands.entity(entity).try_insert(aabb);
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use bevy_math::Vec2;
+    use bevy_utils::default;
+
+    use super::*;
+
+    #[test]
+    fn calculate_bounds_2d_create_aabb_for_image_sprite_entity() {
+        // Setup app
+        let mut app = App::new();
+
+        // Add resources and get handle to image
+        let mut image_assets = Assets::<Image>::default();
+        let image_handle = image_assets.add(Image::default());
+        app.insert_resource(image_assets);
+        let mesh_assets = Assets::<Mesh>::default();
+        app.insert_resource(mesh_assets);
+        let texture_atlas_assets = Assets::<TextureAtlas>::default();
+        app.insert_resource(texture_atlas_assets);
+
+        // Add system
+        app.add_systems(Update, calculate_bounds_2d);
+
+        // Add entites
+        let entity = app.world.spawn((Sprite::default(), image_handle)).id();
+
+        // Verify that the entity does not have an AABB
+        assert!(!app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .contains::<Aabb>());
+
+        // Run system
+        app.update();
+
+        // Verify the AABB exists
+        assert!(app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .contains::<Aabb>());
+    }
+
+    #[test]
+    fn calculate_bounds_2d_update_aabb_when_sprite_custom_size_changes_to_some() {
+        // Setup app
+        let mut app = App::new();
+
+        // Add resources and get handle to image
+        let mut image_assets = Assets::<Image>::default();
+        let image_handle = image_assets.add(Image::default());
+        app.insert_resource(image_assets);
+        let mesh_assets = Assets::<Mesh>::default();
+        app.insert_resource(mesh_assets);
+        let texture_atlas_assets = Assets::<TextureAtlas>::default();
+        app.insert_resource(texture_atlas_assets);
+
+        // Add system
+        app.add_systems(Update, calculate_bounds_2d);
+
+        // Add entites
+        let entity = app
+            .world
+            .spawn((
+                Sprite {
+                    custom_size: Some(Vec2::ZERO),
+                    ..default()
+                },
+                image_handle,
+            ))
+            .id();
+
+        // Create initial AABB
+        app.update();
+
+        // Get the initial AABB
+        let first_aabb = *app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find initial AABB");
+
+        // Change `custom_size` of sprite
+        let mut binding = app
+            .world
+            .get_entity_mut(entity)
+            .expect("Could not find entity");
+        let mut sprite = binding
+            .get_mut::<Sprite>()
+            .expect("Could not find sprite component of entity");
+        sprite.custom_size = Some(Vec2::ONE);
+
+        // Re-run the `calculate_bounds_2d` system to get the new AABB
+        app.update();
+
+        // Get the re-calculated AABB
+        let second_aabb = *app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find second AABB");
+
+        // Check that the AABBs are not equal
+        assert_ne!(first_aabb, second_aabb);
     }
 }

@@ -330,7 +330,7 @@ mod tests {
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Resource, System, SystemState,
+            Resource, StaticSystemParam, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -1602,6 +1602,19 @@ mod tests {
             unimplemented!()
         }
 
+        fn static_system_param(_: StaticSystemParam<Query<'static, 'static, &W<u32>>>) {
+            unimplemented!()
+        }
+
+        fn exclusive_with_state(
+            _: &mut World,
+            _: Local<bool>,
+            _: (&mut QueryState<&W<i32>>, &mut SystemState<Query<&W<u32>>>),
+            _: (),
+        ) {
+            unimplemented!()
+        }
+
         fn not(In(val): In<bool>) -> bool {
             !val
         }
@@ -1609,7 +1622,9 @@ mod tests {
         assert_is_system(returning::<Result<u32, std::io::Error>>.map(Result::unwrap));
         assert_is_system(returning::<Option<()>>.map(drop));
         assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
+        assert_is_system(static_system_param);
         assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
+        assert_is_system(exclusive_with_state);
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
         returning::<()>.run_if(returning::<bool>.pipe(not));

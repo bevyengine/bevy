@@ -196,8 +196,8 @@ pub struct SetItemPipeline;
 
 impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type Param = SRes<PipelineCache>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
     #[inline]
     fn render<'w>(
         item: &P,

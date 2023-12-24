@@ -31,10 +31,11 @@ pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
-pub use instant::{Duration, Instant};
 pub use petgraph;
+pub use smallvec;
 pub use thiserror;
 pub use tracing;
+pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
 #[allow(missing_docs)]
 pub mod nonmax {

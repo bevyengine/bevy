@@ -200,12 +200,12 @@ fn build_help(mut commands: Commands, asset_server: Res<AssetServer>) {
     }),));
 }
 
-fn handle_input(keyboard_input: Res<Input<KeyCode>>, mut stepping: ResMut<Stepping>) {
+fn handle_input(keyboard_input: Res<ButtonInput<KeyCode>>, mut stepping: ResMut<Stepping>) {
     if keyboard_input.just_pressed(KeyCode::Slash) {
         info!("{:#?}", stepping);
     }
     // grave key to toggle stepping mode for the FixedUpdate schedule
-    if keyboard_input.just_pressed(KeyCode::Grave) {
+    if keyboard_input.just_pressed(KeyCode::Backquote) {
         if stepping.is_enabled() {
             stepping.disable();
             debug!("disabled stepping");
@@ -223,7 +223,7 @@ fn handle_input(keyboard_input: Res<Input<KeyCode>>, mut stepping: ResMut<Steppi
     if keyboard_input.just_pressed(KeyCode::Space) {
         debug!("continue");
         stepping.continue_frame();
-    } else if keyboard_input.just_pressed(KeyCode::S) {
+    } else if keyboard_input.just_pressed(KeyCode::KeyS) {
         debug!("stepping frame");
         stepping.step_frame();
     }

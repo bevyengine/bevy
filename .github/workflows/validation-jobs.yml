@@ -70,7 +70,7 @@ jobs:
         run: |
           sudo apt-get update;
           DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
-            libasound2-dev libudev-dev;
+            libasound2-dev libudev-dev libxkbcommon-x11-0;
       - name: install xvfb, llvmpipe and lavapipe
         run: |
           sudo apt-get update -y -qq
@@ -108,16 +108,16 @@ jobs:
           zip traces.zip trace*.json
           zip -r screenshots.zip screenshots-*
       - name: save traces
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: example-traces.zip
           path: traces.zip
       - name: save screenshots
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: screenshots.zip
           path: screenshots.zip
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run
@@ -175,7 +175,7 @@ jobs:
           xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test 2d_shapes lighting text_debug breakout
 
       - name: Save screenshots
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: screenshots
           path: .github/start-wasm-example/screenshot-*.png
