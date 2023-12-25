@@ -1287,10 +1287,32 @@ unsafe impl SystemParam for SystemChangeTick {
     }
 }
 
-/// Name of the system that corresponds to this [`crate::system::SystemState`].
+/// [`SystemParam`] that returns the name of the system which it is used in.
 ///
-/// This is not a reliable identifier, it is more so useful for debugging
-/// purposes of finding where a system parameter is being used incorrectly.
+/// This is not a reliable identifier, it is more so useful for debugging or logging.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::system::SystemName;
+/// # use bevy_ecs::system::SystemParam;
+///
+/// #[derive(SystemParam)]
+/// struct Logger<'s> {
+///     system_name: SystemName<'s>,
+/// }
+///
+/// impl<'s> Logger<'s> {
+///     fn log(&mut self, message: &str) {
+///         eprintln!("{}: {}", self.system_name, message);
+///     }
+/// }
+///
+/// fn system1(mut logger: Logger) {
+///     // Prints: "crate_name::mod_name::system1: Hello".
+///     logger.log("Hello");
+/// }
+/// ```
 #[derive(Debug)]
 pub struct SystemName<'s>(&'s str);
 
