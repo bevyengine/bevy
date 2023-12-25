@@ -6,21 +6,21 @@ use bevy_ecs::{
 };
 use bevy_utils::tracing::debug;
 
-/// Despawns the given entity and all its children recursively
+/// Command that despawns an entity and all of its descendants.
 #[derive(Debug)]
 pub struct DespawnRecursive {
-    /// Target entity
+    /// The root entity of the hierarchy subtree that must be despawned.
     pub entity: Entity,
 }
 
-/// Despawns the given entity's children recursively
+/// Command that despawns the descendants of an entity.
 #[derive(Debug)]
 pub struct DespawnChildrenRecursive {
-    /// Target entity
+    /// The entity whose children must be despawned.
     pub entity: Entity,
 }
 
-/// Function for despawning an entity and all its children
+/// Despawns the provided entity and its descendants.
 pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
     // first, make the entity's own parent forget about it
     if let Some(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
@@ -80,17 +80,16 @@ impl Command for DespawnChildrenRecursive {
     }
 }
 
-/// Trait that holds functions for despawning recursively down the transform hierarchy
+/// Extension methods for correctly despawning entities in a hierarchy.
 pub trait DespawnRecursiveExt {
-    /// Despawns the provided entity alongside all descendants.
+    /// Despawns the entity and its descendants.
     fn despawn_recursive(self);
 
-    /// Despawns all descendants of the given entity.
+    /// Despawns the descendants of the entity.
     fn despawn_descendants(&mut self) -> &mut Self;
 }
 
 impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
-    /// Despawns the provided entity and its children.
     fn despawn_recursive(mut self) {
         let entity = self.id();
         self.commands().add(DespawnRecursive { entity });
@@ -104,7 +103,6 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
 }
 
 impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
-    /// Despawns the provided entity and its children.
     fn despawn_recursive(self) {
         let entity = self.id();
 
