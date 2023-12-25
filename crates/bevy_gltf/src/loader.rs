@@ -140,6 +140,9 @@ impl Default for GltfLoaderSettings {
             load_meshes: true,
             load_cameras: true,
             load_lights: true,
+            #[cfg(feature = "extensions")]
+            include_source: true,
+            #[cfg(not(feature = "extensions"))]
             include_source: false,
         }
     }
