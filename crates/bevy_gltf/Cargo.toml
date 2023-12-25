@@ -35,8 +35,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 
-#gltf = { version = "1.3.0", default-features = false, features = [
-gltf = { git = "https://github.com/gltf-rs/gltf.git", rev = "6b9a7df", default-features = false, features = [
+gltf = { version = "1.4.0", default-features = false, features = [
   "KHR_lights_punctual",
   "KHR_materials_transmission",
   "KHR_materials_ior",
@@ -46,7 +45,7 @@ gltf = { git = "https://github.com/gltf-rs/gltf.git", rev = "6b9a7df", default-f
   "extras",
   "names",
   "utils",
-] } # other
+] }
 thiserror = "1.0"
 base64 = "0.21.5"
 percent-encoding = "2.1"
