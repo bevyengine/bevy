@@ -5,8 +5,8 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
+use bevy_utils::smallvec::SmallVec;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 

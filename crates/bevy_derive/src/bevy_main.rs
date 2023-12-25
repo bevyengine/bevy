@@ -12,7 +12,7 @@ pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         #[no_mangle]
         #[cfg(target_os = "android")]
-        fn android_main(android_app: bevy::winit::AndroidApp) {
+        fn android_main(android_app: bevy::winit::android_activity::AndroidApp) {
             let _ = bevy::winit::ANDROID_APP.set(android_app);
             main();
         }

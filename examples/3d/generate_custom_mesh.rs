@@ -96,22 +96,22 @@ fn input_handler(
         let mesh = meshes.get_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
     }
-    if keyboard_input.pressed(KeyCode::X) {
+    if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
             transform.rotate_x(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::Y) {
+    if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
             transform.rotate_y(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::Z) {
+    if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
             transform.rotate_z(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::R) {
+    if keyboard_input.pressed(KeyCode::KeyR) {
         for mut transform in &mut query {
             transform.look_to(Vec3::NEG_Z, Vec3::Y);
         }

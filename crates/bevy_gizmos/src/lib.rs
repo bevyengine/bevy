@@ -431,9 +431,9 @@ fn prepare_line_gizmo_bind_group(
 
 struct SetLineGizmoBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
+    type Param = SRes<LineGizmoUniformBindgroup>;
     type ViewData = ();
     type ItemData = Read<DynamicUniformIndex<LineGizmoUniform>>;
-    type Param = SRes<LineGizmoUniformBindgroup>;
 
     #[inline]
     fn render<'w>(
@@ -454,9 +454,9 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
+    type Param = SRes<RenderAssets<LineGizmo>>;
     type ViewData = ();
     type ItemData = Read<Handle<LineGizmo>>;
-    type Param = SRes<RenderAssets<LineGizmo>>;
 
     #[inline]
     fn render<'w>(
