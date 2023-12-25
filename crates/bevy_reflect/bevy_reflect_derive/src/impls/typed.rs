@@ -48,10 +48,11 @@ pub(crate) enum TypedProperty {
     TypePath,
 }
 
-pub(crate) fn impl_type_path(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
-) -> proc_macro2::TokenStream {
+pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+    // Use `WhereClauseOptions::new_value` here so we don't enforce reflection bounds,
+    // ensuring the impl applies in the most cases possible.
+    let where_clause_options = &WhereClauseOptions::new_value(meta);
+
     if !meta.traits().type_path_attrs().should_auto_derive() {
         return proc_macro2::TokenStream::new();
     }

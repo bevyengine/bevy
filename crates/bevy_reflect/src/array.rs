@@ -297,15 +297,15 @@ impl Reflect for DynamicArray {
         array_partial_eq(self, value)
     }
 
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
-    }
-
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "DynamicArray(")?;
         array_debug(self, f)?;
         write!(f, ")")
+    }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 

@@ -310,11 +310,11 @@ fn move_paddle(
     let mut paddle_transform = query.single_mut();
     let mut direction = 0.0;
 
-    if keyboard_input.pressed(KeyCode::Left) {
+    if keyboard_input.pressed(KeyCode::ArrowLeft) {
         direction -= 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::Right) {
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
         direction += 1.0;
     }
 

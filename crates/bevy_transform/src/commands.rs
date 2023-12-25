@@ -86,15 +86,15 @@ pub trait BuildChildrenTransformExt {
     fn remove_parent_in_place(&mut self) -> &mut Self;
 }
 impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {
-    fn remove_parent_in_place(&mut self) -> &mut Self {
-        let child = self.id();
-        self.commands().add(RemoveParentInPlace { child });
-        self
-    }
-
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
         self.commands().add(AddChildInPlace { child, parent });
+        self
+    }
+
+    fn remove_parent_in_place(&mut self) -> &mut Self {
+        let child = self.id();
+        self.commands().add(RemoveParentInPlace { child });
         self
     }
 }

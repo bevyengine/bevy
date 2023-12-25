@@ -483,7 +483,7 @@ fn movement_system(
 
 fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3) {
     if (velocity.x > 0. && translation.x + HALF_BIRD_SIZE > half_extents.x)
-        || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -(half_extents.x))
+        || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -half_extents.x)
     {
         velocity.x = -velocity.x;
     }
