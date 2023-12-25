@@ -35,6 +35,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 
+# other
 gltf = { version = "1.4.0", default-features = false, features = [
   "KHR_lights_punctual",
   "KHR_materials_transmission",
