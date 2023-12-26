@@ -1,4 +1,8 @@
-use std::fmt::Debug;
+use std::{
+    any::{Any, TypeId},
+    collections::BTreeMap,
+    fmt::Debug,
+};
 
 use bevy_utils::{
     petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*},
@@ -52,15 +56,19 @@ pub(crate) enum DependencyKind {
 }
 
 /// An edge to be added to the dependency graph.
-#[derive(Clone)]
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
     pub(crate) set: InternedSystemSet,
+    pub(crate) options: BTreeMap<TypeId, Box<dyn Any>>,
 }
 
 impl Dependency {
     pub fn new(kind: DependencyKind, set: InternedSystemSet) -> Self {
-        Self { kind, set }
+        Self {
+            kind,
+            set,
+            options: BTreeMap::new(),
+        }
     }
 }
 
@@ -75,9 +83,10 @@ pub(crate) enum Ambiguity {
     IgnoreAll,
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub(crate) struct GraphInfo {
     pub(crate) sets: Vec<InternedSystemSet>,
+    pub(crate) options: BTreeMap<TypeId, Box<dyn Any>>,
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
 }

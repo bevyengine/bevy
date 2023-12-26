@@ -8,6 +8,7 @@ mod graph_utils;
 mod schedule;
 mod set;
 mod state;
+mod auto_insert_apply_deferred;
 
 pub use self::condition::*;
 pub use self::config::*;
