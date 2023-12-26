@@ -72,12 +72,11 @@ pub struct AudioPlugin {
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<VolumeLevel>()
+        app.register_type::<Volume>()
             .register_type::<GlobalVolume>()
             .register_type::<SpatialListener>()
             .register_type::<SpatialScale>()
             .register_type::<PlaybackMode>()
-            .register_type::<Volume>()
             .register_type::<PlaybackSettings>()
             .insert_resource(self.global_volume)
             .insert_resource(self.spatial_scale)
