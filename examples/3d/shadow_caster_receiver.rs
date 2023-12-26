@@ -98,7 +98,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 100000.0,
+            illuminance: 1500.0,
             shadows_enabled: true,
             ..default()
         },
@@ -134,7 +134,7 @@ fn toggle_light(
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
-                100000000.0
+                500_000.0
             } else {
                 0.0
             };
@@ -142,7 +142,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
-                100000.0
+                1500.0
             } else {
                 0.0
             };

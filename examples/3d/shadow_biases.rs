@@ -72,7 +72,7 @@ fn setup(
             });
             builder.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
-                    illuminance: 100000.0,
+                    illuminance: 1500.0,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,
@@ -196,7 +196,7 @@ fn toggle_light(
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 example_text.single_mut().sections[5].value = "PointLight".to_string();
-                100000000.0
+                500_000.0
             } else {
                 0.0
             };
@@ -204,7 +204,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 example_text.single_mut().sections[5].value = "DirectionalLight".to_string();
-                100000.0
+                1500.0
             } else {
                 0.0
             };
