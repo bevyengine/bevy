@@ -1,6 +1,5 @@
-use crate::{Real, Time, Timer, TimerMode};
+use crate::{Real, Time, Timer};
 use bevy_ecs::system::Res;
-use bevy_utils::Duration;
 
 /// Run condition that is active on a regular time interval, using [`Time`] to advance
 /// the timer. The timer ticks at the rate of [`Time::relative_speed`].
@@ -9,12 +8,19 @@ use bevy_utils::Duration;
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use bevy_utils::Duration;
+/// # use bevy_time::{Timer, TimerMode};
 /// # use bevy_time::common_conditions::on_timer;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(Update, tick.run_if(on_timer(Duration::from_secs(1))))
-///         .run();
+///         .add_systems(
+///             Update,
+///             tick.run_if(on_timer(Timer::new(
+///                 Duration::from_secs(1),
+///                 TimerMode::Repeating,
+///             ))),
+///         )
+///     .run();
 /// }
 /// fn tick() {
 ///     // ran once a second
@@ -30,8 +36,7 @@ use bevy_utils::Duration;
 /// For more accurate timers, use the [`Timer`] class directly (see
 /// [`Timer::times_finished_this_tick`] to address the problem mentioned above), or
 /// use fixed timesteps that allow systems to run multiple times per frame.
-pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
-    let mut timer = Timer::new(duration, TimerMode::Repeating);
+pub fn on_timer(mut timer: Timer) -> impl FnMut(Res<Time>) -> bool + Clone {
     move |time: Res<Time>| {
         timer.tick(time.delta());
         timer.just_finished()
@@ -45,11 +50,18 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use bevy_utils::Duration;
+/// # use bevy_time::{Timer, TimerMode};
 /// # use bevy_time::common_conditions::on_real_timer;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(Update, tick.run_if(on_real_timer(Duration::from_secs(1))))
+///         .add_systems(
+///             Update,
+///             tick.run_if(on_real_timer(Timer::new(
+///                 Duration::from_secs(1),
+///                 TimerMode::Repeating,
+///             ))),
+///         )
 ///         .run();
 /// }
 /// fn tick() {
@@ -66,8 +78,7 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// For more accurate timers, use the [`Timer`] class directly (see
 /// [`Timer::times_finished_this_tick`] to address the problem mentioned above), or
 /// use fixed timesteps that allow systems to run multiple times per frame.
-pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool + Clone {
-    let mut timer = Timer::new(duration, TimerMode::Repeating);
+pub fn on_real_timer(mut timer: Timer) -> impl FnMut(Res<Time<Real>>) -> bool + Clone {
     move |time: Res<Time<Real>>| {
         timer.tick(time.delta());
         timer.just_finished()
@@ -78,14 +89,15 @@ pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool 
 mod tests {
     use super::*;
     use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
+    use std::time::Duration;
 
     fn test_system() {}
 
     // Ensure distributive_run_if compiles with the common conditions.
     #[test]
     fn distributive_run_if_compiles() {
-        Schedule::default().add_systems(
-            (test_system, test_system).distributive_run_if(on_timer(Duration::new(1, 0))),
-        );
+        Schedule::default().add_systems((test_system, test_system).distributive_run_if(on_timer(
+            Timer::new(Duration::new(1, 0), crate::TimerMode::Repeating),
+        )));
     }
 }
