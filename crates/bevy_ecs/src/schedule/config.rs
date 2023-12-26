@@ -2,16 +2,13 @@ use bevy_utils::all_tuples;
 
 use crate::{
     schedule::{
+        auto_insert_apply_deferred::{AutoInsertApplyDeferedPass, IgnoreDeferred},
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
+        Chain,
     },
     system::{BoxedSystem, IntoSystem, System},
-};
-
-use super::{
-    auto_insert_apply_deferred::{AutoInsertApplyDeferedPass, IgnoreDeferred},
-    Chain,
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -73,7 +70,7 @@ pub enum NodeConfigs<T> {
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
         /// See [`Chain`] for usage.
-        chain: Chain,
+        chained: Chain,
     },
 }
 
@@ -234,8 +231,8 @@ impl<T> NodeConfigs<T> {
     fn chain_inner(mut self) -> Self {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
-            Self::Configs { chain, .. } => {
-                chain.set_chained(true);
+            Self::Configs { chained, .. } => {
+                chained.set_chained(true);
             }
         }
         self
@@ -244,9 +241,9 @@ impl<T> NodeConfigs<T> {
     fn chain_ignore_deferred_inner(mut self) -> Self {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
-            Self::Configs { chain, .. } => {
-                chain.set_chained(true);
-                chain.add_option::<AutoInsertApplyDeferedPass>(IgnoreDeferred);
+            Self::Configs { chained, .. } => {
+                chained.set_chained(true);
+                chained.add_option::<AutoInsertApplyDeferedPass>(IgnoreDeferred);
             }
         }
         self
@@ -527,7 +524,7 @@ macro_rules! impl_system_collection {
                 SystemConfigs::Configs {
                     configs: vec![$($sys.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chain: Default::default(),
+                    chained: Default::default(),
                 }
             }
         }
@@ -736,7 +733,7 @@ macro_rules! impl_system_set_collection {
                 SystemSetConfigs::Configs {
                     configs: vec![$($set.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chain: Default::default(),
+                    chained: Default::default(),
                 }
             }
         }

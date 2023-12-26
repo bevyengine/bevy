@@ -648,7 +648,7 @@ impl ScheduleGraph {
             NodeConfigs::Configs {
                 mut configs,
                 collective_conditions,
-                chain,
+                chained,
             } => {
                 let more_than_one_entry = configs.len() > 1;
                 if !collective_conditions.is_empty() {
@@ -669,7 +669,7 @@ impl ScheduleGraph {
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
-                if let Some(chain_options) = chain.0 {
+                if let Some(chain_options) = chained.0 {
                     let Some(prev) = config_iter.next() else {
                         return ProcessConfigsResult {
                             nodes: Vec::new(),
