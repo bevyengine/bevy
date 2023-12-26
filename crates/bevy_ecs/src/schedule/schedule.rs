@@ -1083,40 +1083,25 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
         for (&set, systems) in set_systems {
+            for pass in self.passes.iter_mut() {
+                pass.collapse_set(set, systems, &dependency_flattened, &mut temp);
+            }
             if systems.is_empty() {
                 // collapse dependencies for empty sets
                 for a in dependency_flattened.neighbors_directed(set, Incoming) {
                     for b in dependency_flattened.neighbors_directed(set, Outgoing) {
-                        /*
-                        if self.no_sync_edges.contains(&(a, set))
-                            && self.no_sync_edges.contains(&(set, b))
-                        {
-                            self.no_sync_edges.insert((a, b));
-                        }
-                        */
-
                         temp.push((a, b));
                     }
                 }
             } else {
                 for a in dependency_flattened.neighbors_directed(set, Incoming) {
                     for &sys in systems {
-                        /*
-                        if self.no_sync_edges.contains(&(a, set)) {
-                            self.no_sync_edges.insert((a, sys));
-                        }
-                        */
                         temp.push((a, sys));
                     }
                 }
 
                 for b in dependency_flattened.neighbors_directed(set, Outgoing) {
                     for &sys in systems {
-                        /*
-                        if self.no_sync_edges.contains(&(set, b)) {
-                            self.no_sync_edges.insert((sys, b));
-                        }
-                        */
                         temp.push((sys, b));
                     }
                 }
@@ -1799,8 +1784,28 @@ pub enum LogLevel {
 }
 
 pub trait ScheduleBuildPass: Send + Sync + Debug {
+    /// Custom options for dependencies between sets or systems.
     type EdgeOptions: 'static;
+
+    /// Called when a dependency between sets or systems was explicitly added to the graph.
     fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>);
+
+    /// Iterator returned from [`collapse_set`].
+    /// TODO: Use `return_position_impl_trait_in_traits` once it stabilizes in Rust 1.75.
+    /// https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html
+    /// https://rust-lang.github.io/rfcs/3425-return-position-impl-trait-in-traits.html
+    type CollapseSetIterator: Iterator<Item = (NodeId, NodeId)>;
+    /// Called while flattening the dependency graph. For each `set`, this method is called
+    /// with the `systems` associated with the set as well as an immutable reference to the current graph.
+    /// Instead of modifying the graph directly, this method should return an iterator of edges to add to the graph.
+    fn collapse_set(
+        &mut self,
+        set: NodeId,
+        systems: &[NodeId],
+        dependency_flattened: &GraphMap<NodeId, (), Directed>,
+    ) -> Self::CollapseSetIterator;
+
+    /// The implementation will be able to modify the `ScheduleGraph` here.
     fn build(
         &mut self,
         graph: &mut ScheduleGraph,
@@ -1808,12 +1813,21 @@ pub trait ScheduleBuildPass: Send + Sync + Debug {
     ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError>;
 }
 
+/// Object safe version of [`ScheduleBuildPass`].
 trait ScheduleBuildPassObj: Send + Sync + Debug {
     fn build(
         &mut self,
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
     ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError>;
+
+    fn collapse_set(
+        &mut self,
+        set: NodeId,
+        systems: &[NodeId],
+        dependency_flattened: &GraphMap<NodeId, (), Directed>,
+        dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
+    );
     fn add_dependency(
         &mut self,
         from: NodeId,
@@ -1828,6 +1842,16 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
     ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
         self.build(graph, dependency_flattened)
+    }
+    fn collapse_set(
+        &mut self,
+        set: NodeId,
+        systems: &[NodeId],
+        dependency_flattened: &GraphMap<NodeId, (), Directed>,
+        dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
+    ) {
+        let iter = self.collapse_set(set, systems, dependency_flattened);
+        dependencies_to_add.extend(iter);
     }
     fn add_dependency(
         &mut self,

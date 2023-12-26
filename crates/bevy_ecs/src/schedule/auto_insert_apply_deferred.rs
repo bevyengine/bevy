@@ -1,12 +1,19 @@
 use std::collections::BTreeSet;
 
-use bevy_utils::{petgraph::Direction::Outgoing, HashMap};
+use bevy_utils::{
+    petgraph::{
+        graphmap::GraphMap,
+        Directed,
+        Direction::{Incoming, Outgoing},
+    },
+    HashMap,
+};
 
 use crate::system::IntoSystem;
 
 use super::{
-    apply_deferred, is_apply_deferred, NodeId, ReportCycles, ScheduleBuildPass, ScheduleGraph,
-    SystemNode,
+    apply_deferred, is_apply_deferred, NodeId, ReportCycles, ScheduleBuildError, ScheduleBuildPass,
+    ScheduleGraph, SystemNode,
 };
 
 #[derive(Debug, Default)]
@@ -62,19 +69,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferedPass {
     fn build(
         &mut self,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut bevy_utils::petgraph::prelude::GraphMap<
-            super::NodeId,
-            (),
-            bevy_utils::petgraph::prelude::Directed,
-        >,
-    ) -> Result<
-        bevy_utils::petgraph::prelude::GraphMap<
-            super::NodeId,
-            (),
-            bevy_utils::petgraph::prelude::Directed,
-        >,
-        super::ScheduleBuildError,
-    > {
+        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
+    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
@@ -116,5 +112,43 @@ impl ScheduleBuildPass for AutoInsertApplyDeferedPass {
         }
 
         Ok(sync_point_graph)
+    }
+
+    type CollapseSetIterator = std::iter::Empty<(NodeId, NodeId)>;
+    fn collapse_set(
+        &mut self,
+        set: NodeId,
+        systems: &[NodeId],
+        dependency_flattened: &GraphMap<NodeId, (), Directed>,
+    ) -> Self::CollapseSetIterator {
+        if systems.is_empty() {
+            // collapse dependencies for empty sets
+            for a in dependency_flattened.neighbors_directed(set, Incoming) {
+                for b in dependency_flattened.neighbors_directed(set, Outgoing) {
+                    if self.no_sync_edges.contains(&(a, set))
+                        && self.no_sync_edges.contains(&(set, b))
+                    {
+                        self.no_sync_edges.insert((a, b));
+                    }
+                }
+            }
+        } else {
+            for a in dependency_flattened.neighbors_directed(set, Incoming) {
+                for &sys in systems {
+                    if self.no_sync_edges.contains(&(a, set)) {
+                        self.no_sync_edges.insert((a, sys));
+                    }
+                }
+            }
+
+            for b in dependency_flattened.neighbors_directed(set, Outgoing) {
+                for &sys in systems {
+                    if self.no_sync_edges.contains(&(set, b)) {
+                        self.no_sync_edges.insert((sys, b));
+                    }
+                }
+            }
+        }
+        std::iter::empty()
     }
 }
