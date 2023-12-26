@@ -26,6 +26,8 @@ use crate::{
     world::World,
 };
 
+use super::auto_insert_apply_deferred::AutoInsertApplyDeferedPass;
+
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
 #[derive(Default, Resource)]
 pub struct Schedules {
@@ -244,13 +246,17 @@ impl Default for Schedule {
 impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new(label: impl ScheduleLabel) -> Self {
-        Self {
+        let mut this = Self {
             name: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
-        }
+        };
+
+        // Call `set_build_settings` to add any default build passes
+        this.set_build_settings(Default::default());
+        this
     }
 
     /// Add a collection of systems to the schedule.
@@ -266,8 +272,24 @@ impl Schedule {
         self
     }
 
+    /// Add a build pass to the schedule.
+    pub fn add_build_pass<T: ScheduleBuildPass>(&mut self, pass: T) -> &mut Self {
+        self.graph.passes.insert(TypeId::of::<T>(), Box::new(pass));
+        self
+    }
+
+    /// Remove a build pass.
+    pub fn remove_build_pass<T: ScheduleBuildPass>(&mut self) {
+        self.graph.passes.remove(&TypeId::of::<T>());
+    }
+
     /// Changes miscellaneous build settings.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
+        if settings.auto_insert_apply_deferred {
+            self.add_build_pass(AutoInsertApplyDeferedPass::default());
+        } else {
+            self.remove_build_pass::<AutoInsertApplyDeferedPass>();
+        }
         self.graph.settings = settings;
         self
     }
@@ -481,7 +503,9 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-    passes: Vec<Box<dyn ScheduleBuildPassObj>>,
+
+    /// A map of [`ScheduleBuildPassObj`]es, keyed by the [`TypeId`] of the corresponding [`ScheduleBuildPass`].
+    passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
 }
 
 impl ScheduleGraph {
@@ -502,9 +526,7 @@ impl ScheduleGraph {
             anonymous_sets: 0,
             changed: false,
             settings: default(),
-            passes: vec![Box::new(
-                auto_insert_apply_deferred::AutoInsertApplyDeferedPass::default(),
-            )],
+            passes: default(),
         }
     }
 
@@ -673,7 +695,7 @@ impl ScheduleGraph {
                                     *first_in_current,
                                     (),
                                 );
-                                for pass in self.passes.iter_mut() {
+                                for pass in self.passes.values_mut() {
                                     pass.add_dependency(
                                         *last_in_prev,
                                         *first_in_current,
@@ -692,7 +714,7 @@ impl ScheduleGraph {
                                         (),
                                     );
 
-                                    for pass in self.passes.iter_mut() {
+                                    for pass in self.passes.values_mut() {
                                         pass.add_dependency(
                                             *last_in_prev,
                                             *current_node,
@@ -712,7 +734,7 @@ impl ScheduleGraph {
                                         (),
                                     );
 
-                                    for pass in self.passes.iter_mut() {
+                                    for pass in self.passes.values_mut() {
                                         pass.add_dependency(
                                             *previous_node,
                                             *first_in_current,
@@ -731,7 +753,7 @@ impl ScheduleGraph {
                                             *current_node,
                                             (),
                                         );
-                                        for pass in self.passes.iter_mut() {
+                                        for pass in self.passes.values_mut() {
                                             pass.add_dependency(
                                                 *previous_node,
                                                 *current_node,
@@ -924,7 +946,7 @@ impl ScheduleGraph {
                 DependencyKind::After => (set, id),
             };
             self.dependency.graph.add_edge(lhs, rhs, ());
-            for pass in self.passes.iter_mut() {
+            for pass in self.passes.values_mut() {
                 pass.add_dependency(lhs, rhs, &options);
             }
 
@@ -1011,7 +1033,7 @@ impl ScheduleGraph {
 
         // modify graph with build passes
         let mut passes = std::mem::take(&mut self.passes);
-        for pass in passes.iter_mut() {
+        for pass in passes.values_mut() {
             dependency_flattened = pass.build(self, &mut dependency_flattened)?;
         }
         self.passes = passes;
@@ -1092,7 +1114,7 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
         for (&set, systems) in set_systems {
-            for pass in self.passes.iter_mut() {
+            for pass in self.passes.values_mut() {
                 pass.collapse_set(set, systems, &dependency_flattened, &mut temp);
             }
             if systems.is_empty() {
@@ -1795,7 +1817,7 @@ pub enum LogLevel {
 }
 
 /// A pass for modular modification of the dependency graph.
-pub trait ScheduleBuildPass: Send + Sync + Debug {
+pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     /// Custom options for dependencies between sets or systems.
     type EdgeOptions: 'static;
 
