@@ -25,7 +25,10 @@ fn main() {
                     // `on_timer` run condition uses `Virtual` time meaning it's scaled
                     // and would result in the UI updating at different intervals based
                     // on `Time<Virtual>::relative_speed` and `Time<Virtual>::is_paused()`
-                    .run_if(on_real_timer(Duration::from_millis(250))),
+                    .run_if(on_real_timer(Timer::new(
+                        Duration::from_millis(250),
+                        TimerMode::Repeating,
+                    ))),
             ),
         )
         .run();
