@@ -178,7 +178,7 @@ impl Chain {
     /// Add a dependency option to all dependencies established by this chain.
     pub fn add_option<T: ScheduleBuildPass>(&mut self, option: T::EdgeOptions) {
         if let Some(map) = &mut self.0 {
-            map.insert(TypeId::of::<T::EdgeOptions>(), Box::new(option));
+            map.insert(TypeId::of::<T>(), Box::new(option));
         } else {
             panic!("Cannot add chain dependency option to unchained system");
         }
@@ -1894,7 +1894,7 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         all_options: &BTreeMap<TypeId, Box<dyn Any>>,
     ) {
         let option = all_options
-            .get(&std::any::TypeId::of::<T::EdgeOptions>())
+            .get(&std::any::TypeId::of::<T>())
             .and_then(|a| a.downcast_ref());
         self.add_dependency(from, to, option);
     }
