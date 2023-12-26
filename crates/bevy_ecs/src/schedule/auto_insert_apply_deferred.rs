@@ -17,14 +17,14 @@ use super::{
 };
 
 #[derive(Debug, Default)]
-pub struct AutoInsertApplyDeferedPass {
+pub struct AutoInsertApplyDeferredPass {
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
 
 pub struct IgnoreDeferred;
 
-impl AutoInsertApplyDeferedPass {
+impl AutoInsertApplyDeferredPass {
     /// Returns the `NodeId` of the cached auto sync point. Will create
     /// a new one if needed.
     fn get_sync_point(&mut self, graph: &mut ScheduleGraph, distance: u32) -> NodeId {
@@ -57,7 +57,7 @@ impl AutoInsertApplyDeferedPass {
     }
 }
 
-impl ScheduleBuildPass for AutoInsertApplyDeferedPass {
+impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
     type EdgeOptions = IgnoreDeferred;
 
     fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>) {

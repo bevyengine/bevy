@@ -26,7 +26,7 @@ use crate::{
     world::World,
 };
 
-use super::auto_insert_apply_deferred::AutoInsertApplyDeferedPass;
+use super::auto_insert_apply_deferred::AutoInsertApplyDeferredPass;
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
 #[derive(Default, Resource)]
@@ -286,9 +286,9 @@ impl Schedule {
     /// Changes miscellaneous build settings.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         if settings.auto_insert_apply_deferred {
-            self.add_build_pass(AutoInsertApplyDeferedPass::default());
+            self.add_build_pass(AutoInsertApplyDeferredPass::default());
         } else {
-            self.remove_build_pass::<AutoInsertApplyDeferedPass>();
+            self.remove_build_pass::<AutoInsertApplyDeferredPass>();
         }
         self.graph.settings = settings;
         self

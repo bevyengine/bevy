@@ -2,7 +2,7 @@ use bevy_utils::all_tuples;
 
 use crate::{
     schedule::{
-        auto_insert_apply_deferred::{AutoInsertApplyDeferedPass, IgnoreDeferred},
+        auto_insert_apply_deferred::{AutoInsertApplyDeferredPass, IgnoreDeferred},
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
@@ -144,7 +144,7 @@ impl<T> NodeConfigs<T> {
             Self::NodeConfig(config) => {
                 config.graph_info.dependencies.push(
                     Dependency::new(DependencyKind::Before, set)
-                        .with::<AutoInsertApplyDeferedPass>(IgnoreDeferred),
+                        .with::<AutoInsertApplyDeferredPass>(IgnoreDeferred),
                 );
             }
             Self::Configs { configs, .. } => {
@@ -160,7 +160,7 @@ impl<T> NodeConfigs<T> {
             Self::NodeConfig(config) => {
                 config.graph_info.dependencies.push(
                     Dependency::new(DependencyKind::After, set)
-                        .with::<AutoInsertApplyDeferedPass>(IgnoreDeferred),
+                        .with::<AutoInsertApplyDeferredPass>(IgnoreDeferred),
                 );
             }
             Self::Configs { configs, .. } => {
@@ -243,7 +243,7 @@ impl<T> NodeConfigs<T> {
             Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
                 chained.set_chained(true);
-                chained.add_option::<AutoInsertApplyDeferedPass>(IgnoreDeferred);
+                chained.add_option::<AutoInsertApplyDeferredPass>(IgnoreDeferred);
             }
         }
         self
