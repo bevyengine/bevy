@@ -75,6 +75,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
+/// Spawns a capsule mesh on the pixel-perfect layer.
 fn setup_mesh(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -82,7 +83,7 @@ fn setup_mesh(
 ) {
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
+            mesh: meshes.add(Mesh::from(shape::Capsule::default())).into(),
             transform: Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
             material: materials.add(ColorMaterial::from(Color::BLACK)),
             ..default()
@@ -121,7 +122,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     let image_handle = images.add(canvas);
 
-    // this camera renders whatever is on [`PIXEL_PERFECT_LAYER`] to the canvas
+    // this camera renders whatever is on `PIXEL_PERFECT_LAYERS` to the canvas
     commands.spawn((
         Camera2dBundle {
             camera: Camera {
@@ -146,14 +147,14 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         HIGH_RES_LAYERS,
     ));
 
-    // the "outer" camera renders whatever is on [`HIGH_RES_LAYER`] to the screen.
+    // the "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
     commands.spawn((Camera2dBundle::default(), OuterCamera, HIGH_RES_LAYERS));
 }
 
 /// Rotates entities to demonstrate grid snapping.
-fn rotate(time: Res<Time>, mut query: Query<&mut Transform, With<Rotate>>) {
-    for mut transform in &mut query {
+fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) {
+    for mut transform in &mut transforms {
         let dt = time.delta_seconds();
         transform.rotate_z(dt);
     }
@@ -162,12 +163,12 @@ fn rotate(time: Res<Time>, mut query: Query<&mut Transform, With<Rotate>>) {
 /// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
     mut resize_events: EventReader<WindowResized>,
-    mut q: Query<&mut OrthographicProjection, With<OuterCamera>>,
+    mut projections: Query<&mut OrthographicProjection, With<OuterCamera>>,
 ) {
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
-        let mut projection = q.single_mut();
+        let mut projection = projections.single_mut();
         projection.scale = 1. / h_scale.min(v_scale).round();
     }
 }
