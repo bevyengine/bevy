@@ -5,6 +5,7 @@ use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
+use crate::event::Event;
 use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
@@ -137,6 +138,14 @@ impl<S: States> NextState<S> {
     }
 }
 
+/// Event fired when any state transition of `S` happens.
+/// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
+pub struct StateTransitionEvent<S: States> {
+    before: S,
+    after: S,
+}
+
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
     world
@@ -159,6 +168,10 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         let mut state_resource = world.resource_mut::<State<S>>();
         if *state_resource != entered {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
+            world.send_event(StateTransitionEvent {
+                before: exited.clone(),
+                after: entered.clone(),
+            });
             // Try to run the schedules if they exist.
             world.try_run_schedule(OnExit(exited.clone())).ok();
             world
@@ -171,3 +184,4 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         }
     }
 }
+
