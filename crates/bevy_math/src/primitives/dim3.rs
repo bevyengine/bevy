@@ -7,6 +7,7 @@ use crate::Vec3;
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction3d(Vec3);
+impl Primitive3d for Direction3d {}
 
 impl Direction3d {
     /// A unit vector pointing along the positive X axis.
