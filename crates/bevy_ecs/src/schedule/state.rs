@@ -142,7 +142,9 @@ impl<S: States> NextState<S> {
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
 pub struct StateTransitionEvent<S: States> {
+    /// the state we were in before
     pub before: S,
+    /// the state we're in now
     pub after: S,
 }
 
