@@ -155,6 +155,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
+/// - Fires a relevant [`StateTransitionEvent`]
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
