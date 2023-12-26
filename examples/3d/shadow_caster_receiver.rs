@@ -29,20 +29,13 @@ fn setup(
 ) {
     let spawn_plane_depth = 500.0f32;
     let spawn_height = 2.0;
-    let sphere_radius = 0.25;
 
     let white_handle = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: sphere_radius,
-            ..default()
-        })
-        .unwrap(),
-    );
+    let sphere_handle = meshes.add(primitives::Sphere { radius: 0.25 }.mesh().ico(5).unwrap());
 
     // sphere - initially a caster
     commands.spawn(PbrBundle {
@@ -66,7 +59,12 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(20.0).into()),
+            mesh: meshes.add(
+                primitives::Plane3d::default()
+                    .mesh()
+                    .size(Vec2::splat(20.0))
+                    .into(),
+            ),
             material: materials.add(Color::GREEN.into()),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
@@ -77,7 +75,12 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(20.0).into()),
+        mesh: meshes.add(
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(20.0))
+                .into(),
+        ),
         material: white_handle,
         ..default()
     });

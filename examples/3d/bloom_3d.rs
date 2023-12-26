@@ -55,14 +55,7 @@ fn setup_scene(
         ..default()
     });
 
-    let mesh = meshes.add(
-        shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 5,
-        }
-        .try_into()
-        .unwrap(),
-    );
+    let mesh = meshes.add(primitives::Sphere { radius: 0.5 }.mesh().ico(5).unwrap());
 
     for x in -5..5 {
         for z in -5..5 {

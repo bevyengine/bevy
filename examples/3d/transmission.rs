@@ -68,27 +68,18 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let icosphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 0.9,
-            subdivisions: 7,
-        })
-        .unwrap(),
+    let icosphere_mesh = meshes.add(primitives::Sphere { radius: 0.9 }.mesh().ico(7).unwrap());
+    let cube_mesh = meshes.add(Mesh::from(primitives::Cuboid::from_size(Vec3::splat(0.7))));
+    let plane_mesh = meshes.add(
+        primitives::Plane3d::default()
+            .mesh()
+            .size(Vec2::splat(2.0))
+            .into(),
     );
 
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.7 }));
-
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
-
-    let cylinder_mesh = meshes.add(
-        Mesh::try_from(shape::Cylinder {
-            radius: 0.5,
-            height: 2.0,
-            resolution: 50,
-            segments: 1,
-        })
-        .unwrap(),
-    );
+    let cylinder_mesh = meshes.add(Mesh::from(
+        primitives::Cylinder::new(0.5, 2.0).mesh().resolution(50),
+    ));
 
     // Cube #1
     commands.spawn((

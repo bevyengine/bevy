@@ -24,10 +24,10 @@ fn setup(
 
     // create a new quad mesh. this is what we will apply the texture to
     let quad_width = 8.0;
-    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+    let quad_handle = meshes.add(Mesh::from(primitives::Rectangle::new(
         quad_width,
         quad_width * aspect,
-    ))));
+    )));
 
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {

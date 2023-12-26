@@ -18,38 +18,41 @@ fn setup(
 
     // Circle
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(50.).into()).into(),
+        mesh: meshes
+            .add(primitives::Circle { radius: 50.0 }.into())
+            .into(),
         material: materials.add(ColorMaterial::from(Color::PURPLE)),
-        transform: Transform::from_translation(Vec3::new(-150., 0., 0.)),
+        transform: Transform::from_translation(Vec3::new(-150.0, 0.0, 0.0)),
+        ..default()
+    });
+
+    // Ellipse
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes
+            .add(primitives::Ellipse::new(50.0, 100.0).into())
+            .into(),
+        material: materials.add(ColorMaterial::from(Color::rgb(0.25, 0.25, 0.75))),
+        transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
         ..default()
     });
 
     // Rectangle
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(50.0, 100.0)),
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(-50., 0., 0.)),
-        ..default()
-    });
-
-    // Quad
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes
-            .add(shape::Quad::new(Vec2::new(50., 100.)).into())
+            .add(primitives::Rectangle::new(50.0, 100.0).into())
             .into(),
         material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
-        transform: Transform::from_translation(Vec3::new(50., 0., 0.)),
+        transform: Transform::from_translation(Vec3::new(50.0, 0.0, 0.0)),
         ..default()
     });
 
     // Hexagon
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::RegularPolygon::new(50., 6).into()).into(),
+        mesh: meshes
+            .add(primitives::RegularPolygon::new(50.0, 6).into())
+            .into(),
         material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
-        transform: Transform::from_translation(Vec3::new(150., 0., 0.)),
+        transform: Transform::from_translation(Vec3::new(150.0, 0.0, 0.0)),
         ..default()
     });
 }

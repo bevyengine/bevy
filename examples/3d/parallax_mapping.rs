@@ -233,25 +233,17 @@ fn setup(
         })
         .with_children(|commands| {
             // represent the light source as a sphere
-            let mesh = meshes.add(
-                shape::Icosphere {
-                    radius: 0.05,
-                    subdivisions: 3,
-                }
-                .try_into()
-                .unwrap(),
-            );
+            let mesh = meshes.add(primitives::Sphere { radius: 0.05 }.mesh().ico(3).unwrap());
             commands.spawn(PbrBundle { mesh, ..default() });
         });
 
     // Plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(
-            shape::Plane {
-                size: 10.0,
-                subdivisions: 0,
-            }
-            .into(),
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(10.0))
+                .into(),
         ),
         material: materials.add(StandardMaterial {
             // standard material derived from dark green, but
@@ -284,7 +276,7 @@ fn setup(
             mesh: meshes.add(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
-                Mesh::from(shape::Cube { size: 1.0 })
+                Mesh::from(primitives::Cuboid::from_size(Vec3::splat(1.0)))
                     .with_generated_tangents()
                     .unwrap(),
             ),
@@ -295,7 +287,7 @@ fn setup(
     ));
 
     let background_cube = meshes.add(
-        Mesh::from(shape::Cube { size: 40.0 })
+        Mesh::from(primitives::Cuboid::from_size(Vec3::splat(40.0)))
             .with_generated_tangents()
             .unwrap(),
     );

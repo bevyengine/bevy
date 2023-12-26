@@ -34,13 +34,14 @@ fn setup(
     });
 
     let shapes = [
-        meshes.add(shape::Cube::default().into()),
-        meshes.add(shape::Box::default().into()),
-        meshes.add(shape::Capsule::default().into()),
-        meshes.add(shape::Torus::default().into()),
-        meshes.add(shape::Cylinder::default().into()),
-        meshes.add(shape::Icosphere::default().try_into().unwrap()),
-        meshes.add(shape::UVSphere::default().into()),
+        meshes.add(primitives::Cuboid::default().into()),
+        meshes.add(primitives::Capsule::default().into()),
+        meshes.add(primitives::Torus::default().into()),
+        meshes.add(primitives::Cylinder::default().into()),
+        meshes.add(primitives::Cone::default().into()),
+        meshes.add(primitives::ConicalFrustum::default().into()),
+        meshes.add(primitives::Sphere { radius: 0.5 }.mesh().ico(6).unwrap()),
+        meshes.add(primitives::Sphere { radius: 0.5 }.mesh().uv(6, 6)),
     ];
 
     let num_shapes = shapes.len();
@@ -75,13 +76,18 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(
+            primitives::Plane3d::default()
+                .mesh()
+                .size(Vec2::splat(50.0))
+                .into(),
+        ),
         material: materials.add(Color::SILVER.into()),
         ..default()
     });
 
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        transform: Transform::from_xyz(0.0, 5.0, 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..default()
     });
 }

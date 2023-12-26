@@ -58,16 +58,9 @@ fn setup_pyramid_scene(
     // pillars
     for (x, z) in &[(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)] {
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box {
-                min_x: -0.5,
-                max_x: 0.5,
-                min_z: -0.5,
-                max_z: 0.5,
-                min_y: 0.0,
-                max_y: 3.0,
-            })),
+            mesh: meshes.add(primitives::Cuboid::new(1.0, 3.0, 1.0).into()),
             material: stone.clone(),
-            transform: Transform::from_xyz(*x, 0.0, *z),
+            transform: Transform::from_xyz(*x, 1.5, *z),
             ..default()
         });
     }
@@ -75,7 +68,7 @@ fn setup_pyramid_scene(
     // orb
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
+            mesh: meshes.add(primitives::Sphere::default().into()),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("126212CC").unwrap(),
                 reflectance: 1.0,
@@ -94,17 +87,14 @@ fn setup_pyramid_scene(
 
     // steps
     for i in 0..50 {
-        let size = i as f32 / 2.0 + 3.0;
-        let y = -i as f32 / 2.0;
+        let size = i as f32 + 6.0;
+        let y = -i as f32 / 2.0 + 0.25;
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box {
-                min_x: -size,
-                max_x: size,
-                min_z: -size,
-                max_z: size,
-                min_y: 0.0,
-                max_y: 0.5,
-            })),
+            mesh: meshes.add(Mesh::from(primitives::Cuboid::new(
+                2.0 * size,
+                0.5,
+                2.0 * size,
+            ))),
             material: stone.clone(),
             transform: Transform::from_xyz(0.0, y, 0.0),
             ..default()
@@ -113,7 +103,7 @@ fn setup_pyramid_scene(
 
     // sky
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Box::default())),
+        mesh: meshes.add(Mesh::from(primitives::Cuboid::default())),
         material: materials.add(StandardMaterial {
             base_color: Color::hex("888888").unwrap(),
             unlit: true,

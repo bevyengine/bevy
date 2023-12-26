@@ -118,7 +118,7 @@ fn setup(
     commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
+                mesh: meshes.add(Mesh::try_from(primitives::Sphere::default()).unwrap()),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
                 ..default()
             },
@@ -138,7 +138,8 @@ fn setup(
                 p.spawn((
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                        mesh: meshes
+                            .add(Mesh::from(primitives::Cuboid::from_size(Vec3::splat(0.5)))),
                         material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
                         ..default()
                     },

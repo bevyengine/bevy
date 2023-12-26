@@ -51,7 +51,12 @@ fn setup(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(20.).into()),
+            mesh: meshes.add(
+                primitives::Plane3d::default()
+                    .mesh()
+                    .size(Vec2::splat(20.))
+                    .into(),
+            ),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             ..default()
         },
