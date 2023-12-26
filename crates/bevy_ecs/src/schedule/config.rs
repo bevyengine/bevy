@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, any::{TypeId, Any}};
+use std::{
+    any::{Any, TypeId},
+    collections::BTreeMap,
+};
 
 use bevy_utils::all_tuples;
 
@@ -144,10 +147,10 @@ impl<T> NodeConfigs<T> {
     fn before_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
-                config
-                    .graph_info
-                    .dependencies
-                    .push(Dependency::new(DependencyKind::Before, set).with::<AutoInsertApplyDeferedPass>(IgnoreDeferred));
+                config.graph_info.dependencies.push(
+                    Dependency::new(DependencyKind::Before, set)
+                        .with::<AutoInsertApplyDeferedPass>(IgnoreDeferred),
+                );
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -160,10 +163,10 @@ impl<T> NodeConfigs<T> {
     fn after_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
-                config
-                    .graph_info
-                    .dependencies
-                    .push(Dependency::new(DependencyKind::After, set).with::<AutoInsertApplyDeferedPass>(IgnoreDeferred));
+                config.graph_info.dependencies.push(
+                    Dependency::new(DependencyKind::After, set)
+                        .with::<AutoInsertApplyDeferedPass>(IgnoreDeferred),
+                );
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -243,7 +246,11 @@ impl<T> NodeConfigs<T> {
     fn chain_ignore_deferred_inner(mut self) -> Self {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
-            Self::Configs { chained, chain_options, .. } => {
+            Self::Configs {
+                chained,
+                chain_options,
+                ..
+            } => {
                 *chained = true;
                 chain_options.insert(TypeId::of::<IgnoreDeferred>(), Box::new(IgnoreDeferred));
             }

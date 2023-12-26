@@ -9,7 +9,7 @@ use super::{
     SystemNode,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AutoInsertApplyDeferedPass {
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,

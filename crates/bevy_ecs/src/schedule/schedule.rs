@@ -1,8 +1,8 @@
 use std::{
-    collections::{BTreeSet, BTreeMap},
+    any::{Any, TypeId},
+    collections::{BTreeMap, BTreeSet},
     fmt::{Debug, Write},
     result::Result,
-    any::{Any, TypeId},
 };
 
 #[cfg(feature = "trace")]
@@ -156,7 +156,6 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
         ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
     }
 }
-
 
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
@@ -476,7 +475,9 @@ impl ScheduleGraph {
             anonymous_sets: 0,
             changed: false,
             settings: default(),
-            passes: Vec::new(),
+            passes: vec![Box::new(
+                auto_insert_apply_deferred::AutoInsertApplyDeferedPass::default(),
+            )],
         }
     }
 
@@ -1086,11 +1087,13 @@ impl ScheduleGraph {
                 // collapse dependencies for empty sets
                 for a in dependency_flattened.neighbors_directed(set, Incoming) {
                     for b in dependency_flattened.neighbors_directed(set, Outgoing) {
+                        /*
                         if self.no_sync_edges.contains(&(a, set))
                             && self.no_sync_edges.contains(&(set, b))
                         {
                             self.no_sync_edges.insert((a, b));
                         }
+                        */
 
                         temp.push((a, b));
                     }
@@ -1098,18 +1101,22 @@ impl ScheduleGraph {
             } else {
                 for a in dependency_flattened.neighbors_directed(set, Incoming) {
                     for &sys in systems {
+                        /*
                         if self.no_sync_edges.contains(&(a, set)) {
                             self.no_sync_edges.insert((a, sys));
                         }
+                        */
                         temp.push((a, sys));
                     }
                 }
 
                 for b in dependency_flattened.neighbors_directed(set, Outgoing) {
                     for &sys in systems {
+                        /*
                         if self.no_sync_edges.contains(&(set, b)) {
                             self.no_sync_edges.insert((sys, b));
                         }
+                        */
                         temp.push((sys, b));
                     }
                 }
@@ -1807,7 +1814,12 @@ trait ScheduleBuildPassObj: Send + Sync + Debug {
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
     ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError>;
-    fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &BTreeMap<TypeId, Box<dyn Any>>);
+    fn add_dependency(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        all_options: &BTreeMap<TypeId, Box<dyn Any>>,
+    );
 }
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     fn build(
@@ -1817,9 +1829,15 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
         self.build(graph, dependency_flattened)
     }
-    fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &BTreeMap<TypeId, Box<dyn Any>>) {
-        let option = all_options.get(&std::any::TypeId::of::<T::EdgeOptions>()).unwrap();
-        let option: Option<&T::EdgeOptions> = option.downcast_ref();
+    fn add_dependency(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        all_options: &BTreeMap<TypeId, Box<dyn Any>>,
+    ) {
+        let option = all_options
+            .get(&std::any::TypeId::of::<T::EdgeOptions>())
+            .and_then(|a| a.downcast_ref());
         self.add_dependency(from, to, option)
     }
 }

@@ -69,7 +69,8 @@ impl Dependency {
         }
     }
     pub fn with<T: ScheduleBuildPass>(mut self, option: T::EdgeOptions) -> Self {
-        self.options.insert(TypeId::of::<T::EdgeOptions>(), Box::new(option));
+        self.options
+            .insert(TypeId::of::<T::EdgeOptions>(), Box::new(option));
         self
     }
 }
