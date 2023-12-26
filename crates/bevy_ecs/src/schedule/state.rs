@@ -142,8 +142,8 @@ impl<S: States> NextState<S> {
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
 pub struct StateTransitionEvent<S: States> {
-    before: S,
-    after: S,
+    pub before: S,
+    pub after: S,
 }
 
 /// Run the enter schedule (if it exists) for the current state.
