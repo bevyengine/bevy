@@ -1,8 +1,4 @@
-use std::{
-    any::{Any, TypeId},
-    collections::BTreeMap,
-    fmt::Debug,
-};
+use std::fmt::Debug;
 
 use bevy_utils::{
     petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*},
@@ -12,7 +8,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
 
-use super::ScheduleBuildPass;
+use super::{ConfigMap, ScheduleBuildPass};
 
 /// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
 ///
@@ -57,7 +53,7 @@ pub(crate) enum DependencyKind {
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
     pub(crate) set: InternedSystemSet,
-    pub(crate) options: BTreeMap<TypeId, Box<dyn Any>>,
+    pub(crate) options: ConfigMap,
 }
 
 impl Dependency {
@@ -65,11 +61,11 @@ impl Dependency {
         Self {
             kind,
             set,
-            options: BTreeMap::new(),
+            options: Default::default(),
         }
     }
-    pub fn with<T: ScheduleBuildPass>(mut self, option: T::EdgeOptions) -> Self {
-        self.options.insert(TypeId::of::<T>(), Box::new(option));
+    pub fn add_config<T: ScheduleBuildPass>(mut self, option: T::EdgeOptions) -> Self {
+        self.options.add_config::<T>(option);
         self
     }
 }

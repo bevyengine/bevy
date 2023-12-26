@@ -161,32 +161,26 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 
 /// Chain systems into dependencies
 #[derive(Default)]
-pub struct Chain(
-    /// Stores a map from the [`TypeId`] of the [`ScheduleBuildPass`] to the
-    /// corresponding boxed [`ScheduleBuildPass::EdgeOptions`], or None if
-    /// the systems are not chained.
-    Option<BTreeMap<TypeId, Box<dyn Any>>>,
-);
-impl Chain {
-    /// Returns if these systems are chained or not.
-    pub fn is_chained(&self) -> bool {
-        self.0.is_some()
+pub enum Chain {
+    /// Systems are independent.
+    #[default]
+    Unchained,
+    /// Systems are chained. `before -> after` ordering constraints
+    /// will be added between the successive elements.
+    Chained(ConfigMap),
+}
+
+/// Option maps for [`ScheduleBuildPass`]
+#[derive(Default)]
+pub struct ConfigMap(BTreeMap<TypeId, Box<dyn Any>>);
+impl ConfigMap {
+    /// Add a dependency config to all dependencies established by chain T.
+    pub fn add_config<T: ScheduleBuildPass>(&mut self, option: T::EdgeOptions) {
+        self.0.insert(TypeId::of::<T>(), Box::new(option));
     }
-    /// Set whether these systems are chained or not.
-    pub fn set_chained(&mut self, chained: bool) {
-        if chained && self.0.is_none() {
-            self.0 = Some(BTreeMap::new());
-        } else {
-            self.0 = None;
-        }
-    }
-    /// Add a dependency option to all dependencies established by this chain.
-    pub fn add_option<T: ScheduleBuildPass>(&mut self, option: T::EdgeOptions) {
-        if let Some(map) = &mut self.0 {
-            map.insert(TypeId::of::<T>(), Box::new(option));
-        } else {
-            panic!("Cannot add chain dependency option to unchained system");
-        }
+    /// Get the dependency config established by the chain T.
+    pub fn get_config<T: ScheduleBuildPass>(&self) -> Option<&T::EdgeOptions> {
+        self.0.get(&TypeId::of::<T>())?.downcast_ref()
     }
 }
 
@@ -674,7 +668,7 @@ impl ScheduleGraph {
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
-                if let Some(chain_options) = chained.0 {
+                if let Chain::Chained(chain_options) = chained {
                     let Some(prev) = config_iter.next() else {
                         return ProcessConfigsResult {
                             nodes: Vec::new(),
@@ -1867,12 +1861,7 @@ trait ScheduleBuildPassObj: Send + Sync + Debug {
         dependency_flattened: &GraphMap<NodeId, (), Directed>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
-    fn add_dependency(
-        &mut self,
-        from: NodeId,
-        to: NodeId,
-        all_options: &BTreeMap<TypeId, Box<dyn Any>>,
-    );
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &ConfigMap);
 }
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     fn build(
@@ -1892,15 +1881,8 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         let iter = self.collapse_set(set, systems, dependency_flattened);
         dependencies_to_add.extend(iter);
     }
-    fn add_dependency(
-        &mut self,
-        from: NodeId,
-        to: NodeId,
-        all_options: &BTreeMap<TypeId, Box<dyn Any>>,
-    ) {
-        let option = all_options
-            .get(&std::any::TypeId::of::<T>())
-            .and_then(|a| a.downcast_ref());
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &ConfigMap) {
+        let option = all_options.get_config::<T>();
         self.add_dependency(from, to, option);
     }
 }

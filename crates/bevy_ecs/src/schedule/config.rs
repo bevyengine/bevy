@@ -144,7 +144,7 @@ impl<T> NodeConfigs<T> {
             Self::NodeConfig(config) => {
                 config.graph_info.dependencies.push(
                     Dependency::new(DependencyKind::Before, set)
-                        .with::<AutoInsertApplyDeferredPass>(IgnoreDeferred),
+                        .add_config::<AutoInsertApplyDeferredPass>(IgnoreDeferred),
                 );
             }
             Self::Configs { configs, .. } => {
@@ -160,7 +160,7 @@ impl<T> NodeConfigs<T> {
             Self::NodeConfig(config) => {
                 config.graph_info.dependencies.push(
                     Dependency::new(DependencyKind::After, set)
-                        .with::<AutoInsertApplyDeferredPass>(IgnoreDeferred),
+                        .add_config::<AutoInsertApplyDeferredPass>(IgnoreDeferred),
                 );
             }
             Self::Configs { configs, .. } => {
@@ -231,10 +231,10 @@ impl<T> NodeConfigs<T> {
     fn chain_inner(mut self) -> Self {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
-            Self::Configs { chained, .. } => {
-                chained.set_chained(true);
-            }
-        }
+            Self::Configs { chained, .. } => if matches!(chained, Chain::Unchained) {
+                *chained = Chain::Chained(Default::default());
+            },
+        };
         self
     }
 
@@ -242,8 +242,14 @@ impl<T> NodeConfigs<T> {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
-                chained.set_chained(true);
-                chained.add_option::<AutoInsertApplyDeferredPass>(IgnoreDeferred);
+                if matches!(chained, Chain::Unchained) {
+                    *chained = Chain::Chained(Default::default());
+                };
+                if let Chain::Chained(config) = chained  {
+                    config.add_config::<AutoInsertApplyDeferredPass>(IgnoreDeferred);
+                } else {
+                    unreachable!()
+                };
             }
         }
         self
