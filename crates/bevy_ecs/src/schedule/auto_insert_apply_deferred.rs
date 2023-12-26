@@ -61,7 +61,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferedPass {
     type EdgeOptions = IgnoreDeferred;
 
     fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>) {
-        if let Some(options) = options {
+        if options.is_some() {
             self.no_sync_edges.insert((from, to));
         }
     }

@@ -22,7 +22,7 @@ use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
-    system::{BoxedSystem, IntoSystem, Resource, System},
+    system::{BoxedSystem, Resource, System},
     world::World,
 };
 
@@ -154,6 +154,32 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
         ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
         ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
+    }
+}
+
+/// Chain systems into dependencies
+#[derive(Default)]
+pub struct Chain(Option<BTreeMap<TypeId, Box<dyn Any>>>);
+impl Chain {
+    /// Returns if these systems are chained or not.
+    pub fn is_chained(&self) -> bool {
+        self.0.is_some()
+    }
+    /// Set whether these systems are chained or not.
+    pub fn set_chained(&mut self, chained: bool) {
+        if chained && self.0.is_none() {
+            self.0 = Some(BTreeMap::new());
+        } else {
+            self.0 = None;
+        }
+    }
+    /// Add a dependency option to all dependencies established by this chain.
+    pub fn add_option<T: ScheduleBuildPass>(&mut self, option: T::EdgeOptions) {
+        if let Some(map) = &mut self.0 {
+            map.insert(TypeId::of::<T::EdgeOptions>(), Box::new(option));
+        } else {
+            panic!("Cannot add chain dependency option to unchained system");
+        }
     }
 }
 
@@ -421,6 +447,7 @@ pub struct SystemNode {
 }
 
 impl SystemNode {
+    #![allow(missing_docs)]
     pub fn new(system: BoxedSystem) -> Self {
         Self {
             inner: Some(system),
@@ -437,6 +464,7 @@ impl SystemNode {
 }
 
 /// Metadata for a [`Schedule`].
+#[allow(missing_docs)]
 #[derive(Default)]
 pub struct ScheduleGraph {
     pub systems: Vec<SystemNode>,
@@ -453,8 +481,7 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-
-    pub passes: Vec<Box<dyn ScheduleBuildPassObj>>,
+    passes: Vec<Box<dyn ScheduleBuildPassObj>>,
 }
 
 impl ScheduleGraph {
@@ -599,8 +626,7 @@ impl ScheduleGraph {
             NodeConfigs::Configs {
                 mut configs,
                 collective_conditions,
-                chained,
-                chain_options,
+                chain,
             } => {
                 let more_than_one_entry = configs.len() > 1;
                 if !collective_conditions.is_empty() {
@@ -621,7 +647,7 @@ impl ScheduleGraph {
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
-                if chained {
+                if let Some(chain_options) = chain.0 {
                     let Some(prev) = config_iter.next() else {
                         return ProcessConfigsResult {
                             nodes: Vec::new(),
@@ -1020,23 +1046,6 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
-    /// add an [`apply_deferred`] system with no config
-    fn add_auto_sync(&mut self) -> NodeId {
-        let id = NodeId::System(self.systems.len());
-
-        self.systems
-            .push(SystemNode::new(Box::new(IntoSystem::into_system(
-                apply_deferred,
-            ))));
-        self.system_conditions.push(Vec::new());
-
-        // ignore ambiguities with auto sync points
-        // They aren't under user control, so no one should know or care.
-        self.ambiguous_with_all.insert(id);
-
-        id
-    }
-
     fn map_sets_to_systems(
         &self,
         hierarchy_topsort: &[NodeId],
@@ -1368,7 +1377,9 @@ impl ProcessNodeConfig for InternedSystemSet {
 
 /// Used to select the appropriate reporting function.
 pub enum ReportCycles {
+    /// Report cycles with set hierarchy.
     Hierarchy,
+    /// Report cycles with system dependency.
     Dependency,
 }
 
@@ -1783,6 +1794,7 @@ pub enum LogLevel {
     Error,
 }
 
+/// A pass for modular modification of the dependency graph.
 pub trait ScheduleBuildPass: Send + Sync + Debug {
     /// Custom options for dependencies between sets or systems.
     type EdgeOptions: 'static;
