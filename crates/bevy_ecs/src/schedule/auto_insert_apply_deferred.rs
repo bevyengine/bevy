@@ -16,12 +16,22 @@ use super::{
     ScheduleGraph, SystemNode,
 };
 
+/// A [`ScheduleBuildPass`] that inserts [`apply_deferred`] systems into the schedule graph
+/// when there are [`Deferred`](crate::prelude::Deferred)
+/// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
+/// such deferred buffer.
+///
+/// This pass is typically automatically added to the schedule. You can disable this by setting
+/// [`ScheduleBuildSettings::auto_insert_apply_deferred`](crate::schedule::ScheduleBuildSettings::auto_insert_apply_deferred)
+/// to `false`. You may want to disable this if you only want to sync deferred params at the end of the schedule,
+/// or want to manually insert all your sync points.
 #[derive(Debug, Default)]
 pub struct AutoInsertApplyDeferredPass {
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
 
+/// If added to a dependency edge, the edge will not be considered for auto sync point insertions.
 pub struct IgnoreDeferred;
 
 impl AutoInsertApplyDeferredPass {

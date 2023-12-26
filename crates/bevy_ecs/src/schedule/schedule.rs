@@ -161,7 +161,12 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 
 /// Chain systems into dependencies
 #[derive(Default)]
-pub struct Chain(Option<BTreeMap<TypeId, Box<dyn Any>>>);
+pub struct Chain(
+    /// Stores a map from the [`TypeId`] of the [`ScheduleBuildPass`] to the
+    /// corresponding boxed [`ScheduleBuildPass::EdgeOptions`], or None if
+    /// the systems are not chained.
+    Option<BTreeMap<TypeId, Box<dyn Any>>>,
+);
 impl Chain {
     /// Returns if these systems are chained or not.
     pub fn is_chained(&self) -> bool {
