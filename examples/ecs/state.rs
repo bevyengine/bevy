@@ -161,8 +161,8 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     }
 }
 
-/// print when an AppState transition happens
-/// also serves as an example of how to use StateTransitionEvent
+/// print when an `AppState`` transition happens
+/// also serves as an example of how to use `StateTransitionEvent``
 fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
     for transition in transitions.read() {
         info!(
