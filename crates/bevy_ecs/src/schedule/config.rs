@@ -231,9 +231,11 @@ impl<T> NodeConfigs<T> {
     fn chain_inner(mut self) -> Self {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
-            Self::Configs { chained, .. } => if matches!(chained, Chain::Unchained) {
-                *chained = Chain::Chained(Default::default());
-            },
+            Self::Configs { chained, .. } => {
+                if matches!(chained, Chain::Unchained) {
+                    *chained = Chain::Chained(Default::default());
+                }
+            }
         };
         self
     }
@@ -245,7 +247,7 @@ impl<T> NodeConfigs<T> {
                 if matches!(chained, Chain::Unchained) {
                     *chained = Chain::Chained(Default::default());
                 };
-                if let Chain::Chained(config) = chained  {
+                if let Chain::Chained(config) = chained {
                     config.add_config::<AutoInsertApplyDeferredPass>(IgnoreDeferred);
                 } else {
                     unreachable!()
