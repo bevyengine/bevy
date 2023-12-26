@@ -1,3 +1,5 @@
+use std::{collections::BTreeMap, any::{TypeId, Any}};
+
 use bevy_utils::all_tuples;
 
 use crate::{
@@ -5,10 +7,11 @@ use crate::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
-        Chain,
     },
     system::{BoxedSystem, IntoSystem, System},
 };
+
+use super::auto_insert_apply_deferred::{AutoInsertApplyDeferedPass, IgnoreDeferred};
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
@@ -68,8 +71,8 @@ pub enum NodeConfigs<T> {
         configs: Vec<NodeConfigs<T>>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
-        /// See [`Chain`] for usage.
-        chained: Chain,
+        chained: bool,
+        chain_options: BTreeMap<TypeId, Box<dyn Any>>,
     },
 }
 
@@ -144,7 +147,7 @@ impl<T> NodeConfigs<T> {
                 config
                     .graph_info
                     .dependencies
-                    .push(Dependency::new(DependencyKind::BeforeNoSync, set));
+                    .push(Dependency::new(DependencyKind::Before, set).with::<AutoInsertApplyDeferedPass>(IgnoreDeferred));
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -160,7 +163,7 @@ impl<T> NodeConfigs<T> {
                 config
                     .graph_info
                     .dependencies
-                    .push(Dependency::new(DependencyKind::AfterNoSync, set));
+                    .push(Dependency::new(DependencyKind::After, set).with::<AutoInsertApplyDeferedPass>(IgnoreDeferred));
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -231,7 +234,7 @@ impl<T> NodeConfigs<T> {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
-                *chained = Chain::Yes;
+                *chained = true;
             }
         }
         self
@@ -240,8 +243,9 @@ impl<T> NodeConfigs<T> {
     fn chain_ignore_deferred_inner(mut self) -> Self {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
-            Self::Configs { chained, .. } => {
-                *chained = Chain::YesIgnoreDeferred;
+            Self::Configs { chained, chain_options, .. } => {
+                *chained = true;
+                chain_options.insert(TypeId::of::<IgnoreDeferred>(), Box::new(IgnoreDeferred));
             }
         }
         self
@@ -522,7 +526,8 @@ macro_rules! impl_system_collection {
                 SystemConfigs::Configs {
                     configs: vec![$($sys.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: Chain::No,
+                    chained: false,
+                    chain_options: Default::default(),
                 }
             }
         }
@@ -731,7 +736,8 @@ macro_rules! impl_system_set_collection {
                 SystemSetConfigs::Configs {
                     configs: vec![$($set.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: Chain::No,
+                    chained: false,
+                    chain_options: Default::default(),
                 }
             }
         }

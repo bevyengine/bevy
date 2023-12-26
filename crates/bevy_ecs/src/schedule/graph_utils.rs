@@ -12,6 +12,8 @@ use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
 
+use super::ScheduleBuildPass;
+
 /// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
 ///
 /// [`ScheduleGraph`]: super::ScheduleGraph
@@ -49,10 +51,6 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
-    /// A node that should be preceded and will **not** automatically insert an instance of `apply_deferred` on the edge.
-    BeforeNoSync,
-    /// A node that should be succeeded and will **not** automatically insert an instance of `apply_deferred` on the edge.
-    AfterNoSync,
 }
 
 /// An edge to be added to the dependency graph.
@@ -70,6 +68,10 @@ impl Dependency {
             options: BTreeMap::new(),
         }
     }
+    pub fn with<T: ScheduleBuildPass>(mut self, option: T::EdgeOptions) -> Self {
+        self.options.insert(TypeId::of::<T::EdgeOptions>(), Box::new(option));
+        self
+    }
 }
 
 /// Configures ambiguity detection for a single system.
@@ -86,7 +88,6 @@ pub(crate) enum Ambiguity {
 #[derive(Default)]
 pub(crate) struct GraphInfo {
     pub(crate) sets: Vec<InternedSystemSet>,
-    pub(crate) options: BTreeMap<TypeId, Box<dyn Any>>,
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
 }

@@ -1,10 +1,13 @@
 use std::collections::BTreeSet;
 
-use bevy_utils::{HashMap, petgraph::Direction::Outgoing};
+use bevy_utils::{petgraph::Direction::Outgoing, HashMap};
 
 use crate::system::IntoSystem;
 
-use super::{ScheduleBuildPass, ScheduleGraph, ReportCycles, is_apply_deferred, NodeId, SystemNode, apply_deferred};
+use super::{
+    apply_deferred, is_apply_deferred, NodeId, ReportCycles, ScheduleBuildPass, ScheduleGraph,
+    SystemNode,
+};
 
 #[derive(Debug)]
 pub struct AutoInsertApplyDeferedPass {
@@ -12,9 +15,7 @@ pub struct AutoInsertApplyDeferedPass {
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
 
-pub struct EdgeOptions {
-    pub ignore_deferred: bool,
-}
+pub struct IgnoreDeferred;
 
 impl AutoInsertApplyDeferedPass {
     /// Returns the `NodeId` of the cached auto sync point. Will create
@@ -34,7 +35,8 @@ impl AutoInsertApplyDeferedPass {
     fn add_auto_sync(&mut self, graph: &mut ScheduleGraph) -> NodeId {
         let id = NodeId::System(graph.systems.len());
 
-        graph.systems
+        graph
+            .systems
             .push(SystemNode::new(Box::new(IntoSystem::into_system(
                 apply_deferred,
             ))));
@@ -49,12 +51,30 @@ impl AutoInsertApplyDeferedPass {
 }
 
 impl ScheduleBuildPass for AutoInsertApplyDeferedPass {
-    type NodeOptions = ();
+    type EdgeOptions = IgnoreDeferred;
 
-    type EdgeOptions = EdgeOptions;
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>) {
+        if let Some(options) = options {
+            self.no_sync_edges.insert((from, to));
+        }
+    }
 
-    fn build(&mut self, graph: &mut ScheduleGraph, dependency_flattened: &mut bevy_utils::petgraph::prelude::GraphMap<super::NodeId, (), bevy_utils::petgraph::prelude::Directed>)
-    -> Result<bevy_utils::petgraph::prelude::GraphMap<super::NodeId, (), bevy_utils::petgraph::prelude::Directed>, super::ScheduleBuildError>  {
+    fn build(
+        &mut self,
+        graph: &mut ScheduleGraph,
+        dependency_flattened: &mut bevy_utils::petgraph::prelude::GraphMap<
+            super::NodeId,
+            (),
+            bevy_utils::petgraph::prelude::Directed,
+        >,
+    ) -> Result<
+        bevy_utils::petgraph::prelude::GraphMap<
+            super::NodeId,
+            (),
+            bevy_utils::petgraph::prelude::Directed,
+        >,
+        super::ScheduleBuildError,
+    > {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
@@ -84,7 +104,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferedPass {
                 distances.insert(target.index(), distance);
 
                 if add_sync_on_edge {
-                    let sync_point = self.get_sync_point(graph, distances[&target.index()].unwrap());
+                    let sync_point =
+                        self.get_sync_point(graph, distances[&target.index()].unwrap());
                     sync_point_graph.add_edge(*node, sync_point, ());
                     sync_point_graph.add_edge(sync_point, target, ());
 
