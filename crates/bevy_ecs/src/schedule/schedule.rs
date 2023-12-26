@@ -1824,10 +1824,10 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     /// Called when a dependency between sets or systems was explicitly added to the graph.
     fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>);
 
-    /// Iterator returned from [`collapse_set`].
+    /// Iterator returned from `collapse_set`.
     /// TODO: Use `return_position_impl_trait_in_traits` once it stabilizes in Rust 1.75.
-    /// < https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html >
-    /// < https://rust-lang.github.io/rfcs/3425-return-position-impl-trait-in-traits.html >
+    /// <https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html>
+    /// <https://rust-lang.github.io/rfcs/3425-return-position-impl-trait-in-traits.html>
     type CollapseSetIterator: Iterator<Item = (NodeId, NodeId)>;
     /// Called while flattening the dependency graph. For each `set`, this method is called
     /// with the `systems` associated with the set as well as an immutable reference to the current graph.
