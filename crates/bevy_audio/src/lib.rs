@@ -63,7 +63,7 @@ struct AudioPlaySet;
 /// Insert an [`AudioBundle`] onto your entities to play audio.
 #[derive(Default)]
 pub struct AudioPlugin {
-    /// The global volume for all audio entities with a [`Volume::Relative`] volume.
+    /// The global volume for all audio entities.
     pub global_volume: GlobalVolume,
     /// The scale factor applied to the positions of audio sources and listeners for
     /// spatial audio.
