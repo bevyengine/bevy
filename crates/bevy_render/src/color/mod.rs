@@ -342,7 +342,7 @@ impl Color {
     ///
     /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
     ///
-    pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
+    pub const fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color::rgba_u8(r, g, b, u8::MAX)
     }
 
@@ -359,7 +359,7 @@ impl Color {
     ///
     /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
     ///
-    pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
+    pub const fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
         Color::rgba(
             r as f32 / u8::MAX as f32,
             g as f32 / u8::MAX as f32,
