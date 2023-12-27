@@ -98,7 +98,12 @@ fn fallback_image_new(
     }
 
     let texture = if create_texture_with_data {
-        render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
+        render_device.create_texture_with_data(
+            render_queue,
+            &image.texture_descriptor,
+            wgpu::util::TextureDataOrder::LayerMajor,
+            &image.data,
+        )
     } else {
         render_device.create_texture(&image.texture_descriptor)
     };

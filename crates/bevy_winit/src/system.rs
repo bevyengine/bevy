@@ -74,8 +74,8 @@ pub(crate) fn create_windows<'a>(
         commands
             .entity(entity)
             .insert(RawHandleWrapper {
-                window_handle: winit_window.raw_window_handle(),
-                display_handle: winit_window.raw_display_handle(),
+                window_handle: winit_window.raw_window_handle().unwrap(),
+                display_handle: winit_window.raw_display_handle().unwrap(),
             })
             .insert(CachedWindow {
                 window: window.clone(),

@@ -193,7 +193,8 @@ fn extract_windows(
 }
 
 struct SurfaceData {
-    surface: wgpu::Surface,
+    // TODO: what lifetime should this be?
+    surface: wgpu::Surface<'static>,
     format: TextureFormat,
 }
 

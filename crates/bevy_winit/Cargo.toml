@@ -28,14 +28,13 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0" }
 
 # other
-# feature rwh_05 refers to window_raw_handle@v0.5,
-# updating to rwh_06 is blocked until wgpu 0.19 release lands.
-winit = { version = "0.29", default-features = false, features = ["rwh_05"] }
+# feature rwh_06 refers to window_raw_handle@v0.6
+winit = { version = "0.29", default-features = false, features = ["rwh_06"] }
 accesskit_winit = { version = "0.17", default-features = false, features = [
   "rwh_05",
 ] }
 approx = { version = "0.5", default-features = false }
-raw-window-handle = "0.5"
+raw-window-handle = "0.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.29", default-features = false, features = [

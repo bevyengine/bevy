@@ -161,11 +161,12 @@ impl RenderDevice {
         &self,
         render_queue: &RenderQueue,
         desc: &wgpu::TextureDescriptor,
+        order: wgpu::util::TextureDataOrder,
         data: &[u8],
     ) -> Texture {
-        let wgpu_texture = self
-            .device
-            .create_texture_with_data(render_queue.as_ref(), desc, data);
+        let wgpu_texture =
+            self.device
+                .create_texture_with_data(render_queue.as_ref(), desc, order, data);
         Texture::from(wgpu_texture)
     }
 

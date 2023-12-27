@@ -1,6 +1,11 @@
 use bevy_ecs::prelude::Component;
 use raw_window_handle::{
-    HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle,
+    HandleError,
+    // HasWindowHandle, WindowHandle, HasDisplayHandle, DisplayHandle,
+    HasRawDisplayHandle,
+    HasRawWindowHandle,
+    RawDisplayHandle,
+    RawWindowHandle,
 };
 
 /// A wrapper over [`RawWindowHandle`] and [`RawDisplayHandle`] that allows us to safely pass it across threads.
@@ -44,7 +49,7 @@ unsafe impl Sync for RawHandleWrapper {}
 /// This can only be constructed via the [`RawHandleWrapper::get_handle()`] method;
 /// be sure to read the safety docs there about platform-specific limitations.
 /// In many cases, this should only be constructed on the main thread.
-pub struct ThreadLockedRawWindowHandleWrapper(RawHandleWrapper);
+pub struct ThreadLockedRawWindowHandleWrapper(pub RawHandleWrapper);
 
 // SAFETY: the caller has validated that this is a valid context to get [`RawHandleWrapper`]
 // as otherwise an instance of this type could not have been constructed
@@ -53,10 +58,16 @@ pub struct ThreadLockedRawWindowHandleWrapper(RawHandleWrapper);
 // of this method are correct (as it may be off the main thread on an incompatible platform),
 // and so exposing a safe method to get a [`RawWindowHandle`] directly would be UB.
 unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        self.0.window_handle
+    fn raw_window_handle(&self) -> Result<RawWindowHandle, HandleError> {
+        Ok(self.0.window_handle)
     }
 }
+
+// impl HasWindowHandle for ThreadLockedRawWindowHandleWrapper {
+//     fn window_handle(&self) -> Result<WindowHandle, HandleError> {
+//         Ok(self.0.window_handle)
+//     }
+// }
 
 // SAFETY: the caller has validated that this is a valid context to get [`RawDisplayHandle`]
 // as otherwise an instance of this type could not have been constructed
@@ -65,7 +76,13 @@ unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
 // of this method are correct (as it may be off the main thread on an incompatible platform),
 // and so exposing a safe method to get a [`RawDisplayHandle`] directly would be UB.
 unsafe impl HasRawDisplayHandle for ThreadLockedRawWindowHandleWrapper {
-    fn raw_display_handle(&self) -> RawDisplayHandle {
-        self.0.display_handle
+    fn raw_display_handle(&self) -> Result<RawDisplayHandle, HandleError> {
+        Ok(self.0.display_handle)
     }
 }
+
+// impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
+//     fn display_handle(&self) -> Result<DisplayHandle, HandleError> {
+//         Ok(self.0.display_handle.into())
+//     }
+// }
