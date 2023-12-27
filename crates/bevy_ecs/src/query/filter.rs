@@ -91,6 +91,19 @@ pub trait QueryFilter: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> bool;
+
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    /// `table_row` must be in the range of the current table and archetype.
+    #[allow(unused_variables)]
+    unsafe fn archetype_filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        state: &Self::State,
+        table: &Table,
+    ) -> bool {
+        true
+    }
 }
 
 /// Filter that selects entities with a component `T`.
@@ -917,6 +930,29 @@ impl<T: Component> QueryFilter for Changed<T> {
         table_row: TableRow,
     ) -> bool {
         Self::fetch(fetch, entity, table_row)
+    }
+    unsafe fn archetype_filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        &component_id: &ComponentId,
+        table: &Table,
+    ) -> bool {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::SparseSet => fetch
+                .sparse_set
+                .debug_checked_unwrap()
+                .read_last_mutable_access_tick()
+                .is_newer_than(fetch.last_run, fetch.this_run),
+            StorageType::Table => {
+                table
+                    .read_last_mutable_access_tick()
+                    .is_newer_than(fetch.last_run, fetch.this_run)
+                    && table
+                        .get_column(component_id)
+                        .debug_checked_unwrap()
+                        .read_last_mutable_access_tick()
+                        .is_newer_than(fetch.last_run, fetch.this_run)
+            }
+        }
     }
 }
 

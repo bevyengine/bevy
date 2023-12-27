@@ -234,6 +234,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             for table_id in self.cursor.table_id_iter.clone() {
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(*table_id).debug_checked_unwrap() };
+                unsafe {
+                    if !F::archetype_filter_fetch(
+                        &mut self.cursor.filter,
+                        &self.query_state.filter_state,
+                        table,
+                    ) {
+                        continue;
+                    }
+                };
                 accum =
                     // SAFETY: 
                     // - The fetched table matches both D and F
@@ -246,6 +255,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                 let archetype =
                     // SAFETY: Matched archetype IDs are guaranteed to still exist.
                     unsafe { self.archetypes.get(*archetype_id).debug_checked_unwrap() };
+                let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
+                unsafe {
+                    if !F::archetype_filter_fetch(
+                        &mut self.cursor.filter,
+                        &self.query_state.filter_state,
+                        table,
+                    ) {
+                        continue;
+                    }
+                };
                 accum =
                     // SAFETY:
                     // - The fetched archetype matches both D and F
@@ -762,6 +781,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 if self.current_row == self.current_len {
                     let table_id = self.table_id_iter.next()?;
                     let table = tables.get(*table_id).debug_checked_unwrap();
+                    if !F::archetype_filter_fetch(
+                        &mut self.filter,
+                        &query_state.filter_state,
+                        table,
+                    ) {
+                        continue;
+                    }
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     D::set_table(&mut self.fetch, &query_state.fetch_state, table);
@@ -797,6 +823,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+                    if !F::archetype_filter_fetch(
+                        &mut self.filter,
+                        &query_state.filter_state,
+                        table,
+                    ) {
+                        continue;
+                    }
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     D::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);

@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
-use std::alloc::Layout;
+use std::{alloc::Layout, sync::atomic::AtomicU32};
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
@@ -152,6 +152,7 @@ pub struct Column {
     data: BlobVec,
     added_ticks: Vec<UnsafeCell<Tick>>,
     changed_ticks: Vec<UnsafeCell<Tick>>,
+    last_mutable_access_tick: AtomicU32,
 }
 
 impl Column {
@@ -163,6 +164,7 @@ impl Column {
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
+            last_mutable_access_tick: AtomicU32::new(0),
         }
     }
 
@@ -539,6 +541,16 @@ impl Column {
             component_ticks.get_mut().check_tick(change_tick);
         }
     }
+    pub fn read_last_mutable_access_tick(&self) -> Tick {
+        Tick::new(
+            self.last_mutable_access_tick
+                .load(std::sync::atomic::Ordering::Acquire),
+        )
+    }
+    pub fn set_last_mutable_access_tick(&self, tick: Tick) {
+        self.last_mutable_access_tick
+            .store(tick.get(), std::sync::atomic::Ordering::Release)
+    }
 }
 
 /// A builder type for constructing [`Table`]s.
@@ -579,6 +591,7 @@ impl TableBuilder {
         Table {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
+            last_mutable_access_tick: AtomicU32::new(0),
         }
     }
 }
@@ -598,6 +611,7 @@ impl TableBuilder {
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
+    last_mutable_access_tick: AtomicU32,
 }
 
 impl Table {
@@ -826,6 +840,18 @@ impl Table {
         for column in self.columns.values_mut() {
             column.clear();
         }
+    }
+
+    pub fn read_last_mutable_access_tick(&self) -> Tick {
+        Tick::new(
+            self.last_mutable_access_tick
+                .load(std::sync::atomic::Ordering::Relaxed),
+        )
+    }
+
+    pub fn set_last_mutable_access_tick(&self, tick: Tick) {
+        self.last_mutable_access_tick
+            .store(tick.get(), std::sync::atomic::Ordering::Relaxed);
     }
 }
 

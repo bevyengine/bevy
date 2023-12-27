@@ -899,6 +899,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         if Self::IS_DENSE {
             Self::set_table(fetch, component_id, table);
+        } else {
+            fetch
+                .sparse_set
+                .debug_checked_unwrap()
+                .set_last_mutable_access_tick(fetch.this_run)
         }
     }
 
@@ -909,6 +914,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         table: &'w Table,
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
+        table.set_last_mutable_access_tick(fetch.this_run);
+        column.set_last_mutable_access_tick(fetch.this_run);
         fetch.table_data = Some((
             column.get_data_slice().into(),
             column.get_added_ticks_slice().into(),

@@ -326,6 +326,14 @@ impl ComponentSparseSet {
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         self.dense.check_change_ticks(change_tick);
     }
+
+    pub fn read_last_mutable_access_tick(&self) -> Tick {
+        self.dense.read_last_mutable_access_tick()
+    }
+
+    pub fn set_last_mutable_access_tick(&self, tick: Tick) {
+        self.dense.set_last_mutable_access_tick(tick);
+    }
 }
 
 /// A data structure that blends dense and sparse storage
