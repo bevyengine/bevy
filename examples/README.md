@@ -187,6 +187,7 @@ Example | Description
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+[Texture sampler configuration](../examples/asset/texture_sampler.rs) | How to configure the texture to repeat instead of the default clamp to edges
 
 ## Async Tasks
 
