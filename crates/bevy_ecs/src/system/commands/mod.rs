@@ -1088,7 +1088,6 @@ fn insert_resource<R: Resource>(resource: R) -> impl Command {
     }
 }
 
-
 /// [`EntityCommand`] to log the components of a given entity. See [`EntityCommands::log_components`].
 fn log_components(entity: Entity, world: &mut World) {
     let debug_infos: Vec<_> = world
