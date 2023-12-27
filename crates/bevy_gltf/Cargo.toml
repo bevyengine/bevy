@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 pbr_transmission_textures = []
-extensions = ["gltf/extensions"]
+# extensions = ["gltf/extensions"]
 
 [dependencies]
 # bevy
@@ -44,6 +44,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
   "KHR_materials_unlit",
   "KHR_materials_emissive_strength",
   "extras",
+  "extensions",
   "names",
   "utils",
 ] }

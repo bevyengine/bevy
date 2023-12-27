@@ -140,9 +140,6 @@ impl Default for GltfLoaderSettings {
             load_meshes: true,
             load_cameras: true,
             load_lights: true,
-            #[cfg(feature = "extensions")]
-            include_source: true,
-            #[cfg(not(feature = "extensions"))]
             include_source: false,
         }
     }
@@ -678,9 +675,8 @@ async fn load_gltf<'a, 'b, 'c>(
         animations,
         #[cfg(feature = "bevy_animation")]
         named_animations,
-        #[cfg(feature = "extensions")]
         source: if settings.include_source {
-            Some(gltf)
+            Some(gltf) // TODO: check if there's any data in this structure that bevy moves out of during conversion.
         } else {
             None
         },

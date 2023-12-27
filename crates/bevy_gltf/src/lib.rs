@@ -98,8 +98,7 @@ pub struct Gltf {
     /// Named animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
     pub named_animations: HashMap<String, Handle<AnimationClip>>,
-    /// The gltf root of the gltf. Only has a value when `GltfLoaderSettings::include_source` is true and when the `extensions` flag is enabled.
-    #[cfg(feature = "extensions")]
+    /// The gltf root of the gltf. Only has a value when `GltfLoaderSettings::include_source` is true.
     pub source: Option<gltf::Gltf>,
 }
 
