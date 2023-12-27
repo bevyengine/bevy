@@ -331,8 +331,8 @@ impl ComponentSparseSet {
         self.dense.read_last_mutable_access_tick()
     }
 
-    pub fn set_last_mutable_access_tick(&self, tick: Tick) {
-        self.dense.set_last_mutable_access_tick(tick);
+    pub fn update_last_mutable_access_tick(&self, tick: Tick) {
+        self.dense.update_last_mutable_access_tick(tick);
     }
 }
 

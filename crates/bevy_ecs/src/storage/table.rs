@@ -183,6 +183,7 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn initialize(&mut self, row: TableRow, data: OwningPtr<'_>, tick: Tick) {
         debug_assert!(row.as_usize() < self.len());
+        self.update_last_mutable_access_tick(tick);
         self.data.initialize_unchecked(row.as_usize(), data);
         *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = tick;
         *self
@@ -199,6 +200,7 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
         debug_assert!(row.as_usize() < self.len());
+        self.update_last_mutable_access_tick(change_tick);
         self.data.replace_unchecked(row.as_usize(), data);
         *self
             .changed_ticks
@@ -328,6 +330,7 @@ impl Column {
     /// # Safety
     /// `ptr` must point to valid data of this column's component type
     pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
+        self.update_last_mutable_access_tick(ticks.changed);
         self.data.push(ptr);
         self.added_ticks.push(UnsafeCell::new(ticks.added));
         self.changed_ticks.push(UnsafeCell::new(ticks.changed));
@@ -544,12 +547,14 @@ impl Column {
     pub fn read_last_mutable_access_tick(&self) -> Tick {
         Tick::new(
             self.last_mutable_access_tick
-                .load(std::sync::atomic::Ordering::Acquire),
+                .load(std::sync::atomic::Ordering::Relaxed),
         )
     }
-    pub fn set_last_mutable_access_tick(&self, tick: Tick) {
+    pub fn update_last_mutable_access_tick(&self, tick: Tick) {
+        // self.last_mutable_access_tick
+        //     .store(tick.get(), std::sync::atomic::Ordering::Relaxed);
         self.last_mutable_access_tick
-            .store(tick.get(), std::sync::atomic::Ordering::Release)
+            .fetch_max(tick.get(), std::sync::atomic::Ordering::AcqRel);
     }
 }
 
@@ -849,9 +854,19 @@ impl Table {
         )
     }
 
-    pub fn set_last_mutable_access_tick(&self, tick: Tick) {
+    pub(crate) fn update_last_mutable_access_tick(&self, tick: Tick) {
         self.last_mutable_access_tick
-            .store(tick.get(), std::sync::atomic::Ordering::Relaxed);
+            .fetch_max(tick.get(), std::sync::atomic::Ordering::AcqRel);
+    }
+
+    pub(crate) fn update_table_and_component_access_tick(
+        &self,
+        component_id: ComponentId,
+        tick: Tick,
+    ) {
+        self.update_last_mutable_access_tick(tick);
+        self.get_column(component_id)
+            .map(|c| c.update_last_mutable_access_tick(tick));
     }
 }
 

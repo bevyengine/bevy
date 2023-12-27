@@ -800,6 +800,12 @@ impl<'w> UnsafeEntityCell<'w> {
         // - `location` is valid
         // - aliasing rules are ensured by caller
         unsafe {
+            self.world.update_fetch_mutable_access_tick(
+                self.location,
+                component_id,
+                T::Storage::STORAGE_TYPE,
+                change_tick,
+            );
             get_component_and_ticks(
                 self.world,
                 component_id,
@@ -905,6 +911,27 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY: caller ensures returned data is not misused and we have not created any borrows
         // of component/resource data
         unsafe { self.storages() }.sparse_sets.get(component_id)
+    }
+
+    pub unsafe fn update_fetch_mutable_access_tick(
+        self,
+        location: EntityLocation,
+        component_id: ComponentId,
+        storage_type: StorageType,
+        change_tick: Tick,
+    ) {
+        match storage_type {
+            StorageType::SparseSet => {
+                unsafe { self.storages() }
+                    .sparse_sets
+                    .get(component_id)
+                    .map(|c| c.update_last_mutable_access_tick(change_tick));
+            }
+            StorageType::Table => {
+                unsafe { self.storages() }.tables[location.table_id]
+                    .update_table_and_component_access_tick(component_id, change_tick);
+            }
+        }
     }
 }
 
