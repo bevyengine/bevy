@@ -1255,7 +1255,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource},
+        system::{CommandQueue, Commands, Resource, ResMut, In },
         world::World,
     };
     use std::sync::{
@@ -1427,5 +1427,29 @@ mod tests {
         queue_1.apply(&mut world);
         assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn run_one_shot_systems() {
+        let mut world = World::default();
+        world.insert_resource(Counter(0));
+        let add_simple = world.register_system(add_to_counter);
+        let add_with_input = world.register_system(add_to_counter_with_input);
+
+        let mut queue_1 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_1, &world);
+            commands.run_system(add_simple)
+        }
+        queue_1.apply(&mut world);
+        assert_eq!(1, world.resource::<Counter>().0);
+
+        let mut queue_2 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_2, &world);
+            commands.run_system_with_input(add_with_input, 2);
+        }
+        queue_2.apply(&mut world);
+        assert_eq!(3, world.resource::<Counter>().0);
     }
 }
