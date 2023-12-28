@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use bevy::{
     input::common_conditions::input_just_pressed, prelude::*,
-    time::common_conditions::on_real_timer,
+    time::common_conditions::on_real_time_interval,
 };
 
 fn main() {
@@ -22,13 +22,10 @@ fn main() {
                 change_time_speed::<-1>.run_if(input_just_pressed(KeyCode::ArrowDown)),
                 (update_virtual_time_info_text, update_real_time_info_text)
                     // update the texts on a timer to make them more readable
-                    // `on_timer` run condition uses `Virtual` time meaning it's scaled
+                    // `on_time_interval` run condition uses `Virtual` time meaning it's scaled
                     // and would result in the UI updating at different intervals based
                     // on `Time<Virtual>::relative_speed` and `Time<Virtual>::is_paused()`
-                    .run_if(on_real_timer(Timer::new(
-                        Duration::from_millis(250),
-                        TimerMode::Repeating,
-                    ))),
+                    .run_if(on_real_time_interval(Duration::from_millis(250))),
             ),
         )
         .run();
