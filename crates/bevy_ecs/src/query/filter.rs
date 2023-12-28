@@ -514,10 +514,12 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
 /// A filter that tests if the given filter does not apply.
 ///
-/// This filter does not compose with the `Or` filter or with tuples of filters. Instead,
-/// distribute it within the filters. For example, `Not<Or<(Changed<A>, Changed<B>)>>` should become
-/// `(Not<Changed<A>>, Not<Changed<B>>)` and `Not<(Changed<A>, Changed<B>)>` should become
-/// `Or<(Not<Changed<A>>, Not<Changed<B>>)>`.
+/// This filter does not compose with the [`Or`] filter or with tuples of filters. Instead, [`Not`]
+/// should be distributed within according to de Morgan's laws.
+///
+/// For example, `Not<Or<(Changed<A>, Changed<B>)>>` should become `(Not<Changed<A>>, Not<Changed<B>>)`.
+///
+/// `Not<(Changed<A>, Changed<B>)>` should become `Or<(Not<Changed<A>>, Not<Changed<B>>)>`.
 ///
 /// # Examples
 ///
