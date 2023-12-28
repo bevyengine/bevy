@@ -512,6 +512,110 @@ macro_rules! impl_tuple_query_filter {
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
+pub struct Not<T>(PhantomData<T>);
+
+unsafe impl<T> WorldQuery for Not<T>
+where
+    T: QueryFilter,
+{
+    type Item<'a> = T::Item<'a>;
+
+    type Fetch<'a> = T::Fetch<'a>;
+
+    type State = T::State;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        T::shrink(item)
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        state: &Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        T::init_fetch(world, state, last_run, this_run)
+    }
+
+    const IS_DENSE: bool = T::IS_DENSE;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        T::set_archetype(fetch, state, archetype, table)
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        T::set_table(fetch, state, table)
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        T::fetch(fetch, entity, table_row)
+    }
+
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        T::update_component_access(state, access);
+
+        for filter in &mut access.filter_sets {
+            std::mem::swap(&mut filter.with, &mut filter.without);
+        }
+    }
+
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        T::update_archetype_component_access(state, archetype, access);
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        T::init_state(world)
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        if T::IS_ARCHETYPAL {
+            !T::matches_component_set(state, set_contains_id)
+        } else {
+            T::matches_component_set(state, set_contains_id)
+        }
+    }
+}
+
+impl<T> QueryFilter for Not<T>
+where
+    T: QueryFilter,
+{
+    const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
+
+    #[inline]
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        if T::IS_ARCHETYPAL {
+            return true;
+        } else {
+            !T::filter_fetch(fetch, entity, table_row)
+        }
+    }
+}
+
 /// A filter on a component that only retains results added after the system last ran.
 ///
 /// A common use for this filter is one-time initialization.
