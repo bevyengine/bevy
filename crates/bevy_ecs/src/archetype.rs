@@ -269,11 +269,10 @@ pub struct ArchetypeEntity {
     table_row: TableRow,
 }
 
-// REMOVE THIS meaningless commit to test CI
 impl ArchetypeEntity {
     /// The ID of the entity.
     #[inline]
-    pub const fn entity(&self) -> Entity {
+    pub const fn id(&self) -> Entity {
         self.entity
     }
 
