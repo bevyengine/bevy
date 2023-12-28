@@ -269,6 +269,7 @@ pub struct ArchetypeEntity {
     table_row: TableRow,
 }
 
+// REMOVE THIS meaningless commit to test CI
 impl ArchetypeEntity {
     /// The ID of the entity.
     #[inline]
