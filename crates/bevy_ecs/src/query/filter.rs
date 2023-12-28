@@ -542,6 +542,13 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// # bevy_ecs::system::assert_is_system(print_still_entity_system);
 pub struct Not<T>(PhantomData<T>);
 
+/// SAFETY:
+///
+/// For archetypal filters, this inverts the access in `update_component_access` as well as in
+/// `matches_component_set`, ensuring that they match.
+///
+/// For non-archetypal filters, this maintains the same read accesses as the original filter in
+/// both instances.
 unsafe impl<T> WorldQuery for Not<T>
 where
     T: QueryFilter + InvertibleFilter,
@@ -575,12 +582,12 @@ where
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        T::set_archetype(fetch, state, archetype, table)
+        T::set_archetype(fetch, state, archetype, table);
     }
 
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-        T::set_table(fetch, state, table)
+        T::set_table(fetch, state, table);
     }
 
     #[inline(always)]
