@@ -1255,7 +1255,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource, ResMut, In },
+        system::{CommandQueue, Commands, In, ResMut, Resource},
         world::World,
     };
     use std::sync::{
@@ -1296,7 +1296,7 @@ mod tests {
         counter.0 += 1;
     }
 
-    fn add_to_counter_with_input(In(val): In<i32>,mut counter: ResMut<Counter>) {
+    fn add_to_counter_with_input(In(val): In<i32>, mut counter: ResMut<Counter>) {
         counter.0 += val;
     }
 
