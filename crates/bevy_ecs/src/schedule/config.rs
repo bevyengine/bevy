@@ -248,7 +248,7 @@ impl<T> NodeConfigs<T> {
                     *chained = Chain::Chained(Default::default());
                 };
                 if let Chain::Chained(config) = chained {
-                    config.add_config::<AutoInsertApplyDeferredPass>(IgnoreDeferred);
+                    config.add_edge_config::<AutoInsertApplyDeferredPass>(IgnoreDeferred);
                 } else {
                     unreachable!()
                 };

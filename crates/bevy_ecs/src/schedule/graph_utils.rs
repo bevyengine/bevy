@@ -65,7 +65,7 @@ impl Dependency {
         }
     }
     pub fn add_config<T: ScheduleBuildPass>(mut self, option: T::EdgeOptions) -> Self {
-        self.options.add_config::<T>(option);
+        self.options.add_edge_config::<T>(option);
         self
     }
 }

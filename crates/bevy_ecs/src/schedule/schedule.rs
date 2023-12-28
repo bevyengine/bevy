@@ -175,11 +175,11 @@ pub enum Chain {
 pub struct ConfigMap(BTreeMap<TypeId, Box<dyn Any>>);
 impl ConfigMap {
     /// Add a dependency config to all dependencies established by chain T.
-    pub fn add_config<T: ScheduleBuildPass>(&mut self, option: T::EdgeOptions) {
+    pub fn add_edge_config<T: ScheduleBuildPass>(&mut self, option: T::EdgeOptions) {
         self.0.insert(TypeId::of::<T>(), Box::new(option));
     }
     /// Get the dependency config established by the chain T.
-    pub fn get_config<T: ScheduleBuildPass>(&self) -> Option<&T::EdgeOptions> {
+    pub fn get_edge_config<T: ScheduleBuildPass>(&self) -> Option<&T::EdgeOptions> {
         self.0.get(&TypeId::of::<T>())?.downcast_ref()
     }
 }
@@ -1882,7 +1882,7 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         dependencies_to_add.extend(iter);
     }
     fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &ConfigMap) {
-        let option = all_options.get_config::<T>();
+        let option = all_options.get_edge_config::<T>();
         self.add_dependency(from, to, option);
     }
 }
