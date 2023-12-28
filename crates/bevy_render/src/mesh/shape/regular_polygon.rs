@@ -1,4 +1,7 @@
-use crate::{mesh::{Indices, Mesh}, render_asset::RenderAssetPersistentAccess};
+use crate::{
+    mesh::{Indices, Mesh},
+    render_asset::RenderAssetPersistentAccess,
+};
 use wgpu::PrimitiveTopology;
 
 /// A regular polygon in the `XY` plane
