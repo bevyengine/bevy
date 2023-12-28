@@ -10,6 +10,10 @@ use bevy_app::prelude::*;
 /// * macos
 ///
 /// NOT supported when using the `bevy/dynamic` feature even when using previously mentioned targets
+///
+/// # See also
+///
+/// [`LogDiagnosticsPlugin`](crate::LogDiagnosticsPlugin) to output diagnostics to the console.
 #[derive(Default)]
 pub struct SystemInformationDiagnosticsPlugin;
 impl Plugin for SystemInformationDiagnosticsPlugin {
@@ -39,7 +43,7 @@ impl SystemInformationDiagnosticsPlugin {
 pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_log::info;
-    use sysinfo::{CpuExt, CpuRefreshKind, RefreshKind, System, SystemExt};
+    use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
@@ -72,7 +76,7 @@ pub mod internal {
             *sysinfo = Some(System::new_with_specifics(
                 RefreshKind::new()
                     .with_cpu(CpuRefreshKind::new().with_cpu_usage())
-                    .with_memory(),
+                    .with_memory(MemoryRefreshKind::everything()),
             ));
         }
         let Some(sys) = sysinfo.as_mut() else {
@@ -112,12 +116,8 @@ pub mod internal {
         sys.refresh_memory();
 
         let info = SystemInfo {
-            os: sys
-                .long_os_version()
-                .unwrap_or_else(|| String::from("not available")),
-            kernel: sys
-                .kernel_version()
-                .unwrap_or_else(|| String::from("not available")),
+            os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
+            kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
             cpu: sys.global_cpu_info().brand().trim().to_string(),
             core_count: sys
                 .physical_core_count()

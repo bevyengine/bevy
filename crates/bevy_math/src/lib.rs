@@ -7,12 +7,14 @@
 #![warn(missing_docs)]
 
 mod affine3;
+mod aspect_ratio;
 pub mod cubic_splines;
 pub mod primitives;
 mod ray;
 mod rects;
 
 pub use affine3::*;
+pub use aspect_ratio::AspectRatio;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 
