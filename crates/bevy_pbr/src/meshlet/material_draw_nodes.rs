@@ -14,6 +14,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+        StoreOp,
     },
     renderer::RenderContext,
     view::{ViewTarget, ViewUniformOffset},
@@ -28,7 +29,7 @@ pub mod draw_3d_graph {
 #[derive(Default)]
 pub struct MeshletMainOpaquePass3dNode;
 impl ViewNode for MeshletMainOpaquePass3dNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static Camera3d,
         &'static ViewTarget,
@@ -56,7 +57,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let (Some(gpu_scene), Some(pipeline_cache)) = (
@@ -78,17 +79,20 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some(draw_3d_graph::node::MESHLET_MAIN_OPAQUE_PASS_3D),
-            color_attachments: &[Some(
-                target.get_color_attachment(Operations { load, store: true }),
-            )],
+            color_attachments: &[Some(target.get_color_attachment(Operations {
+                load,
+                store: StoreOp::Store,
+            }))],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_view_resources.material_depth.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: false,
+                    store: StoreOp::Discard,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);

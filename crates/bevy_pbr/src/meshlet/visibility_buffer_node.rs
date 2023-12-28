@@ -10,7 +10,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         ComputePassDescriptor, IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
-        RenderPassDepthStencilAttachment, RenderPassDescriptor,
+        RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
     },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewUniformOffset},
@@ -25,7 +25,7 @@ pub mod draw_3d_graph {
 #[derive(Default)]
 pub struct MeshletVisibilityBufferPassNode;
 impl ViewNode for MeshletVisibilityBufferPassNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static Camera3d,
         &'static ViewDepthTexture,
@@ -38,7 +38,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, camera_3d, depth, view_offset, meshlet_view_bind_groups, meshlet_view_resources): QueryItem<Self::ViewQuery>,
+        (camera, camera_3d, depth, view_offset, meshlet_view_bind_groups, meshlet_view_resources): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let Some((
@@ -70,6 +70,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
             let command_encoder = render_context.command_encoder();
             let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("meshlet_culling_first_pass"),
+                timestamp_writes: None,
             });
             cull_pass.set_bind_group(
                 0,
@@ -88,10 +89,12 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                     view: &depth.view,
                     depth_ops: Some(Operations {
                         load: depth_load,
-                        store: true,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             if let Some(viewport) = camera.viewport.as_ref() {
                 draw_pass.set_camera_viewport(viewport);
@@ -127,10 +130,12 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK.into()),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
             let mut downsample_pass = render_context.begin_tracked_render_pass(downsample_pass);
             downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth[i], &[]);
@@ -143,6 +148,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
             let command_encoder = render_context.command_encoder();
             let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("meshlet_culling_second_pass"),
+                timestamp_writes: None,
             });
             cull_pass.set_bind_group(
                 0,
@@ -162,7 +168,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Clear(Color::BLACK.into()),
-                            store: true,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -170,7 +176,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Clear(Color::BLACK.into()),
-                            store: true,
+                            store: StoreOp::Store,
                         },
                     }),
                 ],
@@ -178,10 +184,12 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                     view: &depth.view,
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: true,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             if let Some(viewport) = camera.viewport.as_ref() {
                 draw_pass.set_camera_viewport(viewport);
@@ -214,10 +222,12 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                     view: &meshlet_view_resources.material_depth.default_view,
                     depth_ops: Some(Operations {
                         load: LoadOp::Clear(0.0),
-                        store: true,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             if let Some(viewport) = camera.viewport.as_ref() {
                 copy_pass.set_camera_viewport(viewport);
