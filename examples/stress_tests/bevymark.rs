@@ -8,12 +8,14 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        render_asset::RenderAssetPersistentAccess,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     utils::Duration,
     window::{PresentMode, WindowResolution},
 };
-use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 const BIRDS_PER_SECOND: u32 = 10000;

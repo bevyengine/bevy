@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute},
+        render_asset::RenderAssetPersistentAccess,
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
@@ -29,7 +30,6 @@ use bevy::{
     },
     utils::FloatOrd,
 };
-use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use std::f32::consts::PI;
 
 fn main() {

@@ -7,13 +7,13 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
+        render_asset::RenderAssetPersistentAccess,
         render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
     },
     utils::HashMap,
 };
-use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use std::f32::consts::PI;
 
 fn main() {

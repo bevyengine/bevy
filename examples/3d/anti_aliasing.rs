@@ -13,11 +13,11 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
+        render_asset::RenderAssetPersistentAccess,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };
-use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 
 fn main() {
     App::new()

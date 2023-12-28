@@ -6,12 +6,14 @@ use std::f32::consts::*;
 use bevy::{
     pbr::AmbientLight,
     prelude::*,
-    render::mesh::{
-        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, PrimitiveTopology, VertexAttributeValues,
+    render::{
+        mesh::{
+            skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+            Indices, PrimitiveTopology, VertexAttributeValues,
+        },
+        render_asset::RenderAssetPersistentAccess,
     },
 };
-use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {

@@ -7,6 +7,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
+        render_asset::RenderAssetPersistentAccess,
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
         render_resource::{binding_types::texture_storage_2d, *},
@@ -15,7 +16,6 @@ use bevy::{
     },
     window::WindowPlugin,
 };
-use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use std::borrow::Cow;
 
 const SIZE: (u32, u32) = (1280, 720);

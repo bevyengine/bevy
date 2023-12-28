@@ -6,13 +6,13 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayout, PrimitiveTopology},
+        render_asset::RenderAssetPersistentAccess,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
         },
     },
 };
-use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 
 fn main() {
     App::new()

@@ -15,10 +15,12 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        render_asset::RenderAssetPersistentAccess,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
-use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 #[derive(FromArgs, Resource)]
