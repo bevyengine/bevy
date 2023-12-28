@@ -1,4 +1,4 @@
-//! Rendering a schene with baked lightmaps.
+//! Rendering a scene with baked lightmaps.
 
 use bevy::pbr::Lightmap;
 use bevy::prelude::*;
