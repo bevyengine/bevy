@@ -636,8 +636,7 @@ where
     ) -> bool {
         if T::IS_ARCHETYPAL {
             true
-        }
-        else {
+        } else {
             !T::filter_fetch(fetch, entity, table_row)
         }
     }
