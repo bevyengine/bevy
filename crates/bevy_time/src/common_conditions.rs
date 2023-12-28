@@ -288,8 +288,8 @@ mod tests {
     // Ensure distributive_run_if compiles with the common conditions.
     #[test]
     fn distributive_run_if_compiles() {
-        Schedule::default().add_systems((test_system, test_system).distributive_run_if(on_timer(
-            Timer::new(Duration::new(1, 0), crate::TimerMode::Repeating),
-        )));
+        Schedule::default().add_systems(
+            (test_system, test_system).distributive_run_if(on_time_interval(Duration::new(1, 0))),
+        );
     }
 }
