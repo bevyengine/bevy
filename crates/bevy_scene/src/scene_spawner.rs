@@ -15,7 +15,7 @@ use uuid::Uuid;
 /// Emitted when [`crate::SceneInstance`] becomes ready to use.
 ///
 /// See also [`SceneSpawner::instance_is_ready`].
-#[derive(Event)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Event)]
 pub struct SceneInstanceReady {
     /// Entity to which the scene was spawned as a child.
     pub parent: Entity,

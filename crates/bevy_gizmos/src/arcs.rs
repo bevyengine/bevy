@@ -88,7 +88,7 @@ impl Drop for Arc2dBuilder<'_, '_> {
         };
 
         let positions = arc_inner(self.direction_angle, self.arc_angle, self.radius, segments)
-            .map(|vec2| (vec2 + self.position));
+            .map(|vec2| vec2 + self.position);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }

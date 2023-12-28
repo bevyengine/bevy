@@ -1812,7 +1812,7 @@ mod tests {
         assert!(res.is_err());
 
         // Ensure that the location has been properly updated.
-        assert!(entity.location() != old_location);
+        assert_ne!(entity.location(), old_location);
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7805

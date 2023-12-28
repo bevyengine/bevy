@@ -540,7 +540,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    let scale = (ui_scale.0).recip();
+    let scale = ui_scale.0.recip();
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {

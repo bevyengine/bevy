@@ -272,7 +272,7 @@ mod tests {
         // The parent's Children component should still have two children.
         let children = world.entity(parent).get::<Children>();
         assert!(children.is_some());
-        assert!(children.unwrap().len() == 2_usize);
+        assert_eq!(children.unwrap().len(), 2_usize);
         // The original child should be despawned.
         assert!(world.get_entity(child).is_none());
     }

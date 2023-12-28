@@ -184,7 +184,7 @@ fn update_system(
         .value
         .push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");
 
-    if keycode.pressed(KeyCode::Key1) {
+    if keycode.pressed(KeyCode::Digit1) {
         if let FogFalloff::Linear { .. } = fog.falloff {
             // No change
         } else {
@@ -195,7 +195,7 @@ fn update_system(
         };
     }
 
-    if keycode.pressed(KeyCode::Key2) {
+    if keycode.pressed(KeyCode::Digit2) {
         if let FogFalloff::Exponential { .. } = fog.falloff {
             // No change
         } else if let FogFalloff::ExponentialSquared { density } = fog.falloff {
@@ -205,7 +205,7 @@ fn update_system(
         };
     }
 
-    if keycode.pressed(KeyCode::Key3) {
+    if keycode.pressed(KeyCode::Digit3) {
         if let FogFalloff::Exponential { density } = fog.falloff {
             fog.falloff = FogFalloff::ExponentialSquared { density };
         } else if let FogFalloff::ExponentialSquared { .. } = fog.falloff {
@@ -225,16 +225,16 @@ fn update_system(
             .value
             .push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
-        if keycode.pressed(KeyCode::A) {
+        if keycode.pressed(KeyCode::KeyA) {
             *start -= delta * 3.0;
         }
-        if keycode.pressed(KeyCode::S) {
+        if keycode.pressed(KeyCode::KeyS) {
             *start += delta * 3.0;
         }
-        if keycode.pressed(KeyCode::Z) {
+        if keycode.pressed(KeyCode::KeyZ) {
             *end -= delta * 3.0;
         }
-        if keycode.pressed(KeyCode::X) {
+        if keycode.pressed(KeyCode::KeyX) {
             *end += delta * 3.0;
         }
     }
@@ -243,13 +243,13 @@ fn update_system(
     if let FogFalloff::Exponential { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
-        if keycode.pressed(KeyCode::A) {
+        if keycode.pressed(KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
                 *density = 0.0;
             }
         }
-        if keycode.pressed(KeyCode::S) {
+        if keycode.pressed(KeyCode::KeyS) {
             *density += delta * 0.5 * *density;
         }
     }
@@ -258,13 +258,13 @@ fn update_system(
     if let FogFalloff::ExponentialSquared { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
-        if keycode.pressed(KeyCode::A) {
+        if keycode.pressed(KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
                 *density = 0.0;
             }
         }
-        if keycode.pressed(KeyCode::S) {
+        if keycode.pressed(KeyCode::KeyS) {
             *density += delta * 0.5 * *density;
         }
     }
@@ -279,7 +279,7 @@ fn update_system(
         fog.color.set_r(r);
     }
 
-    if keycode.pressed(KeyCode::Equals) {
+    if keycode.any_pressed([KeyCode::Equal, KeyCode::NumpadEqual]) {
         let r = (fog.color.r() + 0.1 * delta).min(1.0);
         fog.color.set_r(r);
     }
@@ -299,7 +299,7 @@ fn update_system(
         fog.color.set_b(b);
     }
 
-    if keycode.pressed(KeyCode::Apostrophe) {
+    if keycode.pressed(KeyCode::Quote) {
         let b = (fog.color.b() + 0.1 * delta).min(1.0);
         fog.color.set_b(b);
     }

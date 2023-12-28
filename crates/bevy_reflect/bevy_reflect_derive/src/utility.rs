@@ -132,9 +132,9 @@ impl WhereClauseOptions {
                 let custom_bounds = active_bounds(field).map(|bounds| quote!(+ #bounds));
 
                 let bounds = if is_from_reflect {
-                    quote!(#bevy_reflect_path::FromReflect + #bevy_reflect_path::TypePath #custom_bounds)
+                    quote!(#bevy_reflect_path::FromReflect #custom_bounds)
                 } else {
-                    quote!(#bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath #custom_bounds)
+                    quote!(#bevy_reflect_path::Reflect #custom_bounds)
                 };
 
                 (ty, bounds)
