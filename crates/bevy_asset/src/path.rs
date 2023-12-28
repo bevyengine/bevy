@@ -626,10 +626,6 @@ impl Reflect for AssetPath<'static> {
         self
     }
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone())
-    }
-    #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
         let value = Reflect::as_any(value);
         if let Some(value) = value.downcast_ref::<Self>() {
@@ -654,6 +650,10 @@ impl Reflect for AssetPath<'static> {
     }
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Value(self)
+    }
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
     }
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = bevy_reflect::utility::reflect_hasher();
