@@ -65,9 +65,6 @@ impl MorphTargetImage {
     /// Each pixel of the texture is a component of morph target animated
     /// attributes. So a set of 9 pixels is this morph's displacement for
     /// position, normal and tangents of a single vertex (each taking 3 pixels).
-    ///
-    /// Parameters:
-    /// * `cpu_persistent_access` - See [`Image::cpu_persistent_access`].
     pub fn new(
         targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
         vertex_count: usize,

@@ -1,7 +1,10 @@
 use crate::TextureAtlas;
 use bevy_asset::Assets;
 use bevy_math::{IVec2, Rect, Vec2};
-use bevy_render::texture::{Image, TextureFormatPixelInfo};
+use bevy_render::{
+    render_asset::RenderAssetPersistentAccess,
+    texture::{Image, TextureFormatPixelInfo},
+};
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
 /// Helper utility to update [`TextureAtlas`] on the fly.
@@ -29,7 +32,8 @@ impl DynamicTextureAtlasBuilder {
 
     /// Add a new texture to [`TextureAtlas`].
     /// It is user's responsibility to pass in the correct [`TextureAtlas`],
-    /// and that the [`TextureAtlas::texture`] has [`Image::cpu_persistent_access`] as `true`
+    /// and that [`TextureAtlas::texture`] has [`Image::cpu_persistent_access`]
+    /// set to [`RenderAssetPersistentAccess::Keep`]
     pub fn add_texture(
         &mut self,
         texture_atlas: &mut TextureAtlas,
@@ -42,6 +46,11 @@ impl DynamicTextureAtlasBuilder {
         ));
         if let Some(allocation) = allocation {
             let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
+            assert_eq!(
+                atlas_texture.cpu_persistent_access,
+                RenderAssetPersistentAccess::Keep
+            );
+
             self.place_texture(atlas_texture, allocation, texture);
             let mut rect: Rect = to_rect(allocation.rectangle);
             rect.max -= self.padding as f32;
