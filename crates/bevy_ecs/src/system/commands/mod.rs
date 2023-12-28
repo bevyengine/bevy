@@ -1267,6 +1267,9 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);
 
+    #[derive(Resource)]
+    struct Counter(i32);
+
     #[derive(Component)]
     struct DropCk(Arc<AtomicUsize>);
     impl DropCk {
@@ -1287,6 +1290,14 @@ mod tests {
 
     fn simple_command(world: &mut World) {
         world.spawn((W(0u32), W(42u64)));
+    }
+
+    fn add_to_counter(mut counter: ResMut<Counter>) {
+        counter.0 += 1;
+    }
+
+    fn add_to_counter_with_input(In(val): In<i32>,mut counter: ResMut<Counter>) {
+        counter.0 += val;
     }
 
     #[test]
