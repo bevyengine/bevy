@@ -18,7 +18,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/CornellBox/CornellBox.glb#Scene0"),
-        ..SceneBundle::default()
+        ..default()
     });
 }
 
@@ -31,7 +31,7 @@ fn add_lightmaps_to_meshes(
         if &**name == "large_box" {
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Large.zstd.ktx2"),
-                ..Lightmap::default()
+                ..default()
             });
             continue;
         }
@@ -39,7 +39,7 @@ fn add_lightmaps_to_meshes(
         if &**name == "small_box" {
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Small.zstd.ktx2"),
-                ..Lightmap::default()
+                ..default()
             });
             continue;
         }
@@ -47,7 +47,7 @@ fn add_lightmaps_to_meshes(
         if name.starts_with("cornell_box") {
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Box.zstd.ktx2"),
-                ..Lightmap::default()
+                ..default()
             });
             continue;
         }
