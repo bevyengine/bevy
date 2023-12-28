@@ -1941,9 +1941,16 @@ mod tests {
     #[test]
     fn query_filter_not_mixed_archetypal() {
         let mut world = World::default();
-        fn query_mixed(world: &mut World) -> Vec<Entity> {
+        fn query_mixed_and(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, Not<(With<A>, Changed<B>)>>()
+                .iter(&world)
+                .collect::<Vec<_>>()
+        }
+
+        fn query_mixed_or(world: &mut World) -> Vec<Entity> {
+            world
+                .query_filtered::<Entity, Not<Or<(With<B>, Changed<B>)>>>()
                 .iter(&world)
                 .collect::<Vec<_>>()
         }
@@ -1951,9 +1958,15 @@ mod tests {
         let e1 = world.spawn(A(0)).id();
         let e2 = world.spawn(B(0)).id();
         let e3 = world.spawn((A(0), B(0))).id();
-        assert_eq!(query_mixed(&mut world), vec![]);
+        let e4 = world.spawn(B(0)).id();
+        assert_eq!(query_mixed_and(&mut world), vec![]);
+        assert_eq!(query_mixed_or(&mut world), vec![e1]);
 
         world.clear_trackers();
-        assert_eq!(query_mixed(&mut world), vec![e2]);
+        assert_eq!(query_mixed_and(&mut world), vec![e2, e3]);
+        assert_eq!(query_mixed_or(&mut world), vec![e1, e2, e4]);
+
+        *world.get_mut(e2).unwrap() = B(0);
+        assert_eq!(query_mixed_or(&mut world), vec![e1, e4]);
     }
 }
