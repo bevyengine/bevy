@@ -512,11 +512,37 @@ macro_rules! impl_tuple_query_filter {
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
+/// A filter that tests if the given filter does not apply.
+///
+/// This filter does not compose with the `Or` filter or with tuples of filters. Instead,
+/// distribute it within the filters. For example, `Not<Or<(Changed<A>, Changed<B>)>>` should become
+/// `(Not<Changed<A>>, Not<Changed<B>>)` and `Not<(Changed<A>, Changed<B>)>` should become
+/// `Or<(Not<Changed<A>>, Not<Changed<B>>)>`.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::query::Not;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component)]
+/// # struct Position {};
+/// #
+/// fn print_still_entity_system(query: Query<Entity, Not<Changed<Position>>>) {
+///     for entity in &query {
+///         println!("Entity {:?} did not move", entity);
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(print_still_entity_system);
 pub struct Not<T>(PhantomData<T>);
 
 unsafe impl<T> WorldQuery for Not<T>
 where
-    T: QueryFilter,
+    T: QueryFilter + InvertibleFilter,
 {
     type Item<'a> = T::Item<'a>;
 
@@ -598,7 +624,7 @@ where
 
 impl<T> QueryFilter for Not<T>
 where
-    T: QueryFilter,
+    T: QueryFilter + InvertibleFilter,
 {
     const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
 
@@ -609,12 +635,20 @@ where
         table_row: TableRow,
     ) -> bool {
         if T::IS_ARCHETYPAL {
-            return true;
-        } else {
+            true
+        }
+        else {
             !T::filter_fetch(fetch, entity, table_row)
         }
     }
 }
+
+trait InvertibleFilter {}
+
+impl<T> InvertibleFilter for Added<T> {}
+impl<T> InvertibleFilter for Changed<T> {}
+impl<T> InvertibleFilter for With<T> {}
+impl<T> InvertibleFilter for Without<T> {}
 
 /// A filter on a component that only retains results added after the system last ran.
 ///

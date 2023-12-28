@@ -35,7 +35,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Not, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
@@ -59,13 +59,12 @@ type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
-    use crate::query::Not;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
+        query::{Added, Changed, FilteredAccess, Not, QueryFilter, With, Without},
         system::Resource,
         world::{EntityRef, Mut, World},
     };
@@ -1798,7 +1797,7 @@ mod tests {
     }
 
     #[test]
-    fn query_filter_not_or_outside() {
+    fn query_filter_not_or() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0))).id();
 
@@ -1816,31 +1815,6 @@ mod tests {
         world.clear_trackers();
         *world.get_mut(e1).unwrap() = B(1);
         assert_eq!(get_unchanged(&mut world), vec![e1]);
-        world.clear_trackers();
-        *world.get_mut(e1).unwrap() = A(0);
-        *world.get_mut(e1).unwrap() = B(0);
-        assert_eq!(get_unchanged(&mut world), vec![]);
-    }
-
-    #[test]
-    fn query_filter_not_or_inside() {
-        let mut world = World::default();
-        let e1 = world.spawn((A(0), B(0))).id();
-
-        fn get_unchanged(world: &mut World) -> Vec<Entity> {
-            world
-                .query_filtered::<Entity, Not<Or<(Changed<A>, Changed<B>)>>>()
-                .iter(world)
-                .collect::<Vec<Entity>>()
-        }
-        assert_eq!(get_unchanged(&mut world), vec![]);
-        world.clear_trackers();
-        assert_eq!(get_unchanged(&mut world), vec![e1]);
-        *world.get_mut(e1).unwrap() = A(1);
-        assert_eq!(get_unchanged(&mut world), vec![]);
-        world.clear_trackers();
-        *world.get_mut(e1).unwrap() = B(1);
-        assert_eq!(get_unchanged(&mut world), vec![]);
         world.clear_trackers();
         *world.get_mut(e1).unwrap() = A(0);
         *world.get_mut(e1).unwrap() = B(0);
@@ -1880,7 +1854,7 @@ mod tests {
     }
 
     #[test]
-    fn query_filter_not_and_outside() {
+    fn query_filter_not_and() {
         let mut world = World::default();
 
         fn get_unchanged(world: &mut World) -> Vec<Entity> {
@@ -1906,67 +1880,5 @@ mod tests {
         *world.get_mut(e1).unwrap() = A(0);
         *world.get_mut(e1).unwrap() = B(0);
         assert_eq!(get_unchanged(&mut world), vec![]);
-    }
-
-    #[test]
-    fn query_filter_not_and_inside() {
-        let mut world = World::default();
-
-        fn get_unchanged(world: &mut World) -> Vec<Entity> {
-            world
-                .query_filtered::<Entity, Not<(Changed<A>, Changed<B>)>>()
-                .iter(world)
-                .collect::<Vec<Entity>>()
-        }
-
-        let e1 = world.spawn((A(0), B(0))).id();
-        assert_eq!(get_unchanged(&mut world), vec![]);
-
-        world.clear_trackers();
-        assert_eq!(get_unchanged(&mut world), vec![e1]);
-
-        *world.get_mut(e1).unwrap() = A(1);
-        assert_eq!(get_unchanged(&mut world), vec![e1]);
-
-        world.clear_trackers();
-        *world.get_mut(e1).unwrap() = B(1);
-        assert_eq!(get_unchanged(&mut world), vec![e1]);
-
-        world.clear_trackers();
-        *world.get_mut(e1).unwrap() = A(0);
-        *world.get_mut(e1).unwrap() = B(0);
-        assert_eq!(get_unchanged(&mut world), vec![]);
-    }
-
-    #[test]
-    fn query_filter_not_mixed_archetypal() {
-        let mut world = World::default();
-        fn query_mixed_and(world: &mut World) -> Vec<Entity> {
-            world
-                .query_filtered::<Entity, Not<(With<A>, Changed<B>)>>()
-                .iter(&world)
-                .collect::<Vec<_>>()
-        }
-
-        fn query_mixed_or(world: &mut World) -> Vec<Entity> {
-            world
-                .query_filtered::<Entity, Not<Or<(With<B>, Changed<B>)>>>()
-                .iter(&world)
-                .collect::<Vec<_>>()
-        }
-
-        let e1 = world.spawn(A(0)).id();
-        let e2 = world.spawn(B(0)).id();
-        let e3 = world.spawn((A(0), B(0))).id();
-        let e4 = world.spawn(B(0)).id();
-        assert_eq!(query_mixed_and(&mut world), vec![]);
-        assert_eq!(query_mixed_or(&mut world), vec![e1]);
-
-        world.clear_trackers();
-        assert_eq!(query_mixed_and(&mut world), vec![e2, e3]);
-        assert_eq!(query_mixed_or(&mut world), vec![e1, e2, e4]);
-
-        *world.get_mut(e2).unwrap() = B(0);
-        assert_eq!(query_mixed_or(&mut world), vec![e1, e4]);
     }
 }
