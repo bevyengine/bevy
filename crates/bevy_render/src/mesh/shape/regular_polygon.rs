@@ -1,4 +1,4 @@
-use crate::mesh::{Indices, Mesh};
+use crate::{mesh::{Indices, Mesh}, render_asset::RenderAssetPersistentAccess};
 use wgpu::PrimitiveTopology;
 
 /// A regular polygon in the `XY` plane
@@ -55,11 +55,14 @@ impl From<RegularPolygon> for Mesh {
             indices.extend_from_slice(&[0, i + 1, i]);
         }
 
-        Mesh::new(PrimitiveTopology::TriangleList, false)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_indices(Some(Indices::U32(indices)))
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetPersistentAccess::Unload,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_indices(Some(Indices::U32(indices)))
     }
 }
 

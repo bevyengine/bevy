@@ -18,6 +18,7 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
+use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 #[derive(FromArgs, Resource)]
@@ -198,7 +199,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
-                false,
+                RenderAssetPersistentAccess::Unload,
             ))
         })
         .collect()

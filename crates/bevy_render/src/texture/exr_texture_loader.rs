@@ -15,7 +15,7 @@ pub struct ExrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ExrTextureLoaderSettings {
-    pub cpu_persistent_access: bool,
+    pub cpu_persistent_access: RenderAssetPersistentAccess,
 }
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]

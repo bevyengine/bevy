@@ -3,6 +3,7 @@ use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
 use crate::{
+    render_asset::RenderAssetPersistentAccess,
     renderer::RenderDevice,
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
@@ -57,7 +58,7 @@ pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
     pub sampler: ImageSampler,
-    pub cpu_persistent_access: bool,
+    pub cpu_persistent_access: RenderAssetPersistentAccess,
 }
 
 impl Default for ImageLoaderSettings {
@@ -66,7 +67,7 @@ impl Default for ImageLoaderSettings {
             format: ImageFormatSetting::default(),
             is_srgb: true,
             sampler: ImageSampler::Default,
-            cpu_persistent_access: false,
+            cpu_persistent_access: RenderAssetPersistentAccess::Unload,
         }
     }
 }

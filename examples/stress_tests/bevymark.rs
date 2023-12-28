@@ -13,6 +13,7 @@ use bevy::{
     utils::Duration,
     window::{PresentMode, WindowResolution},
 };
+use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 const BIRDS_PER_SECOND: u32 = 10000;
@@ -542,7 +543,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             TextureDimension::D2,
             &pixel,
             TextureFormat::Rgba8UnormSrgb,
-            false,
+            RenderAssetPersistentAccess::Unload,
         )));
     }
 }

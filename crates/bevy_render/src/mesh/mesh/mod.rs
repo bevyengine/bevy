@@ -5,7 +5,7 @@ pub use wgpu::PrimitiveTopology;
 use crate::{
     prelude::Image,
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistentAccess, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
@@ -121,17 +121,7 @@ pub struct Mesh {
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
-    /// If false, this asset will be unloaded from `Assets<Mesh>` via `remove()`
-    /// once it has been uploaded to the GPU.
-    ///
-    /// This saves on RAM usage by not keeping a redundant copy of the mesh in memory once
-    /// it's in the GPU's VRAM.
-    ///
-    /// The asset unloading will only take place once the asset has been added to `Assets<Mesh>`
-    /// and a frame has passed. You do not need to set this flag to true in order to build the
-    /// mesh initially. This flag only controls whether or not the asset is accessible via `Assets<Mesh>`
-    /// in future frames, once it's been added to `Assets<Mesh>`.
-    pub cpu_persistent_access: bool,
+    pub cpu_persistent_access: RenderAssetPersistentAccess,
 }
 
 impl Mesh {
@@ -189,7 +179,10 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
-    pub fn new(primitive_topology: PrimitiveTopology, cpu_persistent_access: bool) -> Self {
+    pub fn new(
+        primitive_topology: PrimitiveTopology,
+        cpu_persistent_access: RenderAssetPersistentAccess,
+    ) -> Self {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
@@ -1067,8 +1060,8 @@ impl RenderAsset for Mesh {
     type PreparedAsset = GpuMesh;
     type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
-    fn unload_after_extract(&self) -> bool {
-        !self.cpu_persistent_access
+    fn unload_after_extract(&self) -> RenderAssetPersistentAccess {
+        self.cpu_persistent_access
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].

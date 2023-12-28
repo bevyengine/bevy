@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistentAccess},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -110,17 +110,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
-    /// If false, this asset will be unloaded from `Assets<Image>` via `remove()`
-    /// once it has been uploaded to the GPU.
-    ///
-    /// This saves on RAM usage by not keeping a redundant copy of the image in memory once
-    /// it's in the GPU's VRAM.
-    ///
-    /// The asset unloading will only take place once the asset has been added to `Assets<Image>`
-    /// and a frame has passed. You do not need to set this flag to true in order to build the
-    /// image initially. This flag only controls whether or not the asset is accessible via `Assets<Image>`
-    /// in future frames, once it's been added to `Assets<Image>`.
-    pub cpu_persistent_access: bool,
+    pub cpu_persistent_access: RenderAssetPersistentAccess,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -475,7 +465,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
-            cpu_persistent_access: false,
+            cpu_persistent_access: RenderAssetPersistentAccess::Unload,
         }
     }
 }
@@ -491,7 +481,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
-        cpu_persistent_access: bool,
+        cpu_persistent_access: RenderAssetPersistentAccess,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -519,7 +509,7 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
-        cpu_persistent_access: bool,
+        cpu_persistent_access: RenderAssetPersistentAccess,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
@@ -658,7 +648,7 @@ impl Image {
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
-        cpu_persistent_access: bool,
+        cpu_persistent_access: RenderAssetPersistentAccess,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -827,8 +817,8 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    fn unload_after_extract(&self) -> bool {
-        !self.cpu_persistent_access
+    fn unload_after_extract(&self) -> RenderAssetPersistentAccess {
+        self.cpu_persistent_access
     }
 
     /// Converts the extracted image into a [`GpuImage`].

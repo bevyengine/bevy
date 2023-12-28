@@ -1,4 +1,7 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::{
+    render_asset::RenderAssetPersistentAccess,
+    texture::{Image, TextureFormatPixelInfo},
+};
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -10,7 +13,7 @@ pub struct HdrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct HdrTextureLoaderSettings {
-    pub cpu_persistent_access: bool,
+    pub cpu_persistent_access: RenderAssetPersistentAccess,
 }
 
 #[non_exhaustive]

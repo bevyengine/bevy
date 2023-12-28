@@ -17,6 +17,7 @@ use bevy::{
         texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };
+use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 
 fn main() {
     App::new()
@@ -378,7 +379,7 @@ fn uv_debug_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
-        false,
+        RenderAssetPersistentAccess::Unload,
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img

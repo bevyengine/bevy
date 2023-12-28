@@ -7,6 +7,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
+use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 
 fn main() {
     App::new()
@@ -117,6 +118,6 @@ fn uv_debug_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
-        false,
+        RenderAssetPersistentAccess::Unload,
     )
 }

@@ -1,4 +1,7 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::{
+    render_asset::RenderAssetPersistentAccess,
+    texture::{Image, TextureFormatPixelInfo},
+};
 use image::{DynamicImage, ImageBuffer};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
@@ -8,7 +11,7 @@ impl Image {
     pub fn from_dynamic(
         dyn_img: DynamicImage,
         is_srgb: bool,
-        cpu_persistent_access: bool,
+        cpu_persistent_access: RenderAssetPersistentAccess,
     ) -> Image {
         use bevy_core::cast_slice;
         let width;

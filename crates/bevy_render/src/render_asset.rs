@@ -6,7 +6,9 @@ use bevy_ecs::{
     schedule::SystemConfigs,
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
 };
+use bevy_reflect::Reflect;
 use bevy_utils::{thiserror::Error, HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 #[derive(Debug, Error)]
@@ -31,15 +33,8 @@ pub trait RenderAsset: Asset + Clone {
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
 
-    /// Whether or not to unload the asset after extracting to the render world.
-    ///
-    /// Unloading the asset saves on memory, as you no longer need to keep it in RAM once
-    /// it's been uploaded to the GPU's VRAM. However, you can no longer modify the asset
-    /// once unloaded (without re-loading it), making this a bad choice for frequently modified
-    /// assets.
-    ///
-    /// Calls [`Assets::remove`].
-    fn unload_after_extract(&self) -> bool;
+    /// Whether or not to unload the asset after extracting it to the render world.
+    fn unload_after_extract(&self) -> RenderAssetPersistentAccess;
 
     /// Prepares the asset for the GPU by transforming it into a [`RenderAsset::PreparedAsset`].
     ///
@@ -48,6 +43,19 @@ pub trait RenderAsset: Asset + Clone {
         self,
         param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>>;
+}
+
+/// Whether or not to unload the [`RenderAsset`] after extracting it to the render world.
+///
+/// Unloading the asset saves on memory, as you no longer need to keep it in RAM once
+/// it's been uploaded to the GPU's VRAM. However, you can no longer access the asset
+/// from the CPU (via Assets<T>) once unloaded (without re-loading it), making this a
+/// bad choice for assets you frequently need to read or modify from systems.
+#[derive(Reflect, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub enum RenderAssetPersistentAccess {
+    #[default]
+    Unload,
+    Keep,
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -195,7 +203,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
     let mut extracted_assets = Vec::new();
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
-            if asset.unload_after_extract() {
+            if asset.unload_after_extract() == RenderAssetPersistentAccess::Unload {
                 if let Some(asset) = assets.remove(id) {
                     extracted_assets.push((id, asset));
                 }

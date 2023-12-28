@@ -29,6 +29,7 @@ use bevy::{
     },
     utils::FloatOrd,
 };
+use bevy_internal::render::render_asset::RenderAssetPersistentAccess;
 use std::f32::consts::PI;
 
 fn main() {
@@ -47,10 +48,13 @@ fn star(
     // We will specify here what kind of topology is used to define the mesh,
     // that is, how triangles are built from the vertices. We will use a
     // triangle list, meaning that each vertex of the triangle has to be
-    // specified. We set `cpu_persistent_access` to false, meaning this mesh
+    // specified. We set `cpu_persistent_access` to unload, meaning this mesh
     // will not be accessible in future frames from the `meshes` resource, in
     // order to save on memory once it has been uploaded to the GPU.
-    let mut star = Mesh::new(PrimitiveTopology::TriangleList, false);
+    let mut star = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetPersistentAccess::Unload,
+    );
 
     // Vertices need to have a position attribute. We will use the following
     // vertices (I hope you can spot the star in the schema).
