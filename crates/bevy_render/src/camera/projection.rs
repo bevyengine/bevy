@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_math::{Mat4, Rect, Vec2, Vec3A};
+use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
@@ -155,7 +155,7 @@ impl CameraProjection for PerspectiveProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        self.aspect_ratio = width / height;
+        self.aspect_ratio = AspectRatio::new(width, height).into();
     }
 
     fn far(&self) -> f32 {
@@ -251,7 +251,7 @@ pub struct OrthographicProjection {
     /// Defaults to `(0.5, 0.5)`, which makes scaling affect opposite sides equally, keeping the center
     /// point of the viewport centered.
     pub viewport_origin: Vec2,
-    /// How the projection will scale when the viewport is resized.
+    /// How the projection will scale to the viewport.
     ///
     /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,

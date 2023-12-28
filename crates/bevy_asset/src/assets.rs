@@ -321,7 +321,7 @@ impl<A: Asset> Assets<A> {
     ) -> &mut A {
         let id: AssetId<A> = id.into();
         if self.get(id).is_none() {
-            self.insert(id, (insert_fn)());
+            self.insert(id, insert_fn());
         }
         self.get_mut(id).unwrap()
     }

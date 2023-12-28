@@ -192,7 +192,7 @@ fn toggle_light(
     mut directional_lights: Query<&mut DirectionalLight>,
     mut example_text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::L) {
+    if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 example_text.single_mut().sections[5].value = "PointLight".to_string();
@@ -218,16 +218,16 @@ fn adjust_light_position(
     mut example_text: Query<&mut Text>,
 ) {
     let mut offset = Vec3::ZERO;
-    if input.just_pressed(KeyCode::Left) {
+    if input.just_pressed(KeyCode::ArrowLeft) {
         offset.x -= 1.0;
     }
-    if input.just_pressed(KeyCode::Right) {
+    if input.just_pressed(KeyCode::ArrowRight) {
         offset.x += 1.0;
     }
-    if input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         offset.z -= 1.0;
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         offset.z += 1.0;
     }
     if input.just_pressed(KeyCode::PageDown) {
@@ -253,7 +253,7 @@ fn cycle_filter_methods(
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
     mut example_text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::F) {
+    if input.just_pressed(KeyCode::KeyF) {
         for mut filter_method in &mut filter_methods {
             let filter_method_string;
             *filter_method = match *filter_method {
@@ -283,23 +283,23 @@ fn adjust_point_light_biases(
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
     for mut light in &mut query {
-        if input.just_pressed(KeyCode::Key1) {
+        if input.just_pressed(KeyCode::Digit1) {
             light.shadow_depth_bias -= depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key2) {
+        if input.just_pressed(KeyCode::Digit2) {
             light.shadow_depth_bias += depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key3) {
+        if input.just_pressed(KeyCode::Digit3) {
             light.shadow_normal_bias -= normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key4) {
+        if input.just_pressed(KeyCode::Digit4) {
             light.shadow_normal_bias += normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::R) {
+        if input.just_pressed(KeyCode::KeyR) {
             light.shadow_depth_bias = PointLight::DEFAULT_SHADOW_DEPTH_BIAS;
             light.shadow_normal_bias = PointLight::DEFAULT_SHADOW_NORMAL_BIAS;
         }
-        if input.just_pressed(KeyCode::Z) {
+        if input.just_pressed(KeyCode::KeyZ) {
             light.shadow_depth_bias = 0.0;
             light.shadow_normal_bias = 0.0;
         }
@@ -317,23 +317,23 @@ fn adjust_directional_light_biases(
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
     for mut light in &mut query {
-        if input.just_pressed(KeyCode::Key5) {
+        if input.just_pressed(KeyCode::Digit5) {
             light.shadow_depth_bias -= depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key6) {
+        if input.just_pressed(KeyCode::Digit6) {
             light.shadow_depth_bias += depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key7) {
+        if input.just_pressed(KeyCode::Digit7) {
             light.shadow_normal_bias -= normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key8) {
+        if input.just_pressed(KeyCode::Digit8) {
             light.shadow_normal_bias += normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::R) {
+        if input.just_pressed(KeyCode::KeyR) {
             light.shadow_depth_bias = DirectionalLight::DEFAULT_SHADOW_DEPTH_BIAS;
             light.shadow_normal_bias = DirectionalLight::DEFAULT_SHADOW_NORMAL_BIAS;
         }
-        if input.just_pressed(KeyCode::Z) {
+        if input.just_pressed(KeyCode::KeyZ) {
             light.shadow_depth_bias = 0.0;
             light.shadow_normal_bias = 0.0;
         }
@@ -367,12 +367,12 @@ impl Default for CameraController {
         Self {
             enabled: true,
             sensitivity: 0.5,
-            key_forward: KeyCode::W,
-            key_back: KeyCode::S,
-            key_left: KeyCode::A,
-            key_right: KeyCode::D,
-            key_up: KeyCode::E,
-            key_down: KeyCode::Q,
+            key_forward: KeyCode::KeyW,
+            key_back: KeyCode::KeyS,
+            key_left: KeyCode::KeyA,
+            key_right: KeyCode::KeyD,
+            key_up: KeyCode::KeyE,
+            key_down: KeyCode::KeyQ,
             key_run: KeyCode::ShiftLeft,
             walk_speed: 10.0,
             run_speed: 30.0,

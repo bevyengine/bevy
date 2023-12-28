@@ -121,10 +121,10 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const COLORED                           = (1 << 0);
-        const HDR                               = (1 << 1);
-        const TONEMAP_IN_SHADER                 = (1 << 2);
-        const DEBAND_DITHER                     = (1 << 3);
+        const COLORED                           = 1 << 0;
+        const HDR                               = 1 << 1;
+        const TONEMAP_IN_SHADER                 = 1 << 2;
+        const DEBAND_DITHER                     = 1 << 3;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;

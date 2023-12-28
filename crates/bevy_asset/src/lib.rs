@@ -320,6 +320,40 @@ impl AssetApp for App {
         self
     }
 
+    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
+        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+            asset_processor.register_processor(processor);
+        }
+        self
+    }
+
+    fn register_asset_source(
+        &mut self,
+        id: impl Into<AssetSourceId<'static>>,
+        source: AssetSourceBuilder,
+    ) -> &mut Self {
+        let id = id.into();
+        if self.world.get_resource::<AssetServer>().is_some() {
+            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
+        }
+
+        {
+            let mut sources = self
+                .world
+                .get_resource_or_insert_with(AssetSourceBuilders::default);
+            sources.insert(id, source);
+        }
+
+        self
+    }
+
+    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
+        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+            asset_processor.set_default_processor::<P>(extension);
+        }
+        self
+    }
+
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self {
         let loader = L::from_world(&mut self.world);
         self.register_asset_loader(loader)
@@ -370,40 +404,6 @@ impl AssetApp for App {
         self.world
             .resource_mut::<AssetServer>()
             .preregister_loader::<L>(extensions);
-        self
-    }
-
-    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
-            asset_processor.register_processor(processor);
-        }
-        self
-    }
-
-    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
-            asset_processor.set_default_processor::<P>(extension);
-        }
-        self
-    }
-
-    fn register_asset_source(
-        &mut self,
-        id: impl Into<AssetSourceId<'static>>,
-        source: AssetSourceBuilder,
-    ) -> &mut Self {
-        let id = id.into();
-        if self.world.get_resource::<AssetServer>().is_some() {
-            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
-        }
-
-        {
-            let mut sources = self
-                .world
-                .get_resource_or_insert_with(AssetSourceBuilders::default);
-            sources.insert(id, source);
-        }
-
         self
     }
 }
@@ -555,7 +555,7 @@ mod tests {
     fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
-            if (predicate)(&mut app.world).is_some() {
+            if predicate(&mut app.world).is_some() {
                 return;
             }
         }

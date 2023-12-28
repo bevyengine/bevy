@@ -85,12 +85,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// System that changes the scale of the ui when pressing up or down on the keyboard.
 fn change_scaling(input: Res<ButtonInput<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
-    if input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         let scale = (ui_scale.target_scale * 2.0).min(8.);
         ui_scale.set_scale(scale);
         info!("Scaling up! Scale: {}", ui_scale.target_scale);
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         let scale = (ui_scale.target_scale / 2.0).max(1. / 8.);
         ui_scale.set_scale(scale);
         info!("Scaling down! Scale: {}", ui_scale.target_scale);
