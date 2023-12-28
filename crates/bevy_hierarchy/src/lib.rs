@@ -40,11 +40,12 @@ use bevy_app::prelude::*;
 pub struct HierarchyPlugin;
 
 #[cfg(feature = "bevy_app")]
+use bevy_utils::smallvec::SmallVec;
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
-            .register_type::<smallvec::SmallVec<[bevy_ecs::entity::Entity; 8]>>()
+            .register_type::<SmallVec<[bevy_ecs::entity::Entity; 8]>>()
             .add_event::<HierarchyEvent>();
     }
 }

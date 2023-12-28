@@ -141,14 +141,14 @@ impl AssetSourceBuilder {
         watch: bool,
         watch_processed: bool,
     ) -> Option<AssetSource> {
-        let reader = (self.reader.as_mut()?)();
-        let writer = self.writer.as_mut().and_then(|w| (w)());
-        let processed_writer = self.processed_writer.as_mut().and_then(|w| (w)());
+        let reader = self.reader.as_mut()?();
+        let writer = self.writer.as_mut().and_then(|w| w());
+        let processed_writer = self.processed_writer.as_mut().and_then(|w| w());
         let mut source = AssetSource {
             id: id.clone(),
             reader,
             writer,
-            processed_reader: self.processed_reader.as_mut().map(|r| (r)()),
+            processed_reader: self.processed_reader.as_mut().map(|r| r()),
             processed_writer,
             event_receiver: None,
             watcher: None,
@@ -158,7 +158,7 @@ impl AssetSourceBuilder {
 
         if watch {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.watcher.as_mut().and_then(|w| (w)(sender)) {
+            match self.watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.watcher = Some(w);
                     source.event_receiver = Some(receiver);
@@ -173,7 +173,7 @@ impl AssetSourceBuilder {
 
         if watch_processed {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.processed_watcher.as_mut().and_then(|w| (w)(sender)) {
+            match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.processed_watcher = Some(w);
                     source.processed_event_receiver = Some(receiver);

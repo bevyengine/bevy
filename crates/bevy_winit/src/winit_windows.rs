@@ -82,7 +82,7 @@ impl WinitWindows {
 
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
+                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf.into()))
                 } else {
                     winit_window_builder.with_inner_size(logical_size)
                 }
@@ -140,7 +140,8 @@ impl WinitWindows {
             }
 
             winit_window_builder =
-                winit_window_builder.with_prevent_default(window.prevent_default_event_handling)
+                winit_window_builder.with_prevent_default(window.prevent_default_event_handling);
+            winit_window_builder = winit_window_builder.with_append(true);
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
@@ -188,22 +189,6 @@ impl WinitWindows {
 
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            use winit::platform::web::WindowExtWebSys;
-
-            if window.canvas.is_none() {
-                let canvas = winit_window.canvas();
-
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let body = document.body().unwrap();
-
-                body.append_child(&canvas)
-                    .expect("Append canvas to HTML body.");
-            }
-        }
 
         self.windows
             .entry(winit_window.id())

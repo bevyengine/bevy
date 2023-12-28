@@ -10,6 +10,7 @@ use bevy_render::{
     render_phase::RenderPhase,
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+        StoreOp,
     },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -23,7 +24,7 @@ use super::{AlphaMask3d, Camera3dDepthLoadOp};
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3d>,
         &'static RenderPhase<AlphaMask3d>,
@@ -49,7 +50,7 @@ impl ViewNode for MainOpaquePass3dNode {
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let load = if target.is_first_write() {
@@ -72,9 +73,10 @@ impl ViewNode for MainOpaquePass3dNode {
             label: Some("main_opaque_pass_3d"),
             // NOTE: The opaque pass loads the color
             // buffer as well as writing to it.
-            color_attachments: &[Some(
-                target.get_color_attachment(Operations { load, store: true }),
-            )],
+            color_attachments: &[Some(target.get_color_attachment(Operations {
+                load,
+                store: StoreOp::Store,
+            }))],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &depth.view,
                 // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
@@ -86,10 +88,12 @@ impl ViewNode for MainOpaquePass3dNode {
                         Camera3dDepthLoadOp::Load
                     }
                     .into(),
-                    store: true,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {

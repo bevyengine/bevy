@@ -977,10 +977,10 @@ mod tests {
         // This is intentionally testing `lt` and `ge` as separate functions.
         #![allow(clippy::nonminimal_bool)]
 
-        assert!(Entity::new(123, 456) == Entity::new(123, 456));
-        assert!(Entity::new(123, 789) != Entity::new(123, 456));
-        assert!(Entity::new(123, 456) != Entity::new(123, 789));
-        assert!(Entity::new(123, 456) != Entity::new(456, 123));
+        assert_eq!(Entity::new(123, 456), Entity::new(123, 456));
+        assert_ne!(Entity::new(123, 789), Entity::new(123, 456));
+        assert_ne!(Entity::new(123, 456), Entity::new(123, 789));
+        assert_ne!(Entity::new(123, 456), Entity::new(456, 123));
 
         // ordering is by generation then by index
 

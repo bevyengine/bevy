@@ -1,10 +1,10 @@
-error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQueryData` is not satisfied
+error[E0277]: the trait bound `&'static mut Foo: ReadOnlyQueryData` is not satisfied
  --> tests/ui/world_query_derive.rs:9:8
   |
 9 |     a: &'static mut Foo,
-  |        ^^^^^^^^^^^^^^^^ the trait `ReadOnlyWorldQueryData` is not implemented for `&'static mut Foo`
+  |        ^^^^^^^^^^^^^^^^ the trait `ReadOnlyQueryData` is not implemented for `&'static mut Foo`
   |
-  = help: the following other types implement trait `ReadOnlyWorldQueryData`:
+  = help: the following other types implement trait `ReadOnlyQueryData`:
             MutableUnmarked
             MutableMarkedReadOnly
             NestedMutableUnmarked
@@ -17,17 +17,17 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQueryData` is not 
 note: required by a bound in `_::assert_readonly`
  --> tests/ui/world_query_derive.rs:7:10
   |
-7 | #[derive(WorldQueryData)]
-  |          ^^^^^^^^^^^^^^ required by this bound in `assert_readonly`
-  = note: this error originates in the derive macro `WorldQueryData` (in Nightly builds, run with -Z macro-backtrace for more info)
+7 | #[derive(QueryData)]
+  |          ^^^^^^^^^ required by this bound in `assert_readonly`
+  = note: this error originates in the derive macro `QueryData` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0277]: the trait bound `MutableMarked: ReadOnlyWorldQueryData` is not satisfied
+error[E0277]: the trait bound `MutableMarked: ReadOnlyQueryData` is not satisfied
   --> tests/ui/world_query_derive.rs:20:8
    |
 20 |     a: MutableMarked,
-   |        ^^^^^^^^^^^^^ the trait `ReadOnlyWorldQueryData` is not implemented for `MutableMarked`
+   |        ^^^^^^^^^^^^^ the trait `ReadOnlyQueryData` is not implemented for `MutableMarked`
    |
-   = help: the following other types implement trait `ReadOnlyWorldQueryData`:
+   = help: the following other types implement trait `ReadOnlyQueryData`:
              MutableUnmarked
              MutableMarkedReadOnly
              NestedMutableUnmarked
@@ -40,6 +40,6 @@ error[E0277]: the trait bound `MutableMarked: ReadOnlyWorldQueryData` is not sat
 note: required by a bound in `_::assert_readonly`
   --> tests/ui/world_query_derive.rs:18:10
    |
-18 | #[derive(WorldQueryData)]
-   |          ^^^^^^^^^^^^^^ required by this bound in `assert_readonly`
-   = note: this error originates in the derive macro `WorldQueryData` (in Nightly builds, run with -Z macro-backtrace for more info)
+18 | #[derive(QueryData)]
+   |          ^^^^^^^^^ required by this bound in `assert_readonly`
+   = note: this error originates in the derive macro `QueryData` (in Nightly builds, run with -Z macro-backtrace for more info)
