@@ -209,18 +209,18 @@ impl ViewTarget {
     /// Retrieve this target's main texture's color attachment.
     pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures.b.get_attachment()
-        } else {
             self.main_textures.a.get_attachment()
+        } else {
+            self.main_textures.b.get_attachment()
         }
     }
 
     /// Retrieve this target's "unsampled" main texture's color attachment.
     pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures.b.get_unsampled_attachment()
-        } else {
             self.main_textures.a.get_unsampled_attachment()
+        } else {
+            self.main_textures.b.get_unsampled_attachment()
         }
     }
 
