@@ -48,9 +48,10 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
+/// # use bevy_render::render_asset::RenderAssetPersistentAccess;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList, false)
+///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistentAccess::Unload)
 ///         // Add 4 vertices, each with its own position attribute (coordinate in
 ///         // 3D space), for each of the corners of the parallelogram.
 ///         .with_inserted_attribute(
@@ -1229,12 +1230,16 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 #[cfg(test)]
 mod tests {
     use super::Mesh;
+    use crate::render_asset::RenderAssetPersistentAccess;
     use wgpu::PrimitiveTopology;
 
     #[test]
     #[should_panic]
     fn panic_invalid_format() {
-        let _mesh = Mesh::new(PrimitiveTopology::TriangleList, false)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+        let _mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetPersistentAccess::Unload,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
 }

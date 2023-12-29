@@ -922,6 +922,7 @@ impl CompressedImageFormats {
 mod test {
 
     use super::*;
+    use crate::render_asset::RenderAssetPersistentAccess;
 
     #[test]
     fn image_size() {
@@ -935,7 +936,7 @@ mod test {
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
-            false,
+            RenderAssetPersistentAccess::Unload,
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),
