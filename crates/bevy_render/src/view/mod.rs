@@ -354,6 +354,10 @@ impl ViewDepthTexture {
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
         self.attachment.get_attachment(store)
     }
+
+    pub fn view(&self) -> &TextureView {
+        &self.attachment.view
+    }
 }
 
 pub fn prepare_view_uniforms(

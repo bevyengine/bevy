@@ -99,10 +99,12 @@ impl DepthAttachment {
     }
 
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
-    /// `clear_value` if this is the first time calling this function, and a clear value was provided,
-    /// otherwise it will be loaded.
+    /// `clear_value` if this is the first time calling this function with `store` == StoreOp::Store,
+    /// and a clear value was provided, otherwise it will be loaded.
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
-        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+        let first_call = self
+            .is_first_call
+            .fetch_and(store != StoreOp::Store, Ordering::SeqCst);
 
         RenderPassDepthStencilAttachment {
             view: &self.view,
