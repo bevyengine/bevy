@@ -121,7 +121,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("deferred"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(view_depth_texture.get_attachment(true)),
+                depth_stencil_attachment: Some(view_depth_texture.get_attachment(StoreOp::Store)),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });

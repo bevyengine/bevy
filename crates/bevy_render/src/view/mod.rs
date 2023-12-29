@@ -30,8 +30,8 @@ use std::sync::{
     Arc,
 };
 use wgpu::{
-    Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureUsages,
+    Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
@@ -351,7 +351,7 @@ impl ViewDepthTexture {
         }
     }
 
-    pub fn get_attachment(&self, store: bool) -> RenderPassDepthStencilAttachment {
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
         self.attachment.get_attachment(store)
     }
 }

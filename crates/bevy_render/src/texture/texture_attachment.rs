@@ -85,7 +85,7 @@ impl ColorAttachment {
 /// A wrapper for a [TextureView] that is used as a depth-only [RenderPassDepthStencilAttachment].
 pub struct DepthAttachment {
     pub view: TextureView,
-    clear_value: f32,
+    clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
 }
 
@@ -93,7 +93,7 @@ impl DepthAttachment {
     pub fn new(view: TextureView, clear_value: Option<f32>) -> Self {
         Self {
             view,
-            clear_value: clear_value.unwrap(),
+            clear_value,
             is_first_call: Arc::new(AtomicBool::new(clear_value.is_some())),
         }
     }
@@ -101,22 +101,19 @@ impl DepthAttachment {
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// `clear_value` if this is the first time calling this function, and a clear value was provided,
     /// otherwise it will be loaded.
-    pub fn get_attachment(&self, store: bool) -> RenderPassDepthStencilAttachment {
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
         RenderPassDepthStencilAttachment {
             view: &self.view,
             depth_ops: Some(Operations {
                 load: if first_call {
-                    LoadOp::Clear(self.clear_value)
+                    // If first_call is true, then a clear value will always have been provided in the constructor
+                    LoadOp::Clear(self.clear_value.unwrap())
                 } else {
                     LoadOp::Load
                 },
-                store: if store {
-                    StoreOp::Store
-                } else {
-                    StoreOp::Discard
-                },
+                store,
             }),
             stencil_ops: None,
         }

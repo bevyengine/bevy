@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
-    render_resource::RenderPassDescriptor,
+    render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };
@@ -46,7 +46,7 @@ impl ViewNode for MainTransparentPass3dNode {
                 // so that wgpu does not clear the depth buffer.
                 // As the opaque and alpha mask passes run first, opaque meshes can occlude
                 // transparent ones.
-                depth_stencil_attachment: Some(depth.get_attachment(true)),
+                depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });

@@ -7,7 +7,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
-    render_resource::{PipelineCache, RenderPassDescriptor},
+    render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
@@ -56,7 +56,7 @@ impl ViewNode for MainOpaquePass3dNode {
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("main_opaque_pass_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: Some(depth.get_attachment(true)),
+            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
         });

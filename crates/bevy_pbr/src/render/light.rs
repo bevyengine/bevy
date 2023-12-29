@@ -1768,7 +1768,7 @@ impl Node for ShadowPassNode {
                         label: Some(&view_light.pass_name),
                         color_attachments: &[],
                         depth_stencil_attachment: Some(
-                            view_light.depth_attachment.get_attachment(true),
+                            view_light.depth_attachment.get_attachment(StoreOp::Store),
                         ),
                         timestamp_writes: None,
                         occlusion_query_set: None,

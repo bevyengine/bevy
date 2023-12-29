@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
+use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext},
@@ -70,7 +71,7 @@ impl ViewNode for PrepassNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("prepass"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(view_depth_texture.get_attachment(true)),
+                depth_stencil_attachment: Some(view_depth_texture.get_attachment(StoreOp::Store)),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
