@@ -681,6 +681,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<
         (
             &ExtractedView,
@@ -791,6 +792,18 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             if deferred {
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
+            }
+
+            // Even though we don't use the lightmap in the prepass, the
+            // `SetMeshBindGroup` render command will bind the data for it. So
+            // we need to include the appropriate flag in the mesh pipeline key
+            // to ensure that the necessary bind group layout entries are
+            // present.
+            if render_lightmaps
+                .render_lightmaps
+                .contains_key(visible_entity)
+            {
+                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
             let pipeline_id = pipelines.specialize(
