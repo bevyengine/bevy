@@ -4,10 +4,6 @@ use super::{
     MeshletGpuScene,
 };
 use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
-use bevy_core_pipeline::{
-    clear_color::{ClearColor, ClearColorConfig},
-    core_3d::Camera3d,
-};
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -31,7 +27,6 @@ pub struct MeshletMainOpaquePass3dNode;
 impl ViewNode for MeshletMainOpaquePass3dNode {
     type ViewData = (
         &'static ExtractedCamera,
-        &'static Camera3d,
         &'static ViewTarget,
         &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
@@ -48,7 +43,6 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         render_context: &mut RenderContext,
         (
             camera,
-            camera_3d,
             target,
             mesh_view_bind_group,
             view_offset,
@@ -67,22 +61,9 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             return Ok(());
         };
 
-        let load = if target.is_first_write() {
-            match camera_3d.clear_color {
-                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
-                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                ClearColorConfig::None => LoadOp::Load,
-            }
-        } else {
-            LoadOp::Load
-        };
-
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some(draw_3d_graph::node::MESHLET_MAIN_OPAQUE_PASS_3D),
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load,
-                store: StoreOp::Store,
-            }))],
+            color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_view_resources.material_depth.default_view,
                 depth_ops: Some(Operations {

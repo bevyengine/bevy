@@ -26,7 +26,7 @@ use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicUsize, Ordering},
     Arc,
 };
 use wgpu::{
@@ -196,7 +196,6 @@ pub struct ViewTarget {
     main_texture: Arc<AtomicUsize>,
     out_texture: TextureView,
     out_texture_format: TextureFormat,
-    first_write: Arc<AtomicBool>,
 }
 
 pub struct PostProcessWrite<'a> {
@@ -335,10 +334,6 @@ impl ViewTarget {
                 destination: &self.main_textures.a.texture.default_view,
             }
         }
-    }
-
-    pub fn is_first_write(&self) -> bool {
-        self.first_write.fetch_and(false, Ordering::SeqCst)
     }
 }
 
@@ -543,7 +538,6 @@ fn prepare_view_targets(
                     main_texture_format,
                     out_texture: out_texture_view.clone(),
                     out_texture_format: out_texture_format.add_srgb_suffix(),
-                    first_write: Arc::new(AtomicBool::new(true)),
                 });
             }
         }

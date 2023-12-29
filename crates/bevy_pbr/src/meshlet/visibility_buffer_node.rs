@@ -2,7 +2,7 @@ use super::{
     gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
     pipelines::MeshletPipelines,
 };
-use bevy_core_pipeline::core_3d::{Camera3d, Camera3dDepthLoadOp};
+use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -55,13 +55,6 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
 
         let culling_workgroups = (meshlet_view_resources.scene_meshlet_count + 127) / 128;
 
-        let depth_load = if depth.is_first_write() {
-            camera_3d.depth_load_op.clone()
-        } else {
-            Camera3dDepthLoadOp::Load
-        }
-        .into();
-
         render_context
             .command_encoder()
             .push_debug_group(draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS);
@@ -85,14 +78,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
             let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("meshlet_visibility_buffer_first_pass"),
                 color_attachments: &[],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    depth_ops: Some(Operations {
-                        load: depth_load,
-                        store: StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
@@ -180,14 +166,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                         },
                     }),
                 ],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Load,
-                        store: StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
