@@ -22,7 +22,7 @@ pub trait BoundingVolume {
 
     /// Computes the visible surface area of the bounding volume.
     /// This method can be useful to make decisions about merging bounding volumes,
-    /// using a Surface Area Heuristics.
+    /// using a Surface Area Heuristic.
     ///
     /// For 2D shapes this would simply be the area of the shape.
     /// For 3D shapes this would usually be half the area of the shape.
@@ -42,7 +42,7 @@ pub trait BoundingVolume {
 }
 
 /// A trait that generalizes intersection tests against a volume.
-/// Intersection tests can take many shapes, for example:
+/// Intersection tests can be used for a variety of tasks, for example:
 /// - Raycasting
 /// - Testing for overlap
 /// - Checking if an object is within the view frustum of a camera

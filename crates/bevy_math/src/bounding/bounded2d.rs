@@ -4,7 +4,7 @@ use crate::prelude::Vec2;
 /// A trait with methods that return 2D bounded volumes for a shape
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
-    /// The rotation is in radians, clockwise, with 0 meaning no rotation.
+    /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d;
     /// Get a bounding circle for the shape
     fn bounding_circle(&self, translation: Vec2) -> BoundingCircle;
