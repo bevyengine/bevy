@@ -1,9 +1,5 @@
 //! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use std::f32::consts::PI;
 
 use bevy::{
@@ -130,11 +126,11 @@ fn setup(
 }
 
 fn toggle_light(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
 ) {
-    if input.just_pressed(KeyCode::L) {
+    if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
@@ -156,7 +152,7 @@ fn toggle_light(
 
 fn toggle_shadows(
     mut commands: Commands,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
         Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
         Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
@@ -164,7 +160,7 @@ fn toggle_shadows(
         Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
     )>,
 ) {
-    if input.just_pressed(KeyCode::C) {
+    if input.just_pressed(KeyCode::KeyC) {
         println!("Toggling casters");
         for entity in queries.p0().iter() {
             commands.entity(entity).remove::<NotShadowCaster>();
@@ -173,7 +169,7 @@ fn toggle_shadows(
             commands.entity(entity).insert(NotShadowCaster);
         }
     }
-    if input.just_pressed(KeyCode::R) {
+    if input.just_pressed(KeyCode::KeyR) {
         println!("Toggling receivers");
         for entity in queries.p1().iter() {
             commands.entity(entity).remove::<NotShadowReceiver>();

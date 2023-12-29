@@ -1,86 +1,59 @@
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_render::render_resource::{
-    BindGroupLayoutEntry, BindingType, ShaderStages, TextureAspect, TextureSampleType, TextureView,
-    TextureViewDescriptor, TextureViewDimension,
+    binding_types::{
+        texture_2d, texture_2d_multisampled, texture_depth_2d, texture_depth_2d_multisampled,
+    },
+    BindGroupLayoutEntryBuilder, TextureAspect, TextureSampleType, TextureView,
+    TextureViewDescriptor,
 };
 use bevy_utils::default;
-use smallvec::SmallVec;
 
 use crate::MeshPipelineViewLayoutKey;
 
 pub fn get_bind_group_layout_entries(
-    bindings: [u32; 4],
     layout_key: MeshPipelineViewLayoutKey,
-) -> SmallVec<[BindGroupLayoutEntry; 4]> {
-    let mut result = SmallVec::<[BindGroupLayoutEntry; 4]>::new();
+) -> [Option<BindGroupLayoutEntryBuilder>; 4] {
+    let mut entries: [Option<BindGroupLayoutEntryBuilder>; 4] = [None; 4];
 
     let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
 
     if layout_key.contains(MeshPipelineViewLayoutKey::DEPTH_PREPASS) {
-        result.push(
-            // Depth texture
-            BindGroupLayoutEntry {
-                binding: bindings[0],
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    multisampled,
-                    sample_type: TextureSampleType::Depth,
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
-            },
-        );
+        // Depth texture
+        entries[0] = if multisampled {
+            Some(texture_depth_2d_multisampled())
+        } else {
+            Some(texture_depth_2d())
+        };
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS) {
-        result.push(
-            // Normal texture
-            BindGroupLayoutEntry {
-                binding: bindings[1],
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    multisampled,
-                    sample_type: TextureSampleType::Float { filterable: false },
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
-            },
-        );
+        // Normal texture
+        entries[1] = if multisampled {
+            Some(texture_2d_multisampled(TextureSampleType::Float {
+                filterable: false,
+            }))
+        } else {
+            Some(texture_2d(TextureSampleType::Float { filterable: false }))
+        };
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS) {
-        result.push(
-            // Motion Vectors texture
-            BindGroupLayoutEntry {
-                binding: bindings[2],
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    multisampled,
-                    sample_type: TextureSampleType::Float { filterable: false },
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
-            },
-        );
+        // Motion Vectors texture
+        entries[2] = if multisampled {
+            Some(texture_2d_multisampled(TextureSampleType::Float {
+                filterable: false,
+            }))
+        } else {
+            Some(texture_2d(TextureSampleType::Float { filterable: false }))
+        };
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
-        result.push(
-            // Deferred texture
-            BindGroupLayoutEntry {
-                binding: bindings[3],
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    multisampled: false,
-                    sample_type: TextureSampleType::Uint,
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
-            },
-        );
+        // Deferred texture
+        entries[3] = Some(texture_2d(TextureSampleType::Uint));
     }
 
-    result
+    entries
 }
 
 pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<TextureView>; 4] {

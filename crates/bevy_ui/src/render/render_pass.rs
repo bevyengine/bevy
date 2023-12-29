@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
+    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor, StoreOp},
     renderer::*,
     view::*,
 };
@@ -74,8 +74,13 @@ impl Node for UiPassNode {
         };
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[Some(target.get_unsampled_color_attachment())],
+            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
+                load: LoadOp::Load,
+                store: true,
+            }))],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         transparent_phase.render(&mut render_pass, world, view_entity);
@@ -154,8 +159,8 @@ pub type DrawUi = (
 pub struct SetUiViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     type Param = SRes<UiMeta>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
+    type ViewData = Read<ViewUniformOffset>;
+    type ItemData = ();
 
     fn render<'w>(
         _item: &P,
@@ -175,8 +180,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
     type Param = SRes<UiImageBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<UiBatch>;
+    type ViewData = ();
+    type ItemData = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(
@@ -194,8 +199,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<UiBatch>;
+    type ViewData = ();
+    type ItemData = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(

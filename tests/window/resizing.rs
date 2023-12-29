@@ -34,7 +34,7 @@ fn main() {
             width: MAX_WIDTH,
             height: MAX_HEIGHT,
         })
-        .insert_resource(Phase::ContractingY)
+        .insert_resource(ContractingY)
         .add_systems(Startup, (setup_3d, setup_2d))
         .add_systems(
             Update,
@@ -72,28 +72,28 @@ fn change_window_size(
     let height = windows.height;
     let width = windows.width;
     match *phase {
-        Phase::ContractingY => {
+        ContractingY => {
             if height <= MIN_HEIGHT {
                 *phase = ContractingX;
             } else {
                 windows.height -= RESIZE_STEP;
             }
         }
-        Phase::ContractingX => {
+        ContractingX => {
             if width <= MIN_WIDTH {
                 *phase = ExpandingY;
             } else {
                 windows.width -= RESIZE_STEP;
             }
         }
-        Phase::ExpandingY => {
+        ExpandingY => {
             if height >= MAX_HEIGHT {
                 *phase = ExpandingX;
             } else {
                 windows.height += RESIZE_STEP;
             }
         }
-        Phase::ExpandingX => {
+        ExpandingX => {
             if width >= MAX_WIDTH {
                 *phase = ContractingY;
             } else {

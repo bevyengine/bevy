@@ -34,7 +34,6 @@ use std::ops::Mul;
 ///
 /// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-/// [`Transform`]: super::Transform
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
@@ -395,6 +394,15 @@ impl Transform {
         point = self.rotation * point;
         point += self.translation;
         point
+    }
+
+    /// Returns `true` if, and only if, translation, rotation and scale all are
+    /// finite. If any of them contains a `NaN`, positive or negative infinity,
+    /// this will return `false`.
+    #[inline]
+    #[must_use]
+    pub fn is_finite(&self) -> bool {
+        self.translation.is_finite() && self.rotation.is_finite() && self.scale.is_finite()
     }
 }
 

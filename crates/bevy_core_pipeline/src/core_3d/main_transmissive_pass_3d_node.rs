@@ -18,7 +18,7 @@ use std::ops::Range;
 pub struct MainTransmissivePass3dNode;
 
 impl ViewNode for MainTransmissivePass3dNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static Camera3d,
         &'static RenderPhase<Transmissive3d>,
@@ -32,7 +32,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (camera, camera_3d, transmissive_phase, target, transmission, depth): QueryItem<
-            Self::ViewQuery,
+            Self::ViewData,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -44,6 +44,8 @@ impl ViewNode for MainTransmissivePass3dNode {
             label: Some("main_transmissive_pass_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(depth.get_attachment(true)),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         // Run the transmissive pass, sorted back-to-front

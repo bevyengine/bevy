@@ -235,8 +235,8 @@ mod test {
 
     #[test]
     fn srgb_linear_full_roundtrip() {
-        let u8max: f32 = u8::max_value() as f32;
-        for color in 0..u8::max_value() {
+        let u8max: f32 = u8::MAX as f32;
+        for color in 0..u8::MAX {
             let color01 = color as f32 / u8max;
             let color_roundtrip = color01
                 .linear_to_nonlinear_srgb()

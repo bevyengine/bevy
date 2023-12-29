@@ -58,7 +58,8 @@ impl Default for Camera3d {
     }
 }
 
-#[derive(Clone, Copy, Reflect)]
+#[derive(Clone, Copy, Reflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub struct Camera3dDepthTextureUsage(u32);
 
 impl From<TextureUsages> for Camera3dDepthTextureUsage {

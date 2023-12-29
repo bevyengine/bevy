@@ -13,7 +13,7 @@ use crate::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
+    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
@@ -72,7 +72,12 @@ impl AssetProcessor {
         // The asset processor uses its own asset server with its own id space
         let mut sources = source.build_sources(false, false);
         sources.gate_on_processor(data.clone());
-        let server = AssetServer::new(sources, AssetServerMode::Processed, false);
+        let server = AssetServer::new_with_meta_check(
+            sources,
+            AssetServerMode::Processed,
+            AssetMetaCheck::Always,
+            false,
+        );
         Self { server, data }
     }
 
@@ -416,7 +421,7 @@ impl AssetProcessor {
         scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
         source: &'scope AssetSource,
         path: PathBuf,
-    ) -> bevy_utils::BoxedFuture<'scope, Result<(), AssetReaderError>> {
+    ) -> BoxedFuture<'scope, Result<(), AssetReaderError>> {
         Box::pin(async move {
             if source.reader().is_directory(&path).await? {
                 let mut path_stream = source.reader().read_directory(&path).await?;
@@ -873,11 +878,11 @@ impl AssetProcessor {
                                     state_is_valid = false;
                                 };
                                 let Ok(source) = self.get_source(path.source()) else {
-                                    (unrecoverable_err)(&"AssetSource does not exist");
+                                    unrecoverable_err(&"AssetSource does not exist");
                                     continue;
                                 };
                                 let Ok(processed_writer) = source.processed_writer() else {
-                                    (unrecoverable_err)(&"AssetSource does not have a processed AssetWriter registered");
+                                    unrecoverable_err(&"AssetSource does not have a processed AssetWriter registered");
                                     continue;
                                 };
 
@@ -886,7 +891,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)(&err);
+                                                unrecoverable_err(&err);
                                             }
                                         }
                                     }
@@ -896,7 +901,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)(&err);
+                                                unrecoverable_err(&err);
                                             }
                                         }
                                     }

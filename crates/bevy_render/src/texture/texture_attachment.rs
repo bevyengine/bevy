@@ -4,7 +4,9 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment};
+use wgpu::{
+    LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+};
 
 /// A wrapper for a [CachedTexture] that is used as a [RenderPassColorAttachment].
 #[derive(Clone)]
@@ -45,7 +47,7 @@ impl ColorAttachment {
                 } else {
                     LoadOp::Load
                 },
-                store: true,
+                store: StoreOp::Store,
             },
         }
     }
@@ -66,7 +68,7 @@ impl ColorAttachment {
                 } else {
                     LoadOp::Load
                 },
-                store: true,
+                store: StoreOp::Store,
             },
         }
     }
@@ -102,7 +104,11 @@ impl DepthAttachment {
                 } else {
                     LoadOp::Load
                 },
-                store,
+                store: if store {
+                    StoreOp::Store
+                } else {
+                    StoreOp::Discard
+                },
             }),
             stencil_ops: None,
         }

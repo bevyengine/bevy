@@ -20,7 +20,7 @@ use super::AlphaMask3d;
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3d>,
         &'static RenderPhase<AlphaMask3d>,
@@ -44,7 +44,7 @@ impl ViewNode for MainOpaquePass3dNode {
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Run the opaque pass, sorted front-to-back
@@ -57,6 +57,8 @@ impl ViewNode for MainOpaquePass3dNode {
             label: Some("main_opaque_pass_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(depth.get_attachment(true)),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {

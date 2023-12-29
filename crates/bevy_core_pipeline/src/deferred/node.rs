@@ -2,6 +2,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 
+use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -25,7 +26,7 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 pub struct DeferredGBufferPrepassNode;
 
 impl ViewNode for DeferredGBufferPrepassNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3dDeferred>,
         &'static RenderPhase<AlphaMask3dDeferred>,
@@ -43,7 +44,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             alpha_mask_deferred_phase,
             view_depth_texture,
             view_prepass_textures,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -105,7 +106,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK.into()),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 }),
         );
@@ -121,6 +122,8 @@ impl ViewNode for DeferredGBufferPrepassNode {
                 label: Some("deferred"),
                 color_attachments: &color_attachments,
                 depth_stencil_attachment: Some(view_depth_texture.get_attachment(true)),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {

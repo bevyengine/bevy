@@ -17,7 +17,7 @@ fn update(time: Res<Time>, mut ui_materials: ResMut<Assets<CustomUiMaterial>>) {
     for (_, material) in ui_materials.iter_mut() {
         // rainbow color effect
         let new_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 1., 0.5);
-        material.color = new_color.into();
+        material.color = new_color.rgba_to_vec4();
     }
 }
 
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, mut ui_materials: ResMut<Assets<CustomUiMateria
                     ..default()
                 },
                 material: ui_materials.add(CustomUiMaterial {
-                    color: Color::WHITE.into(),
+                    color: Color::WHITE.rgba_to_vec4(),
                 }),
                 ..default()
             });

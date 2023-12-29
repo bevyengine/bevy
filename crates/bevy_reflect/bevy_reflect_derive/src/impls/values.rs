@@ -31,7 +31,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
         },
     );
 
-    let type_path_impl = impl_type_path(meta, &where_clause_options);
+    let type_path_impl = impl_type_path(meta);
 
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);

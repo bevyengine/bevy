@@ -90,10 +90,12 @@ impl Node for MsaaWritebackNode {
                     resolve_target: Some(&post_process.destination),
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK.into()),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
 
             let bind_group = render_context.render_device().create_bind_group(

@@ -19,6 +19,12 @@ pub enum ClearColorConfig {
     None,
 }
 
+impl From<Color> for ClearColorConfig {
+    fn from(color: Color) -> Self {
+        Self::Custom(color)
+    }
+}
+
 /// A [`Resource`] that stores the color that is used to clear the screen between frames.
 ///
 /// This color appears as the "background" color for simple apps,

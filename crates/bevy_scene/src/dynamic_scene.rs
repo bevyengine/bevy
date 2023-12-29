@@ -1,4 +1,4 @@
-use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_ecs::{
     entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
@@ -24,6 +24,7 @@ use serde::Serialize;
 /// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
+/// * using the [`DynamicSceneBuilder`] to construct a `DynamicScene` from `World`.
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
