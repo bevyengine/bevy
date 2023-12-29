@@ -240,7 +240,7 @@ fn animate_light_direction(
         return;
     }
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * PI / 5.0);
+        transform.rotate_y(Angle::radians(time.delta_seconds() * PI / 5.0));
     }
 }
 
@@ -282,7 +282,9 @@ fn setup_parallax(
             transform: Transform::from_xyz(0.4, 0.2, -0.8),
             ..default()
         },
-        Spin { speed: 0.3 },
+        Spin {
+            speed: Angle::radians(0.3),
+        },
     ));
 }
 
@@ -309,7 +311,7 @@ fn update_normal(
 
 #[derive(Component)]
 struct Spin {
-    speed: f32,
+    speed: Angle<f32>,
 }
 
 fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>, pause: Res<Pause>) {

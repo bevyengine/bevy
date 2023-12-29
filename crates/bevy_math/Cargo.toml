@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [dependencies]
 glam = { version = "0.24.1", features = ["bytemuck"] }
+num-traits = { version = "0.2.17", default-features = false }
 serde = { version = "1", features = ["derive"], optional = true }
 
 [features]

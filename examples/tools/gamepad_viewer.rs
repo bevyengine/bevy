@@ -1,7 +1,5 @@
 //! Shows a visualization of gamepad buttons, sticks, and triggers
 
-use std::f32::consts::PI;
-
 use bevy::{
     input::gamepad::{
         GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent, GamepadSettings,
@@ -9,6 +7,7 @@ use bevy::{
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
+use bevy_internal::math::Angle;
 
 const BUTTON_RADIUS: f32 = 25.;
 const BUTTON_CLUSTER_RADIUS: f32 = 50.;
@@ -107,8 +106,8 @@ impl GamepadButtonBundle {
         }
     }
 
-    pub fn with_rotation(mut self, angle: f32) -> Self {
-        self.mesh_bundle.transform.rotation = Quat::from_rotation_z(angle);
+    pub fn with_rotation(mut self, angle: Angle<f32>) -> Self {
+        self.mesh_bundle.transform.rotation = Quat::from_rotation_z(angle.as_radians());
         self
     }
 }
@@ -216,7 +215,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                     0.,
                     -BUTTON_CLUSTER_RADIUS,
                 )
-                .with_rotation(PI),
+                .with_rotation(Angle::PI),
             );
             parent.spawn(
                 GamepadButtonBundle::new(
@@ -226,7 +225,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                     -BUTTON_CLUSTER_RADIUS,
                     0.,
                 )
-                .with_rotation(PI / 2.),
+                .with_rotation(Angle::FRAC_PI_2),
             );
             parent.spawn(
                 GamepadButtonBundle::new(
@@ -236,7 +235,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                     BUTTON_CLUSTER_RADIUS,
                     0.,
                 )
-                .with_rotation(-PI / 2.),
+                .with_rotation(-Angle::FRAC_PI_2),
             );
         });
 

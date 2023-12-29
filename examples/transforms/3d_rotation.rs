@@ -7,7 +7,7 @@ use std::f32::consts::TAU;
 // Define a component to designate a rotation speed to an entity.
 #[derive(Component)]
 struct Rotatable {
-    speed: f32,
+    speed: Angle<f32>,
 }
 
 fn main() {
@@ -31,7 +31,9 @@ fn setup(
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
         },
-        Rotatable { speed: 0.3 },
+        Rotatable {
+            speed: Angle::radians(0.3),
+        },
     ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.

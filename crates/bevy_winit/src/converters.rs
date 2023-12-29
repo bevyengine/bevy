@@ -5,7 +5,7 @@ use bevy_input::{
     touch::{ForceTouch, TouchInput, TouchPhase},
     ButtonState,
 };
-use bevy_math::Vec2;
+use bevy_math::{Angle, Vec2};
 use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
 
 pub fn convert_keyboard_input(
@@ -57,7 +57,7 @@ pub fn convert_touch_input(
             } => ForceTouch::Calibrated {
                 force,
                 max_possible_force,
-                altitude_angle,
+                altitude_angle: altitude_angle.map(Angle::radians),
             },
             winit::event::Force::Normalized(x) => ForceTouch::Normalized(x),
         }),

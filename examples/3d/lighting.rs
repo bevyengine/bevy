@@ -36,7 +36,7 @@ fn setup(
 
     // left wall
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
-    transform.rotate_z(PI / 2.);
+    transform.rotate_z(Angle::FRAC_PI_2);
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
@@ -49,7 +49,7 @@ fn setup(
     });
     // back (right) wall
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
-    transform.rotate_x(PI / 2.);
+    transform.rotate_x(Angle::FRAC_PI_2);
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
@@ -63,7 +63,7 @@ fn setup(
 
     // Bevy logo to demonstrate alpha mask shadows
     let mut transform = Transform::from_xyz(-2.2, 0.5, 1.0);
-    transform.rotate_y(PI / 8.);
+    transform.rotate_y(Angle::FRAC_PI_8);
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(2.0, 0.5)))),
@@ -153,8 +153,8 @@ fn setup(
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
                 shadows_enabled: true,
-                inner_angle: 0.6,
-                outer_angle: 0.8,
+                inner_angle: Angle::radians(0.6),
+                outer_angle: Angle::radians(0.8),
                 ..default()
             },
             ..default()
@@ -256,7 +256,7 @@ fn animate_light_direction(
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * 0.5);
+        transform.rotate_y(Angle::radians(time.delta_seconds() * 0.5));
     }
 }
 

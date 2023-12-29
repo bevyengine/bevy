@@ -5,7 +5,7 @@
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
 use crate::prelude::Gizmos;
-use bevy_math::Vec2;
+use bevy_math::{Angle, Vec2};
 use bevy_render::color::Color;
 use std::f32::consts::TAU;
 
@@ -42,8 +42,8 @@ impl<'s> Gizmos<'s> {
     pub fn arc_2d(
         &mut self,
         position: Vec2,
-        direction_angle: f32,
-        arc_angle: f32,
+        direction_angle: Angle<f32>,
+        arc_angle: Angle<f32>,
         radius: f32,
         color: Color,
     ) -> Arc2dBuilder<'_, 's> {
@@ -63,8 +63,8 @@ impl<'s> Gizmos<'s> {
 pub struct Arc2dBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec2,
-    direction_angle: f32,
-    arc_angle: f32,
+    direction_angle: Angle<f32>,
+    arc_angle: Angle<f32>,
     radius: f32,
     color: Color,
     segments: Option<usize>,
@@ -84,7 +84,8 @@ impl Drop for Arc2dBuilder<'_, '_> {
             Some(segments) => segments,
             // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
             // using the arc angle as scalar.
-            None => ((self.arc_angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize,
+            None => ((self.arc_angle.as_radians().abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32)
+                .ceil() as usize,
         };
 
         let positions = arc_inner(self.direction_angle, self.arc_angle, self.radius, segments)
@@ -94,8 +95,8 @@ impl Drop for Arc2dBuilder<'_, '_> {
 }
 
 fn arc_inner(
-    direction_angle: f32,
-    arc_angle: f32,
+    direction_angle: Angle<f32>,
+    arc_angle: Angle<f32>,
     radius: f32,
     segments: usize,
 ) -> impl Iterator<Item = Vec2> {

@@ -27,7 +27,7 @@ fn main() {
 
 #[derive(Component)]
 struct Spin {
-    speed: f32,
+    speed: Angle<f32>,
 }
 
 /// The camera, used to move camera on click.
@@ -291,7 +291,9 @@ fn setup(
             material: parallax_material.clone_weak(),
             ..default()
         },
-        Spin { speed: 0.3 },
+        Spin {
+            speed: Angle::radians(0.3),
+        },
     ));
 
     let background_cube = meshes.add(
@@ -308,7 +310,9 @@ fn setup(
                 material: parallax_material.clone(),
                 ..default()
             },
-            Spin { speed: -0.1 },
+            Spin {
+                speed: Angle::radians(-0.1),
+            },
         )
     };
     commands.spawn(background_cube_bundle(Vec3::new(45., 0., 0.)));

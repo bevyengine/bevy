@@ -138,7 +138,9 @@ fn player_movement_system(
     }
 
     // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    transform.rotate_z(rotation_factor * ship.rotation_speed * time.delta_seconds());
+    transform.rotate_z(Angle::radians(
+        rotation_factor * ship.rotation_speed * time.delta_seconds(),
+    ));
 
     // get the ship's forward vector by applying the current rotation to the ships initial facing
     // vector
@@ -242,11 +244,12 @@ fn rotate_to_player_system(
 
         // limit rotation so we don't overshoot the target. We need to convert our dot product to
         // an angle here so we can get an angle of rotation to clamp against.
-        let max_angle = forward_dot_player.clamp(-1.0, 1.0).acos(); // clamp acos for safety
+        let max_angle = Angle::radians(forward_dot_player.clamp(-1.0, 1.0).acos());
 
         // calculate angle of rotation with limit
         let rotation_angle =
-            rotation_sign * (config.rotation_speed * time.delta_seconds()).min(max_angle);
+            Angle::radians(rotation_sign * (config.rotation_speed * time.delta_seconds()))
+                .min(max_angle);
 
         // rotate the enemy to face the player
         enemy_transform.rotate_z(rotation_angle);

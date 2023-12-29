@@ -156,7 +156,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) {
     for mut transform in &mut transforms {
         let dt = time.delta_seconds();
-        transform.rotate_z(dt);
+        transform.rotate_z(Angle::radians(dt));
     }
 }
 

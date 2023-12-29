@@ -267,12 +267,13 @@ fn move_camera(
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
     let mut camera_transform = camera_query.single_mut();
-    let delta = 0.15
-        * if args.benchmark {
+    let delta = Angle::radians(
+        0.15 * if args.benchmark {
             1.0 / 60.0
         } else {
             time.delta_seconds()
-        };
+        },
+    );
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);
 }

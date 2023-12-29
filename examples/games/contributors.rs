@@ -64,7 +64,7 @@ struct Contributor {
 #[derive(Component)]
 struct Velocity {
     translation: Vec3,
-    rotation: f32,
+    rotation: Angle<f32>,
 }
 
 const GRAVITY: f32 = 9.821 * 100.0;
@@ -115,7 +115,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                 Contributor { name, hue },
                 Velocity {
                     translation: velocity,
-                    rotation: -dir * 5.0,
+                    rotation: Angle::radians(-dir * 5.0),
                 },
                 SpriteBundle {
                     sprite: Sprite {
