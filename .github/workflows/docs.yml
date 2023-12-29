@@ -5,6 +5,11 @@ on:
     branches:
       - 'main'
 
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html

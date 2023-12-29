@@ -11,6 +11,10 @@ env:
   CARGO_TERM_COLOR: always
   NIGHTLY_TOOLCHAIN: nightly
 
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
