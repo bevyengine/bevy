@@ -328,7 +328,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 1.7, 0.0),
             point_light: PointLight {
                 color: Color::ANTIQUE_WHITE * 0.8 + Color::ORANGE_RED * 0.2,
-                intensity: 1600.0,
+                intensity: 240_000.0,
                 radius: 0.2,
                 range: 5.0,
                 shadows_enabled: true,
@@ -358,6 +358,7 @@ fn setup(
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
         TemporalAntiAliasBundle::default(),
         EnvironmentMapLight {
+            intensity: 100.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
@@ -651,7 +652,7 @@ fn flicker_system(
     let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
     let (mut light, mut light_transform) = light.single_mut();
     let mut flame_transform = flame.single_mut();
-    light.intensity = 1600.0 + 3000.0 * (a + b + c);
+    light.intensity = 240_000.0 + 3000.0 * (a + b + c);
     flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
     flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
     flame_transform.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));
