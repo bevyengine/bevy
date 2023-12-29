@@ -16,7 +16,7 @@ fn main() {
         .add_systems(Startup, setup)
         // You need to register a state type for it to be usable in the app.
         // This sets up all the necessary systems, schedules & resources in the background.
-        .init_state::<AppState>()// Alternatively we could use .insert_state(AppState::Menu)
+        .init_state::<AppState>() // Alternatively we could use .insert_state(AppState::Menu)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
@@ -257,7 +257,10 @@ fn toggle_pause(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
     }
 }
 
-fn invert_movement(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<MovementState>>) {
+fn invert_movement(
+    input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<MovementState>>,
+) {
     if input.just_pressed(KeyCode::ShiftLeft) {
         next_state.set(MovementState { inverted: true });
     }

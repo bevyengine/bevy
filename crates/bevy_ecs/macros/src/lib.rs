@@ -1,9 +1,9 @@
 extern crate proc_macro;
 
 mod component;
-mod state_matchers;
 mod query_data;
 mod query_filter;
+mod state_matchers;
 mod states;
 mod world_query;
 

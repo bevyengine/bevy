@@ -159,7 +159,7 @@ pub enum NativeKeyCode {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<Input<KeyCode>>`.
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<KeyCode>>`.
 ///
 /// Code representing the location of a physical key
 /// This mostly conforms to the UI Events Specification's [`KeyboardEvent.code`] with a few
