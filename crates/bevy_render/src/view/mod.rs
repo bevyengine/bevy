@@ -322,11 +322,13 @@ impl ViewTarget {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
+            self.main_textures.b.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.a.texture.default_view,
                 destination: &self.main_textures.b.texture.default_view,
             }
         } else {
+            self.main_textures.a.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.b.texture.default_view,
                 destination: &self.main_textures.a.texture.default_view,

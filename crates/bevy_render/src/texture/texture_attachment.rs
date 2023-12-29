@@ -76,6 +76,10 @@ impl ColorAttachment {
             },
         }
     }
+
+    pub(crate) fn mark_as_cleared(&self) {
+        self.is_first_call.store(false, Ordering::SeqCst);
+    }
 }
 
 /// A wrapper for a [TextureView] that is used as a depth-only [RenderPassDepthStencilAttachment].
