@@ -114,7 +114,13 @@ impl<T: Float> Angle<T> {
     /// Returns the minimum of the two angles, ignoring NaN.
     #[inline]
     pub fn min(&self, other: Self) -> Self {
-        Angle::radians(self.0.min(other.0))
+        Self(self.0.min(other.0))
+    }
+
+    /// Returns the maximum of the two angles, ignoring NaN.
+    #[inline]
+    pub fn max(&self, other: Self) -> Self {
+        Self(self.0.max(other.0))
     }
 }
 
