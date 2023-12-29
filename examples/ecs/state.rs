@@ -7,9 +7,6 @@
 //! paused or not paused. When in game, we can move the bevy logo around with the arrow keys,
 //! and invert the movement by holding the shift key.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
 use bevy::prelude::*;
 
 fn main() {
@@ -19,7 +16,7 @@ fn main() {
         .add_systems(Startup, setup)
         // You need to register a state type for it to be usable in the app.
         // This sets up all the necessary systems, schedules & resources in the background.
-        .add_state::<AppState>()
+        .init_state::<AppState>()// Alternatively we could use .insert_state(AppState::Menu)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
@@ -189,21 +186,21 @@ fn setup_game(
 const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y -= 1.0;
         }
 

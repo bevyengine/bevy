@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::{Command, Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
-use smallvec::SmallVec;
+use bevy_utils::smallvec::{smallvec, SmallVec};
 
 // Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
 // even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
@@ -24,7 +24,7 @@ fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     if let Some(mut children) = parent.get_mut::<Children>() {
         children.0.push(child);
     } else {
-        parent.insert(Children(smallvec::smallvec![child]));
+        parent.insert(Children(smallvec![child]));
     }
 }
 
@@ -253,6 +253,27 @@ impl Command for RemoveParent {
 }
 
 /// Struct for building children entities and adding them to a parent entity.
+///
+/// # Example
+///
+/// This example creates three entities, a parent and two children.
+///
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
+/// # use bevy_ecs::system::Commands;
+/// # use bevy_hierarchy::BuildChildren;
+/// # #[derive(Bundle)]
+/// # struct MyBundle {}
+/// # #[derive(Bundle)]
+/// # struct MyChildBundle {}
+/// #
+/// # fn test(mut commands: Commands) {
+/// commands.spawn(MyBundle {}).with_children(|child_builder| {
+///     child_builder.spawn(MyChildBundle {});
+///     child_builder.spawn(MyChildBundle {});
+/// });
+/// # }
+/// ```
 pub struct ChildBuilder<'w, 's, 'a> {
     commands: &'a mut Commands<'w, 's>,
     push_children: PushChildren,
@@ -675,7 +696,7 @@ mod tests {
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
     };
-    use smallvec::{smallvec, SmallVec};
+    use bevy_utils::smallvec::{smallvec, SmallVec};
 
     use bevy_ecs::{
         component::Component,

@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
@@ -16,6 +15,9 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+pub mod arcs;
+pub mod arrows;
+pub mod circles;
 pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
@@ -52,10 +54,9 @@ use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
-        BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
-        VertexFormat, VertexStepMode,
+        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
+        ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
     view::RenderLayers,
@@ -118,19 +119,13 @@ impl Plugin for GizmoPlugin {
         };
 
         let render_device = render_app.world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(LineGizmoUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("LineGizmoUniform layout"),
-        });
+        let layout = render_device.create_bind_group_layout(
+            "LineGizmoUniform layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX,
+                uniform_buffer::<LineGizmoUniform>(true),
+            ),
+        );
 
         render_app.insert_resource(LineGizmoUniformBindgroupLayout { layout });
     }
@@ -436,15 +431,15 @@ fn prepare_line_gizmo_bind_group(
 
 struct SetLineGizmoBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
     type Param = SRes<LineGizmoUniformBindgroup>;
+    type ViewData = ();
+    type ItemData = Read<DynamicUniformIndex<LineGizmoUniform>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        uniform_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewData>,
+        uniform_index: ROQueryItem<'w, Self::ItemData>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -459,15 +454,15 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<LineGizmo>>;
     type Param = SRes<RenderAssets<LineGizmo>>;
+    type ViewData = ();
+    type ItemData = Read<Handle<LineGizmo>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewData>,
+        handle: ROQueryItem<'w, Self::ItemData>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

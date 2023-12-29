@@ -1,6 +1,4 @@
-#![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -30,10 +28,6 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
-    #[allow(deprecated)]
-    pub use crate::system::adapter::{
-        self as system_adapter, dbg, error, ignore, info, unwrap, warn,
-    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -71,7 +65,7 @@ mod tests {
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
+        query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
         world::{EntityRef, Mut, World},
     };
@@ -350,7 +344,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &A, &TableStored)>()
-            .for_each(&world, |(e, &i, &s)| results.push((e, i, s)));
+            .iter(&world)
+            .for_each(|(e, &i, &s)| results.push((e, i, s)));
         assert_eq!(
             results,
             &[
@@ -395,7 +390,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &A)>()
-            .for_each(&world, |(e, &i)| results.push((e, i)));
+            .iter(&world)
+            .for_each(|(e, &i)| results.push((e, i)));
         assert_eq!(results, &[(e, A(123)), (f, A(456))]);
     }
 
@@ -486,7 +482,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&A, With<B>>()
-            .for_each(&world, |i| results.push(*i));
+            .iter(&world)
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![A(123)]);
     }
 
@@ -513,7 +510,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&A, With<SparseStored>>()
-            .for_each(&world, |i| results.push(*i));
+            .iter(&world)
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![A(123)]);
     }
 
@@ -910,7 +908,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
@@ -993,7 +991,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
@@ -1402,8 +1400,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        query.for_each(&world_a, |_| {});
-        query.for_each(&world_b, |_| {});
+        query.iter(&world_a).for_each(|_| {});
+        query.iter(&world_b).for_each(|_| {});
     }
 
     #[test]
@@ -1725,5 +1723,23 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
     }
 }

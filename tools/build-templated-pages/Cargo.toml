@@ -9,5 +9,5 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 toml_edit = "0.20"
 tera = "1.15"
-serde = { version = "1.0", features = [ "derive" ] }
+serde = { version = "1.0", features = ["derive"] }
 bitflags = "2.3"

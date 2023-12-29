@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_hierarchy` can be used to define hierarchies of entities.
 //!
@@ -26,23 +25,27 @@ pub use query_extension::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        child_builder::*, components::*, hierarchy::*, query_extension::*, HierarchyPlugin,
-        ValidParentCheckPlugin,
-    };
+    pub use crate::{child_builder::*, components::*, hierarchy::*, query_extension::*};
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_app")]
+    pub use crate::{HierarchyPlugin, ValidParentCheckPlugin};
 }
 
+#[cfg(feature = "bevy_app")]
 use bevy_app::prelude::*;
 
 /// The base plugin for handling [`Parent`] and [`Children`] components
 #[derive(Default)]
 pub struct HierarchyPlugin;
 
+#[cfg(feature = "bevy_app")]
+use bevy_utils::smallvec::SmallVec;
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
-            .register_type::<smallvec::SmallVec<[bevy_ecs::entity::Entity; 8]>>()
+            .register_type::<SmallVec<[bevy_ecs::entity::Entity; 8]>>()
             .add_event::<HierarchyEvent>();
     }
 }

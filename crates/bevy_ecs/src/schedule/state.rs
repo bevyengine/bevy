@@ -4,6 +4,8 @@ use std::mem;
 use std::ops::Deref;
 
 use crate as bevy_ecs;
+use crate::change_detection::DetectChangesMut;
+use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
@@ -23,7 +25,7 @@ use super::{MatchesStateTransition, StateMatcher};
 /// You can access the current state of type `T` with the [`State<T>`] resource,
 /// and the queued state with the [`NextState<T>`] resource.
 ///
-/// State transitions typically occur in the [`OnEnter<T>`] and [`OnExit<T>`] schedules,
+/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T::Variant>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
 ///
 /// # Example
@@ -163,12 +165,8 @@ pub struct Exiting;
 /// [`apply_state_transition::<S>`] system.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
-#[derive(Resource, Default, Debug)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Resource, Default)
-)]
+#[derive(Resource, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct State<S: States>(S);
 
 impl<S: States> State<S> {
@@ -185,7 +183,13 @@ impl<S: States> State<S> {
     }
 }
 
-impl<S: States + PartialEq> PartialEq<S> for State<S> {
+impl<S: States + FromWorld> FromWorld for State<S> {
+    fn from_world(world: &mut World) -> Self {
+        Self(S::from_world(world))
+    }
+}
+
+impl<S: States> PartialEq<S> for State<S> {
     fn eq(&self, other: &S) -> bool {
         self.get() == other
     }
@@ -199,7 +203,12 @@ impl<S: States> Deref for State<S> {
     }
 }
 
-#[derive(Resource, Default, Debug)]
+/// The next state of [`State<S>`].
+///
+/// To queue a transition, just set the contained value to `Some(next_state)`.
+/// Note that these transitions can be overridden by other systems:
+/// only the actual value of this resource at the time of [`apply_state_transition`] matters.
+#[derive(Resource, Debug)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
@@ -262,6 +271,12 @@ impl<S: States> Debug for NextState<S> {
             Self::Value(arg0) => f.debug_tuple("Value").field(arg0).finish(),
             Self::Setter(_) => write!(f, "Setter"),
         }
+    }
+}
+
+impl<S: States> Default for NextState<S> {
+    fn default() -> Self {
+        Self(None)
     }
 }
 

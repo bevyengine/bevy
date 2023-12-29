@@ -334,7 +334,7 @@ impl Timer {
         self.times_finished_this_tick = 0;
     }
 
-    /// Returns the percentage of the timer elapsed time (goes from 0.0 to 1.0).
+    /// Returns the fraction of the timer elapsed time (goes from 0.0 to 1.0).
     ///
     /// # Examples
     /// ```
@@ -342,10 +342,10 @@ impl Timer {
     /// use std::time::Duration;
     /// let mut timer = Timer::from_seconds(2.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(0.5));
-    /// assert_eq!(timer.percent(), 0.25);
+    /// assert_eq!(timer.fraction(), 0.25);
     /// ```
     #[inline]
-    pub fn percent(&self) -> f32 {
+    pub fn fraction(&self) -> f32 {
         if self.duration == Duration::ZERO {
             1.0
         } else {
@@ -353,7 +353,7 @@ impl Timer {
         }
     }
 
-    /// Returns the percentage of the timer remaining time (goes from 1.0 to 0.0).
+    /// Returns the fraction of the timer remaining time (goes from 1.0 to 0.0).
     ///
     /// # Examples
     /// ```
@@ -361,11 +361,11 @@ impl Timer {
     /// use std::time::Duration;
     /// let mut timer = Timer::from_seconds(2.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(0.5));
-    /// assert_eq!(timer.percent_left(), 0.75);
+    /// assert_eq!(timer.fraction_remaining(), 0.75);
     /// ```
     #[inline]
-    pub fn percent_left(&self) -> f32 {
-        1.0 - self.percent()
+    pub fn fraction_remaining(&self) -> f32 {
+        1.0 - self.fraction()
     }
 
     /// Returns the remaining time in seconds
@@ -452,8 +452,8 @@ mod tests {
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.mode(), TimerMode::Once);
-        assert_eq!(t.percent(), 0.025);
-        assert_eq!(t.percent_left(), 0.975);
+        assert_eq!(t.fraction(), 0.025);
+        assert_eq!(t.fraction_remaining(), 0.975);
         // Ticking while paused changes nothing
         t.pause();
         t.tick(Duration::from_secs_f32(500.0));
@@ -463,8 +463,8 @@ mod tests {
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.mode(), TimerMode::Once);
-        assert_eq!(t.percent(), 0.025);
-        assert_eq!(t.percent_left(), 0.975);
+        assert_eq!(t.fraction(), 0.025);
+        assert_eq!(t.fraction_remaining(), 0.975);
         // Tick past the end and make sure elapsed doesn't go past 0.0 and other things update
         t.unpause();
         t.tick(Duration::from_secs_f32(500.0));
@@ -472,16 +472,16 @@ mod tests {
         assert!(t.finished());
         assert!(t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 1);
-        assert_eq!(t.percent(), 1.0);
-        assert_eq!(t.percent_left(), 0.0);
+        assert_eq!(t.fraction(), 1.0);
+        assert_eq!(t.fraction_remaining(), 0.0);
         // Continuing to tick when finished should only change just_finished
         t.tick(Duration::from_secs_f32(1.0));
         assert_eq!(t.elapsed_secs(), 10.0);
         assert!(t.finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
-        assert_eq!(t.percent(), 1.0);
-        assert_eq!(t.percent_left(), 0.0);
+        assert_eq!(t.fraction(), 1.0);
+        assert_eq!(t.fraction_remaining(), 0.0);
     }
 
     #[test]
@@ -495,24 +495,24 @@ mod tests {
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.mode(), TimerMode::Repeating);
-        assert_eq!(t.percent(), 0.375);
-        assert_eq!(t.percent_left(), 0.625);
+        assert_eq!(t.fraction(), 0.375);
+        assert_eq!(t.fraction_remaining(), 0.625);
         // Tick past the end and make sure elapsed wraps
         t.tick(Duration::from_secs_f32(1.5));
         assert_eq!(t.elapsed_secs(), 0.25);
         assert!(t.finished());
         assert!(t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 1);
-        assert_eq!(t.percent(), 0.125);
-        assert_eq!(t.percent_left(), 0.875);
+        assert_eq!(t.fraction(), 0.125);
+        assert_eq!(t.fraction_remaining(), 0.875);
         // Continuing to tick should turn off both finished & just_finished for repeating timers
         t.tick(Duration::from_secs_f32(1.0));
         assert_eq!(t.elapsed_secs(), 1.25);
         assert!(!t.finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
-        assert_eq!(t.percent(), 0.625);
-        assert_eq!(t.percent_left(), 0.375);
+        assert_eq!(t.fraction(), 0.625);
+        assert_eq!(t.fraction_remaining(), 0.375);
     }
 
     #[test]
@@ -543,19 +543,19 @@ mod tests {
         let mut t = Timer::from_seconds(0.0, TimerMode::Repeating);
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.elapsed(), Duration::ZERO);
-        assert_eq!(t.percent(), 1.0);
+        assert_eq!(t.fraction(), 1.0);
         t.tick(Duration::from_secs(1));
         assert_eq!(t.times_finished_this_tick(), u32::MAX);
         assert_eq!(t.elapsed(), Duration::ZERO);
-        assert_eq!(t.percent(), 1.0);
+        assert_eq!(t.fraction(), 1.0);
         t.tick(Duration::from_secs(2));
         assert_eq!(t.times_finished_this_tick(), u32::MAX);
         assert_eq!(t.elapsed(), Duration::ZERO);
-        assert_eq!(t.percent(), 1.0);
+        assert_eq!(t.fraction(), 1.0);
         t.reset();
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.elapsed(), Duration::ZERO);
-        assert_eq!(t.percent(), 1.0);
+        assert_eq!(t.fraction(), 1.0);
     }
 
     #[test]

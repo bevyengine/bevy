@@ -50,7 +50,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
     let field_generator = {
         let docs = reflect_struct
             .active_fields()
-            .map(|field| quote::ToTokens::to_token_stream(&field.doc));
+            .map(|field| ToTokens::to_token_stream(&field.doc));
         quote! {
             #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names).with_docs(#docs) ,)*
         }
@@ -89,7 +89,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         },
     );
 
-    let type_path_impl = impl_type_path(reflect_struct.meta(), &where_clause_options);
+    let type_path_impl = impl_type_path(reflect_struct.meta());
 
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
