@@ -156,7 +156,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                emissive: Color::ANTIQUE_WHITE * 20.0 + Color::ORANGE_RED * 4.0,
+                emissive: Color::ANTIQUE_WHITE * 80.0 + Color::ORANGE_RED * 16.0,
                 diffuse_transmission: 1.0,
                 ..default()
             }),
