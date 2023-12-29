@@ -80,15 +80,12 @@ fn setup(
 
     let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
 
-    let cylinder_mesh = meshes.add(
-        Mesh::try_from(shape::Cylinder {
-            radius: 0.5,
-            height: 2.0,
-            resolution: 50,
-            segments: 1,
-        })
-        .unwrap(),
-    );
+    let cylinder_mesh = meshes.add(Mesh::from(shape::Cylinder {
+        radius: 0.5,
+        height: 2.0,
+        resolution: 50,
+        segments: 1,
+    }));
 
     // Cube #1
     commands.spawn((
