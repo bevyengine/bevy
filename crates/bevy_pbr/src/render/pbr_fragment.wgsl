@@ -198,8 +198,6 @@ fn pbr_input_from_standard_material(
             in.uv_b,
             pbr_bindings::material.lightmap_exposure,
             in.instance_index);
-#else
-        pbr_input.lightmap_light = vec3<f32>(0.0);
 #endif
     }
 
