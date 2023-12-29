@@ -470,7 +470,7 @@ fn prepare_view_targets(
                     _ => clear_color_global.0,
                 };
 
-                let main_textures = textures
+                let (a, b, sampled) = textures
                     .entry((camera.target.clone(), view.hdr))
                     .or_insert_with(|| {
                         let descriptor = TextureDescriptor {
@@ -521,17 +521,19 @@ fn prepare_view_targets(
                         } else {
                             None
                         };
-                        MainTargetTextures {
-                            a: ColorAttachment::new(a, sampled.clone(), clear_color),
-                            b: ColorAttachment::new(b, sampled, clear_color),
-                            main_texture: Arc::new(AtomicUsize::new(0)),
-                        }
+                        (a, b, sampled)
                     });
 
+                let main_textures = MainTargetTextures {
+                    a: ColorAttachment::new(a.clone(), sampled.clone(), clear_color),
+                    b: ColorAttachment::new(b.clone(), sampled.clone(), clear_color),
+                    main_texture: Arc::new(AtomicUsize::new(0)),
+                };
+
                 commands.entity(entity).insert(ViewTarget {
-                    main_textures: main_textures.clone(),
-                    main_texture_format,
                     main_texture: main_textures.main_texture.clone(),
+                    main_textures,
+                    main_texture_format,
                     out_texture: out_texture_view.clone(),
                     out_texture_format: out_texture_format.add_srgb_suffix(),
                 });

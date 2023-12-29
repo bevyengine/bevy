@@ -61,6 +61,7 @@ impl Node for MsaaWritebackNode {
     fn update(&mut self, world: &mut World) {
         self.cameras.update_archetypes(world);
     }
+
     fn run(
         &self,
         graph: &mut RenderGraphContext,
@@ -116,6 +117,7 @@ impl Node for MsaaWritebackNode {
             render_pass.set_bind_group(0, &bind_group, &[]);
             render_pass.draw(0..3, 0..1);
         }
+
         Ok(())
     }
 }

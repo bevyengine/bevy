@@ -32,13 +32,13 @@ impl ColorAttachment {
     }
 
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
-    /// `clear_color` if this is the first time calling this function, otherwise the it will be loaded.
+    /// `clear_color` if this is the first time calling this function, otherwise it will be loaded.
     ///
-    /// The returned attachment will always have writing enabled (`store: true`).
+    /// The returned attachment will always have writing enabled (`store: StopOp::Load`).
     pub fn get_attachment(&self) -> RenderPassColorAttachment {
-        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
-
         if let Some(resolve_target) = self.resolve_target.as_ref() {
+            let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+
             RenderPassColorAttachment {
                 view: &resolve_target.default_view,
                 resolve_target: Some(&self.texture.default_view),
@@ -57,9 +57,9 @@ impl ColorAttachment {
     }
 
     /// Get this texture view as an attachment, without the resolve target. The attachment will be cleared with
-    /// a value of `clear_color` if this is the first time calling this function, otherwise the it will be loaded.
+    /// a value of `clear_color` if this is the first time calling this function, otherwise it will be loaded.
     ///
-    /// The returned attachment will always have writing enabled (`store: true`).
+    /// The returned attachment will always have writing enabled (`store: StopOp::Load`).
     pub fn get_unsampled_attachment(&self) -> RenderPassColorAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
@@ -96,7 +96,7 @@ impl DepthAttachment {
 
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// `clear_value` if this is the first time calling this function, and a clear value was provided,
-    /// otherwise the it will be loaded.
+    /// otherwise it will be loaded.
     pub fn get_attachment(&self, store: bool) -> RenderPassDepthStencilAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
