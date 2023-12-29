@@ -20,7 +20,7 @@ fn main() {
         .add_systems(Startup, setup)
         // You need to register a state type for it to be usable in the app.
         // This sets up all the necessary systems, schedules & resources in the background.
-        .add_state::<AppState>()
+        .init_state::<AppState>()
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
@@ -196,21 +196,21 @@ fn setup_game(
 const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y -= 1.0;
         }
 
@@ -222,21 +222,21 @@ fn movement(
 
 fn inverted_movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y -= 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y += 1.0;
         }
 
@@ -254,7 +254,7 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     }
 }
 
-fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn toggle_pause(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::Escape) {
         // Alternatively, you provide next_state with a setter function, which will take the current state, and output the new state, allowing for some degree of update-in-place
         next_state.setter(|state| match &state {
@@ -267,7 +267,7 @@ fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<App
     }
 }
 
-fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn invert_movement(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::ShiftLeft) {
         next_state.set(AppState::InGame(GameState::Running { inverted: true }));
     }

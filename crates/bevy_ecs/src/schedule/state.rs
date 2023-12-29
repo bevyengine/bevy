@@ -4,7 +4,6 @@ use std::mem;
 use std::ops::Deref;
 
 use crate as bevy_ecs;
-use crate::change_detection::DetectChangesMut;
 use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
@@ -208,7 +207,7 @@ impl<S: States> Deref for State<S> {
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
@@ -271,12 +270,6 @@ impl<S: States> Debug for NextState<S> {
             Self::Value(arg0) => f.debug_tuple("Value").field(arg0).finish(),
             Self::Setter(_) => write!(f, "Setter"),
         }
-    }
-}
-
-impl<S: States> Default for NextState<S> {
-    fn default() -> Self {
-        Self(None)
     }
 }
 

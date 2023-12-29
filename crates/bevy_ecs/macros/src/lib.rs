@@ -1,7 +1,6 @@
 extern crate proc_macro;
 
 mod component;
-mod fetch;
 mod state_matchers;
 mod query_data;
 mod query_filter;

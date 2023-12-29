@@ -58,7 +58,7 @@ fn main() {
         )
         // We can also have more than one state type set up in an app.
         // In this case, we are adding a Struct as our state type, instead of an enum.
-        .add_state::<MovementState>()
+        .init_state::<MovementState>()
         // And we can chain states just like any run condition, to check against multiple different states!
         .add_systems(
             Update,
@@ -212,21 +212,21 @@ fn movement(
 
 fn inverted_movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y -= 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y += 1.0;
         }
 
@@ -244,7 +244,7 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     }
 }
 
-fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn toggle_pause(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::Escape) {
         // Alternatively, you provide next_state with a setter function, which will take the current state, and output the new state, allowing for some degree of update-in-place
         next_state.setter(|state| match &state {
@@ -257,7 +257,7 @@ fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<App
     }
 }
 
-fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<MovementState>>) {
+fn invert_movement(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<MovementState>>) {
     if input.just_pressed(KeyCode::ShiftLeft) {
         next_state.set(MovementState { inverted: true });
     }

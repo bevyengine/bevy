@@ -12,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_state::<AppState>()
+        .init_state::<AppState>()
         .add_systems(
             Exiting,
             cleanup_ui.run_if(state_matches!(AppState, every _)),

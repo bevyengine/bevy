@@ -16,7 +16,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Update, toggle_pause)
         .add_systems(Startup, setup)
-        .add_state::<AppState>()
+        .init_state::<AppState>()
         // Because we can't really see the internals of `AppState`, we need to rely on matching functions exported from
         // the `state` module. Fortunately, we can use these with the `entering`/`exiting`/`transitioning` functions!
         // Here we are using the `in_menu` function, which uses a derive to match any state with `in_menu: true`
@@ -303,21 +303,21 @@ fn setup_game(
 const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y -= 1.0;
         }
 
@@ -329,21 +329,21 @@ fn movement(
 
 fn inverted_movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y -= 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y += 1.0;
         }
 
@@ -361,14 +361,14 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     }
 }
 
-fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn toggle_pause(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::Escape) {
         // Like above, we can use the supported operations
         next_state.setter(|state| state.toggle_pause());
     }
 }
 
-fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn invert_movement(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::ShiftLeft) {
         next_state.setter(|s| s.invert_movement());
     }

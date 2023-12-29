@@ -538,6 +538,10 @@ impl<S: States, M: 'static, Sm: StateMatcher<S, M>> System for StateMatcherSyste
     fn set_last_run(&mut self, last_run: crate::component::Tick) {
         self.0.set_last_run(last_run);
     }
+
+    fn has_deferred(&self) -> bool {
+        false
+    }
 }
 
 /// SAFETY: The boxed system is must be a read only system
