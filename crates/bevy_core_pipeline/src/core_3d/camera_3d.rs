@@ -1,7 +1,4 @@
-use crate::{
-    clear_color::ClearColorConfig,
-    tonemapping::{DebandDither, Tonemapping},
-};
+use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
@@ -19,8 +16,6 @@ use serde::{Deserialize, Serialize};
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub struct Camera3d {
-    /// The clear color operation to perform for the main 3d pass.
-    pub clear_color: ClearColorConfig,
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
     /// The texture usages for the depth texture created for the main 3d pass.
@@ -55,7 +50,6 @@ pub struct Camera3d {
 impl Default for Camera3d {
     fn default() -> Self {
         Self {
-            clear_color: ClearColorConfig::Default,
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
             screen_space_specular_transmission_steps: 1,
