@@ -366,7 +366,7 @@ pub fn prepare_meshlet_view_bind_groups(
                 &gpu_scene.downsample_depth_bind_group_layout,
                 &BindGroupEntries::sequential((
                     if i == 0 {
-                        &view_depth_texture.view
+                        view_depth_texture.view()
                     } else {
                         &view_resources.depth_pyramid_mips[i - 1]
                     },

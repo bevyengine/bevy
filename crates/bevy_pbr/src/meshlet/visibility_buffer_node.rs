@@ -2,7 +2,6 @@ use super::{
     gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
     pipelines::MeshletPipelines,
 };
-use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -27,7 +26,6 @@ pub struct MeshletVisibilityBufferPassNode;
 impl ViewNode for MeshletVisibilityBufferPassNode {
     type ViewData = (
         &'static ExtractedCamera,
-        &'static Camera3d,
         &'static ViewDepthTexture,
         &'static ViewUniformOffset,
         &'static MeshletViewBindGroups,
@@ -38,7 +36,9 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, camera_3d, depth, view_offset, meshlet_view_bind_groups, meshlet_view_resources): QueryItem<Self::ViewData>,
+        (camera, depth, view_offset, meshlet_view_bind_groups, meshlet_view_resources): QueryItem<
+            Self::ViewData,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let Some((
