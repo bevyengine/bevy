@@ -128,10 +128,8 @@ impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
     /// Pre-hashes the given value using the [`BuildHasher`] configured in the [`Hashed`] type.
     pub fn new(value: V) -> Self {
         let builder = H::default();
-        let mut hasher = builder.build_hasher();
-        value.hash(&mut hasher);
         Self {
-            hash: hasher.finish(),
+            hash: builder.hash_one(&value),
             value,
             marker: PhantomData,
         }
