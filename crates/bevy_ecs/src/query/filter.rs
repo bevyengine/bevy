@@ -518,7 +518,7 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// should be distributed within according to [de Morgan's laws](https://en.wikipedia.org/wiki/De_Morgan%27s_laws).
 ///
 /// # Examples
-/// 
+///
 /// ```
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
@@ -621,10 +621,52 @@ where
     }
 
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-        T::update_component_access(state, access);
+        let mut intermediate = FilteredAccess::<ComponentId>::default();
+        T::update_component_access(state, &mut intermediate);
 
-        for filter in &mut access.filter_sets {
-            std::mem::swap(&mut filter.with, &mut filter.without);
+        for i in 0..intermediate.filter_sets.len() {
+            for j in i..intermediate.filter_sets.len() {
+                let filter_a = &intermediate.filter_sets[i];
+                let filter_b = &intermediate.filter_sets[j];
+
+                for a in filter_a.with.ones() {
+                    for b in filter_b.with.ones() {
+                        let mut inverted = FilteredAccess::<ComponentId>::default();
+                        inverted.and_without(ComponentId::new(a));
+                        inverted.and_without(ComponentId::new(b));
+                        access.append_or(&inverted);
+                    }
+                    for b in filter_b.without.ones() {
+                        // with & without the same component is always false, so don't add it
+                        if a == b {
+                            continue;
+                        }
+                        let mut inverted = FilteredAccess::<ComponentId>::default();
+                        inverted.and_without(ComponentId::new(a));
+                        inverted.and_with(ComponentId::new(b));
+                        access.append_or(&inverted);
+                    }
+                }
+
+                for a in filter_a.without.ones() {
+                    for b in filter_b.with.ones() {
+                        // with & without the same component is always false, so don't add it
+                        if a == b {
+                            continue;
+                        }
+                        let mut inverted = FilteredAccess::<ComponentId>::default();
+                        inverted.and_with(ComponentId::new(a));
+                        inverted.and_without(ComponentId::new(b));
+                        access.append_or(&inverted);
+                    }
+                    for b in filter_b.without.ones() {
+                        let mut inverted = FilteredAccess::<ComponentId>::default();
+                        inverted.and_with(ComponentId::new(a));
+                        inverted.and_with(ComponentId::new(b));
+                        access.append_or(&inverted);
+                    }
+                }
+            }
         }
     }
 
@@ -688,6 +730,14 @@ unsafe impl<T: Component> InvertibleFilter for Changed<T> {}
 unsafe impl<T: Component> InvertibleFilter for With<T> {}
 /// SAFETY: `Without<T>` is a primitive archetypal filter.
 unsafe impl<T: Component> InvertibleFilter for Without<T> {}
+/// SAFETY: As long as the inner filter is purely archetypal or purely non-archetypal, the `Or`
+/// form will also be.
+unsafe impl<T> InvertibleFilter for Or<T>
+where
+    Or<T>: QueryFilter,
+    T: InvertibleFilter,
+{
+}
 
 /// A filter on a component that only retains results added after the system last ran.
 ///

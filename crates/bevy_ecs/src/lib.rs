@@ -59,6 +59,7 @@ type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::query::InvertibleFilter;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -1880,5 +1881,65 @@ mod tests {
         *world.get_mut(e1).unwrap() = A(0);
         *world.get_mut(e1).unwrap() = B(0);
         assert_eq!(get_unchanged(&mut world), vec![]);
+    }
+    #[test]
+    #[should_panic]
+    fn query_filter_not_tuple() {
+        let mut world = World::default();
+        let _e1 = world.spawn((A(0), B(0), C)).id();
+
+        use crate::prelude::Query;
+        fn system(
+            _q1: Query<(Entity, &mut C), (With<A>, Not<Without<B>>)>,
+            _q2: Query<(Entity, &mut C), With<A>>,
+        ) {
+        }
+
+        let system_id = world.register_system(system);
+        _ = world.run_system(system_id);
+    }
+    #[test]
+    fn query_filter_not_advanced() {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component)]
+        struct B;
+        #[derive(Component)]
+        struct C;
+        #[derive(Component)]
+        struct D;
+
+        type Filter = (Or<(With<A>, Without<B>)>, Or<(Without<C>, With<D>)>);
+
+        type Inverted = Or<((Without<A>, With<B>), (With<C>, Without<D>))>;
+        unsafe impl InvertibleFilter for Filter {}
+
+        let mut world = World::default();
+        world.spawn(A);
+        world.spawn(B);
+        world.spawn(C);
+        world.spawn(D);
+        world.spawn((A, B));
+        world.spawn((A, C));
+        world.spawn((A, D));
+        world.spawn((B, C));
+        world.spawn((B, D));
+        world.spawn((C, D));
+        world.spawn((A, B, C));
+        world.spawn((B, C, D));
+        world.spawn((A, B, C, D));
+        world.spawn_empty();
+
+        let q1 = world
+            .query_filtered::<Entity, Not<Filter>>()
+            .iter(&world)
+            .collect::<Vec<_>>();
+
+        let q2 = world
+            .query_filtered::<Entity, Inverted>()
+            .iter(&world)
+            .collect::<Vec<_>>();
+
+        assert_eq!(q1, q2);
     }
 }
