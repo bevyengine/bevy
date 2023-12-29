@@ -515,14 +515,10 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// A filter that tests if the given filter does not apply.
 ///
 /// This filter does not compose with the [`Or`] filter or with tuples of filters. Instead, [`Not`]
-/// should be distributed within according to de Morgan's laws.
-///
-/// For example, `Not<Or<(Changed<A>, Changed<B>)>>` should become `(Not<Changed<A>>, Not<Changed<B>>)`.
-///
-/// `Not<(Changed<A>, Changed<B>)>` should become `Or<(Not<Changed<A>>, Not<Changed<B>>)>`.
+/// should be distributed within according to [de Morgan's laws](https://en.wikipedia.org/wiki/De_Morgan%27s_laws).
 ///
 /// # Examples
-///
+/// 
 /// ```
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
@@ -540,15 +536,40 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(print_still_entity_system);
+/// ```
+///
+/// Filtering for components that were mutated:
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Added;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::query::Not;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// #
+/// fn print_mutated_component_system(
+///     query: Query<Entity, (Changed<MyComponent>, Not<Added<MyComponent>>)>
+/// ) {
+///     for entity in &query {
+///         println!("Entity {:?} had MyComponent changed, but was not just added", entity);
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(print_mutated_component_system);
+/// ```
 pub struct Not<T>(PhantomData<T>);
 
 /// SAFETY:
 ///
-/// For archetypal filters, this inverts the access in `update_component_access` as well as in
+/// For purely archetypal filters, this inverts the access in `update_component_access` as well as in
 /// `matches_component_set`, ensuring that they match.
 ///
-/// For non-archetypal filters, this maintains the same read accesses as the original filter in
+/// For purely non-archetypal filters, this maintains the same read accesses as the original filter in
 /// both instances.
+
 unsafe impl<T> WorldQuery for Not<T>
 where
     T: QueryFilter + InvertibleFilter,
@@ -651,12 +672,22 @@ where
     }
 }
 
-trait InvertibleFilter {}
+/// Filters that can be inverted by the [`Not`] filter.
+///
+/// # Safety
+/// This trait must only be implemented for filters that are entirely archetypal or entirely
+/// non-archetypal.
 
-impl<T> InvertibleFilter for Added<T> {}
-impl<T> InvertibleFilter for Changed<T> {}
-impl<T> InvertibleFilter for With<T> {}
-impl<T> InvertibleFilter for Without<T> {}
+pub unsafe trait InvertibleFilter: QueryFilter {}
+
+/// SAFETY: `Added<T>` is a primitive non-archetypal filter.
+unsafe impl<T: Component> InvertibleFilter for Added<T> {}
+/// SAFETY: `Changed<T>` is a primitive non-archetypal filter.
+unsafe impl<T: Component> InvertibleFilter for Changed<T> {}
+/// SAFETY: `With<T>` is a primitive archetypal filter.
+unsafe impl<T: Component> InvertibleFilter for With<T> {}
+/// SAFETY: `Without<T>` is a primitive archetypal filter.
+unsafe impl<T: Component> InvertibleFilter for Without<T> {}
 
 /// A filter on a component that only retains results added after the system last ran.
 ///
