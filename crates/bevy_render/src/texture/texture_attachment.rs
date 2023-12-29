@@ -38,17 +38,21 @@ impl ColorAttachment {
     pub fn get_attachment(&self) -> RenderPassColorAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
-        RenderPassColorAttachment {
-            view: &self.texture.default_view,
-            resolve_target: self.resolve_target.as_ref().map(|t| &*t.default_view),
-            ops: Operations {
-                load: if first_call {
-                    LoadOp::Clear(self.clear_color.into())
-                } else {
-                    LoadOp::Load
+        if let Some(resolve_target) = self.resolve_target.as_ref() {
+            RenderPassColorAttachment {
+                view: &resolve_target.default_view,
+                resolve_target: Some(&self.texture.default_view),
+                ops: Operations {
+                    load: if first_call {
+                        LoadOp::Clear(self.clear_color.into())
+                    } else {
+                        LoadOp::Load
+                    },
+                    store: StoreOp::Store,
                 },
-                store: StoreOp::Store,
-            },
+            }
+        } else {
+            self.get_unsampled_attachment()
         }
     }
 
