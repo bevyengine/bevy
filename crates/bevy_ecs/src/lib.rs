@@ -1912,6 +1912,8 @@ mod tests {
         type Filter = (Or<(With<A>, Without<B>)>, Or<(Without<C>, With<D>)>);
 
         type Inverted = Or<((Without<A>, With<B>), (With<C>, Without<D>))>;
+
+        /// SAFETY: only consists of archetypal filters
         unsafe impl InvertibleFilter for Filter {}
 
         let mut world = World::default();
