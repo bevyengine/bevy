@@ -4,7 +4,7 @@
 //! and assorted support items.
 
 use crate::prelude::Gizmos;
-use bevy_math::{Angle, Quat, Radians, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use std::f32::consts::TAU;
 
@@ -12,7 +12,7 @@ pub(crate) const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
 fn circle_inner(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
     (0..segments + 1).map(move |i| {
-        let angle = Radians(i as f32 * TAU / segments as f32);
+        let angle = i as f32 * TAU / segments as f32;
         Vec2::from(angle.sin_cos()) * radius
     })
 }
