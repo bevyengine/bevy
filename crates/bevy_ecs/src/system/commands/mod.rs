@@ -56,11 +56,7 @@ pub trait Command: Send + 'static {
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// when the [`apply_deferred`] system runs.
-///
-/// The command queue of an individual system can also be manually applied
-/// by calling [`System::apply_deferred`].
-/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_deferred`].
+/// when the `apply_deferred` system runs (see [`apply_deferred`] documentation for more details).
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -106,9 +102,7 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [`System::apply_deferred`]: crate::system::System::apply_deferred
 /// [`apply_deferred`]: crate::schedule::apply_deferred
-/// [`Schedule::apply_deferred`]: crate::schedule::Schedule::apply_deferred
 #[derive(SystemParam)]
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
