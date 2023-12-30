@@ -30,15 +30,9 @@ use std::{
 /// // Small threshold for floating point error
 /// assert!((wrapped - alpha).abs() < Angle::radians(0.000001));
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Angle(f32);
-
-impl Default for Angle {
-    fn default() -> Self {
-        Self::ZERO
-    }
-}
 
 impl Angle {
     /// An angle of zero.
@@ -128,6 +122,7 @@ impl Angle {
 
     /// Wraps the angle to be within the `[-2pi, 2pi)` range.
     #[inline]
+    #[doc(alias = "normalize")]
     pub fn wrap(self) -> Self {
         Self(self.0 % std::f32::consts::TAU)
     }
