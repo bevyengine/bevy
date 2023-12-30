@@ -49,7 +49,7 @@ pub trait RenderAsset: Asset + Clone {
 ///
 /// Unloading the asset saves on memory, as for most cases it is no longer neccesary to keep
 /// it in RAM once it's been uploaded to the GPU's VRAM. However, this means you can no longer
-/// access the asset from the CPU (via the Assets<T> resource) once unloaded (without re-loading it).
+/// access the asset from the CPU (via the `Assets<T>` resource) once unloaded (without re-loading it).
 ///
 /// If you never need access to the asset from the CPU past the first frame it's loaded on,
 /// or only need very infrequent access, then set this to Unload. Otherwise, set this to Keep.
