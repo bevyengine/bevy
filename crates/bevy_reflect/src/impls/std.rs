@@ -1295,7 +1295,7 @@ impl<T: FromReflect + Clone + TypePath> FromReflect for Cow<'static, [T]> {
             for field in ref_list.iter() {
                 temp_vec.push(T::from_reflect(field)?);
             }
-            temp_vec.try_into().ok()
+            Some(temp_vec.into())
         } else {
             None
         }
