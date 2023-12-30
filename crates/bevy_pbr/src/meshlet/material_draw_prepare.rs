@@ -130,7 +130,6 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
         }
 
         let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-
         if environment_map_loaded {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
@@ -163,6 +162,7 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }
+
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }

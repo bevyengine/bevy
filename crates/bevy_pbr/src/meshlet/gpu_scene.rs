@@ -107,6 +107,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
             .get(instance)
             .expect("TODO")
             .untyped();
+
         let material_id = *gpu_scene
             .material_id_lookup
             .get(&material_asset_id)
