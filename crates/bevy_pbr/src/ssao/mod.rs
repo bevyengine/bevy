@@ -7,7 +7,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
-    query::{QueryItem, With},
+    query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
@@ -612,7 +612,7 @@ fn prepare_ssao_pipelines(
     views: Query<(
         Entity,
         &ScreenSpaceAmbientOcclusionSettings,
-        Option<&TemporalJitter>,
+        Has<TemporalJitter>,
     )>,
 ) {
     for (entity, ssao_settings, temporal_jitter) in &views {
@@ -621,7 +621,7 @@ fn prepare_ssao_pipelines(
             &pipeline,
             SsaoPipelineKey {
                 ssao_settings: ssao_settings.clone(),
-                temporal_jitter: temporal_jitter.is_some(),
+                temporal_jitter,
             },
         );
 
