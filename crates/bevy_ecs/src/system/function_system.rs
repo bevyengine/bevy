@@ -34,7 +34,10 @@ pub struct SystemMeta {
 }
 
 impl SystemMeta {
-    pub(crate) fn new<T>() -> Self {
+    /// Creates a new empty system meta with `T` type name as its system name.
+    ///
+    /// This function rarely needed to be called directly.
+    pub fn new<T>() -> Self {
         let name = std::any::type_name::<T>();
         Self {
             name: name.into(),
