@@ -27,7 +27,10 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, ClearColor, OrthographicProjection, PerspectiveProjection, Projection},
+        camera::{
+            Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
+            Projection,
+        },
         color::Color,
         mesh::{morph::MorphWeights, shape, Mesh},
         render_resource::Shader,
