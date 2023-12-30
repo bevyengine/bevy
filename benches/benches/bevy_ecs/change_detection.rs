@@ -46,7 +46,6 @@ impl BenchModify for Sparse {
 }
 
 const ENTITIES_TO_BENCH_COUT: [u32; 2] = [5000, 50000];
-const ARCHETYPES_TO_BENCH_COUT: [u16; 3] = [5, 50, 100];
 
 type BenchGroup<'a> = criterion::BenchmarkGroup<'a, criterion::measurement::WallTime>;
 
@@ -320,8 +319,8 @@ fn multiple_archetype_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("multiple_archetype_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(800));
     group.measurement_time(std::time::Duration::from_secs(8));
-    for archetype_count in ARCHETYPES_TO_BENCH_COUT {
-        for entity_count in ENTITIES_TO_BENCH_COUT {
+    for archetype_count in [5,20,100] {
+        for entity_count in [10,100,1000,10000] {
             multiple_archetype_changed_detection_generic::<Table>(
                 &mut group,
                 archetype_count,
