@@ -10,7 +10,6 @@ keywords = ["bevy"]
 
 [features]
 pbr_transmission_textures = []
-# extensions = ["gltf/extensions"]
 
 [dependencies]
 # bevy

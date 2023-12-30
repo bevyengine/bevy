@@ -676,7 +676,7 @@ async fn load_gltf<'a, 'b, 'c>(
         #[cfg(feature = "bevy_animation")]
         named_animations,
         source: if settings.include_source {
-            Some(gltf) // TODO: check if there's any data in this structure that bevy moves out of during conversion.
+            Some(gltf)
         } else {
             None
         },
