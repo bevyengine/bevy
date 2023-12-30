@@ -19,7 +19,6 @@
 //! | `humanoids_mixed`    | 2000 active and 2000 inactive humanoid rigs.                      |
 
 use bevy::prelude::*;
-use bevy_internal::math::Radians;
 use rand::Rng;
 
 /// pre-defined test configurations with name

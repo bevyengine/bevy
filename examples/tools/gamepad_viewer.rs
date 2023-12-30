@@ -7,7 +7,6 @@ use bevy::{
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
-use bevy_internal::math::Radians;
 
 const BUTTON_RADIUS: f32 = 25.;
 const BUTTON_CLUSTER_RADIUS: f32 = 50.;
