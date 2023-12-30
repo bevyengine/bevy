@@ -306,7 +306,7 @@ impl BlobVec {
     /// The removed element is replaced by the last element of the `BlobVec`.
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is < self.len()
+    /// It is the caller's responsibility to ensure that `index` is `< self.len()`.
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
