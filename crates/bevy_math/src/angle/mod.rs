@@ -33,7 +33,7 @@ pub trait Angle:
     #[doc(alias = "STRAIGHT_ANGLE")]
     const HALF: Self;
     /// A `360` degree angle (perigon). Equivalent to `2π` radians.
-    #[doc(alias = "FULL_ANGLE")]
+    #[doc(alias("PERIGON", "FULL_ANGLE"))]
     const FULL: Self;
 
     /// Creates a new angle.
