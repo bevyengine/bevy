@@ -12,7 +12,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
-pub struct Camera2d {}
+pub struct Camera2d;
 
 #[derive(Bundle)]
 pub struct Camera2dBundle {
