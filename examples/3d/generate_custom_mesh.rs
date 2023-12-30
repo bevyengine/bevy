@@ -98,17 +98,17 @@ fn input_handler(
     }
     if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
-            transform.rotate_x(Angle::radians(time.delta_seconds() / 1.2));
+            transform.rotate_x(Radians(time.delta_seconds() / 1.2));
         }
     }
     if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
-            transform.rotate_y(Angle::radians(time.delta_seconds() / 1.2));
+            transform.rotate_y(Radians(time.delta_seconds() / 1.2));
         }
     }
     if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
-            transform.rotate_z(Angle::radians(time.delta_seconds() / 1.2));
+            transform.rotate_z(Radians(time.delta_seconds() / 1.2));
         }
     }
     if keyboard_input.pressed(KeyCode::KeyR) {

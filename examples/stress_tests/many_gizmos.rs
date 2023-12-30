@@ -61,7 +61,7 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
         }
     } else {
         for i in 0..(config.line_count / SYSTEM_COUNT) {
-            let angle = Angle::radians(i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU);
+            let angle = Radians(i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU);
 
             let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
             let start_color = Color::rgb(vector.x, vector.z, 0.5);

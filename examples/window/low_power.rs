@@ -117,8 +117,8 @@ pub(crate) mod test_setup {
         mut cube_transform: Query<&mut Transform, With<Rotator>>,
     ) {
         for mut transform in &mut cube_transform {
-            transform.rotate_x(Angle::radians(time.delta_seconds()));
-            transform.rotate_local_y(Angle::radians(time.delta_seconds()));
+            transform.rotate_x(Radians(time.delta_seconds()));
+            transform.rotate_local_y(Radians(time.delta_seconds()));
         }
     }
 

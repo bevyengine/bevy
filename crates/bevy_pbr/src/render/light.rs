@@ -1,6 +1,6 @@
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
-use bevy_math::{Angle, Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Angle, Mat4, Radians, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
     color::Color,
@@ -35,7 +35,7 @@ pub struct ExtractedPointLight {
     shadows_enabled: bool,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
-    spot_light_angles: Option<(Angle, Angle)>,
+    spot_light_angles: Option<(Radians, Radians)>,
 }
 
 #[derive(Component, Debug)]
@@ -635,9 +635,9 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     )
 }
 
-pub(crate) fn spot_light_projection_matrix(angle: Angle) -> Mat4 {
+pub(crate) fn spot_light_projection_matrix(angle: impl Into<Radians>) -> Mat4 {
     // spot light projection FOV is 2x the angle from spot light center to outer edge
-    Mat4::perspective_infinite_reverse_rh(angle.as_radians() * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
+    Mat4::perspective_infinite_reverse_rh(angle.into().0 * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
 
 #[allow(clippy::too_many_arguments)]

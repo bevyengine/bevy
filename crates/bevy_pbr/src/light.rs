@@ -2,7 +2,8 @@ use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 use bevy_math::{
-    Angle, AspectRatio, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+    Angle, AspectRatio, Mat4, Radians, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4,
+    Vec4Swizzles,
 };
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -107,12 +108,12 @@ pub struct SpotLight {
     /// `outer_angle` should be < `PI / 2.0`.
     /// `PI / 2.0` defines a hemispherical spot light, but shadows become very blocky as the angle
     /// approaches this limit.
-    pub outer_angle: Angle,
+    pub outer_angle: Radians,
     /// Angle defining the distance from the spot light direction to the inner limit
     /// of the light's cone of effect.
     /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
     /// `inner_angle` should be <= `outer_angle`
-    pub inner_angle: Angle,
+    pub inner_angle: Radians,
 }
 
 impl SpotLight {
@@ -131,8 +132,8 @@ impl Default for SpotLight {
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-            inner_angle: Angle::ZERO,
-            outer_angle: Angle::FRAC_PI_4,
+            inner_angle: Radians::ZERO,
+            outer_angle: Radians::FRAC_PI_4,
         }
     }
 }
@@ -1155,7 +1156,7 @@ pub(crate) struct PointLightAssignmentData {
     transform: GlobalTransform,
     range: f32,
     shadows_enabled: bool,
-    spot_light_angle: Option<Angle>,
+    spot_light_angle: Option<Radians>,
     render_layers: RenderLayers,
 }
 

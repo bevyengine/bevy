@@ -54,8 +54,8 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
     // 1 and 32, using the arc length as scalar.
     gizmos.arc_2d(
         Vec2::ZERO,
-        Angle::radians(sin / 10.),
-        Angle::radians(PI / 2.),
+        Radians(sin / 10.),
+        Radians(PI / 2.),
         350.,
         Color::ORANGE_RED,
     );

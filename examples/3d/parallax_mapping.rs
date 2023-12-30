@@ -27,7 +27,7 @@ fn main() {
 
 #[derive(Component)]
 struct Spin {
-    speed: Angle,
+    speed: Radians,
 }
 
 /// The camera, used to move camera on click.
@@ -292,7 +292,7 @@ fn setup(
             ..default()
         },
         Spin {
-            speed: Angle::radians(0.3),
+            speed: Radians(0.3),
         },
     ));
 
@@ -311,7 +311,7 @@ fn setup(
                 ..default()
             },
             Spin {
-                speed: Angle::radians(-0.1),
+                speed: Radians(-0.1),
             },
         )
     };

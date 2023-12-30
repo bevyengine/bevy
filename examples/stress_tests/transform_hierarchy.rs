@@ -19,7 +19,7 @@
 //! | `humanoids_mixed`    | 2000 active and 2000 inactive humanoid rigs.                      |
 
 use bevy::prelude::*;
-use bevy_internal::math::Angle;
+use bevy_internal::math::Radians;
 use rand::Rng;
 
 /// pre-defined test configurations with name
@@ -248,12 +248,12 @@ struct UpdateValue(f32);
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>) {
     for (mut t, mut u) in &mut query {
         u.0 += time.delta_seconds() * 0.1;
-        set_translation(&mut t.translation, Angle::radians(u.0));
+        set_translation(&mut t.translation, Radians(u.0));
     }
 }
 
 /// set translation based on the angle `a`
-fn set_translation(translation: &mut Vec3, a: Angle) {
+fn set_translation(translation: &mut Vec3, a: Radians) {
     translation.x = a.cos() * 32.0;
     translation.y = a.sin() * 32.0;
 }
@@ -410,7 +410,7 @@ fn spawn_tree(
                 let mut translation = Vec3::ZERO;
                 // use the same placement fn as the `update` system
                 // this way the entities won't be all at (0, 0, 0) when they don't have an `Update` component
-                set_translation(&mut translation, Angle::radians(sep));
+                set_translation(&mut translation, Radians(sep));
                 Transform::from_translation(translation)
             };
 

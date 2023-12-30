@@ -90,8 +90,8 @@ fn setup(
                         intensity: 200.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
-                        inner_angle: Angle::FRAC_PI_4 * 0.85,
-                        outer_angle: Angle::FRAC_PI_4,
+                        inner_angle: Radians::FRAC_PI_4 * 0.85,
+                        outer_angle: Radians::FRAC_PI_4,
                         ..default()
                     },
                     ..default()
@@ -134,8 +134,7 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)
             (time.elapsed_seconds() * 3.0).sin() * 0.5,
             0.0,
         );
-        let angle =
-            Angle::radians(((time.elapsed_seconds() * 1.2).sin() + 1.0) * (FRAC_PI_4 - 0.1));
+        let angle = Radians(((time.elapsed_seconds() * 1.2).sin() + 1.0) * (FRAC_PI_4 - 0.1));
         angles.inner_angle = angle * 0.8;
         angles.outer_angle = angle;
     }

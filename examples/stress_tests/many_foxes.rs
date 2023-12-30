@@ -147,7 +147,7 @@ fn setup(
 
         let circumference = PI * 2. * radius;
         let foxes_in_ring = ((circumference / FOX_SPACING) as usize).min(foxes_remaining);
-        let fox_spacing_angle = Angle::radians(circumference / (foxes_in_ring as f32 * radius));
+        let fox_spacing_angle = Radians(circumference / (foxes_in_ring as f32 * radius));
 
         for fox_i in 0..foxes_in_ring {
             let fox_angle = fox_i as f32 * fox_spacing_angle;
@@ -159,9 +159,7 @@ fn setup(
                     scene: fox_handle.clone(),
                     transform: Transform::from_xyz(x, 0.0, z)
                         .with_scale(Vec3::splat(0.01))
-                        .with_rotation(
-                            base_rotation * Quat::from_rotation_y(-fox_angle.as_radians()),
-                        ),
+                        .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle.0)),
                     ..default()
                 });
             });
@@ -244,7 +242,7 @@ fn update_fox_rings(
 
     let dt = time.delta_seconds();
     for (ring, rotation_direction, mut transform) in &mut rings {
-        let angular_velocity = Angle::radians(foxes.speed / ring.radius);
+        let angular_velocity = Radians(foxes.speed / ring.radius);
         transform.rotate_y(rotation_direction.sign() * angular_velocity * dt);
     }
 }
