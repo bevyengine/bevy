@@ -73,7 +73,6 @@ naga_oil = { version = "0.11", default-features = false, features = [
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
-smallvec = { version = "1.6", features = ["union", "const_generics"] }
 downcast-rs = "1.2.0"
 thread_local = "1.1"
 thiserror = "1.0"

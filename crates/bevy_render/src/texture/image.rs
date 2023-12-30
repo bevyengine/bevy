@@ -859,9 +859,9 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
-        const ASTC_LDR = (1 << 0);
-        const BC       = (1 << 1);
-        const ETC2     = (1 << 2);
+        const ASTC_LDR = 1 << 0;
+        const BC       = 1 << 1;
+        const ETC2     = 1 << 2;
     }
 }
 

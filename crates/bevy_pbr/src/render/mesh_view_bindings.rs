@@ -50,11 +50,11 @@ bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     pub struct MeshPipelineViewLayoutKey: u32 {
-        const MULTISAMPLED                = (1 << 0);
-        const DEPTH_PREPASS               = (1 << 1);
-        const NORMAL_PREPASS              = (1 << 2);
-        const MOTION_VECTOR_PREPASS       = (1 << 3);
-        const DEFERRED_PREPASS            = (1 << 4);
+        const MULTISAMPLED                = 1 << 0;
+        const DEPTH_PREPASS               = 1 << 1;
+        const NORMAL_PREPASS              = 1 << 2;
+        const MOTION_VECTOR_PREPASS       = 1 << 3;
+        const DEFERRED_PREPASS            = 1 << 4;
     }
 }
 

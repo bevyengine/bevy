@@ -1383,6 +1383,7 @@ mod tests {
         // List (SmallVec)
         #[cfg(feature = "smallvec")]
         {
+            use bevy_utils::smallvec;
             type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
             let info = MySmallVec::type_info();
@@ -1899,16 +1900,16 @@ bevy_reflect::tests::Test {
                 })
             }
 
+            fn type_ident() -> Option<&'static str> {
+                Some("Foo")
+            }
+
             fn crate_name() -> Option<&'static str> {
                 Some("bevy_reflect")
             }
 
             fn module_path() -> Option<&'static str> {
                 Some("bevy_reflect::tests")
-            }
-
-            fn type_ident() -> Option<&'static str> {
-                Some("Foo")
             }
         }
 
