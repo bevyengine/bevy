@@ -1,3 +1,4 @@
+use crate::meta::NoProcess;
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     meta::{
@@ -102,15 +103,17 @@ where
     }
 
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
-        let meta = AssetMeta::<L, ()>::deserialize(meta)?;
+        let meta = AssetMeta::<L, NoProcess>::deserialize(meta)?;
         Ok(Box::new(meta))
     }
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
-        Box::new(AssetMeta::<L, ()>::new(crate::meta::AssetAction::Load {
-            loader: self.type_name().to_string(),
-            settings: L::Settings::default(),
-        }))
+        Box::new(AssetMeta::<L, NoProcess>::new(
+            crate::meta::AssetAction::Load {
+                loader: self.type_name().to_string(),
+                settings: L::Settings::default(),
+            },
+        ))
     }
 
     fn type_name(&self) -> &'static str {

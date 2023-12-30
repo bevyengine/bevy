@@ -1,3 +1,4 @@
+use crate::meta::{NoAssetLoader, NoProcess};
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
@@ -29,7 +30,7 @@ pub trait Process: Send + Sync + Sized + 'static {
     fn process<'a>(
         &'a self,
         context: &'a mut ProcessContext,
-        meta: AssetMeta<(), Self>,
+        meta: AssetMeta<NoAssetLoader, Self>,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>>;
 }
@@ -121,14 +122,14 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
     fn process<'a>(
         &'a self,
         context: &'a mut ProcessContext,
-        meta: AssetMeta<(), Self>,
+        meta: AssetMeta<NoAssetLoader, Self>,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
         Box::pin(async move {
             let AssetAction::Process { settings, .. } = meta.asset else {
                 return Err(ProcessError::WrongMetaType);
             };
-            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+            let loader_meta = AssetMeta::<Loader, NoProcess>::new(AssetAction::Load {
                 loader: std::any::type_name::<Loader>().to_string(),
                 settings: settings.loader_settings,
             });
@@ -170,25 +171,27 @@ impl<P: Process> ErasedProcessor for P {
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {
         Box::pin(async move {
             let meta = meta
-                .downcast::<AssetMeta<(), P>>()
+                .downcast::<AssetMeta<NoAssetLoader, P>>()
                 .map_err(|_e| ProcessError::WrongMetaType)?;
             let loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
-                Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
-                    loader: std::any::type_name::<P::OutputLoader>().to_string(),
-                    settings: loader_settings,
-                }));
+                Box::new(AssetMeta::<P::OutputLoader, NoProcess>::new(
+                    AssetAction::Load {
+                        loader: std::any::type_name::<P::OutputLoader>().to_string(),
+                        settings: loader_settings,
+                    },
+                ));
             Ok(output_meta)
         })
     }
 
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
-        let meta: AssetMeta<(), P> = ron::de::from_bytes(meta)?;
+        let meta: AssetMeta<NoAssetLoader, P> = ron::de::from_bytes(meta)?;
         Ok(Box::new(meta))
     }
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
-        Box::new(AssetMeta::<(), P>::new(AssetAction::Process {
+        Box::new(AssetMeta::<NoAssetLoader, P>::new(AssetAction::Process {
             processor: std::any::type_name::<P>().to_string(),
             settings: P::Settings::default(),
         }))
@@ -242,7 +245,7 @@ impl<'a> ProcessContext<'a> {
     /// current asset.
     pub async fn load_source_asset<L: AssetLoader>(
         &mut self,
-        meta: AssetMeta<L, ()>,
+        meta: AssetMeta<L, NoProcess>,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         let server = &self.processor.server;
         let loader_name = std::any::type_name::<L>();

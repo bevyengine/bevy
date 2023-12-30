@@ -1,6 +1,7 @@
-use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
+use crate::{self as bevy_asset, DeserializeMetaError};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use bevy_log::error;
+use bevy_reflect::TypePath;
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
@@ -166,32 +167,31 @@ impl<T: 'static> Settings for T where T: Send + Sync {}
 
 impl_downcast!(Settings);
 
-/// The () processor should never be called. This implementation exists to make the meta format nicer to work with.
-impl Process for () {
+/// `NoProcess` processor is never called. This implementation exists to make the meta format nicer to work with.
+pub enum NoProcess {}
+
+impl Process for NoProcess {
     type Settings = ();
-    type OutputLoader = ();
+    type OutputLoader = NoAssetLoader;
 
     fn process<'a>(
         &'a self,
         _context: &'a mut bevy_asset::processor::ProcessContext,
-        _meta: AssetMeta<(), Self>,
+        _meta: AssetMeta<NoAssetLoader, Self>,
         _writer: &'a mut bevy_asset::io::Writer,
     ) -> bevy_utils::BoxedFuture<'a, Result<(), bevy_asset::processor::ProcessError>> {
-        unreachable!()
+        match *self {}
     }
 }
 
-impl Asset for () {}
+#[derive(Asset, TypePath)]
+pub enum NoAsset {}
 
-impl VisitAssetDependencies for () {
-    fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedAssetId)) {
-        unreachable!()
-    }
-}
+/// `NoAssetLoader` is never called. This implementation exists to make the meta format nicer to work with.
+pub enum NoAssetLoader {}
 
-/// The () loader should never be called. This implementation exists to make the meta format nicer to work with.
-impl AssetLoader for () {
-    type Asset = ();
+impl AssetLoader for NoAssetLoader {
+    type Asset = NoAsset;
     type Settings = ();
     type Error = std::io::Error;
     fn load<'a>(
@@ -200,11 +200,11 @@ impl AssetLoader for () {
         _settings: &'a Self::Settings,
         _load_context: &'a mut crate::LoadContext,
     ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        unreachable!();
+        match *self {}
     }
 
     fn extensions(&self) -> &[&str] {
-        unreachable!();
+        match *self {}
     }
 }
 
