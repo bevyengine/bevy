@@ -46,7 +46,7 @@ impl BenchModify for Sparse {
 }
 
 const ENTITIES_TO_BENCH_COUT: [u32; 2] = [5000, 50000];
-const ARCHETYPES_TO_BENCH_COUT: [u16; 3] = [5, 10, 100];
+const ARCHETYPES_TO_BENCH_COUT: [u16; 3] = [5, 50, 100];
 
 type BenchGroup<'a> = criterion::BenchmarkGroup<'a, criterion::measurement::WallTime>;
 
