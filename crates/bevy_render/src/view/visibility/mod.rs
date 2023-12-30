@@ -280,14 +280,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     >,
 ) {
     for (transform, projection, mut frustum) in &mut views {
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation(),
-            &transform.back(),
-            projection.far(),
-        );
+        *frustum = projection.compute_frustum(transform);
     }
 }
 
