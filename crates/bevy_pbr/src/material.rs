@@ -344,10 +344,10 @@ where
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
-
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
+
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
@@ -355,7 +355,6 @@ where
         descriptor.layout.insert(2, self.material_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
-
         Ok(descriptor)
     }
 }

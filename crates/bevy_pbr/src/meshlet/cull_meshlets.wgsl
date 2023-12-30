@@ -93,9 +93,9 @@ fn try_project_sphere(cp: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>)
     let min_x = (vx * c.x - cr.z) / (vx * c.z + cr.x);
     let max_x = (vx * c.x + cr.z) / (vx * c.z - cr.x);
 
-	let vy = sqrt(c.y * c.y + czr2);
-	let min_y = (vy * c.y - cr.z) / (vy * c.z + cr.y);
-	let max_y = (vy * c.y + cr.z) / (vy * c.z - cr.y);
+    let vy = sqrt(c.y * c.y + czr2);
+    let min_y = (vy * c.y - cr.z) / (vy * c.z + cr.y);
+    let max_y = (vy * c.y + cr.z) / (vy * c.z - cr.y);
 
     let p00 = view.projection[0][0];
     let p11 = view.projection[1][1];
