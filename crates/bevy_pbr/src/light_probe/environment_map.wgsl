@@ -21,12 +21,7 @@ fn environment_map_light(
 ) -> EnvironmentMapLight {
     var out: EnvironmentMapLight;
 
-    // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-    // Technically we could use textureNumLevels(environment_map_specular) - 1 here, but we use a uniform
-    // because textureNumLevels() does not work on WebGL2
-    let radiance_level = perceptual_roughness * f32(bindings::lights.environment_map_smallest_specular_mip_level);
-
-#ifdef ENVIRONMENT_MAP_LIGHT_PROBES
+#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
     // Search for a reflection probe that contains the fragment.
     //
     // TODO: Interpolate between multiple reflection probes.
@@ -36,8 +31,7 @@ fn environment_map_light(
             reflection_probe_index += 1) {
         let reflection_probe = light_probes.reflection_probes[reflection_probe_index];
 
-        // Transpose the inverse transpose transform to recover the inverse
-        // transform.
+        // Unpack the inverse transform.
         let inverse_transpose_transform = mat4x4<f32>(
             reflection_probe.inverse_transpose_transform[0],
             reflection_probe.inverse_transpose_transform[1],
@@ -56,7 +50,7 @@ fn environment_map_light(
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
     if (cubemap_index < 0) {
-        cubemap_index = light_probes.cubemap_index;
+        cubemap_index = light_probes.view_cubemap_index;
     }
 
     // If there's no cubemap, bail out.
@@ -65,6 +59,9 @@ fn environment_map_light(
         out.specular = vec3(0.0);
         return out;
     }
+
+    // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+    let radiance_level = perceptual_roughness * f32(textureNumLevels(bindings::specular_environment_maps[cubemap_index]) - 1u);
 
     let irradiance = textureSampleLevel(
         bindings::diffuse_environment_maps[cubemap_index],
@@ -77,12 +74,17 @@ fn environment_map_light(
         bindings::environment_map_sampler,
         vec3(R.xy, -R.z),
         radiance_level).rgb;
-#else   // ENVIRONMENT_MAP_LIGHT_PROBES
-    if (light_probes.cubemap_index < 0) {
+#else   // MULTIPLE_LIGHT_PROBES_IN_ARRAY
+    if (light_probes.view_cubemap_index < 0) {
         out.diffuse = vec3(0.0);
         out.specular = vec3(0.0);
         return out;
     }
+
+    // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+    // Technically we could use textureNumLevels(specular_environment_map) - 1 here, but we use a uniform
+    // because textureNumLevels() does not work on WebGL2
+    let radiance_level = perceptual_roughness * f32(light_probes.smallest_specular_mip_level_for_view);
 
     let irradiance = textureSampleLevel(
         bindings::diffuse_environment_map,
@@ -95,7 +97,7 @@ fn environment_map_light(
         bindings::environment_map_sampler,
         vec3(R.xy, -R.z),
         radiance_level).rgb;
-#endif  // ENVIRONMENT_MAP_LIGHT_PROBES
+#endif  // MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
     // No real world material has specular values under 0.02, so we use this range as a
     // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.

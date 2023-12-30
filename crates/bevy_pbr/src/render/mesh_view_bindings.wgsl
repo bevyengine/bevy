@@ -37,7 +37,7 @@
 
 @group(0) @binding(12) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
 
-#ifdef ENVIRONMENT_MAP_LIGHT_PROBES
+#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(0) @binding(13) var diffuse_environment_maps: binding_array<texture_cube<f32>>;
 @group(0) @binding(14) var specular_environment_maps: binding_array<texture_cube<f32>>;
 #else

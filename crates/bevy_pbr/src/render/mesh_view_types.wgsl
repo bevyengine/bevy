@@ -121,6 +121,10 @@ struct LightProbes {
     // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
     reflection_probes: array<ReflectionProbe, 8u>,
     reflection_probe_count: i32,
-    // -1 if no cubemap is associated.
-    cubemap_index: i32,
+    // The index of the view environment map cubemap binding, or -1 if there's
+    // no such cubemap.
+    view_cubemap_index: i32,
+    // The smallest valid mipmap level for the specular environment cubemap
+    // associated with the view.
+    smallest_specular_mip_level_for_view: u32,
 };

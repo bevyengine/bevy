@@ -9,7 +9,11 @@
 //! entities they're attached to have:
 //!
 //! 1. If attached to a view, they represent the objects located a very far
-//!    distance from the view, in a similar manner to a skybox.
+//!    distance from the view, in a similar manner to a skybox. Essentially, these
+//!    *view environment maps* represent a higher-quality replacement for
+//!    [`AmbientLight`] for outdoor scenes. The indirect light from such
+//!    environment maps are added to every point of the scene, including interior
+//!    enclosed areas.
 //!
 //! 2. If attached to a [`LightProbe`], environment maps represent the immediate
 //!    surroundings of a specific location in the scene. These types of
@@ -18,16 +22,29 @@
 //!    these to a scene.
 //!
 //! Typically, environment maps are static (i.e. "baked", calculated ahead of
-//! time) and so only reflect fixed static geometry. Environment map textures
-//! can be generated from panoramas via the [glTF IBL Sampler].
+//! time) and so only reflect fixed static geometry. The environment maps must
+//! be pre-filtered into a pair of cubemaps, one for the diffuse component and
+//! one for the specular component, according to the [split-sum approximation].
+//! To pre-filter your environment map, you can use the [glTF IBL Sampler] or
+//! its [artist-friendly UI]. The diffuse map uses the Lambertian distribution,
+//! while the specular map uses the GGX distribution.
+//!
+//! The Khronos Group has [several pre-filtered environment maps] available for
+//! you to use.
 //!
 //! Currently, reflection probes (i.e. environment maps attached to light
 //! probes) use binding arrays (also known as bindless textures) and
-//! consequently aren't supported on WebGL 2 or WebGPU. Reflection probes are
+//! consequently aren't supported on WebGL2 or WebGPU. Reflection probes are
 //! also unsupported if GLSL is in use, due to `naga` limitations. Environment
 //! maps attached to views are, however, supported on all platforms.
 //!
+//! [split-sum approximation]: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+//!
 //! [glTF IBL Sampler]: https://github.com/KhronosGroup/glTF-IBL-Sampler
+//!
+//! [artist-friendly UI]: https://github.com/pcwalton/gltf-ibl-sampler-egui
+//!
+//! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
@@ -44,6 +61,7 @@ use bevy_render::{
     },
     texture::{FallbackImage, Image},
 };
+use std::ops::Deref;
 
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 use bevy_utils::HashMap;
@@ -81,8 +99,8 @@ pub(crate) struct EnvironmentMapIds {
     pub(crate) specular: AssetId<Image>,
 }
 
-/// A convenient bundle that contains everything needed to make an entity a
-/// reflection probe.
+/// A bundle that contains everything needed to make an entity a reflection
+/// probe.
 ///
 /// A reflection probe is a type of environment map that specifies the light
 /// surrounding a region in space. For more information, see
@@ -140,10 +158,10 @@ pub(crate) struct RenderViewBindGroupEntries<'a> {
     ///
     /// This is a vector of `wgpu::TextureView`s. But we don't want to import
     /// `wgpu` in this crate, so we refer to it indirectly like this.
-    diffuse_texture_views: Vec<&'a <TextureView as std::ops::Deref>::Target>,
+    diffuse_texture_views: Vec<&'a <TextureView as Deref>::Target>,
 
     /// As above, but for specular cubemaps.
-    specular_texture_views: Vec<&'a <TextureView as std::ops::Deref>::Target>,
+    specular_texture_views: Vec<&'a <TextureView as Deref>::Target>,
 
     /// The sampler used to sample elements of both `diffuse_texture_views` and
     /// `specular_texture_views`.
@@ -187,8 +205,7 @@ impl RenderViewEnvironmentMaps {
 
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 impl RenderViewEnvironmentMaps {
-    /// Returns true if there are no environment maps for this view or false if
-    /// there are such environment maps.
+    /// Whether there are no environment maps associated with the view.
     pub(crate) fn is_empty(&self) -> bool {
         self.binding_index_to_cubemap.is_empty()
     }
@@ -336,7 +353,7 @@ impl<'a> RenderViewBindGroupEntries<'a> {
 /// populates `sampler` if this is the first such view.
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 fn add_texture_view<'a>(
-    texture_views: &mut Vec<&'a <TextureView as std::ops::Deref>::Target>,
+    texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
     sampler: &mut Option<&'a Sampler>,
     image_id: AssetId<Image>,
     images: &'a RenderAssets<Image>,
@@ -362,17 +379,13 @@ fn add_texture_view<'a>(
 impl<'a> RenderViewBindGroupEntries<'a> {
     /// Returns a list of texture views of each diffuse cubemap, in binding
     /// order.
-    pub(crate) fn diffuse_texture_views(
-        &'a self,
-    ) -> &'a [&'a <TextureView as std::ops::Deref>::Target] {
+    pub(crate) fn diffuse_texture_views(&'a self) -> &'a [&'a <TextureView as Deref>::Target] {
         self.diffuse_texture_views.as_slice()
     }
 
     /// Returns a list of texture views of each specular cubemap, in binding
     /// order.
-    pub(crate) fn specular_texture_views(
-        &'a self,
-    ) -> &'a [&'a <TextureView as std::ops::Deref>::Target] {
+    pub(crate) fn specular_texture_views(&'a self) -> &'a [&'a <TextureView as Deref>::Target] {
         self.specular_texture_views.as_slice()
     }
 }

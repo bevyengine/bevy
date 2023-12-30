@@ -46,7 +46,8 @@ pub const MAX_VIEW_REFLECTION_PROBES: usize = 8;
 /// cubemaps applied to all objects that a view renders.
 pub struct LightProbePlugin;
 
-/// A cuboid region that provides global illumination to all fragments inside it.
+/// A marker component for a light probe, which is a cuboid region that provides
+/// global illumination to all fragments inside it.
 ///
 /// The light probe range is conceptually a unit cube (1×1×1) centered on the
 /// origin.  The [`bevy_transform::prelude::Transform`] applied to this entity
@@ -86,7 +87,11 @@ pub struct LightProbesUniform {
     /// The index of the diffuse and specular environment maps associated with
     /// the view itself. This is used as a fallback if no reflection probe in
     /// the list contains the fragment.
-    cubemap_index: i32,
+    view_cubemap_index: i32,
+
+    /// The smallest valid mipmap level for the specular environment cubemap
+    /// associated with the view.
+    smallest_specular_mip_level_for_view: u32,
 }
 
 /// A map from each camera to the light probe uniform associated with it.
@@ -132,7 +137,8 @@ impl Plugin for LightProbePlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<LightProbe>();
+        app.register_type::<LightProbe>()
+            .register_type::<EnvironmentMapLight>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -247,7 +253,8 @@ impl Default for LightProbesUniform {
         Self {
             reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
             reflection_probe_count: 0,
-            cubemap_index: -1,
+            view_cubemap_index: -1,
+            smallest_specular_mip_level_for_view: 0,
         }
     }
 }
@@ -267,25 +274,34 @@ impl LightProbesUniform {
     ) -> (LightProbesUniform, RenderViewEnvironmentMaps) {
         let mut render_view_environment_maps = RenderViewEnvironmentMaps::new();
 
+        // Find the index of the cubemap associated with the view, and determine
+        // its smallest mip level.
+        let (mut view_cubemap_index, mut smallest_specular_mip_level_for_view) = (-1, 0);
+        if let Some(EnvironmentMapLight {
+            diffuse_map: diffuse_map_handle,
+            specular_map: specular_map_handle,
+        }) = view_environment_maps
+        {
+            if let (Some(_), Some(specular_map)) = (
+                image_assets.get(diffuse_map_handle),
+                image_assets.get(specular_map_handle),
+            ) {
+                view_cubemap_index =
+                    render_view_environment_maps.get_or_insert_cubemap(&EnvironmentMapIds {
+                        diffuse: diffuse_map_handle.id(),
+                        specular: specular_map_handle.id(),
+                    }) as i32;
+                smallest_specular_mip_level_for_view = specular_map.mip_level_count - 1;
+            }
+        };
+
         // Initialize the uniform to only contain the view environment map, if
         // applicable.
         let mut uniform = LightProbesUniform {
             reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
             reflection_probe_count: light_probes.len().min(MAX_VIEW_REFLECTION_PROBES) as i32,
-            cubemap_index: match view_environment_maps {
-                Some(EnvironmentMapLight {
-                    diffuse_map,
-                    specular_map,
-                }) if image_assets.get(diffuse_map).is_some()
-                    && image_assets.get(specular_map).is_some() =>
-                {
-                    render_view_environment_maps.get_or_insert_cubemap(&EnvironmentMapIds {
-                        diffuse: diffuse_map.id(),
-                        specular: specular_map.id(),
-                    }) as i32
-                }
-                _ => -1,
-            },
+            view_cubemap_index,
+            smallest_specular_mip_level_for_view,
         };
 
         // Add reflection probes from the scene, if supported by the current

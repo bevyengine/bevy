@@ -196,7 +196,6 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
-    environment_map_smallest_specular_mip_level: u32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -962,7 +961,6 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
-            environment_map_smallest_specular_mip_level: 0, /* FIXME */
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
