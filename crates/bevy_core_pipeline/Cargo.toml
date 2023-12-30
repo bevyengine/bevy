@@ -16,6 +16,7 @@ keywords = ["bevy"]
 trace = []
 webgl = []
 tonemapping_luts = ["bevy_render/ktx2", "bevy_render/zstd"]
+overlay = ["bevy_diagnostic", "bevy_input", "bevy_time"]
 
 [dependencies]
 # bevy
@@ -30,6 +31,9 @@ bevy_render = { path = "../bevy_render", version = "0.12.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
 bevy_math = { path = "../bevy_math", version = "0.12.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
+bevy_input = { path = "../bevy_input", version = "0.12.0", optional = true }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.12.0", optional = true }
+bevy_time = { path = "../bevy_time", version = "0.12.0", optional = true }
 
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
@@ -37,3 +41,6 @@ radsort = "0.1"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+bevy_internal = { path = "../bevy_internal", version = "0.12.0" }

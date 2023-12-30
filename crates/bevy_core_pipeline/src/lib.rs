@@ -24,8 +24,13 @@ pub mod experimental {
         };
     }
 }
+#[cfg(feature = "overlay")]
+pub mod overlay;
 
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "overlay")]
+    pub use crate::overlay::{CameraOverlay, CameraOverlayBundle, OverlayPlugin};
     #[doc(hidden)]
     pub use crate::{
         core_2d::{Camera2d, Camera2dBundle},
