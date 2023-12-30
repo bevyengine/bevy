@@ -155,7 +155,7 @@ impl PartialEq<Radians> for Degrees {
 
 impl PartialEq<Degrees> for Radians {
     fn eq(&self, other: &Degrees) -> bool {
-        *self == other.to_radians()
+        self.to_degrees() == *other
     }
 }
 
@@ -167,7 +167,7 @@ impl PartialOrd<Radians> for Degrees {
 
 impl PartialOrd<Degrees> for Radians {
     fn partial_cmp(&self, other: &Degrees) -> Option<std::cmp::Ordering> {
-        self.partial_cmp(&other.to_radians())
+        self.to_degrees().partial_cmp(other)
     }
 }
 
