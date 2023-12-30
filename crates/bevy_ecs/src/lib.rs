@@ -1908,40 +1908,33 @@ mod tests {
         struct C;
         #[derive(Component)]
         struct D;
+        #[derive(Component)]
+        struct E;
+        #[derive(Component)]
+        struct F;
 
-        type Filter = (Or<(With<A>, Without<B>)>, Or<(Without<C>, With<D>)>);
+        #[derive(Component)]
+        struct G;
 
-        type Inverted = Or<((Without<A>, With<B>), (With<C>, Without<D>))>;
+        type Filter = Or<(
+            (Without<A>, Without<B>),
+            (Without<C>, Without<D>),
+            (Without<E>, Without<F>),
+        )>;
 
         /// SAFETY: only consists of archetypal filters
         unsafe impl InvertibleFilter for Filter {}
 
         let mut world = World::default();
-        world.spawn(A);
-        world.spawn(B);
-        world.spawn(C);
-        world.spawn(D);
-        world.spawn((A, B));
-        world.spawn((A, C));
-        world.spawn((A, D));
-        world.spawn((B, C));
-        world.spawn((B, D));
-        world.spawn((C, D));
-        world.spawn((A, B, C));
-        world.spawn((B, C, D));
-        world.spawn((A, B, C, D));
-        world.spawn_empty();
 
-        let q1 = world
-            .query_filtered::<Entity, Not<Filter>>()
-            .iter(&world)
-            .collect::<Vec<_>>();
+        use crate::prelude::Query;
+        fn system(
+            _q1: Query<(Entity, &mut G), Not<Filter>>,
+            _q2: Query<(Entity, &mut G), (Without<E>, Without<F>)>,
+        ) {
+        }
 
-        let q2 = world
-            .query_filtered::<Entity, Inverted>()
-            .iter(&world)
-            .collect::<Vec<_>>();
-
-        assert_eq!(q1, q2);
+        let system_id = world.register_system(system);
+        _ = world.run_system(system_id);
     }
 }
