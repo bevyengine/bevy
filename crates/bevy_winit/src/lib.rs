@@ -254,6 +254,8 @@ struct WinitAppRunnerState {
     active: ActiveState,
     /// Is `true` if a new [`WindowEvent`] has been received since the last update.
     window_event_received: bool,
+    /// Is `true` if a new [`DeviceEvent`] has been received since the last update.
+    device_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
     redraw_requested: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
@@ -262,7 +264,21 @@ struct WinitAppRunnerState {
     last_update: Instant,
     /// The time the next update is scheduled to start.
     scheduled_update: Option<Instant>,
+    /// A workaround for <https://github.com/bevyengine/bevy/issues/11126>. The winit event loop
+    /// needs to run multiple times for each app update, or not all events may be captured.
+    #[cfg(target_os = "macos")]
+    winit_loops_since_last_update: u8,
 }
+
+/// This ensures we catch all events. There appears to be a bug in winit where a single run through
+/// of the event loop does not catch all events that occurred, and the loop needs to be run multiple
+/// times. This is most evident in a hitch when moving a window or panning the camera.
+///
+/// This value was found experimentally.
+///
+/// See: <https://github.com/bevyengine/bevy/issues/11126>.
+#[cfg(target_os = "macos")]
+const EVENT_LOOP_HITCH_FIX_COUNT: u8 = 32;
 
 #[derive(PartialEq, Eq)]
 enum ActiveState {
@@ -287,10 +303,13 @@ impl Default for WinitAppRunnerState {
         Self {
             active: ActiveState::NotYetStarted,
             window_event_received: false,
+            device_event_received: false,
             redraw_requested: false,
             wait_elapsed: false,
             last_update: Instant::now(),
             scheduled_update: None,
+            #[cfg(target_os = "macos")]
+            winit_loops_since_last_update: 0,
         }
     }
 }
@@ -662,6 +681,7 @@ pub fn winit_runner(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
+                runner_state.device_event_received = true;
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
@@ -726,6 +746,16 @@ pub fn winit_runner(mut app: App) {
                 }
             }
             Event::AboutToWait => {
+                #[cfg(target_os = "macos")]
+                {
+                    let n_loops = &mut runner_state.winit_loops_since_last_update;
+                    *n_loops = n_loops.wrapping_add(1);
+                    if *n_loops % EVENT_LOOP_HITCH_FIX_COUNT != 0 {
+                        event_loop.set_control_flow(ControlFlow::Poll);
+                        return;
+                    }
+                }
+
                 if runner_state.active.should_run() {
                     if runner_state.active == ActiveState::WillSuspend {
                         runner_state.active = ActiveState::Suspended;
@@ -743,12 +773,12 @@ pub fn winit_runner(mut app: App) {
                     let (config, windows) = focused_windows_state.get(&app.world);
                     let focused = windows.iter().any(|window| window.focused);
                     let should_update = match config.update_mode(focused) {
-                        UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
-                            // `Reactive`: In order for `event_handler` to have been called, either
-                            // we received a window or raw input event, the `wait` elapsed, or a
-                            // redraw was requested (by the app or the OS). There are no other
-                            // conditions, so we can just return `true` here.
-                            true
+                        UpdateMode::Continuous => true,
+                        UpdateMode::Reactive { .. } => {
+                            runner_state.wait_elapsed
+                                || runner_state.redraw_requested
+                                || runner_state.window_event_received
+                                || runner_state.device_event_received
                         }
                         UpdateMode::ReactiveLowPower { .. } => {
                             runner_state.wait_elapsed
@@ -761,6 +791,7 @@ pub fn winit_runner(mut app: App) {
                         // reset these on each update
                         runner_state.wait_elapsed = false;
                         runner_state.window_event_received = false;
+                        runner_state.device_event_received = false;
                         runner_state.redraw_requested = false;
                         runner_state.last_update = Instant::now();
 
