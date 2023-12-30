@@ -1,4 +1,7 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::{
+    render_asset::RenderAssetPersistencePolicy,
+    texture::{Image, TextureFormatPixelInfo},
+};
 use bevy_asset::{
     io::{AsyncReadExt, Reader},
     AssetLoader, LoadContext,
