@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::{Added, Changed},
+    prelude::{Added, Changed, EntityWorldMut},
     world::World,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -14,6 +14,7 @@ criterion_group!(
     all_changed_detection,
     few_changed_detection,
     none_changed_detection,
+    multiple_archetype_changed_detection
 );
 criterion_main!(benches);
 
@@ -23,6 +24,9 @@ struct Table(f32);
 #[derive(Component, Default)]
 #[component(storage = "SparseSet")]
 struct Sparse(f32);
+#[derive(Component, Default)]
+#[component(storage = "Table")]
+struct Data<const X: u16>(f32);
 
 trait BenchModify {
     fn bench_modify(&mut self) -> f32;
@@ -41,7 +45,8 @@ impl BenchModify for Sparse {
     }
 }
 
-const RANGE_ENTITIES_TO_BENCH_COUNT: std::ops::Range<u32> = 5..7;
+const ENTITIES_TO_BENCH_COUT: [u32; 2] = [5000, 50000];
+const ARCHETYPES_TO_BENCH_COUT: [u16; 3] = [5, 10, 100];
 
 type BenchGroup<'a> = criterion::BenchmarkGroup<'a, criterion::measurement::WallTime>;
 
@@ -90,7 +95,7 @@ fn all_added_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_added_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
+    for entity_count in ENTITIES_TO_BENCH_COUT {
         generic_bench(
             &mut group,
             vec![
@@ -138,7 +143,7 @@ fn all_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
+    for entity_count in ENTITIES_TO_BENCH_COUT {
         generic_bench(
             &mut group,
             vec![
@@ -188,7 +193,7 @@ fn few_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("few_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
+    for entity_count in ENTITIES_TO_BENCH_COUT {
         generic_bench(
             &mut group,
             vec![
@@ -232,7 +237,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("none_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
+    for entity_count in ENTITIES_TO_BENCH_COUT {
         generic_bench(
             &mut group,
             vec![
@@ -241,5 +246,92 @@ fn none_changed_detection(criterion: &mut Criterion) {
             ],
             entity_count,
         );
+    }
+}
+fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
+    if i & 1 << B != 0 {
+        entity.insert(Data::<B>(1.0));
+    }
+}
+fn add_archetypes_entites<T: Component+Default>(
+    world: &mut World,
+    archetype_count: u16,
+    entity_count: u32,
+) {
+    for i in 0..archetype_count  {
+        for j in 0..entity_count {
+            let mut e = world.spawn(T::default());
+            insert_if_bit_enabled::<0>(&mut e, i);
+            insert_if_bit_enabled::<1>(&mut e, i);
+            insert_if_bit_enabled::<2>(&mut e, i);
+            insert_if_bit_enabled::<3>(&mut e, i);
+            insert_if_bit_enabled::<4>(&mut e, i);
+            insert_if_bit_enabled::<5>(&mut e, i);
+            insert_if_bit_enabled::<6>(&mut e, i);
+            insert_if_bit_enabled::<7>(&mut e, i);
+            insert_if_bit_enabled::<8>(&mut e, i);
+            insert_if_bit_enabled::<9>(&mut e, i);
+            insert_if_bit_enabled::<10>(&mut e, i);
+            insert_if_bit_enabled::<11>(&mut e, i);
+            insert_if_bit_enabled::<12>(&mut e, i);
+            insert_if_bit_enabled::<13>(&mut e, i);
+            insert_if_bit_enabled::<14>(&mut e, i);
+            insert_if_bit_enabled::<15>(&mut e, i);
+        }
+    }
+}
+fn multiple_archetype_changed_detection_generic<T: Component + Default + BenchModify>(
+    group: &mut BenchGroup,
+    archetype_count: u16,
+    entity_count: u32,
+) {
+    group.bench_function(
+        format!(
+            "{}_archetypes_{}_entities_{}",
+            archetype_count,
+            entity_count,
+            std::any::type_name::<T>()
+        ),
+        |bencher| {
+            bencher.iter_batched(
+                || {
+                    let mut world = World::new();
+                    add_archetypes_entites::<T>(&mut world, archetype_count, entity_count);
+                    world.clear_trackers();
+                    let mut query = world.query::<&mut T>();
+                    for mut component in query.iter_mut(&mut world) {
+                        component.bench_modify();
+                    }
+                    world
+                },
+                |mut world| {
+                    let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    for entity in query.iter(&world) {
+                        black_box(entity);
+                    }
+                },
+                criterion::BatchSize::LargeInput,
+            )
+        },
+    );
+}
+
+fn multiple_archetype_changed_detection(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("multiple_archetype_changed_detection");
+    group.warm_up_time(std::time::Duration::from_millis(800));
+    group.measurement_time(std::time::Duration::from_secs(8));
+    for archetype_count in ARCHETYPES_TO_BENCH_COUT {
+        for entity_count in ENTITIES_TO_BENCH_COUT {
+            multiple_archetype_changed_detection_generic::<Table>(
+                &mut group,
+                archetype_count,
+                entity_count,
+            );
+            multiple_archetype_changed_detection_generic::<Sparse>(
+                &mut group,
+                archetype_count,
+                entity_count,
+            );
+        }
     }
 }
