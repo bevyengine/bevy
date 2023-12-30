@@ -55,21 +55,25 @@ pub trait Angle:
     fn sin_cos(self) -> (f32, f32);
 
     /// Returns the absolute angle.
+    #[inline]
     fn abs(self) -> Self {
         Self::new(self.value().abs())
     }
 
     /// Returns the minimum of the two angles, ignoring NaN.
+    #[inline]
     fn min(self, other: Self) -> Self {
         Self::new(self.value().min(other.value()))
     }
 
     /// Returns the maximum of the two angles, ignoring NaN.
+    #[inline]
     fn max(self, other: Self) -> Self {
         Self::new(self.value().max(other.value()))
     }
 
     /// Normalizes the angle to be within the range of `[0, 360)` degrees or `[0, 2π)` radians.
+    #[inline]
     fn normalized(self) -> Self {
         if self < Self::FULL && self > Self::ZERO {
             self
@@ -100,6 +104,46 @@ pub trait Angle:
     #[inline]
     fn round(self) -> Self {
         Self::new(self.value().round())
+    }
+
+    /// Adds the given `angle` to `self`, returning the inferred type of angle.
+    fn add_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
+    where
+        Output: From<Self> + From<T>,
+    {
+        Output::from(self) + Output::from(angle)
+    }
+
+    /// Subtracts the given `angle` from `self`, returning the inferred type of angle.
+    fn sub_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
+    where
+        Output: From<Self> + From<T>,
+    {
+        Output::from(self) - Output::from(angle)
+    }
+
+    /// Multiplies `self` by the given `angle`, returning the inferred type of angle.
+    fn mul_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
+    where
+        Output: From<Self> + From<T>,
+    {
+        Output::from(self) * Output::from(angle)
+    }
+
+    /// Divides `self` by the given `angle`, returning the inferred type of angle.
+    fn div_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
+    where
+        Output: From<Self> + From<T>,
+    {
+        Output::from(self) + Output::from(angle)
+    }
+
+    /// Computes the remainder of `self` divided by the given `angle`, returning the inferred type of angle.
+    fn rem_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
+    where
+        Output: From<Self> + From<T>,
+    {
+        Output::from(self) % Output::from(angle)
     }
 }
 
