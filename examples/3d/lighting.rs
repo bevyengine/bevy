@@ -153,8 +153,8 @@ fn setup(
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
                 shadows_enabled: true,
-                inner_angle: Radians(0.6),
-                outer_angle: Radians(0.8),
+                inner_angle: 0.6,
+                outer_angle: 0.8,
                 ..default()
             },
             ..default()

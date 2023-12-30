@@ -36,6 +36,7 @@ use crate::{Angle, Radians};
 /// // Small threshold for floating point error
 /// assert!((normalized - alpha).abs() < Degrees(0.000001));
 /// ```
+// TODO: Reflect
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Degrees(pub f32);
