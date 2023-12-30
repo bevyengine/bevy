@@ -47,10 +47,12 @@ pub trait RenderAsset: Asset + Clone {
 
 /// Whether or not to unload the [`RenderAsset`] after extracting it to the render world.
 ///
-/// Unloading the asset saves on memory, as you no longer need to keep it in RAM once
-/// it's been uploaded to the GPU's VRAM. However, you can no longer access the asset
-/// from the CPU (via Assets<T>) once unloaded (without re-loading it), making this a
-/// bad choice for assets you frequently need to read or modify from systems.
+/// Unloading the asset saves on memory, as for most cases it is no longer neccesary to keep
+/// it in RAM once it's been uploaded to the GPU's VRAM. However, this means you can no longer
+/// access the asset from the CPU (via the Assets<T> resource) once unloaded (without re-loading it).
+///
+/// If you never need access to the asset from the CPU past the first frame it's loaded on,
+/// or only need very infrequent access, then set this to Unload. Otherwise, set this to Keep.
 #[derive(Reflect, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub enum RenderAssetPersistencePolicy {
     #[default]
