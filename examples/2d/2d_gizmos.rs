@@ -55,7 +55,7 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
     gizmos.arc_2d(
         Vec2::ZERO,
         Radians(sin / 10.),
-        Radians(PI / 2.),
+        Radians::FRAC_PI_2,
         350.,
         Color::ORANGE_RED,
     );

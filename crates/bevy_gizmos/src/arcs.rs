@@ -17,9 +17,9 @@ impl<'s> Gizmos<'s> {
     /// # Arguments
     /// - `position` sets the center of this circle.
     /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
-    /// - `direction_angle` sets the clockwise  angle in radians between `Vec2::Y` and
+    /// - `direction_angle` sets the clockwise angle between `Vec2::Y` and
     /// the vector from `position` to the midpoint of the arc.
-    /// - `arc_angle` sets the length of this arc, in radians.
+    /// - `arc_angle` sets the length of this arc.
     ///
     /// # Example
     /// ```
@@ -28,12 +28,24 @@ impl<'s> Gizmos<'s> {
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., Color::GREEN);
+    ///     gizmos.arc_2d(
+    ///         Vec2::ZERO,
+    ///         Radians::ZERO,
+    ///         Radians::FRAC_PI_4,
+    ///         1.,
+    ///         Color::GREEN
+    ///     );
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., Color::RED)
+    ///         .arc_2d(
+    ///             Vec2::ZERO,
+    ///             Radians::ZERO,
+    ///             Radians::FRAC_PI_4,
+    ///             5.,
+    ///             Color::RED
+    ///         )
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
