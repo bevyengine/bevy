@@ -75,7 +75,7 @@ pub trait Angle:
     /// Normalizes the angle to be within the range of `[0, 360)` degrees or `[0, 2π)` radians.
     #[inline]
     fn normalized(self) -> Self {
-        if self < Self::FULL && self > Self::ZERO {
+        if self < Self::FULL && self >= Self::ZERO {
             self
         } else {
             let remainder = self % Self::FULL;
