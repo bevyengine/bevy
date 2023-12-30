@@ -124,51 +124,11 @@ impl Add for Radians {
     }
 }
 
-impl Add<f32> for Radians {
-    type Output = Self;
-
-    fn add(self, rhs: f32) -> Self::Output {
-        Self(self.0 + rhs)
-    }
-}
-
-impl Add<Radians> for f32 {
-    type Output = Radians;
-
-    fn add(self, rhs: Radians) -> Self::Output {
-        Radians(self + rhs.0)
-    }
-}
-
 impl Sub for Radians {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0 - rhs.0)
-    }
-}
-
-impl Sub<f32> for Radians {
-    type Output = Self;
-
-    fn sub(self, rhs: f32) -> Self::Output {
-        Self(self.0 - rhs)
-    }
-}
-
-impl Sub<Radians> for f32 {
-    type Output = Radians;
-
-    fn sub(self, rhs: Radians) -> Self::Output {
-        Radians(self - rhs.0)
-    }
-}
-
-impl Mul for Radians {
-    type Output = Self;
-
-    fn mul(self, rhs: Radians) -> Self::Output {
-        Self(self.0 * rhs.0)
     }
 }
 
@@ -189,10 +149,10 @@ impl Mul<Radians> for f32 {
 }
 
 impl Div for Radians {
-    type Output = Self;
+    type Output = f32;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Self(self.0 / rhs.0)
+        self.0 / rhs.0
     }
 }
 
@@ -205,10 +165,10 @@ impl Div<f32> for Radians {
 }
 
 impl Rem for Radians {
-    type Output = Self;
+    type Output = f32;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        Self(self.0 % rhs.0)
+        self.0 % rhs.0
     }
 }
 
@@ -234,27 +194,9 @@ impl AddAssign for Radians {
     }
 }
 
-impl AddAssign<f32> for Radians {
-    fn add_assign(&mut self, rhs: f32) {
-        self.0 += rhs;
-    }
-}
-
 impl SubAssign for Radians {
     fn sub_assign(&mut self, rhs: Radians) {
         self.0 -= rhs.0;
-    }
-}
-
-impl SubAssign<f32> for Radians {
-    fn sub_assign(&mut self, rhs: f32) {
-        self.0 -= rhs;
-    }
-}
-
-impl MulAssign for Radians {
-    fn mul_assign(&mut self, rhs: Radians) {
-        self.0 *= rhs.0;
     }
 }
 
@@ -264,21 +206,9 @@ impl MulAssign<f32> for Radians {
     }
 }
 
-impl DivAssign for Radians {
-    fn div_assign(&mut self, rhs: Radians) {
-        self.0 /= rhs.0;
-    }
-}
-
 impl DivAssign<f32> for Radians {
     fn div_assign(&mut self, rhs: f32) {
         self.0 /= rhs;
-    }
-}
-
-impl RemAssign for Radians {
-    fn rem_assign(&mut self, rhs: Radians) {
-        self.0 %= rhs.0;
     }
 }
 

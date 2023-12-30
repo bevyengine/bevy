@@ -115,14 +115,6 @@ impl Sub for Degrees {
     }
 }
 
-impl Mul for Degrees {
-    type Output = Self;
-
-    fn mul(self, rhs: Degrees) -> Self::Output {
-        Self(self.0 * rhs.0)
-    }
-}
-
 impl Mul<f32> for Degrees {
     type Output = Self;
 
@@ -140,10 +132,10 @@ impl Mul<Degrees> for f32 {
 }
 
 impl Div for Degrees {
-    type Output = Self;
+    type Output = f32;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Self(self.0 / rhs.0)
+        self.0 / rhs.0
     }
 }
 
@@ -156,10 +148,10 @@ impl Div<f32> for Degrees {
 }
 
 impl Rem for Degrees {
-    type Output = Self;
+    type Output = f32;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        Self(self.0 % rhs.0)
+        self.0 % rhs.0
     }
 }
 
@@ -185,27 +177,9 @@ impl AddAssign for Degrees {
     }
 }
 
-impl AddAssign<f32> for Degrees {
-    fn add_assign(&mut self, rhs: f32) {
-        self.0 += rhs;
-    }
-}
-
 impl SubAssign for Degrees {
     fn sub_assign(&mut self, rhs: Degrees) {
         self.0 -= rhs.0;
-    }
-}
-
-impl SubAssign<f32> for Degrees {
-    fn sub_assign(&mut self, rhs: f32) {
-        self.0 -= rhs;
-    }
-}
-
-impl MulAssign for Degrees {
-    fn mul_assign(&mut self, rhs: Degrees) {
-        self.0 *= rhs.0;
     }
 }
 
@@ -215,21 +189,9 @@ impl MulAssign<f32> for Degrees {
     }
 }
 
-impl DivAssign for Degrees {
-    fn div_assign(&mut self, rhs: Degrees) {
-        self.0 /= rhs.0;
-    }
-}
-
 impl DivAssign<f32> for Degrees {
     fn div_assign(&mut self, rhs: f32) {
         self.0 /= rhs;
-    }
-}
-
-impl RemAssign for Degrees {
-    fn rem_assign(&mut self, rhs: Degrees) {
-        self.0 %= rhs.0;
     }
 }
 

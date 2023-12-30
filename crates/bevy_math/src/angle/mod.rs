@@ -1,6 +1,4 @@
-use std::ops::{
-    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign,
-};
+use std::ops::{Add, AddAssign, Div, Neg, Rem, Sub, SubAssign};
 
 mod degrees;
 mod radians;
@@ -15,12 +13,13 @@ pub trait Angle:
     + Copy
     + Add<Output = Self>
     + Sub<Output = Self>
-    + Mul<Output = Self>
-    + Div<Output = Self>
-    + Rem<Output = Self>
+    + Div<Output = f32>
+    + Rem<Output = f32>
     + Neg<Output = Self>
     + PartialEq
     + PartialOrd
+    + From<Degrees>
+    + From<Radians>
 {
     /// An angle of zero.
     const ZERO: Self;
@@ -78,7 +77,7 @@ pub trait Angle:
         if self < Self::FULL && self >= Self::ZERO {
             self
         } else {
-            let remainder = self % Self::FULL;
+            let remainder = Self::new(self % Self::FULL);
             if remainder >= Self::ZERO {
                 remainder
             } else {
@@ -120,30 +119,6 @@ pub trait Angle:
         Output: From<Self> + From<T>,
     {
         Output::from(self) - Output::from(angle)
-    }
-
-    /// Multiplies `self` by the given `angle`, returning the inferred type of angle.
-    fn mul_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
-    where
-        Output: From<Self> + From<T>,
-    {
-        Output::from(self) * Output::from(angle)
-    }
-
-    /// Divides `self` by the given `angle`, returning the inferred type of angle.
-    fn div_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
-    where
-        Output: From<Self> + From<T>,
-    {
-        Output::from(self) + Output::from(angle)
-    }
-
-    /// Computes the remainder of `self` divided by the given `angle`, returning the inferred type of angle.
-    fn rem_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
-    where
-        Output: From<Self> + From<T>,
-    {
-        Output::from(self) % Output::from(angle)
     }
 }
 
@@ -203,51 +178,35 @@ impl Sub<Degrees> for Radians {
     }
 }
 
-impl Mul<Radians> for Degrees {
-    type Output = Radians;
-
-    fn mul(self, rhs: Radians) -> Self::Output {
-        self.to_radians() * rhs
-    }
-}
-
-impl Mul<Degrees> for Radians {
-    type Output = Radians;
-
-    fn mul(self, rhs: Degrees) -> Self::Output {
-        self * rhs.to_radians()
-    }
-}
-
 impl Div<Radians> for Degrees {
-    type Output = Radians;
+    type Output = f32;
 
     fn div(self, rhs: Radians) -> Self::Output {
-        self.to_radians() / rhs
+        self.0 / rhs.0.to_degrees()
     }
 }
 
 impl Div<Degrees> for Radians {
-    type Output = Radians;
+    type Output = f32;
 
     fn div(self, rhs: Degrees) -> Self::Output {
-        self / rhs.to_radians()
+        self.0.to_degrees() / rhs.0
     }
 }
 
 impl Rem<Radians> for Degrees {
-    type Output = Radians;
+    type Output = f32;
 
     fn rem(self, rhs: Radians) -> Self::Output {
-        self.to_radians() % rhs
+        self.0 % rhs.0.to_degrees()
     }
 }
 
 impl Rem<Degrees> for Radians {
-    type Output = Radians;
+    type Output = f32;
 
     fn rem(self, rhs: Degrees) -> Self::Output {
-        self % rhs.to_radians()
+        self.0.to_degrees() % rhs.0
     }
 }
 
@@ -272,41 +231,5 @@ impl SubAssign<Radians> for Degrees {
 impl SubAssign<Degrees> for Radians {
     fn sub_assign(&mut self, rhs: Degrees) {
         *self -= rhs.to_radians();
-    }
-}
-
-impl MulAssign<Radians> for Degrees {
-    fn mul_assign(&mut self, rhs: Radians) {
-        *self *= rhs.to_degrees();
-    }
-}
-
-impl MulAssign<Degrees> for Radians {
-    fn mul_assign(&mut self, rhs: Degrees) {
-        *self *= rhs.to_radians();
-    }
-}
-
-impl DivAssign<Radians> for Degrees {
-    fn div_assign(&mut self, rhs: Radians) {
-        *self /= rhs.to_degrees();
-    }
-}
-
-impl DivAssign<Degrees> for Radians {
-    fn div_assign(&mut self, rhs: Degrees) {
-        *self /= rhs.to_radians();
-    }
-}
-
-impl RemAssign<Radians> for Degrees {
-    fn rem_assign(&mut self, rhs: Radians) {
-        *self %= rhs.to_degrees();
-    }
-}
-
-impl RemAssign<Degrees> for Radians {
-    fn rem_assign(&mut self, rhs: Degrees) {
-        *self %= rhs.to_radians();
     }
 }
