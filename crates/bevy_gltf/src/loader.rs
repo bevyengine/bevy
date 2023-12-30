@@ -7,7 +7,7 @@ use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::{error, warn};
-use bevy_math::{Mat4, Radians, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     SpotLight, SpotLightBundle, StandardMaterial, MAX_JOINTS,
@@ -1101,8 +1101,8 @@ fn load_node(
                                 intensity: light.intensity() * std::f32::consts::PI * 4.0,
                                 range: light.range().unwrap_or(20.0),
                                 radius: light.range().unwrap_or(0.0),
-                                inner_angle: Radians(inner_cone_angle),
-                                outer_angle: Radians(outer_cone_angle),
+                                inner_angle: inner_cone_angle,
+                                outer_angle: outer_cone_angle,
                                 ..Default::default()
                             },
                             ..Default::default()

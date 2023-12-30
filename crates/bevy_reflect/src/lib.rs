@@ -490,7 +490,6 @@ mod impls {
     #[cfg(feature = "smol_str")]
     mod smol_str;
 
-    mod angle;
     mod std;
     mod uuid;
 }

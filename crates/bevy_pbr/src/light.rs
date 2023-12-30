@@ -103,17 +103,18 @@ pub struct SpotLight {
     /// shadow map's texel size so that it can be small close to the camera and gets larger further
     /// away.
     pub shadow_normal_bias: f32,
+    // TODO: Replace these with `Radians` once it implements `Reflect`
     /// Angle defining the distance from the spot light direction to the outer limit
     /// of the light's cone of effect.
     /// `outer_angle` should be < `PI / 2.0`.
     /// `PI / 2.0` defines a hemispherical spot light, but shadows become very blocky as the angle
     /// approaches this limit.
-    pub outer_angle: Radians,
+    pub outer_angle: f32,
     /// Angle defining the distance from the spot light direction to the inner limit
     /// of the light's cone of effect.
     /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
     /// `inner_angle` should be <= `outer_angle`
-    pub inner_angle: Radians,
+    pub inner_angle: f32,
 }
 
 impl SpotLight {
@@ -132,8 +133,8 @@ impl Default for SpotLight {
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-            inner_angle: Radians::ZERO,
-            outer_angle: Radians::FRAC_PI_4,
+            inner_angle: 0.0,
+            outer_angle: std::f32::consts::FRAC_PI_4,
         }
     }
 }
@@ -1255,7 +1256,7 @@ pub(crate) fn assign_lights_to_clusters(
                         transform: *transform,
                         shadows_enabled: spot_light.shadows_enabled,
                         range: spot_light.range,
-                        spot_light_angle: Some(spot_light.outer_angle),
+                        spot_light_angle: Some(Radians(spot_light.outer_angle)),
                         render_layers: maybe_layers.copied().unwrap_or_default(),
                     }
                 },
@@ -1951,7 +1952,7 @@ pub fn update_spot_light_frusta(
         let view_backward = transform.back();
 
         let spot_view = spot_light_view_matrix(transform);
-        let spot_projection = spot_light_projection_matrix(spot_light.outer_angle);
+        let spot_projection = spot_light_projection_matrix(Radians(spot_light.outer_angle));
         let view_projection = spot_projection * spot_view.inverse();
 
         *frustum = Frustum::from_view_projection_custom_far(

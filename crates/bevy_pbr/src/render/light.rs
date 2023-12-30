@@ -415,7 +415,10 @@ pub fn extract_lights(
                         shadow_normal_bias: spot_light.shadow_normal_bias
                             * texel_size
                             * std::f32::consts::SQRT_2,
-                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                        spot_light_angles: Some((
+                            Radians(spot_light.inner_angle),
+                            Radians(spot_light.outer_angle),
+                        )),
                     },
                     render_visible_entities,
                 ),
