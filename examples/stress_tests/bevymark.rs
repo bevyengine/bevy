@@ -285,7 +285,7 @@ fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
     time: Res<Time>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
@@ -483,7 +483,7 @@ fn movement_system(
 
 fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3) {
     if (velocity.x > 0. && translation.x + HALF_BIRD_SIZE > half_extents.x)
-        || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -(half_extents.x))
+        || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -half_extents.x)
     {
         velocity.x = -velocity.x;
     }
@@ -561,7 +561,7 @@ fn init_materials(
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(ColorMaterial {
         color: Color::WHITE,
-        texture: textures.get(0).cloned(),
+        texture: textures.first().cloned(),
     }));
 
     let mut color_rng = StdRng::seed_from_u64(42);

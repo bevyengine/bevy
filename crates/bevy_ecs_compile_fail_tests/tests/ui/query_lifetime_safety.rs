@@ -75,16 +75,16 @@ fn main() {
         {
             let mut opt_data: Option<&Foo> = None;
             let mut opt_data_2: Option<Mut<Foo>> = None;
-            query.for_each(|data| opt_data = Some(data));
-            query.for_each_mut(|data| opt_data_2 = Some(data));
+            query.iter().for_each(|data| opt_data = Some(data));
+            query.iter_mut().for_each(|data| opt_data_2 = Some(data));
             assert_eq!(opt_data.unwrap(), &mut *opt_data_2.unwrap()); // oops UB
         }
 
         {
             let mut opt_data_2: Option<Mut<Foo>> = None;
             let mut opt_data: Option<&Foo> = None;
-            query.for_each_mut(|data| opt_data_2 = Some(data));
-            query.for_each(|data| opt_data = Some(data));
+            query.iter_mut().for_each(|data| opt_data_2 = Some(data));
+            query.iter().for_each(|data| opt_data = Some(data));
             assert_eq!(opt_data.unwrap(), &mut *opt_data_2.unwrap()); // oops UB
         }
         dbg!("bye");

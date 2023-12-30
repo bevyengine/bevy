@@ -1,7 +1,3 @@
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::{
     input::touch::TouchPhase,
     prelude::*,
@@ -133,7 +129,7 @@ fn setup_scene(
                         ..default()
                     },
                 )
-                .with_text_alignment(TextAlignment::Center),
+                .with_text_justify(JustifyText::Center),
             );
         });
 }

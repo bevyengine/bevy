@@ -146,7 +146,7 @@ impl AsBindGroup for BindlessMaterial {
         Self: Sized,
     {
         vec![
-            // @group(1) @binding(0) var textures: binding_array<texture_2d<f32>>;
+            // @group(2) @binding(0) var textures: binding_array<texture_2d<f32>>;
             BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::FRAGMENT,
@@ -157,7 +157,7 @@ impl AsBindGroup for BindlessMaterial {
                 },
                 count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
             },
-            // @group(1) @binding(1) var nearest_sampler: sampler;
+            // @group(2) @binding(1) var nearest_sampler: sampler;
             BindGroupLayoutEntry {
                 binding: 1,
                 visibility: ShaderStages::FRAGMENT,

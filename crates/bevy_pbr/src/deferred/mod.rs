@@ -18,7 +18,9 @@ use bevy_render::{
     },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
+    render_resource::{
+        binding_types::uniform_buffer, Operations, PipelineCache, RenderPassDescriptor,
+    },
     renderer::{RenderContext, RenderDevice},
     texture::Image,
     view::{ViewTarget, ViewUniformOffset},
@@ -147,7 +149,7 @@ pub const DEFERRED_LIGHTING_PASS: &str = "deferred_opaque_pbr_lighting_pass_3d";
 pub struct DeferredOpaquePass3dPbrLightingNode;
 
 impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
@@ -171,7 +173,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             deferred_lighting_id_depth_texture,
             camera_3d,
             deferred_lighting_pipeline,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -207,16 +209,18 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                     ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
                     ClearColorConfig::None => LoadOp::Load,
                 },
-                store: true,
+                store: StoreOp::Store,
             }))],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: false,
+                    store: StoreOp::Discard,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         render_pass.set_render_pipeline(pipeline);
@@ -376,19 +380,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 impl FromWorld for DeferredLightingLayout {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("deferred_lighting_layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: render_resource::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(PbrDeferredLightingDepthId::min_size()),
-                },
-                count: None,
-            }],
-        });
+        let layout = render_device.create_bind_group_layout(
+            "deferred_lighting_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                uniform_buffer::<PbrDeferredLightingDepthId>(false),
+            ),
+        );
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             bind_group_layout_1: layout,

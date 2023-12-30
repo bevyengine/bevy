@@ -82,7 +82,7 @@ impl WinitWindows {
 
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
+                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf.into()))
                 } else {
                     winit_window_builder.with_inner_size(logical_size)
                 }
@@ -140,7 +140,8 @@ impl WinitWindows {
             }
 
             winit_window_builder =
-                winit_window_builder.with_prevent_default(window.prevent_default_event_handling)
+                winit_window_builder.with_prevent_default(window.prevent_default_event_handling);
+            winit_window_builder = winit_window_builder.with_append(true);
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
@@ -189,22 +190,6 @@ impl WinitWindows {
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
 
-        #[cfg(target_arch = "wasm32")]
-        {
-            use winit::platform::web::WindowExtWebSys;
-
-            if window.canvas.is_none() {
-                let canvas = winit_window.canvas();
-
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let body = document.body().unwrap();
-
-                body.append_child(&canvas)
-                    .expect("Append canvas to HTML body.");
-            }
-        }
-
         self.windows
             .entry(winit_window.id())
             .insert(winit_window)
@@ -239,7 +224,7 @@ impl WinitWindows {
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_fitting_videomode(
-    monitor: &winit::monitor::MonitorHandle,
+    monitor: &MonitorHandle,
     width: u32,
     height: u32,
 ) -> winit::monitor::VideoMode {
@@ -273,7 +258,7 @@ pub fn get_fitting_videomode(
 /// Gets the "best" videomode from a monitor.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
+pub fn get_best_videomode(monitor: &MonitorHandle) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;
@@ -293,21 +278,19 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
 
 pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode) {
     let grab_result = match grab_mode {
-        bevy_window::CursorGrabMode::None => {
-            winit_window.set_cursor_grab(winit::window::CursorGrabMode::None)
-        }
-        bevy_window::CursorGrabMode::Confined => winit_window
+        CursorGrabMode::None => winit_window.set_cursor_grab(winit::window::CursorGrabMode::None),
+        CursorGrabMode::Confined => winit_window
             .set_cursor_grab(winit::window::CursorGrabMode::Confined)
             .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Locked)),
-        bevy_window::CursorGrabMode::Locked => winit_window
+        CursorGrabMode::Locked => winit_window
             .set_cursor_grab(winit::window::CursorGrabMode::Locked)
             .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Confined)),
     };
 
     if let Err(err) = grab_result {
         let err_desc = match grab_mode {
-            bevy_window::CursorGrabMode::Confined | bevy_window::CursorGrabMode::Locked => "grab",
-            bevy_window::CursorGrabMode::None => "ungrab",
+            CursorGrabMode::Confined | CursorGrabMode::Locked => "grab",
+            CursorGrabMode::None => "ungrab",
         };
 
         bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);

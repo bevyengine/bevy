@@ -40,7 +40,7 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
 
 impl<const SEND: bool> ResourceData<SEND> {
     /// The only row in the underlying column.
-    const ROW: TableRow = TableRow::new(0);
+    const ROW: TableRow = TableRow::from_u32(0);
 
     /// Validates the access to `!Send` resources is only done on the thread they were created from.
     ///
