@@ -738,7 +738,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = true;
+            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -757,11 +757,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS)
-            && key.msaa_samples() == 1
-            && is_opaque
-            && !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE)
-        {
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
