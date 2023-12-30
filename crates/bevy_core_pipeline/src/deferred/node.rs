@@ -88,7 +88,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
                             resolve_target: None,
                             ops: Operations {
                                 load: LoadOp::Load,
-                                store: true,
+                                store: StoreOp::Store,
                             },
                         }
                     }
