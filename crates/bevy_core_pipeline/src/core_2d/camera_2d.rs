@@ -52,7 +52,7 @@ impl Default for Camera2dBundle {
             transform,
             global_transform: Default::default(),
             camera: Camera::default(),
-            camera_2d: Camera2d::default(),
+            camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
         }
@@ -90,7 +90,7 @@ impl Camera2dBundle {
             transform,
             global_transform: Default::default(),
             camera: Camera::default(),
-            camera_2d: Camera2d::default(),
+            camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
         }
