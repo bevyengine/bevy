@@ -66,10 +66,7 @@ impl ViewNode for MainTransparentPass3dNode {
             let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_3d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &[Some(target.get_color_attachment())],
                 depth_stencil_attachment: None,
             };
 
