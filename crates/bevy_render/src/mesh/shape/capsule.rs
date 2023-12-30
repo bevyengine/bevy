@@ -1,6 +1,6 @@
 use crate::{
     mesh::{Indices, Mesh},
-    render_asset::RenderAssetPersistentAccess,
+    render_asset::RenderAssetPersistencePolicy,
 };
 use bevy_math::{Vec2, Vec3};
 use wgpu::PrimitiveTopology;
@@ -369,7 +369,7 @@ impl From<Capsule> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)

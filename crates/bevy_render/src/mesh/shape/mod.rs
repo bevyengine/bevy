@@ -1,4 +1,4 @@
-use crate::render_asset::RenderAssetPersistentAccess;
+use crate::render_asset::RenderAssetPersistencePolicy;
 
 use super::{Indices, Mesh};
 use bevy_math::*;
@@ -124,7 +124,7 @@ impl From<Box> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -179,7 +179,7 @@ impl From<Quad> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         )
         .with_indices(Some(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
@@ -263,7 +263,7 @@ impl From<Plane> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         )
         .with_indices(Some(Indices::U32(indices)))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)

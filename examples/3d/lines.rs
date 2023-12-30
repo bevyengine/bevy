@@ -6,7 +6,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayout, PrimitiveTopology},
-        render_asset::RenderAssetPersistentAccess,
+        render_asset::RenderAssetPersistencePolicy,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
@@ -99,7 +99,7 @@ impl From<LineList> for Mesh {
             // This tells wgpu that the positions are list of lines
             // where every pair is a start and end point
             PrimitiveTopology::LineList,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         )
         // Add the vertices positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
@@ -118,7 +118,7 @@ impl From<LineStrip> for Mesh {
             // This tells wgpu that the positions are a list of points
             // where a line will be drawn between each consecutive point
             PrimitiveTopology::LineStrip,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         )
         // Add the point positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)

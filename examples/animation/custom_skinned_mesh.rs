@@ -11,7 +11,7 @@ use bevy::{
             skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
             Indices, PrimitiveTopology, VertexAttributeValues,
         },
-        render_asset::RenderAssetPersistentAccess,
+        render_asset::RenderAssetPersistencePolicy,
     },
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -57,7 +57,7 @@ fn setup(
     // Create a mesh
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetPersistentAccess::Unload,
+        RenderAssetPersistencePolicy::Unload,
     )
     // Set mesh vertex positions
     .with_inserted_attribute(

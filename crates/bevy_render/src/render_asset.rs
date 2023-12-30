@@ -34,7 +34,7 @@ pub trait RenderAsset: Asset + Clone {
     type Param: SystemParam;
 
     /// Whether or not to unload the asset after extracting it to the render world.
-    fn unload_after_extract(&self) -> RenderAssetPersistentAccess;
+    fn persistence_policy(&self) -> RenderAssetPersistencePolicy;
 
     /// Prepares the asset for the GPU by transforming it into a [`RenderAsset::PreparedAsset`].
     ///
@@ -52,7 +52,7 @@ pub trait RenderAsset: Asset + Clone {
 /// from the CPU (via Assets<T>) once unloaded (without re-loading it), making this a
 /// bad choice for assets you frequently need to read or modify from systems.
 #[derive(Reflect, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
-pub enum RenderAssetPersistentAccess {
+pub enum RenderAssetPersistencePolicy {
     #[default]
     Unload,
     Keep,
@@ -203,7 +203,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
     let mut extracted_assets = Vec::new();
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
-            if asset.unload_after_extract() == RenderAssetPersistentAccess::Unload {
+            if asset.persistence_policy() == RenderAssetPersistencePolicy::Unload {
                 if let Some(asset) = assets.remove(id) {
                     extracted_assets.push((id, asset));
                 }

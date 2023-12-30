@@ -1,6 +1,6 @@
 use crate::{
     mesh::{Indices, Mesh},
-    render_asset::RenderAssetPersistentAccess,
+    render_asset::RenderAssetPersistencePolicy,
 };
 use wgpu::PrimitiveTopology;
 
@@ -60,7 +60,7 @@ impl From<RegularPolygon> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

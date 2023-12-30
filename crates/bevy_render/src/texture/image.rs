@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistentAccess},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -110,7 +110,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
-    pub cpu_persistent_access: RenderAssetPersistentAccess,
+    pub cpu_persistent_access: RenderAssetPersistencePolicy,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -465,7 +465,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
-            cpu_persistent_access: RenderAssetPersistentAccess::Unload,
+            cpu_persistent_access: RenderAssetPersistencePolicy::Unload,
         }
     }
 }
@@ -481,7 +481,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
-        cpu_persistent_access: RenderAssetPersistentAccess,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -509,7 +509,7 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
-        cpu_persistent_access: RenderAssetPersistentAccess,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
@@ -648,7 +648,7 @@ impl Image {
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
-        cpu_persistent_access: RenderAssetPersistentAccess,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -817,7 +817,7 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    fn unload_after_extract(&self) -> RenderAssetPersistentAccess {
+    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
         self.cpu_persistent_access
     }
 
@@ -922,7 +922,7 @@ impl CompressedImageFormats {
 mod test {
 
     use super::*;
-    use crate::render_asset::RenderAssetPersistentAccess;
+    use crate::render_asset::RenderAssetPersistencePolicy;
 
     #[test]
     fn image_size() {
@@ -936,7 +936,7 @@ mod test {
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),

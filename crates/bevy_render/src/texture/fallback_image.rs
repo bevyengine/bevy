@@ -1,5 +1,5 @@
 use crate::{
-    render_asset::RenderAssetPersistentAccess, render_resource::*, texture::DefaultImageSampler,
+    render_asset::RenderAssetPersistencePolicy, render_resource::*, texture::DefaultImageSampler,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -83,7 +83,7 @@ fn fallback_image_new(
             image_dimension,
             &data,
             format,
-            RenderAssetPersistentAccess::Unload,
+            RenderAssetPersistencePolicy::Unload,
         )
     } else {
         let mut image = Image::default();

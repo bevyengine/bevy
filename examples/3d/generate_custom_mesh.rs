@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 use bevy::render::{
     mesh::{Indices, VertexAttributeValues},
-    render_asset::RenderAssetPersistentAccess,
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::PrimitiveTopology,
 };
 
@@ -123,7 +123,7 @@ fn input_handler(
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistentAccess::Keep)
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Keep)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.

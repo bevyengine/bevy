@@ -22,7 +22,7 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::Aabb,
-    render_asset::RenderAssetPersistentAccess,
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{Face, PrimitiveTopology},
     texture::{
         CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
@@ -391,7 +391,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology, RenderAssetPersistentAccess::Unload);
+            let mut mesh = Mesh::new(primitive_topology, RenderAssetPersistencePolicy::Unload);
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
@@ -435,7 +435,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
-                        RenderAssetPersistentAccess::Unload,
+                        RenderAssetPersistencePolicy::Unload,
                     )?;
                     let handle =
                         load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
@@ -727,7 +727,7 @@ async fn load_image<'a, 'b>(
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
-                RenderAssetPersistentAccess::Unload,
+                RenderAssetPersistencePolicy::Unload,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -749,7 +749,7 @@ async fn load_image<'a, 'b>(
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
-                        RenderAssetPersistentAccess::Unload,
+                        RenderAssetPersistencePolicy::Unload,
                     )?,
                     label: texture_label(&gltf_texture),
                 })

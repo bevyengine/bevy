@@ -52,7 +52,7 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     primitives::Aabb,
     render_asset::{
-        PrepareAssetError, RenderAsset, RenderAssetPersistentAccess, RenderAssetPlugin,
+        PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy, RenderAssetPlugin,
         RenderAssets,
     },
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -371,8 +371,8 @@ impl RenderAsset for LineGizmo {
     type PreparedAsset = GpuLineGizmo;
     type Param = SRes<RenderDevice>;
 
-    fn unload_after_extract(&self) -> RenderAssetPersistentAccess {
-        RenderAssetPersistentAccess::Unload
+    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
+        RenderAssetPersistencePolicy::Unload
     }
 
     fn prepare_asset(

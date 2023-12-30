@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute},
-        render_asset::RenderAssetPersistentAccess,
+        render_asset::RenderAssetPersistencePolicy,
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
@@ -53,7 +53,7 @@ fn star(
     // order to save on memory once it has been uploaded to the GPU.
     let mut star = Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetPersistentAccess::Unload,
+        RenderAssetPersistencePolicy::Unload,
     );
 
     // Vertices need to have a position attribute. We will use the following
