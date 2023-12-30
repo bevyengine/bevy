@@ -130,7 +130,7 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
-    /// If true, the loader will include the root of the gltf root node. This does nothing if the extensions feature is not enabled.
+    /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
 }
 
