@@ -323,7 +323,13 @@ fn apply_pbr_lighting(
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
-    indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
+    // This is technically not physically corrent. Ambient occlusion should only attenuate the
+    // diffuse term, not the specular term. However, without ray traced or screen space reflections,
+    // the physically correct math will tend to over-brighten specular,as it completely ignores
+    // occlusion. This results in, for example, a wheel in a vehicle's wheel well appearing to glow
+    // because it is not accounting for the fact that light cannot reach the wheel. Thus, ambient
+    // occlusion serves as an imperfect but decent *approximation* of specular occlusion.
+    indirect_light += (environment_light.diffuse + environment_light.specular) * occlusion;
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
