@@ -27,7 +27,7 @@ fn main() {
 
 #[derive(Component)]
 struct Spin {
-    speed: Angle<f32>,
+    speed: Angle,
 }
 
 /// The camera, used to move camera on click.

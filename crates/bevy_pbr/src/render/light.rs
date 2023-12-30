@@ -35,7 +35,7 @@ pub struct ExtractedPointLight {
     shadows_enabled: bool,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
-    spot_light_angles: Option<(Angle<f32>, Angle<f32>)>,
+    spot_light_angles: Option<(Angle, Angle)>,
 }
 
 #[derive(Component, Debug)]
@@ -635,7 +635,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     )
 }
 
-pub(crate) fn spot_light_projection_matrix(angle: Angle<f32>) -> Mat4 {
+pub(crate) fn spot_light_projection_matrix(angle: Angle) -> Mat4 {
     // spot light projection FOV is 2x the angle from spot light center to outer edge
     Mat4::perspective_infinite_reverse_rh(angle.as_radians() * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }

@@ -2,7 +2,7 @@
 
 use bevy_ecs::event::{Event, EventReader};
 use bevy_ecs::system::{ResMut, Resource};
-use bevy_math::{Angle, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_utils::HashMap;
 
@@ -83,7 +83,7 @@ pub enum ForceTouch {
         /// A value of 0 radians indicates that the stylus is parallel to the
         /// surface. The value of this property is Pi/2 when the stylus is
         /// perpendicular to the surface.
-        altitude_angle: Option<Angle<f64>>,
+        altitude_angle: Option<f64>,
     },
     /// If the platform reports the force as normalized, we have no way of
     /// knowing how much pressure 1.0 corresponds to – we know it's the maximum

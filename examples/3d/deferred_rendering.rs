@@ -311,7 +311,7 @@ fn update_normal(
 
 #[derive(Component)]
 struct Spin {
-    speed: Angle<f32>,
+    speed: Angle,
 }
 
 fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>, pause: Res<Pause>) {

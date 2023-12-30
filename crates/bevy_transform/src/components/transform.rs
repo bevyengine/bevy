@@ -256,7 +256,7 @@ impl Transform {
     ///
     /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
     #[inline]
-    pub fn rotate_axis(&mut self, axis: Vec3, angle: Angle<f32>) {
+    pub fn rotate_axis(&mut self, axis: Vec3, angle: Angle) {
         self.rotate(Quat::from_axis_angle(axis, angle.as_radians()));
     }
 
@@ -264,7 +264,7 @@ impl Transform {
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
-    pub fn rotate_x(&mut self, angle: Angle<f32>) {
+    pub fn rotate_x(&mut self, angle: Angle) {
         self.rotate(Quat::from_rotation_x(angle.as_radians()));
     }
 
@@ -272,7 +272,7 @@ impl Transform {
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
-    pub fn rotate_y(&mut self, angle: Angle<f32>) {
+    pub fn rotate_y(&mut self, angle: Angle) {
         self.rotate(Quat::from_rotation_y(angle.as_radians()));
     }
 
@@ -280,7 +280,7 @@ impl Transform {
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
-    pub fn rotate_z(&mut self, angle: Angle<f32>) {
+    pub fn rotate_z(&mut self, angle: Angle) {
         self.rotate(Quat::from_rotation_z(angle.as_radians()));
     }
 
@@ -294,25 +294,25 @@ impl Transform {
 
     /// Rotates this [`Transform`] around its local `axis` by `angle` in the counterclockwise direction.
     #[inline]
-    pub fn rotate_local_axis(&mut self, axis: Vec3, angle: Angle<f32>) {
+    pub fn rotate_local_axis(&mut self, axis: Vec3, angle: Angle) {
         self.rotate_local(Quat::from_axis_angle(axis, angle.as_radians()));
     }
 
     /// Rotates this [`Transform`] around its local `X` axis by `angle` in the counterclockwise direction.
     #[inline]
-    pub fn rotate_local_x(&mut self, angle: Angle<f32>) {
+    pub fn rotate_local_x(&mut self, angle: Angle) {
         self.rotate_local(Quat::from_rotation_x(angle.as_radians()));
     }
 
     /// Rotates this [`Transform`] around its local `Y` axis by `angle` in the counterclockwise direction.
     #[inline]
-    pub fn rotate_local_y(&mut self, angle: Angle<f32>) {
+    pub fn rotate_local_y(&mut self, angle: Angle) {
         self.rotate_local(Quat::from_rotation_y(angle.as_radians()));
     }
 
     /// Rotates this [`Transform`] around its local `Z` axis by `angle` in the counterclockwise direction.
     #[inline]
-    pub fn rotate_local_z(&mut self, angle: Angle<f32>) {
+    pub fn rotate_local_z(&mut self, angle: Angle) {
         self.rotate_local(Quat::from_rotation_z(angle.as_radians()));
     }
 

@@ -64,7 +64,7 @@ struct Contributor {
 #[derive(Component)]
 struct Velocity {
     translation: Vec3,
-    rotation: Angle<f32>,
+    rotation: Angle,
 }
 
 const GRAVITY: f32 = 9.821 * 100.0;

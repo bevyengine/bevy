@@ -253,7 +253,7 @@ fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>)
 }
 
 /// set translation based on the angle `a`
-fn set_translation(translation: &mut Vec3, a: Angle<f32>) {
+fn set_translation(translation: &mut Vec3, a: Angle) {
     translation.x = a.cos() * 32.0;
     translation.y = a.sin() * 32.0;
 }

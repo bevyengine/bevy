@@ -10,7 +10,6 @@ mod affine3;
 mod angle;
 mod aspect_ratio;
 pub mod cubic_splines;
-pub mod float;
 pub mod primitives;
 mod ray;
 mod rects;

@@ -107,12 +107,12 @@ pub struct SpotLight {
     /// `outer_angle` should be < `PI / 2.0`.
     /// `PI / 2.0` defines a hemispherical spot light, but shadows become very blocky as the angle
     /// approaches this limit.
-    pub outer_angle: Angle<f32>,
+    pub outer_angle: Angle,
     /// Angle defining the distance from the spot light direction to the inner limit
     /// of the light's cone of effect.
     /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
     /// `inner_angle` should be <= `outer_angle`
-    pub inner_angle: Angle<f32>,
+    pub inner_angle: Angle,
 }
 
 impl SpotLight {
@@ -1155,7 +1155,7 @@ pub(crate) struct PointLightAssignmentData {
     transform: GlobalTransform,
     range: f32,
     shadows_enabled: bool,
-    spot_light_angle: Option<Angle<f32>>,
+    spot_light_angle: Option<Angle>,
     render_layers: RenderLayers,
 }
 

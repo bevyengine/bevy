@@ -7,7 +7,7 @@ use std::f32::consts::TAU;
 // Define a component to designate a rotation speed to an entity.
 #[derive(Component)]
 struct Rotatable {
-    speed: Angle<f32>,
+    speed: Angle,
 }
 
 fn main() {

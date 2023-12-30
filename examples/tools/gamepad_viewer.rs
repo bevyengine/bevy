@@ -106,7 +106,7 @@ impl GamepadButtonBundle {
         }
     }
 
-    pub fn with_rotation(mut self, angle: Angle<f32>) -> Self {
+    pub fn with_rotation(mut self, angle: Angle) -> Self {
         self.mesh_bundle.transform.rotation = Quat::from_rotation_z(angle.as_radians());
         self
     }

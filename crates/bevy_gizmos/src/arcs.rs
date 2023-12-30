@@ -42,8 +42,8 @@ impl<'s> Gizmos<'s> {
     pub fn arc_2d(
         &mut self,
         position: Vec2,
-        direction_angle: Angle<f32>,
-        arc_angle: Angle<f32>,
+        direction_angle: Angle,
+        arc_angle: Angle,
         radius: f32,
         color: Color,
     ) -> Arc2dBuilder<'_, 's> {
@@ -63,8 +63,8 @@ impl<'s> Gizmos<'s> {
 pub struct Arc2dBuilder<'a, 's> {
     gizmos: &'a mut Gizmos<'s>,
     position: Vec2,
-    direction_angle: Angle<f32>,
-    arc_angle: Angle<f32>,
+    direction_angle: Angle,
+    arc_angle: Angle,
     radius: f32,
     color: Color,
     segments: Option<usize>,
@@ -95,8 +95,8 @@ impl Drop for Arc2dBuilder<'_, '_> {
 }
 
 fn arc_inner(
-    direction_angle: Angle<f32>,
-    arc_angle: Angle<f32>,
+    direction_angle: Angle,
+    arc_angle: Angle,
     radius: f32,
     segments: usize,
 ) -> impl Iterator<Item = Vec2> {
