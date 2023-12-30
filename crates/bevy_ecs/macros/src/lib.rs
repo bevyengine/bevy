@@ -208,6 +208,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
 
+                #[allow(non_snake_case)]
                 fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
