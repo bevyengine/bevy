@@ -624,48 +624,56 @@ where
         let mut intermediate = FilteredAccess::<ComponentId>::default();
         T::update_component_access(state, &mut intermediate);
 
-        for i in 0..intermediate.filter_sets.len() {
-            for j in i..intermediate.filter_sets.len() {
-                let filter_a = &intermediate.filter_sets[i];
-                let filter_b = &intermediate.filter_sets[j];
+        #[derive(Debug, Copy, Clone)]
+        enum AccessType {
+            With(usize),
+            Without(usize),
+        }
 
-                for a in filter_a.with.ones() {
-                    for b in filter_b.with.ones() {
-                        let mut inverted = FilteredAccess::<ComponentId>::default();
-                        inverted.and_without(ComponentId::new(a));
-                        inverted.and_without(ComponentId::new(b));
-                        access.append_or(&inverted);
+        let mut accesses = vec![];
+        for filter in intermediate.filter_sets {
+            let mut filters = vec![];
+            filters.extend(filter.with.ones().map(AccessType::With).collect::<Vec<_>>());
+            filters.extend(
+                filter
+                    .without
+                    .ones()
+                    .map(AccessType::Without)
+                    .collect::<Vec<_>>(),
+            );
+            accesses.push(filters);
+        }
+
+        let mut indices = vec![0; accesses.len()];
+        let lengths = accesses.iter().map(|v| v.len()).collect::<Vec<_>>();
+
+        loop {
+            let mut filter = FilteredAccess::default();
+            for (el, index) in indices.iter().enumerate() {
+                match accesses[el][*index] {
+                    AccessType::With(id) => {
+                        filter.and_without(ComponentId::new(id));
                     }
-                    for b in filter_b.without.ones() {
-                        // with & without the same component is always false, so don't add it
-                        if a == b {
-                            continue;
-                        }
-                        let mut inverted = FilteredAccess::<ComponentId>::default();
-                        inverted.and_without(ComponentId::new(a));
-                        inverted.and_with(ComponentId::new(b));
-                        access.append_or(&inverted);
+                    AccessType::Without(id) => {
+                        filter.and_with(ComponentId::new(id));
                     }
                 }
+            }
+            access.extend(&filter);
 
-                for a in filter_a.without.ones() {
-                    for b in filter_b.with.ones() {
-                        // with & without the same component is always false, so don't add it
-                        if a == b {
-                            continue;
-                        }
-                        let mut inverted = FilteredAccess::<ComponentId>::default();
-                        inverted.and_with(ComponentId::new(a));
-                        inverted.and_without(ComponentId::new(b));
-                        access.append_or(&inverted);
-                    }
-                    for b in filter_b.without.ones() {
-                        let mut inverted = FilteredAccess::<ComponentId>::default();
-                        inverted.and_with(ComponentId::new(a));
-                        inverted.and_with(ComponentId::new(b));
-                        access.append_or(&inverted);
-                    }
+            let mut update_index = indices.len() - 1;
+            loop {
+                indices[update_index] = (indices[update_index] + 1) % lengths[update_index];
+
+                if indices[update_index] != 0 || update_index == 0 {
+                    break;
                 }
+
+                update_index -= 1;
+            }
+
+            if update_index == 0 && indices[0] == 0 {
+                break;
             }
         }
     }
