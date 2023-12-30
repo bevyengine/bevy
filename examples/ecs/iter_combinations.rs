@@ -1,6 +1,6 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*};
+use bevy::{pbr::AmbientLight, prelude::*, render::camera::ClearColor};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
