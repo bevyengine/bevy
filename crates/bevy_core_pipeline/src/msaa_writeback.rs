@@ -93,7 +93,7 @@ impl Node for MsaaWritebackNode {
                 color_attachments: &[Some(RenderPassColorAttachment {
                     // If MSAA is enabled, then the sampled texture will always exist
                     view: target.sampled_main_texture_view().unwrap(),
-                    resolve_target: Some(&post_process.destination),
+                    resolve_target: Some(post_process.destination),
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK.into()),
                         store: StoreOp::Store,

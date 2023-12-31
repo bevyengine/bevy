@@ -71,7 +71,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         if let Some(deferred_texture) = &view_prepass_textures.deferred {
             render_context.command_encoder().clear_texture(
-                &deferred_texture.texture,
+                &deferred_texture.texture.texture,
                 &bevy_render::render_resource::ImageSubresourceRange::default(),
             );
         }
@@ -88,7 +88,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
                             resolve_target: None,
                             ops: Operations {
                                 load: LoadOp::Load,
-                                store: true,
+                                store: StoreOp::Store,
                             },
                         }
                     }

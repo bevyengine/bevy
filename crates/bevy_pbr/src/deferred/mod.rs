@@ -405,7 +405,7 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&DebandDither>,
             Option<&EnvironmentMapLight>,
             Option<&ShadowFilteringMethod>,
-            Option<&ScreenSpaceAmbientOcclusionSettings>,
+            Has<ScreenSpaceAmbientOcclusionSettings>,
             (
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,
@@ -467,7 +467,7 @@ pub fn prepare_deferred_lighting_pipelines(
             }
         }
 
-        if ssao.is_some() {
+        if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 

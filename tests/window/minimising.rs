@@ -1,6 +1,6 @@
 //! A test to confirm that `bevy` allows minimising the window
 //! This is run in CI to ensure that this doesn't regress again.
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
@@ -72,11 +72,9 @@ fn setup_2d(mut commands: Commands) {
         camera: Camera {
             // render the 2d camera after the 3d camera
             order: 1,
-            ..default()
-        },
-        camera_2d: Camera2d {
             // do not use a clear color
             clear_color: ClearColorConfig::None,
+            ..default()
         },
         ..default()
     });
