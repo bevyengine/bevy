@@ -536,12 +536,15 @@ pub fn queue_material_meshes<M: Material>(
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
+
         if depth_prepass {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
+
         if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
+
         if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
@@ -595,7 +598,6 @@ pub fn queue_material_meshes<M: Material>(
         }
 
         let rangefinder = view.rangefinder3d();
-
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
