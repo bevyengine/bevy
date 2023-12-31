@@ -171,7 +171,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         ShaderRef::Default
     }
 
-    /// Returns this material's [`MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh fragment shader will be used.
     #[allow(unused_variables)]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
