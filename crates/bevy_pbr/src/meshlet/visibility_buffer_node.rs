@@ -177,11 +177,12 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         }
 
         {
-            let color_attachments: &[_] = match (
+            let mut color_attachments_filled = [None, None];
+            if let (Some(visibility_buffer), Some(material_depth_color)) = (
                 meshlet_view_resources.visibility_buffer.as_ref(),
                 meshlet_view_resources.material_depth_color.as_ref(),
             ) {
-                (Some(visibility_buffer), Some(material_depth_color)) => &[
+                color_attachments_filled = [
                     Some(RenderPassColorAttachment {
                         view: &visibility_buffer.default_view,
                         resolve_target: None,
@@ -198,13 +199,16 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                             store: StoreOp::Store,
                         },
                     }),
-                ],
-                _ => &[],
-            };
+                ];
+            }
 
             let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("meshlet_visibility_buffer_second_pass"),
-                color_attachments,
+                color_attachments: if color_attachments_filled[0].is_none() {
+                    &[]
+                } else {
+                    &color_attachments_filled
+                },
                 depth_stencil_attachment: Some(match (view_depth, shadow_view) {
                     (Some(view_depth), None) => view_depth.get_attachment(StoreOp::Store),
                     (None, Some(shadow_view)) => {
