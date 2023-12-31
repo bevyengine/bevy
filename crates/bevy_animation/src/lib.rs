@@ -616,6 +616,7 @@ fn get_keyframe(target_count: usize, keyframes: &[f32], key_index: usize) -> &[f
 
 // Helper macro for cubic spline interpolation
 // it needs to work on `f32`, `Vec3` and `Quat`
+// TODO: replace by a function if the proper trait bounds can be figured out
 macro_rules! cubic_spline_interpolation {
     ($value_start: expr, $tangent_out_start: expr, $tangent_in_end: expr, $value_end: expr, $lerp: expr, $step_duration: expr,) => {
         $value_start * (2.0 * $lerp.powi(3) - 3.0 * $lerp.powi(2) + 1.0)
