@@ -9,8 +9,9 @@ use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
-use crate::system::Resource;
+use crate::system::{Res, ResMut, Resource};
 use crate::world::World;
+use bevy_ecs_macros::SystemParam;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 
@@ -113,7 +114,10 @@ impl<S: States> Deref for State<S> {
 
 /// The next state of [`State<S>`].
 ///
-/// To queue a transition, just set the contained value to `Some(next_state)`.
+/// To queue a transition, set the contained value to `Some(next_state)`.
+/// This can even queue a transition from the current state to itself. Use [`ChangeState<S>`] if
+/// you want to check the current state first.
+///
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 #[derive(Resource, Debug)]
@@ -131,9 +135,31 @@ impl<S: States> Default for NextState<S> {
 }
 
 impl<S: States> NextState<S> {
-    /// Tentatively set a planned state transition to `Some(state)`.
+    /// Tentatively set a planned state transition to `state`.
     pub fn set(&mut self, state: S) {
         self.0 = Some(state);
+    }
+}
+
+/// A [`SystemParam`] for setting the next state depending on the current state.
+#[derive(SystemParam)]
+pub struct ChangeState<'w, S: States> {
+    /// The current state.
+    pub current: Res<'w, State<S>>,
+    /// The planned next state.
+    pub next: ResMut<'w, NextState<S>>,
+}
+
+impl<'w, S: States> ChangeState<'w, S> {
+    /// Tentatively set a planned state transition to `state`, or no transition if that's already
+    /// the current state.
+    pub fn change(&mut self, state: S) {
+        self.next.0 = (self.current.0 != state).then_some(state);
+    }
+
+    /// Tentatively set a planned state transition from the current state to itself.
+    pub fn reload(&mut self) {
+        self.next.set(self.current.0.clone());
     }
 }
 
@@ -157,17 +183,15 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         next_state_resource.set_changed();
 
         let mut state_resource = world.resource_mut::<State<S>>();
-        if *state_resource != entered {
-            let exited = mem::replace(&mut state_resource.0, entered.clone());
-            // Try to run the schedules if they exist.
-            world.try_run_schedule(OnExit(exited.clone())).ok();
-            world
-                .try_run_schedule(OnTransition {
-                    from: exited,
-                    to: entered.clone(),
-                })
-                .ok();
-            world.try_run_schedule(OnEnter(entered)).ok();
-        }
+        let exited = mem::replace(&mut state_resource.0, entered.clone());
+        // Try to run the schedules if they exist.
+        world.try_run_schedule(OnExit(exited.clone())).ok();
+        world
+            .try_run_schedule(OnTransition {
+                from: exited,
+                to: entered.clone(),
+            })
+            .ok();
+        world.try_run_schedule(OnEnter(entered)).ok();
     }
 }
