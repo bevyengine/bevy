@@ -113,7 +113,8 @@ impl<S: States> Deref for State<S> {
 
 /// The next state of [`State<S>`].
 ///
-/// To queue a transition, just set the contained value to `Some(next_state)`.
+/// To queue a transition, just set the contained value to `Some((next_state, false))`, or
+/// `Some((next_state, true))` to also allow transitioning from the current state to itself.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 #[derive(Resource, Debug)]
@@ -122,7 +123,7 @@ impl<S: States> Deref for State<S> {
     derive(bevy_reflect::Reflect),
     reflect(Resource, Default)
 )]
-pub struct NextState<S: States>(pub Option<S>);
+pub struct NextState<S: States>(pub Option<(S, bool)>);
 
 impl<S: States> Default for NextState<S> {
     fn default() -> Self {
@@ -131,9 +132,15 @@ impl<S: States> Default for NextState<S> {
 }
 
 impl<S: States> NextState<S> {
-    /// Tentatively set a planned state transition to `Some(state)`.
+    /// Tentatively set a planned state transition to `state`.
     pub fn set(&mut self, state: S) {
-        self.0 = Some(state);
+        self.0 = Some((state, false));
+    }
+
+    /// Tentatively set a planned state transition to `state`,
+    /// even if transitioning from the current state to itself.
+    pub fn set_forced(&mut self, state: S) {
+        self.0 = Some((state, true));
     }
 }
 
@@ -153,11 +160,11 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
     let mut next_state_resource = world.resource_mut::<NextState<S>>();
-    if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
+    if let Some((entered, forced)) = next_state_resource.bypass_change_detection().0.take() {
         next_state_resource.set_changed();
 
         let mut state_resource = world.resource_mut::<State<S>>();
-        if *state_resource != entered {
+        if forced || *state_resource != entered {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
             world.try_run_schedule(OnExit(exited.clone())).ok();
