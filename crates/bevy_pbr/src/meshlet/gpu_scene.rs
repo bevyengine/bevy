@@ -7,7 +7,7 @@ use bevy_asset::{AssetId, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::Has,
+    query::{AnyOf, Has},
     system::{Commands, Query, Res, ResMut, Resource, SystemState},
     world::{FromWorld, World},
 };
@@ -309,8 +309,7 @@ pub fn prepare_meshlet_view_bind_groups(
     views: Query<(
         Entity,
         &MeshletViewResources,
-        Option<&ViewDepthTexture>,
-        Option<&ShadowView>,
+        AnyOf<(&ViewDepthTexture, &ShadowView)>,
     )>,
     view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
@@ -320,7 +319,7 @@ pub fn prepare_meshlet_view_bind_groups(
         return;
     };
 
-    for (view_entity, view_resources, view_depth, shadow_view) in &views {
+    for (view_entity, view_resources, view_depth) in &views {
         let entries = BindGroupEntries::sequential((
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
@@ -369,7 +368,7 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
-        let view_depth_texture = match (view_depth, shadow_view) {
+        let view_depth_texture = match view_depth {
             (Some(view_depth), None) => view_depth.view(),
             (None, Some(shadow_view)) => &shadow_view.depth_attachment.view,
             _ => unreachable!(),

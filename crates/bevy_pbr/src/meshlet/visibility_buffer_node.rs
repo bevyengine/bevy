@@ -3,7 +3,10 @@ use super::{
     pipelines::MeshletPipelines,
 };
 use crate::{LightEntity, ShadowView};
-use bevy_ecs::{query::QueryItem, world::World};
+use bevy_ecs::{
+    query::{AnyOf, QueryItem},
+    world::World,
+};
 use bevy_render::{
     camera::ExtractedCamera,
     color::Color,
@@ -27,8 +30,7 @@ pub struct MeshletVisibilityBufferPassNode;
 impl ViewNode for MeshletVisibilityBufferPassNode {
     type ViewData = (
         Option<&'static ExtractedCamera>,
-        Option<&'static ViewDepthTexture>,
-        Option<&'static ShadowView>,
+        AnyOf<(&'static ViewDepthTexture, &'static ShadowView)>,
         Option<&'static LightEntity>,
         &'static ViewUniformOffset,
         &'static MeshletViewBindGroups,
@@ -42,7 +44,6 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
         (
             camera,
             view_depth,
-            shadow_view,
             light_entity,
             view_offset,
             meshlet_view_bind_groups,
@@ -65,7 +66,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
 
         let is_directional_light = matches!(light_entity, Some(&LightEntity::Directional { .. }));
         let (first_pass_visibility_buffer_pipeline, second_pass_visibility_buffer_pipeline) =
-            match (view_depth, shadow_view) {
+            match view_depth {
                 (Some(_), None) => (
                     visibility_buffer_pipeline,
                     visibility_buffer_with_output_pipeline,
@@ -103,7 +104,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
             let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("meshlet_visibility_buffer_first_pass"),
                 color_attachments: &[],
-                depth_stencil_attachment: Some(match (view_depth, shadow_view) {
+                depth_stencil_attachment: Some(match view_depth {
                     (Some(view_depth), None) => view_depth.get_attachment(StoreOp::Store),
                     (None, Some(shadow_view)) => {
                         shadow_view.depth_attachment.get_attachment(StoreOp::Store)
@@ -209,7 +210,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                 } else {
                     &color_attachments_filled
                 },
-                depth_stencil_attachment: Some(match (view_depth, shadow_view) {
+                depth_stencil_attachment: Some(match view_depth {
                     (Some(view_depth), None) => view_depth.get_attachment(StoreOp::Store),
                     (None, Some(shadow_view)) => {
                         shadow_view.depth_attachment.get_attachment(StoreOp::Store)
