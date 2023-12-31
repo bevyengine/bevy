@@ -77,6 +77,8 @@ impl Node for MainPass2dNode {
                 label: Some("reset_viewport_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment())],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
 
             render_context
