@@ -37,11 +37,13 @@ use self::{
 use crate::Material;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
-use bevy_core_pipeline::core_3d::{graph::node::*, CORE_3D};
-use bevy_ecs::{bundle::Bundle, schedule::IntoSystemConfigs};
+use bevy_core_pipeline::core_3d::{
+    graph::node::*, prepare_core_3d_depth_textures, Camera3d, CORE_3D,
+};
+use bevy_ecs::{bundle::Bundle, schedule::IntoSystemConfigs, system::Query};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::Shader,
+    render_resource::{Shader, TextureUsages},
     view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -138,6 +140,9 @@ impl Plugin for MeshletPlugin {
             (
                 perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
                 prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
+                add_depth_texture_usages
+                    .before(prepare_core_3d_depth_textures)
+                    .in_set(RenderSet::PrepareResources),
                 prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
             ),
         );
@@ -183,5 +188,13 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
         }
+    }
+}
+
+fn add_depth_texture_usages(mut views_3d: Query<&mut Camera3d>) {
+    for mut camera_3d in &mut views_3d {
+        let mut usages: TextureUsages = camera_3d.depth_texture_usages.into();
+        usages |= TextureUsages::TEXTURE_BINDING;
+        camera_3d.depth_texture_usages = usages.into();
     }
 }

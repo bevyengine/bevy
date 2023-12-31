@@ -253,6 +253,7 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
             });
             opaque_pass_material_map.push((material_id, pipeline_id, material.bind_group.clone()));
 
+            // TODO: Need a different pipeline descriptor for the prepass
             let pipeline_id = *cache
                 .entry(view_key)
                 .or_insert_with(|| pipeline_cache.queue_render_pipeline(pipeline_descriptor));

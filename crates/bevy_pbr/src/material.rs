@@ -590,13 +590,11 @@ pub fn queue_material_meshes<M: Material>(
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
-
         if let Some(camera_3d) = camera_3d {
             view_key |= screen_space_specular_transmission_pipeline_key(
                 camera_3d.screen_space_specular_transmission_quality,
             );
         }
-
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
