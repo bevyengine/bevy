@@ -34,7 +34,7 @@ use self::{
         draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS, MeshletVisibilityBufferPassNode,
     },
 };
-use crate::Material;
+use crate::{draw_3d_graph::node::SHADOW_PASS, Material};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::core_3d::{
@@ -122,6 +122,7 @@ impl Plugin for MeshletPlugin {
             CORE_3D,
             &[
                 MESHLET_VISIBILITY_BUFFER_PASS,
+                SHADOW_PASS,
                 PREPASS,
                 DEFERRED_PREPASS,
                 COPY_DEFERRED_LIGHTING_ID,

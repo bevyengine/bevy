@@ -22,8 +22,9 @@ pub struct MeshletPipelines {
     cull_first: CachedComputePipelineId,
     cull_second: CachedComputePipelineId,
     downsample_depth: CachedRenderPipelineId,
-    visibility_buffer: CachedRenderPipelineId, // TODO: Need two variants, with/without DEPTH_CLAMP_ORTHO
-    visibility_buffer_with_output: CachedRenderPipelineId, // TODO: Need two variants, with/without DEPTH_CLAMP_ORTHO
+    visibility_buffer: CachedRenderPipelineId,
+    visibility_buffer_with_output: CachedRenderPipelineId,
+    visibility_buffer_depth_clamp_ortho: CachedRenderPipelineId,
     copy_material_depth: CachedRenderPipelineId,
 }
 
@@ -119,7 +120,7 @@ impl FromWorld for MeshletPipelines {
             visibility_buffer_with_output: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
                     label: Some("meshlet_visibility_buffer_with_output_pipeline".into()),
-                    layout: vec![visibility_buffer_layout],
+                    layout: vec![visibility_buffer_layout.clone()],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
@@ -172,6 +173,51 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
+            visibility_buffer_depth_clamp_ortho: pipeline_cache.queue_render_pipeline(
+                RenderPipelineDescriptor {
+                    label: Some("visibility_buffer_depth_clamp_ortho_pipeline".into()),
+                    layout: vec![visibility_buffer_layout],
+                    push_constant_ranges: vec![],
+                    vertex: VertexState {
+                        shader: MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
+                        shader_defs: vec![
+                            "MESHLET_VISIBILITY_BUFFER_PASS".into(),
+                            ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 0),
+                            "DEPTH_CLAMP_ORTHO".into(),
+                        ],
+                        entry_point: "vertex".into(),
+                        buffers: vec![],
+                    },
+                    primitive: PrimitiveState {
+                        topology: PrimitiveTopology::TriangleList,
+                        strip_index_format: None,
+                        front_face: FrontFace::Ccw,
+                        cull_mode: Some(Face::Back),
+                        unclipped_depth: false,
+                        polygon_mode: PolygonMode::Fill,
+                        conservative: false,
+                    },
+                    depth_stencil: Some(DepthStencilState {
+                        format: CORE_3D_DEPTH_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: CompareFunction::GreaterEqual,
+                        stencil: StencilState::default(),
+                        bias: DepthBiasState::default(),
+                    }),
+                    multisample: MultisampleState::default(),
+                    fragment: Some(FragmentState {
+                        shader: MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
+                        shader_defs: vec![
+                            "MESHLET_VISIBILITY_BUFFER_PASS".into(),
+                            ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 0),
+                            "DEPTH_CLAMP_ORTHO".into(),
+                        ],
+                        entry_point: "fragment".into(),
+                        targets: vec![],
+                    }),
+                },
+            ),
+
             copy_material_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("meshlet_copy_material_depth".into()),
                 layout: vec![copy_material_depth_layout],
@@ -207,6 +253,7 @@ impl MeshletPipelines {
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
+        &RenderPipeline,
     )> {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
@@ -216,6 +263,7 @@ impl MeshletPipelines {
             pipeline_cache.get_render_pipeline(pipeline.downsample_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_with_output)?,
+            pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_depth_clamp_ortho)?,
             pipeline_cache.get_render_pipeline(pipeline.copy_material_depth)?,
         ))
     }

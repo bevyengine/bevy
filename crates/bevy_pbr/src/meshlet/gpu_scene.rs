@@ -1,7 +1,7 @@
 use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialInstances,
+    PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
 };
 use bevy_asset::{AssetId, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
@@ -120,7 +120,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
 
 pub fn prepare_meshlet_per_frame_resources(
     mut gpu_scene: ResMut<MeshletGpuScene>,
-    views: Query<(Entity, &ExtractedView)>,
+    views: Query<(Entity, &ExtractedView, Has<ShadowView>)>,
     mut texture_cache: ResMut<TextureCache>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
@@ -158,7 +158,7 @@ pub fn prepare_meshlet_per_frame_resources(
         mapped_at_creation: false,
     });
 
-    for (view_entity, view) in &views {
+    for (view_entity, view, is_shadow_view) in &views {
         let previous_occlusion_buffer = gpu_scene
             .previous_occlusion_buffers
             .get(&view_entity)
@@ -289,21 +289,29 @@ pub fn prepare_meshlet_per_frame_resources(
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
             previous_occlusion_buffer,
             occlusion_buffer,
-            visibility_buffer: texture_cache.get(&render_device, visibility_buffer),
+            visibility_buffer: (!is_shadow_view)
+                .then(|| texture_cache.get(&render_device, visibility_buffer)),
             visibility_buffer_draw_command_buffer_first,
             visibility_buffer_draw_command_buffer_second,
             visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
             depth_pyramid,
             depth_pyramid_mips,
-            material_depth_color: texture_cache.get(&render_device, material_depth_color),
-            material_depth: texture_cache.get(&render_device, material_depth),
+            material_depth_color: (!is_shadow_view)
+                .then(|| texture_cache.get(&render_device, material_depth_color)),
+            material_depth: (!is_shadow_view)
+                .then(|| texture_cache.get(&render_device, material_depth)),
         });
     }
 }
 
 pub fn prepare_meshlet_view_bind_groups(
     gpu_scene: Res<MeshletGpuScene>,
-    views: Query<(Entity, &MeshletViewResources, &ViewDepthTexture)>,
+    views: Query<(
+        Entity,
+        &MeshletViewResources,
+        Option<&ViewDepthTexture>,
+        Option<&ShadowView>,
+    )>,
     view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
@@ -312,7 +320,7 @@ pub fn prepare_meshlet_view_bind_groups(
         return;
     };
 
-    for (view_entity, view_resources, view_depth_texture) in &views {
+    for (view_entity, view_resources, view_depth, shadow_view) in &views {
         let entries = BindGroupEntries::sequential((
             gpu_scene.meshlets.binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
@@ -361,13 +369,18 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
+        let view_depth_texture = match (view_depth, shadow_view) {
+            (Some(view_depth), None) => view_depth.view(),
+            (None, Some(shadow_view)) => &shadow_view.depth_attachment.view,
+            _ => unreachable!(),
+        };
         let downsample_depth = [0, 1, 2, 3, 4, 5].map(|i| {
             render_device.create_bind_group(
                 "meshlet_downsample_depth_bind_group",
                 &gpu_scene.downsample_depth_bind_group_layout,
                 &BindGroupEntries::sequential((
                     if i == 0 {
-                        view_depth_texture.view()
+                        view_depth_texture
                     } else {
                         &view_resources.depth_pyramid_mips[i - 1]
                     },
@@ -393,32 +406,43 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
-        let entries = BindGroupEntries::sequential((
-            gpu_scene.meshlets.binding(),
-            gpu_scene.instance_uniforms.binding().unwrap(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.vertex_data.binding(),
-            gpu_scene.vertex_ids.binding(),
-            gpu_scene.indices.binding(),
-            &view_resources.visibility_buffer.default_view,
-        ));
-        let material_draw = render_device.create_bind_group(
-            "meshlet_mesh_material_draw_bind_group",
-            &gpu_scene.material_draw_bind_group_layout,
-            &entries,
-        );
+        let copy_material_depth =
+            view_resources
+                .material_depth_color
+                .as_ref()
+                .map(|material_depth_color| {
+                    render_device.create_bind_group(
+                        "meshlet_copy_material_depth_bind_group",
+                        &gpu_scene.copy_material_depth_bind_group_layout,
+                        &[BindGroupEntry {
+                            binding: 0,
+                            resource: BindingResource::TextureView(
+                                &material_depth_color.default_view,
+                            ),
+                        }],
+                    )
+                });
 
-        let copy_material_depth = render_device.create_bind_group(
-            "meshlet_copy_material_depth_bind_group",
-            &gpu_scene.copy_material_depth_bind_group_layout,
-            &[BindGroupEntry {
-                binding: 0,
-                resource: BindingResource::TextureView(
-                    &view_resources.material_depth_color.default_view,
-                ),
-            }],
-        );
+        let material_draw = view_resources
+            .visibility_buffer
+            .as_ref()
+            .map(|visibility_buffer| {
+                let entries = BindGroupEntries::sequential((
+                    gpu_scene.meshlets.binding(),
+                    gpu_scene.instance_uniforms.binding().unwrap(),
+                    gpu_scene.thread_instance_ids.binding().unwrap(),
+                    gpu_scene.thread_meshlet_ids.binding().unwrap(),
+                    gpu_scene.vertex_data.binding(),
+                    gpu_scene.vertex_ids.binding(),
+                    gpu_scene.indices.binding(),
+                    &visibility_buffer.default_view,
+                ));
+                render_device.create_bind_group(
+                    "meshlet_mesh_material_draw_bind_group",
+                    &gpu_scene.material_draw_bind_group_layout,
+                    &entries,
+                )
+            });
 
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             culling_first,
@@ -741,15 +765,15 @@ pub struct MeshletViewResources {
     pub scene_meshlet_count: u32,
     previous_occlusion_buffer: Buffer,
     occlusion_buffer: Buffer,
-    pub visibility_buffer: CachedTexture,
+    pub visibility_buffer: Option<CachedTexture>,
     pub visibility_buffer_draw_command_buffer_first: Buffer,
     pub visibility_buffer_draw_command_buffer_second: Buffer,
     pub visibility_buffer_draw_index_buffer: Buffer,
     pub depth_pyramid: CachedTexture,
     // TODO: Dynamic number of mips based on view resolution
     pub depth_pyramid_mips: [TextureView; 6],
-    pub material_depth_color: CachedTexture,
-    pub material_depth: CachedTexture,
+    pub material_depth_color: Option<CachedTexture>,
+    pub material_depth: Option<CachedTexture>,
 }
 
 #[derive(Component)]
@@ -758,6 +782,6 @@ pub struct MeshletViewBindGroups {
     pub culling_second: BindGroup,
     pub downsample_depth: [BindGroup; 6],
     pub visibility_buffer: BindGroup,
-    pub copy_material_depth: BindGroup,
-    pub material_draw: BindGroup,
+    pub copy_material_depth: Option<BindGroup>,
+    pub material_draw: Option<BindGroup>,
 }

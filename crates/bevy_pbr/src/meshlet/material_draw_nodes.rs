@@ -54,10 +54,18 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (Some(gpu_scene), Some(pipeline_cache)) = (
+        let (
+            Some(gpu_scene),
+            Some(pipeline_cache),
+            Some(material_depth),
+            Some(material_draw_bind_group),
+        ) = (
             world.get_resource::<MeshletGpuScene>(),
             world.get_resource::<PipelineCache>(),
-        ) else {
+            meshlet_view_resources.material_depth.as_ref(),
+            meshlet_view_bind_groups.material_draw.as_ref(),
+        )
+        else {
             return Ok(());
         };
 
@@ -65,7 +73,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             label: Some(draw_3d_graph::node::MESHLET_MAIN_OPAQUE_PASS_3D),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &meshlet_view_resources.material_depth.default_view,
+                view: &material_depth.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
                     store: StoreOp::Discard,
@@ -88,7 +96,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 view_fog_offset.offset,
             ],
         );
-        render_pass.set_bind_group(1, &meshlet_view_bind_groups.material_draw, &[]);
+        render_pass.set_bind_group(1, &material_draw_bind_group, &[]);
 
         for (material_id, material_pipeline_id, material_bind_group) in
             &meshlet_view_materials.opaque_pass
