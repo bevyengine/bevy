@@ -72,11 +72,11 @@ fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextT
 }
 
 fn transition_to_in_game_system(
-    mut next_state: ResMut<NextState<AppState>>,
+    mut state: ChangeState<AppState>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
-        next_state.set(AppState::InGame);
+        state.change(AppState::InGame);
     }
 }
 

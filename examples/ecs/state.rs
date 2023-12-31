@@ -92,7 +92,7 @@ fn setup_menu(mut commands: Commands) {
 }
 
 fn menu(
-    mut next_state: ResMut<NextState<AppState>>,
+    mut state: ChangeState<AppState>,
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
@@ -102,7 +102,7 @@ fn menu(
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
-                next_state.set(AppState::InGame);
+                state.change(AppState::InGame);
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();

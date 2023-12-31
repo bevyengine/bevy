@@ -35,7 +35,7 @@ fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn check_textures(
-    mut next_state: ResMut<NextState<AppState>>,
+    mut state: ChangeState<AppState>,
     rpg_sprite_folder: Res<RpgSpriteFolder>,
     mut events: EventReader<AssetEvent<LoadedFolder>>,
 ) {
@@ -43,7 +43,7 @@ fn check_textures(
     // and that the the font has been loaded by the `FontSystem`.
     for event in events.read() {
         if event.is_loaded_with_dependencies(&rpg_sprite_folder.0) {
-            next_state.set(AppState::Finished);
+            state.change(AppState::Finished);
         }
     }
 }
