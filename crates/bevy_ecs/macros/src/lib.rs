@@ -208,7 +208,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
 
-                // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case on the variables
+                // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
                 #[allow(non_snake_case)]
                 fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
