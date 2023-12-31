@@ -24,21 +24,6 @@ fn main() {
         .run();
 }
 
-/// Quad with UV coordinates in range `-1..=2`, which is outside of texture UV range `0..=1`.
-fn quad_1_2() -> Mesh {
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    mesh.insert_attribute(
-        Mesh::ATTRIBUTE_POSITION,
-        vec![[0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.]],
-    );
-    mesh.insert_attribute(
-        Mesh::ATTRIBUTE_UV_0,
-        vec![[-1., 2.], [2., 2.], [2., -1.], [-1., -1.]],
-    );
-    mesh.set_indices(Some(Indices::U16(vec![0, 1, 2, 2, 3, 0])));
-    mesh
-}
-
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -84,7 +69,12 @@ fn setup(
         },
     );
 
-    let mesh = meshes.add(quad_1_2());
+    // Instead of using a standard quad with UV coordinates in the range `0..=1` (spanning the entire texture),
+    // we create a quad with UV coordinates in the range `-1..=2`, going beyond the texture by one entire unit in each direction.
+    // Texture behaviour then depends on the selected sampler mode.
+    // By default (`ImageAddressMode::ClampToEdge`) the out-of-bounds UV coordinates will map to the edge of the texture.
+    // When `ImageAddressMode::Repeat` is specified the out-of-bounds UV coordinates will repeat the texture.
+    let mesh = meshes.add(quad_with_custom_uv(-1.0, 2.0));
 
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh.clone().into(),
@@ -107,4 +97,24 @@ fn setup(
             .with_scale(Vec3::new(0.9, 0.9, 0.9)),
         ..default()
     });
+}
+
+/// Creates a quad with UV coordinates in range `uv_low..=uv_high`, instead of the usual UV range `0..=1`.
+fn quad_with_custom_uv(uv_low: f32, uv_high: f32) -> Mesh {
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        vec![[0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.]],
+    );
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_UV_0,
+        vec![
+            [uv_low, uv_high],
+            [uv_high, uv_high],
+            [uv_high, uv_low],
+            [uv_low, uv_low],
+        ],
+    );
+    mesh.set_indices(Some(Indices::U16(vec![0, 1, 2, 2, 3, 0])));
+    mesh
 }
