@@ -47,6 +47,7 @@ use bevy_render::{
         ViewVisibility, VisibleEntities,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    globals::{GlobalsBuffer, GlobalsUniform},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
@@ -154,9 +155,12 @@ impl<M: SpriteMaterial> FromWorld for SpriteMaterialPipeline<M> {
 
         let view_layout = render_device.create_bind_group_layout(
             "sprite_view_layout",
-            &BindGroupLayoutEntries::single(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
-                uniform_buffer::<ViewUniform>(true),
+                (
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GlobalsUniform>(false),
+                ),
             ),
         );
 
@@ -615,6 +619,7 @@ pub fn prepare_sprites<M: SpriteMaterial>(
     extracted_sprite_with_materials: Res<ExtractedSpriteWithMaterials<M>>,
     mut phases: Query<&mut RenderPhase<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
+    globals_buffer: Res<GlobalsBuffer>,
     render_materials: Res<RenderMaterials<M>>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -629,7 +634,10 @@ pub fn prepare_sprites<M: SpriteMaterial>(
         };
     }
 
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+    if let (Some(view_binding), Some(globals_binding)) = (
+        view_uniforms.uniforms.binding(),
+        globals_buffer.buffer.binding(),
+    ) {
         let mut batches: Vec<(Entity, SpriteBatch<M>)> = Vec::with_capacity(*previous_len);
 
         // Clear the sprite instances
@@ -638,7 +646,10 @@ pub fn prepare_sprites<M: SpriteMaterial>(
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(
             "sprite_view_bind_group",
             &sprite_material_pipeline.view_layout,
-            &BindGroupEntries::single(view_binding),
+            &BindGroupEntries::sequential((
+                view_binding,
+                globals_binding,
+            )),
         ));
 
         // Index buffer indices
