@@ -638,9 +638,9 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     )
 }
 
-pub(crate) fn spot_light_projection_matrix(angle: impl Into<Radians>) -> Mat4 {
+pub(crate) fn spot_light_projection_matrix(angle: Radians) -> Mat4 {
     // spot light projection FOV is 2x the angle from spot light center to outer edge
-    Mat4::perspective_infinite_reverse_rh(angle.into().0 * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
+    Mat4::perspective_infinite_reverse_rh(angle.0 * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
 
 #[allow(clippy::too_many_arguments)]

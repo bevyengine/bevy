@@ -90,8 +90,8 @@ fn setup(
                         intensity: 200.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
-                        inner_angle: std::f32::consts::FRAC_PI_4 * 0.85,
-                        outer_angle: std::f32::consts::FRAC_PI_4,
+                        inner_angle: PI / 4.0 * 0.85,
+                        outer_angle: PI / 4.0,
                         ..default()
                     },
                     ..default()
