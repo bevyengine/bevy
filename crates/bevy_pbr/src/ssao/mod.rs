@@ -681,7 +681,7 @@ fn prepare_ssao_bind_groups(
             "ssao_preprocess_depth_bind_group",
             &pipelines.preprocess_depth_bind_group_layout,
             &BindGroupEntries::sequential((
-                &prepass_textures.depth.as_ref().unwrap().default_view,
+                prepass_textures.depth_view().unwrap(),
                 &create_depth_view(0),
                 &create_depth_view(1),
                 &create_depth_view(2),
@@ -695,7 +695,7 @@ fn prepare_ssao_bind_groups(
             &pipelines.gtao_bind_group_layout,
             &BindGroupEntries::sequential((
                 &ssao_textures.preprocessed_depth_texture.default_view,
-                &prepass_textures.normal.as_ref().unwrap().default_view,
+                prepass_textures.normal_view().unwrap(),
                 &pipelines.hilbert_index_lut,
                 &ssao_textures.ssao_noisy_texture.default_view,
                 &ssao_textures.depth_differences_texture.default_view,
