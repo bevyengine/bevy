@@ -141,7 +141,7 @@ impl ViewNode for MeshletVisibilityBufferPassNode {
                 &meshlet_view_bind_groups.culling_second,
                 &[view_offset.offset],
             );
-            cull_pass.set_pipeline(&culling_second_pipeline);
+            cull_pass.set_pipeline(culling_second_pipeline);
             cull_pass.dispatch_workgroups(culling_workgroups, 1, 1);
         }
 
