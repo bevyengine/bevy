@@ -179,7 +179,10 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
             let Some(material) = render_materials.get(material_id) else {
                 continue;
             };
-            if material.properties.alpha_mode != AlphaMode::Opaque {
+
+            if material.properties.alpha_mode != AlphaMode::Opaque
+                || material.properties.reads_view_transmission_texture
+            {
                 continue;
             }
 
