@@ -39,8 +39,8 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
     for (var i = 0u; i < 6u; i++) {
-        meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > -bounding_sphere_radius;
         if !meshlet_visible { break; }
+        meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > -bounding_sphere_radius;
     }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
