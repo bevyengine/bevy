@@ -12,20 +12,7 @@ impl Direction3d {
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
     pub fn new(value: Vec3) -> Result<Self, InvalidDirectionError> {
-        value.try_normalize().map(Self).map_or_else(
-            || {
-                if value.is_nan() {
-                    Err(InvalidDirectionError::NaN)
-                } else if !value.is_finite() {
-                    // If the direction is non-finite but also not NaN, it must be infinite
-                    Err(InvalidDirectionError::Infinite)
-                } else {
-                    // If the direction is invalid but neither NaN nor infinite, it must be zero
-                    Err(InvalidDirectionError::Zero)
-                }
-            },
-            Ok,
-        )
+        Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
     /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
@@ -33,23 +20,12 @@ impl Direction3d {
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
     pub fn new_and_length(value: Vec3) -> Result<(Self, f32), InvalidDirectionError> {
-        let len = value.length();
-        let direction = (len.is_finite() && len > 0.0).then_some(value / len);
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
 
-        direction.map(|dir| (Self(dir), len)).map_or_else(
-            || {
-                if len.is_nan() {
-                    Err(InvalidDirectionError::NaN)
-                } else if !len.is_finite() {
-                    // If the direction is non-finite but also not NaN, it must be infinite
-                    Err(InvalidDirectionError::Infinite)
-                } else {
-                    // If the direction is invalid but neither NaN nor infinite, it must be zero
-                    Err(InvalidDirectionError::Zero)
-                }
-            },
-            Ok,
-        )
+        direction
+            .map(|dir| (Self(dir), length))
+            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
     }
 
     /// Create a direction from its `x`, `y`, and `z` components.
