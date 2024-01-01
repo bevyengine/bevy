@@ -56,10 +56,12 @@ fn setup(
                         height: Val::Px(256.),
                         ..default()
                     },
+                    background_color: LegacyColor::ANTIQUE_WHITE.into(),
                     image: UiImage::new(texture_handle),
                     ..default()
                 },
                 TextureAtlas::from(texture_atlas_handle),
+                Outline::new(Val::Px(8.0), Val::ZERO, LegacyColor::CRIMSON),
             ));
             parent.spawn(TextBundle::from_sections([
                 TextSection::new("press ".to_string(), text_style.clone()),

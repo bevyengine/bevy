@@ -1589,7 +1589,6 @@ pub enum GridPlacementError {
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
-/// When combined with [`UiImage`], tints the provided texture.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
@@ -1729,6 +1728,8 @@ impl Outline {
 #[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
+    /// The tint color used to draw the image
+    pub color: LegacyColor,
     /// Handle to the texture
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
@@ -1743,6 +1744,13 @@ impl UiImage {
             texture,
             ..Default::default()
         }
+    }
+
+    /// Set the color tint
+    #[must_use]
+    pub const fn with_color(mut self, color: LegacyColor) -> Self {
+        self.color = color;
+        self
     }
 
     /// Flip the image along its x-axis

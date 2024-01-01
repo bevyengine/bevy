@@ -84,7 +84,7 @@ impl Default for NodeBundle {
 /// - [`TextureAtlas`] to draw specific sections of the texture
 ///
 /// Note that `ImageScaleMode` is currently not compatible with `TextureAtlas`.
-#[derive(Bundle, Debug, Default)]
+#[derive(Bundle, Debug)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -94,8 +94,6 @@ pub struct ImageBundle {
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
-    ///
-    /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
@@ -124,6 +122,26 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
 }
 
+impl Default for ImageBundle {
+    fn default() -> Self {
+        Self {
+            node: Default::default(),
+            style: Default::default(),
+            calculated_size: Default::default(),
+            background_color: BackgroundColor(LegacyColor::NONE),
+            image: Default::default(),
+            image_size: Default::default(),
+            focus_policy: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
+}
+
 /// A UI node that is a texture atlas sprite
 ///
 /// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
@@ -131,7 +149,7 @@ pub struct ImageBundle {
     since = "0.14.0",
     note = "Use `TextureAtlas` alongside `ImageBundle` instead"
 )]
-#[derive(Bundle, Debug, Default)]
+#[derive(Bundle, Debug)]
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -141,8 +159,6 @@ pub struct AtlasImageBundle {
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
-    ///
-    /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
@@ -171,6 +187,27 @@ pub struct AtlasImageBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+}
+
+impl Default for AtlasImageBundle {
+    fn default() -> Self {
+        Self {
+            node: Default::default(),
+            style: Default::default(),
+            calculated_size: Default::default(),
+            background_color: BackgroundColor(LegacyColor::NONE),
+            image: Default::default(),
+            texture_atlas: Default::default(),
+            focus_policy: Default::default(),
+            image_size: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
 }
 
 #[cfg(feature = "bevy_text")]
@@ -320,13 +357,9 @@ pub struct ButtonBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The background color, which serves as a "fill" for this node
-    ///
-    /// When combined with `UiImage`, tints the provided image.
     pub background_color: BackgroundColor,
     /// The color of the Node's border
     pub border_color: BorderColor,
-    /// The image of the node
-    pub image: UiImage,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -356,7 +389,6 @@ impl Default for ButtonBundle {
             border_color: BorderColor(Color::NONE),
             interaction: Default::default(),
             background_color: Default::default(),
-            image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),

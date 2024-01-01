@@ -59,7 +59,10 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
-    ExtractNode,
+    ExtractBackgrounds,
+    ExtractImages,
+    ExtractBorders,
+    ExtractText,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -77,16 +80,27 @@ pub fn build_ui_render(app: &mut App) {
         .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
+        .configure_sets(
+            ExtractSchedule,
+            (
+                RenderUiSystem::ExtractBackgrounds,
+                RenderUiSystem::ExtractImages,
+                RenderUiSystem::ExtractBorders,
+                RenderUiSystem::ExtractText,
+            )
+                .chain(),
+        )
         .add_systems(
             ExtractSchedule,
             (
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
-                extract_uinodes.in_set(RenderUiSystem::ExtractNode),
-                extract_uinode_borders,
+                extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
+                extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
+                extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
+                extract_uinode_outlines.in_set(RenderUiSystem::ExtractBorders),
                 #[cfg(feature = "bevy_text")]
-                extract_text_uinodes,
-                extract_uinode_outlines,
+                extract_uinode_text.in_set(RenderUiSystem::ExtractText),
             ),
         )
         .add_systems(
@@ -148,6 +162,134 @@ pub struct ExtractedUiNodes {
     pub uinodes: EntityHashMap<ExtractedUiNode>,
 }
 
+pub fn extract_uinode_background_colors(
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    default_ui_camera: Extract<DefaultUiCamera>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &Node,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &BackgroundColor,
+        )>,
+    >,
+) {
+    for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
+        &uinode_query
+    {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
+            continue;
+        };
+
+        // Skip invisible backgrounds
+        if !view_visibility.get() || background_color.0.is_fully_transparent() {
+            continue;
+        }
+
+        extracted_uinodes.uinodes.insert(
+            entity,
+            ExtractedUiNode {
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix(),
+                color: background_color.0.into(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                },
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                atlas_size: None,
+                flip_x: false,
+                flip_y: false,
+                camera_entity,
+            },
+        );
+    }
+}
+
+pub fn extract_uinode_images(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    default_ui_camera: Extract<DefaultUiCamera>,
+    uinode_query: Extract<
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &UiImage,
+            Option<&TextureAtlas>,
+            Option<&ComputedTextureSlices>,
+        )>,
+    >,
+) {
+    for (uinode, transform, view_visibility, clip, camera, image, atlas, slices) in &uinode_query {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
+            continue;
+        };
+
+        // Skip invisible images
+        if !view_visibility.get() || image.color.is_fully_transparent() {
+            continue;
+        }
+
+        if let Some(slices) = slices {
+            extracted_uinodes.uinodes.extend(
+                slices
+                    .extract_ui_nodes(transform, uinode, image.color, image, clip, camera_entity)
+                    .map(|e| (commands.spawn_empty().id(), e)),
+            );
+            continue;
+        }
+
+        let (rect, atlas_size) = match atlas {
+            Some(atlas) => {
+                let Some(layout) = texture_atlases.get(&atlas.layout) else {
+                    // Atlas not present in assets resource (should this warn the user?)
+                    continue;
+                };
+                let mut atlas_rect = layout.textures[atlas.index].as_rect();
+                let mut atlas_size = layout.size.as_vec2();
+                let scale = uinode.size() / atlas_rect.size();
+                atlas_rect.min *= scale;
+                atlas_rect.max *= scale;
+                atlas_size *= scale;
+                (atlas_rect, Some(atlas_size))
+            }
+            None => (
+                Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                },
+                None,
+            ),
+        };
+
+        extracted_uinodes.uinodes.insert(
+            commands.spawn_empty().id(),
+            ExtractedUiNode {
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix(),
+                color: image.color.into(),
+                rect,
+                clip: clip.map(|clip| clip.clip),
+                image: image.texture.id(),
+                atlas_size,
+                flip_x: image.flip_x,
+                flip_y: image.flip_y,
+                camera_entity,
+            },
+        );
+    }
+}
+
 pub(crate) fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
         Val::Auto => 0.,
@@ -171,12 +313,12 @@ pub fn extract_uinode_borders(
             (
                 &Node,
                 &GlobalTransform,
-                &Style,
-                &BorderColor,
-                Option<&Parent>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,
+                Option<&Parent>,
+                &Style,
+                &BorderColor,
             ),
             Without<ContentSize>,
         >,
@@ -185,13 +327,14 @@ pub fn extract_uinode_borders(
 ) {
     let image = AssetId::<Image>::default();
 
-    for (node, global_transform, style, border_color, parent, view_visibility, clip, camera) in
+    for (node, global_transform, view_visibility, clip, camera, parent, style, border_color) in
         &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
+
         // Skip invisible borders
         if !view_visibility.get()
             || border_color.0.is_fully_transparent()
@@ -290,19 +433,20 @@ pub fn extract_uinode_outlines(
         Query<(
             &Node,
             &GlobalTransform,
-            &Outline,
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
+            &Outline,
         )>,
     >,
 ) {
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, view_visibility, maybe_clip, camera) in &uinode_query {
+    for (node, global_transform, view_visibility, maybe_clip, camera, outline) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
+
         // Skip invisible outlines
         if !view_visibility.get()
             || outline.color.is_fully_transparent()
@@ -370,104 +514,6 @@ pub fn extract_uinode_outlines(
                 );
             }
         }
-    }
-}
-
-pub fn extract_uinodes(
-    mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
-    uinode_query: Extract<
-        Query<(
-            Entity,
-            &Node,
-            &GlobalTransform,
-            &BackgroundColor,
-            Option<&UiImage>,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TextureAtlas>,
-            Option<&TargetCamera>,
-            Option<&ComputedTextureSlices>,
-        )>,
-    >,
-) {
-    for (
-        entity,
-        uinode,
-        transform,
-        color,
-        maybe_image,
-        view_visibility,
-        clip,
-        atlas,
-        camera,
-        slices,
-    ) in uinode_query.iter()
-    {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
-            continue;
-        };
-        // Skip invisible and completely transparent nodes
-        if !view_visibility.get() || color.0.is_fully_transparent() {
-            continue;
-        }
-
-        if let Some((image, slices)) = maybe_image.zip(slices) {
-            extracted_uinodes.uinodes.extend(
-                slices
-                    .extract_ui_nodes(transform, uinode, color, image, clip, camera_entity)
-                    .map(|e| (commands.spawn_empty().id(), e)),
-            );
-            continue;
-        }
-
-        let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-            (image.texture.id(), image.flip_x, image.flip_y)
-        } else {
-            (AssetId::default(), false, false)
-        };
-
-        let (rect, atlas_size) = match atlas {
-            Some(atlas) => {
-                let Some(layout) = texture_atlases.get(&atlas.layout) else {
-                    // Atlas not present in assets resource (should this warn the user?)
-                    continue;
-                };
-                let mut atlas_rect = layout.textures[atlas.index].as_rect();
-                let mut atlas_size = layout.size.as_vec2();
-                let scale = uinode.size() / atlas_rect.size();
-                atlas_rect.min *= scale;
-                atlas_rect.max *= scale;
-                atlas_size *= scale;
-                (atlas_rect, Some(atlas_size))
-            }
-            None => (
-                Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
-                None,
-            ),
-        };
-
-        extracted_uinodes.uinodes.insert(
-            entity,
-            ExtractedUiNode {
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0.into(),
-                rect,
-                clip: clip.map(|clip| clip.clip),
-                image,
-                atlas_size,
-                flip_x,
-                flip_y,
-                camera_entity,
-            },
-        );
     }
 }
 
@@ -546,7 +592,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
 }
 
 #[cfg(feature = "bevy_text")]
-pub fn extract_text_uinodes(
+pub fn extract_uinode_text(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
@@ -557,21 +603,22 @@ pub fn extract_text_uinodes(
         Query<(
             &Node,
             &GlobalTransform,
-            &Text,
-            &TextLayoutInfo,
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
+            &Text,
+            &TextLayoutInfo,
         )>,
     >,
 ) {
-    for (uinode, global_transform, text, text_layout_info, view_visibility, clip, camera) in
-        uinode_query.iter()
+    for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
+        &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
+
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
             continue;
