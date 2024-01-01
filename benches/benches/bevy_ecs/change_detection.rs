@@ -82,13 +82,13 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
     group.bench_function(
         format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
         |bencher| {
-            bencher.iter_batched(
+            bencher.iter_batched_ref(
                 || {
                     let mut world = setup::<T>(entity_count);
-                    let mut query = world.query_filtered::<Entity, Added<T>>();
+                    let query = world.query_filtered::<Entity, Added<T>>();
                     (world, query)
                 },
-                |(mut world, mut query)| {
+                |(ref mut world, ref mut query)| {
                     let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
@@ -125,7 +125,7 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
     group.bench_function(
         format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
         |bencher| {
-            bencher.iter_batched(
+            bencher.iter_batched_ref(
                 || {
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
@@ -133,10 +133,10 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
                     for mut component in query.iter_mut(&mut world) {
                         black_box(component.bench_modify());
                     }
-                    let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    let query = world.query_filtered::<Entity, Changed<T>>();
                     (world, query)
                 },
-                |(mut world, mut query)| {
+                |(ref mut world, ref mut query)| {
                     let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
@@ -175,7 +175,7 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
     group.bench_function(
         format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
         |bencher| {
-            bencher.iter_batched(
+            bencher.iter_batched_ref(
                 || {
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
@@ -186,10 +186,10 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
                     for component in to_modify[0..amount_to_modify].iter_mut() {
                         black_box(component.bench_modify());
                     }
-                    let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    let query = world.query_filtered::<Entity, Changed<T>>();
                     (world, query)
                 },
-                |(mut world, mut query)| {
+                |(ref mut world, ref mut query)| {
                     for entity in query.iter(&world) {
                         black_box(entity);
                     }
@@ -223,14 +223,14 @@ fn none_changed_detection_generic<T: Component + Default>(
     group.bench_function(
         format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
         |bencher| {
-            bencher.iter_batched(
+            bencher.iter_batched_ref(
                 || {
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
-                    let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    let query = world.query_filtered::<Entity, Changed<T>>();
                     (world, query)
                 },
-                |(mut world, mut query)| {
+                |(ref mut world, ref mut query)| {
                     let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
@@ -270,7 +270,7 @@ fn add_archetypes_entites<T: Component + Default>(
     entity_count: u32,
 ) {
     for i in 0..archetype_count {
-        for j in 0..entity_count {
+        for _j in 0..entity_count {
             let mut e = world.spawn(T::default());
             insert_if_bit_enabled::<0>(&mut e, i);
             insert_if_bit_enabled::<1>(&mut e, i);
@@ -304,7 +304,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
             std::any::type_name::<T>()
         ),
         |bencher| {
-            bencher.iter_batched(
+            bencher.iter_batched_ref(
                 || {
                     let mut world = World::new();
                     add_archetypes_entites::<T>(&mut world, archetype_count, entity_count);
@@ -329,10 +329,10 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
                     for components in query.iter_mut(&mut world) {
                         modify!(components;0,1,2,3,4,5,6,7,8,9,10,11,12,13,14);
                     }
-                    let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    let query = world.query_filtered::<Entity, Changed<T>>();
                     (world, query)
                 },
-                |(mut world, mut query)| {
+                |(ref mut world, ref mut query)| {
                     let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
