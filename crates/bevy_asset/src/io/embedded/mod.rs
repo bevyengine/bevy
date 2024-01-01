@@ -22,9 +22,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: std::sync::Arc<
-        parking_lot::RwLock<bevy_utils::HashMap<std::path::PathBuf, std::path::PathBuf>>,
-    >,
+    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<PathBuf, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -66,7 +64,12 @@ impl EmbeddedAssetRegistry {
                 Box::new(MemoryAssetReader {
                     root: processed_dir.clone(),
                 })
-            });
+            })
+            // Note that we only add a processed watch warning because we don't want to warn
+            // noisily about embedded watching (which is niche) when users enable file watching.
+            .with_processed_watch_warning(
+                "Consider enabling the `embedded_watcher` cargo feature.",
+            );
 
         #[cfg(feature = "embedded_watcher")]
         {
@@ -131,13 +134,15 @@ macro_rules! embedded_path {
 /// For example, consider the following file structure in the theoretical `bevy_rock` crate, which provides a Bevy [`Plugin`](bevy_app::Plugin)
 /// that renders fancy rocks for scenes.
 ///
-/// * `bevy_rock`
-///     * `src`
-///         * `render`
-///             * `rock.wgsl`
-///             * `mod.rs`
-///         * `lib.rs`
-///     * `Cargo.toml`
+/// ```text
+/// bevy_rock
+/// ├── src
+/// │   ├── render
+/// │   │   ├── rock.wgsl
+/// │   │   └── mod.rs
+/// │   └── lib.rs
+/// └── Cargo.toml
+/// ```
 ///
 /// `rock.wgsl` is a WGSL shader asset that the `bevy_rock` plugin author wants to bundle with their crate. They invoke the following
 /// in `bevy_rock/src/render/mod.rs`:
@@ -156,7 +161,7 @@ macro_rules! embedded_path {
 /// ```
 ///
 /// Some things to note in the path:
-/// 1. The non-default `embedded:://` [`AssetSource`]
+/// 1. The non-default `embedded://` [`AssetSource`]
 /// 2. `src` is trimmed from the path
 ///
 /// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists in a larger workspace in

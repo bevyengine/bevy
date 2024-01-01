@@ -11,11 +11,11 @@ use bevy::winit::WinitSettings;
 struct Args {
     #[argh(option)]
     /// window scale factor
-    scale_factor: Option<f64>,
+    scale_factor: Option<f32>,
 
     #[argh(option, default = "1.")]
     /// ui scale factor
-    ui_scale: f64,
+    ui_scale: f32,
 }
 
 fn main() {
@@ -120,7 +120,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         value: message.clone(),
                         style: text_style.clone(),
                     }],
-                    alignment: TextAlignment::Left,
+                    justify: JustifyText::Left,
                     linebreak_behavior,
                 };
                 let text_id = commands

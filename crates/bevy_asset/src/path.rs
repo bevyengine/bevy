@@ -115,7 +115,7 @@ impl<'a> AssetPath<'a> {
     ///
     /// This will return a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
     pub fn try_parse(asset_path: &'a str) -> Result<AssetPath<'a>, ParseAssetPathError> {
-        let (source, path, label) = Self::parse_internal(asset_path).unwrap();
+        let (source, path, label) = Self::parse_internal(asset_path)?;
         Ok(Self {
             source: match source {
                 Some(source) => AssetSourceId::Name(CowArc::Borrowed(source)),
@@ -581,10 +581,10 @@ impl TypePath for AssetPath<'static> {
         Some("AssetPath<'static>")
     }
     fn crate_name() -> Option<&'static str> {
-        Option::None
+        None
     }
     fn module_path() -> Option<&'static str> {
-        Option::None
+        None
     }
 }
 impl Typed for AssetPath<'static> {
@@ -598,23 +598,19 @@ impl Typed for AssetPath<'static> {
 }
 impl Reflect for AssetPath<'static> {
     #[inline]
-    fn type_name(&self) -> &str {
-        ::core::any::type_name::<Self>()
-    }
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
     }
     #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
+    fn into_any(self: Box<Self>) -> Box<dyn core::any::Any> {
         self
     }
     #[inline]
-    fn as_any(&self) -> &dyn ::core::any::Any {
+    fn as_any(&self) -> &dyn core::any::Any {
         self
     }
     #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn ::core::any::Any {
+    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
         self
     }
     #[inline]
@@ -628,10 +624,6 @@ impl Reflect for AssetPath<'static> {
     #[inline]
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
-    }
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone())
     }
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
@@ -659,6 +651,10 @@ impl Reflect for AssetPath<'static> {
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Value(self)
     }
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
+    }
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = bevy_reflect::utility::reflect_hasher();
         Hash::hash(&::core::any::Any::type_id(self), &mut hasher);
@@ -667,19 +663,19 @@ impl Reflect for AssetPath<'static> {
     }
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         let value = <dyn Reflect>::as_any(value);
-        if let Some(value) = <dyn ::core::any::Any>::downcast_ref::<Self>(value) {
-            Some(::core::cmp::PartialEq::eq(self, value))
+        if let Some(value) = <dyn core::any::Any>::downcast_ref::<Self>(value) {
+            Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
-    fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         ::core::fmt::Debug::fmt(self, f)
     }
 }
 impl FromReflect for AssetPath<'static> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        Some(Clone::clone(<dyn ::core::any::Any>::downcast_ref::<
+        Some(Clone::clone(<dyn core::any::Any>::downcast_ref::<
             AssetPath<'static>,
         >(<dyn Reflect>::as_any(reflect))?))
     }

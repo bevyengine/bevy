@@ -2,7 +2,7 @@
 
 ## Contributing
 
-For more advice on contributing to the engine, see the [relevant section](../../CONTRIBUTING.md#Contributing-your-own-ideas) of `CONTRIBUTING.md`.
+For more advice on contributing to the engine, see the [relevant section](../../CONTRIBUTING.md#Contributing-code) of `CONTRIBUTING.md`.
 
 ## General guidelines
 

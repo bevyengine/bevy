@@ -5,8 +5,8 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
+use bevy_utils::smallvec::SmallVec;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
@@ -57,10 +57,10 @@ impl Node {
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
     #[inline]
-    pub fn physical_size(&self, scale_factor: f64, ui_scale: f64) -> Vec2 {
+    pub fn physical_size(&self, scale_factor: f32, ui_scale: f32) -> Vec2 {
         Vec2::new(
-            (self.calculated_size.x as f64 * scale_factor * ui_scale) as f32,
-            (self.calculated_size.y as f64 * scale_factor * ui_scale) as f32,
+            self.calculated_size.x * scale_factor * ui_scale,
+            self.calculated_size.y * scale_factor * ui_scale,
         )
     }
 
@@ -75,18 +75,18 @@ impl Node {
     pub fn physical_rect(
         &self,
         transform: &GlobalTransform,
-        scale_factor: f64,
-        ui_scale: f64,
+        scale_factor: f32,
+        ui_scale: f32,
     ) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
             min: Vec2::new(
-                (rect.min.x as f64 * scale_factor * ui_scale) as f32,
-                (rect.min.y as f64 * scale_factor * ui_scale) as f32,
+                rect.min.x * scale_factor * ui_scale,
+                rect.min.y * scale_factor * ui_scale,
             ),
             max: Vec2::new(
-                (rect.max.x as f64 * scale_factor * ui_scale) as f32,
-                (rect.max.y as f64 * scale_factor * ui_scale) as f32,
+                rect.max.x * scale_factor * ui_scale,
+                rect.max.y * scale_factor * ui_scale,
             ),
         }
     }
@@ -1035,7 +1035,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with fixed pixel limit
+    /// Create a `fit-content()` grid track with fixed pixel limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_px<T: From<Self>>(limit: f32) -> T {
@@ -1046,7 +1046,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with percentage limit
+    /// Create a `fit-content()` grid track with percentage limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_percent<T: From<Self>>(limit: f32) -> T {
@@ -1057,7 +1057,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a minmax() grid track
+    /// Create a `minmax()` grid track.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/minmax>
     pub fn minmax<T: From<Self>>(min: MinTrackSizingFunction, max: MaxTrackSizingFunction) -> T {
@@ -1198,7 +1198,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with fixed pixel limit
+    /// Create a repeating set of `fit-content()` grid tracks with fixed pixel limit
     pub fn fit_content_px<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1207,7 +1207,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with percentage limit
+    /// Create a repeating set of `fit-content()` grid tracks with percentage limit
     pub fn fit_content_percent<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1216,7 +1216,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of minmax() grid track
+    /// Create a repeating set of `minmax()` grid track
     pub fn minmax<T: From<Self>>(
         repetition: impl Into<GridTrackRepetition>,
         min: MinTrackSizingFunction,
@@ -1309,6 +1309,7 @@ pub struct GridPlacement {
 impl GridPlacement {
     pub const DEFAULT: Self = Self {
         start: None,
+        // SAFETY: This is trivially safe as 1 is non-zero.
         span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
         end: None,
     };

@@ -1,4 +1,7 @@
-use super::StorageBuffer;
+use super::{
+    binding_types::{storage_buffer_read_only, uniform_buffer_sized},
+    BindGroupLayoutEntryBuilder, StorageBuffer,
+};
 use crate::{
     render_resource::batched_uniform_buffer::BatchedUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
@@ -7,7 +10,7 @@ use bevy_ecs::{prelude::Component, system::Resource};
 use bevy_utils::nonmax::NonMaxU32;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use std::{marker::PhantomData, mem};
-use wgpu::{BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ShaderStages};
+use wgpu::BindingResource;
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
@@ -74,30 +77,16 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn binding_layout(
-        binding: u32,
-        visibility: ShaderStages,
-        device: &RenderDevice,
-    ) -> BindGroupLayoutEntry {
-        BindGroupLayoutEntry {
-            binding,
-            visibility,
-            ty: if device.limits().max_storage_buffers_per_shader_stage == 0 {
-                BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
-                    // None here and let wgpu figure out the size.
-                    min_binding_size: None,
-                }
-            } else {
-                BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(T::min_size()),
-                }
-            },
-            count: None,
+    pub fn binding_layout(device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
+        if device.limits().max_storage_buffers_per_shader_stage == 0 {
+            uniform_buffer_sized(
+                true,
+                // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
+                // None here and let wgpu figure out the size.
+                None,
+            )
+        } else {
+            storage_buffer_read_only::<T>(false)
         }
     }
 

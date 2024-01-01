@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 mod error;
 mod font;
 mod font_atlas;
@@ -22,7 +20,7 @@ pub use text2d::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};
+    pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};
 }
 
 use bevy_app::prelude::*;
@@ -85,7 +83,7 @@ impl Plugin for TextPlugin {
             .register_type::<TextSection>()
             .register_type::<Vec<TextSection>>()
             .register_type::<TextStyle>()
-            .register_type::<TextAlignment>()
+            .register_type::<JustifyText>()
             .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
@@ -102,7 +100,7 @@ impl Plugin for TextPlugin {
                         // will only ever observe its own render target, and `update_text2d_layout`
                         // will never modify a pre-existing `Image` asset.
                         .ambiguous_with(CameraUpdateSystem),
-                    font_atlas_set::remove_dropped_font_atlas_sets,
+                    remove_dropped_font_atlas_sets,
                 ),
             );
 

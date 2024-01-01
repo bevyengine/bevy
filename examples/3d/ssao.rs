@@ -1,9 +1,5 @@
 //! A scene showcasing screen space ambient occlusion.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
     pbr::{
@@ -131,7 +127,7 @@ fn update(
     mut text: Query<&mut Text>,
     mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let mut sphere = sphere.single_mut();
@@ -140,25 +136,25 @@ fn update(
     let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
 
     let mut commands = commands.entity(camera_entity);
-    if keycode.just_pressed(KeyCode::Key1) {
+    if keycode.just_pressed(KeyCode::Digit1) {
         commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
     }
-    if keycode.just_pressed(KeyCode::Key2) {
+    if keycode.just_pressed(KeyCode::Digit2) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
         });
     }
-    if keycode.just_pressed(KeyCode::Key3) {
+    if keycode.just_pressed(KeyCode::Digit3) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
         });
     }
-    if keycode.just_pressed(KeyCode::Key4) {
+    if keycode.just_pressed(KeyCode::Digit4) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
         });
     }
-    if keycode.just_pressed(KeyCode::Key5) {
+    if keycode.just_pressed(KeyCode::Digit5) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
         });

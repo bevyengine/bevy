@@ -20,7 +20,9 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{
+    primitives::Direction3d, vec2, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3,
+};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -30,7 +32,7 @@ use bevy_window::{
 use std::{borrow::Cow, ops::Range};
 use wgpu::{BlendState, LoadOp, TextureFormat};
 
-use super::Projection;
+use super::{ClearColorConfig, Projection};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -66,7 +68,7 @@ pub struct RenderTargetInfo {
     /// The physical size of this render target (ignores scale factor).
     pub physical_size: UVec2,
     /// The scale factor of this render target.
-    pub scale_factor: f64,
+    pub scale_factor: f32,
 }
 
 /// Holds internally computed [`Camera`] values.
@@ -116,6 +118,8 @@ pub struct Camera {
     /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
     /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
+    /// The clear color operation to perform on the render target.
+    pub clear_color: ClearColorConfig,
 }
 
 impl Default for Camera {
@@ -129,6 +133,7 @@ impl Default for Camera {
             output_mode: Default::default(),
             hdr: false,
             msaa_writeback: true,
+            clear_color: Default::default(),
         }
     }
 }
@@ -138,7 +143,7 @@ impl Camera {
     #[inline]
     pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
         let scale = self.computed.target_info.as_ref()?.scale_factor;
-        Some((physical_size.as_dvec2() / scale).as_vec2())
+        Some(physical_size.as_vec2() / scale)
     }
 
     /// The rendered physical bounds [`URect`] of the camera. If the `viewport` field is
@@ -272,7 +277,7 @@ impl Camera {
         &self,
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
-    ) -> Option<Ray> {
+    ) -> Option<Ray3d> {
         let target_size = self.logical_viewport_size()?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
@@ -284,9 +289,12 @@ impl Camera {
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
-        (!world_near_plane.is_nan() && !world_far_plane.is_nan()).then_some(Ray {
-            origin: world_near_plane,
-            direction: (world_far_plane - world_near_plane).normalize(),
+        // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
+        Direction3d::new(world_far_plane - world_near_plane).map_or(None, |direction| {
+            Some(Ray3d {
+                origin: world_near_plane,
+                direction,
+            })
         })
     }
 
@@ -368,7 +376,7 @@ pub enum CameraOutputMode {
         blend_state: Option<BlendState>,
         /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
         /// target texture.
-        color_attachment_load_op: wgpu::LoadOp<wgpu::Color>,
+        color_attachment_load_op: LoadOp<wgpu::Color>,
     },
     /// Skips writing the camera output to the configured render target. The output will remain in the
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
@@ -562,7 +570,6 @@ impl NormalizedRenderTarget {
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
-/// [`Projection`]: crate::camera::Projection
 #[allow(clippy::too_many_arguments)]
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
@@ -582,12 +589,9 @@ pub fn camera_system<T: CameraProjection + Component>(
 
     let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
         .read()
-        .filter_map(|event| {
-            if let AssetEvent::Modified { id } = event {
-                Some(id)
-            } else {
-                None
-            }
+        .filter_map(|event| match event {
+            AssetEvent::Modified { id } | AssetEvent::Added { id } => Some(id),
+            _ => None,
         })
         .collect();
 
@@ -631,6 +635,7 @@ pub struct ExtractedCamera {
     pub order: isize,
     pub output_mode: CameraOutputMode,
     pub msaa_writeback: bool,
+    pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
 }
 
@@ -700,6 +705,7 @@ pub fn extract_cameras(
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
+                    clear_color: camera.clear_color.clone(),
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
                 },

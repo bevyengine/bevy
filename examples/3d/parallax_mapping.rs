@@ -79,18 +79,18 @@ impl CurrentMethod {
 }
 
 fn update_parallax_depth_scale(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Key1) {
+    if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.max(0.0);
         *depth_update = true;
     }
-    if input.just_pressed(KeyCode::Key2) {
+    if input.just_pressed(KeyCode::Digit2) {
         target_depth.0 += DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.min(MAX_DEPTH);
         *depth_update = true;
@@ -111,7 +111,7 @@ fn update_parallax_depth_scale(
 }
 
 fn switch_method(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut text: Query<&mut Text>,
     mut current: Local<CurrentMethod>,
@@ -130,15 +130,15 @@ fn switch_method(
 }
 
 fn update_parallax_layers(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Key3) {
+    if input.just_pressed(KeyCode::Digit3) {
         target_layers.0 -= 1.0;
         target_layers.0 = target_layers.0.max(0.0);
-    } else if input.just_pressed(KeyCode::Key4) {
+    } else if input.just_pressed(KeyCode::Digit4) {
         target_layers.0 += 1.0;
     } else {
         return;
@@ -187,7 +187,7 @@ const CAMERA_POSITIONS: &[Transform] = &[
 fn move_camera(
     mut camera: Query<&mut Transform, With<CameraController>>,
     mut current_view: Local<usize>,
-    button: Res<Input<MouseButton>>,
+    button: Res<ButtonInput<MouseButton>>,
 ) {
     let mut camera = camera.single_mut();
     if button.just_pressed(MouseButton::Left) {

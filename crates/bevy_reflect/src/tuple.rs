@@ -335,9 +335,13 @@ impl Reflect for DynamicTuple {
         self
     }
 
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn apply(&mut self, value: &dyn Reflect) {
+        tuple_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
     }
 
     #[inline]
@@ -355,13 +359,9 @@ impl Reflect for DynamicTuple {
         ReflectOwned::Tuple(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        tuple_apply(self, value);
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -446,7 +446,7 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
 /// // )
 /// ```
 #[inline]
-pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut debug = f.debug_tuple("");
     for field in dyn_tuple.iter_fields() {
         debug.field(&field as &dyn Debug);
