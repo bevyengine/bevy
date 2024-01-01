@@ -148,6 +148,8 @@ pub struct DefaultImageSampler(pub(crate) Sampler);
 
 /// How edges should be handled in texture addressing.
 ///
+/// See [`ImageSamplerDescriptor`] for information how to configure this.
+///
 /// This type mirrors [`wgpu::AddressMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub enum ImageAddressMode {
