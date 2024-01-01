@@ -139,12 +139,15 @@ impl Mesh {
     /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
     ///
-    /// Values are generally between 0. and 1., with `StandardMaterial` and `ColorMaterial`
-    /// `[0.,0.]` is the top left of the texture, and [1.,1.] the bottom-right.
-    /// You usually want to only use values in that range, values outside will be
-    /// clamped per pixel not for the vertex, "stretching" the borders of the texture.
+    /// Generally `[0.,0.]` is mapped to the top left of the texture, and `[1.,1.]` to the bottom-right.
+    ///
+    /// By default values outside will be clamped per pixel not for the vertex,
+    /// "stretching" the borders of the texture.
     /// This behavior can be useful in some cases, usually when the borders have only
     /// one color, for example a logo, and you want to "extend" those borders.
+    ///
+    /// For different mapping outside of `0..=1` range,
+    /// see [`ImageAddressMode`](crate::texture::ImageAddressMode).
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 

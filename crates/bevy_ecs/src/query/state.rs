@@ -306,7 +306,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     /// use bevy_ecs::query::QueryEntityError;
     ///
@@ -376,7 +376,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     /// use bevy_ecs::query::QueryEntityError;
     ///

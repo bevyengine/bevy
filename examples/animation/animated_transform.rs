@@ -50,6 +50,7 @@ fn setup(
                 // be the same as the first one
                 Vec3::new(1.0, 0.0, 1.0),
             ]),
+            interpolation: Interpolation::Linear,
         },
     );
     // Or it can modify the rotation of the transform.
@@ -68,6 +69,7 @@ fn setup(
                 Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
                 Quat::IDENTITY,
             ]),
+            interpolation: Interpolation::Linear,
         },
     );
     // If a curve in an animation is shorter than the other, it will not repeat
@@ -90,6 +92,7 @@ fn setup(
                 Vec3::splat(1.2),
                 Vec3::splat(0.8),
             ]),
+            interpolation: Interpolation::Linear,
         },
     );
     // There can be more than one curve targeting the same entity path
@@ -106,6 +109,7 @@ fn setup(
                 Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
                 Quat::IDENTITY,
             ]),
+            interpolation: Interpolation::Linear,
         },
     );
 
