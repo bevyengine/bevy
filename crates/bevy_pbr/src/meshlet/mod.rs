@@ -110,7 +110,7 @@ impl Plugin for MeshletPlugin {
             return;
         };
 
-        app.add_render_graph_node::<ViewNodeRunner<MeshletVisibilityBufferPassNode>>(
+        app.add_render_graph_node::<MeshletVisibilityBufferPassNode>(
             CORE_3D,
             MESHLET_VISIBILITY_BUFFER_PASS,
         )

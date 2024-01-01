@@ -2,7 +2,10 @@
 
 use bevy::{
     log::info,
-    pbr::meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
+    pbr::{
+        meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
+        CascadeShadowConfigBuilder,
+    },
     prelude::*,
 };
 
@@ -47,6 +50,12 @@ fn setup(
                 shadows_enabled: true,
                 ..default()
             },
+            cascade_shadow_config: CascadeShadowConfigBuilder {
+                num_cascades: 1,
+                maximum_distance: 15.0,
+                ..default()
+            }
+            .build(),
             transform: Transform::from_rotation(Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,
