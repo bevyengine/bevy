@@ -25,6 +25,9 @@ use std::{
     sync::Arc,
 };
 
+/// Create and queue for uploading to the GPU MeshUniform components for
+/// MeshletMesh entities, as well as queuing uploads for any new MeshletMesh
+/// assets that have not already been uploaded to the GPU.
 pub fn extract_meshlet_meshes(
     // TODO: Replace main_world when Extract<ResMut<Assets<MeshletMesh>>> is possible
     mut main_world: ResMut<MainWorld>,
@@ -75,6 +78,7 @@ pub fn extract_meshlet_meshes(
     }
 }
 
+/// Upload all newly queued MeshletMesh asset data from [`extract_meshlet_meshes`] to the GPU.
 pub fn perform_pending_meshlet_mesh_writes(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     render_queue: Res<RenderQueue>,
@@ -635,6 +639,7 @@ impl FromWorld for MeshletGpuScene {
 }
 
 impl MeshletGpuScene {
+    /// Clear per-frame CPU->GPU upload buffers and reset all per-frame data.
     fn reset(&mut self) {
         // TODO: Shrink capacity if saturation is low
         self.scene_meshlet_count = 0;
