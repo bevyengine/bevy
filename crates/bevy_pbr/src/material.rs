@@ -606,6 +606,11 @@ pub fn queue_material_meshes<M: Material>(
             if mesh.morph_targets.is_some() {
                 mesh_key |= MeshPipelineKey::MORPH_TARGETS;
             }
+
+            if material.properties.reads_view_transmission_texture {
+                mesh_key |= MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE;
+            }
+
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
 
             let pipeline_id = pipelines.specialize(
