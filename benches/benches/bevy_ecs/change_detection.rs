@@ -88,7 +88,7 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
                     let mut query = world.query_filtered::<Entity, Added<T>>();
                     (world, query)
                 },
-                |(mut world, query)| {
+                |(mut world, mut query)| {
                     let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
@@ -136,7 +136,7 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
                     let mut query = world.query_filtered::<Entity, Changed<T>>();
                     (world, query)
                 },
-                |(mut world, query)| {
+                |(mut world, mut query)| {
                     let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
@@ -230,7 +230,7 @@ fn none_changed_detection_generic<T: Component + Default>(
                     let mut query = world.query_filtered::<Entity, Changed<T>>();
                     (world, query)
                 },
-                |mut world| {
+                |(mut world, mut query)| {
                     let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
