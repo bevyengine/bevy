@@ -1,5 +1,6 @@
-use crate::mesh::{Indices, Mesh};
-use wgpu::PrimitiveTopology;
+use crate::mesh::simple::{SimpleMeshBuilder, SimpleVertex};
+use crate::mesh::Mesh;
+use bevy_math::{Vec2, Vec3};
 
 /// A regular polygon in the `XY` plane
 #[derive(Debug, Copy, Clone)]
@@ -30,36 +31,36 @@ impl RegularPolygon {
 
 impl From<RegularPolygon> for Mesh {
     fn from(polygon: RegularPolygon) -> Self {
-        let RegularPolygon { radius, sides } = polygon;
+        debug_assert!(
+            polygon.sides > 2,
+            "RegularPolygon requires at least 3 sides."
+        );
 
-        debug_assert!(sides > 2, "RegularPolygon requires at least 3 sides.");
+        let mut mesh = SimpleMeshBuilder::default();
 
-        let mut positions = Vec::with_capacity(sides);
-        let mut normals = Vec::with_capacity(sides);
-        let mut uvs = Vec::with_capacity(sides);
-
-        let step = std::f32::consts::TAU / sides as f32;
-        for i in 0..sides {
+        fn vertex_at(i: usize, polygon: &RegularPolygon) -> SimpleVertex {
+            let step = std::f32::consts::TAU / polygon.sides as f32;
             let theta = std::f32::consts::FRAC_PI_2 - i as f32 * step;
             let (sin, cos) = theta.sin_cos();
 
-            positions.push([cos * radius, sin * radius, 0.0]);
-            normals.push([0.0, 0.0, 1.0]);
-            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
+            SimpleVertex {
+                position: Vec3::new(cos * polygon.radius, sin * polygon.radius, 0.0),
+                normal: Vec3::new(0.0, 0.0, 1.0),
+                uv: Vec2::new(0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)),
+            }
         }
 
-        let mut indices = Vec::with_capacity((sides - 2) * 3);
-        for i in 1..(sides as u32 - 1) {
+        for i in 1..(polygon.sides - 1) {
             // Vertices are generated in CW order above, hence the reversed indices here
             // to emit triangle vertices in CCW order.
-            indices.extend_from_slice(&[0, i + 1, i]);
+            mesh.triangle(
+                vertex_at(0, &polygon),
+                vertex_at(i + 1, &polygon),
+                vertex_at(i, &polygon),
+            );
         }
 
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_indices(Some(Indices::U32(indices)))
+        mesh.build()
     }
 }
 
