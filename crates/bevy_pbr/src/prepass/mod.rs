@@ -325,7 +325,7 @@ where
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
 
-        shader_defs.push("VERTEX_OUTPUT_MESH_FLAGS".into());
+        shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
 
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());

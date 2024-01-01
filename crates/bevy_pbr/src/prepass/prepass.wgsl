@@ -5,7 +5,6 @@
     skinning,
     morph,
     mesh_view_bindings::{view, previous_view_proj},
-    mesh_bindings::mesh,
 }
 
 #import bevy_render::instance_index::get_instance_index
@@ -101,10 +100,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     );
 #endif // MOTION_VECTOR_PREPASS
 
-#ifdef VERTEX_OUTPUT_MESH_FLAGS
+#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.mesh_flags = mesh[get_instance_index(vertex_no_morph.instance_index)].flags;
+    out.instance_index = get_instance_index(vertex_no_morph.instance_index);
 #endif
 #ifdef BASE_INSTANCE_WORKAROUND
     // Hack: this ensures the push constant is always used, which works around this issue:
