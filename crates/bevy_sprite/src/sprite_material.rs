@@ -6,92 +6,103 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 
 use crate::SpritePipelineKey;
 
-/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPipeline) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
-/// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
-/// way to render `Node` entities with custom shader logic.
+/// The `SpriteMaterial` trait is implemented by materials that are used alongside
+/// [`SpriteMaterialPlugin`](crate::SpriteMaterialPlugin) and
+/// [`SpriteWithMaterialBundle`](crate::prelude::SpriteWithMaterialBundle) to render sprites
+/// with custom shader logic.
 ///
-/// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
-/// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
+/// `SpriteMaterials` must implement [`AsBindGroup`] to define how data will be transferred to
+/// the GPU and bound in shaders. [`AsBindGroup`] can be derived, which makes generating bindings
+/// straightforward. See the [`AsBindGroup`] docs for details.
 ///
-/// Materials must also implement [`Asset`] so they can be treated as such.
+/// Materials must also implement [`Asset`] so they can be treated as assets and loaded by the
+/// [`AssetServer`].
 ///
-/// If you are only using the fragment shader, make sure your shader imports the `UiVertexOutput`
-/// from `bevy_ui::ui_vertex_output` and uses it as the input of your fragment shader like the
+/// If you are only using the fragment shader, make sure your shader imports the `SpriteVertexOutput`
+/// from `bevy_sprite::sprite_vertex_output` and uses it as the input of your fragment shader like the
 /// example below does.
 ///
-/// # Example
+/// ### Example
 ///
-/// Here is a simple [`UiMaterial`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
-/// check out the [`AsBindGroup`] documentation.
-/// ```
-/// # use bevy_ui::prelude::*;
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
-/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
+/// Here is a simple [`SpriteMaterial`] implementation. The [`AsBindGroup`] derive has many features.
+/// To see what else is available, check out the [`AsBindGroup`] documentation.
 ///
-/// #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
-/// pub struct CustomMaterial {
-///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
-///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
-///     #[uniform(0)]
-///     color: Color,
-///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
-///     // add the sampler attribute with a different binding index.
-///     #[texture(1)]
-///     #[sampler(2)]
-///     color_texture: Handle<Image>,
+/// ```rust
+/// //Displays a single [`Sprite`], created from an image, and applies a grayscale effect to it.
+///
+/// use bevy::prelude::*;
+/// use bevy_internal::{
+///     render::render_resource::{AsBindGroup, ShaderRef},
+///     sprite::{SpriteMaterial, SpriteMaterialPlugin, SpriteWithMaterialBundle},
+/// };
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         // Add the grayscale material plugin to the app
+///         .add_plugins(SpriteMaterialPlugin::<GrayScale>::default())
+///         .add_systems(Startup, setup)
+///         .run();
 /// }
 ///
-/// // All functions on `UiMaterial` have default impls. You only need to implement the
-/// // functions that are relevant for your material.
-/// impl UiMaterial for CustomMaterial {
-///     fn fragment_shader() -> ShaderRef {
-///         "shaders/custom_material.wgsl".into()
-///     }
-/// }
+/// fn setup(
+///     mut commands: Commands,
+///     asset_server: Res<AssetServer>,
+///     mut sprite_materials: ResMut<Assets<GrayScale>>,
+/// ) {
+///     commands.spawn(Camera2dBundle::default());
 ///
-/// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn(MaterialNodeBundle {
-///         style: Style {
-///             width: Val::Percent(100.0),
-///             ..Default::default()
-///         },
-///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
-///             color_texture: asset_server.load("some_image.png"),
-///         }),
-///         ..Default::default()
+///     // Create a sprite with a grayscale material
+///     commands.spawn(SpriteWithMaterialBundle {
+///         texture: asset_server.load("textures/rpg/chars/sensei/sensei.png"),
+///         material: sprite_materials.add(GrayScale {}),
+///         ..default()
 ///     });
 /// }
+///
+/// #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+/// struct GrayScale {}
+///
+/// impl SpriteMaterial for GrayScale {
+///     fn fragment_shader() -> ShaderRef {
+///         // Return the shader reference for the grayscale fragment shader
+///         "shaders/grayscale.wgsl".into()
+///     }
+/// }
 /// ```
+///
 /// In WGSL shaders, the material's binding would look like this:
 ///
-/// If you only use the fragment shader make sure to import `UiVertexOutput` from
-/// `bevy_ui::ui_vertex_output` in your wgsl shader.
-/// Also note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform)
-/// and the [`Globals Uniform`](bevy_render::globals::GlobalsUniform).
-///
 /// ```wgsl
-/// #import bevy_ui::ui_vertex_output UiVertexOutput
+/// // Bind the sprite texture and sampler to the first binding in the first group
+/// @group(1) @binding(0) var sprite_texture: texture_2d<f32>;
+/// @group(1) @binding(1) var sprite_sampler: sampler;
 ///
-/// struct CustomMaterial {
-///     color: vec4<f32>,
-/// }
-///
-/// @group(1) @binding(0)
-/// var<uniform> material: CustomMaterial;
-/// @group(1) @binding(1)
-/// var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2)
-/// var color_sampler: sampler;
-///
+/// // Fragment shader entry point
 /// @fragment
-/// fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
+/// fn fragment(in: SpriteVertexOutput) -> @location(0) vec4<f32> {
+///     // Calculate the color of the fragment by multiplying the input color with the sampled texture color
+///     var color = in.color * textureSample(sprite_texture, sprite_sampler, in.uv);
 ///
+///     // Convert the color to grayscale using the formula:
+///     // gray = 0.21 * red + 0.72 * green + 0.07 * blue
+///     let g = 0.21 * color.r + 0.72 * color.g + 0.07 * color.b;
+///
+///     // Return the grayscale color with the same alpha value as the input color
+///     return vec4<f32>(g, g, g, color.a);
 /// }
 /// ```
+///
+/// Note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform)
+/// and the [`Globals Uniform`](bevy_render::globals::GlobalsUniform).
+///
+/// The `SpriteMaterial` trait has two associated functions, `vertex_shader` and `fragment_shader`,
+/// which return the vertex and fragment shaders to be used for the material. If
+/// [`ShaderRef::Default`] is returned, the default sprite vertex shader and sprite material
+/// fragment shader will be used, respectively.
+///
+/// The `specialize` function can be implemented to customize the render pipeline descriptor for
+/// specific materials.
 pub trait SpriteMaterial: AsBindGroup + Asset + Clone + Sized {
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
     /// vertex shader will be used.
@@ -100,7 +111,7 @@ pub trait SpriteMaterial: AsBindGroup + Asset + Clone + Sized {
     }
 
     /// Returns this materials fragment shader. If [`ShaderRef::Default`] is returned, the default
-    /// UI fragment shader will be used.
+    /// SpriteMaterial fragment shader will be used.
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }

@@ -19,9 +19,10 @@ use bevy_ecs::{
     },
     world::{FromWorld, World},
 };
-use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
+use bevy_math::{Affine3A, Quat, Vec2, Vec4};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
+    globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -47,17 +48,15 @@ use bevy_render::{
         ViewVisibility, VisibleEntities,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
-    globals::{GlobalsBuffer, GlobalsUniform},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
-use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
 use crate::{
     sprite_material::{SpriteMaterial, SpriteMaterialKey},
-    ExtractedSprite, ImageBindGroups, Sprite, SpriteAssetEvents, SpritePipelineKey, SpriteSystem,
-    TextureAtlas, TextureAtlasSprite,
+    ExtractedSprite, ImageBindGroups, Sprite, SpritePipelineKey, SpriteSystem, TextureAtlas,
+    TextureAtlasSprite,
 };
 
 use super::SpriteInstance;
@@ -618,22 +617,9 @@ pub fn prepare_sprites<M: SpriteMaterial>(
     gpu_images: Res<RenderAssets<Image>>,
     extracted_sprite_with_materials: Res<ExtractedSpriteWithMaterials<M>>,
     mut phases: Query<&mut RenderPhase<Transparent2d>>,
-    events: Res<SpriteAssetEvents>,
     globals_buffer: Res<GlobalsBuffer>,
     render_materials: Res<RenderMaterials<M>>,
 ) {
-    // If an image has changed, the GpuImage has (probably) changed
-    for event in &events.images {
-        match event {
-            AssetEvent::Added {..} |
-            // images don't have dependencies
-            AssetEvent::LoadedWithDependencies { .. } => {}
-            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
-                image_bind_groups.values.remove(id);
-            }
-        };
-    }
-
     if let (Some(view_binding), Some(globals_binding)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
@@ -646,10 +632,7 @@ pub fn prepare_sprites<M: SpriteMaterial>(
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(
             "sprite_view_bind_group",
             &sprite_material_pipeline.view_layout,
-            &BindGroupEntries::sequential((
-                view_binding,
-                globals_binding,
-            )),
+            &BindGroupEntries::sequential((view_binding, globals_binding)),
         ));
 
         // Index buffer indices
