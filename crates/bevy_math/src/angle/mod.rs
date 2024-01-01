@@ -147,10 +147,10 @@ impl PartialOrd<Degrees> for Radians {
 }
 
 impl Add<Radians> for Degrees {
-    type Output = Radians;
+    type Output = Degrees;
 
     fn add(self, rhs: Radians) -> Self::Output {
-        self.to_radians() + rhs
+        self + rhs.to_degrees()
     }
 }
 
@@ -163,10 +163,10 @@ impl Add<Degrees> for Radians {
 }
 
 impl Sub<Radians> for Degrees {
-    type Output = Radians;
+    type Output = Degrees;
 
     fn sub(self, rhs: Radians) -> Self::Output {
-        self.to_radians() - rhs
+        self - rhs.to_degrees()
     }
 }
 
