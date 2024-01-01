@@ -96,7 +96,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 view_fog_offset.offset,
             ],
         );
-        render_pass.set_bind_group(1, &material_draw_bind_group, &[]);
+        render_pass.set_bind_group(1, material_draw_bind_group, &[]);
 
         for (material_id, material_pipeline_id, material_bind_group) in
             &meshlet_view_materials.opaque_pass

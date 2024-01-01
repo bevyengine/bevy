@@ -243,7 +243,7 @@ fn draw_first_pass(
         occlusion_query_set: None,
     });
     if let Some(viewport) = camera.and_then(|camera| camera.viewport.as_ref()) {
-        draw_pass.set_camera_viewport(&viewport);
+        draw_pass.set_camera_viewport(viewport);
     }
 
     draw_pass.set_index_buffer(
@@ -367,7 +367,7 @@ fn draw_second_pass(
         occlusion_query_set: None,
     });
     if let Some(viewport) = camera.and_then(|camera| camera.viewport.as_ref()) {
-        draw_pass.set_camera_viewport(&viewport);
+        draw_pass.set_camera_viewport(viewport);
     }
 
     draw_pass.set_index_buffer(
@@ -418,7 +418,7 @@ fn copy_material_depth_pass(
             copy_pass.set_camera_viewport(viewport);
         }
 
-        copy_pass.set_bind_group(0, &copy_material_depth_bind_group, &[]);
+        copy_pass.set_bind_group(0, copy_material_depth_bind_group, &[]);
         copy_pass.set_render_pipeline(copy_material_depth_pipeline);
         copy_pass.draw(0..3, 0..1);
     }
