@@ -18,6 +18,15 @@ criterion_group!(
 );
 criterion_main!(benches);
 
+macro_rules! modify {
+    ($components:ident;$($index:tt),*) => {
+        $(
+            $components.$index.map(|mut v| {
+                v.0+=1.
+            });
+        )*
+    };
+}
 #[derive(Component, Default)]
 #[component(storage = "Table")]
 struct Table(f32);
@@ -74,10 +83,13 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
         format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched(
-                || setup::<T>(entity_count),
-                |mut world| {
-                    let mut count = 0;
+                || {
+                    let mut world = setup::<T>(entity_count);
                     let mut query = world.query_filtered::<Entity, Added<T>>();
+                    (world, query)
+                },
+                |(mut world, query)| {
+                    let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
                         count += 1;
@@ -121,11 +133,11 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
                     for mut component in query.iter_mut(&mut world) {
                         black_box(component.bench_modify());
                     }
-                    world
-                },
-                |mut world| {
-                    let mut count = 0;
                     let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    (world, query)
+                },
+                |(mut world, query)| {
+                    let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
                         count += 1;
@@ -174,10 +186,10 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
                     for component in to_modify[0..amount_to_modify].iter_mut() {
                         black_box(component.bench_modify());
                     }
-                    world
-                },
-                |mut world| {
                     let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    (world, query)
+                },
+                |(mut world, mut query)| {
                     for entity in query.iter(&world) {
                         black_box(entity);
                     }
@@ -215,11 +227,11 @@ fn none_changed_detection_generic<T: Component + Default>(
                 || {
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
-                    world
+                    let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    (world, query)
                 },
                 |mut world| {
                     let mut count = 0;
-                    let mut query = world.query_filtered::<Entity, Changed<T>>();
                     for entity in query.iter(&world) {
                         black_box(entity);
                         count += 1;
@@ -297,18 +309,34 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
                     let mut world = World::new();
                     add_archetypes_entites::<T>(&mut world, archetype_count, entity_count);
                     world.clear_trackers();
-                    let mut query = world.query::<(&mut Data<1>)>();
-                    for mut component in query.iter_mut(&mut world) {
-                        component.0 += 2.
+                    let mut query = world.query::<(
+                        Option<&mut Data<0>>,
+                        Option<&mut Data<1>>,
+                        Option<&mut Data<2>>,
+                        Option<&mut Data<3>>,
+                        Option<&mut Data<4>>,
+                        Option<&mut Data<5>>,
+                        Option<&mut Data<6>>,
+                        Option<&mut Data<7>>,
+                        Option<&mut Data<8>>,
+                        Option<&mut Data<9>>,
+                        Option<&mut Data<10>>,
+                        Option<&mut Data<11>>,
+                        Option<&mut Data<12>>,
+                        Option<&mut Data<13>>,
+                        Option<&mut Data<14>>,
+                    )>();
+                    for components in query.iter_mut(&mut world) {
+                        modify!(components;0,1,2,3,4,5,6,7,8,9,10,11,12,13,14);
                     }
-                    world
-                },
-                |mut world| {
-                    let mut count = 0;
                     let mut query = world.query_filtered::<Entity, Changed<T>>();
+                    (world, query)
+                },
+                |(mut world, mut query)| {
+                    let mut count = 0;
                     for entity in query.iter(&world) {
                         black_box(entity);
-                        count+=1;
+                        count += 1;
                     }
                     assert_eq!(0, count);
                 },
