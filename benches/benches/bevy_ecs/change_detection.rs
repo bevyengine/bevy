@@ -299,15 +299,18 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
                     world.clear_trackers();
                     let mut query = world.query::<(&mut Data<1>)>();
                     for mut component in query.iter_mut(&mut world) {
-                        component.0 = 2.
+                        component.0 += 2.
                     }
                     world
                 },
                 |mut world| {
+                    let mut count = 0;
                     let mut query = world.query_filtered::<Entity, Changed<T>>();
                     for entity in query.iter(&world) {
                         black_box(entity);
+                        count+=1;
                     }
+                    assert_eq!(0, count);
                 },
                 criterion::BatchSize::LargeInput,
             )
@@ -316,7 +319,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
 }
 
 fn multiple_archetype_none_changed_detection(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("multiple_archetype_changed_detection");
+    let mut group = criterion.benchmark_group("multiple_archetypes_none_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(800));
     group.measurement_time(std::time::Duration::from_secs(8));
     for archetype_count in [5, 20, 100] {
