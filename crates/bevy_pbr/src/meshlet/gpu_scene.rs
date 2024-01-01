@@ -154,7 +154,6 @@ pub fn prepare_meshlet_per_frame_resources(
         .previous_thread_ids
         .write_buffer(&render_device, &render_queue);
 
-    // TODO: Should draw_index_buffer be per-view, or a single resource shared between all views?
     let visibility_buffer_draw_index_buffer = render_device.create_buffer(&BufferDescriptor {
         label: Some("meshlet_visibility_buffer_draw_index_buffer"),
         size: 4 * gpu_scene.scene_index_count,
