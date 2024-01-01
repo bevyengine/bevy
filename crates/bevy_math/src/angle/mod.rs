@@ -20,6 +20,9 @@ pub trait Angle:
     + PartialOrd
     + From<Degrees>
     + From<Radians>
+where
+    Degrees: From<Self>,
+    Radians: From<Self>,
 {
     /// An angle of zero.
     const ZERO: Self;
@@ -103,22 +106,6 @@ pub trait Angle:
     #[inline]
     fn round(self) -> Self {
         Self::new(self.value().round())
-    }
-
-    /// Adds the given `angle` to `self`, returning the inferred type of angle.
-    fn add_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
-    where
-        Output: From<Self> + From<T>,
-    {
-        Output::from(self) + Output::from(angle)
-    }
-
-    /// Subtracts the given `angle` from `self`, returning the inferred type of angle.
-    fn sub_angle<T: Angle, Output: Angle>(self, angle: T) -> Output
-    where
-        Output: From<Self> + From<T>,
-    {
-        Output::from(self) - Output::from(angle)
     }
 }
 
