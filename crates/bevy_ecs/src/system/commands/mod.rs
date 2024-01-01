@@ -9,6 +9,8 @@ use crate::{
     world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
@@ -119,7 +121,7 @@ impl SystemBuffer for CommandQueue {
     #[inline]
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span_guard = _system_meta.commands_span.enter();
+        let _span_guard = info_span!("system_commands", name = _system_meta.name()).entered();
         self.apply(world);
     }
 }

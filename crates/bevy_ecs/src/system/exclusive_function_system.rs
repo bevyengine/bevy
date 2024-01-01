@@ -11,6 +11,8 @@ use crate::{
 };
 
 use bevy_utils::all_tuples;
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
 /// A function system that runs with exclusive [`World`] access.
@@ -106,7 +108,7 @@ where
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         #[cfg(feature = "trace")]
-        let _span_guard = self.system_meta.system_span.enter();
+        let _span_guard = info_span!("system", name = self.name().as_ref()).entered();
 
         let saved_last_tick = world.last_change_tick;
         world.last_change_tick = self.system_meta.last_run;

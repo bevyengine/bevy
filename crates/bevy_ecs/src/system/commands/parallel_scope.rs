@@ -1,5 +1,7 @@
 use std::cell::Cell;
 
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use thread_local::ThreadLocal;
 
 use crate::{
@@ -52,7 +54,7 @@ impl SystemBuffer for ParallelCommandQueue {
     #[inline]
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _system_span = _system_meta.commands_span.enter();
+        let _system_span = info_span!("system_commands", name = _system_meta.name()).entered();
         for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
         }
