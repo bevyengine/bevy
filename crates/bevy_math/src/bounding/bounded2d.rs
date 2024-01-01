@@ -22,11 +22,16 @@ pub struct Aabb2d {
 
 impl BoundingVolume for Aabb2d {
     type Position = Vec2;
-    type Padding = Vec2;
+    type HalfSize = Vec2;
 
     #[inline(always)]
     fn center(&self) -> Self::Position {
         (self.min + self.max) / 2.
+    }
+
+    #[inline(always)]
+    fn half_size(&self) -> Self::HalfSize {
+        (self.max - self.min) / 2.
     }
 
     #[inline(always)]
@@ -44,7 +49,7 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn merged(&self, other: &Self) -> Self {
+    fn merge(&self, other: &Self) -> Self {
         Self {
             min: self.min.min(other.min),
             max: self.max.max(other.max),
@@ -52,7 +57,7 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn padded(&self, amount: Self::Padding) -> Self {
+    fn grow(&self, amount: Self::HalfSize) -> Self {
         let b = Self {
             min: self.min - amount,
             max: self.max + amount,
@@ -62,7 +67,7 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn shrunk(&self, amount: Self::Padding) -> Self {
+    fn shrink(&self, amount: Self::HalfSize) -> Self {
         let b = Self {
             min: self.min + amount,
             max: self.max - amount,
@@ -89,6 +94,16 @@ mod aabb2d_tests {
             max: Vec2::new(10., -5.),
         };
         assert!((aabb.center() - Vec2::new(7.5, -7.5)).length() < std::f32::EPSILON);
+    }
+
+    #[test]
+    fn half_size() {
+        let aabb = Aabb2d {
+            min: Vec2::new(-0.5, -1.),
+            max: Vec2::new(1., 1.),
+        };
+        let half_size = aabb.half_size();
+        assert!((half_size - Vec2::new(0.75, 1.)).length() < std::f32::EPSILON);
     }
 
     #[test]
@@ -124,7 +139,7 @@ mod aabb2d_tests {
     }
 
     #[test]
-    fn merged() {
+    fn merge() {
         let a = Aabb2d {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 0.5),
@@ -133,7 +148,7 @@ mod aabb2d_tests {
             min: Vec2::new(-2., -0.5),
             max: Vec2::new(0.75, 1.),
         };
-        let merged = a.merged(&b);
+        let merged = a.merge(&b);
         assert!((merged.min - Vec2::new(-2., -1.)).length() < std::f32::EPSILON);
         assert!((merged.max - Vec2::new(1., 1.)).length() < std::f32::EPSILON);
         assert!(merged.contains(&a));
@@ -143,12 +158,12 @@ mod aabb2d_tests {
     }
 
     #[test]
-    fn padded() {
+    fn grow() {
         let a = Aabb2d {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
-        let padded = a.padded(Vec2::ONE);
+        let padded = a.grow(Vec2::ONE);
         assert!((padded.min - Vec2::new(-2., -2.)).length() < std::f32::EPSILON);
         assert!((padded.max - Vec2::new(2., 2.)).length() < std::f32::EPSILON);
         assert!(padded.contains(&a));
@@ -156,12 +171,12 @@ mod aabb2d_tests {
     }
 
     #[test]
-    fn shrunk() {
+    fn shrink() {
         let a = Aabb2d {
             min: Vec2::new(-2., -2.),
             max: Vec2::new(2., 2.),
         };
-        let shrunk = a.shrunk(Vec2::ONE);
+        let shrunk = a.shrink(Vec2::ONE);
         assert!((shrunk.min - Vec2::new(-1., -1.)).length() < std::f32::EPSILON);
         assert!((shrunk.max - Vec2::new(1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
@@ -200,11 +215,16 @@ impl BoundingCircle {
 
 impl BoundingVolume for BoundingCircle {
     type Position = Vec2;
-    type Padding = f32;
+    type HalfSize = f32;
 
     #[inline(always)]
     fn center(&self) -> Self::Position {
         self.center
+    }
+
+    #[inline(always)]
+    fn half_size(&self) -> Self::HalfSize {
+        self.circle.radius
     }
 
     #[inline(always)]
@@ -219,7 +239,7 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
-    fn merged(&self, other: &Self) -> Self {
+    fn merge(&self, other: &Self) -> Self {
         let diff = other.center - self.center;
         let length = diff.length();
         if self.radius() >= length + other.radius() {
@@ -236,13 +256,13 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
-    fn padded(&self, amount: Self::Padding) -> Self {
+    fn grow(&self, amount: Self::HalfSize) -> Self {
         debug_assert!(amount >= 0.);
         Self::new(self.center, self.radius() + amount)
     }
 
     #[inline(always)]
-    fn shrunk(&self, amount: Self::Padding) -> Self {
+    fn shrink(&self, amount: Self::HalfSize) -> Self {
         debug_assert!(amount >= 0.);
         debug_assert!(self.radius() >= amount);
         Self::new(self.center, self.radius() - amount)
@@ -277,12 +297,12 @@ mod bounding_circle_tests {
     }
 
     #[test]
-    fn merged() {
+    fn merge() {
         // When merging two circles that don't contain each other, we find a center position that
         // contains both
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let b = BoundingCircle::new(Vec2::new(1., -4.), 1.);
-        let merged = a.merged(&b);
+        let merged = a.merge(&b);
         assert!((merged.center - Vec2::new(1., 0.5)).length() < std::f32::EPSILON);
         assert!((merged.radius() - 5.5).abs() < std::f32::EPSILON);
         assert!(merged.contains(&a));
@@ -293,13 +313,13 @@ mod bounding_circle_tests {
         // When one circle contains the other circle, we use the bigger circle
         let b = BoundingCircle::new(Vec2::ZERO, 3.);
         assert!(a.contains(&b));
-        let merged = a.merged(&b);
+        let merged = a.merge(&b);
         assert_eq!(merged.center, a.center);
         assert_eq!(merged.radius(), a.radius());
 
         // When two circles are at the same point, we use the bigger radius
         let b = BoundingCircle::new(Vec2::ONE, 6.);
-        let merged = a.merged(&b);
+        let merged = a.merge(&b);
         assert_eq!(merged.center, a.center);
         assert_eq!(merged.radius(), b.radius());
     }
@@ -307,24 +327,24 @@ mod bounding_circle_tests {
     #[test]
     fn merge_identical() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
-        let merged = a.merged(&a);
+        let merged = a.merge(&a);
         assert_eq!(merged.center, a.center);
         assert_eq!(merged.radius(), a.radius());
     }
 
     #[test]
-    fn padded() {
+    fn grow() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
-        let padded = a.padded(1.25);
+        let padded = a.grow(1.25);
         assert!((padded.radius() - 6.25).abs() < std::f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
 
     #[test]
-    fn shrunk() {
+    fn shrink() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
-        let shrunk = a.shrunk(0.5);
+        let shrunk = a.shrink(0.5);
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));

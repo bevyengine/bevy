@@ -13,12 +13,16 @@
 pub trait BoundingVolume {
     /// The position type used for the volume. This should be `Vec2` for 2D and `Vec3` for 3D.
     type Position: Clone + Copy + PartialEq;
-    /// The type used for the `padded` and `shrunk` methods. For example, an `f32` radius for
-    /// circles and spheres.
-    type Padding;
+    /// The type used for the size of the bounding volume. Usually a half size. For example an
+    /// `f32` radius for a circle, or a `Vec3` with half sizes for x, y and z for a 3D axis-aligned
+    /// bounding box
+    type HalfSize;
 
     /// Returns the center of the bounding volume.
     fn center(&self) -> Self::Position;
+
+    /// Returns the half size of the bounding volume.
+    fn half_size(&self) -> Self::HalfSize;
 
     /// Computes the visible surface area of the bounding volume.
     /// This method can be useful to make decisions about merging bounding volumes,
@@ -32,13 +36,13 @@ pub trait BoundingVolume {
     fn contains(&self, other: &Self) -> bool;
 
     /// Computes the smallest bounding volume that contains both `self` and `other`.
-    fn merged(&self, other: &Self) -> Self;
+    fn merge(&self, other: &Self) -> Self;
 
-    /// Expand the bounding volume in each direction by the given amount
-    fn padded(&self, amount: Self::Padding) -> Self;
+    /// Increase the size of the bounding volume in each direction by the given amount
+    fn grow(&self, amount: Self::HalfSize) -> Self;
 
-    /// Shrink the bounding volume in each direction by the given amount
-    fn shrunk(&self, amount: Self::Padding) -> Self;
+    /// Decrease the size of the bounding volume in each direction by the given amount
+    fn shrink(&self, amount: Self::HalfSize) -> Self;
 }
 
 /// A trait that generalizes intersection tests against a volume.
