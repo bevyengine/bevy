@@ -207,7 +207,7 @@ impl World {
     /// Returns [`None`] if the `Component` type has not yet been initialized within
     /// the `World` using [`World::init_component`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
