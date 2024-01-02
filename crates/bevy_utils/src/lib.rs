@@ -419,18 +419,11 @@ macro_rules! detailed_trace {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use static_assertions::assert_impl_all;
 
     #[test]
-    fn test_clone_entity_hash_map() {
-        let map = EntityHashMap::<u64, usize>::default();
-        // This should compile
-        let _ = map.clone();
-    }
-
-    #[test]
-    fn test_clone_pre_hash_map() {
-        let map = PreHashMap::<u64, usize>::default();
-        // This should compile
-        let _ = map.clone();
+    fn test_clone_bounds() {
+        assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
+        assert_impl_all!(PreHashMap::<u64, usize>: Clone);
     }
 }
