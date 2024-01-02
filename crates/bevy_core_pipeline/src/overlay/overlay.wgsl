@@ -1,24 +1,24 @@
 // numbers from https://www.shadertoy.com/view/lt3GRj
 
 struct VertexOutput {
-    [[builtin(position)]] clip_position: vec4<f32>;
+    @builtin(position) clip_position: vec4<f32>,
 };
 
 struct Diagnostics {
-    fps: f32;
+    fps: f32,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> diagnostics: Diagnostics;
 
-[[stage(vertex)]]
+@vertex
 fn vs_main(
-    [[builtin(vertex_index)]] in_vertex_index: u32,
+    @builtin(vertex_index) in_vertex_index: u32,
 ) -> VertexOutput {
     var out: VertexOutput;
     switch (in_vertex_index) {
-        case 0: { out.clip_position = vec4<f32>(-1.0, 3.0, 0.0, 1.0); }
-        case 1: { out.clip_position = vec4<f32>(-1.0, -1.0, 0.0, 1.0); }
-        case 2: { out.clip_position = vec4<f32>(3.0, -1.0, 0.0, 1.0); }
+        case 0u: { out.clip_position = vec4<f32>(-1.0, 3.0, 0.0, 1.0); }
+        case 1u: { out.clip_position = vec4<f32>(-1.0, -1.0, 0.0, 1.0); }
+        case 2u: { out.clip_position = vec4<f32>(3.0, -1.0, 0.0, 1.0); }
         default: {}
     }
     return out;
@@ -79,8 +79,8 @@ fn print_value(
     return floor((bits / pow(2.0, floor(fract(char_coord.x) * 4.0) + floor(char_coord.y * 5.0) * 4.0)) % 2.0);
 }
 
-[[stage(fragment)]]
-fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let clear: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     let background: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.4);
     let fps_color: vec4<f32> = vec4<f32>(0.0, 1.0, 0.0, 1.0);
