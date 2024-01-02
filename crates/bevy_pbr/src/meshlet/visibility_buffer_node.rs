@@ -275,7 +275,7 @@ fn downsample_depth(
         .command_encoder()
         .push_debug_group("meshlet_downsample_depth");
 
-    for i in 0..6 {
+    for i in 0..meshlet_view_resources.depth_pyramid_mips.len() {
         let downsample_pass = RenderPassDescriptor {
             label: Some("meshlet_downsample_depth_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
