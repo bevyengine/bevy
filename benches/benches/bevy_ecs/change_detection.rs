@@ -1,7 +1,8 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::{Added, Changed, EntityWorldMut},
+    prelude::{Added, Changed, EntityWorldMut, QueryState},
+    query::QueryFilter,
     world::World,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -54,7 +55,7 @@ impl BenchModify for Sparse {
     }
 }
 
-const ENTITIES_TO_BENCH_COUNT: [u32; 2] = [5000, 50000];
+const ENTITIES_TO_BENCH_COUNT: &[u32] = &[5000, 50000];
 
 type BenchGroup<'a> = criterion::BenchmarkGroup<'a, criterion::measurement::WallTime>;
 
@@ -66,6 +67,11 @@ fn setup<T: Component + Default>(entity_count: u32) -> World {
     let mut world = World::default();
     world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
+}
+
+// create a cached query in setup to avoid extra costs in each iter
+fn generic_filter_query<F: QueryFilter>(world: &mut World) -> QueryState<Entity, F> {
+    world.query_filtered::<Entity, F>()
 }
 
 fn generic_bench<P: Copy>(
@@ -85,7 +91,7 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
             bencher.iter_batched_ref(
                 || {
                     let mut world = setup::<T>(entity_count);
-                    let query = world.query_filtered::<Entity, Added<T>>();
+                    let query = generic_filter_query::<Added<T>>(&mut world);
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
@@ -106,7 +112,7 @@ fn all_added_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_added_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in ENTITIES_TO_BENCH_COUNT {
+    for &entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
             vec![
@@ -133,7 +139,7 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
                     for mut component in query.iter_mut(&mut world) {
                         black_box(component.bench_modify());
                     }
-                    let query = world.query_filtered::<Entity, Changed<T>>();
+                    let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
@@ -154,7 +160,7 @@ fn all_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in ENTITIES_TO_BENCH_COUNT {
+    for &entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
             vec![
@@ -186,7 +192,7 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
                     for component in to_modify[0..amount_to_modify].iter_mut() {
                         black_box(component.bench_modify());
                     }
-                    let query = world.query_filtered::<Entity, Changed<T>>();
+                    let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
@@ -204,7 +210,7 @@ fn few_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("few_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in ENTITIES_TO_BENCH_COUNT {
+    for &entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
             vec![
@@ -227,7 +233,7 @@ fn none_changed_detection_generic<T: Component + Default>(
                 || {
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
-                    let query = world.query_filtered::<Entity, Changed<T>>();
+                    let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
@@ -248,7 +254,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("none_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in ENTITIES_TO_BENCH_COUNT {
+    for &entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
             vec![
@@ -329,7 +335,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
                     for components in query.iter_mut(&mut world) {
                         modify!(components;0,1,2,3,4,5,6,7,8,9,10,11,12,13,14);
                     }
-                    let query = world.query_filtered::<Entity, Changed<T>>();
+                    let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
