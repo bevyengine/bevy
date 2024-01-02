@@ -404,7 +404,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
 
-const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
+pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
@@ -416,7 +416,7 @@ const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
+pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     match tonemapping {
         Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
@@ -431,7 +431,7 @@ const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     }
 }
 
-const fn screen_space_specular_transmission_pipeline_key(
+pub const fn screen_space_specular_transmission_pipeline_key(
     screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
 ) -> MeshPipelineKey {
     match screen_space_transmissive_blur_quality {
@@ -473,7 +473,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
-        Option<&ScreenSpaceAmbientOcclusionSettings>,
+        Has<ScreenSpaceAmbientOcclusionSettings>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -481,7 +481,7 @@ pub fn queue_material_meshes<M: Material>(
             Has<DeferredPrepass>,
         ),
         Option<&Camera3d>,
-        Option<&TemporalJitter>,
+        Has<TemporalJitter>,
         Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
@@ -533,7 +533,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        if temporal_jitter.is_some() {
+        if temporal_jitter {
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
@@ -571,7 +571,7 @@ pub fn queue_material_meshes<M: Material>(
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }
-        if ssao.is_some() {
+        if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
         if let Some(camera_3d) = camera_3d {
@@ -607,6 +607,11 @@ pub fn queue_material_meshes<M: Material>(
             if mesh.morph_targets.is_some() {
                 mesh_key |= MeshPipelineKey::MORPH_TARGETS;
             }
+
+            if material.properties.reads_view_transmission_texture {
+                mesh_key |= MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE;
+            }
+
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
 
             if render_lightmaps

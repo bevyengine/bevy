@@ -36,7 +36,7 @@ use std::fmt;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// use bevy_reflect::TypePath;
 ///
 /// // This type path will not change with compiler versions or recompiles,

@@ -7,6 +7,15 @@ use crate::Vec2;
 pub struct Direction2d(Vec2);
 
 impl Direction2d {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec2::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec2::Y);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec2::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec2::NEG_Y);
+
     /// Create a direction from a finite, nonzero [`Vec2`].
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -55,6 +64,13 @@ impl std::ops::Deref for Direction2d {
     type Target = Vec2;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl std::ops::Neg for Direction2d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
     }
 }
 
@@ -371,10 +387,7 @@ mod tests {
 
     #[test]
     fn direction_creation() {
-        assert_eq!(
-            Direction2d::new(Vec2::X * 12.5),
-            Ok(Direction2d::from_normalized(Vec2::X))
-        );
+        assert_eq!(Direction2d::new(Vec2::X * 12.5), Ok(Direction2d::X));
         assert_eq!(
             Direction2d::new(Vec2::new(0.0, 0.0)),
             Err(InvalidDirectionError::Zero)

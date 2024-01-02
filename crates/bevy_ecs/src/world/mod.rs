@@ -207,7 +207,7 @@ impl World {
     /// Returns [`None`] if the `Component` type has not yet been initialized within
     /// the `World` using [`World::init_component`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -507,7 +507,7 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(|(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.entity();
+                    let entity = archetype_entity.id();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
@@ -536,7 +536,7 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(move |(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.entity();
+                    let entity = archetype_entity.id();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),

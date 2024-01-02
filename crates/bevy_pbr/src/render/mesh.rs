@@ -283,9 +283,9 @@ pub fn extract_meshes(
             transform,
             previous_transform,
             handle,
-            not_receiver,
+            not_shadow_receiver,
             transmitted_receiver,
-            not_caster,
+            not_shadow_caster,
             no_automatic_batching,
         )| {
             if !view_visibility.get() {
@@ -293,7 +293,7 @@ pub fn extract_meshes(
             }
             let transform = transform.affine();
             let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-            let mut flags = if not_receiver {
+            let mut flags = if not_shadow_receiver {
                 MeshFlags::empty()
             } else {
                 MeshFlags::SHADOW_RECEIVER
@@ -316,7 +316,7 @@ pub fn extract_meshes(
                 RenderMeshInstance {
                     mesh_asset_id: handle.id(),
                     transforms,
-                    shadow_caster: !not_caster,
+                    shadow_caster: !not_shadow_caster,
                     material_bind_group_id: MaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                 },
@@ -512,7 +512,8 @@ bitflags::bitflags! {
         const DEPTH_CLAMP_ORTHO                 = 1 << 10;
         const TEMPORAL_JITTER                   = 1 << 11;
         const MORPH_TARGETS                     = 1 << 12;
-        const LIGHTMAPPED                       = 1 << 13;
+        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 13;
+        const LIGHTMAPPED                       = 1 << 14;
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
@@ -761,7 +762,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = true;
+            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {

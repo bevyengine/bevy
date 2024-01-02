@@ -32,7 +32,7 @@ use bevy_window::{
 use std::{borrow::Cow, ops::Range};
 use wgpu::{BlendState, LoadOp, TextureFormat};
 
-use super::Projection;
+use super::{ClearColorConfig, Projection};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -118,6 +118,8 @@ pub struct Camera {
     /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
     /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
+    /// The clear color operation to perform on the render target.
+    pub clear_color: ClearColorConfig,
 }
 
 impl Default for Camera {
@@ -131,6 +133,7 @@ impl Default for Camera {
             output_mode: Default::default(),
             hdr: false,
             msaa_writeback: true,
+            clear_color: Default::default(),
         }
     }
 }
@@ -632,6 +635,7 @@ pub struct ExtractedCamera {
     pub order: isize,
     pub output_mode: CameraOutputMode,
     pub msaa_writeback: bool,
+    pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
 }
 
@@ -701,6 +705,7 @@ pub fn extract_cameras(
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
+                    clear_color: camera.clear_color.clone(),
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
                 },
