@@ -397,10 +397,7 @@ mod test {
 
     #[test]
     fn direction_creation() {
-        assert_eq!(
-            Direction3d::new(Vec3::X * 12.5),
-            Ok(Direction3d::from_normalized(Vec3::X))
-        );
+        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
         assert_eq!(
             Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)

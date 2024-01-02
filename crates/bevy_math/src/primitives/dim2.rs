@@ -380,10 +380,7 @@ mod tests {
 
     #[test]
     fn direction_creation() {
-        assert_eq!(
-            Direction2d::new(Vec2::X * 12.5),
-            Ok(Direction2d::from_normalized(Vec2::X))
-        );
+        assert_eq!(Direction2d::new(Vec2::X * 12.5), Ok(Direction2d::X));
         assert_eq!(
             Direction2d::new(Vec2::new(0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
