@@ -61,7 +61,7 @@ impl CommandErrorHandler {
     /// ## Note
     /// This is the default behavior if no error handler is specified.
     pub fn log<E: Debug>(error: E, _ctx: CommandContext) {
-        error!("Commands failed with error: {:?}", error)
+        error!("Commands failed with error: {:?}", error);
     }
 
     /// If the command failed, [`panic!`] with the error.
@@ -87,13 +87,13 @@ where
     C: FallibleCommand,
     F: FnOnce(C::Error, CommandContext) + Send + Sync + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn apply(self: Self, world: &mut World) {
         let HandledErrorCommand {
             command,
             error_handler,
-        } = *self;
+        } = self;
 
-        if let Err(error) = command.try_write(world) {
+        if let Err(error) = command.try_apply(world) {
             error_handler(error, CommandContext { world });
         }
     }
@@ -152,12 +152,15 @@ macro_rules! impl_fallible_commands {
             /// ```
             /// use bevy_ecs::prelude::*;
             ///
+            /// #[derive(Component, Resource)]
+            /// struct TestComponent(pub u32);
+            ///
             /// fn system(mut commands: Commands) {
             ///     // built-in error handler
-            ///     commands.spawn().insert(42).on_err(CommandErrorHandler::ignore);
+            ///     commands.spawn_empty().insert(TestComponent(42)).on_err(CommandErrorHandler::ignore);
             ///
             ///     // custom error handler
-            ///     commands.spawn().insert(42).on_err(|error, ctx| {});
+            ///     commands.spawn_empty().insert(TestComponent(42)).on_err(|error, ctx| {});
             /// }
             /// ```
             #[inline]

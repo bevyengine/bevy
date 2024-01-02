@@ -1,3 +1,4 @@
+mod config;
 mod command_queue;
 mod parallel_scope;
 
@@ -12,7 +13,8 @@ use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
-use std::marker::PhantomData;
+pub use config::*;
+use std::{fmt::Debug, marker::PhantomData};
 
 use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
@@ -51,6 +53,23 @@ pub trait Command: Send + 'static {
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
     fn apply(self, world: &mut World);
 }
+
+/// A [`World`] mutation that can potentially fail.
+/// For an infallible variant, use [`Command`].
+pub trait FallibleCommand: Send + Sync + 'static {
+    /// The type of error that this command may return.
+    type Error: Debug;
+
+    /// Like Command::apply it applies this command causing it to mutate the provided `world` but
+    /// it won't panic if an error occurs.
+    ///
+    /// This method is used to define what a command "does" when it is ultimately applied.
+    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
+    /// This data is set by the system or other source of the command, and then ultimately read in this method.
+    fn try_apply(self, world: &mut World) -> Result<(), Self::Error>;
+}
+
+
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
@@ -519,8 +538,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<R>::new());
+    pub fn remove_resource<R: Resource>(&mut self) -> FinalFallibleCommandConfig<'_, RemoveResource<R>, Self> {
+        // self.queue.push(RemoveResource::<R>::new());
+        FinalFallibleCommandConfig::new(
+            RemoveResource {
+                _marker: PhantomData,
+            },
+            self,
+        )
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
@@ -586,7 +611,22 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
+
+    /// Adds a fallible command to the command list.
+    pub fn add_fallible<C>(&mut self, command: C) -> FinalFallibleCommandConfig<'_, C, Self>
+    where
+        C: FallibleCommand,
+    {
+        FinalFallibleCommandConfig::new(command, self)
+    }
 }
+
+impl<'a, 'w> AddCommand for Commands<'a, 'w> {
+    fn add_command(&mut self, command: impl Command) {
+        self.add(command);
+    }
+}
+
 
 /// A [`Command`] which gets executed for a given [`Entity`].
 ///
@@ -746,12 +786,17 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
-    pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.add(Insert {
-            entity: self.entity,
-            bundle,
-        });
-        self
+    pub fn insert<T: Bundle>(
+        &mut self,
+        bundle: T,
+    ) -> FallibleCommandConfig<'_, Insert<T>, Self> {
+        FallibleCommandConfig::new(
+            Insert {
+                entity: self.entity,
+                bundle,
+            },
+            self,
+        )
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -810,6 +855,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self
     }
 
+
     /// Removes a [`Bundle`] of components from the entity.
     ///
     /// # Example
@@ -845,12 +891,17 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
-    pub fn remove<T>(&mut self) -> &mut Self
+    pub fn remove<T>(&mut self) -> FallibleCommandConfig<'_, Remove<T>, Self>
     where
         T: Bundle,
     {
-        self.commands.add(Remove::<T>::new(self.entity));
-        self
+        FallibleCommandConfig::new(
+            Remove {
+                entity: self.entity,
+                _marker: PhantomData,
+            },
+            self,
+        )
     }
 
     /// Despawns the entity.
@@ -883,10 +934,13 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_character_system);
     /// ```
-    pub fn despawn(&mut self) {
-        self.commands.add(Despawn {
-            entity: self.entity,
-        });
+    pub fn despawn(&mut self) -> FinalFallibleCommandConfig<'_, Despawn, Self> {
+        FinalFallibleCommandConfig::new(
+            Despawn {
+                entity: self.entity,
+            },
+            self,
+        )
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
@@ -947,12 +1001,17 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
-    pub fn retain<T>(&mut self) -> &mut Self
+    pub fn retain<T>(&mut self) -> FallibleCommandConfig<'_, Retain<T>, Self>
     where
         T: Bundle,
     {
-        self.commands.add(Retain::<T>::new(self.entity));
-        self
+        FallibleCommandConfig::new(
+            Retain {
+                entity: self.entity,
+                _marker: PhantomData
+            },
+            self,
+        )
     }
 
     /// Logs the components of the entity at the info level.
@@ -969,6 +1028,12 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Returns the underlying [`Commands`].
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
+    }
+}
+
+impl<'w, 's, 'a> AddCommand for EntityCommands<'w, 's, 'a> {
+    fn add_command(&mut self, command: impl Command) {
+        self.commands.add_command(command);
     }
 }
 
@@ -1072,9 +1137,24 @@ pub struct Despawn {
     pub entity: Entity,
 }
 
-impl Command for Despawn {
-    fn apply(self, world: &mut World) {
-        world.despawn(self.entity);
+/// The error resulting from [`EntityCommands::despawn`]
+#[derive(Debug)]
+pub struct DespawnError {
+    /// The entity that was supposed to get despawned.
+    pub entity: Entity,
+}
+
+impl FallibleCommand for Despawn {
+    type Error = DespawnError;
+
+    fn try_apply(self, world: &mut World) -> Result<(), Self::Error> {
+        if world.despawn(self.entity) {
+            Ok(())
+        } else {
+            Err(DespawnError {
+                entity: self.entity,
+            })
+        }
     }
 }
 
@@ -1086,15 +1166,39 @@ pub struct Insert<T> {
     pub bundle: T,
 }
 
-impl<T> Command for Insert<T>
+/// The error resulting from [`EntityCommands::insert`]
+/// Contains both the failed to insert component and the relative entity.
+pub struct InsertError<T> {
+    /// The entity that was supposed to get the bundle inserted.
+    pub entity: Entity,
+    /// The bundle that was supposed to get inserted.
+    pub bundle: T,
+}
+
+impl<T> Debug for InsertError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InsertError")
+            .field("entity", &self.entity)
+            .field("bundle_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<T> FallibleCommand for Insert<T>
 where
     T: Bundle + 'static,
 {
-    fn apply(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert(self.bundle);
+    type Error = InsertError<T>;
+
+    fn try_apply(self, world: &mut World) -> Result<(), Self::Error> {
+        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
+            entity_mut.insert(self.bundle);
+            Ok(())
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
+            Err(InsertError {
+                entity: self.entity,
+                bundle: self.bundle,
+            })
         }
     }
 }
@@ -1128,13 +1232,37 @@ pub struct Remove<T> {
     _marker: PhantomData<T>,
 }
 
-impl<T> Command for Remove<T>
+/// The error resulting from [`EntityCommands::remove`]
+pub struct RemoveError<T> {
+    /// The entity that was supposed to get the bundle removed.
+    pub entity: Entity,
+    phantom: PhantomData<T>,
+}
+
+impl<T> Debug for RemoveError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoveError")
+            .field("entity", &self.entity)
+            .field("component_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<T> FallibleCommand for Remove<T>
 where
     T: Bundle,
 {
-    fn apply(self, world: &mut World) {
+    type Error = RemoveError<T>;
+
+    fn try_apply(self, world: &mut World) -> Result<(), Self::Error> {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
             entity_mut.remove::<T>();
+            Ok(())
+        } else {
+            Err(RemoveError {
+                entity: self.entity,
+                phantom: PhantomData,
+            })
         }
     }
 }
@@ -1159,13 +1287,38 @@ pub struct Retain<T> {
     _marker: PhantomData<T>,
 }
 
-impl<T> Command for Retain<T>
+/// The error resulting from [`Commands::retain`]
+pub struct RemoveRetainError<T> {
+    /// The entity that was supposed to get the bundle retained.
+    pub entity: Entity,
+    _marker: PhantomData<T>
+}
+
+impl<T> Debug for RemoveRetainError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoveRetainError")
+            .field("entity", &self.entity)
+            .field("component_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<T> FallibleCommand for Retain<T>
 where
     T: Bundle,
 {
-    fn apply(self, world: &mut World) {
-        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            entity_mut.retain::<T>();
+    type Error = RemoveRetainError<T>;
+
+    fn try_apply(self, world: &mut World) -> Result<(), Self::Error> {
+        match world.get_entity_mut(self.entity) {
+            Some(mut entity_mut) => {
+                entity_mut.retain::<T>();
+                Ok(())
+            },
+            None => Err(RemoveRetainError {
+                entity: self.entity,
+                _marker: PhantomData,
+            })
         }
     }
 }
@@ -1218,9 +1371,30 @@ pub struct RemoveResource<R: Resource> {
     _marker: PhantomData<R>,
 }
 
-impl<R: Resource> Command for RemoveResource<R> {
-    fn apply(self, world: &mut World) {
-        world.remove_resource::<R>();
+/// The error resulting from [`Commands::remove_resource`]
+pub struct RemoveResourceError<T> {
+    phantom: PhantomData<T>,
+}
+
+impl<T> Debug for RemoveResourceError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoveResourceError")
+            .field("resource_type", &std::any::type_name::<T>())
+            .finish()
+    }
+}
+
+impl<R: Resource> FallibleCommand for RemoveResource<R> {
+    type Error = RemoveResourceError<R>;
+
+    fn try_apply(self, world: &mut World) -> Result<(), Self::Error> {
+        if world.remove_resource::<R>().is_some() {
+            Ok(())
+        } else {
+            Err(RemoveResourceError {
+                phantom: PhantomData,
+            })
+        }
     }
 }
 
@@ -1255,7 +1429,8 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource},
+        entity::Entity,
+        system::{CommandErrorHandler, CommandQueue, Commands, Resource, FallibleCommand},
         world::World,
     };
     use std::sync::{
@@ -1427,5 +1602,138 @@ mod tests {
         queue_1.apply(&mut world);
         assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    struct FailingCommand;
+    impl FallibleCommand for FailingCommand {
+        type Error = ();
+
+        fn try_apply(self, _: &mut World) -> Result<(), Self::Error> {
+            Err(())
+        }
+    }
+
+    struct SuccessfulCommand;
+    impl FallibleCommand for SuccessfulCommand {
+        type Error = ();
+
+        fn try_apply(self, _: &mut World) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_commands_error_handler() {
+        let invoked = Arc::new(AtomicUsize::new(0));
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+
+            commands.insert_resource(W(42u32));
+            let invoked_clone = invoked.clone();
+            // should succeed
+            commands.remove_resource::<W<u32>>().on_err(move |_, _| {
+                invoked_clone.fetch_add(1, Ordering::Relaxed);
+            });
+
+            let invoked_clone = invoked.clone();
+            // should fail
+            commands.remove_resource::<W<u32>>().on_err(move |_, _| {
+                invoked_clone.fetch_add(1, Ordering::Relaxed);
+            });
+
+            let invoked_clone = invoked.clone();
+            // should fail
+            commands.add_fallible(FailingCommand).on_err(move |_, _| {
+                invoked_clone.fetch_add(1, Ordering::Relaxed);
+            });
+
+            let invoked_clone = invoked.clone();
+            // should succeed
+            commands
+                .add_fallible(SuccessfulCommand)
+                .on_err(move |_, _| {
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+        }
+        queue.apply(&mut world);
+
+        assert_eq!(invoked.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn test_entity_commands_error_handler() {
+        #[derive(Component)]
+        struct TestComponent {
+            value: u32,
+        }
+
+        let invoked = Arc::new(AtomicUsize::new(0));
+
+        let mut world = World::default();
+
+        let valid_entity = world.spawn_empty().id();
+        let entity_for_checking_despawning = world.spawn_empty().id();
+
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+
+            // EntityCommands::despawn
+            let mut try_despawn = |e| {
+                let invoked_clone = invoked.clone();
+                commands.entity(e).despawn().on_err(move |error, _| {
+                    assert_eq!(error.entity, e);
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+            };
+
+            try_despawn(entity_for_checking_despawning);
+            try_despawn(entity_for_checking_despawning);
+            try_despawn(valid_entity);
+
+            // EntityCommands::insert
+            let invoked_clone = invoked.clone();
+            commands
+                .entity(valid_entity)
+                .insert(TestComponent { value: 42 })
+                .on_err(move |error, _| {
+                    assert_eq!(error.entity, valid_entity);
+                    assert_eq!(error.bundle.value, 42);
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+
+            // EntityCommands::remove_resource
+            let invoked_clone = invoked.clone();
+            commands
+                .entity(valid_entity)
+                .remove::<TestComponent>()
+                .on_err(move |error, _| {
+                    assert_eq!(error.entity, valid_entity);
+                    invoked_clone.fetch_add(1, Ordering::Relaxed);
+                });
+        }
+        queue.apply(&mut world);
+
+        assert_eq!(invoked.load(Ordering::Relaxed), 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_panicking_error_handler() {
+        std::panic::set_hook(Box::new(|_| {})); // prevents printing of stack trace.
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            let invalid_entity = Entity::new(42, 0);
+            commands
+                .entity(invalid_entity)
+                .despawn()
+                .on_err(CommandErrorHandler::panic);
+        }
+        queue.apply(&mut world);
     }
 }
