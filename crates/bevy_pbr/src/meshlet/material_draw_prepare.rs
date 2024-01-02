@@ -34,6 +34,7 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
     asset_server: Res<AssetServer>,
+    // TODO: Scope to 3d cameras
     views: Query<(
         Entity,
         &ExtractedView,

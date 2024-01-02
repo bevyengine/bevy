@@ -124,6 +124,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
 
 pub fn prepare_meshlet_per_frame_resources(
     mut gpu_scene: ResMut<MeshletGpuScene>,
+    // TODO: Scope to 3d cameras or shadow views
     views: Query<(Entity, &ExtractedView, Has<ShadowView>)>,
     mut texture_cache: ResMut<TextureCache>,
     render_queue: Res<RenderQueue>,
