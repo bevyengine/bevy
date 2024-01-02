@@ -87,7 +87,7 @@ where
     C: FallibleCommand,
     F: FnOnce(C::Error, CommandContext) + Send + Sync + 'static,
 {
-    fn apply(self: Self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let HandledErrorCommand {
             command,
             error_handler,

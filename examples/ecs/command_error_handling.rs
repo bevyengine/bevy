@@ -21,9 +21,7 @@ fn main() {
 struct A(usize);
 
 #[derive(Component, Default)]
-struct B {
-    value: usize,
-}
+struct B(u32);
 
 #[derive(Resource)]
 struct FailedDespawnAttempts(usize);

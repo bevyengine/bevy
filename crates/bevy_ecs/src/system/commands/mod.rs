@@ -60,7 +60,7 @@ pub trait FallibleCommand: Send + Sync + 'static {
     /// The type of error that this command may return.
     type Error: Debug;
 
-    /// Like Command::apply it applies this command causing it to mutate the provided `world` but
+    /// Like `[Command::apply]` it applies this command causing it to mutate the provided `world` but
     /// it won't panic if an error occurs.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
