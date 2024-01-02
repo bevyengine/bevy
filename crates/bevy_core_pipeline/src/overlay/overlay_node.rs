@@ -4,7 +4,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
         encase, BindGroup, BindGroupEntry, Buffer, BufferInitDescriptor, BufferUsages,
-        CachedRenderPipelineId, LoadOp, Operations, PipelineCache, RenderPassDescriptor, StoreOp,
+        CachedRenderPipelineId, PipelineCache, RenderPassDescriptor,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     view::ViewTarget,
@@ -117,10 +117,7 @@ impl Node for OverlayNode {
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("overlay"),
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: LoadOp::Load,
-                store: StoreOp::Store,
-            }))],
+            color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
