@@ -6,11 +6,14 @@ fn main() {
     App::new()
         .insert_resource(FailedDespawnAttempts(0))
         .add_systems(Startup, setup)
-        .add_systems(Update, (
-            despawn_all_entities,
-            remove_components,
-            log_failed_despawn_attempts.after(despawn_all_entities),
-        ))
+        .add_systems(
+            Update,
+            (
+                despawn_all_entities,
+                remove_components,
+                log_failed_despawn_attempts.after(despawn_all_entities),
+            ),
+        )
         .run();
 }
 
@@ -42,9 +45,11 @@ fn despawn_all_entities(mut commands: Commands, query: Query<Entity>) {
     info!("Despawning entities...");
     for e in query.iter() {
         // `on_err` also allows you to provide a custom error handler!
-        commands.entity(e).despawn().on_err(CommandErrorHandler::ignore);
+        commands
+            .entity(e)
+            .despawn()
+            .on_err(CommandErrorHandler::ignore);
     }
-
 
     info!("Trying to despawn again...");
     for e in query.iter() {

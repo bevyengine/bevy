@@ -1,5 +1,5 @@
-mod config;
 mod command_queue;
+mod config;
 mod parallel_scope;
 
 use crate::{
@@ -12,8 +12,8 @@ use crate::{
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
-pub use parallel_scope::*;
 pub use config::*;
+pub use parallel_scope::*;
 use std::{fmt::Debug, marker::PhantomData};
 
 use super::{Deferred, Resource, SystemBuffer, SystemMeta};
@@ -68,8 +68,6 @@ pub trait FallibleCommand: Send + Sync + 'static {
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
     fn try_apply(self, world: &mut World) -> Result<(), Self::Error>;
 }
-
-
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
@@ -538,7 +536,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn remove_resource<R: Resource>(&mut self) -> FinalFallibleCommandConfig<'_, RemoveResource<R>, Self> {
+    pub fn remove_resource<R: Resource>(
+        &mut self,
+    ) -> FinalFallibleCommandConfig<'_, RemoveResource<R>, Self> {
         // self.queue.push(RemoveResource::<R>::new());
         FinalFallibleCommandConfig::new(
             RemoveResource {
@@ -626,7 +626,6 @@ impl<'a, 'w> AddCommand for Commands<'a, 'w> {
         self.add(command);
     }
 }
-
 
 /// A [`Command`] which gets executed for a given [`Entity`].
 ///
@@ -786,10 +785,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
-    pub fn insert<T: Bundle>(
-        &mut self,
-        bundle: T,
-    ) -> FallibleCommandConfig<'_, Insert<T>, Self> {
+    pub fn insert<T: Bundle>(&mut self, bundle: T) -> FallibleCommandConfig<'_, Insert<T>, Self> {
         FallibleCommandConfig::new(
             Insert {
                 entity: self.entity,
@@ -854,7 +850,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
         self
     }
-
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
@@ -1008,7 +1003,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         FallibleCommandConfig::new(
             Retain {
                 entity: self.entity,
-                _marker: PhantomData
+                _marker: PhantomData,
             },
             self,
         )
@@ -1291,7 +1286,7 @@ pub struct Retain<T> {
 pub struct RemoveRetainError<T> {
     /// The entity that was supposed to get the bundle retained.
     pub entity: Entity,
-    _marker: PhantomData<T>
+    _marker: PhantomData<T>,
 }
 
 impl<T> Debug for RemoveRetainError<T> {
@@ -1314,11 +1309,11 @@ where
             Some(mut entity_mut) => {
                 entity_mut.retain::<T>();
                 Ok(())
-            },
+            }
             None => Err(RemoveRetainError {
                 entity: self.entity,
                 _marker: PhantomData,
-            })
+            }),
         }
     }
 }
@@ -1430,7 +1425,7 @@ mod tests {
         self as bevy_ecs,
         component::Component,
         entity::Entity,
-        system::{CommandErrorHandler, CommandQueue, Commands, Resource, FallibleCommand},
+        system::{CommandErrorHandler, CommandQueue, Commands, FallibleCommand, Resource},
         world::World,
     };
     use std::sync::{
