@@ -31,13 +31,13 @@ The default feature set enables most of the expected features of a game engine, 
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
 |multi-threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
+|overlay|Enable overlay for FPS monitoring|
 |png|PNG image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.|
 |vorbis|OGG/VORBIS audio format support|
 |webgl2|Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
-|overlay|Enable adding the overlay plugin for diagnostics|
 
 ### Optional Features
 
