@@ -19,10 +19,10 @@
 @compute
 @workgroup_size(128, 1, 1)
 fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+    // Fetch the instanced meshlet data
     if thread_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id.x];
     let bounding_sphere = meshlet_bounding_spheres[meshlet_id];
-
     let instance_id = meshlet_thread_instance_ids[thread_id.x];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let model = affine_to_square(instance_uniform.model);
@@ -33,10 +33,12 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 #ifdef MESHLET_SECOND_CULLING_PASS
     var meshlet_visible = true;
 #else
+    // In the first culling pass, cull all meshlets that were not visible last frame
     let previous_thread_id = meshlet_previous_thread_ids[thread_id.x];
     var meshlet_visible = bool(meshlet_previous_occlusion[previous_thread_id]);
 #endif
 
+    // Frustum culling
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
     for (var i = 0u; i < 6u; i++) {
         if !meshlet_visible { break; }
@@ -44,6 +46,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
+    // In the second culling pass, cull against the depth pyramid generated from the first pass
     var aabb: vec4<f32>;
     let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
     if meshlet_visible && try_project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius, &aabb) {
@@ -64,6 +67,8 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     }
 #endif
 
+    // If the meshlet is visible, atomically append its index buffer (packed together with the meshlet ID) to
+    // the index buffer for the rasterization pass to use
     if meshlet_visible {
         let meshlet = meshlets[meshlet_id];
         let draw_index_buffer_start = atomicAdd(&draw_command_buffer.vertex_count, meshlet.index_count);
@@ -74,6 +79,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
+    // In the second culling pass, write out the visible meshlets for the first culling pass of the next frame
     meshlet_occlusion[thread_id.x] = u32(meshlet_visible);
 #endif
 }
