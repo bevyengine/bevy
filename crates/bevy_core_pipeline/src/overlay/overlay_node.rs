@@ -27,6 +27,7 @@ pub(crate) mod graph {
 
 impl FromWorld for DiagnosticOverlayBuffer {
     fn from_world(world: &mut World) -> Self {
+        // todo: use world.resource
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let overlay_pipeline = world.get_resource::<OverlayPipeline>().unwrap();
 
@@ -75,6 +76,7 @@ pub(crate) struct OverlayNode {
 }
 impl OverlayNode {
     pub(crate) fn new(world: &mut World) -> Self {
+        // todo: use world.resource
         let overlay_pipeline = (*world.get_resource::<OverlayPipeline>().unwrap()).clone();
         let render_pipeline = world
             .resource_mut::<PipelineCache>()

@@ -14,7 +14,7 @@ use bevy_render::{
     prelude::Shader,
     render_graph::{RenderGraph, SlotInfo, SlotType},
     renderer::RenderQueue,
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 mod camera_overlay;
@@ -37,8 +37,8 @@ pub(crate) struct OverlayDiagnostics {
 
 fn extract_overlay_diagnostics(
     mut commands: Commands,
-    diags: Res<DiagnosticsStore>,
-    time: Res<Time<Real>>,
+    diags: Extract<Res<DiagnosticsStore>>,
+    time: Extract<Res<Time<Real>>>,
     mut last_update: Local<Option<Instant>>,
 ) {
     if last_update.is_none() {
@@ -146,8 +146,6 @@ impl Plugin for OverlayPlugin {
         };
 
         render_app
-            .init_resource::<OverlayPipeline>()
-            .init_resource::<DiagnosticOverlayBuffer>()
             .add_systems(
                 ExtractSchedule,
                 camera_overlay::extract_overlay_camera_phases,
@@ -157,6 +155,15 @@ impl Plugin for OverlayPlugin {
                 Render,
                 prepare_overlay_diagnostics.in_set(RenderSet::Prepare),
             );
+    }
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<OverlayPipeline>()
+            .init_resource::<DiagnosticOverlayBuffer>();
 
         let pass_node_overlay = overlay_node::OverlayNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
