@@ -124,6 +124,23 @@ impl BlobVec {
         }
     }
 
+    /// Reserves the minimum capacity for at least `additional` more elements to be inserted in the given `BlobVec`.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        /// Similar to `reserve_exact`. This method ensures that the capacity will grow at least `self.capacity()` if there is no
+        /// enough space to hold `additional` more elements.
+        #[cold]
+        fn do_reserve(slf: &mut BlobVec, additional: usize) {
+            let increment = slf.capacity.max(additional - (slf.capacity - slf.len));
+            let increment = NonZeroUsize::new(increment).unwrap();
+            slf.grow_exact(increment);
+        }
+
+        if self.capacity - self.len < additional {
+            do_reserve(self, additional);
+        }
+    }
+
     /// Grows the capacity by `increment` elements.
     ///
     /// # Panics
@@ -241,7 +258,7 @@ impl BlobVec {
     /// The `value` must match the [`layout`](`BlobVec::layout`) of the elements in the [`BlobVec`].
     #[inline]
     pub unsafe fn push(&mut self, value: OwningPtr<'_>) {
-        self.reserve_exact(1);
+        self.reserve(1);
         let index = self.len;
         self.len += 1;
         self.initialize_unchecked(index, value);
@@ -530,7 +547,7 @@ mod tests {
         }
 
         assert_eq!(blob_vec.len(), 1_000);
-        assert_eq!(blob_vec.capacity(), 1_000);
+        assert_eq!(blob_vec.capacity(), 1_024);
     }
 
     #[derive(Debug, Eq, PartialEq, Clone)]
@@ -590,19 +607,19 @@ mod tests {
 
                 push(&mut blob_vec, foo3.clone());
                 assert_eq!(blob_vec.len(), 3);
-                assert_eq!(blob_vec.capacity(), 3);
+                assert_eq!(blob_vec.capacity(), 4);
 
                 let last_index = blob_vec.len() - 1;
                 let value = swap_remove::<Foo>(&mut blob_vec, last_index);
                 assert_eq!(foo3, value);
 
                 assert_eq!(blob_vec.len(), 2);
-                assert_eq!(blob_vec.capacity(), 3);
+                assert_eq!(blob_vec.capacity(), 4);
 
                 let value = swap_remove::<Foo>(&mut blob_vec, 0);
                 assert_eq!(foo1, value);
                 assert_eq!(blob_vec.len(), 1);
-                assert_eq!(blob_vec.capacity(), 3);
+                assert_eq!(blob_vec.capacity(), 4);
 
                 foo2.a = 8;
                 assert_eq!(get_mut::<Foo>(&mut blob_vec, 0), &foo2);
