@@ -127,11 +127,8 @@ pub struct Hashed<V, H = FixedState> {
 impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
     /// Pre-hashes the given value using the [`BuildHasher`] configured in the [`Hashed`] type.
     pub fn new(value: V) -> Self {
-        let builder = H::default();
-        let mut hasher = builder.build_hasher();
-        value.hash(&mut hasher);
         Self {
-            hash: hasher.finish(),
+            hash: H::default().hash_one(&value),
             value,
             marker: PhantomData,
         }
@@ -192,7 +189,7 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
 /// A [`BuildHasher`] that results in a [`PassHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PassHash;
 
 impl BuildHasher for PassHash {
@@ -254,7 +251,7 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 }
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct EntityHash;
 
 impl BuildHasher for EntityHash {
@@ -416,5 +413,24 @@ macro_rules! detailed_trace {
         if cfg!(detailed_trace) {
             bevy_utils::tracing::trace!($($tts)*);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_clone_entity_hash_map() {
+        let map = EntityHashMap::<u64, usize>::default();
+        // This should compile
+        let _ = map.clone();
+    }
+
+    #[test]
+    fn test_clone_pre_hash_map() {
+        let map = PreHashMap::<u64, usize>::default();
+        // This should compile
+        let _ = map.clone();
     }
 }

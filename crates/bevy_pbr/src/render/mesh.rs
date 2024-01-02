@@ -15,7 +15,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Vec4};
+use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
@@ -33,7 +33,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
+use bevy_utils::{tracing::error, EntityHashMap, Entry, HashMap, Hashed};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -202,6 +202,16 @@ pub struct MeshUniform {
     // Affine 4x3 matrices transposed to 3x4
     pub transform: [Vec4; 3],
     pub previous_transform: [Vec4; 3],
+    // Four 16-bit unsigned normalized UV values packed into a `UVec2`:
+    //
+    //                         <--- MSB                   LSB --->
+    //                         +---- min v ----+ +---- min u ----+
+    //     lightmap_uv_rect.x: vvvvvvvv vvvvvvvv uuuuuuuu uuuuuuuu,
+    //                         +---- max v ----+ +---- max u ----+
+    //     lightmap_uv_rect.y: VVVVVVVV VVVVVVVV UUUUUUUU UUUUUUUU,
+    //
+    // (MSB: most significant bit; LSB: least significant bit.)
+    pub lightmap_uv_rect: UVec2,
     // 3x3 matrix packed in mat2x4 and f32 as:
     //   [0].xyz, [1].x,
     //   [1].yz, [2].xy
@@ -211,13 +221,14 @@ pub struct MeshUniform {
     pub flags: u32,
 }
 
-impl From<&MeshTransforms> for MeshUniform {
-    fn from(mesh_transforms: &MeshTransforms) -> Self {
+impl MeshUniform {
+    fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
             transform: mesh_transforms.transform.to_transpose(),
             previous_transform: mesh_transforms.previous_transform.to_transpose(),
+            lightmap_uv_rect: lightmap::pack_lightmap_uv_rect(maybe_lightmap_uv_rect),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_transforms.flags,
@@ -279,9 +290,9 @@ pub fn extract_meshes(
             transform,
             previous_transform,
             handle,
-            not_receiver,
+            not_shadow_receiver,
             transmitted_receiver,
-            not_caster,
+            not_shadow_caster,
             no_automatic_batching,
         )| {
             if !view_visibility.get() {
@@ -289,7 +300,7 @@ pub fn extract_meshes(
             }
             let transform = transform.affine();
             let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-            let mut flags = if not_receiver {
+            let mut flags = if not_shadow_receiver {
                 MeshFlags::empty()
             } else {
                 MeshFlags::SHADOW_RECEIVER
@@ -312,7 +323,7 @@ pub fn extract_meshes(
                 RenderMeshInstance {
                     mesh_asset_id: handle.id(),
                     transforms,
-                    shadow_caster: !not_caster,
+                    shadow_caster: !not_shadow_caster,
                     material_bind_group_id: MaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                 },
@@ -454,24 +465,34 @@ impl MeshPipeline {
 }
 
 impl GetBatchData for MeshPipeline {
-    type Param = SRes<RenderMeshInstances>;
+    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
     type Data = Entity;
     type Filter = With<Mesh3d>;
-    type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
+
+    // The material bind group ID, the mesh ID, and the lightmap ID,
+    // respectively.
+    type CompareData = (MaterialBindGroupId, AssetId<Mesh>, Option<AssetId<Image>>);
+
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        mesh_instances: &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: &QueryItem<Self::Data>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
             .expect("Failed to find render mesh instance");
+        let maybe_lightmap = lightmaps.render_lightmaps.get(entity);
+
         (
-            (&mesh_instance.transforms).into(),
+            MeshUniform::new(
+                &mesh_instance.transforms,
+                maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+            ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
+                maybe_lightmap.map(|lightmap| lightmap.image),
             )),
         )
     }
@@ -498,6 +519,8 @@ bitflags::bitflags! {
         const DEPTH_CLAMP_ORTHO                 = 1 << 10;
         const TEMPORAL_JITTER                   = 1 << 11;
         const MORPH_TARGETS                     = 1 << 12;
+        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 13;
+        const LIGHTMAPPED                       = 1 << 14;
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
@@ -615,21 +638,23 @@ pub fn setup_morph_and_skinning_defs(
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
-    match (is_skinned(layout), is_morphed) {
-        (true, false) => {
+    let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
+    match (is_skinned(layout), is_morphed, is_lightmapped) {
+        (true, false, _) => {
             add_skin_data();
             mesh_layouts.skinned.clone()
         }
-        (true, true) => {
+        (true, true, _) => {
             add_skin_data();
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed_skinned.clone()
         }
-        (false, true) => {
+        (false, true, _) => {
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed.clone()
         }
-        (false, false) => mesh_layouts.model_only.clone(),
+        (false, false, true) => mesh_layouts.lightmapped.clone(),
+        (false, false, false) => mesh_layouts.model_only.clone(),
     }
 }
 
@@ -665,7 +690,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_1) {
-            shader_defs.push("VERTEX_UVS_1".into());
+            shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
 
@@ -744,7 +769,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = true;
+            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -814,6 +839,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
             shader_defs.push("ENVIRONMENT_MAP".into());
+        }
+
+        if key.contains(MeshPipelineKey::LIGHTMAPPED) {
+            shader_defs.push("LIGHTMAP".into());
         }
 
         if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
@@ -931,36 +960,44 @@ pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<BindGroup>,
     morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
+    lightmaps: HashMap<AssetId<Image>, BindGroup>,
 }
 impl MeshBindGroups {
     pub fn reset(&mut self) {
         self.model_only = None;
         self.skinned = None;
         self.morph_targets.clear();
+        self.lightmaps.clear();
     }
-    /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
+    /// Get the `BindGroup` for `GpuMesh` with given `handle_id` and lightmap
+    /// key `lightmap`.
     pub fn get(
         &self,
         asset_id: AssetId<Mesh>,
+        lightmap: Option<AssetId<Image>>,
         is_skinned: bool,
         morph: bool,
     ) -> Option<&BindGroup> {
-        match (is_skinned, morph) {
-            (_, true) => self.morph_targets.get(&asset_id),
-            (true, false) => self.skinned.as_ref(),
-            (false, false) => self.model_only.as_ref(),
+        match (is_skinned, morph, lightmap) {
+            (_, true, _) => self.morph_targets.get(&asset_id),
+            (true, false, _) => self.skinned.as_ref(),
+            (false, false, Some(lightmap)) => self.lightmaps.get(&lightmap),
+            (false, false, None) => self.model_only.as_ref(),
         }
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
+    images: Res<RenderAssets<Image>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
+    render_lightmaps: Res<RenderLightmaps>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
@@ -985,6 +1022,15 @@ pub fn prepare_mesh_bind_group(
                 };
                 groups.morph_targets.insert(id, group);
             }
+        }
+    }
+
+    // Create lightmap bindgroups.
+    for &image_id in &render_lightmaps.all_lightmap_images {
+        if let (Entry::Vacant(entry), Some(image)) =
+            (groups.lightmaps.entry(image_id), images.get(image_id))
+        {
+            entry.insert(layouts.lightmapped(&render_device, &model, image));
         }
     }
 }
@@ -1034,6 +1080,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<RenderMeshInstances>,
         SRes<SkinIndices>,
         SRes<MorphIndices>,
+        SRes<RenderLightmaps>,
     );
     type ViewData = ();
     type ItemData = ();
@@ -1043,7 +1090,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         item: &P,
         _view: (),
         _item_query: (),
-        (bind_groups, mesh_instances, skin_indices, morph_indices): SystemParamItem<
+        (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
             'w,
             '_,
             Self::Param,
@@ -1066,7 +1113,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();
 
-        let Some(bind_group) = bind_groups.get(mesh.mesh_asset_id, is_skinned, is_morphed) else {
+        let lightmap = lightmaps
+            .render_lightmaps
+            .get(entity)
+            .map(|render_lightmap| render_lightmap.image);
+
+        let Some(bind_group) =
+            bind_groups.get(mesh.mesh_asset_id, lightmap, is_skinned, is_morphed)
+        else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the queue_mesh_bind_group system.\n\

@@ -6,7 +6,8 @@ pub mod deferred;
 mod extended_material;
 mod fog;
 mod light;
-pub mod light_probe;
+mod light_probe;
+mod lightmap;
 mod material;
 mod parallax;
 mod pbr_material;
@@ -20,6 +21,7 @@ pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
 pub use light_probe::*;
+pub use lightmap::*;
 pub use material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -259,6 +261,7 @@ impl Plugin for PbrPlugin {
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                LightmapPlugin,
                 LightProbePlugin,
             ))
             .configure_sets(

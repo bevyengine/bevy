@@ -5,12 +5,10 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    clear_color::ClearColorConfig,
     core_3d,
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
-    prelude::{Camera3d, ClearColor},
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -152,7 +150,6 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static DeferredLightingIdDepthTexture,
-        &'static Camera3d,
         &'static DeferredLightingPipeline,
     );
 
@@ -168,7 +165,6 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             mesh_view_bind_group,
             target,
             deferred_lighting_id_depth_texture,
-            camera_3d,
             deferred_lighting_pipeline,
         ): QueryItem<Self::ViewData>,
         world: &World,
@@ -198,16 +194,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("deferred_lighting_pass"),
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: StoreOp::Store,
-            }))],
+            color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
@@ -415,7 +402,7 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
-            Option<&ScreenSpaceAmbientOcclusionSettings>,
+            Has<ScreenSpaceAmbientOcclusionSettings>,
             (
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,
@@ -477,7 +464,7 @@ pub fn prepare_deferred_lighting_pipelines(
             }
         }
 
-        if ssao.is_some() {
+        if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
