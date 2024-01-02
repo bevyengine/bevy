@@ -58,6 +58,13 @@ impl std::ops::Deref for Direction2d {
     }
 }
 
+impl std::ops::Neg for Direction2d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
+    }
+}
+
 /// A circle primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Circle {
