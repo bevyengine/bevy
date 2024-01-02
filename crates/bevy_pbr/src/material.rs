@@ -465,6 +465,7 @@ pub fn queue_material_meshes<M: Material>(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
+    render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -612,6 +613,13 @@ pub fn queue_material_meshes<M: Material>(
             }
 
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+
+            if render_lightmaps
+                .render_lightmaps
+                .contains_key(visible_entity)
+            {
+                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
