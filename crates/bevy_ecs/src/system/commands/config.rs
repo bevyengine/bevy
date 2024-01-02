@@ -100,7 +100,9 @@ where
 }
 
 #[non_exhaustive]
+/// Context passed to [`CommandErrorHandler`].
 pub struct CommandContext<'a> {
+    /// The [`World`] the command was applied to.
     pub world: &'a mut World,
 }
 
