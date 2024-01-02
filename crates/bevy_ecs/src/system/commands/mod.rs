@@ -1282,7 +1282,7 @@ pub struct Retain<T> {
     _marker: PhantomData<T>,
 }
 
-/// The error resulting from [`Commands::retain`]
+/// The error resulting from [`EntityCommands::retain`]
 pub struct RemoveRetainError<T> {
     /// The entity that was supposed to get the bundle retained.
     pub entity: Entity,

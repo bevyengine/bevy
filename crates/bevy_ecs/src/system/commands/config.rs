@@ -14,7 +14,7 @@ pub trait AddCommand {
 }
 
 /// Provides configuration mechanisms in case a command errors.
-/// You can specify a custom handler via [`FallibleCommandConfig::on_failure`] or
+/// You can specify a custom handler via [`CommandErrorHandler`] or
 /// use one of the provided implementations.
 ///
 /// ## Note
