@@ -46,7 +46,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 #ifdef MESHLET_SECOND_CULLING_PASS
     var aabb: vec4<f32>;
     let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
-    if try_project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius, &aabb) {
+    if meshlet_visible && try_project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius, &aabb) {
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
         let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
         let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
