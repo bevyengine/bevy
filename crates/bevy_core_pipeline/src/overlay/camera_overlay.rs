@@ -35,7 +35,7 @@ impl ExtractComponent for CameraOverlay {
     type Filter = With<Camera>;
     type Out = Self;
 
-    fn extract_component(item: QueryItem<Self::Data>) -> Option<Self> {
+    fn extract_component(item: QueryItem<Self::Data>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }
