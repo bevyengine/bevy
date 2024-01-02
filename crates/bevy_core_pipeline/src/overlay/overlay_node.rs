@@ -27,9 +27,8 @@ pub(crate) mod graph {
 
 impl FromWorld for DiagnosticOverlayBuffer {
     fn from_world(world: &mut World) -> Self {
-        // todo: use world.resource
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let overlay_pipeline = world.get_resource::<OverlayPipeline>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
+        let overlay_pipeline = world.resource::<OverlayPipeline>();
 
         let byte_buffer = [0u8; std::mem::size_of::<Vec4>()];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
@@ -76,8 +75,7 @@ pub(crate) struct OverlayNode {
 }
 impl OverlayNode {
     pub(crate) fn new(world: &mut World) -> Self {
-        // todo: use world.resource
-        let overlay_pipeline = (*world.get_resource::<OverlayPipeline>().unwrap()).clone();
+        let overlay_pipeline = (*world.resource::<OverlayPipeline>()).clone();
         let render_pipeline = world
             .resource_mut::<PipelineCache>()
             .queue_render_pipeline(overlay_pipeline.get_pipeline());
