@@ -1,28 +1,29 @@
+//! This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
+//! to spawn, poll, and complete tasks across systems and system ticks.
+
 use bevy::{
+    ecs::system::{CommandQueue, SystemState},
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
-use futures_lite::future;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
-/// This example shows how to use the ECS and the AsyncComputeTaskPool
-/// to spawn, poll, and complete tasks across systems and system ticks.
 fn main() {
-    App::build()
-        .insert_resource(Msaa { samples: 4 })
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_env.system())
-        .add_startup_system(add_assets.system())
-        .add_startup_system(spawn_tasks.system())
-        .add_system(handle_tasks.system())
+        .add_systems(Startup, (setup_env, add_assets, spawn_tasks))
+        .add_systems(Update, handle_tasks)
         .run();
 }
 
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
 
+#[derive(Resource, Deref)]
 struct BoxMeshHandle(Handle<Mesh>);
+
+#[derive(Resource, Deref)]
 struct BoxMaterialHandle(Handle<StandardMaterial>);
 
 /// Startup system which runs only once and generates our Box Mesh
@@ -41,30 +42,67 @@ fn add_assets(
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 
+#[derive(Component)]
+struct ComputeTransform(Task<CommandQueue>);
+
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
-/// system, handle_tasks, will poll the spawned tasks on subsequent
+/// system, [`handle_tasks`], will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
-fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
+fn spawn_tasks(mut commands: Commands) {
+    let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {
-                // Spawn new task on the AsyncComputeTaskPool
+                // Spawn new task on the AsyncComputeTaskPool; the task will be
+                // executed in the background, and the Task future returned by
+                // spawn() can be used to poll for the result
+                let entity = commands.spawn_empty().id();
                 let task = thread_pool.spawn(async move {
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
-                    while Instant::now() - start_time < duration {
+                    while start_time.elapsed() < duration {
                         // Spinning for 'duration', simulating doing hard
                         // compute work generating translation coords!
                     }
 
                     // Such hard work, all done!
-                    Transform::from_translation(Vec3::new(x as f32, y as f32, z as f32))
+                    let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
+                    let mut command_queue = CommandQueue::default();
+
+                    // we use a raw command queue to pass a FnOne(&mut World) back to be
+                    // applied in a deferred manner.
+                    command_queue.push(move |world: &mut World| {
+                        let (box_mesh_handle, box_material_handle) = {
+                            let mut system_state = SystemState::<(
+                                Res<BoxMeshHandle>,
+                                Res<BoxMaterialHandle>,
+                            )>::new(world);
+                            let (box_mesh_handle, box_material_handle) =
+                                system_state.get_mut(world);
+
+                            (box_mesh_handle.clone(), box_material_handle.clone())
+                        };
+
+                        world
+                            .entity_mut(entity)
+                            // Add our new PbrBundle of components to our tagged entity
+                            .insert(PbrBundle {
+                                mesh: box_mesh_handle,
+                                material: box_material_handle,
+                                transform,
+                                ..default()
+                            })
+                            // Task is complete, so remove task component from entity
+                            .remove::<ComputeTransform>();
+                    });
+
+                    command_queue
                 });
 
                 // Spawn new entity and add our new task as a component
-                commands.spawn().insert(task);
+                commands.entity(entity).insert(ComputeTransform(task));
             }
         }
     }
@@ -72,26 +110,13 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
 
 /// This system queries for entities that have our Task<Transform> component. It polls the
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
-/// new PbrBundle of components to the entity using the result from the task's work, and
+/// new [`PbrBundle`] of components to the entity using the result from the task's work, and
 /// removes the task component from the entity.
-fn handle_tasks(
-    mut commands: Commands,
-    mut transform_tasks: Query<(Entity, &mut Task<Transform>)>,
-    box_mesh_handle: Res<BoxMeshHandle>,
-    box_material_handle: Res<BoxMaterialHandle>,
-) {
-    for (entity, mut task) in transform_tasks.iter_mut() {
-        if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
-            // Add our new PbrBundle of components to our tagged entity
-            commands.entity(entity).insert_bundle(PbrBundle {
-                mesh: box_mesh_handle.0.clone(),
-                material: box_material_handle.0.clone(),
-                transform,
-                ..Default::default()
-            });
-
-            // Task is complete, so remove task component from entity
-            commands.entity(entity).remove::<Task<Transform>>();
+fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
+    for mut task in &mut transform_tasks {
+        if let Some(mut commands_queue) = block_on(future::poll_once(&mut task.0)) {
+            // append the returned command queue to have it execute later
+            commands.append(&mut commands_queue);
         }
     }
 }
@@ -106,15 +131,15 @@ fn setup_env(mut commands: Commands) {
     };
 
     // lights
-    commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(4.0, 12.0, 15.0)),
-        ..Default::default()
+    commands.spawn(PointLightBundle {
+        transform: Transform::from_xyz(4.0, 12.0, 15.0),
+        ..default()
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_translation(Vec3::new(offset, offset, 15.0))
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

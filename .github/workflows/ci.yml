@@ -1,170 +1,377 @@
 name: CI
 
 on:
+  merge_group:
   pull_request:
   push:
-    branches-ignore:
-      - 'dependabot/**'
-      - staging-squash-merge.tmp
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
+  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   build:
     strategy:
       matrix:
-        toolchain: [stable, nightly]
         os: [windows-latest, ubuntu-latest, macos-latest]
-        exclude:
-          - os: macos-latest
-            toolchain: nightly
-          - os: windows-latest
-            toolchain: nightly
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
         with:
-          toolchain: ${{ matrix.toolchain }}
-          components: rustfmt, clippy
-          override: true
-
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
         if: runner.os == 'linux'
-
-      - name: Check the format
-        # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci
-        if: runner.os == 'linux' && matrix.toolchain == 'stable'
-
       - name: Build & run tests
-        run: cargo test --workspace
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- test
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
-  build-wasm:
-    strategy:
-      matrix:
-        toolchain: [stable, nightly]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          target: wasm32-unknown-unknown
-          override: true
-
-      - name: Check wasm
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --target wasm32-unknown-unknown --no-default-features --features bevy_winit,x11,hdr,bevy_gltf
-
-  build-android:
+  ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
-      - name: Install Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi
-      - name: Install Cargo APK
-        run: cargo install cargo-apk
-      - name: Build APK
-        run: cargo apk build --example android
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: CI job
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- lints
+
+  miri:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          components: miri
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: CI job
+        # To run the tests one item at a time for troubleshooting, use
+        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
+        run: cargo miri test -p bevy_ecs
+        env:
+          # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
+          RUSTFLAGS: -Zrandomize-layout
+          # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
+          # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
+          # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
+          # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
+          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance
+
+  check-compiles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Check Compile
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- compile
+
+  build-wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ubuntu-assets-cargo-build-wasm-stable-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+      - name: Check wasm
+        run: cargo check --target wasm32-unknown-unknown
+        env:
+          RUSTFLAGS: --cfg=web_sys_unstable_apis
 
   markdownlint:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: check-missing-features-in-docs
+    if: always()
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
-
       - name: Run Markdown Lint
         uses: docker://ghcr.io/github/super-linter:slim-v4
         env:
+          MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
-          # Not needed here as only one Linter is used.
-          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  check-markdown-links:
+  toml:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v2
-    - uses: gaurav-nelson/github-action-markdown-link-check@0fe4911067fa322422f325b002d2038ba5602170
-      with:
-        use-quiet-mode: 'yes'
-        use-verbose-mode: 'yes'
-        config-file: '.github/linters/markdown-link-check.json'
-
-  run-examples:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Install dependencies
+      - uses: actions/checkout@v4
+      - name: Install taplo
+        run: | 
+          curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-full-linux-x86_64.gz \
+          | gzip -d - \
+          | install -m 755 /dev/stdin /usr/local/bin/taplo
+      - name: Run Taplo
+        id: taplo
+        run: taplo fmt --check --diff
+      - name: Taplo info
+        if: failure()
         run: |
-          sudo apt-get update;
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
-            libasound2-dev libudev-dev wget unzip xvfb;
+          echo 'To fix toml fmt, please run `taplo fmt`'
+          echo 'Or if you use VSCode, use the Even Better Toml extension'
 
-      - uses: actions/checkout@v2
 
-      - uses: actions-rs/toolchain@v1
+  run-examples-on-windows-dx12:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v3
         with:
-          toolchain: stable
-
-      - name: Setup swiftshader
-        run: |
-          wget https://github.com/qarmin/gtk_library_store/releases/download/3.24.0/swiftshader.zip;
-          unzip swiftshader.zip;
-          curr="$(pwd)/libvk_swiftshader.so";
-          sed -i "s|PATH_TO_CHANGE|$curr|" vk_swiftshader_icd.json;
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-windows-run-examples-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Build bevy
+        shell: bash
+        # this uses the same command as when running the example to ensure build is reused
         run: |
-          cargo build --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_wgpu,bevy_winit,render,png,hdr,x11,bevy_ci_testing"
+          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing"
 
       - name: Run examples
+        shell: bash
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time CI_TESTING_CONFIG=$example VK_ICD_FILENAMES=$(pwd)/vk_swiftshader_icd.json DRI_PRIME=0 xvfb-run cargo run --example $example_name --no-default-features --features "bevy_dynamic_plugin,bevy_gilrs,bevy_gltf,bevy_wgpu,bevy_winit,render,png,hdr,x11,bevy_ci_testing"
+            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
             sleep 10
           done
 
   check-doc:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-check-doc-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
         if: runner.os == 'linux'
-      - name: Installs cargo-deadlinks
-        run: cargo install cargo-deadlinks
       - name: Build and check doc
-        run: RUSTDOCFLAGS='-D warnings' cargo doc --all-features --no-deps
-      - name: Checks dead links
-        run: cargo deadlinks --dir target/doc/bevy
-        continue-on-error: true
-  
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- doc
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0"
+      # This currently report a lot of false positives
+      # Enable it again once it's fixed - https://github.com/bevyengine/bevy/issues/1983
+      # - name: Installs cargo-deadlinks
+      #   run: cargo install --force cargo-deadlinks
+      # - name: Checks dead links
+      #   run: cargo deadlinks --dir target/doc/bevy
+      #   continue-on-error: true
+
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
-      - name: Check that examples are present in both README and Cargo
-        uses: Weibye/action-internal-link-consistency@1.0.0
+      - uses: actions/checkout@v4
+      - name: check for missing metadata
+        id: missing-metadata
+        run: cargo run -p build-templated-pages -- check-missing examples
+      - name: check for missing update
+        run: cargo run -p build-templated-pages -- update examples
+      - name: Check for modified files
+        id: missing-update
+        run: |
+          echo "if this step fails, run the following command and commit the changed file on your PR."
+          echo " > cargo run -p build-templated-pages -- update examples"
+          git diff --quiet HEAD --
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./missing-examples
+          echo ${{ github.event.number }} > ./missing-examples/NR
+      - name: log failed task - missing metadata
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-metadata.conclusion == 'failure' }}
+        run: touch ./missing-examples/missing-metadata
+      - name: log failed task - missing update
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
+        run: touch ./missing-examples/missing-update
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
-          source: './examples/'
-          targets: '[ "./Cargo.toml", "./examples/README.md" ]'
-          file-types: '[".rs"]'
-          exclude-folders: '["./examples/ios"]'
-          exclude-files: '[]'
+          name: missing-examples
+          path: missing-examples/
+
+  check-missing-features-in-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: check-missing-examples-in-docs
+    steps:
+      - uses: actions/checkout@v4
+      - name: check for missing features
+        id: missing-features
+        run: cargo run -p build-templated-pages -- check-missing features
+      - name: check for missing update
+        run: cargo run -p build-templated-pages -- update features
+      - name: Check for modified files
+        id: missing-update
+        run: |
+          echo "if this step fails, run the following command and commit the changed file on your PR."
+          echo " > cargo run -p build-templated-pages -- update features"
+          git diff --quiet HEAD --
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./missing-features
+          echo ${{ github.event.number }} > ./missing-features/NR
+      - name: log failed task - missing features
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-features.conclusion == 'failure' }}
+        run: touch ./missing-features/missing-features
+      - name: log failed task - missing update
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
+        run: touch ./missing-features/missing-update
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: missing-features
+          path: missing-features/
+
+  msrv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
+      - name: get MSRV
+        run: |
+          msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
+          echo "MSRV=$msrv" >> $GITHUB_ENV
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Run cargo check
+        id: check
+        run: cargo check
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
+        run: |
+          mkdir -p ./msrv
+          echo ${{ github.event.number }} > ./msrv/NR
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
+        with:
+          name: msrv
+          path: msrv/
+
+  check-bevy-internal-imports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for bevy_internal imports
+        shell: bash
+        run: |
+          errors=""
+          for file in $(find examples tests -name '*.rs'); do
+              if grep -q "use bevy_internal" "$file"; then
+                  errors+="ERROR: Detected 'use bevy_internal' in $file\n"
+              fi
+          done
+          if [ -n "$errors" ]; then
+              echo -e "$errors"
+              echo " Avoid importing bevy_internal, it should not be used directly"
+              echo " Fix the issue by replacing 'bevy_internal' with 'bevy'"
+              echo " Example: 'use bevy::sprite::MaterialMesh2dBundle;' instead of 'bevy_internal::sprite::MaterialMesh2dBundle;'"
+              exit 1
+          fi                  

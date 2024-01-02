@@ -1,10 +1,13 @@
+//! This example shows various ways to configure texture materials in 3D.
+
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 
-/// This example shows various ways to configure texture materials in 3D
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -29,74 +32,55 @@ fn setup(
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..Default::default()
+        ..default()
     });
 
     // this material modulates the texture to make it red (and slightly transparent)
     let red_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgba(1.0, 0.0, 0.0, 0.5),
         base_color_texture: Some(texture_handle.clone()),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..Default::default()
+        ..default()
     });
 
     // and lets make this one blue! (and also slightly transparent)
     let blue_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
         base_color_texture: Some(texture_handle),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..Default::default()
+        ..default()
     });
 
     // textured quad - normal
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: quad_handle.clone(),
         material: material_handle,
-        transform: Transform {
-            translation: Vec3::new(0.0, 0.0, 1.5),
-            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ..Default::default()
-        },
-        visible: Visible {
-            is_transparent: true,
-            ..Default::default()
-        },
-        ..Default::default()
+        transform: Transform::from_xyz(0.0, 0.0, 1.5)
+            .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
+        ..default()
     });
     // textured quad - modulated
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: quad_handle.clone(),
         material: red_material_handle,
-        transform: Transform {
-            translation: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ..Default::default()
-        },
-        visible: Visible {
-            is_transparent: true,
-            ..Default::default()
-        },
-        ..Default::default()
+        transform: Transform::from_rotation(Quat::from_rotation_x(-PI / 5.0)),
+        ..default()
     });
     // textured quad - modulated
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: quad_handle,
         material: blue_material_handle,
-        transform: Transform {
-            translation: Vec3::new(0.0, 0.0, -1.5),
-            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ..Default::default()
-        },
-        visible: Visible {
-            is_transparent: true,
-            ..Default::default()
-        },
-        ..Default::default()
+        transform: Transform::from_xyz(0.0, 0.0, -1.5)
+            .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
+        ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

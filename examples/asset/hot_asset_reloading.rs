@@ -1,35 +1,39 @@
+//! Hot reloading allows you to modify assets files to be immediately reloaded while your game is
+//! running. This lets you immediately see the results of your changes without restarting the game.
+//! This example illustrates hot reloading mesh changes.
+//!
+//! Note that hot asset reloading requires the [`AssetWatcher`](bevy::asset::io::AssetWatcher) to be enabled
+//! for your current platform. For desktop platforms, enable the `file_watcher` cargo feature.
+
 use bevy::prelude::*;
 
-/// Hot reloading allows you to modify assets on disk and they will be "live reloaded" while your
-/// game is running. This lets you immediately see the results of your changes without restarting
-/// the game. This example illustrates hot reloading mesh changes.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup.system())
+        .add_systems(Startup, setup)
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
-    let scene_handle = asset_server.load("models/monkey/Monkey.gltf#Scene0");
+    let scene_handle = asset_server.load("models/torus/torus.gltf#Scene0");
 
-    // Tell the asset server to watch for asset changes on disk:
-    asset_server.watch_for_changes().unwrap();
-
-    // Any changes to the mesh will be reloaded automatically! Try making a change to Monkey.gltf.
+    // Any changes to the mesh will be reloaded automatically! Try making a change to torus.gltf.
     // You should see the changes immediately show up in your app.
 
     // mesh
-    commands.spawn_scene(scene_handle);
+    commands.spawn(SceneBundle {
+        scene: scene_handle,
+        ..default()
+    });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..Default::default()
+        ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }

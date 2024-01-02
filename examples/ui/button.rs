@@ -1,94 +1,96 @@
-use bevy::prelude::*;
+//! This example illustrates how to create a button that changes color and text based on its
+//! interaction state.
 
-/// This example illustrates how to create a button that changes color and text based on its
-/// interaction state.
+use bevy::{prelude::*, winit::WinitSettings};
+
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<ButtonMaterials>()
-        .add_startup_system(setup.system())
-        .add_system(button_system.system())
+        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        .insert_resource(WinitSettings::desktop_app())
+        .add_systems(Startup, setup)
+        .add_systems(Update, button_system)
         .run();
 }
 
-struct ButtonMaterials {
-    normal: Handle<ColorMaterial>,
-    hovered: Handle<ColorMaterial>,
-    pressed: Handle<ColorMaterial>,
-}
-
-impl FromWorld for ButtonMaterials {
-    fn from_world(world: &mut World) -> Self {
-        let mut materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
-        ButtonMaterials {
-            normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
-            hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
-            pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
-        }
-    }
-}
+const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
 fn button_system(
-    button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<
-        (&Interaction, &mut Handle<ColorMaterial>, &Children),
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut material, children) in interaction_query.iter_mut() {
+    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
-                *material = button_materials.pressed.clone();
+                *color = PRESSED_BUTTON.into();
+                border_color.0 = Color::RED;
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
-                *material = button_materials.hovered.clone();
+                *color = HOVERED_BUTTON.into();
+                border_color.0 = Color::WHITE;
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
-                *material = button_materials.normal.clone();
+                *color = NORMAL_BUTTON.into();
+                border_color.0 = Color::BLACK;
             }
         }
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    button_materials: Res<ButtonMaterials>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn(Camera2dBundle::default());
     commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
-                // center button
-                margin: Rect::all(Val::Auto),
-                // horizontally center child text
-                justify_content: JustifyContent::Center,
-                // vertically center child text
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
-                ..Default::default()
+                justify_content: JustifyContent::Center,
+                ..default()
             },
-            material: button_materials.normal.clone(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "Button",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.9, 0.9, 0.9),
+            parent
+                .spawn(ButtonBundle {
+                    style: Style {
+                        width: Val::Px(150.0),
+                        height: Val::Px(65.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
                     },
-                    Default::default(),
-                ),
-                ..Default::default()
-            });
+                    border_color: BorderColor(Color::BLACK),
+                    background_color: NORMAL_BUTTON.into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Button",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                        },
+                    ));
+                });
         });
 }

@@ -1,10 +1,11 @@
-use std::convert::TryFrom;
+use crate::texture::{Image, TextureFormatPixelInfo};
+use image::{DynamicImage, ImageBuffer};
 use thiserror::Error;
+use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
-use super::{Extent3d, Texture, TextureDimension, TextureFormat};
-
-impl From<image::DynamicImage> for Texture {
-    fn from(dyn_img: image::DynamicImage) -> Self {
+impl Image {
+    /// Converts a [`DynamicImage`] to an [`Image`].
+    pub fn from_dynamic(dyn_img: DynamicImage, is_srgb: bool) -> Image {
         use bevy_core::cast_slice;
         let width;
         let height;
@@ -13,85 +14,105 @@ impl From<image::DynamicImage> for Texture {
         let format: TextureFormat;
 
         match dyn_img {
-            image::DynamicImage::ImageLuma8(i) => {
-                let i = image::DynamicImage::ImageLuma8(i).into_rgba8();
+            DynamicImage::ImageLuma8(image) => {
+                let i = DynamicImage::ImageLuma8(image).into_rgba8();
                 width = i.width();
                 height = i.height();
-                format = TextureFormat::Rgba8UnormSrgb;
+                format = if is_srgb {
+                    TextureFormat::Rgba8UnormSrgb
+                } else {
+                    TextureFormat::Rgba8Unorm
+                };
 
                 data = i.into_raw();
             }
-            image::DynamicImage::ImageLumaA8(i) => {
-                let i = image::DynamicImage::ImageLumaA8(i).into_rgba8();
+            DynamicImage::ImageLumaA8(image) => {
+                let i = DynamicImage::ImageLumaA8(image).into_rgba8();
                 width = i.width();
                 height = i.height();
-                format = TextureFormat::Rgba8UnormSrgb;
+                format = if is_srgb {
+                    TextureFormat::Rgba8UnormSrgb
+                } else {
+                    TextureFormat::Rgba8Unorm
+                };
 
                 data = i.into_raw();
             }
-            image::DynamicImage::ImageRgb8(i) => {
-                let i = image::DynamicImage::ImageRgb8(i).into_rgba8();
+            DynamicImage::ImageRgb8(image) => {
+                let i = DynamicImage::ImageRgb8(image).into_rgba8();
                 width = i.width();
                 height = i.height();
-                format = TextureFormat::Rgba8UnormSrgb;
+                format = if is_srgb {
+                    TextureFormat::Rgba8UnormSrgb
+                } else {
+                    TextureFormat::Rgba8Unorm
+                };
 
                 data = i.into_raw();
             }
-            image::DynamicImage::ImageRgba8(i) => {
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::Rgba8UnormSrgb;
-
-                data = i.into_raw();
-            }
-            image::DynamicImage::ImageBgr8(i) => {
-                let i = image::DynamicImage::ImageBgr8(i).into_bgra8();
-
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::Bgra8UnormSrgb;
-
-                data = i.into_raw();
-            }
-            image::DynamicImage::ImageBgra8(i) => {
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::Bgra8UnormSrgb;
-
-                data = i.into_raw();
-            }
-            image::DynamicImage::ImageLuma16(i) => {
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::R16Uint;
-                let raw_data = i.into_raw();
-
-                data = cast_slice(&raw_data).to_owned();
-            }
-            image::DynamicImage::ImageLumaA16(i) => {
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::Rg16Uint;
-
-                let raw_data = i.into_raw();
-
-                data = cast_slice(&raw_data).to_owned();
-            }
-
-            image::DynamicImage::ImageRgb16(image) => {
+            DynamicImage::ImageRgba8(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::Rgba16Uint;
+                format = if is_srgb {
+                    TextureFormat::Rgba8UnormSrgb
+                } else {
+                    TextureFormat::Rgba8Unorm
+                };
+
+                data = image.into_raw();
+            }
+            DynamicImage::ImageLuma16(image) => {
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::R16Uint;
+
+                let raw_data = image.into_raw();
+
+                data = cast_slice(&raw_data).to_owned();
+            }
+            DynamicImage::ImageLumaA16(image) => {
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::Rg16Uint;
+
+                let raw_data = image.into_raw();
+
+                data = cast_slice(&raw_data).to_owned();
+            }
+            DynamicImage::ImageRgb16(image) => {
+                let i = DynamicImage::ImageRgb16(image).into_rgba16();
+                width = i.width();
+                height = i.height();
+                format = TextureFormat::Rgba16Unorm;
+
+                let raw_data = i.into_raw();
+
+                data = cast_slice(&raw_data).to_owned();
+            }
+            DynamicImage::ImageRgba16(image) => {
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::Rgba16Unorm;
+
+                let raw_data = image.into_raw();
+
+                data = cast_slice(&raw_data).to_owned();
+            }
+            DynamicImage::ImageRgb32F(image) => {
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::Rgba32Float;
 
                 let mut local_data =
                     Vec::with_capacity(width as usize * height as usize * format.pixel_size());
 
                 for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO unsafe_get in release builds?
+                    // TODO: use the array_chunks method once stabilised
+                    // https://github.com/rust-lang/rust/issues/74985
                     let r = pixel[0];
                     let g = pixel[1];
                     let b = pixel[2];
-                    let a = u16::MAX;
+                    let a = 1f32;
 
                     local_data.extend_from_slice(&r.to_ne_bytes());
                     local_data.extend_from_slice(&g.to_ne_bytes());
@@ -101,60 +122,108 @@ impl From<image::DynamicImage> for Texture {
 
                 data = local_data;
             }
-            image::DynamicImage::ImageRgba16(i) => {
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::Rgba16Uint;
+            DynamicImage::ImageRgba32F(image) => {
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::Rgba32Float;
 
-                let raw_data = i.into_raw();
+                let raw_data = image.into_raw();
 
                 data = cast_slice(&raw_data).to_owned();
             }
+            // DynamicImage is now non exhaustive, catch future variants and convert them
+            _ => {
+                let image = dyn_img.into_rgba8();
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::Rgba8UnormSrgb;
+
+                data = image.into_raw();
+            }
         }
 
-        Texture::new(
-            Extent3d::new(width, height, 1),
+        Image::new(
+            Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
             TextureDimension::D2,
             data,
             format,
         )
     }
-}
 
-#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-pub enum TextureConversionError {
-    #[error("Unsupported texture format")]
-    UnsupportedFormat,
-    #[error("Invalid texture size")]
-    InvalidSize,
-}
-
-impl TryFrom<Texture> for image::DynamicImage {
-    type Error = TextureConversionError;
-
-    fn try_from(texture: Texture) -> Result<Self, Self::Error> {
-        match texture.format {
-            TextureFormat::R8Unorm => {
-                image::ImageBuffer::from_raw(texture.size.width, texture.size.height, texture.data)
-                    .map(image::DynamicImage::ImageLuma8)
-                    .ok_or(TextureConversionError::InvalidSize)
-            }
+    /// Convert a [`Image`] to a [`DynamicImage`]. Useful for editing image
+    /// data. Not all [`TextureFormat`] are covered, therefore it will return an
+    /// error if the format is unsupported. Supported formats are:
+    /// - `TextureFormat::R8Unorm`
+    /// - `TextureFormat::Rg8Unorm`
+    /// - `TextureFormat::Rgba8UnormSrgb`
+    /// - `TextureFormat::Bgra8UnormSrgb`
+    ///
+    /// To convert [`Image`] to a different format see: [`Image::convert`].
+    pub fn try_into_dynamic(self) -> Result<DynamicImage, IntoDynamicImageError> {
+        match self.texture_descriptor.format {
+            TextureFormat::R8Unorm => ImageBuffer::from_raw(self.width(), self.height(), self.data)
+                .map(DynamicImage::ImageLuma8),
             TextureFormat::Rg8Unorm => {
-                image::ImageBuffer::from_raw(texture.size.width, texture.size.height, texture.data)
-                    .map(image::DynamicImage::ImageLumaA8)
-                    .ok_or(TextureConversionError::InvalidSize)
+                ImageBuffer::from_raw(self.width(), self.height(), self.data)
+                    .map(DynamicImage::ImageLumaA8)
             }
             TextureFormat::Rgba8UnormSrgb => {
-                image::ImageBuffer::from_raw(texture.size.width, texture.size.height, texture.data)
-                    .map(image::DynamicImage::ImageRgba8)
-                    .ok_or(TextureConversionError::InvalidSize)
+                ImageBuffer::from_raw(self.width(), self.height(), self.data)
+                    .map(DynamicImage::ImageRgba8)
             }
-            TextureFormat::Bgra8UnormSrgb => {
-                image::ImageBuffer::from_raw(texture.size.width, texture.size.height, texture.data)
-                    .map(image::DynamicImage::ImageBgra8)
-                    .ok_or(TextureConversionError::InvalidSize)
+            // This format is commonly used as the format for the swapchain texture
+            // This conversion is added here to support screenshots
+            TextureFormat::Bgra8UnormSrgb | TextureFormat::Bgra8Unorm => {
+                ImageBuffer::from_raw(self.width(), self.height(), {
+                    let mut data = self.data;
+                    for bgra in data.chunks_exact_mut(4) {
+                        bgra.swap(0, 2);
+                    }
+                    data
+                })
+                .map(DynamicImage::ImageRgba8)
             }
-            _ => Err(TextureConversionError::UnsupportedFormat),
+            // Throw and error if conversion isn't supported
+            texture_format => return Err(IntoDynamicImageError::UnsupportedFormat(texture_format)),
         }
+        .ok_or(IntoDynamicImageError::UnknownConversionError(
+            self.texture_descriptor.format,
+        ))
+    }
+}
+
+/// Errors that occur while converting an [`Image`] into a [`DynamicImage`]
+#[non_exhaustive]
+#[derive(Error, Debug)]
+pub enum IntoDynamicImageError {
+    /// Conversion into dynamic image not supported for source format.
+    #[error("Conversion into dynamic image not supported for {0:?}.")]
+    UnsupportedFormat(TextureFormat),
+
+    /// Encountered an unknown error during conversion.
+    #[error("Failed to convert into {0:?}.")]
+    UnknownConversionError(TextureFormat),
+}
+
+#[cfg(test)]
+mod test {
+    use image::{GenericImage, Rgba};
+
+    use super::*;
+
+    #[test]
+    fn two_way_conversion() {
+        // Check to see if color is preserved through an rgba8 conversion and back.
+        let mut initial = DynamicImage::new_rgba8(1, 1);
+        initial.put_pixel(0, 0, Rgba::from([132, 3, 7, 200]));
+
+        let image = Image::from_dynamic(initial.clone(), true);
+
+        // NOTE: Fails if `is_srbg = false` or the dynamic image is of the type rgb8.
+        assert_eq!(initial, image.try_into_dynamic().unwrap());
     }
 }

@@ -1,25 +1,34 @@
 [package]
 name = "bevy_window"
-version = "0.5.0"
-edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
+version = "0.12.0"
+edition = "2021"
 description = "Provides windowing functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+
+[features]
+default = []
+serialize = ["serde", "smol_str/serde"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.5.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
-bevy_math = { path = "../bevy_math", version = "0.5.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
+bevy_a11y = { path = "../bevy_a11y", version = "0.12.0" }
+bevy_app = { path = "../bevy_app", version = "0.12.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
+bevy_math = { path = "../bevy_math", version = "0.12.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
+  "glam",
+] }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
+# Used for close_on_esc
+bevy_input = { path = "../bevy_input", version = "0.12.0" }
 
 # other
+serde = { version = "1.0", features = ["derive"], optional = true }
+raw-window-handle = "0.5"
+smol_str = "0.2"
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = "0.3"
+[lints]
+workspace = true

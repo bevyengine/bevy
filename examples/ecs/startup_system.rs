@@ -1,9 +1,11 @@
+//! Demonstrates a startup system (one that runs once when the app starts up).
+
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
-        .add_startup_system(startup_system.system())
-        .add_system(normal_system.system())
+    App::new()
+        .add_systems(Startup, startup_system)
+        .add_systems(Update, normal_system)
         .run();
 }
 

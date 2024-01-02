@@ -1,18 +1,25 @@
-use super::{Diagnostic, DiagnosticId, Diagnostics};
+use super::{Diagnostic, DiagnosticId, DiagnosticsStore};
 use bevy_app::prelude::*;
-use bevy_core::{Time, Timer};
-use bevy_ecs::system::{IntoSystem, Res, ResMut};
+use bevy_ecs::prelude::*;
 use bevy_log::{debug, info};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_utils::Duration;
 
-/// An App Plugin that logs diagnostics to the console
+/// An App Plugin that logs diagnostics to the console.
+///
+/// Diagnostics are collected by plugins such as
+/// [`FrameTimeDiagnosticsPlugin`](crate::FrameTimeDiagnosticsPlugin)
+/// or can be provided by the user.
+///
+/// When no diagnostics are provided, this plugin does nothing.
 pub struct LogDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,
     pub filter: Option<Vec<DiagnosticId>>,
 }
 
-/// State used by the [LogDiagnosticsPlugin]
+/// State used by the [`LogDiagnosticsPlugin`]
+#[derive(Resource)]
 struct LogDiagnosticsState {
     timer: Timer,
     filter: Option<Vec<DiagnosticId>>,
@@ -29,19 +36,16 @@ impl Default for LogDiagnosticsPlugin {
 }
 
 impl Plugin for LogDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.insert_resource(LogDiagnosticsState {
-            timer: Timer::new(self.wait_duration, true),
+            timer: Timer::new(self.wait_duration, TimerMode::Repeating),
             filter: self.filter.clone(),
         });
 
         if self.debug {
-            app.add_system_to_stage(
-                CoreStage::PostUpdate,
-                Self::log_diagnostics_debug_system.system(),
-            );
+            app.add_systems(PostUpdate, Self::log_diagnostics_debug_system);
         } else {
-            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system.system());
+            app.add_systems(PostUpdate, Self::log_diagnostics_system);
         }
     }
 }
@@ -55,44 +59,52 @@ impl LogDiagnosticsPlugin {
     }
 
     fn log_diagnostic(diagnostic: &Diagnostic) {
-        if let Some(value) = diagnostic.value() {
-            if let Some(average) = diagnostic.average() {
-                info!(
-                    target: "bevy diagnostic",
-                    "{:<name_width$}: {:>12} (avg {:>})",
-                    diagnostic.name,
-                    // Suffix is only used for 's' as in seconds currently,
-                    // so we reserve one column for it
-                    format!("{:.6}{:1}", value, diagnostic.suffix),
-                    // Do not reserve one column for the suffix in the average
-                    // The ) hugging the value is more aesthetically pleasing
-                    format!("{:.6}{:}", average, diagnostic.suffix),
-                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                );
-            } else {
-                info!(
-                    target: "bevy diagnostic",
-                    "{:<name_width$}: {:>}",
-                    diagnostic.name,
-                    format!("{:.6}{:}", value, diagnostic.suffix),
-                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                );
+        if let Some(value) = diagnostic.smoothed() {
+            if diagnostic.get_max_history_length() > 1 {
+                if let Some(average) = diagnostic.average() {
+                    info!(
+                        target: "bevy diagnostic",
+                        // Suffix is only used for 's' or 'ms' currently,
+                        // so we reserve two columns for it; however,
+                        // Do not reserve columns for the suffix in the average
+                        // The ) hugging the value is more aesthetically pleasing
+                        "{name:<name_width$}: {value:>11.6}{suffix:2} (avg {average:>.6}{suffix:})",
+                        name = diagnostic.name,
+                        suffix = diagnostic.suffix,
+                        name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                    );
+                    return;
+                }
             }
+            info!(
+                target: "bevy diagnostic",
+                "{name:<name_width$}: {value:>.6}{suffix:}",
+                name = diagnostic.name,
+                suffix = diagnostic.suffix,
+                name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+            );
         }
     }
 
     fn log_diagnostics_system(
         mut state: ResMut<LogDiagnosticsState>,
-        time: Res<Time>,
-        diagnostics: Res<Diagnostics>,
+        time: Res<Time<Real>>,
+        diagnostics: Res<DiagnosticsStore>,
     ) {
         if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
-                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                for diagnostic in filter.iter().flat_map(|id| {
+                    diagnostics
+                        .get(*id)
+                        .filter(|diagnostic| diagnostic.is_enabled)
+                }) {
                     Self::log_diagnostic(diagnostic);
                 }
             } else {
-                for diagnostic in diagnostics.iter() {
+                for diagnostic in diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.is_enabled)
+                {
                     Self::log_diagnostic(diagnostic);
                 }
             }
@@ -101,16 +113,23 @@ impl LogDiagnosticsPlugin {
 
     fn log_diagnostics_debug_system(
         mut state: ResMut<LogDiagnosticsState>,
-        time: Res<Time>,
-        diagnostics: Res<Diagnostics>,
+        time: Res<Time<Real>>,
+        diagnostics: Res<DiagnosticsStore>,
     ) {
         if state.timer.tick(time.delta()).finished() {
             if let Some(ref filter) = state.filter {
-                for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
+                for diagnostic in filter.iter().flat_map(|id| {
+                    diagnostics
+                        .get(*id)
+                        .filter(|diagnostic| diagnostic.is_enabled)
+                }) {
                     debug!("{:#?}\n", diagnostic);
                 }
             } else {
-                for diagnostic in diagnostics.iter() {
+                for diagnostic in diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.is_enabled)
+                {
                     debug!("{:#?}\n", diagnostic);
                 }
             }

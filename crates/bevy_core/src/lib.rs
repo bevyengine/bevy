@@ -1,106 +1,215 @@
-mod bytes;
-mod float_ord;
-mod label;
-mod name;
-mod task_pool_options;
-mod time;
+#![warn(missing_docs)]
 
-pub use bytes::*;
-pub use float_ord::*;
-pub use label::*;
+//! This crate provides core functionality for Bevy Engine.
+
+mod name;
+#[cfg(feature = "serialize")]
+mod serde;
+mod task_pool_options;
+
+use bevy_ecs::system::{ResMut, Resource};
+pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
-pub use task_pool_options::DefaultTaskPoolOptions;
-pub use time::*;
+pub use task_pool_options::*;
 
 pub mod prelude {
+    //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
+    pub use crate::{
+        DebugName, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,
+    };
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    entity::Entity,
-    schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
-    system::{IntoExclusiveSystem, IntoSystem},
-};
-use bevy_utils::HashSet;
+use bevy_ecs::prelude::*;
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use bevy_utils::{Duration, HashSet, Instant, Uuid};
+use std::borrow::Cow;
+use std::ffi::OsString;
+use std::marker::PhantomData;
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 
-/// Adds core functionality to Apps.
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tasks::tick_global_task_pools_on_main_thread;
+
+/// Registration of default types to the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
 #[derive(Default)]
-pub struct CorePlugin;
+pub struct TypeRegistrationPlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
-pub enum CoreSystem {
-    /// Updates the elapsed time. Any system that interacts with [Time] component should run after
-    /// this.
-    Time,
-}
-
-impl Plugin for CorePlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        // Setup the default bevy task pools
-        app.world_mut()
-            .get_resource::<DefaultTaskPoolOptions>()
-            .cloned()
-            .unwrap_or_else(DefaultTaskPoolOptions::default)
-            .create_default_pools(app.world_mut());
-
-        app.init_resource::<Time>()
-            .init_resource::<EntityLabels>()
-            .init_resource::<FixedTimesteps>()
-            .register_type::<HashSet<String>>()
-            .register_type::<Option<String>>()
-            .register_type::<Entity>()
-            .register_type::<Name>()
-            .register_type::<Labels>()
-            .register_type::<Range<f32>>()
-            .register_type::<Timer>()
-            // time system is added as an "exclusive system" to ensure it runs before other systems
-            // in CoreStage::First
-            .add_system_to_stage(
-                CoreStage::First,
-                time_system.exclusive_system().label(CoreSystem::Time),
-            )
-            .add_startup_system_to_stage(StartupStage::PostStartup, entity_labels_system.system())
-            .add_system_to_stage(CoreStage::PostUpdate, entity_labels_system.system());
+impl Plugin for TypeRegistrationPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<Entity>().register_type::<Name>();
 
         register_rust_types(app);
         register_math_types(app);
     }
 }
 
-fn register_rust_types(app: &mut AppBuilder) {
-    app.register_type::<bool>()
-        .register_type::<u8>()
-        .register_type::<u16>()
-        .register_type::<u32>()
-        .register_type::<u64>()
-        .register_type::<u128>()
-        .register_type::<usize>()
-        .register_type::<i8>()
-        .register_type::<i16>()
-        .register_type::<i32>()
-        .register_type::<i64>()
-        .register_type::<i128>()
-        .register_type::<isize>()
-        .register_type::<f32>()
-        .register_type::<f64>()
+fn register_rust_types(app: &mut App) {
+    app.register_type::<Range<f32>>()
+        .register_type_data::<Range<f32>, ReflectSerialize>()
+        .register_type_data::<Range<f32>, ReflectDeserialize>()
         .register_type::<String>()
-        .register_type::<Option<String>>();
+        .register_type::<PathBuf>()
+        .register_type::<OsString>()
+        .register_type::<HashSet<String>>()
+        .register_type::<Option<String>>()
+        .register_type::<Option<bool>>()
+        .register_type::<Option<f64>>()
+        .register_type::<Cow<'static, str>>()
+        .register_type::<Cow<'static, Path>>()
+        .register_type::<Duration>()
+        .register_type::<Instant>()
+        .register_type::<Uuid>();
 }
 
-fn register_math_types(app: &mut AppBuilder) {
+fn register_math_types(app: &mut App) {
     app.register_type::<bevy_math::IVec2>()
         .register_type::<bevy_math::IVec3>()
         .register_type::<bevy_math::IVec4>()
         .register_type::<bevy_math::UVec2>()
         .register_type::<bevy_math::UVec3>()
         .register_type::<bevy_math::UVec4>()
+        .register_type::<bevy_math::DVec2>()
+        .register_type::<Option<bevy_math::DVec2>>()
+        .register_type::<bevy_math::DVec3>()
+        .register_type::<bevy_math::DVec4>()
+        .register_type::<bevy_math::BVec2>()
+        .register_type::<bevy_math::BVec3>()
+        .register_type::<bevy_math::BVec3A>()
+        .register_type::<bevy_math::BVec4>()
+        .register_type::<bevy_math::BVec4A>()
         .register_type::<bevy_math::Vec2>()
         .register_type::<bevy_math::Vec3>()
+        .register_type::<bevy_math::Vec3A>()
         .register_type::<bevy_math::Vec4>()
+        .register_type::<bevy_math::DAffine2>()
+        .register_type::<bevy_math::DAffine3>()
+        .register_type::<bevy_math::Affine2>()
+        .register_type::<bevy_math::Affine3A>()
+        .register_type::<bevy_math::DMat2>()
+        .register_type::<bevy_math::DMat3>()
+        .register_type::<bevy_math::DMat4>()
+        .register_type::<bevy_math::Mat2>()
         .register_type::<bevy_math::Mat3>()
+        .register_type::<bevy_math::Mat3A>()
         .register_type::<bevy_math::Mat4>()
-        .register_type::<bevy_math::Quat>();
+        .register_type::<bevy_math::DQuat>()
+        .register_type::<bevy_math::Quat>()
+        .register_type::<bevy_math::Rect>();
+}
+
+/// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),
+/// [`ComputeTaskPool`](bevy_tasks::ComputeTaskPool), [`IoTaskPool`](bevy_tasks::IoTaskPool).
+#[derive(Default)]
+pub struct TaskPoolPlugin {
+    /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
+    pub task_pool_options: TaskPoolOptions,
+}
+
+impl Plugin for TaskPoolPlugin {
+    fn build(&self, _app: &mut App) {
+        // Setup the default bevy task pools
+        self.task_pool_options.create_default_pools();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        _app.add_systems(Last, tick_global_task_pools);
+    }
+}
+/// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
+pub struct NonSendMarker(PhantomData<*mut ()>);
+
+/// A system used to check and advanced our task pools.
+///
+/// Calls [`tick_global_task_pools_on_main_thread`],
+/// and uses [`NonSendMarker`] to ensure that this system runs on the main thread
+#[cfg(not(target_arch = "wasm32"))]
+fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
+    tick_global_task_pools_on_main_thread();
+}
+
+/// Maintains a count of frames rendered since the start of the application.
+///
+/// [`FrameCount`] is incremented during [`Last`], providing predictable
+/// behavior: it will be 0 during the first update, 1 during the next, and so forth.
+///
+/// # Overflows
+///
+/// [`FrameCount`] will wrap to 0 after exceeding [`u32::MAX`]. Within reasonable
+/// assumptions, one may exploit wrapping arithmetic to determine the number of frames
+/// that have elapsed between two observations – see [`u32::wrapping_sub()`].
+#[derive(Default, Resource, Clone, Copy)]
+pub struct FrameCount(pub u32);
+
+/// Adds frame counting functionality to Apps.
+#[derive(Default)]
+pub struct FrameCountPlugin;
+
+impl Plugin for FrameCountPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<FrameCount>();
+        app.add_systems(Last, update_frame_count);
+    }
+}
+
+/// A system used to increment [`FrameCount`] with wrapping addition.
+///
+/// See [`FrameCount`] for more details.
+pub fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+    frame_count.0 = frame_count.0.wrapping_add(1);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_tasks::prelude::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+
+    #[test]
+    fn runs_spawn_local_tasks() {
+        let mut app = App::new();
+        app.add_plugins((TaskPoolPlugin::default(), TypeRegistrationPlugin));
+
+        let (async_tx, async_rx) = crossbeam_channel::unbounded();
+        AsyncComputeTaskPool::get()
+            .spawn_local(async move {
+                async_tx.send(()).unwrap();
+            })
+            .detach();
+
+        let (compute_tx, compute_rx) = crossbeam_channel::unbounded();
+        ComputeTaskPool::get()
+            .spawn_local(async move {
+                compute_tx.send(()).unwrap();
+            })
+            .detach();
+
+        let (io_tx, io_rx) = crossbeam_channel::unbounded();
+        IoTaskPool::get()
+            .spawn_local(async move {
+                io_tx.send(()).unwrap();
+            })
+            .detach();
+
+        app.run();
+
+        async_rx.try_recv().unwrap();
+        compute_rx.try_recv().unwrap();
+        io_rx.try_recv().unwrap();
+    }
+
+    #[test]
+    fn frame_counter_update() {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            TypeRegistrationPlugin,
+            FrameCountPlugin,
+        ));
+        app.update();
+
+        let frame_count = app.world.resource::<FrameCount>();
+        assert_eq!(1, frame_count.0);
+    }
 }

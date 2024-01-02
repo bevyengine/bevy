@@ -1,13 +1,11 @@
 [package]
 name = "ci"
 version = "0.1.0"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Nathan Stocks <nathan@agileperception.com>"
-]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition = "2021"
+description = "CI script for Bevy"
+publish = false
+license = "MIT OR Apache-2.0"
 
 [dependencies]
-xshell = "0.1"
+xshell = "0.2"
+bitflags = "2.3"

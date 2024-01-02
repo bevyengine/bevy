@@ -1,24 +1,21 @@
 use crate::{
-    archetype::{Archetype, ArchetypeId, ComponentStatus},
-    bundle::{Bundle, BundleInfo},
-    entity::{Entities, Entity},
-    storage::{SparseSets, Table},
-    world::{add_bundle_to_archetype, World},
+    bundle::{Bundle, BundleSpawner},
+    entity::Entity,
+    world::World,
 };
+use std::iter::FusedIterator;
 
+/// An iterator that spawns a series of entities and returns the [ID](Entity) of
+/// each spawned entity.
+///
+/// If this iterator is not fully exhausted, any remaining entities will be spawned when this type is dropped.
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
     I::Item: Bundle,
 {
     inner: I,
-    entities: &'w mut Entities,
-    archetype: &'w mut Archetype,
-    table: &'w mut Table,
-    sparse_sets: &'w mut SparseSets,
-    bundle_info: &'w BundleInfo,
-    bundle_status: &'w [ComponentStatus],
-    change_tick: u32,
+    spawner: BundleSpawner<'w, 'w>,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -32,41 +29,27 @@ where
         // necessary
         world.flush();
 
+        let change_tick = world.change_tick();
+
         let (lower, upper) = iter.size_hint();
-
-        let bundle_info = world.bundles.init_info::<I::Item>(&mut world.components);
-
         let length = upper.unwrap_or(lower);
-        // SAFE: empty archetype exists and bundle components were initialized above
-        let archetype_id = unsafe {
-            add_bundle_to_archetype(
-                &mut world.archetypes,
-                &mut world.storages,
-                &mut world.components,
-                ArchetypeId::empty(),
-                bundle_info,
-            )
-        };
-        let (empty_archetype, archetype) = world
-            .archetypes
-            .get_2_mut(ArchetypeId::empty(), archetype_id);
-        let table = &mut world.storages.tables[archetype.table_id()];
-        archetype.reserve(length);
-        table.reserve(length);
+
+        let bundle_info = world
+            .bundles
+            .init_info::<I::Item>(&mut world.components, &mut world.storages);
         world.entities.reserve(length as u32);
-        let edge = empty_archetype
-            .edges()
-            .get_add_bundle(bundle_info.id())
-            .unwrap();
+        let mut spawner = bundle_info.get_bundle_spawner(
+            &mut world.entities,
+            &mut world.archetypes,
+            &world.components,
+            &mut world.storages,
+            change_tick,
+        );
+        spawner.reserve_storage(length);
+
         Self {
             inner: iter,
-            entities: &mut world.entities,
-            archetype,
-            table,
-            sparse_sets: &mut world.storages.sparse_sets,
-            bundle_info,
-            change_tick: *world.change_tick.get_mut(),
-            bundle_status: &edge.bundle_status,
+            spawner,
         }
     }
 }
@@ -90,24 +73,8 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        let entity = self.entities.alloc();
-        // SAFE: component values are immediately written to relevant storages (which have been
-        // allocated)
-        unsafe {
-            let table_row = self.table.allocate(entity);
-            let location = self.archetype.allocate(entity, table_row);
-            self.bundle_info.write_components(
-                self.sparse_sets,
-                entity,
-                self.table,
-                table_row,
-                self.bundle_status,
-                bundle,
-                self.change_tick,
-            );
-            self.entities.meta[entity.id as usize].location = location;
-        }
-        Some(entity)
+        // SAFETY: bundle matches spawner type
+        unsafe { Some(self.spawner.spawn(bundle)) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -123,4 +90,11 @@ where
     fn len(&self) -> usize {
         self.inner.len()
     }
+}
+
+impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle,
+{
 }

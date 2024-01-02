@@ -1,8 +1,6 @@
-use crate::{
-    mesh::{Indices, Mesh},
-    pipeline::PrimitiveTopology,
-};
+use crate::mesh::{Indices, Mesh};
 use bevy_math::Vec3;
+use wgpu::PrimitiveTopology;
 
 /// A torus (donut) shape.
 #[derive(Debug, Clone, Copy)]
@@ -39,18 +37,20 @@ impl From<Torus> for Mesh {
 
         for segment in 0..=torus.subdivisions_segments {
             let theta = segment_stride * segment as f32;
-            let segment_pos = Vec3::new(theta.cos(), 0.0, theta.sin() * torus.radius);
 
             for side in 0..=torus.subdivisions_sides {
                 let phi = side_stride * side as f32;
 
-                let x = theta.cos() * (torus.radius + torus.ring_radius * phi.cos());
-                let z = theta.sin() * (torus.radius + torus.ring_radius * phi.cos());
-                let y = torus.ring_radius * phi.sin();
+                let position = Vec3::new(
+                    theta.cos() * (torus.radius + torus.ring_radius * phi.cos()),
+                    torus.ring_radius * phi.sin(),
+                    theta.sin() * (torus.radius + torus.ring_radius * phi.cos()),
+                );
 
-                let normal = segment_pos.cross(Vec3::Y).normalize();
+                let center = Vec3::new(torus.radius * theta.cos(), 0., torus.radius * theta.sin());
+                let normal = (position - center).normalize();
 
-                positions.push([x, y, z]);
+                positions.push(position.into());
                 normals.push(normal.into());
                 uvs.push([
                     segment as f32 / torus.subdivisions_segments as f32,
@@ -84,11 +84,10 @@ impl From<Torus> for Mesh {
             }
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(Indices::U32(indices)));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        Mesh::new(PrimitiveTopology::TriangleList)
+            .with_indices(Some(Indices::U32(indices)))
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }

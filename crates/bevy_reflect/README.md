@@ -1,5 +1,11 @@
 # Bevy Reflect
 
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
+[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy_reflect)
+[![Downloads](https://img.shields.io/crates/d/bevy_reflect.svg)](https://crates.io/crates/bevy_reflect)
+[![Docs](https://docs.rs/bevy_reflect/badge.svg)](https://docs.rs/bevy_reflect/latest/bevy_reflect/)
+[![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
+
 This crate enables you to dynamically interact with Rust types:
 
 * Derive the Reflect traits
@@ -14,14 +20,14 @@ This crate enables you to dynamically interact with Rust types:
 
 ### Derive the Reflect traits
 
-```rust
+```rust ignore
 // this will automatically implement the Reflect trait and the Struct trait (because the type is a struct)
 #[derive(Reflect)]
 struct Foo {
     a: u32,
     b: Bar,
     c: Vec<i32>,
-    d: Vec<Bar>,
+    d: Vec<Baz>,
 }
 
 // this will automatically implement the Reflect trait and the TupleStruct trait (because the type is a tuple struct)
@@ -44,7 +50,7 @@ let mut foo = Foo {
 
 ### Interact with fields using their names
 
-```rust
+```rust ignore
 assert_eq!(*foo.get_field::<u32>("a").unwrap(), 1);
 
 *foo.get_field_mut::<u32>("a").unwrap() = 2;
@@ -54,7 +60,7 @@ assert_eq!(foo.a, 2);
 
 ### "Patch" your types with new values
 
-```rust
+```rust ignore
 let mut dynamic_struct = DynamicStruct::default();
 dynamic_struct.insert("a", 42u32);
 dynamic_struct.insert("c", vec![3, 4, 5]);
@@ -67,17 +73,17 @@ assert_eq!(foo.c, vec![3, 4, 5]);
 
 ### Look up nested fields using "path strings"
 
-```rust
+```rust ignore
 let value = *foo.get_path::<f32>("d[0].value").unwrap();
 assert_eq!(value, 3.14);
 ```
 
 ### Iterate over struct fields
 
-```rust
+```rust ignore
 for (i, value: &Reflect) in foo.iter_fields().enumerate() {
     let field_name = foo.name_at(i).unwrap();
-    if let Ok(value) = value.downcast_ref::<u32>() {
+    if let Some(value) = value.downcast_ref::<u32>() {
         println!("{} is a u32 with the value: {}", field_name, *value);
     }
 }
@@ -85,7 +91,7 @@ for (i, value: &Reflect) in foo.iter_fields().enumerate() {
 
 ### Automatically serialize and deserialize via Serde (without explicit serde impls)
 
-```rust
+```rust ignore
 let mut registry = TypeRegistry::default();
 registry.register::<u32>();
 registry.register::<i32>();
@@ -107,9 +113,9 @@ assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
 
 ### Trait "reflection"
 
-Call a trait on a given &dyn Reflect reference without knowing the underlying type!
+Call a trait on a given `&dyn Reflect` reference without knowing the underlying type!
 
-```rust
+```rust ignore
 #[derive(Reflect)]
 #[reflect(DoThing)]
 struct MyType {
@@ -137,7 +143,7 @@ let reflect_value: Box<dyn Reflect> = Box::new(MyType {
 // don't know the type at compile time?
 
 // Normally in rust we would be out of luck at this point. Lets use our new reflection powers to do something cool!
-let mut type_registry = TypeRegistry::default()
+let mut type_registry = TypeRegistry::default();
 type_registry.register::<MyType>();
 
 // The #[reflect] attribute we put on our DoThing trait generated a new `ReflectDoThing` struct, which implements TypeData.
@@ -153,8 +159,8 @@ let my_trait: &dyn DoThing = reflect_do_thing.get(&*reflect_value).unwrap();
 println!("{}", my_trait.do_thing());
 
 // This works because the #[reflect(MyTrait)] we put on MyType informed the Reflect derive to insert a new instance
-// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn MyType, because it
-// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn MyType
+// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn DoThing, because it
+// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn DoThing
 ```
 
 ## Why make this?

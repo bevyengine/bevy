@@ -1,28 +1,39 @@
+//! Illustrates how "reflection" works in Bevy.
+//!
+//! Reflection provides a way to dynamically interact with Rust types, such as accessing fields
+//! by their string name. Reflection is a core part of Bevy and enables a number of interesting
+//! features (like scenes).
+
 use bevy::{
     prelude::*,
     reflect::{
-        serde::{ReflectDeserializer, ReflectSerializer},
-        DynamicStruct, TypeRegistry,
+        serde::{ReflectSerializer, UntypedReflectDeserializer},
+        DynamicStruct,
     },
 };
 use serde::de::DeserializeSeed;
 
-/// This example illustrates how "reflection" works in Bevy. Reflection provide a way to dynamically
-/// interact with Rust types, such as accessing fields by their string name. Reflection is a core
-/// part of Bevy and enables a number of interesting scenarios (like scenes).
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .register_type::<Foo>()
         .register_type::<Bar>()
-        .add_startup_system(setup.system())
+        .add_systems(Startup, setup)
         .run();
 }
 
 /// Deriving `Reflect` implements the relevant reflection traits. In this case, it implements the
 /// `Reflect` trait and the `Struct` trait `derive(Reflect)` assumes that all fields also implement
 /// Reflect.
+///
+/// All fields in a reflected item will need to be `Reflect` as well. You can opt a field out of
+/// reflection by using the `#[reflect(ignore)]` attribute.
+/// If you choose to ignore a field, you need to let the automatically-derived `FromReflect` implementation
+/// how to handle the field.
+/// To do this, you can either define a `#[reflect(default = "...")]` attribute on the ignored field, or
+/// opt-out of `FromReflect`'s auto-derive using the `#[reflect(from_reflect = false)]` attribute.
 #[derive(Reflect)]
+#[reflect(from_reflect = false)]
 pub struct Foo {
     a: usize,
     nested: Bar,
@@ -37,11 +48,12 @@ pub struct Bar {
     b: usize,
 }
 
+#[derive(Default)]
 pub struct NonReflectedValue {
     _a: usize,
 }
 
-fn setup(type_registry: Res<TypeRegistry>) {
+fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut value = Foo {
         a: 1,
         _ignored: NonReflectedValue { _a: 10 },
@@ -78,7 +90,7 @@ fn setup(type_registry: Res<TypeRegistry>) {
     info!("{}\n", ron_string);
 
     // Dynamic properties can be deserialized
-    let reflect_deserializer = ReflectDeserializer::new(&type_registry);
+    let reflect_deserializer = UntypedReflectDeserializer::new(&type_registry);
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 

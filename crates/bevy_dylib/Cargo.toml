@@ -1,19 +1,18 @@
 [package]
 name = "bevy_dylib"
-version = "0.5.0"
-edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
+version = "0.12.0"
+edition = "2021"
 description = "Force the Bevy Engine to be dynamically linked for faster linking"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [lib]
 crate-type = ["dylib"]
 
 [dependencies]
-bevy_internal = { path = "../bevy_internal", version = "0.5.0", default-features = false }
+bevy_internal = { path = "../bevy_internal", version = "0.12.0", default-features = false }
+
+[lints]
+workspace = true

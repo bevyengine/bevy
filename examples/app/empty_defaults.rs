@@ -1,5 +1,7 @@
+//! An empty application with default plugins.
+
 use bevy::prelude::*;
 
 fn main() {
-    App::build().add_plugins(DefaultPlugins).run();
+    App::new().add_plugins(DefaultPlugins).run();
 }

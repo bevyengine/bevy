@@ -1,15 +1,17 @@
-use bevy::prelude::*;
-use std::{io, io::BufRead};
+//! This example demonstrates you can create a custom runner (to update an app manually). It reads
+//! lines from stdin and prints them from within the ecs.
 
+use bevy::prelude::*;
+use std::io;
+
+#[derive(Resource)]
 struct Input(String);
 
-/// This example demonstrates you can create a custom runner (to update an app manually). It reads
-/// lines from stdin and prints them from within the ecs.
 fn my_runner(mut app: App) {
     println!("Type stuff into the console");
-    for line in io::stdin().lock().lines() {
+    for line in io::stdin().lines() {
         {
-            let mut input = app.world.get_resource_mut::<Input>().unwrap();
+            let mut input = app.world.resource_mut::<Input>();
             input.0 = line.unwrap();
         }
         app.update();
@@ -21,9 +23,9 @@ fn print_system(input: Res<Input>) {
 }
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(Input(String::new()))
         .set_runner(my_runner)
-        .add_system(print_system.system())
+        .add_systems(Update, print_system)
         .run();
 }

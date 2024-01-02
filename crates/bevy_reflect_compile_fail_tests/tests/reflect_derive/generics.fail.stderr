@@ -1,0 +1,32 @@
+error[E0599]: no method named `get_field` found for struct `Box<(dyn Reflect + 'static)>` in the current scope
+  --> tests/reflect_derive/generics.fail.rs:16:9
+   |
+16 |     foo.get_field::<NoReflect>("a").unwrap();
+   |         ^^^^^^^^^ method not found in `Box<dyn Reflect>`
+
+error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
+  --> tests/reflect_derive/generics.fail.rs:14:37
+   |
+14 |     let mut foo: Box<dyn Reflect> = Box::new(Foo::<NoReflect> { a: NoReflect(42.0) });
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `NoReflect`
+   |
+   = help: the following other types implement trait `Reflect`:
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
+           and $N others
+note: required for `Foo<NoReflect>` to implement `Reflect`
+  --> tests/reflect_derive/generics.fail.rs:3:10
+   |
+3  | #[derive(Reflect)]
+   |          ^^^^^^^ unsatisfied trait bound introduced in this `derive` macro
+4  | #[reflect(from_reflect = false)]
+5  | struct Foo<T> {
+   |        ^^^^^^
+   = note: required for the cast from `Box<Foo<NoReflect>>` to `Box<(dyn Reflect + 'static)>`
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)

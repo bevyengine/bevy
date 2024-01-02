@@ -1,24 +1,30 @@
 [package]
 name = "bevy_utils"
-version = "0.5.0"
-edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
+version = "0.12.0"
+edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+detailed_trace = []
+
 [dependencies]
-bevy_derive = { path = "../bevy_derive", version = "0.5.0" }
-ahash = "0.7.0"
-tracing = {version = "0.1", features = ["release_max_level_info"]}
-instant = { version = "0.1", features = ["wasm-bindgen"] }
-uuid = { version = "0.8", features = ["v4", "serde"] }
+ahash = "0.8.3"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+web-time = { version = "0.2" }
+uuid = { version = "1.1", features = ["v4", "serde"] }
+hashbrown = { version = "0.14", features = ["serde"] }
+bevy_utils_proc_macros = { version = "0.12.0", path = "macros" }
+petgraph = "0.6"
+thiserror = "1.0"
+nonmax = "0.5"
+smallvec = { version = "1.11", features = ["serde", "union", "const_generics"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = {version = "0.2.0", features = ["js"]}
-uuid = { version = "0.8", features = ["wasm-bindgen"] }
+getrandom = { version = "0.2.0", features = ["js"] }
+
+[lints]
+workspace = true

@@ -1,15 +1,11 @@
 [package]
 name = "bevy_input"
-version = "0.5.0"
-edition = "2018"
-authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
-]
+version = "0.12.0"
+edition = "2021"
 description = "Provides input functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
@@ -18,10 +14,20 @@ serialize = ["serde"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.5.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.5.0" }
-bevy_math = { path = "../bevy_math", version = "0.5.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
+bevy_app = { path = "../bevy_app", version = "0.12.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
+bevy_math = { path = "../bevy_math", version = "0.12.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
+  "glam",
+] }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
+thiserror = "1.0"
+
+[dev-dependencies]
+bevy = { path = "../../", version = "0.12.0" }
+
+[lints]
+workspace = true

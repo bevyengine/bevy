@@ -1,93 +1,114 @@
+//! This example illustrates how to use [`States`] for high-level app control flow.
+//! States are a powerful but intuitive tool for controlling which logic runs when.
+//! You can have multiple independent states, and the [`OnEnter`] and [`OnExit`] schedules
+//! can be used to great effect to ensure that you handle setup and teardown appropriately.
+//!
+//! In this case, we're transitioning from a `Menu` state to an `InGame` state.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to use States to control transitioning from a Menu state to an
-/// InGame state.
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<ButtonMaterials>()
-        .add_state(AppState::Menu)
-        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu.system()))
-        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu.system()))
-        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu.system()))
-        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game.system()))
-        .add_system_set(
-            SystemSet::on_update(AppState::InGame)
-                .with_system(movement.system())
-                .with_system(change_color.system()),
+        .init_state::<AppState>() // Alternatively we could use .insert_state(AppState::Menu)
+        .add_systems(Startup, setup)
+        // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
+        // All systems from the exit schedule of the state we're leaving are run first,
+        // and then all systems from the enter schedule of the state we're entering are run second.
+        .add_systems(OnEnter(AppState::Menu), setup_menu)
+        // By contrast, update systems are stored in the `Update` schedule. They simply
+        // check the value of the `State<T>` resource to see if they should run each frame.
+        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(OnExit(AppState::Menu), cleanup_menu)
+        .add_systems(OnEnter(AppState::InGame), setup_game)
+        .add_systems(
+            Update,
+            (movement, change_color).run_if(in_state(AppState::InGame)),
         )
         .run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
+    #[default]
     Menu,
     InGame,
 }
 
+#[derive(Resource)]
 struct MenuData {
     button_entity: Entity,
 }
 
-fn setup_menu(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    button_materials: Res<ButtonMaterials>,
-) {
-    // ui camera
-    commands.spawn_bundle(UiCameraBundle::default());
+const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+}
+
+fn setup_menu(mut commands: Commands) {
     let button_entity = commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
-                margin: Rect::all(Val::Auto),
-                // horizontally center child text
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
-                // vertically center child text
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
-            material: button_materials.normal.clone(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "Play",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.9, 0.9, 0.9),
+            parent
+                .spawn(ButtonBundle {
+                    style: Style {
+                        width: Val::Px(150.),
+                        height: Val::Px(65.),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
                     },
-                    Default::default(),
-                ),
-                ..Default::default()
-            });
+                    background_color: NORMAL_BUTTON.into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Play",
+                        TextStyle {
+                            font_size: 40.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
+                        },
+                    ));
+                });
         })
         .id();
     commands.insert_resource(MenuData { button_entity });
 }
 
 fn menu(
-    mut state: ResMut<State<AppState>>,
-    button_materials: Res<ButtonMaterials>,
+    mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut Handle<ColorMaterial>),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut material) in interaction_query.iter_mut() {
+    for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
-                *material = button_materials.pressed.clone();
-                state.set(AppState::InGame).unwrap();
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON.into();
+                next_state.set(AppState::InGame);
             }
             Interaction::Hovered => {
-                *material = button_materials.hovered.clone();
+                *color = HOVERED_BUTTON.into();
             }
             Interaction::None => {
-                *material = button_materials.normal.clone();
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
@@ -97,37 +118,31 @@ fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
     commands.entity(menu_data.button_entity).despawn_recursive();
 }
 
-fn setup_game(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let texture_handle = asset_server.load("branding/icon.png");
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(SpriteBundle {
-        material: materials.add(texture_handle.into()),
-        ..Default::default()
+fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(SpriteBundle {
+        texture: asset_server.load("branding/icon.png"),
+        ..default()
     });
 }
 
 const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y -= 1.0;
         }
 
@@ -137,32 +152,10 @@ fn movement(
     }
 }
 
-fn change_color(
-    time: Res<Time>,
-    mut assets: ResMut<Assets<ColorMaterial>>,
-    query: Query<&Handle<ColorMaterial>, With<Sprite>>,
-) {
-    for handle in query.iter() {
-        let material = assets.get_mut(handle).unwrap();
-        material
+fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
+    for mut sprite in &mut query {
+        sprite
             .color
-            .set_b((time.seconds_since_startup() * 5.0).sin() as f32 + 2.0);
-    }
-}
-
-struct ButtonMaterials {
-    normal: Handle<ColorMaterial>,
-    hovered: Handle<ColorMaterial>,
-    pressed: Handle<ColorMaterial>,
-}
-
-impl FromWorld for ButtonMaterials {
-    fn from_world(world: &mut World) -> Self {
-        let mut materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
-        ButtonMaterials {
-            normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
-            hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
-            pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
-        }
+            .set_b((time.elapsed_seconds() * 0.5).sin() + 2.0);
     }
 }
