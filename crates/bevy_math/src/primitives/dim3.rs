@@ -58,6 +58,13 @@ impl std::ops::Deref for Direction3d {
     }
 }
 
+impl std::ops::Neg for Direction3d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
+    }
+}
+
 /// A sphere primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Sphere {
