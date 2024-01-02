@@ -54,7 +54,7 @@ impl BenchModify for Sparse {
     }
 }
 
-const ENTITIES_TO_BENCH_COUT: [u32; 2] = [5000, 50000];
+const ENTITIES_TO_BENCH_COUNT: [u32; 2] = [5000, 50000];
 
 type BenchGroup<'a> = criterion::BenchmarkGroup<'a, criterion::measurement::WallTime>;
 
@@ -106,7 +106,7 @@ fn all_added_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_added_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in ENTITIES_TO_BENCH_COUT {
+    for entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
             vec![
@@ -154,7 +154,7 @@ fn all_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in ENTITIES_TO_BENCH_COUT {
+    for entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
             vec![
@@ -204,7 +204,7 @@ fn few_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("few_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in ENTITIES_TO_BENCH_COUT {
+    for entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
             vec![
@@ -248,7 +248,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("none_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for entity_count in ENTITIES_TO_BENCH_COUT {
+    for entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
             vec![
