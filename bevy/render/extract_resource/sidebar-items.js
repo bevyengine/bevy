@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":["ExtractResource"],"fn":["extract_resource"],"struct":["ExtractResourcePlugin"],"trait":["ExtractResource"]};

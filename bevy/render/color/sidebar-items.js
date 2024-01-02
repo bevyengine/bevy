@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Color","HexColorError"],"struct":["HslRepresentation","LchRepresentation"],"trait":["SrgbColorSpace"]};

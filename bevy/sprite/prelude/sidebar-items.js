@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ColorMaterial","Sprite","SpriteBundle","SpriteSheetBundle","TextureAtlas","TextureAtlasBuilder","TextureAtlasSprite"],"type":["ColorMesh2dBundle"]};

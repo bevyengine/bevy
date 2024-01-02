@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["greedy_matching","maximum_matching"],"struct":["MatchedEdges","MatchedNodes","Matching"]};

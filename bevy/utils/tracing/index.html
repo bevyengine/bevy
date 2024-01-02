@@ -1,0 +1,577 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A scoped, structured logging and diagnostics system."><title>bevy::utils::tracing - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In bevy::utils</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">utils</a>::<wbr><a class="mod" href="#">tracing</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A scoped, structured logging and diagnostics system.</p>
+<h2 id="overview"><a href="#overview">Overview</a></h2>
+<p><code>tracing</code> is a framework for instrumenting Rust programs to collect
+structured, event-based diagnostic information.</p>
+<p>In asynchronous systems like Tokio, interpreting traditional log messages can
+often be quite challenging. Since individual tasks are multiplexed on the same
+thread, associated events and log lines are intermixed making it difficult to
+trace the logic flow. <code>tracing</code> expands upon logging-style diagnostics by
+allowing libraries and applications to record structured events with additional
+information about <em>temporality</em> and <em>causality</em> — unlike a log message, a span
+in <code>tracing</code> has a beginning and end time, may be entered and exited by the
+flow of execution, and may exist within a nested tree of similar spans. In
+addition, <code>tracing</code> spans are <em>structured</em>, with the ability to record typed
+data as well as textual messages.</p>
+<p>The <code>tracing</code> crate provides the APIs necessary for instrumenting libraries
+and applications to emit trace data.</p>
+<p><em>Compiler support: <a href="#supported-rust-versions">requires <code>rustc</code> 1.56+</a></em></p>
+<h2 id="core-concepts"><a href="#core-concepts">Core Concepts</a></h2>
+<p>The core of <code>tracing</code>’s API is composed of <em>spans</em>, <em>events</em> and
+<em>subscribers</em>. We’ll cover these in turn.</p>
+<h3 id="spans"><a href="#spans">Spans</a></h3>
+<p>To record the flow of execution through a program, <code>tracing</code> introduces the
+concept of <a href="span/index.html" title="mod bevy::utils::tracing::span">spans</a>. Unlike a log line that represents a <em>moment in
+time</em>, a span represents a <em>period of time</em> with a beginning and an end. When a
+program begins executing in a context or performing a unit of work, it
+<em>enters</em> that context’s span, and when it stops executing in that context,
+it <em>exits</em> the span. The span in which a thread is currently executing is
+referred to as that thread’s <em>current</em> span.</p>
+<p>For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::{span, Level};
+<span class="kw">let </span>span = <span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;my_span&quot;</span>);
+<span class="comment">// `enter` returns a RAII guard which, when dropped, exits the span. this
+// indicates that we are in the span for the current lexical scope.
+</span><span class="kw">let </span>_enter = span.enter();
+<span class="comment">// perform some work in the context of `my_span`...</span></code></pre></div>
+<p>The <a href="span/index.html" title="mod bevy::utils::tracing::span"><code>span</code> module</a>’s documentation provides further details on how to
+use spans.</p>
+<div class="example-wrap" style="display:inline-block"><pre class="compile_fail" style="white-space:normal;font:inherit;">
+<p><strong>Warning</strong>: In asynchronous code that uses async/await syntax,
+<code>Span::enter</code> may produce incorrect traces if the returned drop
+guard is held across an await point. See
+<a href="struct.Span.html#in-asynchronous-code" title="struct bevy::utils::tracing::Span">the method documentation</a> for details.</p>
+<p></pre></div></p>
+<h3 id="events"><a href="#events">Events</a></h3>
+<p>An <a href="event/struct.Event.html" title="struct bevy::utils::tracing::event::Event"><code>Event</code></a> represents a <em>moment</em> in time. It signifies something that
+happened while a trace was being recorded. <code>Event</code>s are comparable to the log
+records emitted by unstructured logging code, but unlike a typical log line,
+an <code>Event</code> may occur within the context of a span.</p>
+<p>For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::{event, span, Level};
+
+<span class="comment">// records an event outside of any span context:
+</span><span class="macro">event!</span>(Level::INFO, <span class="string">&quot;something happened&quot;</span>);
+
+<span class="kw">let </span>span = <span class="macro">span!</span>(Level::INFO, <span class="string">&quot;my_span&quot;</span>);
+<span class="kw">let </span>_guard = span.enter();
+
+<span class="comment">// records an event within &quot;my_span&quot;.
+</span><span class="macro">event!</span>(Level::DEBUG, <span class="string">&quot;something happened inside my_span&quot;</span>);</code></pre></div>
+<p>In general, events should be used to represent points in time <em>within</em> a
+span — a request returned with a given status code, <em>n</em> new items were
+taken from a queue, and so on.</p>
+<p>The <a href="event/struct.Event.html" title="struct bevy::utils::tracing::event::Event"><code>Event</code> struct</a> documentation provides further details on using
+events.</p>
+<h3 id="subscribers"><a href="#subscribers">Subscribers</a></h3>
+<p>As <code>Span</code>s and <code>Event</code>s occur, they are recorded or aggregated by
+implementations of the <a href="trait.Subscriber.html" title="trait bevy::utils::tracing::Subscriber"><code>Subscriber</code></a> trait. <code>Subscriber</code>s are notified
+when an <code>Event</code> takes place and when a <code>Span</code> is entered or exited. These
+notifications are represented by the following <code>Subscriber</code> trait methods:</p>
+<ul>
+<li><a href="trait.Subscriber.html#tymethod.event" title="method bevy::utils::tracing::Subscriber::event"><code>event</code></a>, called when an <code>Event</code> takes place,</li>
+<li><a href="trait.Subscriber.html#tymethod.enter" title="method bevy::utils::tracing::Subscriber::enter"><code>enter</code></a>, called when execution enters a <code>Span</code>,</li>
+<li><a href="trait.Subscriber.html#tymethod.exit" title="method bevy::utils::tracing::Subscriber::exit"><code>exit</code></a>, called when execution exits a <code>Span</code></li>
+</ul>
+<p>In addition, subscribers may implement the <a href="trait.Subscriber.html#tymethod.enabled" title="method bevy::utils::tracing::Subscriber::enabled"><code>enabled</code></a> function to <em>filter</em>
+the notifications they receive based on <a href="struct.Metadata.html" title="struct bevy::utils::tracing::Metadata">metadata</a> describing each <code>Span</code>
+or <code>Event</code>. If a call to <code>Subscriber::enabled</code> returns <code>false</code> for a given
+set of metadata, that <code>Subscriber</code> will <em>not</em> be notified about the
+corresponding <code>Span</code> or <code>Event</code>. For performance reasons, if no currently
+active subscribers express interest in a given set of metadata by returning
+<code>true</code>, then the corresponding <code>Span</code> or <code>Event</code> will never be constructed.</p>
+<h2 id="usage"><a href="#usage">Usage</a></h2>
+<p>First, add this to your <code>Cargo.toml</code>:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies]
+tracing = &quot;0.1&quot;
+</code></pre></div><h3 id="recording-spans-and-events"><a href="#recording-spans-and-events">Recording Spans and Events</a></h3>
+<p>Spans and events are recorded using macros.</p>
+<h4 id="spans-1"><a href="#spans-1">Spans</a></h4>
+<p>The <a href="macro.span.html" title="macro bevy::utils::tracing::span"><code>span!</code></a> macro expands to a <a href="struct.Span.html" title="struct bevy::utils::tracing::Span"><code>Span</code> struct</a> which is used to
+record a span. The <a href="struct.Span.html#method.enter" title="method bevy::utils::tracing::Span::enter"><code>Span::enter</code></a> method on that struct records that the
+span has been entered, and returns a <a href="https://github.com/rust-unofficial/patterns/blob/main/src/patterns/behavioural/RAII.md">RAII</a> guard object, which will exit
+the span when dropped.</p>
+<p>For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::{span, Level};
+<span class="comment">// Construct a new span named &quot;my span&quot; with trace log level.
+</span><span class="kw">let </span>span = <span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;my span&quot;</span>);
+
+<span class="comment">// Enter the span, returning a guard object.
+</span><span class="kw">let </span>_enter = span.enter();
+
+<span class="comment">// Any trace events that occur before the guard is dropped will occur
+// within the span.
+
+// Dropping the guard will exit the span.</span></code></pre></div>
+<p>The <a href="https://docs.rs/tracing-attributes/latest/tracing_attributes/attr.instrument.html"><code>#[instrument]</code></a> attribute provides an easy way to
+add <code>tracing</code> spans to functions. A function annotated with <code>#[instrument]</code>
+will create and enter a span with that function’s name every time the
+function is called, with arguments to that function will be recorded as
+fields using <code>fmt::Debug</code>.</p>
+<p>For example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::{Level, event, instrument};
+
+<span class="attr">#[instrument]
+</span><span class="kw">pub fn </span>my_function(my_arg: usize) {
+    <span class="comment">// This event will be recorded inside a span named `my_function` with the
+    // field `my_arg`.
+    </span><span class="macro">event!</span>(Level::INFO, <span class="string">&quot;inside my_function!&quot;</span>);
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>For functions which don’t have built-in tracing support and can’t have
+the <code>#[instrument]</code> attribute applied (such as from an external crate),
+the <a href="struct.Span.html" title="struct bevy::utils::tracing::Span"><code>Span</code> struct</a> has a <a href="struct.Span.html#method.in_scope" title="method bevy::utils::tracing::Span::in_scope"><code>in_scope()</code> method</a>
+which can be used to easily wrap synchonous code in a span.</p>
+<p>For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::info_span;
+
+<span class="kw">let </span>json = <span class="macro">info_span!</span>(<span class="string">&quot;json.parse&quot;</span>).in_scope(|| serde_json::from_slice(<span class="kw-2">&amp;</span>buf))<span class="question-mark">?</span>;</code></pre></div>
+<p>You can find more examples showing how to use this crate <a href="https://github.com/tokio-rs/tracing/tree/master/examples">here</a>.</p>
+<h4 id="events-1"><a href="#events-1">Events</a></h4>
+<p><a href="event/struct.Event.html" title="struct bevy::utils::tracing::event::Event"><code>Event</code></a>s are recorded using the <a href="macro.event.html" title="macro bevy::utils::tracing::event"><code>event!</code></a> macro:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::{event, Level};
+<span class="macro">event!</span>(Level::INFO, <span class="string">&quot;something has happened!&quot;</span>);</code></pre></div>
+<h3 id="using-the-macros"><a href="#using-the-macros">Using the Macros</a></h3>
+<p>The <a href="macro.span.html" title="macro bevy::utils::tracing::span"><code>span!</code></a> and <a href="macro.event.html" title="macro bevy::utils::tracing::event"><code>event!</code></a> macros as well as the <code>#[instrument]</code> attribute
+use fairly similar syntax, with some exceptions.</p>
+<h4 id="configuring-attributes"><a href="#configuring-attributes">Configuring Attributes</a></h4>
+<p>Both macros require a <a href="struct.Level.html" title="struct bevy::utils::tracing::Level"><code>Level</code></a> specifying the verbosity of the span or
+event. Optionally, the, <a href="struct.Metadata.html#method.target" title="method bevy::utils::tracing::Metadata::target">target</a> and <a href="span/struct.Attributes.html#method.parent" title="method bevy::utils::tracing::span::Attributes::parent">parent span</a> may be overridden. If the
+target and parent span are not overridden, they will default to the
+module path where the macro was invoked and the current span (as determined
+by the subscriber), respectively.</p>
+<p>For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">span!</span>(target: <span class="string">&quot;app_spans&quot;</span>, Level::TRACE, <span class="string">&quot;my span&quot;</span>);
+<span class="macro">event!</span>(target: <span class="string">&quot;app_events&quot;</span>, Level::INFO, <span class="string">&quot;something has happened!&quot;</span>);</code></pre></div>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>span = <span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;my span&quot;</span>);
+<span class="macro">event!</span>(parent: <span class="kw-2">&amp;</span>span, Level::INFO, <span class="string">&quot;something has happened!&quot;</span>);</code></pre></div>
+<p>The span macros also take a string literal after the level, to set the name
+of the span (as above).  In the case of the event macros, the name of the event can
+be overridden (the default is <code>event file:line</code>) using the <code>name:</code> specifier.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;my span&quot;</span>);
+<span class="macro">event!</span>(name: <span class="string">&quot;some_info&quot;</span>, Level::INFO, <span class="string">&quot;something has happened!&quot;</span>);</code></pre></div>
+<h4 id="recording-fields"><a href="#recording-fields">Recording Fields</a></h4>
+<p>Structured fields on spans and events are specified using the syntax
+<code>field_name = field_value</code>. Fields are separated by commas.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// records an event with two fields:
+//  - &quot;answer&quot;, with the value 42
+//  - &quot;question&quot;, with the value &quot;life, the universe and everything&quot;
+</span><span class="macro">event!</span>(Level::INFO, answer = <span class="number">42</span>, question = <span class="string">&quot;life, the universe, and everything&quot;</span>);</code></pre></div>
+<p>As shorthand, local variables may be used as field values without an
+assignment, similar to <a href="https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-the-field-init-shorthand-when-variables-and-fields-have-the-same-name">struct initializers</a>. For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>user = <span class="string">&quot;ferris&quot;</span>;
+
+<span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;login&quot;</span>, user);
+<span class="comment">// is equivalent to:
+</span><span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;login&quot;</span>, user = user);</code></pre></div>
+<p>Field names can include dots, but should not be terminated by them:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>user = <span class="string">&quot;ferris&quot;</span>;
+<span class="kw">let </span>email = <span class="string">&quot;ferris@rust-lang.org&quot;</span>;
+<span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;login&quot;</span>, user, user.email = email);</code></pre></div>
+<p>Since field names can include dots, fields on local structs can be used
+using the local variable shorthand:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>user = User {
+    name: <span class="string">&quot;ferris&quot;</span>,
+    email: <span class="string">&quot;ferris@rust-lang.org&quot;</span>,
+};
+<span class="comment">// the span will have the fields `user.name = &quot;ferris&quot;` and
+// `user.email = &quot;ferris@rust-lang.org&quot;`.
+</span><span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;login&quot;</span>, user.name, user.email);</code></pre></div>
+<p>Fields with names that are not Rust identifiers, or with names that are Rust reserved words,
+may be created using quoted string literals. However, this may not be used with the local
+variable shorthand.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// records an event with fields whose names are not Rust identifiers
+//  - &quot;guid:x-request-id&quot;, containing a `:`, with the value &quot;abcdef&quot;
+//  - &quot;type&quot;, which is a reserved word, with the value &quot;request&quot;
+</span><span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;api&quot;</span>, <span class="string">&quot;guid:x-request-id&quot; </span>= <span class="string">&quot;abcdef&quot;</span>, <span class="string">&quot;type&quot; </span>= <span class="string">&quot;request&quot;</span>);</code></pre></div>
+<p>Constant expressions can also be used as field names. Constants
+must be enclosed in curly braces (<code>{}</code>) to indicate that the <em>value</em>
+of the constant is to be used as the field name, rather than the
+constant’s name. For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">const </span>RESOURCE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;foo&quot;</span>;
+<span class="comment">// this span will have the field `foo = &quot;some_id&quot;`
+</span><span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;get&quot;</span>, { RESOURCE_NAME } = <span class="string">&quot;some_id&quot;</span>);</code></pre></div>
+<p>The <code>?</code> sigil is shorthand that specifies a field should be recorded using
+its <a href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug"><code>fmt::Debug</code></a> implementation:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Debug)]
+</span><span class="kw">struct </span>MyStruct {
+    field: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+}
+
+<span class="kw">let </span>my_struct = MyStruct {
+    field: <span class="string">&quot;Hello world!&quot;
+</span>};
+
+<span class="comment">// `my_struct` will be recorded using its `fmt::Debug` implementation.
+</span><span class="macro">event!</span>(Level::TRACE, greeting = <span class="question-mark">?</span>my_struct);
+<span class="comment">// is equivalent to:
+</span><span class="macro">event!</span>(Level::TRACE, greeting = tracing::field::debug(<span class="kw-2">&amp;</span>my_struct));</code></pre></div>
+<p>The <code>%</code> sigil operates similarly, but indicates that the value should be
+recorded using its <a href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Display.html" title="trait core::fmt::Display"><code>fmt::Display</code></a> implementation:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// `my_struct.field` will be recorded using its `fmt::Display` implementation.
+</span><span class="macro">event!</span>(Level::TRACE, greeting = %my_struct.field);
+<span class="comment">// is equivalent to:
+</span><span class="macro">event!</span>(Level::TRACE, greeting = tracing::field::display(<span class="kw-2">&amp;</span>my_struct.field));</code></pre></div>
+<p>The <code>%</code> and <code>?</code> sigils may also be used with local variable shorthand:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// `my_struct.field` will be recorded using its `fmt::Display` implementation.
+</span><span class="macro">event!</span>(Level::TRACE, %my_struct.field);</code></pre></div>
+<p>Additionally, a span may declare fields with the special value <a href="field/struct.Empty.html" title="struct bevy::utils::tracing::field::Empty"><code>Empty</code></a>,
+which indicates that that the value for that field does not currently exist
+but may be recorded later. For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::{trace_span, field};
+
+<span class="comment">// Create a span with two fields: `greeting`, with the value &quot;hello world&quot;, and
+// `parting`, without a value.
+</span><span class="kw">let </span>span = <span class="macro">trace_span!</span>(<span class="string">&quot;my_span&quot;</span>, greeting = <span class="string">&quot;hello world&quot;</span>, parting = field::Empty);
+
+<span class="comment">// ...
+
+// Now, record a value for parting as well.
+</span>span.record(<span class="string">&quot;parting&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;goodbye world!&quot;</span>);</code></pre></div>
+<p>Finally, events may also include human-readable messages, in the form of a
+<a href="https://doc.rust-lang.org/1.75.0/alloc/fmt/index.html#usage" title="mod alloc::fmt">format string</a> and (optional) arguments, <strong>after</strong> the event’s
+key-value fields. If a format string and arguments are provided,
+they will implicitly create a new field named <code>message</code> whose value is the
+provided set of format arguments.</p>
+<p>For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>question = <span class="string">&quot;the ultimate question of life, the universe, and everything&quot;</span>;
+<span class="kw">let </span>answer = <span class="number">42</span>;
+<span class="comment">// records an event with the following fields:
+// - `question.answer` with the value 42,
+// - `question.tricky` with the value `true`,
+// - &quot;message&quot;, with the value &quot;the answer to the ultimate question of life, the
+//    universe, and everything is 42.&quot;
+</span><span class="macro">event!</span>(
+    Level::DEBUG,
+    question.answer = answer,
+    question.tricky = <span class="bool-val">true</span>,
+    <span class="string">&quot;the answer to {} is {}.&quot;</span>, question, answer
+);</code></pre></div>
+<p>Specifying a formatted message in this manner does not allocate by default.</p>
+<h4 id="shorthand-macros"><a href="#shorthand-macros">Shorthand Macros</a></h4>
+<p><code>tracing</code> also offers a number of macros with preset verbosity levels.
+The <a href="macro.trace.html" title="macro bevy::utils::tracing::trace"><code>trace!</code></a>, <a href="macro.debug.html" title="macro bevy::utils::tracing::debug"><code>debug!</code></a>, <a href="macro.info.html" title="macro bevy::utils::tracing::info"><code>info!</code></a>, <a href="macro.warn.html" title="macro bevy::utils::tracing::warn"><code>warn!</code></a>, and <a href="macro.error.html" title="macro bevy::utils::tracing::error"><code>error!</code></a> behave
+similarly to the <a href="macro.event.html" title="macro bevy::utils::tracing::event"><code>event!</code></a> macro, but with the <a href="struct.Level.html" title="struct bevy::utils::tracing::Level"><code>Level</code></a> argument already
+specified, while the corresponding <a href="macro.trace_span.html" title="macro bevy::utils::tracing::trace_span"><code>trace_span!</code></a>, <a href="macro.debug_span.html" title="macro bevy::utils::tracing::debug_span"><code>debug_span!</code></a>,
+<a href="macro.info_span.html" title="macro bevy::utils::tracing::info_span"><code>info_span!</code></a>, <a href="macro.warn_span.html" title="macro bevy::utils::tracing::warn_span"><code>warn_span!</code></a>, and <a href="macro.error_span.html" title="macro bevy::utils::tracing::error_span"><code>error_span!</code></a> macros are the same,
+but for the <a href="macro.span.html" title="macro bevy::utils::tracing::span"><code>span!</code></a> macro.</p>
+<p>These are intended both as a shorthand, and for compatibility with the <a href="https://docs.rs/log/0.4.6/log/"><code>log</code></a>
+crate (see the next section).</p>
+<h4 id="for-log-users"><a href="#for-log-users">For <code>log</code> Users</a></h4>
+<p>Users of the <a href="https://docs.rs/log/0.4.6/log/"><code>log</code></a> crate should note that <code>tracing</code> exposes a set of
+macros for creating <code>Event</code>s (<code>trace!</code>, <code>debug!</code>, <code>info!</code>, <code>warn!</code>, and
+<code>error!</code>) which may be invoked with the same syntax as the similarly-named
+macros from the <code>log</code> crate. Often, the process of converting a project to
+use <code>tracing</code> can begin with a simple drop-in replacement.</p>
+<p>Let’s consider the <code>log</code> crate’s yak-shaving example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::{error::Error, io};
+<span class="kw">use </span>tracing::{debug, error, info, span, warn, Level};
+
+<span class="comment">// the `#[tracing::instrument]` attribute creates and enters a span
+// every time the instrumented function is called. The span is named after the
+// the function or method. Parameters passed to the function are recorded as fields.
+</span><span class="attr">#[tracing::instrument]
+</span><span class="kw">pub fn </span>shave(yak: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error + <span class="lifetime">&#39;static</span>&gt;&gt; {
+    <span class="comment">// this creates an event at the DEBUG level with two fields:
+    // - `excitement`, with the key &quot;excitement&quot; and the value &quot;yay!&quot;
+    // - `message`, with the key &quot;message&quot; and the value &quot;hello! I&#39;m gonna shave a yak.&quot;
+    //
+    // unlike other fields, `message`&#39;s shorthand initialization is just the string itself.
+    </span><span class="macro">debug!</span>(excitement = <span class="string">&quot;yay!&quot;</span>, <span class="string">&quot;hello! I&#39;m gonna shave a yak.&quot;</span>);
+    <span class="kw">if </span>yak == <span class="number">3 </span>{
+        <span class="macro">warn!</span>(<span class="string">&quot;could not locate yak!&quot;</span>);
+        <span class="comment">// note that this is intended to demonstrate `tracing`&#39;s features, not idiomatic
+        // error handling! in a library or application, you should consider returning
+        // a dedicated `YakError`. libraries like snafu or thiserror make this easy.
+        </span><span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(io::ErrorKind::Other, <span class="string">&quot;shaving yak failed!&quot;</span>).into());
+    } <span class="kw">else </span>{
+        <span class="macro">debug!</span>(<span class="string">&quot;yak shaved successfully&quot;</span>);
+    }
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">pub fn </span>shave_all(yaks: usize) -&gt; usize {
+    <span class="comment">// Constructs a new span named &quot;shaving_yaks&quot; at the TRACE level,
+    // and a field whose key is &quot;yaks&quot;. This is equivalent to writing:
+    //
+    // let span = span!(Level::TRACE, &quot;shaving_yaks&quot;, yaks = yaks);
+    //
+    // local variables (`yaks`) can be used as field values
+    // without an assignment, similar to struct initializers.
+    </span><span class="kw">let </span>_span = <span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;shaving_yaks&quot;</span>, yaks).entered();
+
+    <span class="macro">info!</span>(<span class="string">&quot;shaving yaks&quot;</span>);
+
+    <span class="kw">let </span><span class="kw-2">mut </span>yaks_shaved = <span class="number">0</span>;
+    <span class="kw">for </span>yak <span class="kw">in </span><span class="number">1</span>..=yaks {
+        <span class="kw">let </span>res = shave(yak);
+        <span class="macro">debug!</span>(yak, shaved = res.is_ok());
+
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>error) = res {
+            <span class="comment">// Like spans, events can also use the field initialization shorthand.
+            // In this instance, `yak` is the field being initalized.
+            </span><span class="macro">error!</span>(yak, error = error.as_ref(), <span class="string">&quot;failed to shave yak!&quot;</span>);
+        } <span class="kw">else </span>{
+            yaks_shaved += <span class="number">1</span>;
+        }
+        <span class="macro">debug!</span>(yaks_shaved);
+    }
+
+    yaks_shaved
+}</code></pre></div>
+<h3 id="in-libraries"><a href="#in-libraries">In libraries</a></h3>
+<p>Libraries should link only to the <code>tracing</code> crate, and use the provided
+macros to record whatever information will be useful to downstream
+consumers.</p>
+<h3 id="in-executables"><a href="#in-executables">In executables</a></h3>
+<p>In order to record trace events, executables have to use a <code>Subscriber</code>
+implementation compatible with <code>tracing</code>. A <code>Subscriber</code> implements a
+way of collecting trace data, such as by logging it to standard output.</p>
+<p>This library does not contain any <code>Subscriber</code> implementations; these are
+provided by <a href="#related-crates">other crates</a>.</p>
+<p>The simplest way to use a subscriber is to call the <a href="subscriber/fn.set_global_default.html" title="fn bevy::utils::tracing::subscriber::set_global_default"><code>set_global_default</code></a>
+function:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">extern crate </span>tracing;
+
+<span class="kw">let </span>my_subscriber = FooSubscriber::new();
+tracing::subscriber::set_global_default(my_subscriber)
+    .expect(<span class="string">&quot;setting tracing default failed&quot;</span>);</code></pre></div>
+<pre class="compile_fail" style="white-space:normal;font:inherit;">
+     <strong>Warning</strong>: In general, libraries should <em>not</em> call
+     <code>set_global_default()</code>! Doing so will cause conflicts when
+     executables that depend on the library try to set the default later.
+ </pre>
+<p>This subscriber will be used as the default in all threads for the
+remainder of the duration of the program, similar to setting the logger
+in the <code>log</code> crate.</p>
+<p>In addition, the default subscriber can be set through using the
+<a href="subscriber/fn.with_default.html" title="fn bevy::utils::tracing::subscriber::with_default"><code>with_default</code></a> function. This follows the <code>tokio</code> pattern of using
+closures to represent executing code in a context that is exited at the end
+of the closure. For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="kw">let </span>my_subscriber = FooSubscriber::new();
+tracing::subscriber::with_default(my_subscriber, || {
+    <span class="comment">// Any trace events generated in this closure or by functions it calls
+    // will be collected by `my_subscriber`.
+</span>})</code></pre></div>
+<p>This approach allows trace data to be collected by multiple subscribers
+within different contexts in the program. Note that the override only applies to the
+currently executing thread; other threads will not see the change from with_default.</p>
+<p>Any trace events generated outside the context of a subscriber will not be collected.</p>
+<p>Once a subscriber has been set, instrumentation points may be added to the
+executable using the <code>tracing</code> crate’s macros.</p>
+<h3 id="log-compatibility"><a href="#log-compatibility"><code>log</code> Compatibility</a></h3>
+<p>The <a href="https://docs.rs/log/0.4.6/log/"><code>log</code></a> crate provides a simple, lightweight logging facade for Rust.
+While <code>tracing</code> builds upon <code>log</code>’s foundation with richer structured
+diagnostic data, <code>log</code>’s simplicity and ubiquity make it the “lowest common
+denominator” for text-based logging in Rust — a vast majority of Rust
+libraries and applications either emit or consume <code>log</code> records. Therefore,
+<code>tracing</code> provides multiple forms of interoperability with <code>log</code>: <code>tracing</code>
+instrumentation can emit <code>log</code> records, and a compatibility layer enables
+<code>tracing</code> <a href="trait.Subscriber.html" title="trait bevy::utils::tracing::Subscriber"><code>Subscriber</code></a>s to consume <code>log</code> records as <code>tracing</code> <a href="event/struct.Event.html" title="struct bevy::utils::tracing::event::Event"><code>Event</code></a>s.</p>
+<h4 id="emitting-log-records"><a href="#emitting-log-records">Emitting <code>log</code> Records</a></h4>
+<p>This crate provides two feature flags, “log” and “log-always”, which will
+cause <a href="span/index.html" title="mod bevy::utils::tracing::span">spans</a> and <a href="event/struct.Event.html" title="struct bevy::utils::tracing::event::Event">events</a> to emit <code>log</code> records. When the “log” feature is
+enabled, if no <code>tracing</code> <code>Subscriber</code> is active, invoking an event macro or
+creating a span with fields will emit a <code>log</code> record. This is intended
+primarily for use in libraries which wish to emit diagnostics that can be
+consumed by applications using <code>tracing</code> <em>or</em> <code>log</code>, without paying the
+additional overhead of emitting both forms of diagnostics when <code>tracing</code> is
+in use.</p>
+<p>Enabling the “log-always” feature will cause <code>log</code> records to be emitted
+even if a <code>tracing</code> <code>Subscriber</code> <em>is</em> set. This is intended to be used in
+applications where a <code>log</code> <code>Logger</code> is being used to record a textual log,
+and <code>tracing</code> is used only to record other forms of diagnostics (such as
+metrics, profiling, or distributed tracing data). Unlike the “log” feature,
+libraries generally should <strong>not</strong> enable the “log-always” feature, as doing
+so will prevent applications from being able to opt out of the <code>log</code> records.</p>
+<p>See <a href="#crate-feature-flags">here</a> for more details on this crate’s feature flags.</p>
+<p>The generated <code>log</code> records’ messages will be a string representation of the
+span or event’s fields, and all additional information recorded by <code>log</code>
+(target, verbosity level, module path, file, and line number) will also be
+populated. Additionally, <code>log</code> records are also generated when spans are
+entered, exited, and closed. Since these additional span lifecycle logs have
+the potential to be very verbose, and don’t include additional fields, they
+will always be emitted at the <code>Trace</code> level, rather than inheriting the
+level of the span that generated them. Furthermore, they are are categorized
+under a separate <code>log</code> target, “tracing::span” (and its sub-target,
+“tracing::span::active”, for the logs on entering and exiting a span), which
+may be enabled or disabled separately from other <code>log</code> records emitted by
+<code>tracing</code>.</p>
+<h4 id="consuming-log-records"><a href="#consuming-log-records">Consuming <code>log</code> Records</a></h4>
+<p>The <a href="https://crates.io/crates/tracing-log"><code>tracing-log</code></a> crate provides a compatibility layer which
+allows a <code>tracing</code> <a href="trait.Subscriber.html" title="trait bevy::utils::tracing::Subscriber"><code>Subscriber</code></a> to consume <code>log</code> records as though they
+were <code>tracing</code> <a href="event/struct.Event.html" title="struct bevy::utils::tracing::event::Event">events</a>. This allows applications using <code>tracing</code> to record
+the logs emitted by dependencies using <code>log</code> as events within the context of
+the application’s trace tree. See <a href="https://docs.rs/tracing-log/latest/tracing_log/#convert-log-records-to-tracing-events">that crate’s documentation</a>
+for details.</p>
+<h3 id="related-crates"><a href="#related-crates">Related Crates</a></h3>
+<p>In addition to <code>tracing</code> and <code>tracing-core</code>, the <a href="https://github.com/tokio-rs/tracing"><code>tokio-rs/tracing</code></a> repository
+contains several additional crates designed to be used with the <code>tracing</code> ecosystem.
+This includes a collection of <code>Subscriber</code> implementations, as well as utility
+and adapter crates to assist in writing <code>Subscriber</code>s and instrumenting
+applications.</p>
+<p>In particular, the following crates are likely to be of interest:</p>
+<ul>
+<li><a href="https://crates.io/crates/tracing-futures"><code>tracing-futures</code></a> provides a compatibility layer with the <code>futures</code>
+crate, allowing spans to be attached to <code>Future</code>s, <code>Stream</code>s, and <code>Executor</code>s.</li>
+<li><a href="https://crates.io/crates/tracing-subscriber"><code>tracing-subscriber</code></a> provides <code>Subscriber</code> implementations and
+utilities for working with <code>Subscriber</code>s. This includes a <a href="https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/struct.Subscriber.html"><code>FmtSubscriber</code></a>
+<code>FmtSubscriber</code> for logging formatted trace data to stdout, with similar
+filtering and formatting to the <a href="https://crates.io/crates/env_logger"><code>env_logger</code></a> crate.</li>
+<li><a href="https://crates.io/crates/tracing-log"><code>tracing-log</code></a> provides a compatibility layer with the <a href="https://docs.rs/log/0.4.6/log/"><code>log</code></a> crate,
+allowing log messages to be recorded as <code>tracing</code> <code>Event</code>s within the
+trace tree. This is useful when a project using <code>tracing</code> have
+dependencies which use <code>log</code>. Note that if you’re using
+<code>tracing-subscriber</code>’s <code>FmtSubscriber</code>, you don’t need to depend on
+<code>tracing-log</code> directly.</li>
+<li><a href="https://crates.io/crates/tracing-appender"><code>tracing-appender</code></a> provides utilities for outputting tracing data,
+including a file appender and non blocking writer.</li>
+</ul>
+<p>Additionally, there are also several third-party crates which are not
+maintained by the <code>tokio</code> project. These include:</p>
+<ul>
+<li><a href="https://crates.io/crates/tracing-timing"><code>tracing-timing</code></a> implements inter-event timing metrics on top of <code>tracing</code>.
+It provides a subscriber that records the time elapsed between pairs of
+<code>tracing</code> events and generates histograms.</li>
+<li><a href="https://crates.io/crates/tracing-opentelemetry"><code>tracing-opentelemetry</code></a> provides a subscriber for emitting traces to
+<a href="https://opentelemetry.io/">OpenTelemetry</a>-compatible distributed tracing systems.</li>
+<li><a href="https://crates.io/crates/tracing-honeycomb"><code>tracing-honeycomb</code></a> Provides a layer that reports traces spanning multiple machines to <a href="https://www.honeycomb.io/">honeycomb.io</a>. Backed by <a href="https://crates.io/crates/tracing-distributed"><code>tracing-distributed</code></a>.</li>
+<li><a href="https://crates.io/crates/tracing-distributed"><code>tracing-distributed</code></a> Provides a generic implementation of a layer that reports traces spanning multiple machines to some backend.</li>
+<li><a href="https://crates.io/crates/tracing-actix-web"><code>tracing-actix-web</code></a> provides <code>tracing</code> integration for the <code>actix-web</code> web framework.</li>
+<li><a href="https://crates.io/crates/tracing-actix"><code>tracing-actix</code></a> provides <code>tracing</code> integration for the <code>actix</code> actor
+framework.</li>
+<li><a href="https://crates.io/crates/axum-insights"><code>axum-insights</code></a> provides <code>tracing</code> integration and Application insights export for the <code>axum</code> web framework.</li>
+<li><a href="https://crates.io/crates/tracing-gelf"><code>tracing-gelf</code></a> implements a subscriber for exporting traces in Greylog
+GELF format.</li>
+<li><a href="https://crates.io/crates/tracing-coz"><code>tracing-coz</code></a> provides integration with the <a href="https://github.com/plasma-umass/coz">coz</a> causal profiler
+(Linux-only).</li>
+<li><a href="https://crates.io/crates/tracing-bunyan-formatter"><code>tracing-bunyan-formatter</code></a> provides a layer implementation that reports events and spans
+in <a href="https://github.com/trentm/node-bunyan">bunyan</a> format, enriched with timing information.</li>
+<li><a href="https://docs.rs/tracing-wasm"><code>tracing-wasm</code></a> provides a <code>Subscriber</code>/<code>Layer</code> implementation that reports
+events and spans via browser <code>console.log</code> and <a href="https://developer.mozilla.org/en-US/docs/Web/API/User_Timing_API">User Timing API (<code>window.performance</code>)</a>.</li>
+<li><a href="https://docs.rs/tracing-web"><code>tracing-web</code></a> provides a layer implementation of level-aware logging of events
+to web browsers’ <code>console.*</code> and span events to the <a href="https://developer.mozilla.org/en-US/docs/Web/API/User_Timing_API">User Timing API (<code>window.performance</code>)</a>.</li>
+<li><a href="https://crates.io/crates/tide-tracing"><code>tide-tracing</code></a> provides a <a href="https://crates.io/crates/tide">tide</a> middleware to trace all incoming requests and responses.</li>
+<li><a href="https://crates.io/crates/test-log"><code>test-log</code></a> takes care of initializing <code>tracing</code> for tests, based on
+environment variables with an <code>env_logger</code> compatible syntax.</li>
+<li><a href="https://docs.rs/tracing-unwrap"><code>tracing-unwrap</code></a> provides convenience methods to report failed unwraps
+on <code>Result</code> or <code>Option</code> types to a <code>Subscriber</code>.</li>
+<li><a href="https://crates.io/crates/diesel-tracing"><code>diesel-tracing</code></a> provides integration with <a href="https://crates.io/crates/diesel"><code>diesel</code></a> database connections.</li>
+<li><a href="https://crates.io/crates/tracing-tracy"><code>tracing-tracy</code></a> provides a way to collect <a href="https://github.com/wolfpld/tracy">Tracy</a> profiles in instrumented
+applications.</li>
+<li><a href="https://crates.io/crates/tracing-elastic-apm"><code>tracing-elastic-apm</code></a> provides a layer for reporting traces to <a href="https://www.elastic.co/apm">Elastic APM</a>.</li>
+<li><a href="https://github.com/microsoft/rust_win_etw/tree/main/win_etw_tracing"><code>tracing-etw</code></a> provides a layer for emitting Windows <a href="https://docs.microsoft.com/en-us/windows/win32/etw/about-event-tracing">ETW</a> events.</li>
+<li><a href="https://crates.io/crates/tracing-fluent-assertions"><code>tracing-fluent-assertions</code></a> provides a fluent assertions-style testing
+framework for validating the behavior of <code>tracing</code> spans.</li>
+<li><a href="https://crates.io/crates/sentry-tracing"><code>sentry-tracing</code></a> provides a layer for reporting events and traces to <a href="https://sentry.io/welcome/">Sentry</a>.</li>
+<li><a href="https://crates.io/crates/tracing-forest"><code>tracing-forest</code></a> provides a subscriber that preserves contextual coherence by
+grouping together logs from the same spans during writing.</li>
+<li><a href="https://crates.io/crates/tracing-loki"><code>tracing-loki</code></a> provides a layer for shipping logs to <a href="https://grafana.com/oss/loki/">Grafana Loki</a>.</li>
+<li><a href="https://crates.io/crates/tracing-logfmt"><code>tracing-logfmt</code></a> provides a layer that formats events and spans into the logfmt format.</li>
+<li><a href="https://crates.io/crates/reqwest-tracing"><code>reqwest-tracing</code></a> provides a middleware to trace <a href="https://crates.io/crates/reqwest"><code>reqwest</code></a> HTTP requests.</li>
+<li><a href="https://crates.io/crates/tracing-cloudwatch"><code>tracing-cloudwatch</code></a> provides a layer that sends events to AWS CloudWatch Logs.</li>
+<li><a href="https://crates.io/crates/clippy-tracing"><code>clippy-tracing</code></a> provides a tool to add, remove and check for <code>tracing::instrument</code>.</li>
+</ul>
+<p>If you’re the maintainer of a <code>tracing</code> ecosystem crate not listed above,
+please let us know! We’d love to add your project to the list!</p>
+<pre class="ignore" style="white-space:normal;font:inherit;">
+     <strong>Note</strong>: Some of these ecosystem crates are currently
+     unreleased and/or in earlier stages of development. They may be less stable
+     than <code>tracing</code> and <code>tracing-core</code>.
+ </pre>
+<h3 id="crate-feature-flags"><a href="#crate-feature-flags">Crate Feature Flags</a></h3>
+<p>The following crate <a href="https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section">feature flags</a> are available:</p>
+<ul>
+<li>
+<p>A set of features controlling the <a href="level_filters/index.html#compile-time-filters" title="mod bevy::utils::tracing::level_filters">static verbosity level</a>.</p>
+</li>
+<li>
+<p><code>log</code>: causes trace instrumentation points to emit <a href="https://docs.rs/log/0.4.6/log/"><code>log</code></a> records as well
+as trace events, if a default <code>tracing</code> subscriber has not been set. This
+is intended for use in libraries whose users may be using either <code>tracing</code>
+or <code>log</code>.</p>
+</li>
+<li>
+<p><code>log-always</code>: Emit <code>log</code> records from all <code>tracing</code> spans and events, even
+if a <code>tracing</code> subscriber has been set. This should be set only by
+applications which intend to collect traces and logs separately; if an
+adapter is used to convert <code>log</code> records into <code>tracing</code> events, this will
+cause duplicate events to occur.</p>
+</li>
+<li>
+<p><code>attributes</code>: Includes support for the <code>#[instrument]</code> attribute.
+This is on by default, but does bring in the <code>syn</code> crate as a dependency,
+which may add to the compile time of crates that do not already use it.</p>
+</li>
+<li>
+<p><code>std</code>: Depend on the Rust standard library (enabled by default).</p>
+<p><code>no_std</code> users may disable this feature with <code>default-features = false</code>:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies]
+tracing = { version = &quot;0.1.38&quot;, default-features = false }
+</code></pre></div></li>
+</ul>
+<pre class="ignore" style="white-space:normal;font:inherit;">
+     <strong>Note</strong>: <code>tracing</code>'s <code>no_std</code> support
+     requires <code>liballoc</code>.
+ </pre>
+<h4 id="unstable-features"><a href="#unstable-features">Unstable Features</a></h4>
+<p>These feature flags enable <strong>unstable</strong> features. The public API may break in 0.1.x
+releases. To enable these features, the <code>--cfg tracing_unstable</code> must be passed to
+<code>rustc</code> when compiling.</p>
+<p>The following unstable feature flags are currently available:</p>
+<ul>
+<li><code>valuable</code>: Enables support for recording <a href="field/index.html" title="mod bevy::utils::tracing::field">field values</a> using the
+<a href="https://crates.io/crates/valuable"><code>valuable</code></a> crate.</li>
+</ul>
+<h5 id="enabling-unstable-features"><a href="#enabling-unstable-features">Enabling Unstable Features</a></h5>
+<p>The easiest way to set the <code>tracing_unstable</code> cfg is to use the <code>RUSTFLAGS</code>
+env variable when running <code>cargo</code> commands:</p>
+<div class="example-wrap"><pre class="language-shell"><code>RUSTFLAGS=&quot;--cfg tracing_unstable&quot; cargo build
+</code></pre></div>
+<p>Alternatively, the following can be added to the <code>.cargo/config</code> file in a
+project to automatically enable the cfg flag for that project:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[build]
+rustflags = [&quot;--cfg&quot;, &quot;tracing_unstable&quot;]
+</code></pre></div><h3 id="supported-rust-versions"><a href="#supported-rust-versions">Supported Rust Versions</a></h3>
+<p>Tracing is built against the latest stable release. The minimum supported
+version is 1.56. The current Tracing version is not guaranteed to build on
+Rust versions earlier than the minimum supported version.</p>
+<p>Tracing follows the same compiler support policies as the rest of the Tokio
+project. The current stable Rust compiler and the three most recent minor
+versions before it will always be supported. For example, if the current
+stable compiler version is 1.69, the minimum supported version will not be
+increased past 1.66, three minor versions prior. Increasing the minimum
+supported compiler version is not considered a semver breaking change as
+long as doing so complies with this policy.</p>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="callsite/index.html" title="mod bevy::utils::tracing::callsite">callsite</a></div><div class="desc docblock-short">Callsites represent the source locations from which spans or events
+originate.</div></li><li><div class="item-name"><a class="mod" href="dispatcher/index.html" title="mod bevy::utils::tracing::dispatcher">dispatcher</a></div><div class="desc docblock-short">Dispatches trace events to <a href="trait.Subscriber.html" title="trait bevy::utils::tracing::Subscriber"><code>Subscriber</code></a>s.</div></li><li><div class="item-name"><a class="mod" href="event/index.html" title="mod bevy::utils::tracing::event">event</a></div><div class="desc docblock-short">Events represent single points in time during the execution of a program.</div></li><li><div class="item-name"><a class="mod" href="field/index.html" title="mod bevy::utils::tracing::field">field</a></div><div class="desc docblock-short"><code>Span</code> and <code>Event</code> key-value data.</div></li><li><div class="item-name"><a class="mod" href="instrument/index.html" title="mod bevy::utils::tracing::instrument">instrument</a></div><div class="desc docblock-short">Attach a span to a <code>std::future::Future</code>.</div></li><li><div class="item-name"><a class="mod" href="level_filters/index.html" title="mod bevy::utils::tracing::level_filters">level_filters</a></div><div class="desc docblock-short">Trace verbosity level filtering.</div></li><li><div class="item-name"><a class="mod" href="metadata/index.html" title="mod bevy::utils::tracing::metadata">metadata</a></div><div class="desc docblock-short">Metadata describing trace data.</div></li><li><div class="item-name"><a class="mod" href="span/index.html" title="mod bevy::utils::tracing::span">span</a></div><div class="desc docblock-short">Spans represent periods of time in which a program was executing in a
+particular context.</div></li><li><div class="item-name"><a class="mod" href="subscriber/index.html" title="mod bevy::utils::tracing::subscriber">subscriber</a></div><div class="desc docblock-short">Collects and records trace data.</div></li></ul><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.debug.html" title="macro bevy::utils::tracing::debug">debug</a></div><div class="desc docblock-short">Constructs an event at the debug level.</div></li><li><div class="item-name"><a class="macro" href="macro.debug_span.html" title="macro bevy::utils::tracing::debug_span">debug_span</a></div><div class="desc docblock-short">Constructs a span at the debug level.</div></li><li><div class="item-name"><a class="macro" href="macro.enabled.html" title="macro bevy::utils::tracing::enabled">enabled</a></div><div class="desc docblock-short">Checks whether a span or event is <a href="trait.Subscriber.html#tymethod.enabled" title="method bevy::utils::tracing::Subscriber::enabled">enabled</a> based on the provided <a href="struct.Metadata.html" title="struct bevy::utils::tracing::Metadata">metadata</a>.</div></li><li><div class="item-name"><a class="macro" href="macro.error.html" title="macro bevy::utils::tracing::error">error</a></div><div class="desc docblock-short">Constructs an event at the error level.</div></li><li><div class="item-name"><a class="macro" href="macro.error_span.html" title="macro bevy::utils::tracing::error_span">error_span</a></div><div class="desc docblock-short">Constructs a span at the error level.</div></li><li><div class="item-name"><a class="macro" href="macro.event.html" title="macro bevy::utils::tracing::event">event</a></div><div class="desc docblock-short">Constructs a new <code>Event</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.event_enabled.html" title="macro bevy::utils::tracing::event_enabled">event_enabled</a></div><div class="desc docblock-short">Tests whether an event with the specified level and target would be enabled.</div></li><li><div class="item-name"><a class="macro" href="macro.info.html" title="macro bevy::utils::tracing::info">info</a></div><div class="desc docblock-short">Constructs an event at the info level.</div></li><li><div class="item-name"><a class="macro" href="macro.info_span.html" title="macro bevy::utils::tracing::info_span">info_span</a></div><div class="desc docblock-short">Constructs a span at the info level.</div></li><li><div class="item-name"><a class="macro" href="macro.metadata.html" title="macro bevy::utils::tracing::metadata">metadata</a></div><div class="desc docblock-short">Statically constructs new span <a href="struct.Metadata.html" title="struct bevy::utils::tracing::Metadata">metadata</a>.</div></li><li><div class="item-name"><a class="macro" href="macro.span.html" title="macro bevy::utils::tracing::span">span</a></div><div class="desc docblock-short">Constructs a new span.</div></li><li><div class="item-name"><a class="macro" href="macro.span_enabled.html" title="macro bevy::utils::tracing::span_enabled">span_enabled</a></div><div class="desc docblock-short">Tests whether a span with the specified level and target would be enabled.</div></li><li><div class="item-name"><a class="macro" href="macro.trace.html" title="macro bevy::utils::tracing::trace">trace</a></div><div class="desc docblock-short">Constructs an event at the trace level.</div></li><li><div class="item-name"><a class="macro" href="macro.trace_span.html" title="macro bevy::utils::tracing::trace_span">trace_span</a></div><div class="desc docblock-short">Constructs a span at the trace level.</div></li><li><div class="item-name"><a class="macro" href="macro.warn.html" title="macro bevy::utils::tracing::warn">warn</a></div><div class="desc docblock-short">Constructs an event at the warn level.</div></li><li><div class="item-name"><a class="macro" href="macro.warn_span.html" title="macro bevy::utils::tracing::warn_span">warn_span</a></div><div class="desc docblock-short">Constructs a span at the warn level.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Dispatch.html" title="struct bevy::utils::tracing::Dispatch">Dispatch</a></div><div class="desc docblock-short"><code>Dispatch</code> trace data to a <a href="trait.Subscriber.html" title="trait bevy::utils::tracing::Subscriber"><code>Subscriber</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.Event.html" title="struct bevy::utils::tracing::Event">Event</a></div><div class="desc docblock-short"><code>Event</code>s represent single points in time where something occurred during the
+execution of a program.</div></li><li><div class="item-name"><a class="struct" href="struct.Id.html" title="struct bevy::utils::tracing::Id">Id</a></div><div class="desc docblock-short">Identifies a span within the context of a subscriber.</div></li><li><div class="item-name"><a class="struct" href="struct.Level.html" title="struct bevy::utils::tracing::Level">Level</a></div><div class="desc docblock-short">Describes the level of verbosity of a span or event.</div></li><li><div class="item-name"><a class="struct" href="struct.Metadata.html" title="struct bevy::utils::tracing::Metadata">Metadata</a></div><div class="desc docblock-short">Metadata describing a <a href="super::span">span</a> or <a href="event/index.html" title="mod bevy::utils::tracing::event">event</a>.</div></li><li><div class="item-name"><a class="struct" href="struct.Span.html" title="struct bevy::utils::tracing::Span">Span</a></div><div class="desc docblock-short">A handle representing a span, with the capability to enter the span if it
+exists.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Callsite.html" title="trait bevy::utils::tracing::Callsite">Callsite</a></div><div class="desc docblock-short">Trait implemented by callsites.</div></li><li><div class="item-name"><a class="trait" href="trait.Instrument.html" title="trait bevy::utils::tracing::Instrument">Instrument</a></div><div class="desc docblock-short">Attaches spans to a <a href="../../tasks/futures_lite/trait.Future.html" title="trait bevy::tasks::futures_lite::Future"><code>std::future::Future</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.Subscriber.html" title="trait bevy::utils::tracing::Subscriber">Subscriber</a></div><div class="desc docblock-short">Trait representing the functions required to collect trace data.</div></li><li><div class="item-name"><a class="trait" href="trait.Value.html" title="trait bevy::utils::tracing::Value">Value</a></div><div class="desc docblock-short">A field value of an erased type.</div></li></ul><h2 id="attributes" class="small-section-header"><a href="#attributes">Attribute Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.instrument.html" title="attr bevy::utils::tracing::instrument">instrument</a></div><div class="desc docblock-short">Instruments a function to create and enter a <code>tracing</code> <a href="https://docs.rs/tracing/latest/tracing/span/index.html">span</a> every time
+the function is called.</div></li></ul></section></div></main></body></html>

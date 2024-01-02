@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["NonMaxI128","NonMaxI16","NonMaxI32","NonMaxI64","NonMaxI8","NonMaxIsize","NonMaxU128","NonMaxU16","NonMaxU32","NonMaxU64","NonMaxU8","NonMaxUsize","ParseIntError","TryFromIntError"]};

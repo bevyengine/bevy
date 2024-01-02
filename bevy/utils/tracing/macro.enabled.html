@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Checks whether a span or event is enabled based on the provided metadata."><title>enabled in bevy::utils::tracing - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::utils::tracing</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">utils</a>::<wbr><a href="index.html">tracing</a>::<wbr><a class="macro" href="#">enabled</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><span class="macro">macro_rules! </span>enabled {
+    (kind: <span class="macro-nonterminal">$kind</span>:expr, target: <span class="macro-nonterminal">$target</span>:expr, <span class="macro-nonterminal">$lvl</span>:expr, { $(<span class="macro-nonterminal">$fields</span>:tt)* } ) =&gt; { ... };
+    (kind: <span class="macro-nonterminal">$kind</span>:expr, target: <span class="macro-nonterminal">$target</span>:expr, <span class="macro-nonterminal">$lvl</span>:expr ) =&gt; { ... };
+    (target: <span class="macro-nonterminal">$target</span>:expr, <span class="macro-nonterminal">$lvl</span>:expr ) =&gt; { ... };
+    (kind: <span class="macro-nonterminal">$kind</span>:expr, target: <span class="macro-nonterminal">$target</span>:expr, <span class="macro-nonterminal">$lvl</span>:expr, $(<span class="macro-nonterminal">$field</span>:tt)<span class="kw-2">*</span>) =&gt; { ... };
+    (target: <span class="macro-nonterminal">$target</span>:expr, <span class="macro-nonterminal">$lvl</span>:expr, $(<span class="macro-nonterminal">$field</span>:tt)<span class="kw-2">*</span>) =&gt; { ... };
+    (kind: <span class="macro-nonterminal">$kind</span>:expr, <span class="macro-nonterminal">$lvl</span>:expr, $(<span class="macro-nonterminal">$field</span>:tt)<span class="kw-2">*</span>) =&gt; { ... };
+    (kind: <span class="macro-nonterminal">$kind</span>:expr, <span class="macro-nonterminal">$lvl</span>:expr) =&gt; { ... };
+    (<span class="macro-nonterminal">$lvl</span>:expr) =&gt; { ... };
+    (<span class="macro-nonterminal">$lvl</span>:expr, $(<span class="macro-nonterminal">$field</span>:tt)<span class="kw-2">*</span>) =&gt; { ... };
+}</pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Checks whether a span or event is <a href="trait.Subscriber.html#tymethod.enabled" title="method bevy::utils::tracing::Subscriber::enabled">enabled</a> based on the provided <a href="struct.Metadata.html" title="struct bevy::utils::tracing::Metadata">metadata</a>.</p>
+<p>This macro is a specialized tool: it is intended to be used prior
+to an expensive computation required <em>just</em> for that event, but
+<em>cannot</em> be done as part of an argument to that event, such as
+when multiple events are emitted (e.g., iterating over a collection
+and emitting an event for each item).</p>
+<h2 id="usage"><a href="#usage">Usage</a></h2>
+<p><a href="trait.Subscriber.html" title="trait bevy::utils::tracing::Subscriber">Subscribers</a> can make filtering decisions based all the data included in a
+span or event’s <a href="struct.Metadata.html" title="struct bevy::utils::tracing::Metadata"><code>Metadata</code></a>. This means that it is possible for <code>enabled!</code>
+to return a <em>false positive</em> (indicating that something would be enabled
+when it actually would not be) or a <em>false negative</em> (indicating that
+something would be disabled when it would actually be enabled).</p>
+<p>This occurs when a subscriber is using a <em>more specific</em> filter than the
+metadata provided to the <code>enabled!</code> macro. Some situations that can result
+in false positives or false negatives include:</p>
+<ul>
+<li>If a subscriber is using a filter which may enable a span or event based
+on field names, but <code>enabled!</code> is invoked without listing field names,
+<code>enabled!</code> may return a false negative if a specific field name would
+cause the subscriber to enable something that would otherwise be disabled.</li>
+<li>If a subscriber is using a filter which enables or disables specific events by
+file path and line number,  a particular event may be enabled/disabled
+even if an <code>enabled!</code> invocation with the same level, target, and fields
+indicated otherwise.</li>
+<li>The subscriber can choose to enable <em>only</em> spans or <em>only</em> events, which <code>enabled</code>
+will not reflect.</li>
+</ul>
+<p><code>enabled!()</code> requires a <a href="struct.Level.html" title="struct bevy::utils::tracing::Level">level</a> argument, an optional <code>target:</code>
+argument, and an optional set of field names. If the fields are not provided,
+they are considered to be unknown. <code>enabled!</code> attempts to match the
+syntax of <code>event!()</code> as closely as possible, which can be seen in the
+examples below.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>If the current subscriber is interested in recording <code>DEBUG</code>-level spans and
+events in the current file and module path, this will evaluate to true:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::{enabled, Level};
+
+<span class="kw">if </span><span class="macro">enabled!</span>(Level::DEBUG) {
+    <span class="comment">// some expensive work...
+</span>}</code></pre></div>
+<p>If the current subscriber is interested in recording spans and events
+in the current file and module path, with the target “my_crate”, and at the
+level  <code>DEBUG</code>, this will evaluate to true:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">if </span><span class="macro">enabled!</span>(target: <span class="string">&quot;my_crate&quot;</span>, Level::DEBUG) {
+    <span class="comment">// some expensive work...
+</span>}</code></pre></div>
+<p>If the current subscriber is interested in recording spans and events
+in the current file and module path, with the target “my_crate”, at
+the level <code>DEBUG</code>, and with a field named “hello”, this will evaluate
+to true:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">if </span><span class="macro">enabled!</span>(target: <span class="string">&quot;my_crate&quot;</span>, Level::DEBUG, hello) {
+    <span class="comment">// some expensive work...
+</span>}</code></pre></div>
+<h2 id="alternatives"><a href="#alternatives">Alternatives</a></h2>
+<p><code>enabled!</code> queries subscribers with <a href="struct.Metadata.html" title="struct bevy::utils::tracing::Metadata"><code>Metadata</code></a> where
+<a href="struct.Metadata.html#method.is_event" title="method bevy::utils::tracing::Metadata::is_event"><code>is_event</code></a> and <a href="struct.Metadata.html#method.is_span" title="method bevy::utils::tracing::Metadata::is_span"><code>is_span</code></a> both return <code>false</code>. Alternatively,
+use <a href="macro.event_enabled.html" title="macro bevy::utils::tracing::event_enabled"><code>event_enabled!</code></a> or <a href="macro.span_enabled.html" title="macro bevy::utils::tracing::span_enabled"><code>span_enabled!</code></a> to ensure one of these
+returns true.</p>
+</div></details></section></div></main></body></html>

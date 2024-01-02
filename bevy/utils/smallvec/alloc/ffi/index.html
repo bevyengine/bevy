@@ -1,0 +1,84 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Utilities related to FFI bindings."><title>bevy::utils::smallvec::alloc::ffi - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">Module ffi</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In bevy::utils::smallvec::alloc</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">smallvec</a>::<wbr><a href="../index.html">alloc</a>::<wbr><a class="mod" href="#">ffi</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.64.0">1.64.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/alloc/lib.rs.html#245">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Utilities related to FFI bindings.</p>
+<p>This module provides utilities to handle data across non-Rust
+interfaces, like other programming languages and the underlying
+operating system. It is mainly of use for FFI (Foreign Function
+Interface) bindings and code that needs to exchange C-like strings
+with other languages.</p>
+<h2 id="overview"><a href="#overview">Overview</a></h2>
+<p>Rust represents owned strings with the <a href="../string/struct.String.html" title="struct bevy::utils::smallvec::alloc::string::String"><code>String</code></a> type, and
+borrowed slices of strings with the <a href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html" title="primitive str"><code>str</code></a> primitive. Both are
+always in UTF-8 encoding, and may contain nul bytes in the middle,
+i.e., if you look at the bytes that make up the string, there may
+be a <code>\0</code> among them. Both <code>String</code> and <code>str</code> store their length
+explicitly; there are no nul terminators at the end of strings
+like in C.</p>
+<p>C strings are different from Rust strings:</p>
+<ul>
+<li>
+<p><strong>Encodings</strong> - Rust strings are UTF-8, but C strings may use
+other encodings. If you are using a string from C, you should
+check its encoding explicitly, rather than just assuming that it
+is UTF-8 like you can do in Rust.</p>
+</li>
+<li>
+<p><strong>Character size</strong> - C strings may use <code>char</code> or <code>wchar_t</code>-sized
+characters; please <strong>note</strong> that C’s <code>char</code> is different from Rust’s.
+The C standard leaves the actual sizes of those types open to
+interpretation, but defines different APIs for strings made up of
+each character type. Rust strings are always UTF-8, so different
+Unicode characters will be encoded in a variable number of bytes
+each. The Rust type <a href="https://doc.rust-lang.org/1.75.0/std/primitive.char.html" title="primitive char"><code>char</code></a> represents a ‘[Unicode scalar
+value]’, which is similar to, but not the same as, a ‘[Unicode
+code point]’.</p>
+</li>
+<li>
+<p><strong>Nul terminators and implicit string lengths</strong> - Often, C
+strings are nul-terminated, i.e., they have a <code>\0</code> character at the
+end. The length of a string buffer is not stored, but has to be
+calculated; to compute the length of a string, C code must
+manually call a function like <code>strlen()</code> for <code>char</code>-based strings,
+or <code>wcslen()</code> for <code>wchar_t</code>-based ones. Those functions return
+the number of characters in the string excluding the nul
+terminator, so the buffer length is really <code>len+1</code> characters.
+Rust strings don’t have a nul terminator; their length is always
+stored and does not need to be calculated. While in Rust
+accessing a string’s length is an <em>O</em>(1) operation (because the
+length is stored); in C it is an <em>O</em>(<em>n</em>) operation because the
+length needs to be computed by scanning the string for the nul
+terminator.</p>
+</li>
+<li>
+<p><strong>Internal nul characters</strong> - When C strings have a nul
+terminator character, this usually means that they cannot have nul
+characters in the middle — a nul character would essentially
+truncate the string. Rust strings <em>can</em> have nul characters in
+the middle, because nul does not have to mark the end of the
+string in Rust.</p>
+</li>
+</ul>
+<h2 id="representations-of-non-rust-strings"><a href="#representations-of-non-rust-strings">Representations of non-Rust strings</a></h2>
+<p><a href="struct.CString.html" title="struct bevy::utils::smallvec::alloc::ffi::CString"><code>CString</code></a> and <a href="https://doc.rust-lang.org/1.75.0/core/ffi/c_str/struct.CStr.html" title="struct core::ffi::c_str::CStr"><code>CStr</code></a> are useful when you need to transfer
+UTF-8 strings to and from languages with a C ABI, like Python.</p>
+<ul>
+<li>
+<p><strong>From Rust to C:</strong> <a href="struct.CString.html" title="struct bevy::utils::smallvec::alloc::ffi::CString"><code>CString</code></a> represents an owned, C-friendly
+string: it is nul-terminated, and has no internal nul characters.
+Rust code can create a <a href="struct.CString.html" title="struct bevy::utils::smallvec::alloc::ffi::CString"><code>CString</code></a> out of a normal string (provided
+that the string doesn’t have nul characters in the middle), and
+then use a variety of methods to obtain a raw <code>*mut <a href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html" title="primitive u8">u8</a></code> that can
+then be passed as an argument to functions which use the C
+conventions for strings.</p>
+</li>
+<li>
+<p><strong>From C to Rust:</strong> <a href="https://doc.rust-lang.org/1.75.0/core/ffi/c_str/struct.CStr.html" title="struct core::ffi::c_str::CStr"><code>CStr</code></a> represents a borrowed C string; it
+is what you would use to wrap a raw <code>*const <a href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html" title="primitive u8">u8</a></code> that you got from
+a C function. A <a href="https://doc.rust-lang.org/1.75.0/core/ffi/c_str/struct.CStr.html" title="struct core::ffi::c_str::CStr"><code>CStr</code></a> is guaranteed to be a nul-terminated array
+of bytes. Once you have a <a href="https://doc.rust-lang.org/1.75.0/core/ffi/c_str/struct.CStr.html" title="struct core::ffi::c_str::CStr"><code>CStr</code></a>, you can convert it to a Rust
+<code>&amp;<a href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html" title="primitive str">str</a></code> if it’s valid UTF-8, or lossily convert it by adding
+replacement characters.</p>
+</li>
+</ul>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CString.html" title="struct bevy::utils::smallvec::alloc::ffi::CString">CString</a></div><div class="desc docblock-short">A type representing an owned, C-compatible, nul-terminated string with no nul bytes in the
+middle.</div></li><li><div class="item-name"><a class="struct" href="struct.FromVecWithNulError.html" title="struct bevy::utils::smallvec::alloc::ffi::FromVecWithNulError">FromVecWithNulError</a></div><div class="desc docblock-short">An error indicating that a nul byte was not in the expected position.</div></li><li><div class="item-name"><a class="struct" href="struct.IntoStringError.html" title="struct bevy::utils::smallvec::alloc::ffi::IntoStringError">IntoStringError</a></div><div class="desc docblock-short">An error indicating invalid UTF-8 when converting a <a href="struct.CString.html" title="struct bevy::utils::smallvec::alloc::ffi::CString"><code>CString</code></a> into a <a href="../string/struct.String.html" title="struct bevy::utils::smallvec::alloc::string::String"><code>String</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.NulError.html" title="struct bevy::utils::smallvec::alloc::ffi::NulError">NulError</a></div><div class="desc docblock-short">An error indicating that an interior nul byte was found.</div></li></ul></section></div></main></body></html>

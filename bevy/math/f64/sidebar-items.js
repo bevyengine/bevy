@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["dmat2","dmat3","dmat4","dquat","dvec2","dvec3","dvec4"],"struct":["DAffine2","DAffine3","DMat2","DMat3","DMat4","DQuat","DVec2","DVec3","DVec4"]};

@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Creates a representation of the same graph respecting topological order for use in `tred::dag_transitive_reduction_closure`."><title>dag_to_toposorted_adjacency_list in bevy::utils::petgraph::algo::tred - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::utils::petgraph::algo::tred</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">petgraph</a>::<wbr><a href="../index.html">algo</a>::<wbr><a href="index.html">tred</a>::<wbr><a class="fn" href="#">dag_to_toposorted_adjacency_list</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/petgraph/0.4/src/petgraph/algo/tred.rs.html#61-67">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub fn dag_to_toposorted_adjacency_list&lt;G, Ix&gt;(
+    g: G,
+    toposort: &amp;[&lt;G as <a class="trait" href="../../visit/trait.GraphBase.html" title="trait bevy::utils::petgraph::visit::GraphBase">GraphBase</a>&gt;::<a class="associatedtype" href="../../visit/trait.GraphBase.html#associatedtype.NodeId" title="type bevy::utils::petgraph::visit::GraphBase::NodeId">NodeId</a>]
+) -&gt; (<a class="struct" href="../../adj/struct.List.html" title="struct bevy::utils::petgraph::adj::List">List</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, Ix&gt;, <a class="struct" href="../../../smallvec/alloc/vec/struct.Vec.html" title="struct bevy::utils::smallvec::alloc::vec::Vec">Vec</a>&lt;Ix&gt;)<span class="where fmt-newline">where
+    Ix: <a class="trait" href="../../stable_graph/trait.IndexType.html" title="trait bevy::utils::petgraph::stable_graph::IndexType">IndexType</a>,
+    G: <a class="trait" href="../../visit/trait.GraphBase.html" title="trait bevy::utils::petgraph::visit::GraphBase">GraphBase</a> + <a class="trait" href="../../visit/trait.IntoNeighborsDirected.html" title="trait bevy::utils::petgraph::visit::IntoNeighborsDirected">IntoNeighborsDirected</a> + <a class="trait" href="../../visit/trait.NodeCompactIndexable.html" title="trait bevy::utils::petgraph::visit::NodeCompactIndexable">NodeCompactIndexable</a> + <a class="trait" href="../../visit/trait.NodeCount.html" title="trait bevy::utils::petgraph::visit::NodeCount">NodeCount</a>,
+    &lt;G as <a class="trait" href="../../visit/trait.GraphBase.html" title="trait bevy::utils::petgraph::visit::GraphBase">GraphBase</a>&gt;::<a class="associatedtype" href="../../visit/trait.GraphBase.html#associatedtype.NodeId" title="type bevy::utils::petgraph::visit::GraphBase::NodeId">NodeId</a>: <a class="trait" href="../../stable_graph/trait.IndexType.html" title="trait bevy::utils::petgraph::stable_graph::IndexType">IndexType</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Creates a representation of the same graph respecting topological order for use in <code>tred::dag_transitive_reduction_closure</code>.</p>
+<p><code>toposort</code> must be a topological order on the node indices of <code>g</code> (for example obtained
+from <a href="../fn.toposort.html"><code>toposort</code></a>).</p>
+<p>Returns a pair of a graph <code>res</code> and the reciprocal of the topological sort <code>revmap</code>.</p>
+<p><code>res</code> is the same graph as <code>g</code> with the following differences:</p>
+<ul>
+<li>Node and edge weights are stripped,</li>
+<li>Node indices are replaced by the corresponding rank in <code>toposort</code>,</li>
+<li>Iterating on the neighbors of a node respects topological order.</li>
+</ul>
+<p><code>revmap</code> is handy to get back to map indices in <code>g</code> to indices in <code>res</code>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>petgraph::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>petgraph::graph::DefaultIx;
+<span class="kw">use </span>petgraph::visit::IntoNeighbors;
+<span class="kw">use </span>petgraph::algo::tred::dag_to_toposorted_adjacency_list;
+
+<span class="kw">let </span><span class="kw-2">mut </span>g = Graph::&lt;<span class="kw-2">&amp;</span>str, (), Directed, DefaultIx&gt;::new();
+<span class="kw">let </span>second = g.add_node(<span class="string">&quot;second child&quot;</span>);
+<span class="kw">let </span>top = g.add_node(<span class="string">&quot;top&quot;</span>);
+<span class="kw">let </span>first = g.add_node(<span class="string">&quot;first child&quot;</span>);
+g.extend_with_edges(<span class="kw-2">&amp;</span>[(top, second), (top, first), (first, second)]);
+
+<span class="kw">let </span>toposort = <span class="macro">vec!</span>[top, first, second];
+
+<span class="kw">let </span>(res, revmap) = dag_to_toposorted_adjacency_list(<span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>toposort);
+
+<span class="comment">// let&#39;s compute the children of top in topological order
+</span><span class="kw">let </span>children: Vec&lt;NodeIndex&gt; = res
+    .neighbors(revmap[top.index()])
+    .map(|ix: NodeIndex| toposort[ix.index()])
+    .collect();
+<span class="macro">assert_eq!</span>(children, <span class="macro">vec!</span>[first, second])</code></pre></div>
+<p>Runtime: <strong>O(|V| + |E|)</strong>.</p>
+<p>Space complexity: <strong>O(|V| + |E|)</strong>.</p>
+</div></details></section></div></main></body></html>

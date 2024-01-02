@@ -1,0 +1,149 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Rusty Object Notation"><title>bevy::asset::ron - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In bevy::asset</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">asset</a>::<wbr><a class="mod" href="#">ron</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/ron/0.8.1/src/ron/lib.rs.html#1-20">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="rusty-object-notation"><a href="#rusty-object-notation">Rusty Object Notation</a></h2>
+<p><a href="https://github.com/ron-rs/ron/actions/workflows/ci.yaml"><img src="https://github.com/ron-rs/ron/actions/workflows/ci.yaml/badge.svg" alt="CI" /></a>
+<a href="https://codecov.io/gh/ron-rs/ron"><img src="https://img.shields.io/codecov/c/github/ron-rs/ron/codecov?token=x4Q5KA51Ul" alt="codecov" /></a>
+<a href="https://crates.io/crates/ron"><img src="https://img.shields.io/crates/v/ron.svg" alt="Crates.io" /></a>
+<a href="https://github.com/ron-rs/ron"><img src="https://img.shields.io/badge/MSRV-1.64.0-orange" alt="MSRV" /></a>
+<a href="https://docs.rs/ron"><img src="https://docs.rs/ron/badge.svg" alt="Docs" /></a>
+<a href="https://matrix.to/#/#ron-rs:matrix.org"><img src="https://img.shields.io/matrix/ron-rs:matrix.org.svg" alt="Matrix" /></a></p>
+<p>RON is a simple readable data serialization format that looks similar to Rust syntax.
+It’s designed to support all of <a href="https://serde.rs/data-model.html">Serde’s data model</a>, so
+structs, enums, tuples, arrays, generic maps, and primitive values.</p>
+<h3 id="example"><a href="#example">Example</a></h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>GameConfig( <span class="comment">// optional struct name
+    </span>window_size: (<span class="number">800</span>, <span class="number">600</span>),
+    window_title: <span class="string">&quot;PAC-MAN&quot;</span>,
+    fullscreen: <span class="bool-val">false</span>,
+
+    mouse_sensitivity: <span class="number">1.4</span>,
+    key_bindings: {
+        <span class="string">&quot;up&quot;</span>: Up,
+        <span class="string">&quot;down&quot;</span>: Down,
+        <span class="string">&quot;left&quot;</span>: Left,
+        <span class="string">&quot;right&quot;</span>: Right,
+
+        <span class="comment">// Uncomment to enable WASD controls
+        /*
+        &quot;W&quot;: Up,
+        &quot;S&quot;: Down,
+        &quot;A&quot;: Left,
+        &quot;D&quot;: Right,
+        */
+    </span>},
+
+    difficulty_options: (
+        start_difficulty: Easy,
+        adaptive: <span class="bool-val">false</span>,
+    ),
+)</code></pre></div>
+<h3 id="why-ron"><a href="#why-ron">Why RON?</a></h3><h4 id="example-in-json"><a href="#example-in-json">Example in JSON</a></h4><div class="example-wrap"><pre class="language-json"><code>{
+   &quot;materials&quot;: {
+        &quot;metal&quot;: {
+            &quot;reflectivity&quot;: 1.0
+        },
+        &quot;plastic&quot;: {
+            &quot;reflectivity&quot;: 0.5
+        }
+   },
+   &quot;entities&quot;: [
+        {
+            &quot;name&quot;: &quot;hero&quot;,
+            &quot;material&quot;: &quot;metal&quot;
+        },
+        {
+            &quot;name&quot;: &quot;monster&quot;,
+            &quot;material&quot;: &quot;plastic&quot;
+        }
+   ]
+}
+</code></pre></div><h4 id="same-example-in-ron"><a href="#same-example-in-ron">Same example in RON</a></h4>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>Scene( <span class="comment">// class name is optional
+    </span>materials: { <span class="comment">// this is a map
+        </span><span class="string">&quot;metal&quot;</span>: (
+            reflectivity: <span class="number">1.0</span>,
+        ),
+        <span class="string">&quot;plastic&quot;</span>: (
+            reflectivity: <span class="number">0.5</span>,
+        ),
+    },
+    entities: [ <span class="comment">// this is an array
+        </span>(
+            name: <span class="string">&quot;hero&quot;</span>,
+            material: <span class="string">&quot;metal&quot;</span>,
+        ),
+        (
+            name: <span class="string">&quot;monster&quot;</span>,
+            material: <span class="string">&quot;plastic&quot;</span>,
+        ),
+    ],
+)</code></pre></div>
+<p>Note the following advantages of RON over JSON:</p>
+<ul>
+<li>trailing commas allowed</li>
+<li>single- and multi-line comments</li>
+<li>field names aren’t quoted, so it’s less verbose</li>
+<li>optional struct names improve readability</li>
+<li>enums are supported (and less verbose than their JSON representation)</li>
+</ul>
+<h3 id="limitations"><a href="#limitations">Limitations</a></h3>
+<p>RON is not designed to be a fully self-describing format (unlike JSON) and is thus not guaranteed to work when <a href="https://docs.rs/serde/latest/serde/trait.Deserializer.html#tymethod.deserialize_any"><code>deserialize_any</code></a> is used instead of its typed alternatives. In particular, the following Serde attributes are not yet supported:</p>
+<ul>
+<li><code>#[serde(tag = &quot;type&quot;)]</code>, i.e. internally tagged enums</li>
+<li><code>#[serde(untagged)]</code>, i.e. untagged enums</li>
+<li><code>#[serde(flatten)]</code>, i.e. flattening an inner struct into its outer container</li>
+</ul>
+<h3 id="ron-syntax-overview"><a href="#ron-syntax-overview">RON syntax overview</a></h3>
+<ul>
+<li>Numbers: <code>42</code>, <code>3.14</code>, <code>0xFF</code>, <code>0b0110</code></li>
+<li>Strings: <code>&quot;Hello&quot;</code>, <code>&quot;with\\escapes\n&quot;</code>, <code>r#&quot;raw string, great for regex\.&quot;#</code></li>
+<li>Booleans: <code>true</code>, <code>false</code></li>
+<li>Chars: <code>'e'</code>, <code>'\n'</code></li>
+<li>Optionals: <code>Some(&quot;string&quot;)</code>, <code>Some(Some(1.34))</code>, <code>None</code></li>
+<li>Tuples: <code>(&quot;abc&quot;, 1.23, true)</code>, <code>()</code></li>
+<li>Lists: <code>[&quot;abc&quot;, &quot;def&quot;]</code></li>
+<li>Structs: <code>( foo: 1.0, bar: ( baz: &quot;I'm nested&quot; ) )</code></li>
+<li>Maps: <code>{ &quot;arbitrary&quot;: &quot;keys&quot;, &quot;are&quot;: &quot;allowed&quot; }</code></li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> Serde’s data model represents fixed-size Rust arrays as tuple (instead of as list)</p>
+</blockquote>
+<h3 id="quickstart"><a href="#quickstart">Quickstart</a></h3><h4 id="cargotoml"><a href="#cargotoml"><code>Cargo.toml</code></a></h4><div class="example-wrap"><pre class="language-toml"><code>[dependencies]
+ron = &quot;0.8&quot;
+serde = { version = &quot;1&quot;, features = [&quot;derive&quot;] }
+</code></pre></div><h4 id="mainrs"><a href="#mainrs"><code>main.rs</code></a></h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="attr">#[derive(Debug, Deserialize, Serialize)]
+</span><span class="kw">struct </span>MyStruct {
+    boolean: bool,
+    float: f32,
+}
+
+<span class="kw">fn </span>main() {
+    <span class="kw">let </span>x: MyStruct = ron::from_str(<span class="string">&quot;(boolean: true, float: 1.23)&quot;</span>).unwrap();
+
+    <span class="macro">println!</span>(<span class="string">&quot;RON: {}&quot;</span>, ron::to_string(<span class="kw-2">&amp;</span>x).unwrap());
+
+    <span class="macro">println!</span>(<span class="string">&quot;Pretty RON: {}&quot;</span>, ron::ser::to_string_pretty(
+        <span class="kw-2">&amp;</span>x, ron::ser::PrettyConfig::default()).unwrap(),
+    );
+}</code></pre></div>
+<h3 id="tooling"><a href="#tooling">Tooling</a></h3><div><table><thead><tr><th>Editor</th><th>Plugin</th></tr></thead><tbody>
+<tr><td>IntelliJ</td><td><a href="https://github.com/ron-rs/intellij-ron">intellij-ron</a></td></tr>
+<tr><td>VS Code</td><td><a href="https://github.com/a5huynh/vscode-ron">a5huynh/vscode-ron</a></td></tr>
+<tr><td>Sublime Text</td><td><a href="https://packagecontrol.io/packages/RON">RON</a></td></tr>
+<tr><td>Atom</td><td><a href="https://atom.io/packages/language-ron">language-ron</a></td></tr>
+<tr><td>Vim</td><td><a href="https://github.com/ron-rs/ron.vim">ron-rs/ron.vim</a></td></tr>
+<tr><td>EMACS</td><td><a href="https://chiselapp.com/user/Hutzdog/repository/ron-mode/home">emacs-ron</a></td></tr>
+</tbody></table>
+</div><h3 id="specification"><a href="#specification">Specification</a></h3>
+<p>There is a very basic, work in progress specification available on
+<a href="https://github.com/ron-rs/ron/wiki/Specification">the wiki page</a>.
+A more formal and complete grammar is available <a href="docs/grammar.md">here</a>.</p>
+<h3 id="license"><a href="#license">License</a></h3>
+<p>RON is dual-licensed under Apache-2.0 and MIT.</p>
+<p>Any contribution intentionally submitted for inclusion in the work must be provided under the same dual-license terms.</p>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="de/index.html" title="mod bevy::asset::ron::de">de</a></div></li><li><div class="item-name"><a class="mod" href="error/index.html" title="mod bevy::asset::ron::error">error</a></div></li><li><div class="item-name"><a class="mod" href="extensions/index.html" title="mod bevy::asset::ron::extensions">extensions</a></div></li><li><div class="item-name"><a class="mod" href="options/index.html" title="mod bevy::asset::ron::options">options</a></div><div class="desc docblock-short">Roundtrip serde Options module.</div></li><li><div class="item-name"><a class="mod" href="ser/index.html" title="mod bevy::asset::ron::ser">ser</a></div></li><li><div class="item-name"><a class="mod" href="value/index.html" title="mod bevy::asset::ron::value">value</a></div><div class="desc docblock-short">Value module.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Deserializer.html" title="struct bevy::asset::ron::Deserializer">Deserializer</a></div><div class="desc docblock-short">The RON deserializer.</div></li><li><div class="item-name"><a class="struct" href="struct.Map.html" title="struct bevy::asset::ron::Map">Map</a></div><div class="desc docblock-short">A <a href="enum.Value.html" title="enum bevy::asset::ron::Value"><code>Value</code></a> to <a href="enum.Value.html" title="enum bevy::asset::ron::Value"><code>Value</code></a> map.</div></li><li><div class="item-name"><a class="struct" href="struct.Options.html" title="struct bevy::asset::ron::Options">Options</a></div><div class="desc docblock-short">Roundtrip serde options.</div></li><li><div class="item-name"><a class="struct" href="struct.Serializer.html" title="struct bevy::asset::ron::Serializer">Serializer</a></div><div class="desc docblock-short">The RON serializer.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum bevy::asset::ron::Error">Error</a></div></li><li><div class="item-name"><a class="enum" href="enum.Number.html" title="enum bevy::asset::ron::Number">Number</a></div><div class="desc docblock-short">A wrapper for a number, which can be either <a href="https://doc.rust-lang.org/1.75.0/std/primitive.f64.html" title="primitive f64"><code>f64</code></a> or <a href="https://doc.rust-lang.org/1.75.0/std/primitive.i64.html" title="primitive i64"><code>i64</code></a>.</div></li><li><div class="item-name"><a class="enum" href="enum.Value.html" title="enum bevy::asset::ron::Value">Value</a></div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.from_str.html" title="fn bevy::asset::ron::from_str">from_str</a></div><div class="desc docblock-short">A convenience function for building a deserializer
+and deserializing a value of type <code>T</code> from a string.</div></li><li><div class="item-name"><a class="fn" href="fn.to_string.html" title="fn bevy::asset::ron::to_string">to_string</a></div><div class="desc docblock-short">Serializes <code>value</code> and returns it as string.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Result.html" title="type bevy::asset::ron::Result">Result</a></div></li></ul></section></div></main></body></html>

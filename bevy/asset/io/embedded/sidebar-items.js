@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EMBEDDED"],"struct":["EmbeddedAssetRegistry","EmbeddedWatcher"]};

@@ -1,0 +1,93 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A system that determines if one or more scheduled systems should run."><title>Condition in bevy::ecs::schedule - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">Condition</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.and_then">and_then</a></li><li><a href="#method.or_else">or_else</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In bevy::ecs::schedule</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">ecs</a>::<wbr><a href="index.html">schedule</a>::<wbr><a class="trait" href="#">Condition</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Condition&lt;Marker, In = <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;: Condition&lt;Marker, In&gt; {
+    // Provided methods
+    fn <a href="#method.and_then" class="fn">and_then</a>&lt;M, C&gt;(
+        self,
+        and_then: C
+    ) -&gt; <a class="struct" href="../system/struct.CombinatorSystem.html" title="struct bevy::ecs::system::CombinatorSystem">CombinatorSystem</a>&lt;AndThenMarker, Self::<a class="associatedtype" href="../system/trait.IntoSystem.html#associatedtype.System" title="type bevy::ecs::system::IntoSystem::System">System</a>, &lt;C as <a class="trait" href="../system/trait.IntoSystem.html" title="trait bevy::ecs::system::IntoSystem">IntoSystem</a>&lt;In, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>, M&gt;&gt;::<a class="associatedtype" href="../system/trait.IntoSystem.html#associatedtype.System" title="type bevy::ecs::system::IntoSystem::System">System</a>&gt;
+       <span class="where">where C: <a class="trait" href="trait.Condition.html" title="trait bevy::ecs::schedule::Condition">Condition</a>&lt;M, In&gt;</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.or_else" class="fn">or_else</a>&lt;M, C&gt;(
+        self,
+        or_else: C
+    ) -&gt; <a class="struct" href="../system/struct.CombinatorSystem.html" title="struct bevy::ecs::system::CombinatorSystem">CombinatorSystem</a>&lt;OrElseMarker, Self::<a class="associatedtype" href="../system/trait.IntoSystem.html#associatedtype.System" title="type bevy::ecs::system::IntoSystem::System">System</a>, &lt;C as <a class="trait" href="../system/trait.IntoSystem.html" title="trait bevy::ecs::system::IntoSystem">IntoSystem</a>&lt;In, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>, M&gt;&gt;::<a class="associatedtype" href="../system/trait.IntoSystem.html#associatedtype.System" title="type bevy::ecs::system::IntoSystem::System">System</a>&gt;
+       <span class="where">where C: <a class="trait" href="trait.Condition.html" title="trait bevy::ecs::schedule::Condition">Condition</a>&lt;M, In&gt;</span> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A system that determines if one or more scheduled systems should run.</p>
+<p>Implemented for functions and closures that convert into <a href="../system/trait.System.html" title="trait bevy::ecs::system::System"><code>System&lt;Out=bool&gt;</code></a>
+with <a href="../system/trait.ReadOnlySystemParam.html" title="trait bevy::ecs::system::ReadOnlySystemParam">read-only</a> parameters.</p>
+<h2 id="marker-type-parameter"><a href="#marker-type-parameter">Marker type parameter</a></h2>
+<p><code>Condition</code> trait has <code>Marker</code> type parameter, which has no special meaning,
+but exists to work around the limitation of Rust’s trait system.</p>
+<p>Type parameter in return type can be set to <code>&lt;()&gt;</code> by calling <a href="../system/trait.IntoSystem.html#tymethod.into_system" title="associated function bevy::ecs::system::IntoSystem::into_system"><code>IntoSystem::into_system</code></a>,
+but usually have to be specified when passing a condition to a function.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>not_condition&lt;Marker&gt;(a: <span class="kw">impl </span>Condition&lt;Marker&gt;) -&gt; <span class="kw">impl </span>Condition&lt;()&gt; {
+   IntoSystem::into_system(a.map(|x| !x))
+}</code></pre></div>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>A condition that returns true every other time it’s called.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>every_other_time() -&gt; <span class="kw">impl </span>Condition&lt;()&gt; {
+    IntoSystem::into_system(|<span class="kw-2">mut </span>flag: Local&lt;bool&gt;| {
+        <span class="kw-2">*</span>flag = !<span class="kw-2">*</span>flag;
+        <span class="kw-2">*</span>flag
+    })
+}
+
+schedule.add_systems(my_system.run_if(every_other_time()));</code></pre></div>
+<p>A condition that takes a bool as an input and returns it unchanged.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>identity() -&gt; <span class="kw">impl </span>Condition&lt;(), bool&gt; {
+    IntoSystem::into_system(|In(x)| x)
+}
+
+app.add_systems(my_system.run_if(always_true.pipe(identity())));</code></pre></div>
+</div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.and_then" class="method"><h4 class="code-header">fn <a href="#method.and_then" class="fn">and_then</a>&lt;M, C&gt;(
+    self,
+    and_then: C
+) -&gt; <a class="struct" href="../system/struct.CombinatorSystem.html" title="struct bevy::ecs::system::CombinatorSystem">CombinatorSystem</a>&lt;AndThenMarker, Self::<a class="associatedtype" href="../system/trait.IntoSystem.html#associatedtype.System" title="type bevy::ecs::system::IntoSystem::System">System</a>, &lt;C as <a class="trait" href="../system/trait.IntoSystem.html" title="trait bevy::ecs::system::IntoSystem">IntoSystem</a>&lt;In, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>, M&gt;&gt;::<a class="associatedtype" href="../system/trait.IntoSystem.html#associatedtype.System" title="type bevy::ecs::system::IntoSystem::System">System</a>&gt;<span class="where fmt-newline">where
+    C: <a class="trait" href="trait.Condition.html" title="trait bevy::ecs::schedule::Condition">Condition</a>&lt;M, In&gt;,</span></h4></section></summary><div class="docblock"><p>Returns a new run condition that only returns <code>true</code>
+if both this one and the passed <code>and_then</code> return <code>true</code>.</p>
+<p>The returned run condition is short-circuiting, meaning
+<code>and_then</code> will only be invoked if <code>self</code> returns <code>true</code>.</p>
+<h5 id="examples-1"><a href="#examples-1">Examples</a></h5>
+<div class="example-wrap should_panic"><a href="#" class="tooltip" title="This example panics">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>bevy_ecs::prelude::<span class="kw-2">*</span>;
+
+<span class="attr">#[derive(Resource, PartialEq)]
+</span><span class="kw">struct </span>R(u32);
+
+app.add_systems(
+    <span class="comment">// The `resource_equals` run condition will panic since we don&#39;t initialize `R`,
+    // just like if we used `Res&lt;R&gt;` in a system.
+    </span>my_system.run_if(resource_equals(R(<span class="number">0</span>))),
+);</code></pre></div>
+<p>Use <code>.and_then()</code> to avoid checking the condition.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>app.add_systems(
+    <span class="comment">// `resource_equals` will only get run if the resource `R` exists.
+    </span>my_system.run_if(resource_exists::&lt;R&gt;().and_then(resource_equals(R(<span class="number">0</span>)))),
+);</code></pre></div>
+<p>Note that in this case, it’s better to just use the run condition <a href="common_conditions/fn.resource_exists_and_equals.html" title="fn bevy::ecs::schedule::common_conditions::resource_exists_and_equals"><code>resource_exists_and_equals</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.or_else" class="method"><h4 class="code-header">fn <a href="#method.or_else" class="fn">or_else</a>&lt;M, C&gt;(
+    self,
+    or_else: C
+) -&gt; <a class="struct" href="../system/struct.CombinatorSystem.html" title="struct bevy::ecs::system::CombinatorSystem">CombinatorSystem</a>&lt;OrElseMarker, Self::<a class="associatedtype" href="../system/trait.IntoSystem.html#associatedtype.System" title="type bevy::ecs::system::IntoSystem::System">System</a>, &lt;C as <a class="trait" href="../system/trait.IntoSystem.html" title="trait bevy::ecs::system::IntoSystem">IntoSystem</a>&lt;In, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>, M&gt;&gt;::<a class="associatedtype" href="../system/trait.IntoSystem.html#associatedtype.System" title="type bevy::ecs::system::IntoSystem::System">System</a>&gt;<span class="where fmt-newline">where
+    C: <a class="trait" href="trait.Condition.html" title="trait bevy::ecs::schedule::Condition">Condition</a>&lt;M, In&gt;,</span></h4></section></summary><div class="docblock"><p>Returns a new run condition that returns <code>true</code>
+if either this one or the passed <code>or_else</code> return <code>true</code>.</p>
+<p>The returned run condition is short-circuiting, meaning
+<code>or_else</code> will only be invoked if <code>self</code> returns <code>false</code>.</p>
+<h5 id="examples-2"><a href="#examples-2">Examples</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>bevy_ecs::prelude::<span class="kw-2">*</span>;
+
+<span class="attr">#[derive(Resource, PartialEq)]
+</span><span class="kw">struct </span>A(u32);
+
+<span class="attr">#[derive(Resource, PartialEq)]
+</span><span class="kw">struct </span>B(u32);
+
+app.add_systems(
+    <span class="comment">// Only run the system if either `A` or `B` exist.
+    </span>my_system.run_if(resource_exists::&lt;A&gt;().or_else(resource_exists::&lt;B&gt;())),
+);</code></pre></div>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Condition%3CMarker,+In%3E-for-F" class="impl"><a href="#impl-Condition%3CMarker,+In%3E-for-F" class="anchor">§</a><h3 class="code-header">impl&lt;Marker, In, F&gt; <a class="trait" href="trait.Condition.html" title="trait bevy::ecs::schedule::Condition">Condition</a>&lt;Marker, In&gt; for F<span class="where fmt-newline">where
+    F: Condition&lt;Marker, In&gt;,</span></h3></section></div><script src="../../../trait.impl/bevy_ecs/schedule/condition/trait.Condition.js" async></script></section></div></main></body></html>

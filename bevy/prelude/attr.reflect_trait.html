@@ -1,0 +1,41 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A macro that automatically generates type data for traits, which their implementors can then register."><title>reflect_trait in bevy::prelude - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::prelude</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="../index.html">bevy</a>::<wbr><a href="index.html">prelude</a>::<wbr><a class="attr" href="#">reflect_trait</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[reflect_trait]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A macro that automatically generates type data for traits, which their implementors can then register.</p>
+<p>The output of this macro is a struct that takes reflected instances of the implementor’s type
+and returns the value as a trait object.
+Because of this, <strong>it can only be used on <a href="https://doc.rust-lang.org/reference/items/traits.html#object-safety">object-safe</a> traits.</strong></p>
+<p>For a trait named <code>MyTrait</code>, this will generate the struct <code>ReflectMyTrait</code>.
+The generated struct can be created using <code>FromType</code> with any type that implements the trait.
+The creation and registration of this generated struct as type data can be automatically handled
+by <a href="../reflect/derive.Reflect.html" title="derive bevy::reflect::Reflect"><code>#[derive(Reflect)]</code></a>.</p>
+<h2 id="example"><a href="#example">Example</a></h2>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[reflect_trait] </span><span class="comment">// Generates `ReflectMyTrait`
+</span><span class="kw">trait </span>MyTrait {
+  <span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str;
+}
+
+<span class="attr">#[derive(Reflect)]
+#[reflect(MyTrait)] </span><span class="comment">// Automatically registers `ReflectMyTrait`
+</span><span class="kw">struct </span>SomeStruct;
+
+<span class="kw">impl </span>MyTrait <span class="kw">for </span>SomeStruct {
+  <span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+    <span class="string">&quot;Hello, World!&quot;
+  </span>}
+}
+
+<span class="comment">// We can create the type data manually if we wanted:
+</span><span class="kw">let </span>my_trait: ReflectMyTrait = FromType::&lt;SomeStruct&gt;::from_type();
+
+<span class="comment">// Or we can simply get it from the registry:
+</span><span class="kw">let </span><span class="kw-2">mut </span>registry = TypeRegistry::default();
+registry.register::&lt;SomeStruct&gt;();
+<span class="kw">let </span>my_trait = registry
+  .get_type_data::&lt;ReflectMyTrait&gt;(TypeId::of::&lt;SomeStruct&gt;())
+  .unwrap();
+
+<span class="comment">// Then use it on reflected data
+</span><span class="kw">let </span>reflected: Box&lt;<span class="kw">dyn </span>Reflect&gt; = Box::new(SomeStruct);
+<span class="kw">let </span>reflected_my_trait: <span class="kw-2">&amp;</span><span class="kw">dyn </span>MyTrait = my_trait.get(<span class="kw-2">&amp;*</span>reflected).unwrap();
+<span class="macro">assert_eq!</span>(<span class="string">&quot;Hello, World!&quot;</span>, reflected_my_trait.print());</code></pre></div>
+</div></details></section></div></main></body></html>

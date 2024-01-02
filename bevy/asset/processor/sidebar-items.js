@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InitializeError","LogEntryError","ProcessError","ProcessResult","ProcessStatus","ProcessorState","ReadLogError","ValidateLogError"],"struct":["AssetProcessor","AssetProcessorData","LoadAndSave","LoadAndSaveSettings","ProcessContext","ProcessorAssetInfos","ProcessorTransactionLog","WriteLogError"],"trait":["ErasedProcessor","Process"]};

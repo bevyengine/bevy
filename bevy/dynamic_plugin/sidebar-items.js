@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DynamicPluginLoadError"],"fn":["dynamically_load_plugin"],"trait":["DynamicPluginExt"]};

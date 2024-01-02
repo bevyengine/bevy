@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["prepare_windows"],"mod":["screenshot"],"struct":["ExtractedWindow","ExtractedWindows","NonSendMarker","WindowRenderPlugin","WindowSurfaces"]};

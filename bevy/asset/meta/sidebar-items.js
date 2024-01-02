@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["META_FORMAT_VERSION"],"enum":["AssetAction","AssetActionMinimal"],"struct":["AssetMeta","AssetMetaMinimal","ProcessDependencyInfo","ProcessedInfo","ProcessedInfoMinimal"],"trait":["AssetMetaDyn","Settings"],"type":["AssetHash","MetaTransform"]};

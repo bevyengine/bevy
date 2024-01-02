@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The `Box&lt;T&gt;` type for heap allocation."><title>bevy::utils::smallvec::alloc::boxed - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">Module boxed</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In bevy::utils::smallvec::alloc</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">smallvec</a>::<wbr><a href="../index.html">alloc</a>::<wbr><a class="mod" href="#">boxed</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/alloc/lib.rs.html#237">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The <code>Box&lt;T&gt;</code> type for heap allocation.</p>
+<p><a href="struct.Box.html" title="struct bevy::utils::smallvec::alloc::boxed::Box"><code>Box&lt;T&gt;</code></a>, casually referred to as a ‘box’, provides the simplest form of
+heap allocation in Rust. Boxes provide ownership for this allocation, and
+drop their contents when they go out of scope. Boxes also ensure that they
+never allocate more than <code>isize::MAX</code> bytes.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>Move a value from the stack to the heap by creating a <a href="struct.Box.html" title="struct bevy::utils::smallvec::alloc::boxed::Box"><code>Box</code></a>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>val: u8 = <span class="number">5</span>;
+<span class="kw">let </span>boxed: Box&lt;u8&gt; = Box::new(val);</code></pre></div>
+<p>Move a value from a <a href="struct.Box.html" title="struct bevy::utils::smallvec::alloc::boxed::Box"><code>Box</code></a> back to the stack by <a href="https://doc.rust-lang.org/1.75.0/core/ops/deref/trait.Deref.html" title="trait core::ops::deref::Deref">dereferencing</a>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>boxed: Box&lt;u8&gt; = Box::new(<span class="number">5</span>);
+<span class="kw">let </span>val: u8 = <span class="kw-2">*</span>boxed;</code></pre></div>
+<p>Creating a recursive data structure:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Debug)]
+</span><span class="kw">enum </span>List&lt;T&gt; {
+    Cons(T, Box&lt;List&lt;T&gt;&gt;),
+    Nil,
+}
+
+<span class="kw">let </span>list: List&lt;i32&gt; = List::Cons(<span class="number">1</span>, Box::new(List::Cons(<span class="number">2</span>, Box::new(List::Nil))));
+<span class="macro">println!</span>(<span class="string">&quot;{list:?}&quot;</span>);</code></pre></div>
+<p>This will print <code>Cons(1, Cons(2, Nil))</code>.</p>
+<p>Recursive structures must be boxed, because if the definition of <code>Cons</code>
+looked like this:</p>
+
+<div class="example-wrap compile_fail"><a href="#" class="tooltip" title="This example deliberately fails to compile">ⓘ</a><pre class="rust rust-example-rendered"><code>Cons(T, List&lt;T&gt;),</code></pre></div>
+<p>It wouldn’t work. This is because the size of a <code>List</code> depends on how many
+elements are in the list, and so we don’t know how much memory to allocate
+for a <code>Cons</code>. By introducing a <a href="struct.Box.html" title="struct bevy::utils::smallvec::alloc::boxed::Box"><code>Box&lt;T&gt;</code></a>, which has a defined size, we know how
+big <code>Cons</code> needs to be.</p>
+<h2 id="memory-layout"><a href="#memory-layout">Memory layout</a></h2>
+<p>For non-zero-sized values, a <a href="struct.Box.html" title="struct bevy::utils::smallvec::alloc::boxed::Box"><code>Box</code></a> will use the <a href="../alloc/struct.Global.html" title="struct bevy::utils::smallvec::alloc::alloc::Global"><code>Global</code></a> allocator for
+its allocation. It is valid to convert both ways between a <a href="struct.Box.html" title="struct bevy::utils::smallvec::alloc::boxed::Box"><code>Box</code></a> and a
+raw pointer allocated with the <a href="../alloc/struct.Global.html" title="struct bevy::utils::smallvec::alloc::alloc::Global"><code>Global</code></a> allocator, given that the
+<a href="../alloc/struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout"><code>Layout</code></a> used with the allocator is correct for the type. More precisely,
+a <code>value: *mut T</code> that has been allocated with the <a href="../alloc/struct.Global.html" title="struct bevy::utils::smallvec::alloc::alloc::Global"><code>Global</code></a> allocator
+with <code>Layout::for_value(&amp;*value)</code> may be converted into a box using
+<a href="struct.Box.html#method.from_raw" title="associated function bevy::utils::smallvec::alloc::boxed::Box::from_raw"><code>Box::&lt;T&gt;::from_raw(value)</code></a>. Conversely, the memory backing a <code>value: *mut T</code> obtained from <a href="struct.Box.html#method.into_raw" title="associated function bevy::utils::smallvec::alloc::boxed::Box::into_raw"><code>Box::&lt;T&gt;::into_raw</code></a> may be deallocated using the
+<a href="../alloc/struct.Global.html" title="struct bevy::utils::smallvec::alloc::alloc::Global"><code>Global</code></a> allocator with <a href="../alloc/struct.Layout.html#method.for_value" title="associated function bevy::utils::smallvec::alloc::alloc::Layout::for_value"><code>Layout::for_value(&amp;*value)</code></a>.</p>
+<p>For zero-sized values, the <code>Box</code> pointer still has to be <a href="https://doc.rust-lang.org/1.75.0/core/ptr/index.html#safety" title="mod core::ptr">valid</a> for reads
+and writes and sufficiently aligned. In particular, casting any aligned
+non-zero integer literal to a raw pointer produces a valid pointer, but a
+pointer pointing into previously allocated memory that since got freed is
+not valid. The recommended way to build a Box to a ZST if <code>Box::new</code> cannot
+be used is to use <a href="https://doc.rust-lang.org/1.75.0/core/ptr/non_null/struct.NonNull.html#method.dangling" title="associated function core::ptr::non_null::NonNull::dangling"><code>ptr::NonNull::dangling</code></a>.</p>
+<p>So long as <code>T: Sized</code>, a <code>Box&lt;T&gt;</code> is guaranteed to be represented
+as a single pointer and is also ABI-compatible with C pointers
+(i.e. the C type <code>T*</code>). This means that if you have extern “C”
+Rust functions that will be called from C, you can define those
+Rust functions using <code>Box&lt;T&gt;</code> types, and use <code>T*</code> as corresponding
+type on the C side. As an example, consider this C header which
+declares functions that create and destroy some kind of <code>Foo</code>
+value:</p>
+<div class="example-wrap"><pre class="language-c"><code>/* C header */
+
+/* Returns ownership to the caller */
+struct Foo* foo_new(void);
+
+/* Takes ownership from the caller; no-op when invoked with null */
+void foo_delete(struct Foo*);
+</code></pre></div>
+<p>These two functions might be implemented in Rust as follows. Here, the
+<code>struct Foo*</code> type from C is translated to <code>Box&lt;Foo&gt;</code>, which captures
+the ownership constraints. Note also that the nullable argument to
+<code>foo_delete</code> is represented in Rust as <code>Option&lt;Box&lt;Foo&gt;&gt;</code>, since <code>Box&lt;Foo&gt;</code>
+cannot be null.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>Foo;
+
+<span class="attr">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>foo_new() -&gt; Box&lt;Foo&gt; {
+    Box::new(Foo)
+}
+
+<span class="attr">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>foo_delete(<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;Box&lt;Foo&gt;&gt;) {}</code></pre></div>
+<p>Even though <code>Box&lt;T&gt;</code> has the same representation and C ABI as a C pointer,
+this does not mean that you can convert an arbitrary <code>T*</code> into a <code>Box&lt;T&gt;</code>
+and expect things to work. <code>Box&lt;T&gt;</code> values will always be fully aligned,
+non-null pointers. Moreover, the destructor for <code>Box&lt;T&gt;</code> will attempt to
+free the value with the global allocator. In general, the best practice
+is to only use <code>Box&lt;T&gt;</code> for pointers that originated from the global
+allocator.</p>
+<p><strong>Important.</strong> At least at present, you should avoid using
+<code>Box&lt;T&gt;</code> types for functions that are defined in C but invoked
+from Rust. In those cases, you should directly mirror the C types
+as closely as possible. Using types like <code>Box&lt;T&gt;</code> where the C
+definition is just using <code>T*</code> can lead to undefined behavior, as
+described in <a href="https://github.com/rust-lang/unsafe-code-guidelines/issues/198">rust-lang/unsafe-code-guidelines#198</a>.</p>
+<h2 id="considerations-for-unsafe-code"><a href="#considerations-for-unsafe-code">Considerations for unsafe code</a></h2>
+<p><strong>Warning: This section is not normative and is subject to change, possibly
+being relaxed in the future! It is a simplified summary of the rules
+currently implemented in the compiler.</strong></p>
+<p>The aliasing rules for <code>Box&lt;T&gt;</code> are the same as for <code>&amp;mut T</code>. <code>Box&lt;T&gt;</code>
+asserts uniqueness over its content. Using raw pointers derived from a box
+after that box has been mutated through, moved or borrowed as <code>&amp;mut T</code>
+is not allowed. For more guidance on working with box from unsafe code, see
+<a href="https://github.com/rust-lang/unsafe-code-guidelines/issues/326">rust-lang/unsafe-code-guidelines#326</a>.</p>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ThinBox.html" title="struct bevy::utils::smallvec::alloc::boxed::ThinBox">ThinBox</a><span class="stab unstable" title="">Experimental</span></div><div class="desc docblock-short">ThinBox.</div></li><li><div class="item-name"><a class="struct" href="struct.Box.html" title="struct bevy::utils::smallvec::alloc::boxed::Box">Box</a></div><div class="desc docblock-short">A pointer type that uniquely owns a heap allocation of type <code>T</code>.</div></li></ul></section></div></main></body></html>

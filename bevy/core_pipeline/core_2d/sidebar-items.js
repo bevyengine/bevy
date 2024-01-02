@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CORE_2D"],"fn":["extract_core_2d_camera_phases"],"mod":["graph"],"struct":["Camera2d","Camera2dBundle","Core2dPlugin","MainPass2dNode","Transparent2d"]};

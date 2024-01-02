@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EulerRot"],"struct":["BVec2","BVec3","BVec4","CubicBSpline","CubicBezier","CubicCardinalSpline","CubicHermite","CubicSegment","IRect","IVec2","IVec3","IVec4","Mat2","Mat3","Mat4","Quat","Ray2d","Ray3d","Rect","URect","UVec2","UVec3","UVec4","Vec2","Vec3","Vec4"],"trait":["CubicGenerator","Vec2Swizzles","Vec3Swizzles","Vec4Swizzles"]};

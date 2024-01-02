@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="[Generic] Compute the maximum matching using Gabow’s algorithm."><title>maximum_matching in bevy::utils::petgraph::algo::matching - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::utils::petgraph::algo::matching</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">petgraph</a>::<wbr><a href="../index.html">algo</a>::<wbr><a href="index.html">matching</a>::<wbr><a class="fn" href="#">maximum_matching</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/petgraph/0.4/src/petgraph/algo/matching.rs.html#368-370">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub fn maximum_matching&lt;G&gt;(graph: G) -&gt; <a class="struct" href="../struct.Matching.html" title="struct bevy::utils::petgraph::algo::Matching">Matching</a>&lt;G&gt;<span class="where fmt-newline">where
+    G: <a class="trait" href="../../visit/trait.Visitable.html" title="trait bevy::utils::petgraph::visit::Visitable">Visitable</a> + <a class="trait" href="../../visit/trait.NodeIndexable.html" title="trait bevy::utils::petgraph::visit::NodeIndexable">NodeIndexable</a> + <a class="trait" href="../../visit/trait.IntoNodeIdentifiers.html" title="trait bevy::utils::petgraph::visit::IntoNodeIdentifiers">IntoNodeIdentifiers</a> + <a class="trait" href="../../visit/trait.IntoEdges.html" title="trait bevy::utils::petgraph::visit::IntoEdges">IntoEdges</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>[Generic] Compute the <a href="https://en.wikipedia.org/wiki/Matching_(graph_theory)"><em>maximum
+matching</em></a> using
+<a href="https://dl.acm.org/doi/10.1145/321941.321942">Gabow’s algorithm</a>.</p>
+<p>The input graph is treated as if undirected. The algorithm runs in
+<em>O(|V|³)</em>. An algorithm with a better time complexity might be used in the
+future.</p>
+<p><strong>Panics</strong> if <code>g.node_bound()</code> is <code>std::usize::MAX</code>.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>petgraph::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>petgraph::algo::maximum_matching;
+
+<span class="comment">// The example graph:
+//
+//    +-- b ---- d ---- f
+//   /    |      |
+//  a     |      |
+//   \    |      |
+//    +-- c ---- e
+//
+// Maximum matching: { (a, b), (c, e), (d, f) }
+
+</span><span class="kw">let </span><span class="kw-2">mut </span>graph: UnGraph&lt;(), ()&gt; = UnGraph::new_undirected();
+<span class="kw">let </span>a = graph.add_node(());
+<span class="kw">let </span>b = graph.add_node(());
+<span class="kw">let </span>c = graph.add_node(());
+<span class="kw">let </span>d = graph.add_node(());
+<span class="kw">let </span>e = graph.add_node(());
+<span class="kw">let </span>f = graph.add_node(());
+graph.extend_with_edges(<span class="kw-2">&amp;</span>[(a, b), (a, c), (b, c), (b, d), (c, e), (d, e), (d, f)]);
+
+<span class="kw">let </span>matching = maximum_matching(<span class="kw-2">&amp;</span>graph);
+<span class="macro">assert!</span>(matching.contains_edge(a, b));
+<span class="macro">assert!</span>(matching.contains_edge(c, e));
+<span class="macro">assert_eq!</span>(matching.mate(d), <span class="prelude-val">Some</span>(f));
+<span class="macro">assert_eq!</span>(matching.mate(f), <span class="prelude-val">Some</span>(d));</code></pre></div>
+</div></details></section></div></main></body></html>

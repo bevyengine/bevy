@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":["Pod","Zeroable"],"fn":["bytes_of","cast_slice","update_frame_count"],"mod":["prelude"],"struct":["DebugName","DebugNameItem","FrameCount","FrameCountPlugin","Name","NonSendMarker","TaskPoolOptions","TaskPoolPlugin","TaskPoolThreadAssignmentPolicy","TypeRegistrationPlugin"],"trait":["Pod","Zeroable"]};

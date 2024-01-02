@@ -1,0 +1,78 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="github crates-io docs-rs"><title>bevy::reflect::erased_serde - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In bevy::reflect</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">reflect</a>::<wbr><a class="mod" href="#">erased_serde</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/erased-serde/0.3.31/src/erased_serde/lib.rs.html#1-144">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><a href="https://github.com/dtolnay/erased-serde"><img src="https://img.shields.io/badge/github-8da0cb?style=for-the-badge&amp;labelColor=555555&amp;logo=github" alt="github" /></a> <a href="https://crates.io/crates/erased-serde"><img src="https://img.shields.io/badge/crates.io-fc8d62?style=for-the-badge&amp;labelColor=555555&amp;logo=rust" alt="crates-io" /></a> <a href="https://docs.rs/erased-serde"><img src="https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&amp;labelColor=555555&amp;logo=docs.rs" alt="docs-rs" /></a></p>
+<br>
+<p>This crate provides type-erased versions of Serde’s <code>Serialize</code>, <code>Serializer</code>
+and <code>Deserializer</code> traits that can be used as <a href="https://doc.rust-lang.org/book/trait-objects.html">trait objects</a>.</p>
+<p>The usual Serde <code>Serialize</code>, <code>Serializer</code> and <code>Deserializer</code> traits cannot
+be used as trait objects like <code>&amp;dyn Serialize</code> or boxed trait objects like
+<code>Box&lt;dyn Serialize&gt;</code> because of Rust’s <a href="http://huonw.github.io/blog/2015/01/object-safety/">“object safety” rules</a>. In
+particular, all three traits contain generic methods which cannot be made
+into a trait object.</p>
+<p>This library should be considered a low-level building block for interacting
+with Serde APIs in an object-safe way. Most use cases will require higher
+level functionality such as provided by <a href="https://github.com/dtolnay/typetag"><code>typetag</code></a> which uses this crate
+internally.</p>
+<p><strong>The traits in this crate work seamlessly with any existing Serde
+<code>Serialize</code> and <code>Deserialize</code> type and any existing Serde <code>Serializer</code> and
+<code>Deserializer</code> format.</strong></p>
+<h3 id="serialization"><a href="#serialization">Serialization</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>erased_serde::{Serialize, Serializer};
+<span class="kw">use </span>std::collections::BTreeMap <span class="kw">as </span>Map;
+<span class="kw">use </span>std::io;
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// Construct some serializers.
+    </span><span class="kw">let </span>json = <span class="kw-2">&amp;mut </span>serde_json::Serializer::new(io::stdout());
+    <span class="kw">let </span>cbor = <span class="kw-2">&amp;mut </span>serde_cbor::Serializer::new(serde_cbor::ser::IoWrite::new(io::stdout()));
+
+    <span class="comment">// The values in this map are boxed trait objects. Ordinarily this would not
+    // be possible with serde::Serializer because of object safety, but type
+    // erasure makes it possible with erased_serde::Serializer.
+    </span><span class="kw">let </span><span class="kw-2">mut </span>formats: Map&lt;<span class="kw-2">&amp;</span>str, Box&lt;<span class="kw">dyn </span>Serializer&gt;&gt; = Map::new();
+    formats.insert(<span class="string">&quot;json&quot;</span>, Box::new(&lt;<span class="kw">dyn </span>Serializer&gt;::erase(json)));
+    formats.insert(<span class="string">&quot;cbor&quot;</span>, Box::new(&lt;<span class="kw">dyn </span>Serializer&gt;::erase(cbor)));
+
+    <span class="comment">// These are boxed trait objects as well. Same thing here - type erasure
+    // makes this possible.
+    </span><span class="kw">let </span><span class="kw-2">mut </span>values: Map&lt;<span class="kw-2">&amp;</span>str, Box&lt;<span class="kw">dyn </span>Serialize&gt;&gt; = Map::new();
+    values.insert(<span class="string">&quot;vec&quot;</span>, Box::new(<span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>]));
+    values.insert(<span class="string">&quot;int&quot;</span>, Box::new(<span class="number">65536</span>));
+
+    <span class="comment">// Pick a Serializer out of the formats map.
+    </span><span class="kw">let </span>format = formats.get_mut(<span class="string">&quot;json&quot;</span>).unwrap();
+
+    <span class="comment">// Pick a Serialize out of the values map.
+    </span><span class="kw">let </span>value = values.get(<span class="string">&quot;vec&quot;</span>).unwrap();
+
+    <span class="comment">// This line prints `[&quot;a&quot;,&quot;b&quot;]` to stdout.
+    </span>value.erased_serialize(format).unwrap();
+}</code></pre></div>
+<h3 id="deserialization"><a href="#deserialization">Deserialization</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>erased_serde::Deserializer;
+<span class="kw">use </span>std::collections::BTreeMap <span class="kw">as </span>Map;
+
+<span class="kw">fn </span>main() {
+    <span class="kw">static </span>JSON: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = <span class="string">br#&quot;{&quot;A&quot;: 65, &quot;B&quot;: 66}&quot;#</span>;
+    <span class="kw">static </span>CBOR: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = <span class="kw-2">&amp;</span>[<span class="number">162</span>, <span class="number">97</span>, <span class="number">65</span>, <span class="number">24</span>, <span class="number">65</span>, <span class="number">97</span>, <span class="number">66</span>, <span class="number">24</span>, <span class="number">66</span>];
+
+    <span class="comment">// Construct some deserializers.
+    </span><span class="kw">let </span>json = <span class="kw-2">&amp;mut </span>serde_json::Deserializer::from_slice(JSON);
+    <span class="kw">let </span>cbor = <span class="kw-2">&amp;mut </span>serde_cbor::Deserializer::from_slice(CBOR);
+
+    <span class="comment">// The values in this map are boxed trait objects, which is not possible
+    // with the normal serde::Deserializer because of object safety.
+    </span><span class="kw">let </span><span class="kw-2">mut </span>formats: Map&lt;<span class="kw-2">&amp;</span>str, Box&lt;<span class="kw">dyn </span>Deserializer&gt;&gt; = Map::new();
+    formats.insert(<span class="string">&quot;json&quot;</span>, Box::new(&lt;<span class="kw">dyn </span>Deserializer&gt;::erase(json)));
+    formats.insert(<span class="string">&quot;cbor&quot;</span>, Box::new(&lt;<span class="kw">dyn </span>Deserializer&gt;::erase(cbor)));
+
+    <span class="comment">// Pick a Deserializer out of the formats map.
+    </span><span class="kw">let </span>format = formats.get_mut(<span class="string">&quot;json&quot;</span>).unwrap();
+
+    <span class="kw">let </span>data: Map&lt;String, usize&gt; = erased_serde::deserialize(format).unwrap();
+
+    <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, data[<span class="string">&quot;A&quot;</span>] + data[<span class="string">&quot;B&quot;</span>]);
+}</code></pre></div>
+</div></details><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.serialize_trait_object.html" title="macro bevy::reflect::erased_serde::serialize_trait_object">serialize_trait_object</a></div><div class="desc docblock-short">Implement <code>serde::Serialize</code> for a trait object that has
+<code>erased_serde::Serialize</code> as a supertrait.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Error.html" title="struct bevy::reflect::erased_serde::Error">Error</a></div><div class="desc docblock-short">Error when a <code>Serializer</code> or <code>Deserializer</code> trait object fails.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Deserializer.html" title="trait bevy::reflect::erased_serde::Deserializer">Deserializer</a></div><div class="desc docblock-short">An object-safe equivalent of Serde’s <code>Deserializer</code> trait.</div></li><li><div class="item-name"><a class="trait" href="trait.Serialize.html" title="trait bevy::reflect::erased_serde::Serialize">Serialize</a></div><div class="desc docblock-short">An object-safe equivalent of Serde’s <code>Serialize</code> trait.</div></li><li><div class="item-name"><a class="trait" href="trait.Serializer.html" title="trait bevy::reflect::erased_serde::Serializer">Serializer</a></div><div class="desc docblock-short">An object-safe equivalent of Serde’s <code>Serializer</code> trait.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.deserialize.html" title="fn bevy::reflect::erased_serde::deserialize">deserialize</a></div><div class="desc docblock-short">Deserialize a value of type <code>T</code> from the given trait object.</div></li><li><div class="item-name"><a class="fn" href="fn.serialize.html" title="fn bevy::reflect::erased_serde::serialize">serialize</a></div><div class="desc docblock-short">Serialize the given type-erased serializable value.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Result.html" title="type bevy::reflect::erased_serde::Result">Result</a></div><div class="desc docblock-short">Result type alias where the error is <code>erased_serde::Error</code>.</div></li></ul></section></div></main></body></html>

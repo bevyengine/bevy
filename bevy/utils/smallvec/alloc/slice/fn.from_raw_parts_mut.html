@@ -1,0 +1,35 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Performs the same functionality as `from_raw_parts`, except that a mutable slice is returned."><title>from_raw_parts_mut in bevy::utils::smallvec::alloc::slice - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::utils::smallvec::alloc::slice</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">smallvec</a>::<wbr><a href="../index.html">alloc</a>::<wbr><a href="index.html">slice</a>::<wbr><a class="fn" href="#">from_raw_parts_mut</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0, const unstable">1.0.0 (const: <a href="https://github.com/rust-lang/rust/issues/67456" title="Tracking issue for const_slice_from_raw_parts_mut">unstable</a>)</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/core/slice/raw.rs.html#141">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe fn from_raw_parts_mut&lt;'a, T&gt;(data: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut T</a>, len: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>) -&gt; &amp;'a mut <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html">[T]</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Performs the same functionality as <a href="fn.from_raw_parts.html" title="fn bevy::utils::smallvec::alloc::slice::from_raw_parts"><code>from_raw_parts</code></a>, except that a
+mutable slice is returned.</p>
+<h2 id="safety"><a href="#safety">Safety</a></h2>
+<p>Behavior is undefined if any of the following conditions are violated:</p>
+<ul>
+<li>
+<p><code>data</code> must be <a href="https://doc.rust-lang.org/1.75.0/core/ptr/index.html#safety" title="mod core::ptr">valid</a> for both reads and writes for <code>len * mem::size_of::&lt;T&gt;()</code> many bytes,
+and it must be properly aligned. This means in particular:</p>
+<ul>
+<li>The entire memory range of this slice must be contained within a single allocated object!
+Slices can never span across multiple allocated objects.</li>
+<li><code>data</code> must be non-null and aligned even for zero-length slices. One
+reason for this is that enum layout optimizations may rely on references
+(including slices of any length) being aligned and non-null to distinguish
+them from other data. You can obtain a pointer that is usable as <code>data</code>
+for zero-length slices using <a href="https://doc.rust-lang.org/1.75.0/core/ptr/non_null/struct.NonNull.html#method.dangling" title="associated function core::ptr::non_null::NonNull::dangling"><code>NonNull::dangling()</code></a>.</li>
+</ul>
+</li>
+<li>
+<p><code>data</code> must point to <code>len</code> consecutive properly initialized values of type <code>T</code>.</p>
+</li>
+<li>
+<p>The memory referenced by the returned slice must not be accessed through any other pointer
+(not derived from the return value) for the duration of lifetime <code>'a</code>.
+Both read and write accesses are forbidden.</p>
+</li>
+<li>
+<p>The total size <code>len * mem::size_of::&lt;T&gt;()</code> of the slice must be no larger than <code>isize::MAX</code>,
+and adding that size to <code>data</code> must not “wrap around” the address space.
+See the safety documentation of <a href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html#method.offset" title="method pointer::offset"><code>pointer::offset</code></a>.</p>
+</li>
+</ul>
+</div></details></section></div></main></body></html>

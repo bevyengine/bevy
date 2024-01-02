@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["debug","debug_once","debug_span","error","error_once","error_span","info","info_once","info_span","once","trace","trace_once","trace_span","warn","warn_once","warn_span"],"mod":["prelude"],"struct":["Level","LogPlugin"]};

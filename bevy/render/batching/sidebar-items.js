@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_and_prepare_render_phase","write_batched_instance_buffer"],"struct":["NoAutomaticBatching"],"trait":["GetBatchData"]};

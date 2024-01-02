@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="github crates-io docs-rs"><title>bevy::utils::thiserror - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#derives">Derive Macros</a></li></ul></section><h2><a href="../index.html">In bevy::utils</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">utils</a>::<wbr><a class="mod" href="#">thiserror</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/thiserror/1.0.56/src/thiserror/lib.rs.html#1-260">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><a href="https://github.com/dtolnay/thiserror"><img src="https://img.shields.io/badge/github-8da0cb?style=for-the-badge&amp;labelColor=555555&amp;logo=github" alt="github" /></a> <a href="https://crates.io/crates/thiserror"><img src="https://img.shields.io/badge/crates.io-fc8d62?style=for-the-badge&amp;labelColor=555555&amp;logo=rust" alt="crates-io" /></a> <a href="https://docs.rs/thiserror"><img src="https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&amp;labelColor=555555&amp;logo=docs.rs" alt="docs-rs" /></a></p>
+<br>
+<p>This library provides a convenient derive macro for the standard library’s
+<a href="https://doc.rust-lang.org/std/error/trait.Error.html"><code>std::error::Error</code></a> trait.</p>
+<br>
+<h2 id="example"><a href="#example">Example</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>thiserror::Error;
+
+<span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>DataStoreError {
+    <span class="attr">#[error(<span class="string">&quot;data store disconnected&quot;</span>)]
+    </span>Disconnect(<span class="attr">#[from] </span>io::Error),
+    <span class="attr">#[error(<span class="string">&quot;the data for key `{0}` is not available&quot;</span>)]
+    </span>Redaction(String),
+    <span class="attr">#[error(<span class="string">&quot;invalid header (expected {expected:?}, found {found:?})&quot;</span>)]
+    </span>InvalidHeader {
+        expected: String,
+        found: String,
+    },
+    <span class="attr">#[error(<span class="string">&quot;unknown data store error&quot;</span>)]
+    </span>Unknown,
+}</code></pre></div>
+<br>
+<h2 id="details"><a href="#details">Details</a></h2>
+<ul>
+<li>
+<p>Thiserror deliberately does not appear in your public API. You get the
+same thing as if you had written an implementation of <code>std::error::Error</code>
+by hand, and switching from handwritten impls to thiserror or vice versa
+is not a breaking change.</p>
+</li>
+<li>
+<p>Errors may be enums, structs with named fields, tuple structs, or unit
+structs.</p>
+</li>
+<li>
+<p>A <code>Display</code> impl is generated for your error if you provide
+<code>#[error(&quot;...&quot;)]</code> messages on the struct or each variant of your enum, as
+shown above in the example.</p>
+<p>The messages support a shorthand for interpolating fields from the error.</p>
+<ul>
+<li><code>#[error(&quot;{var}&quot;)]</code> ⟶ <code>write!(&quot;{}&quot;, self.var)</code></li>
+<li><code>#[error(&quot;{0}&quot;)]</code> ⟶ <code>write!(&quot;{}&quot;, self.0)</code></li>
+<li><code>#[error(&quot;{var:?}&quot;)]</code> ⟶ <code>write!(&quot;{:?}&quot;, self.var)</code></li>
+<li><code>#[error(&quot;{0:?}&quot;)]</code> ⟶ <code>write!(&quot;{:?}&quot;, self.0)</code></li>
+</ul>
+<p>These shorthands can be used together with any additional format args,
+which may be arbitrary expressions. For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>Error {
+    <span class="attr">#[error(<span class="string">&quot;invalid rdo_lookahead_frames {0} (expected &lt; {})&quot;</span>, i32::MAX)]
+    </span>InvalidLookahead(u32),
+}</code></pre></div>
+<p>If one of the additional expression arguments needs to refer to a field of
+the struct or enum, then refer to named fields as <code>.var</code> and tuple fields
+as <code>.0</code>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>Error {
+    <span class="attr">#[error(<span class="string">&quot;first letter must be lowercase but was {:?}&quot;</span>, first_char(.<span class="number">0</span>))]
+    </span>WrongCase(String),
+    <span class="attr">#[error(<span class="string">&quot;invalid index {idx}, expected at least {} and at most {}&quot;</span>, .limits.lo, .limits.hi)]
+    </span>OutOfBounds { idx: usize, limits: Limits },
+}</code></pre></div>
+</li>
+<li>
+<p>A <code>From</code> impl is generated for each variant containing a <code>#[from]</code>
+attribute.</p>
+<p>Note that the variant must not contain any other fields beyond the source
+error and possibly a backtrace. A backtrace is captured from within the
+<code>From</code> impl if there is a field for it.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>MyError {
+    Io {
+        <span class="attr">#[from]
+        </span>source: io::Error,
+        backtrace: Backtrace,
+    },
+}</code></pre></div>
+</li>
+<li>
+<p>The Error trait’s <code>source()</code> method is implemented to return whichever
+field has a <code>#[source]</code> attribute or is named <code>source</code>, if any. This is
+for identifying the underlying lower level error that caused your error.</p>
+<p>The <code>#[from]</code> attribute always implies that the same field is <code>#[source]</code>,
+so you don’t ever need to specify both attributes.</p>
+<p>Any error type that implements <code>std::error::Error</code> or dereferences to <code>dyn std::error::Error</code> will work as a source.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">pub struct </span>MyError {
+    msg: String,
+    <span class="attr">#[source]  </span><span class="comment">// optional if field name is `source`
+    </span>source: anyhow::Error,
+}</code></pre></div>
+</li>
+<li>
+<p>The Error trait’s <code>provide()</code> method is implemented to provide whichever
+field has a type named <code>Backtrace</code>, if any, as a
+<code>std::backtrace::Backtrace</code>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::backtrace::Backtrace;
+
+<span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">pub struct </span>MyError {
+    msg: String,
+    backtrace: Backtrace,  <span class="comment">// automatically detected
+</span>}</code></pre></div>
+</li>
+<li>
+<p>If a field is both a source (named <code>source</code>, or has <code>#[source]</code> or
+<code>#[from]</code> attribute) <em>and</em> is marked <code>#[backtrace]</code>, then the Error
+trait’s <code>provide()</code> method is forwarded to the source’s <code>provide</code> so that
+both layers of the error share the same backtrace.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>MyError {
+    Io {
+        <span class="attr">#[backtrace]
+        </span>source: io::Error,
+    },
+}</code></pre></div>
+</li>
+<li>
+<p>Errors may use <code>error(transparent)</code> to forward the source and Display
+methods straight through to an underlying error without adding an
+additional message. This would be appropriate for enums that need an
+“anything else” variant.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>MyError {
+    ...
+
+    <span class="attr">#[error(transparent)]
+    </span>Other(<span class="attr">#[from] </span>anyhow::Error),  <span class="comment">// source and Display delegate to anyhow::Error
+</span>}</code></pre></div>
+<p>Another use case is hiding implementation details of an error
+representation behind an opaque error type, so that the representation is
+able to evolve without breaking the crate’s public API.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// PublicError is public, but opaque and easy to keep compatible.
+</span><span class="attr">#[derive(Error, Debug)]
+#[error(transparent)]
+</span><span class="kw">pub struct </span>PublicError(<span class="attr">#[from] </span>ErrorRepr);
+
+<span class="kw">impl </span>PublicError {
+    <span class="comment">// Accessors for anything we do want to expose publicly.
+</span>}
+
+<span class="comment">// Private and free to change across minor version of the crate.
+</span><span class="attr">#[derive(Error, Debug)]
+</span><span class="kw">enum </span>ErrorRepr {
+    ...
+}</code></pre></div>
+</li>
+<li>
+<p>See also the <a href="https://github.com/dtolnay/anyhow"><code>anyhow</code></a> library for a convenient single error type to use
+in application code.</p>
+</li>
+</ul>
+</div></details><h2 id="derives" class="small-section-header"><a href="#derives">Derive Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="derive" href="derive.Error.html" title="derive bevy::utils::thiserror::Error">Error</a></div></li></ul></section></div></main></body></html>

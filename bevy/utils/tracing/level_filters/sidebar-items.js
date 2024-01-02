@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["STATIC_MAX_LEVEL"],"struct":["LevelFilter","ParseLevelFilterError"]};

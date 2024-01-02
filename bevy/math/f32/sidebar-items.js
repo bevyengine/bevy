@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["mat2","mat3","mat3a","mat4","quat","vec2","vec3","vec3a","vec4"],"struct":["Affine2","Affine3A","Mat2","Mat3","Mat3A","Mat4","Quat","Vec2","Vec3","Vec3A","Vec4"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Cow"],"trait":["Borrow","BorrowMut","ToOwned"]};

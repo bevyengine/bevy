@@ -1,0 +1,319 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Instruments a function to create and enter a `tracing` span every time the function is called."><title>instrument in bevy::utils::tracing - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::utils::tracing</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">utils</a>::<wbr><a href="index.html">tracing</a>::<wbr><a class="attr" href="#">instrument</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[instrument]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Instruments a function to create and enter a <code>tracing</code> <a href="https://docs.rs/tracing/latest/tracing/span/index.html">span</a> every time
+the function is called.</p>
+<p>Unless overridden, a span with the <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html#associatedconstant.INFO"><code>INFO</code></a> <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html">level</a> will be generated.
+The generated span’s name will be the name of the function.
+By default, all arguments to the function are included as fields on the
+span. Arguments that are <code>tracing</code> <a href="https://docs.rs/tracing/latest/tracing/field/trait.Value.html#foreign-impls">primitive types</a> implementing the
+<a href="https://docs.rs/tracing/latest/tracing/field/trait.Value.html."><code>Value</code> trait</a> will be recorded as fields of that type. Types which do
+not implement <code>Value</code> will be recorded using [<code>std::fmt::Debug</code>].</p>
+<h2 id="overriding-span-attributes"><a href="#overriding-span-attributes">Overriding Span Attributes</a></h2>
+<p>To change the <a href="https://docs.rs/tracing/latest/tracing/struct.Metadata.html#method.name">name</a> of the generated span, add a <code>name</code> argument to the
+<code>#[instrument]</code> macro, followed by an equals sign and a string literal. For
+example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="comment">// The generated span&#39;s name will be &quot;my_span&quot; rather than &quot;my_function&quot;.
+</span><span class="attr">#[instrument(name = <span class="string">&quot;my_span&quot;</span>)]
+</span><span class="kw">pub fn </span>my_function() {
+    <span class="comment">// ... do something incredibly interesting and important ...
+</span>}</code></pre></div>
+<p>To override the <a href="https://docs.rs/tracing/latest/tracing/struct.Metadata.html#method.target">target</a> of the generated span, add a <code>target</code> argument to
+the <code>#[instrument]</code> macro, followed by an equals sign and a string literal
+for the new target. The <a href="https://docs.rs/tracing/latest/tracing/struct.Metadata.html#method.module_path">module path</a> is still recorded separately. For
+example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>my_module {
+    <span class="comment">// The generated span&#39;s target will be &quot;my_crate::some_special_target&quot;,
+    // rather than &quot;my_crate::my_module&quot;.
+    </span><span class="attr">#[instrument(target = <span class="string">&quot;my_crate::some_special_target&quot;</span>)]
+    </span><span class="kw">pub fn </span>my_function() {
+        <span class="comment">// ... all kinds of neat code in here ...
+    </span>}
+}</code></pre></div>
+<p>Finally, to override the <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html">level</a> of the generated span, add a <code>level</code>
+argument, followed by an equals sign and a string literal with the name of
+the desired level. Level names are not case sensitive. For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// The span&#39;s level will be TRACE rather than INFO.
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>)]
+</span><span class="kw">pub fn </span>my_function() {
+    <span class="comment">// ... I have written a truly marvelous implementation of this function,
+    // which this example is too narrow to contain ...
+</span>}</code></pre></div>
+<h2 id="skipping-fields"><a href="#skipping-fields">Skipping Fields</a></h2>
+<p>To skip recording one or more arguments to a function or method, pass
+the argument’s name inside the <code>skip()</code> argument on the <code>#[instrument]</code>
+macro. This can be used when an argument to an instrumented function does
+not implement <a href="std::fmt::Debug"><code>fmt::Debug</code></a>, or to exclude an argument with a verbose or
+costly <code>Debug</code> implementation. Note that:</p>
+<ul>
+<li>multiple argument names can be passed to <code>skip</code>.</li>
+<li>arguments passed to <code>skip</code> do <em>not</em> need to implement <code>fmt::Debug</code>.</li>
+</ul>
+<p>You can also use <code>skip_all</code> to skip all arguments.</p>
+<h3 id="examples"><a href="#examples">Examples</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// This type doesn&#39;t implement `fmt::Debug`!
+</span><span class="kw">struct </span>NonDebug;
+
+<span class="comment">// `arg` will be recorded, while `non_debug` will not.
+</span><span class="attr">#[instrument(skip(non_debug))]
+</span><span class="kw">fn </span>my_function(arg: usize, non_debug: NonDebug) {
+    <span class="comment">// ...
+</span>}
+
+<span class="comment">// These arguments are huge
+</span><span class="attr">#[instrument(skip_all)]
+</span><span class="kw">fn </span>my_big_data_function(large: Vec&lt;u8&gt;, also_large: HashMap&lt;String, String&gt;) {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Skipping the <code>self</code> parameter:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Debug)]
+</span><span class="kw">struct </span>MyType {
+   data: Vec&lt;u8&gt;, <span class="comment">// Suppose this buffer is often quite long...
+</span>}
+
+<span class="kw">impl </span>MyType {
+    <span class="comment">// Suppose we don&#39;t want to print an entire kilobyte of `data`
+    // every time this is called...
+    </span><span class="attr">#[instrument(skip(<span class="self">self</span>))]
+    </span><span class="kw">pub fn </span>my_method(<span class="kw-2">&amp;mut </span><span class="self">self</span>, an_interesting_argument: usize) {
+         <span class="comment">// ... do something (hopefully, using all that `data`!)
+    </span>}
+}</code></pre></div>
+<h2 id="adding-fields"><a href="#adding-fields">Adding Fields</a></h2>
+<p>Additional fields (key-value pairs with arbitrary data) can be passed to
+to the generated span through the <code>fields</code> argument on the
+<code>#[instrument]</code> macro. Strings, integers or boolean literals are accepted values
+for each field. The name of the field must be a single valid Rust
+identifier, nested (dotted) field names are not supported. Any
+Rust expression can be used as a field value in this manner. These
+expressions will be evaluated at the beginning of the function’s body, so
+arguments to the function may be used in these expressions. Field names may
+also be specified <em>without</em> values. Doing so will result in an <a href="https://docs.rs/tracing/latest/tracing/field/struct.Empty.html">empty field</a>
+whose value may be recorded later within the function body.</p>
+<p>Note that overlap between the names of fields and (non-skipped) arguments
+will result in a compile error.</p>
+<h3 id="examples-1"><a href="#examples-1">Examples</a></h3>
+<p>Adding a new field based on the value of an argument:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="comment">// This will record a field named &quot;i&quot; with the value of `i` *and* a field
+// named &quot;next&quot; with the value of `i` + 1.
+</span><span class="attr">#[instrument(fields(next = i + <span class="number">1</span>))]
+</span><span class="kw">pub fn </span>my_function(i: usize) {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Recording specific properties of a struct as their own fields:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="comment">// This will record the request&#39;s URI and HTTP method as their own separate
+// fields.
+</span><span class="attr">#[instrument(fields(http.uri = req.uri(), http.method = req.method()))]
+</span><span class="kw">pub fn </span>handle_request&lt;B&gt;(req: http::Request&lt;B&gt;) -&gt; http::Response&lt;B&gt; {
+    <span class="comment">// ... handle the request ...
+</span>}</code></pre></div>
+<p>This can be used in conjunction with <code>skip</code> or <code>skip_all</code> to record only
+some fields of a struct:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Remember the struct with the very large `data` field from the earlier
+// example? Now it also has a `name`, which we might want to include in
+// our span.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">struct </span>MyType {
+   name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+   data: Vec&lt;u8&gt;,
+}
+
+<span class="kw">impl </span>MyType {
+    <span class="comment">// This will skip the `data` field, but will include `self.name`,
+    // formatted using `fmt::Display`.
+    </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(<span class="self">self</span>.name = %<span class="self">self</span>.name))]
+    </span><span class="kw">pub fn </span>my_method(<span class="kw-2">&amp;mut </span><span class="self">self</span>, an_interesting_argument: usize) {
+         <span class="comment">// ... do something (hopefully, using all that `data`!)
+    </span>}
+}</code></pre></div>
+<p>Adding an empty field to be recorded later:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>
+<span class="comment">// This function does a very interesting and important mathematical calculation.
+// Suppose we want to record both the inputs to the calculation *and* its result...
+</span><span class="attr">#[instrument(fields(result))]
+</span><span class="kw">pub fn </span>do_calculation(input_1: usize, input_2: usize) -&gt; usize {
+    <span class="comment">// Rerform the calculation.
+    </span><span class="kw">let </span>result = input_1 + input_2;
+
+    <span class="comment">// Record the result as part of the current span.
+    </span>tracing::Span::current().record(<span class="string">&quot;result&quot;</span>, <span class="kw-2">&amp;</span>result);
+
+    <span class="comment">// Now, the result will also be included on this event!
+    </span><span class="macro">tracing::info!</span>(<span class="string">&quot;calculation complete!&quot;</span>);
+
+    <span class="comment">// ... etc ...
+</span>}</code></pre></div>
+<h2 id="examples-2"><a href="#examples-2">Examples</a></h2>
+<p>Instrumenting a function:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument]
+</span><span class="kw">pub fn </span>my_function(my_arg: usize) {
+    <span class="comment">// This event will be recorded inside a span named `my_function` with the
+    // field `my_arg`.
+    </span><span class="macro">tracing::info!</span>(<span class="string">&quot;inside my_function!&quot;</span>);
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Setting the level for the generated span:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(level = Level::DEBUG)]
+</span><span class="kw">pub fn </span>my_function() {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Levels can be specified either with <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html"><code>Level</code></a> constants, literal strings
+(e.g., <code>&quot;debug&quot;</code>, <code>&quot;info&quot;</code>) or numerically (1—5, corresponding to <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html#associatedconstant.TRACE"><code>Level::TRACE</code></a>—<a href="https://docs.rs/tracing/latest/tracing/struct.Level.html#associatedconstant.ERROR"><code>Level::ERROR</code></a>).</p>
+<p>Overriding the generated span’s name:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(name = <span class="string">&quot;my_name&quot;</span>)]
+</span><span class="kw">pub fn </span>my_function() {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Overriding the generated span’s target:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(target = <span class="string">&quot;my_target&quot;</span>)]
+</span><span class="kw">pub fn </span>my_function() {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Overriding the generated span’s parent:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(parent = <span class="prelude-val">None</span>)]
+</span><span class="kw">pub fn </span>my_function() {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// A struct which owns a span handle.
+</span><span class="kw">struct </span>MyStruct
+{
+    span: tracing::Span
+}
+
+<span class="kw">impl </span>MyStruct
+{
+    <span class="comment">// Use the struct&#39;s `span` field as the parent span
+    </span><span class="attr">#[instrument(parent = <span class="kw-2">&amp;</span><span class="self">self</span>.span, skip(<span class="self">self</span>))]
+    </span><span class="kw">fn </span>my_method(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
+}</code></pre></div>
+<p>Specifying <a href="https://docs.rs/tracing/latest/tracing/struct.Span.html#method.follows_from"><code>follows_from</code></a> relationships:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(follows_from = causes)]
+</span><span class="kw">pub fn </span>my_function(causes: <span class="kw-2">&amp;</span>[tracing::Id]) {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Any expression of type <code>impl IntoIterator&lt;Item = impl Into&lt;Option&lt;Id&gt;&gt;&gt;</code>
+may be provided to <code>follows_from</code>; e.g.:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(follows_from = [cause]</span>)]
+<span class="kw">pub fn </span>my_function(cause: <span class="kw-2">&amp;</span>tracing::span::EnteredSpan) {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>To skip recording an argument, pass the argument’s name to the <code>skip</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">struct </span>NonDebug;
+
+<span class="attr">#[instrument(skip(non_debug))]
+</span><span class="kw">fn </span>my_function(arg: usize, non_debug: NonDebug) {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>To add additional context to the span, pass key-value pairs to <code>fields</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(fields(foo=<span class="string">&quot;bar&quot;</span>, id=<span class="number">1</span>, show=<span class="bool-val">true</span>))]
+</span><span class="kw">fn </span>my_function(arg: usize) {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Adding the <code>ret</code> argument to <code>#[instrument]</code> will emit an event with the function’s
+return value when the function returns:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(ret)]
+</span><span class="kw">fn </span>my_function() -&gt; i32 {
+    <span class="number">42
+</span>}</code></pre></div>
+<p>The return value event will have the same level as the span generated by <code>#[instrument]</code>.
+By default, this will be <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html#associatedconstant.INFO"><code>INFO</code></a>, but if the level is overridden, the event will be at the same
+level.</p>
+<p>It’s also possible to override the level for the <code>ret</code> event independently:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(ret(level = Level::WARN))]
+</span><span class="kw">fn </span>my_function() -&gt; i32 {
+    <span class="number">42
+</span>}</code></pre></div>
+<p><strong>Note</strong>:  if the function returns a <code>Result&lt;T, E&gt;</code>, <code>ret</code> will record returned values if and
+only if the function returns [<code>Result::Ok</code>].</p>
+<p>By default, returned values will be recorded using their [<code>std::fmt::Debug</code>] implementations.
+If a returned value implements [<code>std::fmt::Display</code>], it can be recorded using its <code>Display</code>
+implementation instead, by writing <code>ret(Display)</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(ret(Display))]
+</span><span class="kw">fn </span>my_function() -&gt; i32 {
+    <span class="number">42
+</span>}</code></pre></div>
+<p>If the function returns a <code>Result&lt;T, E&gt;</code> and <code>E</code> implements <code>std::fmt::Display</code>, adding
+<code>err</code> or <code>err(Display)</code> will emit error events when the function returns <code>Err</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(err)]
+</span><span class="kw">fn </span>my_function(arg: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p>The level of the error value event defaults to <code>ERROR</code>.</p>
+<p>Similarly, overriding the level of the <code>err</code> event :</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(err(level = Level::INFO))]
+</span><span class="kw">fn </span>my_function(arg: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p>By default, error values will be recorded using their <code>std::fmt::Display</code> implementations.
+If an error implements <code>std::fmt::Debug</code>, it can be recorded using its <code>Debug</code> implementation
+instead by writing <code>err(Debug)</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(err(Debug))]
+</span><span class="kw">fn </span>my_function(arg: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p>If a <code>target</code> is specified, both the <code>ret</code> and <code>err</code> arguments will emit outputs to
+the declared target (or the default channel if <code>target</code> is not specified).</p>
+<p>The <code>ret</code> and <code>err</code> arguments can be combined in order to record an event if a
+function returns [<code>Result::Ok</code>] or [<code>Result::Err</code>]:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(err, ret)]
+</span><span class="kw">fn </span>my_function(arg: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p><code>async fn</code>s may also be instrumented:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument]
+</span><span class="kw">pub async fn </span>my_function() -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>It also works with <a href="https://crates.io/crates/async-trait">async-trait</a>
+(a crate that allows defining async functions in traits,
+something not currently possible in Rust),
+and hopefully most libraries that exhibit similar behaviors:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>async_trait::async_trait;
+
+<span class="attr">#[async_trait]
+</span><span class="kw">pub trait </span>Foo {
+    <span class="kw">async fn </span>foo(<span class="kw-2">&amp;</span><span class="self">self</span>, arg: usize);
+}
+
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">struct </span>FooImpl(usize);
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl </span>Foo <span class="kw">for </span>FooImpl {
+    <span class="attr">#[instrument(fields(value = <span class="self">self</span>.<span class="number">0</span>, tmp = std::any::type_name::&lt;<span class="self">Self</span>&gt;()))]
+    </span><span class="kw">async fn </span>foo(<span class="kw-2">&amp;</span><span class="self">self</span>, arg: usize) {}
+}</code></pre></div>
+<p><code>const fn</code> cannot be instrumented, and will result in a compilation failure:</p>
+
+<div class="example-wrap compile_fail"><a href="#" class="tooltip" title="This example deliberately fails to compile">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument]
+</span><span class="kw">const fn </span>my_const_function() {}</code></pre></div>
+</div></details></section></div></main></body></html>

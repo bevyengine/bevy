@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Provides functions for mapping mutable slices across a provided `TaskPool`."><title>ParallelSliceMut in bevy::tasks - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">ParallelSliceMut</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.par_chunk_map_mut">par_chunk_map_mut</a></li><li><a href="#method.par_splat_map_mut">par_splat_map_mut</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In bevy::tasks</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">bevy</a>::<wbr><a href="index.html">tasks</a>::<wbr><a class="trait" href="#">ParallelSliceMut</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait ParallelSliceMut&lt;T&gt;: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.AsMut.html" title="trait core::convert::AsMut">AsMut</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html">[T]</a>&gt;<span class="where fmt-newline">where
+    T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,</span>{
+    // Provided methods
+    fn <a href="#method.par_chunk_map_mut" class="fn">par_chunk_map_mut</a>&lt;F, R&gt;(
+        &amp;mut self,
+        task_pool: &amp;<a class="struct" href="struct.TaskPool.html" title="struct bevy::tasks::TaskPool">TaskPool</a>,
+        chunk_size: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>,
+        f: F
+    ) -&gt; <a class="struct" href="../utils/smallvec/alloc/vec/struct.Vec.html" title="struct bevy::utils::smallvec::alloc::vec::Vec">Vec</a>&lt;R&gt;
+       <span class="where">where F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;mut <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html">[T]</a>) -&gt; R + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+             R: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.par_splat_map_mut" class="fn">par_splat_map_mut</a>&lt;F, R&gt;(
+        &amp;mut self,
+        task_pool: &amp;<a class="struct" href="struct.TaskPool.html" title="struct bevy::tasks::TaskPool">TaskPool</a>,
+        max_tasks: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>&gt;,
+        f: F
+    ) -&gt; <a class="struct" href="../utils/smallvec/alloc/vec/struct.Vec.html" title="struct bevy::utils::smallvec::alloc::vec::Vec">Vec</a>&lt;R&gt;
+       <span class="where">where F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;mut <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html">[T]</a>) -&gt; R + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+             R: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static</span> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Provides functions for mapping mutable slices across a provided <a href="struct.TaskPool.html" title="struct bevy::tasks::TaskPool"><code>TaskPool</code></a>.</p>
+</div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.par_chunk_map_mut" class="method"><h4 class="code-header">fn <a href="#method.par_chunk_map_mut" class="fn">par_chunk_map_mut</a>&lt;F, R&gt;(
+    &amp;mut self,
+    task_pool: &amp;<a class="struct" href="struct.TaskPool.html" title="struct bevy::tasks::TaskPool">TaskPool</a>,
+    chunk_size: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>,
+    f: F
+) -&gt; <a class="struct" href="../utils/smallvec/alloc/vec/struct.Vec.html" title="struct bevy::utils::smallvec::alloc::vec::Vec">Vec</a>&lt;R&gt;<span class="where fmt-newline">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;mut <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html">[T]</a>) -&gt; R + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+    R: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,</span></h4></section></summary><div class="docblock"><p>Splits the slice in chunks of size <code>chunks_size</code> or less and maps the chunks
+in parallel across the provided <code>task_pool</code>. One task is spawned in the task pool
+for every chunk.</p>
+<p>Returns a <code>Vec</code> of the mapped results in the same order as the input.</p>
+<h5 id="example"><a href="#example">Example</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>task_pool = TaskPool::new();
+<span class="kw">let </span><span class="kw-2">mut </span>counts = (<span class="number">0</span>..<span class="number">10000</span>).collect::&lt;Vec&lt;u32&gt;&gt;();
+<span class="kw">let </span>incremented = counts.par_chunk_map_mut(<span class="kw-2">&amp;</span>task_pool, <span class="number">100</span>, |chunk| {
+  <span class="kw">let </span><span class="kw-2">mut </span>results = Vec::new();
+  <span class="kw">for </span>count <span class="kw">in </span>chunk {
+    <span class="kw-2">*</span>count += <span class="number">5</span>;
+    results.push(<span class="kw-2">*</span>count - <span class="number">2</span>);
+  }
+  results
+});
+
+<span class="macro">assert_eq!</span>(counts, (<span class="number">5</span>..<span class="number">10005</span>).collect::&lt;Vec&lt;u32&gt;&gt;());</code></pre></div>
+<h5 id="see-also"><a href="#see-also">See Also</a></h5>
+<p><a href="trait.ParallelSlice.html#method.par_chunk_map" title="method bevy::tasks::ParallelSlice::par_chunk_map"><code>ParallelSlice::par_chunk_map</code></a> for mapping immutable slices.
+<a href="trait.ParallelSliceMut.html#method.par_splat_map_mut" title="method bevy::tasks::ParallelSliceMut::par_splat_map_mut"><code>ParallelSliceMut::par_splat_map_mut</code></a> for mapping when a specific chunk size is unknown.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.par_splat_map_mut" class="method"><h4 class="code-header">fn <a href="#method.par_splat_map_mut" class="fn">par_splat_map_mut</a>&lt;F, R&gt;(
+    &amp;mut self,
+    task_pool: &amp;<a class="struct" href="struct.TaskPool.html" title="struct bevy::tasks::TaskPool">TaskPool</a>,
+    max_tasks: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>&gt;,
+    f: F
+) -&gt; <a class="struct" href="../utils/smallvec/alloc/vec/struct.Vec.html" title="struct bevy::utils::smallvec::alloc::vec::Vec">Vec</a>&lt;R&gt;<span class="where fmt-newline">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;mut <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html">[T]</a>) -&gt; R + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+    R: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,</span></h4></section></summary><div class="docblock"><p>Splits the slice into a maximum of <code>max_tasks</code> chunks, and maps the chunks in parallel
+across the provided <code>task_pool</code>. One task is spawned in the task pool for every chunk.</p>
+<p>If <code>max_tasks</code> is <code>None</code>, this function will attempt to use one chunk per thread in
+<code>task_pool</code>.</p>
+<p>Returns a <code>Vec</code> of the mapped results in the same order as the input.</p>
+<h5 id="example-1"><a href="#example-1">Example</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>task_pool = TaskPool::new();
+<span class="kw">let </span><span class="kw-2">mut </span>counts = (<span class="number">0</span>..<span class="number">10000</span>).collect::&lt;Vec&lt;u32&gt;&gt;();
+<span class="kw">let </span>incremented = counts.par_splat_map_mut(<span class="kw-2">&amp;</span>task_pool, <span class="prelude-val">None</span>, |chunk| {
+  <span class="kw">let </span><span class="kw-2">mut </span>results = Vec::new();
+  <span class="kw">for </span>count <span class="kw">in </span>chunk {
+    <span class="kw-2">*</span>count += <span class="number">5</span>;
+    results.push(<span class="kw-2">*</span>count - <span class="number">2</span>);
+  }
+  results
+});
+
+<span class="macro">assert_eq!</span>(counts, (<span class="number">5</span>..<span class="number">10005</span>).collect::&lt;Vec&lt;u32&gt;&gt;());</code></pre></div>
+<h5 id="see-also-1"><a href="#see-also-1">See Also</a></h5>
+<p><a href="trait.ParallelSlice.html#method.par_splat_map" title="method bevy::tasks::ParallelSlice::par_splat_map"><code>ParallelSlice::par_splat_map</code></a> for mapping immutable slices.
+<a href="trait.ParallelSliceMut.html#method.par_chunk_map_mut" title="method bevy::tasks::ParallelSliceMut::par_chunk_map_mut"><code>ParallelSliceMut::par_chunk_map_mut</code></a> for mapping when a specific chunk size is desirable.</p>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ParallelSliceMut%3CT%3E-for-S" class="impl"><a href="#impl-ParallelSliceMut%3CT%3E-for-S" class="anchor">§</a><h3 class="code-header">impl&lt;S, T&gt; <a class="trait" href="trait.ParallelSliceMut.html" title="trait bevy::tasks::ParallelSliceMut">ParallelSliceMut</a>&lt;T&gt; for S<span class="where fmt-newline">where
+    T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,
+    S: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.AsMut.html" title="trait core::convert::AsMut">AsMut</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html">[T]</a>&gt;,</span></h3></section></div><script src="../../trait.impl/bevy_tasks/slice/trait.ParallelSliceMut.js" async></script></section></div></main></body></html>

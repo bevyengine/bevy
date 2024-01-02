@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="[Generic] complement of the graph"><title>complement in bevy::utils::petgraph::operator - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::utils::petgraph::operator</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../../../index.html">bevy</a>::<wbr><a href="../../index.html">utils</a>::<wbr><a href="../index.html">petgraph</a>::<wbr><a href="index.html">operator</a>::<wbr><a class="fn" href="#">complement</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/petgraph/0.4/src/petgraph/operator.rs.html#63-71">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub fn complement&lt;N, E, Ty, Ix&gt;(
+    input: &amp;<a class="struct" href="../struct.Graph.html" title="struct bevy::utils::petgraph::Graph">Graph</a>&lt;N, E, Ty, Ix&gt;,
+    output: &amp;mut <a class="struct" href="../struct.Graph.html" title="struct bevy::utils::petgraph::Graph">Graph</a>&lt;N, E, Ty, Ix&gt;,
+    weight: E
+)<span class="where fmt-newline">where
+    Ty: <a class="trait" href="../trait.EdgeType.html" title="trait bevy::utils::petgraph::EdgeType">EdgeType</a>,
+    Ix: <a class="trait" href="../stable_graph/trait.IndexType.html" title="trait bevy::utils::petgraph::stable_graph::IndexType">IndexType</a>,
+    E: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,
+    N: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>[Generic] complement of the graph</p>
+<p>Computes the graph complement of the input Graph and stores it
+in the provided empty output Graph.</p>
+<p>The function does not create self-loops.</p>
+<p>Computes in <strong>O(|V|^2*log(|V|))</strong> time (average).</p>
+<p>Returns the complement.</p>
+<h2 id="example"><a href="#example">Example</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>petgraph::Graph;
+<span class="kw">use </span>petgraph::operator::complement;
+<span class="kw">use </span>petgraph::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">let </span><span class="kw-2">mut </span>graph: Graph&lt;(),(),Directed&gt; = Graph::new();
+<span class="kw">let </span>a = graph.add_node(()); <span class="comment">// node with no weight
+</span><span class="kw">let </span>b = graph.add_node(());
+<span class="kw">let </span>c = graph.add_node(());
+<span class="kw">let </span>d = graph.add_node(());
+
+graph.extend_with_edges(<span class="kw-2">&amp;</span>[
+    (a, b),
+    (b, c),
+    (c, d),
+]);
+<span class="comment">// a ----&gt; b ----&gt; c ----&gt; d
+
+</span><span class="kw">let </span><span class="kw-2">mut </span>output: Graph&lt;(), (), Directed&gt; = Graph::new();
+
+complement(<span class="kw-2">&amp;</span>graph, <span class="kw-2">&amp;mut </span>output, ());
+
+<span class="kw">let </span><span class="kw-2">mut </span>expected_res: Graph&lt;(), (), Directed&gt; = Graph::new();
+<span class="kw">let </span>a = expected_res.add_node(());
+<span class="kw">let </span>b = expected_res.add_node(());
+<span class="kw">let </span>c = expected_res.add_node(());
+<span class="kw">let </span>d = expected_res.add_node(());
+expected_res.extend_with_edges(<span class="kw-2">&amp;</span>[
+    (a, c),
+    (a, d),
+    (b, a),
+    (b, d),
+    (c, a),
+    (c, b),
+    (d, a),
+    (d, b),
+    (d, c),
+]);
+
+<span class="kw">for </span>x <span class="kw">in </span>graph.node_indices() {
+    <span class="kw">for </span>y <span class="kw">in </span>graph.node_indices() {
+        <span class="macro">assert_eq!</span>(output.contains_edge(x, y), expected_res.contains_edge(x, y));
+    }
+}</code></pre></div>
+</div></details></section></div></main></body></html>

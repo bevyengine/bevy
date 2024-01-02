@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`Span` and `Event` key-value data."><title>bevy::utils::tracing::field - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">Module field</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></section><h2><a href="../index.html">In bevy::utils::tracing</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../index.html">bevy</a>::<wbr><a href="../../index.html">utils</a>::<wbr><a href="../index.html">tracing</a>::<wbr><a class="mod" href="#">field</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>Span</code> and <code>Event</code> key-value data.</p>
+<p>Spans and events may be annotated with key-value data, referred to as <em>fields</em>.
+These fields consist of a mapping from a key (corresponding to
+a <code>&amp;str</code> but represented internally as an array index) to a <a href="../trait.Value.html" title="trait bevy::utils::tracing::Value"><code>Value</code></a>.</p>
+<h2 id="values-and-subscribers"><a href="#values-and-subscribers"><code>Value</code>s and <code>Subscriber</code>s</a></h2>
+<p><code>Subscriber</code>s consume <code>Value</code>s as fields attached to <a href="../span/index.html" title="mod bevy::utils::tracing::span">span</a>s or <a href="../event/struct.Event.html" title="struct bevy::utils::tracing::event::Event"><code>Event</code></a>s.
+The set of field keys on a given span or event is defined on its <a href="../struct.Metadata.html" title="struct bevy::utils::tracing::Metadata"><code>Metadata</code></a>.
+When a span is created, it provides <a href="../span/struct.Attributes.html" title="struct bevy::utils::tracing::span::Attributes"><code>Attributes</code></a> to the <code>Subscriber</code>’s
+<a href="../trait.Subscriber.html#tymethod.new_span" title="method bevy::utils::tracing::Subscriber::new_span"><code>new_span</code></a> method, containing any fields whose values were provided when
+the span was created; and may call the <code>Subscriber</code>’s <a href="../span/struct.Record.html" title="struct bevy::utils::tracing::span::Record"><code>record</code></a> method
+with additional <a href="../span/struct.Record.html" title="struct bevy::utils::tracing::span::Record"><code>Record</code></a>s if values are added for more of its fields.
+Similarly, the <a href="../event/struct.Event.html" title="struct bevy::utils::tracing::event::Event"><code>Event</code></a> type passed to the subscriber’s <a href="../event/struct.Event.html" title="struct bevy::utils::tracing::event::Event"><code>event</code></a> method
+will contain any fields attached to each event.</p>
+<p><code>tracing</code> represents values as either one of a set of Rust primitives
+(<code>i64</code>, <code>u64</code>, <code>f64</code>, <code>bool</code>, and <code>&amp;str</code>) or using a <code>fmt::Display</code> or
+<code>fmt::Debug</code> implementation. <code>Subscriber</code>s are provided these primitive
+value types as <code>dyn Value</code> trait objects.</p>
+<p>These trait objects can be formatted using <code>fmt::Debug</code>, but may also be
+recorded as typed data by calling the <a href="../trait.Value.html#tymethod.record" title="method bevy::utils::tracing::Value::record"><code>Value::record</code></a> method on these
+trait objects with a <em>visitor</em> implementing the <a href="trait.Visit.html" title="trait bevy::utils::tracing::field::Visit"><code>Visit</code></a> trait. This trait
+represents the behavior used to record values of various types. For example,
+an implementation of <code>Visit</code> might record integers by incrementing counters
+for their field names rather than printing them.</p>
+<h2 id="using-valuable"><a href="#using-valuable">Using <code>valuable</code></a></h2>
+<p><code>tracing</code>’s <a href="../trait.Value.html" title="trait bevy::utils::tracing::Value"><code>Value</code></a> trait is intentionally minimalist: it supports only a small
+number of Rust primitives as typed values, and only permits recording
+user-defined types with their <a href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug"><code>fmt::Debug</code></a> or <a href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug"><code>fmt::Display</code></a>
+implementations. However, there are some cases where it may be useful to record
+nested values (such as arrays, <code>Vec</code>s, or <code>HashMap</code>s containing values), or
+user-defined <code>struct</code> and <code>enum</code> types without having to format them as
+unstructured text.</p>
+<p>To address <code>Value</code>’s limitations, <code>tracing</code> offers experimental support for
+the <a href="https://crates.io/crates/valuable"><code>valuable</code></a> crate, which provides object-safe inspection of structured
+values. User-defined types can implement the <a href="https://docs.rs/valuable/latest/valuable/trait.Valuable.html"><code>valuable::Valuable</code></a> trait,
+and be recorded as a <code>tracing</code> field by calling their <a href="https://docs.rs/valuable/latest/valuable/trait.Valuable.html#tymethod.as_value"><code>as_value</code></a> method.
+If the <a href="../trait.Subscriber.html" title="trait bevy::utils::tracing::Subscriber"><code>Subscriber</code></a> also supports the <code>valuable</code> crate, it can
+then visit those types fields as structured values using <code>valuable</code>.</p>
+<pre class="ignore" style="white-space:normal;font:inherit;">
+    <strong>Note</strong>: <code>valuable</code> support is an
+    <a href = "../index.html#unstable-features">unstable feature</a>. See
+    the documentation on unstable features for details on how to enable it.
+</pre>
+<p>For example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// Derive `Valuable` for our types:
+</span><span class="kw">use </span>valuable::Valuable;
+
+<span class="attr">#[derive(Clone, Debug, Valuable)]
+</span><span class="kw">struct </span>User {
+    name: String,
+    age: u32,
+    address: Address,
+}
+
+<span class="attr">#[derive(Clone, Debug, Valuable)]
+</span><span class="kw">struct </span>Address {
+    country: String,
+    city: String,
+    street: String,
+}
+
+<span class="kw">let </span>user = User {
+    name: <span class="string">&quot;Arwen Undomiel&quot;</span>.to_string(),
+    age: <span class="number">3000</span>,
+    address: Address {
+        country: <span class="string">&quot;Middle Earth&quot;</span>.to_string(),
+        city: <span class="string">&quot;Rivendell&quot;</span>.to_string(),
+        street: <span class="string">&quot;leafy lane&quot;</span>.to_string(),
+    },
+};
+
+<span class="comment">// Recording `user` as a `valuable::Value` will allow the `tracing` subscriber
+// to traverse its fields as a nested, typed structure:
+</span><span class="macro">tracing::info!</span>(current_user = user.as_value());</code></pre></div>
+<p>Alternatively, the [<code>valuable()</code>] function may be used to convert a type
+implementing <a href="https://crates.io/crates/valuable"><code>Valuable</code></a> into a <code>tracing</code> field value.</p>
+<p>When the <code>valuable</code> feature is enabled, the <a href="trait.Visit.html" title="trait bevy::utils::tracing::field::Visit"><code>Visit</code></a> trait will include an
+optional <a href="Visit::record_value"><code>record_value</code></a> method. <code>Visit</code> implementations that wish to
+record <code>valuable</code> values can implement this method with custom behavior.
+If a visitor does not implement <code>record_value</code>, the <a href="https://docs.rs/valuable/latest/valuable/enum.Value.html"><code>valuable::Value</code></a> will
+be forwarded to the visitor’s <a href="trait.Visit.html#tymethod.record_debug" title="method bevy::utils::tracing::field::Visit::record_debug"><code>record_debug</code></a> method.</p>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.DebugValue.html" title="struct bevy::utils::tracing::field::DebugValue">DebugValue</a></div><div class="desc docblock-short">A <code>Value</code> which serializes as a string using <code>fmt::Debug</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.DisplayValue.html" title="struct bevy::utils::tracing::field::DisplayValue">DisplayValue</a></div><div class="desc docblock-short">A <code>Value</code> which serializes using <code>fmt::Display</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.Empty.html" title="struct bevy::utils::tracing::field::Empty">Empty</a></div><div class="desc docblock-short">An empty field.</div></li><li><div class="item-name"><a class="struct" href="struct.Field.html" title="struct bevy::utils::tracing::field::Field">Field</a></div><div class="desc docblock-short">An opaque key allowing <em>O</em>(1) access to a field in a <code>Span</code>’s key-value
+data.</div></li><li><div class="item-name"><a class="struct" href="struct.FieldSet.html" title="struct bevy::utils::tracing::field::FieldSet">FieldSet</a></div><div class="desc docblock-short">Describes the fields present on a span.</div></li><li><div class="item-name"><a class="struct" href="struct.Iter.html" title="struct bevy::utils::tracing::field::Iter">Iter</a></div><div class="desc docblock-short">An iterator over a set of fields.</div></li><li><div class="item-name"><a class="struct" href="struct.ValueSet.html" title="struct bevy::utils::tracing::field::ValueSet">ValueSet</a></div><div class="desc docblock-short">A set of fields and values for a span.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AsField.html" title="trait bevy::utils::tracing::field::AsField">AsField</a></div><div class="desc docblock-short">Trait implemented to allow a type to be used as a field key.</div></li><li><div class="item-name"><a class="trait" href="trait.Value.html" title="trait bevy::utils::tracing::field::Value">Value</a></div><div class="desc docblock-short">A field value of an erased type.</div></li><li><div class="item-name"><a class="trait" href="trait.Visit.html" title="trait bevy::utils::tracing::field::Visit">Visit</a></div><div class="desc docblock-short">Visits typed values.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.debug.html" title="fn bevy::utils::tracing::field::debug">debug</a></div><div class="desc docblock-short">Wraps a type implementing <code>fmt::Debug</code> as a <code>Value</code> that can be
+recorded using its <code>Debug</code> implementation.</div></li><li><div class="item-name"><a class="fn" href="fn.display.html" title="fn bevy::utils::tracing::field::display">display</a></div><div class="desc docblock-short">Wraps a type implementing <code>fmt::Display</code> as a <code>Value</code> that can be
+recorded using its <code>Display</code> implementation.</div></li></ul></section></div></main></body></html>

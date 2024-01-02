@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Instrumented","WithDispatch"],"trait":["Instrument","WithSubscriber"]};

@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trace verbosity level filtering."><title>bevy::utils::tracing::level_filters - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">Module level_filters</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#constants">Constants</a></li></ul></section><h2><a href="../index.html">In bevy::utils::tracing</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../index.html">bevy</a>::<wbr><a href="../../index.html">utils</a>::<wbr><a href="../index.html">tracing</a>::<wbr><a class="mod" href="#">level_filters</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trace verbosity level filtering.</p>
+<h2 id="compile-time-filters"><a href="#compile-time-filters">Compile time filters</a></h2>
+<p>Trace verbosity levels can be statically disabled at compile time via Cargo
+features, similar to the <a href="https://docs.rs/log/latest/log/#compile-time-filters"><code>log</code> crate</a>. Trace instrumentation at disabled
+levels will be skipped and will not even be present in the resulting binary
+unless the verbosity level is specified dynamically. This level is
+configured separately for release and debug builds. The features are:</p>
+<ul>
+<li><code>max_level_off</code></li>
+<li><code>max_level_error</code></li>
+<li><code>max_level_warn</code></li>
+<li><code>max_level_info</code></li>
+<li><code>max_level_debug</code></li>
+<li><code>max_level_trace</code></li>
+<li><code>release_max_level_off</code></li>
+<li><code>release_max_level_error</code></li>
+<li><code>release_max_level_warn</code></li>
+<li><code>release_max_level_info</code></li>
+<li><code>release_max_level_debug</code></li>
+<li><code>release_max_level_trace</code></li>
+</ul>
+<p>These features control the value of the <code>STATIC_MAX_LEVEL</code> constant. The
+instrumentation macros macros check this value before recording an event or
+constructing a span. By default, no levels are disabled.</p>
+<p>For example, a crate can disable trace level instrumentation in debug builds
+and trace, debug, and info level instrumentation in release builds with the
+following configuration:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies]
+tracing = { version = &quot;0.1&quot;, features = [&quot;max_level_debug&quot;, &quot;release_max_level_warn&quot;] }
+</code></pre></div><h3 id="notes"><a href="#notes">Notes</a></h3>
+<p>Please note that <code>tracing</code>’s static max level features do <em>not</em> control the
+<a href="https://docs.rs/log/"><code>log</code></a> records that may be emitted when <a href="https://docs.rs/tracing/latest/tracing/#emitting-log-records"><code>tracing</code>’s “log” feature flag</a> is
+enabled. This is to allow <code>tracing</code> to be disabled entirely at compile time
+while still emitting <code>log</code> records — such as when a library using
+<code>tracing</code> is used by an application using <code>log</code> that doesn’t want to
+generate any <code>tracing</code>-related code, but does want to collect <code>log</code> records.</p>
+<p>This means that if the “log” feature is in use, some code may be generated
+for <code>log</code> records emitted by disabled <code>tracing</code> events. If this is not
+desirable, <code>log</code> records may be disabled separately using <a href="https://docs.rs/log/latest/log/#compile-time-filters"><code>log</code>’s static
+max level features</a>.</p>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.LevelFilter.html" title="struct bevy::utils::tracing::level_filters::LevelFilter">LevelFilter</a></div><div class="desc docblock-short">A filter comparable to a verbosity <a href="../struct.Level.html" title="struct bevy::utils::tracing::Level"><code>Level</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.ParseLevelFilterError.html" title="struct bevy::utils::tracing::level_filters::ParseLevelFilterError">ParseLevelFilterError</a></div><div class="desc docblock-short">Indicates that a string could not be parsed to a valid level.</div></li></ul><h2 id="constants" class="small-section-header"><a href="#constants">Constants</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.STATIC_MAX_LEVEL.html" title="constant bevy::utils::tracing::level_filters::STATIC_MAX_LEVEL">STATIC_MAX_LEVEL</a></div><div class="desc docblock-short">The statically configured maximum trace level.</div></li></ul></section></div></main></body></html>

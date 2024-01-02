@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GltfError"],"struct":["Gltf","GltfExtras","GltfLoader","GltfLoaderSettings","GltfMesh","GltfNode","GltfPlugin","GltfPrimitive"]};

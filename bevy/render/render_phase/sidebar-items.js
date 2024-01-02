@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RenderCommandResult"],"fn":["sort_phase_system"],"struct":["DrawFunctionId","DrawFunctions","DrawFunctionsInternal","RenderCommandState","RenderPhase","SetItemPipeline","TrackedRenderPass","ViewRangefinder3d"],"trait":["AddRenderCommand","CachedRenderPipelinePhaseItem","Draw","PhaseItem","RenderCommand"]};

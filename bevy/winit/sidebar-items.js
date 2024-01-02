@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["UpdateMode"],"fn":["get_best_videomode","get_fitting_videomode","winit_runner","winit_window_position"],"mod":["accessibility"],"struct":["WinitPlugin","WinitSettings","WinitWindows"]};

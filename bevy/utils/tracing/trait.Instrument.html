@@ -1,0 +1,73 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Attaches spans to a `std::future::Future`."><title>Instrument in bevy::utils::tracing - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">Instrument</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.in_current_span">in_current_span</a></li><li><a href="#method.instrument">instrument</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In bevy::utils::tracing</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">utils</a>::<wbr><a href="index.html">tracing</a>::<wbr><a class="trait" href="#">Instrument</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Instrument: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+    // Provided methods
+    fn <a href="#method.instrument" class="fn">instrument</a>(self, span: <a class="struct" href="struct.Span.html" title="struct bevy::utils::tracing::Span">Span</a>) -&gt; <a class="struct" href="instrument/struct.Instrumented.html" title="struct bevy::utils::tracing::instrument::Instrumented">Instrumented</a>&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="Instrumented&lt;Self&gt;">ⓘ</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.in_current_span" class="fn">in_current_span</a>(self) -&gt; <a class="struct" href="instrument/struct.Instrumented.html" title="struct bevy::utils::tracing::instrument::Instrumented">Instrumented</a>&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="Instrumented&lt;Self&gt;">ⓘ</a> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Attaches spans to a <a href="../../tasks/futures_lite/trait.Future.html" title="trait bevy::tasks::futures_lite::Future"><code>std::future::Future</code></a>.</p>
+<p>Extension trait allowing futures to be
+instrumented with a <code>tracing</code> <a href="struct.Span.html" title="struct bevy::utils::tracing::Span">span</a>.</p>
+</div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.instrument" class="method"><h4 class="code-header">fn <a href="#method.instrument" class="fn">instrument</a>(self, span: <a class="struct" href="struct.Span.html" title="struct bevy::utils::tracing::Span">Span</a>) -&gt; <a class="struct" href="instrument/struct.Instrumented.html" title="struct bevy::utils::tracing::instrument::Instrumented">Instrumented</a>&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="Instrumented&lt;Self&gt;">ⓘ</a></h4></section></summary><div class="docblock"><p>Instruments this type with the provided <a href="struct.Span.html" title="struct bevy::utils::tracing::Span"><code>Span</code></a>, returning an
+<code>Instrumented</code> wrapper.</p>
+<p>The attached <a href="struct.Span.html" title="struct bevy::utils::tracing::Span"><code>Span</code></a> will be <a href="struct.Span.html#method.enter" title="method bevy::utils::tracing::Span::enter">entered</a> every time the instrumented
+<a href="../../tasks/futures_lite/trait.Future.html" title="trait bevy::tasks::futures_lite::Future"><code>Future</code></a> is polled or <a href="https://doc.rust-lang.org/1.75.0/core/ops/drop/trait.Drop.html" title="trait core::ops::drop::Drop"><code>Drop</code></a>ped.</p>
+<h5 id="examples"><a href="#examples">Examples</a></h5>
+<p>Instrumenting a future:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::Instrument;
+
+<span class="kw">let </span>my_future = <span class="kw">async </span>{
+    <span class="comment">// ...
+</span>};
+
+my_future
+    .instrument(<span class="macro">tracing::info_span!</span>(<span class="string">&quot;my_future&quot;</span>))
+    .<span class="kw">await</span></code></pre></div>
+<p>The <a href="struct.Span.html#method.or_current" title="method bevy::utils::tracing::Span::or_current"><code>Span::or_current</code></a> combinator can be used in combination with
+<code>instrument</code> to ensure that the <a href="struct.Span.html#method.current" title="associated function bevy::utils::tracing::Span::current">current span</a> is attached to the
+future if the span passed to <code>instrument</code> is <a href="struct.Span.html#method.is_disabled" title="method bevy::utils::tracing::Span::is_disabled">disabled</a>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::Instrument;
+
+<span class="kw">let </span>my_future = <span class="kw">async </span>{
+    <span class="comment">// ...
+</span>};
+
+<span class="kw">let </span>outer_span = <span class="macro">tracing::info_span!</span>(<span class="string">&quot;outer&quot;</span>).entered();
+
+<span class="comment">// If the &quot;my_future&quot; span is enabled, then the spawned task will
+// be within both &quot;my_future&quot; *and* &quot;outer&quot;, since &quot;outer&quot; is
+// &quot;my_future&quot;&#39;s parent. However, if &quot;my_future&quot; is disabled,
+// the spawned task will *not* be in any span.
+</span>tokio::spawn(
+    my_future
+        .instrument(<span class="macro">tracing::debug_span!</span>(<span class="string">&quot;my_future&quot;</span>))
+);
+
+<span class="comment">// Using `Span::or_current` ensures the spawned task is instrumented
+// with the current span, if the new span passed to `instrument` is
+// not enabled. This means that if the &quot;my_future&quot;  span is disabled,
+// the spawned task will still be instrumented with the &quot;outer&quot; span:
+</span>tokio::spawn(
+   my_future
+        .instrument(<span class="macro">tracing::debug_span!</span>(<span class="string">&quot;my_future&quot;</span>).or_current())
+);</code></pre></div>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.in_current_span" class="method"><h4 class="code-header">fn <a href="#method.in_current_span" class="fn">in_current_span</a>(self) -&gt; <a class="struct" href="instrument/struct.Instrumented.html" title="struct bevy::utils::tracing::instrument::Instrumented">Instrumented</a>&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="Instrumented&lt;Self&gt;">ⓘ</a></h4></section></summary><div class="docblock"><p>Instruments this type with the <a href="struct.Span.html#method.current" title="associated function bevy::utils::tracing::Span::current">current</a> <a href="struct.Span.html" title="struct bevy::utils::tracing::Span"><code>Span</code></a>, returning an
+<code>Instrumented</code> wrapper.</p>
+<p>The attached <a href="struct.Span.html" title="struct bevy::utils::tracing::Span"><code>Span</code></a> will be <a href="struct.Span.html#method.enter" title="method bevy::utils::tracing::Span::enter">entered</a> every time the instrumented
+<a href="../../tasks/futures_lite/trait.Future.html" title="trait bevy::tasks::futures_lite::Future"><code>Future</code></a> is polled or <a href="https://doc.rust-lang.org/1.75.0/core/ops/drop/trait.Drop.html" title="trait core::ops::drop::Drop"><code>Drop</code></a>ped.</p>
+<p>This can be used to propagate the current span when spawning a new future.</p>
+<h5 id="examples-1"><a href="#examples-1">Examples</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::Instrument;
+
+<span class="kw">let </span>span = <span class="macro">tracing::info_span!</span>(<span class="string">&quot;my_span&quot;</span>);
+<span class="kw">let </span>_enter = span.enter();
+
+<span class="comment">// ...
+
+</span><span class="kw">let </span>future = <span class="kw">async </span>{
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;this event will occur inside `my_span`&quot;</span>);
+    <span class="comment">// ...
+</span>};
+tokio::spawn(future.in_current_span());</code></pre></div>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Instrument-for-T" class="impl"><a href="#impl-Instrument-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Instrument.html" title="trait bevy::utils::tracing::Instrument">Instrument</a> for T</h3></section></div><script src="../../../trait.impl/tracing/instrument/trait.Instrument.js" async></script><script type="text/json" id="notable-traits-data">{"Instrumented<Self>":"<h3>Notable traits for <code><a class=\"struct\" href=\"instrument/struct.Instrumented.html\" title=\"struct bevy::utils::tracing::instrument::Instrumented\">Instrumented</a>&lt;T&gt;</code></h3><pre><code><span class=\"where fmt-newline\">impl&lt;T&gt; <a class=\"trait\" href=\"../../tasks/futures_lite/trait.Future.html\" title=\"trait bevy::tasks::futures_lite::Future\">Future</a> for <a class=\"struct\" href=\"instrument/struct.Instrumented.html\" title=\"struct bevy::utils::tracing::instrument::Instrumented\">Instrumented</a>&lt;T&gt;<span class=\"where fmt-newline\">where\n    T: <a class=\"trait\" href=\"../../tasks/futures_lite/trait.Future.html\" title=\"trait bevy::tasks::futures_lite::Future\">Future</a>,</span></span><span class=\"where fmt-newline\">    type <a href=\"../../tasks/futures_lite/trait.Future.html#associatedtype.Output\" class=\"associatedtype\">Output</a> = &lt;T as <a class=\"trait\" href=\"../../tasks/futures_lite/trait.Future.html\" title=\"trait bevy::tasks::futures_lite::Future\">Future</a>&gt;::<a class=\"associatedtype\" href=\"../../tasks/futures_lite/trait.Future.html#associatedtype.Output\" title=\"type bevy::tasks::futures_lite::Future::Output\">Output</a>;</span>"}</script></section></div></main></body></html>

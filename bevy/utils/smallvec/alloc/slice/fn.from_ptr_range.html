@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Forms a slice from a pointer range."><title>from_ptr_range in bevy::utils::smallvec::alloc::slice - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::utils::smallvec::alloc::slice</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">smallvec</a>::<wbr><a href="../index.html">alloc</a>::<wbr><a href="index.html">slice</a>::<wbr><a class="fn" href="#">from_ptr_range</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="const unstable">const: <a href="https://github.com/rust-lang/rust/issues/89792" title="Tracking issue for const_slice_from_ptr_range">unstable</a></span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/core/slice/raw.rs.html#230">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe fn from_ptr_range&lt;'a, T&gt;(range: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/ops/range/struct.Range.html" title="struct core::ops::range::Range">Range</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*const T</a>&gt;) -&gt; &amp;'a <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html">[T]</a></code></pre><span class="item-info"><div class="stab unstable"><span class="emoji">🔬</span><span>This is a nightly-only experimental API. (<code>slice_from_ptr_range</code>)</span></div></span><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Forms a slice from a pointer range.</p>
+<p>This function is useful for interacting with foreign interfaces which
+use two pointers to refer to a range of elements in memory, as is
+common in C++.</p>
+<h2 id="safety"><a href="#safety">Safety</a></h2>
+<p>Behavior is undefined if any of the following conditions are violated:</p>
+<ul>
+<li>
+<p>The <code>start</code> pointer of the range must be a <a href="https://doc.rust-lang.org/1.75.0/core/ptr/index.html#safety" title="mod core::ptr">valid</a> and properly aligned pointer
+to the first element of a slice.</p>
+</li>
+<li>
+<p>The <code>end</code> pointer must be a <a href="https://doc.rust-lang.org/1.75.0/core/ptr/index.html#safety" title="mod core::ptr">valid</a> and properly aligned pointer to <em>one past</em>
+the last element, such that the offset from the end to the start pointer is
+the length of the slice.</p>
+</li>
+<li>
+<p>The entire memory range of this slice must be contained within a single allocated object!
+Slices can never span across multiple allocated objects.</p>
+</li>
+<li>
+<p>The range must contain <code>N</code> consecutive properly initialized values of type <code>T</code>.</p>
+</li>
+<li>
+<p>The memory referenced by the returned slice must not be mutated for the duration
+of lifetime <code>'a</code>, except inside an <code>UnsafeCell</code>.</p>
+</li>
+<li>
+<p>The total length of the range must be no larger than <code>isize::MAX</code>,
+and adding that size to <code>data</code> must not “wrap around” the address space.
+See the safety documentation of <a href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html#method.offset" title="method pointer::offset"><code>pointer::offset</code></a>.</p>
+</li>
+</ul>
+<p>Note that a range created from <a href="https://doc.rust-lang.org/1.75.0/std/primitive.slice.html#method.as_ptr_range" title="method slice::as_ptr_range"><code>slice::as_ptr_range</code></a> fulfills these requirements.</p>
+<h2 id="panics"><a href="#panics">Panics</a></h2>
+<p>This function panics if <code>T</code> is a Zero-Sized Type (“ZST”).</p>
+<h2 id="caveat"><a href="#caveat">Caveat</a></h2>
+<p>The lifetime for the returned slice is inferred from its usage. To
+prevent accidental misuse, it’s suggested to tie the lifetime to whichever
+source lifetime is safe in the context, such as by providing a helper
+function taking the lifetime of a host value for the slice, or by explicit
+annotation.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#![feature(slice_from_ptr_range)]
+
+</span><span class="kw">use </span>core::slice;
+
+<span class="kw">let </span>x = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
+<span class="kw">let </span>range = x.as_ptr_range();
+
+<span class="kw">unsafe </span>{
+    <span class="macro">assert_eq!</span>(slice::from_ptr_range(range), <span class="kw-2">&amp;</span>x);
+}</code></pre></div>
+</div></details></section></div></main></body></html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Creates a new `embedded` asset by embedding the bytes of the given path into the current binary and registering those bytes with the `embedded` `AssetSource`."><title>embedded_asset in bevy::asset - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::asset</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="../index.html">bevy</a>::<wbr><a href="index.html">asset</a>::<wbr><a class="macro" href="#">embedded_asset</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><span class="macro">macro_rules! </span>embedded_asset {
+    (<span class="macro-nonterminal">$app</span>: ident, <span class="macro-nonterminal">$path</span>: expr) =&gt; { ... };
+    (<span class="macro-nonterminal">$app</span>: ident, <span class="macro-nonterminal">$source_path</span>: expr, <span class="macro-nonterminal">$path</span>: expr) =&gt; { ... };
+}</pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Creates a new <code>embedded</code> asset by embedding the bytes of the given path into the current binary
+and registering those bytes with the <code>embedded</code> <a href="io/struct.AssetSource.html" title="struct bevy::asset::io::AssetSource"><code>AssetSource</code></a>.</p>
+<p>This accepts the current <a href="../app/struct.App.html" title="struct bevy::app::App"><code>App</code></a> as the first parameter and a path <code>&amp;str</code> (relative to the current file) as the second.</p>
+<p>By default this will generate an <a href="struct.AssetPath.html" title="struct bevy::asset::AssetPath"><code>AssetPath</code></a> using the following rules:</p>
+<ol>
+<li>Search for the first <code>$crate_name/src/</code> in the path and trim to the path past that point.</li>
+<li>Re-add the current <code>$crate_name</code> to the front of the path</li>
+</ol>
+<p>For example, consider the following file structure in the theoretical <code>bevy_rock</code> crate, which provides a Bevy <a href="../app/trait.Plugin.html" title="trait bevy::app::Plugin"><code>Plugin</code></a>
+that renders fancy rocks for scenes.</p>
+<div class="example-wrap"><pre class="language-text"><code>bevy_rock
+├── src
+│   ├── render
+│   │   ├── rock.wgsl
+│   │   └── mod.rs
+│   └── lib.rs
+└── Cargo.toml
+</code></pre></div>
+<p><code>rock.wgsl</code> is a WGSL shader asset that the <code>bevy_rock</code> plugin author wants to bundle with their crate. They invoke the following
+in <code>bevy_rock/src/render/mod.rs</code>:</p>
+<p><code>embedded_asset!(app, &quot;rock.wgsl&quot;)</code></p>
+<p><code>rock.wgsl</code> can now be loaded by the <a href="struct.AssetServer.html" title="struct bevy::asset::AssetServer"><code>AssetServer</code></a> with the following path:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Asset, TypePath)]
+</span><span class="kw">let </span>shader = asset_server.load::&lt;Shader&gt;(<span class="string">&quot;embedded://bevy_rock/render/rock.wgsl&quot;</span>);</code></pre></div>
+<p>Some things to note in the path:</p>
+<ol>
+<li>The non-default <code>embedded://</code> <a href="io/struct.AssetSource.html" title="struct bevy::asset::io::AssetSource"><code>AssetSource</code></a></li>
+<li><code>src</code> is trimmed from the path</li>
+</ol>
+<p>The default behavior also works for cargo workspaces. Pretend the <code>bevy_rock</code> crate now exists in a larger workspace in
+<code>$SOME_WORKSPACE/crates/bevy_rock</code>. The asset path would remain the same, because <a href="macro.embedded_asset.html" title="macro bevy::asset::embedded_asset"><code>embedded_asset</code></a> searches for the
+<em>first instance</em> of <code>bevy_rock/src</code> in the path.</p>
+<p>For most “standard crate structures” the default works just fine. But for some niche cases (such as cargo examples),
+the <code>src</code> path will not be present. You can override this behavior by adding it as the second argument to <a href="macro.embedded_asset.html" title="macro bevy::asset::embedded_asset"><code>embedded_asset</code></a>:</p>
+<p><code>embedded_asset!(app, &quot;/examples/rock_stuff/&quot;, &quot;rock.wgsl&quot;)</code></p>
+<p>When there are three arguments, the second argument will replace the default <code>/src/</code> value. Note that these two are
+equivalent:</p>
+<p><code>embedded_asset!(app, &quot;rock.wgsl&quot;)</code>
+<code>embedded_asset!(app, &quot;/src/&quot;, &quot;rock.wgsl&quot;)</code></p>
+<p>This macro uses the <a href="https://doc.rust-lang.org/1.75.0/core/macro.include_bytes.html" title="macro core::include_bytes"><code>include_bytes</code></a> macro internally and <em>will not</em> reallocate the bytes.
+Generally the <a href="struct.AssetPath.html" title="struct bevy::asset::AssetPath"><code>AssetPath</code></a> generated will be predictable, but if your asset isn’t
+available for some reason, you can use the <a href="macro.embedded_path.html" title="macro bevy::asset::embedded_path"><code>embedded_path</code></a> macro to debug.</p>
+<p>Hot-reloading <code>embedded</code> assets is supported. Just enable the <code>embedded_watcher</code> cargo feature.</p>
+</div></details></section></div></main></body></html>

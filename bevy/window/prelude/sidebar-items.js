@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CursorIcon","FileDragAndDrop","Ime","MonitorSelection","WindowPosition"],"struct":["CursorEntered","CursorLeft","CursorMoved","ReceivedCharacter","Window","WindowMoved","WindowPlugin","WindowResizeConstraints"]};

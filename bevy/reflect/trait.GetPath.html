@@ -1,0 +1,147 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A trait which allows nested `Reflect` values to be retrieved with path strings."><title>GetPath in bevy::reflect - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">GetPath</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.path">path</a></li><li><a href="#method.path_mut">path_mut</a></li><li><a href="#method.reflect_path">reflect_path</a></li><li><a href="#method.reflect_path_mut">reflect_path_mut</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In bevy::reflect</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">bevy</a>::<wbr><a href="index.html">reflect</a>::<wbr><a class="trait" href="#">GetPath</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait GetPath: <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a> {
+    // Provided methods
+    fn <a href="#method.reflect_path" class="fn">reflect_path</a>&lt;'p&gt;(
+        &amp;self,
+        path: impl <a class="trait" href="trait.ReflectPath.html" title="trait bevy::reflect::ReflectPath">ReflectPath</a>&lt;'p&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&amp;(dyn <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a> + 'static), <a class="enum" href="enum.ReflectPathError.html" title="enum bevy::reflect::ReflectPathError">ReflectPathError</a>&lt;'p&gt;&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.reflect_path_mut" class="fn">reflect_path_mut</a>&lt;'p&gt;(
+        &amp;mut self,
+        path: impl <a class="trait" href="trait.ReflectPath.html" title="trait bevy::reflect::ReflectPath">ReflectPath</a>&lt;'p&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&amp;mut (dyn <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a> + 'static), <a class="enum" href="enum.ReflectPathError.html" title="enum bevy::reflect::ReflectPathError">ReflectPathError</a>&lt;'p&gt;&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.path" class="fn">path</a>&lt;'p, T&gt;(
+        &amp;self,
+        path: impl <a class="trait" href="trait.ReflectPath.html" title="trait bevy::reflect::ReflectPath">ReflectPath</a>&lt;'p&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;T</a>, <a class="enum" href="enum.ReflectPathError.html" title="enum bevy::reflect::ReflectPathError">ReflectPathError</a>&lt;'p&gt;&gt;
+       <span class="where">where T: <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.path_mut" class="fn">path_mut</a>&lt;'p, T&gt;(
+        &amp;mut self,
+        path: impl <a class="trait" href="trait.ReflectPath.html" title="trait bevy::reflect::ReflectPath">ReflectPath</a>&lt;'p&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;mut T</a>, <a class="enum" href="enum.ReflectPathError.html" title="enum bevy::reflect::ReflectPathError">ReflectPathError</a>&lt;'p&gt;&gt;
+       <span class="where">where T: <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a></span> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A trait which allows nested <a href="trait.Reflect.html" title="trait bevy::reflect::Reflect"><code>Reflect</code></a> values to be retrieved with path strings.</p>
+<p>Using these functions repeatedly with the same string requires parsing the string every time.
+To avoid this cost, it’s recommended to construct a <a href="struct.ParsedPath.html" title="struct bevy::reflect::ParsedPath"><code>ParsedPath</code></a> instead.</p>
+<h2 id="syntax"><a href="#syntax">Syntax</a></h2><h3 id="structs"><a href="#structs">Structs</a></h3>
+<p>Field paths for <a href="trait.Struct.html" title="trait bevy::reflect::Struct"><code>Struct</code></a> elements use the standard Rust field access syntax of
+dot and field name: <code>.field_name</code>.</p>
+<p>Additionally, struct fields may be accessed by their index within the struct’s definition.
+This is accomplished by using the hash symbol (<code>#</code>) in place of the standard dot: <code>#0</code>.</p>
+<p>Accessing a struct’s field by index can speed up fetches at runtime due to the removed
+need for string matching.
+And while this can be more performant, it’s best to keep in mind the tradeoffs when
+utilizing such optimizations.
+For example, this can result in fairly fragile code as the string paths will need to be
+kept in sync with the struct definitions since the order of fields could be easily changed.
+Because of this, storing these kinds of paths in persistent storage (i.e. game assets)
+is strongly discouraged.</p>
+<p>Note that a leading dot (<code>.</code>) or hash (<code>#</code>) token is implied for the first item in a path,
+and may therefore be omitted.</p>
+<h4 id="example"><a href="#example">Example</a></h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Reflect)]
+</span><span class="kw">struct </span>MyStruct {
+  value: u32
+}
+
+<span class="kw">let </span>my_struct = MyStruct { value: <span class="number">123 </span>};
+<span class="comment">// Access via field name
+</span><span class="macro">assert_eq!</span>(my_struct.path::&lt;u32&gt;(<span class="string">&quot;.value&quot;</span>).unwrap(), <span class="kw-2">&amp;</span><span class="number">123</span>);
+<span class="comment">// Access via field index
+</span><span class="macro">assert_eq!</span>(my_struct.path::&lt;u32&gt;(<span class="string">&quot;#0&quot;</span>).unwrap(), <span class="kw-2">&amp;</span><span class="number">123</span>);</code></pre></div>
+<h3 id="tuples-and-tuple-structs"><a href="#tuples-and-tuple-structs">Tuples and Tuple Structs</a></h3>
+<p><a href="trait.Tuple.html" title="trait bevy::reflect::Tuple"><code>Tuple</code></a> and <a href="trait.TupleStruct.html" title="trait bevy::reflect::TupleStruct"><code>TupleStruct</code></a> elements also follow a conventional Rust syntax.
+Fields are accessed with a dot and the field index: <code>.0</code>.</p>
+<p>Note that a leading dot (<code>.</code>) token is implied for the first item in a path,
+and may therefore be omitted.</p>
+<h4 id="example-1"><a href="#example-1">Example</a></h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Reflect)]
+</span><span class="kw">struct </span>MyTupleStruct(u32);
+
+<span class="kw">let </span>my_tuple_struct = MyTupleStruct(<span class="number">123</span>);
+<span class="macro">assert_eq!</span>(my_tuple_struct.path::&lt;u32&gt;(<span class="string">&quot;.0&quot;</span>).unwrap(), <span class="kw-2">&amp;</span><span class="number">123</span>);</code></pre></div>
+<h3 id="lists-and-arrays"><a href="#lists-and-arrays">Lists and Arrays</a></h3>
+<p><a href="trait.List.html" title="trait bevy::reflect::List"><code>List</code></a> and <a href="trait.Array.html" title="trait bevy::reflect::Array"><code>Array</code></a> elements are accessed with brackets: <code>[0]</code>.</p>
+<h4 id="example-2"><a href="#example-2">Example</a></h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>my_list: Vec&lt;u32&gt; = <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
+<span class="macro">assert_eq!</span>(my_list.path::&lt;u32&gt;(<span class="string">&quot;[2]&quot;</span>).unwrap(), <span class="kw-2">&amp;</span><span class="number">3</span>);</code></pre></div>
+<h3 id="enums"><a href="#enums">Enums</a></h3>
+<p>Pathing for <a href="trait.Enum.html" title="trait bevy::reflect::Enum"><code>Enum</code></a> elements works a bit differently than in normal Rust.
+Usually, you would need to pattern match an enum, branching off on the desired variants.
+Paths used by this trait do not have any pattern matching capabilities;
+instead, they assume the variant is already known ahead of time.</p>
+<p>The syntax used, therefore, depends on the variant being accessed:</p>
+<ul>
+<li>Struct variants use the struct syntax (outlined above)</li>
+<li>Tuple variants use the tuple syntax (outlined above)</li>
+<li>Unit variants have no fields to access</li>
+</ul>
+<p>If the variant cannot be known ahead of time, the path will need to be split up
+and proper enum pattern matching will need to be handled manually.</p>
+<h4 id="example-3"><a href="#example-3">Example</a></h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Reflect)]
+</span><span class="kw">enum </span>MyEnum {
+  Unit,
+  Tuple(bool),
+  Struct {
+    value: u32
+  }
+}
+
+<span class="kw">let </span>tuple_variant = MyEnum::Tuple(<span class="bool-val">true</span>);
+<span class="macro">assert_eq!</span>(tuple_variant.path::&lt;bool&gt;(<span class="string">&quot;.0&quot;</span>).unwrap(), <span class="kw-2">&amp;</span><span class="bool-val">true</span>);
+
+<span class="kw">let </span>struct_variant = MyEnum::Struct { value: <span class="number">123 </span>};
+<span class="comment">// Access via field name
+</span><span class="macro">assert_eq!</span>(struct_variant.path::&lt;u32&gt;(<span class="string">&quot;.value&quot;</span>).unwrap(), <span class="kw-2">&amp;</span><span class="number">123</span>);
+<span class="comment">// Access via field index
+</span><span class="macro">assert_eq!</span>(struct_variant.path::&lt;u32&gt;(<span class="string">&quot;#0&quot;</span>).unwrap(), <span class="kw-2">&amp;</span><span class="number">123</span>);
+
+<span class="comment">// Error: Expected struct variant
+</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(tuple_variant.path::&lt;u32&gt;(<span class="string">&quot;.value&quot;</span>), <span class="prelude-val">Err</span>(<span class="kw">_</span>)));</code></pre></div>
+<h2 id="chaining"><a href="#chaining">Chaining</a></h2>
+<p>Using the aforementioned syntax, path items may be chained one after another
+to create a full path to a nested element.</p>
+<h3 id="example-4"><a href="#example-4">Example</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Reflect)]
+</span><span class="kw">struct </span>MyStruct {
+  value: Vec&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt;
+}
+
+<span class="kw">let </span>my_struct = MyStruct {
+  value: <span class="macro">vec!</span>[<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="number">123</span>)],
+};
+<span class="macro">assert_eq!</span>(
+  my_struct.path::&lt;u32&gt;(<span class="string">&quot;.value[2].0&quot;</span>).unwrap(),
+  <span class="kw-2">&amp;</span><span class="number">123</span>,
+);</code></pre></div>
+</div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.reflect_path" class="method"><h4 class="code-header">fn <a href="#method.reflect_path" class="fn">reflect_path</a>&lt;'p&gt;(
+    &amp;self,
+    path: impl <a class="trait" href="trait.ReflectPath.html" title="trait bevy::reflect::ReflectPath">ReflectPath</a>&lt;'p&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&amp;(dyn <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a> + 'static), <a class="enum" href="enum.ReflectPathError.html" title="enum bevy::reflect::ReflectPathError">ReflectPathError</a>&lt;'p&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns a reference to the value specified by <code>path</code>.</p>
+<p>To retrieve a statically typed reference, use
+<a href="trait.GetPath.html#method.path" title="method bevy::reflect::GetPath::path"><code>path</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.reflect_path_mut" class="method"><h4 class="code-header">fn <a href="#method.reflect_path_mut" class="fn">reflect_path_mut</a>&lt;'p&gt;(
+    &amp;mut self,
+    path: impl <a class="trait" href="trait.ReflectPath.html" title="trait bevy::reflect::ReflectPath">ReflectPath</a>&lt;'p&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&amp;mut (dyn <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a> + 'static), <a class="enum" href="enum.ReflectPathError.html" title="enum bevy::reflect::ReflectPathError">ReflectPathError</a>&lt;'p&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns a mutable reference to the value specified by <code>path</code>.</p>
+<p>To retrieve a statically typed mutable reference, use
+<a href="trait.GetPath.html#method.path_mut" title="method bevy::reflect::GetPath::path_mut"><code>path_mut</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.path" class="method"><h4 class="code-header">fn <a href="#method.path" class="fn">path</a>&lt;'p, T&gt;(
+    &amp;self,
+    path: impl <a class="trait" href="trait.ReflectPath.html" title="trait bevy::reflect::ReflectPath">ReflectPath</a>&lt;'p&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;T</a>, <a class="enum" href="enum.ReflectPathError.html" title="enum bevy::reflect::ReflectPathError">ReflectPathError</a>&lt;'p&gt;&gt;<span class="where fmt-newline">where
+    T: <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a>,</span></h4></section></summary><div class="docblock"><p>Returns a statically typed reference to the value specified by <code>path</code>.</p>
+<p>This will automatically handle downcasting to type <code>T</code>.
+The downcast will fail if this value is not of type <code>T</code>
+(which may be the case when using dynamic types like <a href="struct.DynamicStruct.html" title="struct bevy::reflect::DynamicStruct"><code>DynamicStruct</code></a>).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.path_mut" class="method"><h4 class="code-header">fn <a href="#method.path_mut" class="fn">path_mut</a>&lt;'p, T&gt;(
+    &amp;mut self,
+    path: impl <a class="trait" href="trait.ReflectPath.html" title="trait bevy::reflect::ReflectPath">ReflectPath</a>&lt;'p&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;mut T</a>, <a class="enum" href="enum.ReflectPathError.html" title="enum bevy::reflect::ReflectPathError">ReflectPathError</a>&lt;'p&gt;&gt;<span class="where fmt-newline">where
+    T: <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a>,</span></h4></section></summary><div class="docblock"><p>Returns a statically typed mutable reference to the value specified by <code>path</code>.</p>
+<p>This will automatically handle downcasting to type <code>T</code>.
+The downcast will fail if this value is not of type <code>T</code>
+(which may be the case when using dynamic types like <a href="struct.DynamicStruct.html" title="struct bevy::reflect::DynamicStruct"><code>DynamicStruct</code></a>).</p>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-GetPath-for-T" class="impl"><a href="#impl-GetPath-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.GetPath.html" title="trait bevy::reflect::GetPath">GetPath</a> for T<span class="where fmt-newline">where
+    T: <a class="trait" href="trait.Reflect.html" title="trait bevy::reflect::Reflect">Reflect</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h3></section></div><script src="../../trait.impl/bevy_reflect/path/trait.GetPath.js" async></script></section></div></main></body></html>

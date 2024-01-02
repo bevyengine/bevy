@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The main derive macro used by `bevy_reflect` for deriving its `Reflect` trait."><title>Reflect in bevy::prelude - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::prelude</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Derive Macro <a href="../index.html">bevy</a>::<wbr><a href="index.html">prelude</a>::<wbr><a class="derive" href="#">Reflect</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[derive(Reflect)]
+{
+    // Attributes available to this derive:
+    #[reflect]
+    #[reflect_value]
+    #[type_path]
+    #[type_name]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The main derive macro used by <code>bevy_reflect</code> for deriving its <code>Reflect</code> trait.</p>
+<p>This macro can be used on all structs and enums (unions are not supported).
+It will automatically generate implementations for <code>Reflect</code>, <code>Typed</code>, <code>GetTypeRegistration</code>, and <code>FromReflect</code>.
+And, depending on the item’s structure, will either implement <code>Struct</code>, <code>TupleStruct</code>, or <code>Enum</code>.</p>
+<p>See the <a href="../reflect/derive.FromReflect.html" title="derive bevy::reflect::FromReflect"><code>FromReflect</code></a> derive macro for more information on how to customize the <code>FromReflect</code> implementation.</p>
+<h2 id="container-attributes"><a href="#container-attributes">Container Attributes</a></h2>
+<p>This macro comes with some helper attributes that can be added to the container item
+in order to provide additional functionality or alter the generated implementations.</p>
+<p>In addition to those listed, this macro can also use the attributes for <a href="../reflect/derive.TypePath.html" title="derive bevy::reflect::TypePath"><code>TypePath</code></a> derives.</p>
+<h3 id="reflectident"><a href="#reflectident"><code>#[reflect(Ident)]</code></a></h3>
+<p>The <code>#[reflect(Ident)]</code> attribute is used to add type data registrations to the <code>GetTypeRegistration</code>
+implementation corresponding to the given identifier, prepended by <code>Reflect</code>.</p>
+<p>For example, <code>#[reflect(Foo, Bar)]</code> would add two registrations:
+one for <code>ReflectFoo</code> and another for <code>ReflectBar</code>.
+This assumes these types are indeed in-scope wherever this macro is called.</p>
+<p>This is often used with traits that have been marked by the <a href="../reflect/attr.reflect_trait.html" title="attr bevy::reflect::reflect_trait"><code>#[reflect_trait]</code></a>
+macro in order to register the type’s implementation of that trait.</p>
+<h4 id="default-registrations"><a href="#default-registrations">Default Registrations</a></h4>
+<p>The following types are automatically registered when deriving <code>Reflect</code>:</p>
+<ul>
+<li><code>ReflectFromReflect</code> (unless opting out of <code>FromReflect</code>)</li>
+<li><code>SerializationData</code></li>
+<li><code>ReflectFromPtr</code></li>
+</ul>
+<h4 id="special-identifiers"><a href="#special-identifiers">Special Identifiers</a></h4>
+<p>There are a few “special” identifiers that work a bit differently:</p>
+<ul>
+<li><code>#[reflect(Debug)]</code> will force the implementation of <code>Reflect::reflect_debug</code> to rely on
+the type’s [<code>Debug</code>] implementation.
+A custom implementation may be provided using <code>#[reflect(Debug(my_debug_func))]</code> where
+<code>my_debug_func</code> is the path to a function matching the signature:
+<code>(&amp;self, f: &amp;mut ::core::fmt::Formatter&lt;'_&gt;) -&gt; ::core::fmt::Result</code>.</li>
+<li><code>#[reflect(PartialEq)]</code> will force the implementation of <code>Reflect::reflect_partial_eq</code> to rely on
+the type’s [<code>PartialEq</code>] implementation.
+A custom implementation may be provided using <code>#[reflect(PartialEq(my_partial_eq_func))]</code> where
+<code>my_partial_eq_func</code> is the path to a function matching the signature:
+<code>(&amp;self, value: &amp;dyn #bevy_reflect_path::Reflect) -&gt; bool</code>.</li>
+<li><code>#[reflect(Hash)]</code> will force the implementation of <code>Reflect::reflect_hash</code> to rely on
+the type’s [<code>Hash</code>] implementation.
+A custom implementation may be provided using <code>#[reflect(Hash(my_hash_func))]</code> where
+<code>my_hash_func</code> is the path to a function matching the signature: <code>(&amp;self) -&gt; u64</code>.</li>
+<li><code>#[reflect(Default)]</code> will register the <code>ReflectDefault</code> type data as normal.
+However, it will also affect how certain other operations are performed in order
+to improve performance and/or robustness.
+An example of where this is used is in the <a href="../reflect/derive.FromReflect.html" title="derive bevy::reflect::FromReflect"><code>FromReflect</code></a> derive macro,
+where adding this attribute will cause the <code>FromReflect</code> implementation to create
+a base value using its [<code>Default</code>] implementation avoiding issues with ignored fields
+(for structs and tuple structs only).</li>
+</ul>
+<h3 id="reflect_value"><a href="#reflect_value"><code>#[reflect_value]</code></a></h3>
+<p>The <code>#[reflect_value]</code> attribute (which may also take the form <code>#[reflect_value(Ident)]</code>),
+denotes that the item should implement <code>Reflect</code> as though it were a base value type.
+This means that it will forgo implementing <code>Struct</code>, <code>TupleStruct</code>, or <code>Enum</code>.</p>
+<p>Furthermore, it requires that the type implements [<code>Clone</code>].
+If planning to serialize this type using the reflection serializers,
+then the <code>Serialize</code> and <code>Deserialize</code> traits will need to be implemented and registered as well.</p>
+<h3 id="reflectfrom_reflect--false"><a href="#reflectfrom_reflect--false"><code>#[reflect(from_reflect = false)]</code></a></h3>
+<p>This attribute will opt-out of the default <code>FromReflect</code> implementation.</p>
+<p>This is useful for when a type can’t or shouldn’t implement <code>FromReflect</code>,
+or if a manual implementation is desired.</p>
+<p>Note that in the latter case, <code>ReflectFromReflect</code> will no longer be automatically registered.</p>
+<h3 id="reflecttype_path--false"><a href="#reflecttype_path--false"><code>#[reflect(type_path = false)]</code></a></h3>
+<p>This attribute will opt-out of the default <code>TypePath</code> implementation.</p>
+<p>This is useful for when a type can’t or shouldn’t implement <code>TypePath</code>,
+or if a manual implementation is desired.</p>
+<h2 id="field-attributes"><a href="#field-attributes">Field Attributes</a></h2>
+<p>Along with the container attributes, this macro comes with some attributes that may be applied
+to the contained fields themselves.</p>
+<h3 id="reflectignore"><a href="#reflectignore"><code>#[reflect(ignore)]</code></a></h3>
+<p>This attribute simply marks a field to be ignored by the reflection API.</p>
+<p>This allows fields to completely opt-out of reflection,
+which may be useful for maintaining invariants, keeping certain data private,
+or allowing the use of types that do not implement <code>Reflect</code> within the container.</p>
+<h3 id="reflectskip_serializing"><a href="#reflectskip_serializing"><code>#[reflect(skip_serializing)]</code></a></h3>
+<p>This works similar to <code>#[reflect(ignore)]</code>, but rather than opting out of <em>all</em> of reflection,
+it simply opts the field out of both serialization and deserialization.
+This can be useful when a field should be accessible via reflection, but may not make
+sense in a serialized form, such as computed data.</p>
+<p>What this does is register the <code>SerializationData</code> type within the <code>GetTypeRegistration</code> implementation,
+which will be used by the reflection serializers to determine whether or not the field is serializable.</p>
+</div></details></section></div></main></body></html>

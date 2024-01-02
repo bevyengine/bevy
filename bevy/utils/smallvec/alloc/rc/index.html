@@ -1,0 +1,211 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference Counted’."><title>bevy::utils::smallvec::alloc::rc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">Module rc</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In bevy::utils::smallvec::alloc</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">smallvec</a>::<wbr><a href="../index.html">alloc</a>::<wbr><a class="mod" href="#">rc</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/alloc/lib.rs.html#248">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference
+Counted’.</p>
+<p>The type <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc&lt;T&gt;</code></a> provides shared ownership of a value of type <code>T</code>,
+allocated in the heap. Invoking <a href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html#tymethod.clone" title="method core::clone::Clone::clone"><code>clone</code></a> on <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> produces a new
+pointer to the same allocation in the heap. When the last <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> pointer to a
+given allocation is destroyed, the value stored in that allocation (often
+referred to as “inner value”) is also dropped.</p>
+<p>Shared references in Rust disallow mutation by default, and <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a>
+is no exception: you cannot generally obtain a mutable reference to
+something inside an <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a>. If you need mutability, put a <a href="https://doc.rust-lang.org/1.75.0/core/cell/struct.Cell.html" title="struct core::cell::Cell"><code>Cell</code></a>
+or <a href="https://doc.rust-lang.org/1.75.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell"><code>RefCell</code></a> inside the <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a>; see <a href="https://doc.rust-lang.org/1.75.0/core/cell/index.html#introducing-mutability-inside-of-something-immutable" title="mod core::cell">an example of mutability
+inside an <code>Rc</code></a>.</p>
+<p><a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> uses non-atomic reference counting. This means that overhead is very
+low, but an <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> cannot be sent between threads, and consequently <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a>
+does not implement <a href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send"><code>Send</code></a>. As a result, the Rust compiler
+will check <em>at compile time</em> that you are not sending <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a>s between
+threads. If you need multi-threaded, atomic reference counting, use
+<a href="../sync/struct.Arc.html" title="struct bevy::utils::smallvec::alloc::sync::Arc"><code>sync::Arc</code></a>.</p>
+<p>The <a href="struct.Rc.html#method.downgrade" title="associated function bevy::utils::smallvec::alloc::rc::Rc::downgrade"><code>downgrade</code></a> method can be used to create a non-owning
+<a href="struct.Weak.html" title="struct bevy::utils::smallvec::alloc::rc::Weak"><code>Weak</code></a> pointer. A <a href="struct.Weak.html" title="struct bevy::utils::smallvec::alloc::rc::Weak"><code>Weak</code></a> pointer can be <a href="struct.Weak.html#method.upgrade" title="method bevy::utils::smallvec::alloc::rc::Weak::upgrade"><code>upgrade</code></a>d
+to an <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a>, but this will return <a href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html#variant.None" title="variant core::option::Option::None"><code>None</code></a> if the value stored in the allocation has
+already been dropped. In other words, <code>Weak</code> pointers do not keep the value
+inside the allocation alive; however, they <em>do</em> keep the allocation
+(the backing store for the inner value) alive.</p>
+<p>A cycle between <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> pointers will never be deallocated. For this reason,
+<a href="struct.Weak.html" title="struct bevy::utils::smallvec::alloc::rc::Weak"><code>Weak</code></a> is used to break cycles. For example, a tree could have strong
+<a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> pointers from parent nodes to children, and <a href="struct.Weak.html" title="struct bevy::utils::smallvec::alloc::rc::Weak"><code>Weak</code></a> pointers from
+children back to their parents.</p>
+<p><code>Rc&lt;T&gt;</code> automatically dereferences to <code>T</code> (via the <a href="https://doc.rust-lang.org/1.75.0/core/ops/deref/trait.Deref.html" title="trait core::ops::deref::Deref"><code>Deref</code></a> trait),
+so you can call <code>T</code>’s methods on a value of type <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc&lt;T&gt;</code></a>. To avoid name
+clashes with <code>T</code>’s methods, the methods of <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc&lt;T&gt;</code></a> itself are associated
+functions, called using <a href="https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#fully-qualified-syntax-for-disambiguation-calling-methods-with-the-same-name">fully qualified syntax</a>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
+
+<span class="kw">let </span>my_rc = Rc::new(());
+<span class="kw">let </span>my_weak = Rc::downgrade(<span class="kw-2">&amp;</span>my_rc);</code></pre></div>
+<p><code>Rc&lt;T&gt;</code>’s implementations of traits like <code>Clone</code> may also be called using
+fully qualified syntax. Some people prefer to use fully qualified syntax,
+while others prefer using method-call syntax.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
+
+<span class="kw">let </span>rc = Rc::new(());
+<span class="comment">// Method-call syntax
+</span><span class="kw">let </span>rc2 = rc.clone();
+<span class="comment">// Fully qualified syntax
+</span><span class="kw">let </span>rc3 = Rc::clone(<span class="kw-2">&amp;</span>rc);</code></pre></div>
+<p><a href="struct.Weak.html" title="struct bevy::utils::smallvec::alloc::rc::Weak"><code>Weak&lt;T&gt;</code></a> does not auto-dereference to <code>T</code>, because the inner value may have
+already been dropped.</p>
+<h2 id="cloning-references"><a href="#cloning-references">Cloning references</a></h2>
+<p>Creating a new reference to the same allocation as an existing reference counted pointer
+is done using the <code>Clone</code> trait implemented for <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc&lt;T&gt;</code></a> and <a href="struct.Weak.html" title="struct bevy::utils::smallvec::alloc::rc::Weak"><code>Weak&lt;T&gt;</code></a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
+
+<span class="kw">let </span>foo = Rc::new(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>]);
+<span class="comment">// The two syntaxes below are equivalent.
+</span><span class="kw">let </span>a = foo.clone();
+<span class="kw">let </span>b = Rc::clone(<span class="kw-2">&amp;</span>foo);
+<span class="comment">// a and b both point to the same memory location as foo.</span></code></pre></div>
+<p>The <code>Rc::clone(&amp;from)</code> syntax is the most idiomatic because it conveys more explicitly
+the meaning of the code. In the example above, this syntax makes it easier to see that
+this code is creating a new reference rather than copying the whole content of foo.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>Consider a scenario where a set of <code>Gadget</code>s are owned by a given <code>Owner</code>.
+We want to have our <code>Gadget</code>s point to their <code>Owner</code>. We can’t do this with
+unique ownership, because more than one gadget may belong to the same
+<code>Owner</code>. <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> allows us to share an <code>Owner</code> between multiple <code>Gadget</code>s,
+and have the <code>Owner</code> remain allocated as long as any <code>Gadget</code> points at it.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
+
+<span class="kw">struct </span>Owner {
+    name: String,
+    <span class="comment">// ...other fields
+</span>}
+
+<span class="kw">struct </span>Gadget {
+    id: i32,
+    owner: Rc&lt;Owner&gt;,
+    <span class="comment">// ...other fields
+</span>}
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// Create a reference-counted `Owner`.
+    </span><span class="kw">let </span>gadget_owner: Rc&lt;Owner&gt; = Rc::new(
+        Owner {
+            name: <span class="string">&quot;Gadget Man&quot;</span>.to_string(),
+        }
+    );
+
+    <span class="comment">// Create `Gadget`s belonging to `gadget_owner`. Cloning the `Rc&lt;Owner&gt;`
+    // gives us a new pointer to the same `Owner` allocation, incrementing
+    // the reference count in the process.
+    </span><span class="kw">let </span>gadget1 = Gadget {
+        id: <span class="number">1</span>,
+        owner: Rc::clone(<span class="kw-2">&amp;</span>gadget_owner),
+    };
+    <span class="kw">let </span>gadget2 = Gadget {
+        id: <span class="number">2</span>,
+        owner: Rc::clone(<span class="kw-2">&amp;</span>gadget_owner),
+    };
+
+    <span class="comment">// Dispose of our local variable `gadget_owner`.
+    </span>drop(gadget_owner);
+
+    <span class="comment">// Despite dropping `gadget_owner`, we&#39;re still able to print out the name
+    // of the `Owner` of the `Gadget`s. This is because we&#39;ve only dropped a
+    // single `Rc&lt;Owner&gt;`, not the `Owner` it points to. As long as there are
+    // other `Rc&lt;Owner&gt;` pointing at the same `Owner` allocation, it will remain
+    // live. The field projection `gadget1.owner.name` works because
+    // `Rc&lt;Owner&gt;` automatically dereferences to `Owner`.
+    </span><span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget1.id, gadget1.owner.name);
+    <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget2.id, gadget2.owner.name);
+
+    <span class="comment">// At the end of the function, `gadget1` and `gadget2` are destroyed, and
+    // with them the last counted references to our `Owner`. Gadget Man now
+    // gets destroyed as well.
+</span>}</code></pre></div>
+<p>If our requirements change, and we also need to be able to traverse from
+<code>Owner</code> to <code>Gadget</code>, we will run into problems. An <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> pointer from <code>Owner</code>
+to <code>Gadget</code> introduces a cycle. This means that their
+reference counts can never reach 0, and the allocation will never be destroyed:
+a memory leak. In order to get around this, we can use <a href="struct.Weak.html" title="struct bevy::utils::smallvec::alloc::rc::Weak"><code>Weak</code></a>
+pointers.</p>
+<p>Rust actually makes it somewhat difficult to produce this loop in the first
+place. In order to end up with two values that point at each other, one of
+them needs to be mutable. This is difficult because <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> enforces
+memory safety by only giving out shared references to the value it wraps,
+and these don’t allow direct mutation. We need to wrap the part of the
+value we wish to mutate in a <a href="https://doc.rust-lang.org/1.75.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell"><code>RefCell</code></a>, which provides <em>interior
+mutability</em>: a method to achieve mutability through a shared reference.
+<a href="https://doc.rust-lang.org/1.75.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell"><code>RefCell</code></a> enforces Rust’s borrowing rules at runtime.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
+<span class="kw">use </span>std::rc::Weak;
+<span class="kw">use </span>std::cell::RefCell;
+
+<span class="kw">struct </span>Owner {
+    name: String,
+    gadgets: RefCell&lt;Vec&lt;Weak&lt;Gadget&gt;&gt;&gt;,
+    <span class="comment">// ...other fields
+</span>}
+
+<span class="kw">struct </span>Gadget {
+    id: i32,
+    owner: Rc&lt;Owner&gt;,
+    <span class="comment">// ...other fields
+</span>}
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// Create a reference-counted `Owner`. Note that we&#39;ve put the `Owner`&#39;s
+    // vector of `Gadget`s inside a `RefCell` so that we can mutate it through
+    // a shared reference.
+    </span><span class="kw">let </span>gadget_owner: Rc&lt;Owner&gt; = Rc::new(
+        Owner {
+            name: <span class="string">&quot;Gadget Man&quot;</span>.to_string(),
+            gadgets: RefCell::new(<span class="macro">vec!</span>[]),
+        }
+    );
+
+    <span class="comment">// Create `Gadget`s belonging to `gadget_owner`, as before.
+    </span><span class="kw">let </span>gadget1 = Rc::new(
+        Gadget {
+            id: <span class="number">1</span>,
+            owner: Rc::clone(<span class="kw-2">&amp;</span>gadget_owner),
+        }
+    );
+    <span class="kw">let </span>gadget2 = Rc::new(
+        Gadget {
+            id: <span class="number">2</span>,
+            owner: Rc::clone(<span class="kw-2">&amp;</span>gadget_owner),
+        }
+    );
+
+    <span class="comment">// Add the `Gadget`s to their `Owner`.
+    </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>gadgets = gadget_owner.gadgets.borrow_mut();
+        gadgets.push(Rc::downgrade(<span class="kw-2">&amp;</span>gadget1));
+        gadgets.push(Rc::downgrade(<span class="kw-2">&amp;</span>gadget2));
+
+        <span class="comment">// `RefCell` dynamic borrow ends here.
+    </span>}
+
+    <span class="comment">// Iterate over our `Gadget`s, printing their details out.
+    </span><span class="kw">for </span>gadget_weak <span class="kw">in </span>gadget_owner.gadgets.borrow().iter() {
+
+        <span class="comment">// `gadget_weak` is a `Weak&lt;Gadget&gt;`. Since `Weak` pointers can&#39;t
+        // guarantee the allocation still exists, we need to call
+        // `upgrade`, which returns an `Option&lt;Rc&lt;Gadget&gt;&gt;`.
+        //
+        // In this case we know the allocation still exists, so we simply
+        // `unwrap` the `Option`. In a more complicated program, you might
+        // need graceful error handling for a `None` result.
+
+        </span><span class="kw">let </span>gadget = gadget_weak.upgrade().unwrap();
+        <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget.id, gadget.owner.name);
+    }
+
+    <span class="comment">// At the end of the function, `gadget_owner`, `gadget1`, and `gadget2`
+    // are destroyed. There are now no strong (`Rc`) pointers to the
+    // gadgets, so they are destroyed. This zeroes the reference count on
+    // Gadget Man, so he gets destroyed as well.
+</span>}</code></pre></div>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.UniqueRc.html" title="struct bevy::utils::smallvec::alloc::rc::UniqueRc">UniqueRc</a><span class="stab unstable" title="">Experimental</span></div><div class="desc docblock-short">A uniquely owned <code>Rc</code></div></li><li><div class="item-name"><a class="struct" href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc">Rc</a></div><div class="desc docblock-short">A single-threaded reference-counting pointer. ‘Rc’ stands for ‘Reference
+Counted’.</div></li><li><div class="item-name"><a class="struct" href="struct.Weak.html" title="struct bevy::utils::smallvec::alloc::rc::Weak">Weak</a></div><div class="desc docblock-short"><code>Weak</code> is a version of <a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc"><code>Rc</code></a> that holds a non-owning reference to the
+managed allocation. The allocation is accessed by calling <a href="struct.Weak.html#method.upgrade" title="method bevy::utils::smallvec::alloc::rc::Weak::upgrade"><code>upgrade</code></a> on the <code>Weak</code>
+pointer, which returns an <code><a href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a href="struct.Rc.html" title="struct bevy::utils::smallvec::alloc::rc::Rc">Rc</a>&lt;T&gt;&gt;</code>.</div></li></ul></section></div></main></body></html>

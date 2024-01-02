@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CapsuleUvProfile"],"struct":["Box","Capsule","Circle","Cube","Cylinder","Icosphere","Plane","Quad","RegularPolygon","Torus","UVSphere"]};

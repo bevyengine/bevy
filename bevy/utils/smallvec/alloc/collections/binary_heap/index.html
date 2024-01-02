@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A priority queue implemented with a binary heap."><title>bevy::utils::smallvec::alloc::collections::binary_heap - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../../" data-static-root-path="../../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">Module binary_heap</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In bevy::utils::smallvec::alloc::collections</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../../../index.html">bevy</a>::<wbr><a href="../../../../index.html">utils</a>::<wbr><a href="../../../index.html">smallvec</a>::<wbr><a href="../../index.html">alloc</a>::<wbr><a href="../index.html">collections</a>::<wbr><a class="mod" href="#">binary_heap</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/alloc/collections/mod.rs.html#6">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A priority queue implemented with a binary heap.</p>
+<p>Insertion and popping the largest element have <em>O</em>(log(<em>n</em>)) time complexity.
+Checking the largest element is <em>O</em>(1). Converting a vector to a binary heap
+can be done in-place, and has <em>O</em>(<em>n</em>) complexity. A binary heap can also be
+converted to a sorted vector in-place, allowing it to be used for an <em>O</em>(<em>n</em> * log(<em>n</em>))
+in-place heapsort.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>This is a larger example that implements <a href="https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm">Dijkstra’s algorithm</a>
+to solve the <a href="https://en.wikipedia.org/wiki/Shortest_path_problem">shortest path problem</a> on a <a href="https://en.wikipedia.org/wiki/Directed_graph">directed graph</a>.
+It shows how to use <a href="../struct.BinaryHeap.html" title="struct bevy::utils::smallvec::alloc::collections::BinaryHeap"><code>BinaryHeap</code></a> with custom types.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::cmp::Ordering;
+<span class="kw">use </span>std::collections::BinaryHeap;
+
+<span class="attr">#[derive(Copy, Clone, Eq, PartialEq)]
+</span><span class="kw">struct </span>State {
+    cost: usize,
+    position: usize,
+}
+
+<span class="comment">// The priority queue depends on `Ord`.
+// Explicitly implement the trait so the queue becomes a min-heap
+// instead of a max-heap.
+</span><span class="kw">impl </span>Ord <span class="kw">for </span>State {
+    <span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; Ordering {
+        <span class="comment">// Notice that the we flip the ordering on costs.
+        // In case of a tie we compare positions - this step is necessary
+        // to make implementations of `PartialEq` and `Ord` consistent.
+        </span>other.cost.cmp(<span class="kw-2">&amp;</span><span class="self">self</span>.cost)
+            .then_with(|| <span class="self">self</span>.position.cmp(<span class="kw-2">&amp;</span>other.position))
+    }
+}
+
+<span class="comment">// `PartialOrd` needs to be implemented as well.
+</span><span class="kw">impl </span>PartialOrd <span class="kw">for </span>State {
+    <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Ordering&gt; {
+        <span class="prelude-val">Some</span>(<span class="self">self</span>.cmp(other))
+    }
+}
+
+<span class="comment">// Each node is represented as a `usize`, for a shorter implementation.
+</span><span class="kw">struct </span>Edge {
+    node: usize,
+    cost: usize,
+}
+
+<span class="comment">// Dijkstra&#39;s shortest path algorithm.
+
+// Start at `start` and use `dist` to track the current shortest distance
+// to each node. This implementation isn&#39;t memory-efficient as it may leave duplicate
+// nodes in the queue. It also uses `usize::MAX` as a sentinel value,
+// for a simpler implementation.
+</span><span class="kw">fn </span>shortest_path(adj_list: <span class="kw-2">&amp;</span>Vec&lt;Vec&lt;Edge&gt;&gt;, start: usize, goal: usize) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+    <span class="comment">// dist[node] = current shortest distance from `start` to `node`
+    </span><span class="kw">let </span><span class="kw-2">mut </span>dist: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..adj_list.len()).map(|<span class="kw">_</span>| usize::MAX).collect();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>heap = BinaryHeap::new();
+
+    <span class="comment">// We&#39;re at `start`, with a zero cost
+    </span>dist[start] = <span class="number">0</span>;
+    heap.push(State { cost: <span class="number">0</span>, position: start });
+
+    <span class="comment">// Examine the frontier with lower cost nodes first (min-heap)
+    </span><span class="kw">while let </span><span class="prelude-val">Some</span>(State { cost, position }) = heap.pop() {
+        <span class="comment">// Alternatively we could have continued to find all shortest paths
+        </span><span class="kw">if </span>position == goal { <span class="kw">return </span><span class="prelude-val">Some</span>(cost); }
+
+        <span class="comment">// Important as we may have already found a better way
+        </span><span class="kw">if </span>cost &gt; dist[position] { <span class="kw">continue</span>; }
+
+        <span class="comment">// For each node we can reach, see if we can find a way with
+        // a lower cost going through this node
+        </span><span class="kw">for </span>edge <span class="kw">in </span><span class="kw-2">&amp;</span>adj_list[position] {
+            <span class="kw">let </span>next = State { cost: cost + edge.cost, position: edge.node };
+
+            <span class="comment">// If so, add it to the frontier and continue
+            </span><span class="kw">if </span>next.cost &lt; dist[next.position] {
+                heap.push(next);
+                <span class="comment">// Relaxation, we have now found a better way
+                </span>dist[next.position] = next.cost;
+            }
+        }
+    }
+
+    <span class="comment">// Goal not reachable
+    </span><span class="prelude-val">None
+</span>}
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// This is the directed graph we&#39;re going to use.
+    // The node numbers correspond to the different states,
+    // and the edge weights symbolize the cost of moving
+    // from one node to another.
+    // Note that the edges are one-way.
+    //
+    //                  7
+    //          +-----------------+
+    //          |                 |
+    //          v   1        2    |  2
+    //          0 -----&gt; 1 -----&gt; 3 ---&gt; 4
+    //          |        ^        ^      ^
+    //          |        | 1      |      |
+    //          |        |        | 3    | 1
+    //          +------&gt; 2 -------+      |
+    //           10      |               |
+    //                   +---------------+
+    //
+    // The graph is represented as an adjacency list where each index,
+    // corresponding to a node value, has a list of outgoing edges.
+    // Chosen for its efficiency.
+    </span><span class="kw">let </span>graph = <span class="macro">vec!</span>[
+        <span class="comment">// Node 0
+        </span><span class="macro">vec!</span>[Edge { node: <span class="number">2</span>, cost: <span class="number">10 </span>},
+             Edge { node: <span class="number">1</span>, cost: <span class="number">1 </span>}],
+        <span class="comment">// Node 1
+        </span><span class="macro">vec!</span>[Edge { node: <span class="number">3</span>, cost: <span class="number">2 </span>}],
+        <span class="comment">// Node 2
+        </span><span class="macro">vec!</span>[Edge { node: <span class="number">1</span>, cost: <span class="number">1 </span>},
+             Edge { node: <span class="number">3</span>, cost: <span class="number">3 </span>},
+             Edge { node: <span class="number">4</span>, cost: <span class="number">1 </span>}],
+        <span class="comment">// Node 3
+        </span><span class="macro">vec!</span>[Edge { node: <span class="number">0</span>, cost: <span class="number">7 </span>},
+             Edge { node: <span class="number">4</span>, cost: <span class="number">2 </span>}],
+        <span class="comment">// Node 4
+        </span><span class="macro">vec!</span>[]];
+
+    <span class="macro">assert_eq!</span>(shortest_path(<span class="kw-2">&amp;</span>graph, <span class="number">0</span>, <span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+    <span class="macro">assert_eq!</span>(shortest_path(<span class="kw-2">&amp;</span>graph, <span class="number">0</span>, <span class="number">3</span>), <span class="prelude-val">Some</span>(<span class="number">3</span>));
+    <span class="macro">assert_eq!</span>(shortest_path(<span class="kw-2">&amp;</span>graph, <span class="number">3</span>, <span class="number">0</span>), <span class="prelude-val">Some</span>(<span class="number">7</span>));
+    <span class="macro">assert_eq!</span>(shortest_path(<span class="kw-2">&amp;</span>graph, <span class="number">0</span>, <span class="number">4</span>), <span class="prelude-val">Some</span>(<span class="number">5</span>));
+    <span class="macro">assert_eq!</span>(shortest_path(<span class="kw-2">&amp;</span>graph, <span class="number">4</span>, <span class="number">0</span>), <span class="prelude-val">None</span>);
+}</code></pre></div>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.DrainSorted.html" title="struct bevy::utils::smallvec::alloc::collections::binary_heap::DrainSorted">DrainSorted</a><span class="stab unstable" title="">Experimental</span></div><div class="desc docblock-short">A draining iterator over the elements of a <code>BinaryHeap</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.IntoIterSorted.html" title="struct bevy::utils::smallvec::alloc::collections::binary_heap::IntoIterSorted">IntoIterSorted</a><span class="stab unstable" title="">Experimental</span></div></li><li><div class="item-name"><a class="struct" href="struct.BinaryHeap.html" title="struct bevy::utils::smallvec::alloc::collections::binary_heap::BinaryHeap">BinaryHeap</a></div><div class="desc docblock-short">A priority queue implemented with a binary heap.</div></li><li><div class="item-name"><a class="struct" href="struct.Drain.html" title="struct bevy::utils::smallvec::alloc::collections::binary_heap::Drain">Drain</a></div><div class="desc docblock-short">A draining iterator over the elements of a <code>BinaryHeap</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.IntoIter.html" title="struct bevy::utils::smallvec::alloc::collections::binary_heap::IntoIter">IntoIter</a></div><div class="desc docblock-short">An owning iterator over the elements of a <code>BinaryHeap</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.Iter.html" title="struct bevy::utils::smallvec::alloc::collections::binary_heap::Iter">Iter</a></div><div class="desc docblock-short">An iterator over the elements of a <code>BinaryHeap</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.PeekMut.html" title="struct bevy::utils::smallvec::alloc::collections::binary_heap::PeekMut">PeekMut</a></div><div class="desc docblock-short">Structure wrapping a mutable reference to the greatest item on a
+<code>BinaryHeap</code>.</div></li></ul></section></div></main></body></html>

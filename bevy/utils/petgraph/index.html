@@ -1,0 +1,98 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`petgraph` is a graph data structure library."><title>bevy::utils::petgraph - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li></ul></section><h2><a href="../index.html">In bevy::utils</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">bevy</a>::<wbr><a href="../index.html">utils</a>::<wbr><a class="mod" href="#">petgraph</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/petgraph/0.4/src/petgraph/lib.rs.html#1-306">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>petgraph</code> is a graph data structure library.</p>
+<p>Graphs are collections of nodes, and edges between nodes. <code>petgraph</code>
+provides several <a href="index.html#graph-types">graph types</a> (each differing in the
+tradeoffs taken in their internal representation),
+<a href="./algo/index.html#functions">algorithms</a> on those graphs, and functionality to
+<a href="./dot/struct.Dot.html">output graphs</a> in
+<a href="https://www.graphviz.org/"><code>graphviz</code></a> format. Both nodes and edges
+can have arbitrary associated data, and edges may be either directed or undirected.</p>
+<h2 id="example"><a href="#example">Example</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>petgraph::graph::{NodeIndex, UnGraph};
+<span class="kw">use </span>petgraph::algo::{dijkstra, min_spanning_tree};
+<span class="kw">use </span>petgraph::data::FromElements;
+<span class="kw">use </span>petgraph::dot::{Dot, Config};
+
+<span class="comment">// Create an undirected graph with `i32` nodes and edges with `()` associated data.
+</span><span class="kw">let </span>g = UnGraph::&lt;i32, ()&gt;::from_edges(<span class="kw-2">&amp;</span>[
+    (<span class="number">1</span>, <span class="number">2</span>), (<span class="number">2</span>, <span class="number">3</span>), (<span class="number">3</span>, <span class="number">4</span>),
+    (<span class="number">1</span>, <span class="number">4</span>)]);
+
+<span class="comment">// Find the shortest path from `1` to `4` using `1` as the cost for every edge.
+</span><span class="kw">let </span>node_map = dijkstra(<span class="kw-2">&amp;</span>g, <span class="number">1</span>.into(), <span class="prelude-val">Some</span>(<span class="number">4</span>.into()), |<span class="kw">_</span>| <span class="number">1</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="number">1i32</span>, node_map.get(<span class="kw-2">&amp;</span>NodeIndex::new(<span class="number">4</span>)).unwrap());
+
+<span class="comment">// Get the minimum spanning tree of the graph as a new graph, and check that
+// one edge was trimmed.
+</span><span class="kw">let </span>mst = UnGraph::&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;::from_elements(min_spanning_tree(<span class="kw-2">&amp;</span>g));
+<span class="macro">assert_eq!</span>(g.raw_edges().len() - <span class="number">1</span>, mst.raw_edges().len());
+
+<span class="comment">// Output the tree to `graphviz` `DOT` format
+</span><span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, Dot::with_config(<span class="kw-2">&amp;</span>mst, <span class="kw-2">&amp;</span>[Config::EdgeNoLabel]));
+<span class="comment">// graph {
+//     0 [label=&quot;\&quot;0\&quot;&quot;]
+//     1 [label=&quot;\&quot;0\&quot;&quot;]
+//     2 [label=&quot;\&quot;0\&quot;&quot;]
+//     3 [label=&quot;\&quot;0\&quot;&quot;]
+//     1 -- 2
+//     3 -- 4
+//     2 -- 3
+// }</span></code></pre></div>
+<h2 id="graph-types"><a href="#graph-types">Graph types</a></h2>
+<ul>
+<li><a href="./graph/struct.Graph.html"><code>Graph</code></a> -
+An adjacency list graph with arbitrary associated data.</li>
+<li><a href="./stable_graph/struct.StableGraph.html"><code>StableGraph</code></a> -
+Similar to <code>Graph</code>, but it keeps indices stable across removals.</li>
+<li><a href="./graphmap/struct.GraphMap.html"><code>GraphMap</code></a> -
+An adjacency list graph backed by a hash table. The node identifiers are the keys
+into the table.</li>
+<li><a href="./matrix_graph/struct.MatrixGraph.html"><code>MatrixGraph</code></a> -
+An adjacency matrix graph.</li>
+<li><a href="./csr/struct.Csr.html"><code>CSR</code></a> -
+A sparse adjacency matrix graph with arbitrary associated data.</li>
+</ul>
+<h4 id="generic-parameters"><a href="#generic-parameters">Generic parameters</a></h4>
+<p>Each graph type is generic over a handful of parameters. All graphs share 3 common
+parameters, <code>N</code>, <code>E</code>, and <code>Ty</code>. This is a broad overview of what those are. Each
+type’s documentation will have finer detail on these parameters.</p>
+<p><code>N</code> &amp; <code>E</code> are called <em>weights</em> in this implementation, and are associated with
+nodes and edges respectively. They can generally be of arbitrary type, and don’t have to
+be what you might conventionally consider weight-like. For example, using <code>&amp;str</code> for <code>N</code>
+will work. Many algorithms that require costs let you provide a cost function that
+translates your <code>N</code> and <code>E</code> weights into costs appropriate to the algorithm. Some graph
+types and choices do impose bounds on <code>N</code> or <code>E</code>.
+<a href="./algo/fn.min_spanning_tree.html"><code>min_spanning_tree</code></a> for example requires edge weights that
+implement <a href="https://doc.rust-lang.org/stable/core/cmp/trait.PartialOrd.html"><code>PartialOrd</code></a>.
+<a href="./graphmap/struct.GraphMap.html"><code>GraphMap</code></a> requires node weights that can serve as hash
+map keys, since that graph type does not create standalone node indices.</p>
+<p><code>Ty</code> controls whether edges are <a href="./enum.Directed.html"><code>Directed</code></a> or
+<a href="./enum.Undirected.html"><code>Undirected</code></a>.</p>
+<p><code>Ix</code> appears on graph types that use indices. It is exposed so you can control
+the size of node and edge indices, and therefore the memory footprint of your graphs.
+Allowed values are <code>u8</code>, <code>u16</code>, <code>u32</code>, and <code>usize</code>, with <code>u32</code> being the default.</p>
+<h4 id="shorthand-types"><a href="#shorthand-types">Shorthand types</a></h4>
+<p>Each graph type vends a few shorthand type definitions that name some specific
+generic choices. For example, <a href="./graph/type.DiGraph.html"><code>DiGraph&lt;_, _&gt;</code></a> is shorthand
+for <a href="graph/struct.Graph.html"><code>Graph&lt;_, _, Directed&gt;</code></a>.
+<a href="./matrix_graph/type.UnMatrix.html"><code>UnMatrix&lt;_, _&gt;</code></a> is shorthand for
+<a href="./matrix_graph/struct.MatrixGraph.html"><code>MatrixGraph&lt;_, _, Undirected&gt;</code></a>. Each graph type’s
+module documentation lists the available shorthand types.</p>
+<h2 id="crate-features"><a href="#crate-features">Crate features</a></h2>
+<ul>
+<li><strong>serde-1</strong> -
+Defaults off. Enables serialization for <code>Graph, StableGraph, GraphMap</code> using
+<a href="https://crates.io/crates/serde"><code>serde 1.0</code></a>. May require a more recent version
+of Rust than petgraph alone.</li>
+<li><strong>graphmap</strong> -
+Defaults on. Enables <a href="./graphmap/struct.GraphMap.html"><code>GraphMap</code></a>.</li>
+<li><strong>stable_graph</strong> -
+Defaults on. Enables <a href="./stable_graph/struct.StableGraph.html"><code>StableGraph</code></a>.</li>
+<li><strong>matrix_graph</strong> -
+Defaults on. Enables <a href="./matrix_graph/struct.MatrixGraph.html"><code>MatrixGraph</code></a>.</li>
+</ul>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="adj/index.html" title="mod bevy::utils::petgraph::adj">adj</a></div><div class="desc docblock-short">Simple adjacency list.</div></li><li><div class="item-name"><a class="mod" href="algo/index.html" title="mod bevy::utils::petgraph::algo">algo</a></div><div class="desc docblock-short">Graph algorithms.</div></li><li><div class="item-name"><a class="mod" href="csr/index.html" title="mod bevy::utils::petgraph::csr">csr</a></div><div class="desc docblock-short">Compressed Sparse Row (CSR) is a sparse adjacency matrix graph.</div></li><li><div class="item-name"><a class="mod" href="data/index.html" title="mod bevy::utils::petgraph::data">data</a></div><div class="desc docblock-short">Graph traits for associated data and graph construction.</div></li><li><div class="item-name"><a class="mod" href="dot/index.html" title="mod bevy::utils::petgraph::dot">dot</a></div><div class="desc docblock-short">Simple graphviz dot file format output.</div></li><li><div class="item-name"><a class="mod" href="graph/index.html" title="mod bevy::utils::petgraph::graph">graph</a></div><div class="desc docblock-short"><code>Graph&lt;N, E, Ty, Ix&gt;</code> is a graph datastructure using an adjacency list representation.</div></li><li><div class="item-name"><a class="mod" href="graphmap/index.html" title="mod bevy::utils::petgraph::graphmap">graphmap</a></div><div class="desc docblock-short"><code>GraphMap&lt;N, E, Ty&gt;</code> is a graph datastructure where node values are mapping
+keys.</div></li><li><div class="item-name"><a class="mod" href="matrix_graph/index.html" title="mod bevy::utils::petgraph::matrix_graph">matrix_graph</a></div><div class="desc docblock-short"><code>MatrixGraph&lt;N, E, Ty, NullN, NullE, Ix&gt;</code> is a graph datastructure backed by an adjacency matrix.</div></li><li><div class="item-name"><a class="mod" href="operator/index.html" title="mod bevy::utils::petgraph::operator">operator</a></div><div class="desc docblock-short">Operators for creating new graphs from existings ones.</div></li><li><div class="item-name"><a class="mod" href="prelude/index.html" title="mod bevy::utils::petgraph::prelude">prelude</a></div><div class="desc docblock-short">Commonly used items.</div></li><li><div class="item-name"><a class="mod" href="stable_graph/index.html" title="mod bevy::utils::petgraph::stable_graph">stable_graph</a></div><div class="desc docblock-short"><code>StableGraph</code> keeps indices stable across removals.</div></li><li><div class="item-name"><a class="mod" href="unionfind/index.html" title="mod bevy::utils::petgraph::unionfind">unionfind</a></div><div class="desc docblock-short"><code>UnionFind&lt;K&gt;</code> is a disjoint-set data structure.</div></li><li><div class="item-name"><a class="mod" href="visit/index.html" title="mod bevy::utils::petgraph::visit">visit</a></div><div class="desc docblock-short">Graph traits and graph traversals.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Graph.html" title="struct bevy::utils::petgraph::Graph">Graph</a></div><div class="desc docblock-short"><code>Graph&lt;N, E, Ty, Ix&gt;</code> is a graph datastructure using an adjacency list representation.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Directed.html" title="enum bevy::utils::petgraph::Directed">Directed</a></div><div class="desc docblock-short">Marker type for a directed graph.</div></li><li><div class="item-name"><a class="enum" href="enum.Direction.html" title="enum bevy::utils::petgraph::Direction">Direction</a></div><div class="desc docblock-short">Edge direction.</div></li><li><div class="item-name"><a class="enum" href="enum.EdgeDirection.html" title="enum bevy::utils::petgraph::EdgeDirection">EdgeDirection</a></div><div class="desc docblock-short">Edge direction.</div></li><li><div class="item-name"><a class="enum" href="enum.Undirected.html" title="enum bevy::utils::petgraph::Undirected">Undirected</a></div><div class="desc docblock-short">Marker type for an undirected graph.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.EdgeType.html" title="trait bevy::utils::petgraph::EdgeType">EdgeType</a></div><div class="desc docblock-short">A graph’s edge type determines whether it has directed edges or not.</div></li><li><div class="item-name"><a class="trait" href="trait.IntoWeightedEdge.html" title="trait bevy::utils::petgraph::IntoWeightedEdge">IntoWeightedEdge</a></div><div class="desc docblock-short">Convert an element like <code>(i, j)</code> or <code>(i, j, w)</code> into
+a triple of source, target, edge weight.</div></li></ul></section></div></main></body></html>

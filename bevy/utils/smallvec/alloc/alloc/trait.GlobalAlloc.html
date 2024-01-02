@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A memory allocator that can be registered as the standard library’s default through the `#[global_allocator]` attribute."><title>GlobalAlloc in bevy::utils::smallvec::alloc::alloc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><h2 class="location"><a href="#">GlobalAlloc</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.alloc">alloc</a></li><li><a href="#tymethod.dealloc">dealloc</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.alloc_zeroed">alloc_zeroed</a></li><li><a href="#method.realloc">realloc</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In bevy::utils::smallvec::alloc::alloc</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">smallvec</a>::<wbr><a href="../index.html">alloc</a>::<wbr><a href="index.html">alloc</a>::<wbr><a class="trait" href="#">GlobalAlloc</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.28.0">1.28.0</span> · <a class="src" href="https://doc.rust-lang.org/1.75.0/src/core/alloc/global.rs.html#123">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe trait GlobalAlloc {
+    // Required methods
+    unsafe fn <a href="#tymethod.alloc" class="fn">alloc</a>(&amp;self, layout: <a class="struct" href="struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout">Layout</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>;
+<span class="item-spacer"></span>    unsafe fn <a href="#tymethod.dealloc" class="fn">dealloc</a>(&amp;self, ptr: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>, layout: <a class="struct" href="struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout">Layout</a>);
+
+    // Provided methods
+    unsafe fn <a href="#method.alloc_zeroed" class="fn">alloc_zeroed</a>(&amp;self, layout: <a class="struct" href="struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout">Layout</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a> { ... }
+<span class="item-spacer"></span>    unsafe fn <a href="#method.realloc" class="fn">realloc</a>(
+        &amp;self,
+        ptr: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>,
+        layout: <a class="struct" href="struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout">Layout</a>,
+        new_size: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A memory allocator that can be registered as the standard library’s default
+through the <code>#[global_allocator]</code> attribute.</p>
+<p>Some of the methods require that a memory block be <em>currently
+allocated</em> via an allocator. This means that:</p>
+<ul>
+<li>
+<p>the starting address for that memory block was previously
+returned by a previous call to an allocation method
+such as <code>alloc</code>, and</p>
+</li>
+<li>
+<p>the memory block has not been subsequently deallocated, where
+blocks are deallocated either by being passed to a deallocation
+method such as <code>dealloc</code> or by being
+passed to a reallocation method that returns a non-null pointer.</p>
+</li>
+</ul>
+<h2 id="example"><a href="#example">Example</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::alloc::{GlobalAlloc, Layout};
+<span class="kw">use </span>std::cell::UnsafeCell;
+<span class="kw">use </span>std::ptr::null_mut;
+<span class="kw">use </span>std::sync::atomic::{
+    AtomicUsize,
+    Ordering::{Acquire, SeqCst},
+};
+
+<span class="kw">const </span>ARENA_SIZE: usize = <span class="number">128 </span>* <span class="number">1024</span>;
+<span class="kw">const </span>MAX_SUPPORTED_ALIGN: usize = <span class="number">4096</span>;
+<span class="attr">#[repr(C, align(<span class="number">4096</span>))] </span><span class="comment">// 4096 == MAX_SUPPORTED_ALIGN
+</span><span class="kw">struct </span>SimpleAllocator {
+    arena: UnsafeCell&lt;[u8; ARENA_SIZE]&gt;,
+    remaining: AtomicUsize, <span class="comment">// we allocate from the top, counting down
+</span>}
+
+<span class="attr">#[global_allocator]
+</span><span class="kw">static </span>ALLOCATOR: SimpleAllocator = SimpleAllocator {
+    arena: UnsafeCell::new([<span class="number">0x55</span>; ARENA_SIZE]),
+    remaining: AtomicUsize::new(ARENA_SIZE),
+};
+
+<span class="kw">unsafe impl </span>Sync <span class="kw">for </span>SimpleAllocator {}
+
+<span class="kw">unsafe impl </span>GlobalAlloc <span class="kw">for </span>SimpleAllocator {
+    <span class="kw">unsafe fn </span>alloc(<span class="kw-2">&amp;</span><span class="self">self</span>, layout: Layout) -&gt; <span class="kw-2">*mut </span>u8 {
+        <span class="kw">let </span>size = layout.size();
+        <span class="kw">let </span>align = layout.align();
+
+        <span class="comment">// `Layout` contract forbids making a `Layout` with align=0, or align not power of 2.
+        // So we can safely use a mask to ensure alignment without worrying about UB.
+        </span><span class="kw">let </span>align_mask_to_round_down = !(align - <span class="number">1</span>);
+
+        <span class="kw">if </span>align &gt; MAX_SUPPORTED_ALIGN {
+            <span class="kw">return </span>null_mut();
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>allocated = <span class="number">0</span>;
+        <span class="kw">if </span><span class="self">self
+            </span>.remaining
+            .fetch_update(SeqCst, SeqCst, |<span class="kw-2">mut </span>remaining| {
+                <span class="kw">if </span>size &gt; remaining {
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
+                remaining -= size;
+                remaining &amp;= align_mask_to_round_down;
+                allocated = remaining;
+                <span class="prelude-val">Some</span>(remaining)
+            })
+            .is_err()
+        {
+            <span class="kw">return </span>null_mut();
+        };
+        <span class="self">self</span>.arena.get().cast::&lt;u8&gt;().add(allocated)
+    }
+    <span class="kw">unsafe fn </span>dealloc(<span class="kw-2">&amp;</span><span class="self">self</span>, _ptr: <span class="kw-2">*mut </span>u8, _layout: Layout) {}
+}
+
+<span class="kw">fn </span>main() {
+    <span class="kw">let </span>_s = <span class="macro">format!</span>(<span class="string">&quot;allocating a string!&quot;</span>);
+    <span class="kw">let </span>currently = ALLOCATOR.remaining.load(Acquire);
+    <span class="macro">println!</span>(<span class="string">&quot;allocated so far: {}&quot;</span>, ARENA_SIZE - currently);
+}</code></pre></div>
+<h2 id="safety"><a href="#safety">Safety</a></h2>
+<p>The <code>GlobalAlloc</code> trait is an <code>unsafe</code> trait for a number of reasons, and
+implementors must ensure that they adhere to these contracts:</p>
+<ul>
+<li>
+<p>It’s undefined behavior if global allocators unwind. This restriction may
+be lifted in the future, but currently a panic from any of these
+functions may lead to memory unsafety.</p>
+</li>
+<li>
+<p><code>Layout</code> queries and calculations in general must be correct. Callers of
+this trait are allowed to rely on the contracts defined on each method,
+and implementors must ensure such contracts remain true.</p>
+</li>
+<li>
+<p>You must not rely on allocations actually happening, even if there are explicit
+heap allocations in the source. The optimizer may detect unused allocations that it can either
+eliminate entirely or move to the stack and thus never invoke the allocator. The
+optimizer may further assume that allocation is infallible, so code that used to fail due
+to allocator failures may now suddenly work because the optimizer worked around the
+need for an allocation. More concretely, the following code example is unsound, irrespective
+of whether your custom allocator allows counting how many allocations have happened.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>drop(Box::new(<span class="number">42</span>));
+<span class="kw">let </span>number_of_heap_allocs = <span class="comment">/* call private allocator API */</span>;
+<span class="kw">unsafe </span>{ std::intrinsics::assume(number_of_heap_allocs &gt; <span class="number">0</span>); }</code></pre></div>
+<p>Note that the optimizations mentioned above are not the only
+optimization that can be applied. You may generally not rely on heap allocations
+happening if they can be removed without changing program behavior.
+Whether allocations happen or not is not part of the program behavior, even if it
+could be detected via an allocator that tracks allocations by printing or otherwise
+having side effects.</p>
+</li>
+</ul>
+</div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.alloc" class="method"><a class="src rightside" href="https://doc.rust-lang.org/1.75.0/src/core/alloc/global.rs.html#157">source</a><h4 class="code-header">unsafe fn <a href="#tymethod.alloc" class="fn">alloc</a>(&amp;self, layout: <a class="struct" href="struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout">Layout</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a></h4></section></summary><div class="docblock"><p>Allocate memory as described by the given <code>layout</code>.</p>
+<p>Returns a pointer to newly-allocated memory,
+or null to indicate allocation failure.</p>
+<h5 id="safety-1"><a href="#safety-1">Safety</a></h5>
+<p>This function is unsafe because undefined behavior can result
+if the caller does not ensure that <code>layout</code> has non-zero size.</p>
+<p>(Extension subtraits might provide more specific bounds on
+behavior, e.g., guarantee a sentinel address or a null pointer
+in response to a zero-size allocation request.)</p>
+<p>The allocated block of memory may or may not be initialized.</p>
+<h5 id="errors"><a href="#errors">Errors</a></h5>
+<p>Returning a null pointer indicates that either memory is exhausted
+or <code>layout</code> does not meet this allocator’s size or alignment constraints.</p>
+<p>Implementations are encouraged to return null on memory
+exhaustion rather than aborting, but this is not
+a strict requirement. (Specifically: it is <em>legal</em> to
+implement this trait atop an underlying native allocation
+library that aborts on memory exhaustion.)</p>
+<p>Clients wishing to abort computation in response to an
+allocation error are encouraged to call the <a href="../../alloc/alloc/fn.handle_alloc_error.html"><code>handle_alloc_error</code></a> function,
+rather than directly invoking <code>panic!</code> or similar.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.dealloc" class="method"><a class="src rightside" href="https://doc.rust-lang.org/1.75.0/src/core/alloc/global.rs.html#172">source</a><h4 class="code-header">unsafe fn <a href="#tymethod.dealloc" class="fn">dealloc</a>(&amp;self, ptr: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>, layout: <a class="struct" href="struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout">Layout</a>)</h4></section></summary><div class="docblock"><p>Deallocate the block of memory at the given <code>ptr</code> pointer with the given <code>layout</code>.</p>
+<h5 id="safety-2"><a href="#safety-2">Safety</a></h5>
+<p>This function is unsafe because undefined behavior can result
+if the caller does not ensure all of the following:</p>
+<ul>
+<li>
+<p><code>ptr</code> must denote a block of memory currently allocated via
+this allocator,</p>
+</li>
+<li>
+<p><code>layout</code> must be the same layout that was used
+to allocate that block of memory.</p>
+</li>
+</ul>
+</div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.alloc_zeroed" class="method"><a class="src rightside" href="https://doc.rust-lang.org/1.75.0/src/core/alloc/global.rs.html#194">source</a><h4 class="code-header">unsafe fn <a href="#method.alloc_zeroed" class="fn">alloc_zeroed</a>(&amp;self, layout: <a class="struct" href="struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout">Layout</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a></h4></section></summary><div class="docblock"><p>Behaves like <code>alloc</code>, but also ensures that the contents
+are set to zero before being returned.</p>
+<h5 id="safety-3"><a href="#safety-3">Safety</a></h5>
+<p>This function is unsafe for the same reasons that <code>alloc</code> is.
+However the allocated block of memory is guaranteed to be initialized.</p>
+<h5 id="errors-1"><a href="#errors-1">Errors</a></h5>
+<p>Returning a null pointer indicates that either memory is exhausted
+or <code>layout</code> does not meet allocator’s size or alignment constraints,
+just as in <code>alloc</code>.</p>
+<p>Clients wishing to abort computation in response to an
+allocation error are encouraged to call the <a href="../../alloc/alloc/fn.handle_alloc_error.html"><code>handle_alloc_error</code></a> function,
+rather than directly invoking <code>panic!</code> or similar.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.realloc" class="method"><a class="src rightside" href="https://doc.rust-lang.org/1.75.0/src/core/alloc/global.rs.html#263">source</a><h4 class="code-header">unsafe fn <a href="#method.realloc" class="fn">realloc</a>(
+    &amp;self,
+    ptr: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>,
+    layout: <a class="struct" href="struct.Layout.html" title="struct bevy::utils::smallvec::alloc::alloc::Layout">Layout</a>,
+    new_size: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a></h4></section></summary><div class="docblock"><p>Shrink or grow a block of memory to the given <code>new_size</code> in bytes.
+The block is described by the given <code>ptr</code> pointer and <code>layout</code>.</p>
+<p>If this returns a non-null pointer, then ownership of the memory block
+referenced by <code>ptr</code> has been transferred to this allocator.
+Any access to the old <code>ptr</code> is Undefined Behavior, even if the
+allocation remained in-place. The newly returned pointer is the only valid pointer
+for accessing this memory now.</p>
+<p>The new memory block is allocated with <code>layout</code>,
+but with the <code>size</code> updated to <code>new_size</code> in bytes.
+This new layout must be used when deallocating the new memory block with <code>dealloc</code>.
+The range <code>0..min(layout.size(), new_size)</code> of the new memory block is
+guaranteed to have the same values as the original block.</p>
+<p>If this method returns null, then ownership of the memory
+block has not been transferred to this allocator, and the
+contents of the memory block are unaltered.</p>
+<h5 id="safety-4"><a href="#safety-4">Safety</a></h5>
+<p>This function is unsafe because undefined behavior can result
+if the caller does not ensure all of the following:</p>
+<ul>
+<li>
+<p><code>ptr</code> must be currently allocated via this allocator,</p>
+</li>
+<li>
+<p><code>layout</code> must be the same layout that was used
+to allocate that block of memory,</p>
+</li>
+<li>
+<p><code>new_size</code> must be greater than zero.</p>
+</li>
+<li>
+<p><code>new_size</code>, when rounded up to the nearest multiple of <code>layout.align()</code>,
+must not overflow isize (i.e., the rounded value must be less than or
+equal to <code>isize::MAX</code>).</p>
+</li>
+</ul>
+<p>(Extension subtraits might provide more specific bounds on
+behavior, e.g., guarantee a sentinel address or a null pointer
+in response to a zero-size allocation request.)</p>
+<h5 id="errors-2"><a href="#errors-2">Errors</a></h5>
+<p>Returns null if the new layout does not meet the size
+and alignment constraints of the allocator, or if reallocation
+otherwise fails.</p>
+<p>Implementations are encouraged to return null on memory
+exhaustion rather than panicking or aborting, but this is not
+a strict requirement. (Specifically: it is <em>legal</em> to
+implement this trait atop an underlying native allocation
+library that aborts on memory exhaustion.)</p>
+<p>Clients wishing to abort computation in response to a
+reallocation error are encouraged to call the <a href="../../alloc/alloc/fn.handle_alloc_error.html"><code>handle_alloc_error</code></a> function,
+rather than directly invoking <code>panic!</code> or similar.</p>
+</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-GlobalAlloc-for-System" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.75.0/src/std/sys/unix/alloc.rs.html#6">source</a><a href="#impl-GlobalAlloc-for-System" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.GlobalAlloc.html" title="trait bevy::utils::smallvec::alloc::alloc::GlobalAlloc">GlobalAlloc</a> for <a class="struct" href="https://doc.rust-lang.org/1.75.0/std/alloc/struct.System.html" title="struct std::alloc::System">System</a></h3></section><section id="impl-GlobalAlloc-for-ProfiledAllocator%3CT%3E" class="impl"><a href="#impl-GlobalAlloc-for-ProfiledAllocator%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.GlobalAlloc.html" title="trait bevy::utils::smallvec::alloc::alloc::GlobalAlloc">GlobalAlloc</a> for ProfiledAllocator&lt;T&gt;<span class="where fmt-newline">where
+    T: <a class="trait" href="trait.GlobalAlloc.html" title="trait bevy::utils::smallvec::alloc::alloc::GlobalAlloc">GlobalAlloc</a>,</span></h3></section></div><script src="../../../../../trait.impl/core/alloc/global/trait.GlobalAlloc.js" data-ignore-extern-crates="std,tracy_client" async></script></section></div></main></body></html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `bevy` crate."><title>bevy - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">bevy</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/bevy/lib.rs.html#1-52">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><a href="https://bevyengine.org"><img src="https://bevyengine.org/assets/bevy_logo_docs.svg" alt="" /></a></p>
+<p>Bevy is an open-source modular game engine built in Rust, with a focus on developer productivity
+and performance.</p>
+<p>Check out the <a href="https://bevyengine.org">Bevy website</a> for more information, read the
+<a href="https://bevyengine.org/learn/book/introduction">Bevy Book</a> for a step-by-step guide, and <a href="https://bevyengine.org/community/">engage with our
+community</a> if you have any questions or ideas!</p>
+<h3 id="example"><a href="#example">Example</a></h3>
+<p>Here is a simple “Hello World” Bevy app:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>bevy::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">fn </span>main() {
+   App::new()
+       .add_systems(Update, hello_world_system)
+       .run();
+}
+
+<span class="kw">fn </span>hello_world_system() {
+   <span class="macro">println!</span>(<span class="string">&quot;hello world&quot;</span>);
+}</code></pre></div>
+<p>Don’t let the simplicity of the example above fool you. Bevy is a <a href="https://bevyengine.org">fully featured game engine</a>
+and it gets more powerful every day!</p>
+<h3 id="this-crate"><a href="#this-crate">This Crate</a></h3>
+<p>The <code>bevy</code> crate is just a container crate that makes it easier to consume Bevy subcrates.
+The defaults provide a “full” engine experience, but you can easily enable / disable features
+in your project’s <code>Cargo.toml</code> to meet your specific needs. See Bevy’s <code>Cargo.toml</code> for a full
+list of features available.</p>
+<p>If you prefer, you can also consume the individual bevy crates directly.
+Each module in the root of this crate, except for the prelude, can be found on crates.io
+with <code>bevy_</code> appended to the front, e.g. <code>app</code> -&gt; <a href="https://docs.rs/bevy_app/*/bevy_app/"><code>bevy_app</code></a>.</p>
+<!-- MD041 - This file will be included in docs and should not start with a top header -->
+<!-- markdownlint-disable-file MD041 -->
+<h3 id="cargo-features"><a href="#cargo-features">Cargo Features</a></h3>
+<p>Bevy exposes many features to customise the engine. Enabling them add functionalities but often come at the cost of longer compilation times and extra dependencies.</p>
+<h4 id="default-features"><a href="#default-features">Default Features</a></h4>
+<p>The default feature set enables most of the expected features of a game engine, like rendering in both 2D and 3D, asset loading, audio and UI. To help reduce compilation time, consider disabling default features and enabling only those you need.</p>
+<div><table><thead><tr><th>feature name</th><th>description</th></tr></thead><tbody>
+<tr><td>android_shared_stdcxx</td><td>Enable using a shared stdlib for cxx on Android</td></tr>
+<tr><td>animation</td><td>Enable animation support, and glTF animation loading</td></tr>
+<tr><td>bevy_animation</td><td>Provides animation functionality</td></tr>
+<tr><td>bevy_asset</td><td>Provides asset functionality</td></tr>
+<tr><td>bevy_audio</td><td>Provides audio functionality</td></tr>
+<tr><td>bevy_core_pipeline</td><td>Provides cameras and other basic render pipeline features</td></tr>
+<tr><td>bevy_gilrs</td><td>Adds gamepad support</td></tr>
+<tr><td>bevy_gizmos</td><td>Adds support for rendering gizmos</td></tr>
+<tr><td>bevy_gltf</td><td><a href="https://www.khronos.org/gltf/">glTF</a> support</td></tr>
+<tr><td>bevy_pbr</td><td>Adds PBR rendering</td></tr>
+<tr><td>bevy_render</td><td>Provides rendering functionality</td></tr>
+<tr><td>bevy_scene</td><td>Provides scene functionality</td></tr>
+<tr><td>bevy_sprite</td><td>Provides sprite functionality</td></tr>
+<tr><td>bevy_text</td><td>Provides text functionality</td></tr>
+<tr><td>bevy_ui</td><td>A custom ECS-driven UI framework</td></tr>
+<tr><td>bevy_winit</td><td>winit window and input backend</td></tr>
+<tr><td>default_font</td><td>Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase</td></tr>
+<tr><td>hdr</td><td>HDR image format support</td></tr>
+<tr><td>ktx2</td><td>KTX2 compressed texture support</td></tr>
+<tr><td>multi-threaded</td><td>Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.</td></tr>
+<tr><td>png</td><td>PNG image format support</td></tr>
+<tr><td>tonemapping_luts</td><td>Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the <code>Tonemapping</code> method on your <code>Camera2dBundle</code> or <code>Camera3dBundle</code>.</td></tr>
+<tr><td>vorbis</td><td>OGG/VORBIS audio format support</td></tr>
+<tr><td>webgl2</td><td>Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the <a href="https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu">WebGL2 and WebGPU</a> section of the examples README for more information on how to run Wasm builds with WebGPU.</td></tr>
+<tr><td>x11</td><td>X11 display server support</td></tr>
+<tr><td>zstd</td><td>For KTX2 supercompression</td></tr>
+</tbody></table>
+</div><h4 id="optional-features"><a href="#optional-features">Optional Features</a></h4><div><table><thead><tr><th>feature name</th><th>description</th></tr></thead><tbody>
+<tr><td>accesskit_unix</td><td>Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)</td></tr>
+<tr><td>asset_processor</td><td>Enables the built-in asset processor for processed assets.</td></tr>
+<tr><td>async-io</td><td>Use async-io’s implementation of block_on instead of futures-lite’s implementation. This is preferred if your application uses async-io.</td></tr>
+<tr><td>basis-universal</td><td>Basis Universal compressed texture support</td></tr>
+<tr><td>bevy_ci_testing</td><td>Enable systems that allow for automated testing on CI</td></tr>
+<tr><td>bevy_dynamic_plugin</td><td>Plugin for dynamic loading (using <a href="https://crates.io/crates/libloading">libloading</a>)</td></tr>
+<tr><td>bmp</td><td>BMP image format support</td></tr>
+<tr><td>dds</td><td>DDS compressed texture support</td></tr>
+<tr><td>debug_glam_assert</td><td>Enable assertions in debug builds to check the validity of parameters passed to glam</td></tr>
+<tr><td>detailed_trace</td><td>Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in</td></tr>
+<tr><td>dynamic_linking</td><td>Force dynamic linking, which improves iterative compile times</td></tr>
+<tr><td>embedded_watcher</td><td>Enables watching in memory asset providers for Bevy Asset hot-reloading</td></tr>
+<tr><td>exr</td><td>EXR image format support</td></tr>
+<tr><td>file_watcher</td><td>Enables watching the filesystem for Bevy Asset hot-reloading</td></tr>
+<tr><td>flac</td><td>FLAC audio format support</td></tr>
+<tr><td>glam_assert</td><td>Enable assertions to check the validity of parameters passed to glam</td></tr>
+<tr><td>jpeg</td><td>JPEG image format support</td></tr>
+<tr><td>minimp3</td><td>MP3 audio format support (through minimp3)</td></tr>
+<tr><td>mp3</td><td>MP3 audio format support</td></tr>
+<tr><td>pbr_transmission_textures</td><td>Enable support for transmission-related textures in the <code>StandardMaterial</code>, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs</td></tr>
+<tr><td>pnm</td><td>PNM image format support, includes pam, pbm, pgm and ppm</td></tr>
+<tr><td>serialize</td><td>Enable serialization support through serde</td></tr>
+<tr><td>shader_format_glsl</td><td>Enable support for shaders in GLSL</td></tr>
+<tr><td>shader_format_spirv</td><td>Enable support for shaders in SPIR-V</td></tr>
+<tr><td>subpixel_glyph_atlas</td><td>Enable rendering of font glyphs using subpixel accuracy</td></tr>
+<tr><td>symphonia-aac</td><td>AAC audio format support (through symphonia)</td></tr>
+<tr><td>symphonia-all</td><td>AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)</td></tr>
+<tr><td>symphonia-flac</td><td>FLAC audio format support (through symphonia)</td></tr>
+<tr><td>symphonia-isomp4</td><td>MP4 audio format support (through symphonia)</td></tr>
+<tr><td>symphonia-vorbis</td><td>OGG/VORBIS audio format support (through symphonia)</td></tr>
+<tr><td>symphonia-wav</td><td>WAV audio format support (through symphonia)</td></tr>
+<tr><td>tga</td><td>TGA image format support</td></tr>
+<tr><td>trace</td><td>Tracing support</td></tr>
+<tr><td>trace_chrome</td><td>Tracing support, saving a file in Chrome Tracing format</td></tr>
+<tr><td>trace_tracy</td><td>Tracing support, exposing a port for Tracy</td></tr>
+<tr><td>trace_tracy_memory</td><td>Tracing support, with memory profiling, exposing a port for Tracy</td></tr>
+<tr><td>wav</td><td>WAV audio format support</td></tr>
+<tr><td>wayland</td><td>Wayland display server support</td></tr>
+<tr><td>webp</td><td>WebP image format support</td></tr>
+<tr><td>wgpu_trace</td><td>Save a trace of all wgpu calls</td></tr>
+<tr><td>zlib</td><td>For KTX2 supercompression</td></tr>
+</tbody></table>
+</div></div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="a11y/index.html" title="mod bevy::a11y">a11y</a></div><div class="desc docblock-short">Integrate with platform accessibility APIs.</div></li><li><div class="item-name"><a class="mod" href="animation/index.html" title="mod bevy::animation">animation</a></div><div class="desc docblock-short">Provides types and plugins for animations.</div></li><li><div class="item-name"><a class="mod" href="app/index.html" title="mod bevy::app">app</a></div><div class="desc docblock-short">Build bevy apps, create plugins, and read events.</div></li><li><div class="item-name"><a class="mod" href="asset/index.html" title="mod bevy::asset">asset</a></div><div class="desc docblock-short">Load and store assets and resources for Apps.</div></li><li><div class="item-name"><a class="mod" href="audio/index.html" title="mod bevy::audio">audio</a></div><div class="desc docblock-short">Provides types and plugins for audio playback.</div></li><li><div class="item-name"><a class="mod" href="core/index.html" title="mod bevy::core">core</a></div><div class="desc docblock-short">Contains core plugins.</div></li><li><div class="item-name"><a class="mod" href="core_pipeline/index.html" title="mod bevy::core_pipeline">core_pipeline</a></div><div class="desc docblock-short">Core render pipeline.</div></li><li><div class="item-name"><a class="mod" href="diagnostic/index.html" title="mod bevy::diagnostic">diagnostic</a></div><div class="desc docblock-short">Useful diagnostic plugins and types for bevy apps.</div></li><li><div class="item-name"><a class="mod" href="dynamic_plugin/index.html" title="mod bevy::dynamic_plugin">dynamic_plugin</a></div><div class="desc docblock-short">Dynamic linking of plugins</div></li><li><div class="item-name"><a class="mod" href="ecs/index.html" title="mod bevy::ecs">ecs</a></div><div class="desc docblock-short">Bevy’s entity-component-system.</div></li><li><div class="item-name"><a class="mod" href="gilrs/index.html" title="mod bevy::gilrs">gilrs</a></div><div class="desc docblock-short">Bevy interface with <code>GilRs</code> - “Game Input Library for Rust” - to handle gamepad inputs.</div></li><li><div class="item-name"><a class="mod" href="gizmos/index.html" title="mod bevy::gizmos">gizmos</a></div><div class="desc docblock-short">Immediate mode drawing api for visual debugging.</div></li><li><div class="item-name"><a class="mod" href="gltf/index.html" title="mod bevy::gltf">gltf</a></div><div class="desc docblock-short">Support for GLTF file loading.</div></li><li><div class="item-name"><a class="mod" href="hierarchy/index.html" title="mod bevy::hierarchy">hierarchy</a></div><div class="desc docblock-short">Entity hierarchies and property inheritance</div></li><li><div class="item-name"><a class="mod" href="input/index.html" title="mod bevy::input">input</a></div><div class="desc docblock-short">Resources and events for inputs, e.g. mouse/keyboard, touch, gamepads, etc.</div></li><li><div class="item-name"><a class="mod" href="log/index.html" title="mod bevy::log">log</a></div><div class="desc docblock-short">Logging capabilities</div></li><li><div class="item-name"><a class="mod" href="math/index.html" title="mod bevy::math">math</a></div><div class="desc docblock-short">Math types (Vec3, Mat4, Quat, etc) and helpers.</div></li><li><div class="item-name"><a class="mod" href="pbr/index.html" title="mod bevy::pbr">pbr</a></div><div class="desc docblock-short">Physically based rendering.</div></li><li><div class="item-name"><a class="mod" href="prelude/index.html" title="mod bevy::prelude">prelude</a></div><div class="desc docblock-short"><code>use bevy::prelude::*;</code> to import common components, bundles, and plugins.</div></li><li><div class="item-name"><a class="mod" href="ptr/index.html" title="mod bevy::ptr">ptr</a></div><div class="desc docblock-short">Utilities for working with untyped pointers in a more safe way.</div></li><li><div class="item-name"><a class="mod" href="reflect/index.html" title="mod bevy::reflect">reflect</a></div><div class="desc docblock-short">Type reflection used for dynamically interacting with rust types.</div></li><li><div class="item-name"><a class="mod" href="render/index.html" title="mod bevy::render">render</a></div><div class="desc docblock-short">Cameras, meshes, textures, shaders, and pipelines.
+Use <a href="render/renderer/struct.RenderDevice.html#method.features" title="method bevy::render::renderer::RenderDevice::features"><code>RenderDevice::features</code></a>,
+<a href="render/renderer/struct.RenderDevice.html#method.limits" title="method bevy::render::renderer::RenderDevice::limits"><code>RenderDevice::limits</code></a>, and the
+<a href="render/renderer/struct.RenderAdapterInfo.html" title="struct bevy::render::renderer::RenderAdapterInfo"><code>RenderAdapterInfo</code></a> resource to
+get runtime information about the actual adapter, backend, features, and limits.</div></li><li><div class="item-name"><a class="mod" href="scene/index.html" title="mod bevy::scene">scene</a></div><div class="desc docblock-short">Save/load collections of entities and components to/from file.</div></li><li><div class="item-name"><a class="mod" href="sprite/index.html" title="mod bevy::sprite">sprite</a></div><div class="desc docblock-short">Items for sprites, rects, texture atlases, etc.</div></li><li><div class="item-name"><a class="mod" href="tasks/index.html" title="mod bevy::tasks">tasks</a></div><div class="desc docblock-short">Pools for async, IO, and compute tasks.</div></li><li><div class="item-name"><a class="mod" href="text/index.html" title="mod bevy::text">text</a></div><div class="desc docblock-short">Text drawing, styling, and font assets.</div></li><li><div class="item-name"><a class="mod" href="time/index.html" title="mod bevy::time">time</a></div><div class="desc docblock-short">Contains time utilities.</div></li><li><div class="item-name"><a class="mod" href="transform/index.html" title="mod bevy::transform">transform</a></div><div class="desc docblock-short">Local and global transforms (e.g. translation, scale, rotation).</div></li><li><div class="item-name"><a class="mod" href="ui/index.html" title="mod bevy::ui">ui</a></div><div class="desc docblock-short">User interface components and widgets.</div></li><li><div class="item-name"><a class="mod" href="utils/index.html" title="mod bevy::utils">utils</a></div><div class="desc docblock-short">Various miscellaneous utilities for easing development</div></li><li><div class="item-name"><a class="mod" href="window/index.html" title="mod bevy::window">window</a></div><div class="desc docblock-short">Configuration, creation, and management of one or more windows.</div></li><li><div class="item-name"><a class="mod" href="winit/index.html" title="mod bevy::winit">winit</a></div><div class="desc docblock-short">Window creation, configuration, and handling</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.DefaultPlugins.html" title="struct bevy::DefaultPlugins">DefaultPlugins</a></div><div class="desc docblock-short">This plugin group will add all the default plugins for a <em>Bevy</em> application:</div></li><li><div class="item-name"><a class="struct" href="struct.MinimalPlugins.html" title="struct bevy::MinimalPlugins">MinimalPlugins</a></div><div class="desc docblock-short">This plugin group will add the minimal plugins for a <em>Bevy</em> application:</div></li></ul></section></div></main></body></html>

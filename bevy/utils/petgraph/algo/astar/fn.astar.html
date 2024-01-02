@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="[Generic] A* shortest path algorithm."><title>astar in bevy::utils::petgraph::algo::astar - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="bevy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://bevyengine.org/assets/icon-docs-dev.png"><meta name="robots" content="noindex">
+
+</head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../bevy/index.html"><img src="https://bevyengine.org/assets/icon-docs-dev.png" alt="logo"></a><h2><a href="../../../../../bevy/index.html">bevy</a><span class="version">0.12.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In bevy::utils::petgraph::algo::astar</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../../../../index.html">bevy</a>::<wbr><a href="../../../index.html">utils</a>::<wbr><a href="../../index.html">petgraph</a>::<wbr><a href="../index.html">algo</a>::<wbr><a href="index.html">astar</a>::<wbr><a class="fn" href="#">astar</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/petgraph/0.4/src/petgraph/algo/astar.rs.html#66-79">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub fn astar&lt;G, F, H, K, IsGoal&gt;(
+    graph: G,
+    start: &lt;G as <a class="trait" href="../../visit/trait.GraphBase.html" title="trait bevy::utils::petgraph::visit::GraphBase">GraphBase</a>&gt;::<a class="associatedtype" href="../../visit/trait.GraphBase.html#associatedtype.NodeId" title="type bevy::utils::petgraph::visit::GraphBase::NodeId">NodeId</a>,
+    is_goal: IsGoal,
+    edge_cost: F,
+    estimate_cost: H
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(K, <a class="struct" href="../../../smallvec/alloc/vec/struct.Vec.html" title="struct bevy::utils::smallvec::alloc::vec::Vec">Vec</a>&lt;&lt;G as <a class="trait" href="../../visit/trait.GraphBase.html" title="trait bevy::utils::petgraph::visit::GraphBase">GraphBase</a>&gt;::<a class="associatedtype" href="../../visit/trait.GraphBase.html#associatedtype.NodeId" title="type bevy::utils::petgraph::visit::GraphBase::NodeId">NodeId</a>&gt;)&gt;<span class="where fmt-newline">where
+    G: <a class="trait" href="../../visit/trait.IntoEdges.html" title="trait bevy::utils::petgraph::visit::IntoEdges">IntoEdges</a> + <a class="trait" href="../../visit/trait.Visitable.html" title="trait bevy::utils::petgraph::visit::Visitable">Visitable</a>,
+    IsGoal: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&lt;G as <a class="trait" href="../../visit/trait.GraphBase.html" title="trait bevy::utils::petgraph::visit::GraphBase">GraphBase</a>&gt;::<a class="associatedtype" href="../../visit/trait.GraphBase.html#associatedtype.NodeId" title="type bevy::utils::petgraph::visit::GraphBase::NodeId">NodeId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>,
+    &lt;G as <a class="trait" href="../../visit/trait.GraphBase.html" title="trait bevy::utils::petgraph::visit::GraphBase">GraphBase</a>&gt;::<a class="associatedtype" href="../../visit/trait.GraphBase.html#associatedtype.NodeId" title="type bevy::utils::petgraph::visit::GraphBase::NodeId">NodeId</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a>,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&lt;G as <a class="trait" href="../../visit/trait.IntoEdgeReferences.html" title="trait bevy::utils::petgraph::visit::IntoEdgeReferences">IntoEdgeReferences</a>&gt;::<a class="associatedtype" href="../../visit/trait.IntoEdgeReferences.html#associatedtype.EdgeRef" title="type bevy::utils::petgraph::visit::IntoEdgeReferences::EdgeRef">EdgeRef</a>) -&gt; K,
+    H: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&lt;G as <a class="trait" href="../../visit/trait.GraphBase.html" title="trait bevy::utils::petgraph::visit::GraphBase">GraphBase</a>&gt;::<a class="associatedtype" href="../../visit/trait.GraphBase.html#associatedtype.NodeId" title="type bevy::utils::petgraph::visit::GraphBase::NodeId">NodeId</a>) -&gt; K,
+    K: <a class="trait" href="../trait.Measure.html" title="trait bevy::utils::petgraph::algo::Measure">Measure</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>[Generic] A* shortest path algorithm.</p>
+<p>Computes the shortest path from <code>start</code> to <code>finish</code>, including the total path cost.</p>
+<p><code>finish</code> is implicitly given via the <code>is_goal</code> callback, which should return <code>true</code> if the
+given node is the finish node.</p>
+<p>The function <code>edge_cost</code> should return the cost for a particular edge. Edge costs must be
+non-negative.</p>
+<p>The function <code>estimate_cost</code> should return the estimated cost to the finish for a particular
+node. For the algorithm to find the actual shortest path, it should be admissible, meaning that
+it should never overestimate the actual cost to get to the nearest goal node. Estimate costs
+must also be non-negative.</p>
+<p>The graph should be <code>Visitable</code> and implement <code>IntoEdges</code>.</p>
+<h2 id="example"><a href="#example">Example</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>petgraph::Graph;
+<span class="kw">use </span>petgraph::algo::astar;
+
+<span class="kw">let </span><span class="kw-2">mut </span>g = Graph::new();
+<span class="kw">let </span>a = g.add_node((<span class="number">0.</span>, <span class="number">0.</span>));
+<span class="kw">let </span>b = g.add_node((<span class="number">2.</span>, <span class="number">0.</span>));
+<span class="kw">let </span>c = g.add_node((<span class="number">1.</span>, <span class="number">1.</span>));
+<span class="kw">let </span>d = g.add_node((<span class="number">0.</span>, <span class="number">2.</span>));
+<span class="kw">let </span>e = g.add_node((<span class="number">3.</span>, <span class="number">3.</span>));
+<span class="kw">let </span>f = g.add_node((<span class="number">4.</span>, <span class="number">2.</span>));
+g.extend_with_edges(<span class="kw-2">&amp;</span>[
+    (a, b, <span class="number">2</span>),
+    (a, d, <span class="number">4</span>),
+    (b, c, <span class="number">1</span>),
+    (b, f, <span class="number">7</span>),
+    (c, e, <span class="number">5</span>),
+    (e, f, <span class="number">1</span>),
+    (d, e, <span class="number">1</span>),
+]);
+
+<span class="comment">// Graph represented with the weight of each edge
+// Edges with &#39;*&#39; are part of the optimal path.
+//
+//     2       1
+// a ----- b ----- c
+// | 4*    | 7     |
+// d       f       | 5
+// | 1*    | 1*    |
+// \------ e ------/
+
+</span><span class="kw">let </span>path = astar(<span class="kw-2">&amp;</span>g, a, |finish| finish == f, |e| <span class="kw-2">*</span>e.weight(), |<span class="kw">_</span>| <span class="number">0</span>);
+<span class="macro">assert_eq!</span>(path, <span class="prelude-val">Some</span>((<span class="number">6</span>, <span class="macro">vec!</span>[a, d, e, f])));</code></pre></div>
+<p>Returns the total cost + the path of subsequent <code>NodeId</code> from start to finish, if one was
+found.</p>
+</div></details></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["impl_vector"],"trait":["AsMutVectorParts","AsRefVectorParts","FromVectorParts","VectorScalar"]};

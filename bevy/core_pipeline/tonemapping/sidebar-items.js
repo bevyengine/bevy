@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DebandDither","Tonemapping"],"fn":["get_lut_bind_group_layout_entries","get_lut_bindings","lut_placeholder","prepare_view_tonemapping_pipelines"],"struct":["TonemappingLuts","TonemappingNode","TonemappingPipeline","TonemappingPipelineKey","TonemappingPlugin","ViewTonemappingPipeline"]};
