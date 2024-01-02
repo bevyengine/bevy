@@ -108,7 +108,7 @@ impl Plugin for OverlayPlugin {
             .get(FrameTimeDiagnosticsPlugin::FPS)
             .is_none()
         {
-            app.add_plugins(FrameTimeDiagnosticsPlugin::default());
+            app.add_plugins(FrameTimeDiagnosticsPlugin);
         }
 
         load_internal_asset!(
@@ -140,9 +140,8 @@ impl Plugin for OverlayPlugin {
                 },
             );
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app

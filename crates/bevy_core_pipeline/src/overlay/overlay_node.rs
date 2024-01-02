@@ -104,9 +104,7 @@ impl Node for OverlayNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(graph::IN_VIEW)?;
 
-        let target = if let Ok(result) = self.query.get_manual(world, view_entity) {
-            result
-        } else {
+        let Ok(target) = self.query.get_manual(world, view_entity) else {
             return Ok(());
         };
 
