@@ -7,6 +7,19 @@ use crate::Vec3;
 pub struct Direction3d(Vec3);
 
 impl Direction3d {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec3::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec3::Y);
+    /// A unit vector pointing along the positive Z axis.
+    pub const Z: Self = Self(Vec3::Z);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec3::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec3::NEG_Y);
+    /// A unit vector pointing along the negative Z axis.
+    pub const NEG_Z: Self = Self(Vec3::NEG_Z);
+
     /// Create a direction from a finite, nonzero [`Vec3`].
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length

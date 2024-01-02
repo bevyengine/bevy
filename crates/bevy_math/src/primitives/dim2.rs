@@ -7,6 +7,15 @@ use crate::Vec2;
 pub struct Direction2d(Vec2);
 
 impl Direction2d {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec2::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec2::Y);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec2::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec2::NEG_Y);
+
     /// Create a direction from a finite, nonzero [`Vec2`].
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
