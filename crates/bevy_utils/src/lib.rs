@@ -421,9 +421,7 @@ mod tests {
     use super::*;
     use static_assertions::assert_impl_all;
 
-    #[test]
-    fn test_clone_bounds() {
-        assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
-        assert_impl_all!(PreHashMap::<u64, usize>: Clone);
-    }
+    // Check that the HashMaps are Clone if the key/values are Clone
+    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
+    assert_impl_all!(PreHashMap::<u64, usize>: Clone);
 }
