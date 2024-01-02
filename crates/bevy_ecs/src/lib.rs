@@ -1890,8 +1890,8 @@ mod tests {
 
         use crate::prelude::Query;
         fn system(
-            _q1: Query<(Entity, &mut C), (With<A>, Not<Without<B>>)>,
-            _q2: Query<(Entity, &mut C), With<A>>,
+            _q1: Query<(Entity, &mut C), (Changed<A>, Not<Without<B>>)>,
+            _q2: Query<(Entity, &mut C), Changed<A>>,
         ) {
         }
 
@@ -1936,5 +1936,6 @@ mod tests {
 
         let system_id = world.register_system(system);
         _ = world.run_system(system_id);
+        panic!();
     }
 }

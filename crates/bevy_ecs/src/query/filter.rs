@@ -623,59 +623,9 @@ where
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         let mut intermediate = FilteredAccess::<ComponentId>::default();
         T::update_component_access(state, &mut intermediate);
+        intermediate.invert_filters();
 
-        #[derive(Debug, Copy, Clone)]
-        enum AccessType {
-            With(usize),
-            Without(usize),
-        }
-
-        let mut accesses = vec![];
-        for filter in intermediate.filter_sets {
-            let mut filters = vec![];
-            filters.extend(filter.with.ones().map(AccessType::With).collect::<Vec<_>>());
-            filters.extend(
-                filter
-                    .without
-                    .ones()
-                    .map(AccessType::Without)
-                    .collect::<Vec<_>>(),
-            );
-            accesses.push(filters);
-        }
-
-        let mut indices = vec![0; accesses.len()];
-        let lengths = accesses.iter().map(|v| v.len()).collect::<Vec<_>>();
-
-        loop {
-            let mut filter = FilteredAccess::default();
-            for (el, index) in indices.iter().enumerate() {
-                match accesses[el][*index] {
-                    AccessType::With(id) => {
-                        filter.and_without(ComponentId::new(id));
-                    }
-                    AccessType::Without(id) => {
-                        filter.and_with(ComponentId::new(id));
-                    }
-                }
-            }
-            access.extend(&filter);
-
-            let mut update_index = indices.len() - 1;
-            loop {
-                indices[update_index] = (indices[update_index] + 1) % lengths[update_index];
-
-                if indices[update_index] != 0 || update_index == 0 {
-                    break;
-                }
-
-                update_index -= 1;
-            }
-
-            if update_index == 0 && indices[0] == 0 {
-                break;
-            }
-        }
+        access.extend(&intermediate);
     }
 
     fn update_archetype_component_access(

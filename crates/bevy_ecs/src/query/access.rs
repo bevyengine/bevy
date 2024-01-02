@@ -270,7 +270,7 @@ pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
-    pub(crate) filter_sets: Vec<AccessFilters<T>>,
+    filter_sets: Vec<AccessFilters<T>>,
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
@@ -423,12 +423,77 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn write_all(&mut self) {
         self.access.write_all();
     }
+
+    /// Returns the inverse of the filters contained in this access set.
+    pub fn invert_filters(&mut self) {
+        let filter_sets = self.filter_sets.drain(..);
+
+        #[derive(Debug, Copy, Clone)]
+        enum AccessType {
+            With(usize),
+            Without(usize),
+        }
+
+        // Gather and unify each filter set from separate bitsets for With and Without into
+        // a single collection to simplify logic
+        let mut accesses = vec![];
+        for filter in filter_sets {
+            let mut filters = vec![];
+            filters.extend(filter.with.ones().map(AccessType::With).collect::<Vec<_>>());
+            filters.extend(
+                filter
+                    .without
+                    .ones()
+                    .map(AccessType::Without)
+                    .collect::<Vec<_>>(),
+            );
+            accesses.push(filters);
+        }
+
+        let mut indices = vec![0; accesses.len()];
+        let lengths = accesses.iter().map(|v| v.len()).collect::<Vec<_>>();
+
+        loop {
+            let mut new_filter = AccessFilters::default();
+            for (el, index) in indices.iter().enumerate() {
+                match accesses[el][*index] {
+                    AccessType::With(id) => {
+                        new_filter.without.grow(id + 1);
+                        new_filter.without.insert(id);
+                    }
+                    AccessType::Without(id) => {
+                        new_filter.with.grow(id + 1);
+                        new_filter.with.insert(id);
+                    }
+                }
+            }
+            self.filter_sets.push(new_filter);
+
+            let mut update_index = indices.len() - 1;
+            loop {
+                // update while rolling over indices
+                indices[update_index] = (indices[update_index] + 1) % lengths[update_index];
+
+                // if index did not roll over, or we are at the first element, stop looping
+                if indices[update_index] != 0 || update_index == 0 {
+                    break;
+                }
+
+                update_index -= 1;
+            }
+
+            // if we have rolled over the first element, we have gone through all combinations
+            if update_index == 0 && indices[0] == 0 {
+                break;
+            }
+        }
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
-pub(crate) struct AccessFilters<T> {
-    pub(crate) with: FixedBitSet,
-    pub(crate) without: FixedBitSet,
+struct AccessFilters<T> {
+    with: FixedBitSet,
+    without: FixedBitSet,
     _index_type: PhantomData<T>,
 }
 
