@@ -80,12 +80,11 @@ fn prepare_overlay_diagnostics(
 /// ## Remove it when adding the plugin group:
 ///
 /// ```no_run
-/// # use bevy_internal::DefaultPlugins;
-/// # use bevy_app::App;
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_core_pipeline::overlay::OverlayPlugin;
 /// fn main() {
 ///     App::new()
-///         .add_plugins_with(DefaultPlugins, |group| group.disable::<OverlayPlugin>())
+///         .add_plugins(DefaultPlugins.build().disable::<OverlayPlugin>())
 ///         .run();
 /// }
 /// ```
