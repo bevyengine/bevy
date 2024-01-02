@@ -416,7 +416,6 @@ macro_rules! detailed_trace {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
