@@ -1,12 +1,10 @@
-use bevy_ecs::prelude::{FromWorld, QueryState, With, World};
+use bevy_ecs::prelude::{FromWorld, QueryState, Resource, With, World};
 use bevy_math::Vec4;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::TrackedRenderPass,
     render_resource::{
-        encase, BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, BufferInitDescriptor,
-        BufferUsages, CachedRenderPipelineId, LoadOp, Operations, PipelineCache,
-        RenderPassDescriptor, ShaderSize,
+        encase, BindGroup, BindGroupEntry, Buffer, BufferInitDescriptor, BufferUsages,
+        CachedRenderPipelineId, LoadOp, Operations, PipelineCache, RenderPassDescriptor, StoreOp,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     view::ViewTarget,
@@ -14,6 +12,7 @@ use bevy_render::{
 
 use super::{pipeline::OverlayPipeline, CameraOverlay, OverlayDiagnostics};
 
+#[derive(Resource)]
 pub(crate) struct DiagnosticOverlayBuffer {
     buffer: Buffer,
     bind_group: BindGroup,
@@ -31,7 +30,7 @@ impl FromWorld for DiagnosticOverlayBuffer {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let overlay_pipeline = world.get_resource::<OverlayPipeline>().unwrap();
 
-        let byte_buffer = [0u8; Vec4::SIZE.get() as usize];
+        let byte_buffer = [0u8; std::mem::size_of::<Vec4>()];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
         buffer.write(&[Vec4::ZERO]).unwrap();
         let diagnostics_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -39,14 +38,14 @@ impl FromWorld for DiagnosticOverlayBuffer {
             contents: buffer.as_ref(),
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
-        let diagnostics_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            layout: &overlay_pipeline.layout[0],
-            entries: &[BindGroupEntry {
+        let diagnostics_bind_group = render_device.create_bind_group(
+            "diagnostics_bind_group",
+            &overlay_pipeline.layout[0],
+            &[BindGroupEntry {
                 binding: 0,
                 resource: diagnostics_buffer.as_entire_binding(),
             }],
-            label: Some("diagnostics_bind_group"),
-        });
+        );
 
         DiagnosticOverlayBuffer {
             buffer: diagnostics_buffer,
@@ -61,7 +60,7 @@ impl DiagnosticOverlayBuffer {
         diagnostics: &OverlayDiagnostics,
         render_queue: &RenderQueue,
     ) {
-        let byte_buffer = [0u8; Vec4::SIZE.get() as usize];
+        let byte_buffer = [0u8; std::mem::size_of::<Vec4>()];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
         buffer
             .write(&[Vec4::new(diagnostics.avg_fps, 0.0, 0.0, 0.0)])
@@ -111,24 +110,23 @@ impl Node for OverlayNode {
             return Ok(());
         };
 
-        let target = ViewTarget {
-            view: target.view.clone(),
-            sampled_target: None,
-        };
+        // let target = ViewTarget {
+        //     view: target.view.clone(),
+        //     sampled_target: None,
+        // };
+
         let pass_descriptor = RenderPassDescriptor {
             label: Some("overlay"),
-            color_attachments: &[target.get_color_attachment(Operations {
+            color_attachments: &[Some(target.get_color_attachment(Operations {
                 load: LoadOp::Load,
-                store: true,
-            })],
+                store: StoreOp::Store,
+            }))],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
-        let render_pass = render_context
-            .command_encoder
-            .begin_render_pass(&pass_descriptor);
-
-        let mut tracked = TrackedRenderPass::new(render_pass);
+        let mut render_pass = render_context.begin_tracked_render_pass(pass_descriptor);
 
         let render_pipeline = world
             .resource::<PipelineCache>()
@@ -137,10 +135,10 @@ impl Node for OverlayNode {
 
         let buffer = world.resource::<DiagnosticOverlayBuffer>();
 
-        tracked.set_render_pipeline(render_pipeline);
-        tracked.set_bind_group(0, &buffer.bind_group, &[]);
+        render_pass.set_render_pipeline(render_pipeline);
+        render_pass.set_bind_group(0, &buffer.bind_group, &[]);
 
-        tracked.draw(0..3, 0..1);
+        render_pass.draw(0..3, 0..1);
 
         Ok(())
     }

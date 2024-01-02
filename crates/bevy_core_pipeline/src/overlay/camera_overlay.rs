@@ -31,11 +31,12 @@ pub(crate) fn extract_overlay_camera_phases(
 pub struct CameraOverlay;
 
 impl ExtractComponent for CameraOverlay {
-    type Query = &'static Self;
+    type Data = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<Self::Data>) -> Option<Self> {
+        Some(item.clone())
     }
 }
 
@@ -56,7 +57,7 @@ impl Default for CameraOverlayBundle {
     fn default() -> Self {
         Self {
             camera: Camera {
-                priority: isize::MAX,
+                order: isize::MAX,
                 ..Default::default()
             },
             camera_render_graph: CameraRenderGraph::new(graph::NAME),

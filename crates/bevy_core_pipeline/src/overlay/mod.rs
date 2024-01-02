@@ -1,25 +1,26 @@
-use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::{load_internal_asset, Handle};
+use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     entity::Entity,
-    prelude::With,
+    prelude::{Resource, With},
+    schedule::IntoSystemConfigs,
     system::{Commands, Local, Query, Res},
 };
-use bevy_input::{keyboard::KeyCode, Input};
-use bevy_reflect::TypeUuid;
+use bevy_input::{keyboard::KeyCode, ButtonInput};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     prelude::Shader,
     render_graph::{RenderGraph, SlotInfo, SlotType},
     renderer::RenderQueue,
-    RenderApp, RenderStage,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 mod camera_overlay;
 mod overlay_node;
 mod pipeline;
-use bevy_time::Time;
+use bevy_time::{Real, Time};
 use bevy_utils::{Duration, Instant};
 pub use camera_overlay::{CameraOverlay, CameraOverlayBundle};
 
@@ -27,17 +28,17 @@ use crate::overlay::{overlay_node::graph, pipeline::OverlayPipeline};
 
 use self::overlay_node::DiagnosticOverlayBuffer;
 
-pub const OVERLAY_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1236245567947772696);
+pub const OVERLAY_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1236245567947772696);
 
+#[derive(Resource)]
 pub(crate) struct OverlayDiagnostics {
     avg_fps: f32,
 }
 
 fn extract_overlay_diagnostics(
     mut commands: Commands,
-    diags: Res<Diagnostics>,
-    time: Res<Time>,
+    diags: Res<DiagnosticsStore>,
+    time: Res<Time<Real>>,
     mut last_update: Local<Option<Instant>>,
 ) {
     if last_update.is_none() {
@@ -45,7 +46,7 @@ fn extract_overlay_diagnostics(
             .last_update()
             .and_then(|lu| lu.checked_sub(Duration::from_secs(1)));
     }
-
+    // todo: refactor - early returns
     if let Some(last_overlay_update) = *last_update {
         if let Some(current) = time.last_update() {
             if (current - last_overlay_update).as_secs_f32() > 0.15 {
@@ -103,11 +104,11 @@ impl Plugin for OverlayPlugin {
     fn build(&self, app: &mut App) {
         if app
             .world
-            .resource::<Diagnostics>()
+            .resource::<DiagnosticsStore>()
             .get(FrameTimeDiagnosticsPlugin::FPS)
             .is_none()
         {
-            app.add_plugin(FrameTimeDiagnosticsPlugin::default());
+            app.add_plugins(FrameTimeDiagnosticsPlugin::default());
         }
 
         load_internal_asset!(
@@ -118,21 +119,22 @@ impl Plugin for OverlayPlugin {
         );
 
         let trigger = self.trigger;
-        app.add_plugin(ExtractComponentPlugin::<CameraOverlay>::default())
-            .add_system(
+        app.add_plugins(ExtractComponentPlugin::<CameraOverlay>::default())
+            .add_systems(
+                Update,
                 move |mut commands: Commands,
-                      keyboard_input: Res<Input<KeyCode>>,
+                      keyboard_input: Res<ButtonInput<KeyCode>>,
                       query: Query<Entity, With<CameraOverlay>>| {
                     if (trigger.is_none()
-                        && keyboard_input.pressed(KeyCode::LControl)
-                        && keyboard_input.pressed(KeyCode::LShift)
+                        && keyboard_input.pressed(KeyCode::ControlLeft)
+                        && keyboard_input.pressed(KeyCode::ShiftLeft)
                         && keyboard_input.just_pressed(KeyCode::Tab))
                         || (trigger.is_some() && keyboard_input.just_pressed(trigger.unwrap()))
                     {
                         if let Ok(entity) = query.get_single() {
                             commands.entity(entity).despawn();
                         } else {
-                            commands.spawn_bundle(CameraOverlayBundle::default());
+                            commands.spawn(CameraOverlayBundle::default());
                         }
                     }
                 },
@@ -146,12 +148,15 @@ impl Plugin for OverlayPlugin {
         render_app
             .init_resource::<OverlayPipeline>()
             .init_resource::<DiagnosticOverlayBuffer>()
-            .add_system_to_stage(
-                RenderStage::Extract,
+            .add_systems(
+                ExtractSchedule,
                 camera_overlay::extract_overlay_camera_phases,
             )
-            .add_system_to_stage(RenderStage::Extract, extract_overlay_diagnostics)
-            .add_system_to_stage(RenderStage::Prepare, prepare_overlay_diagnostics);
+            .add_systems(ExtractSchedule, extract_overlay_diagnostics)
+            .add_systems(
+                Render,
+                prepare_overlay_diagnostics.in_set(RenderSet::Prepare),
+            );
 
         let pass_node_overlay = overlay_node::OverlayNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -160,14 +165,12 @@ impl Plugin for OverlayPlugin {
         overlay_graph.add_node(graph::NODE, pass_node_overlay);
         let input_node_id =
             overlay_graph.set_input(vec![SlotInfo::new(graph::NODE_INPUT, SlotType::Entity)]);
-        overlay_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::NODE_INPUT,
-                graph::NODE,
-                graph::IN_VIEW,
-            )
-            .unwrap();
+        overlay_graph.add_slot_edge(
+            input_node_id,
+            graph::NODE_INPUT,
+            graph::NODE,
+            graph::IN_VIEW,
+        );
         graph.add_sub_graph(graph::NAME, overlay_graph);
     }
 }

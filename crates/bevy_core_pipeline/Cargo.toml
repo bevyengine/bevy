@@ -41,6 +41,3 @@ radsort = "0.1"
 
 [lints]
 workspace = true
-
-[dev-dependencies]
-bevy_internal = { path = "../bevy_internal", version = "0.12.0" }
