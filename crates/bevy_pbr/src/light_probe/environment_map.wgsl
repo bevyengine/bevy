@@ -63,11 +63,13 @@ fn environment_map_light(
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
     let radiance_level = perceptual_roughness * f32(textureNumLevels(bindings::specular_environment_maps[cubemap_index]) - 1u);
 
+#ifndef LIGHTMAP
     let irradiance = textureSampleLevel(
         bindings::diffuse_environment_maps[cubemap_index],
         bindings::environment_map_sampler,
         vec3(N.xy, -N.z),
         0.0).rgb;
+#endif  // LIGHTMAP
 
     let radiance = textureSampleLevel(
         bindings::specular_environment_maps[cubemap_index],
@@ -86,11 +88,13 @@ fn environment_map_light(
     // because textureNumLevels() does not work on WebGL2
     let radiance_level = perceptual_roughness * f32(light_probes.smallest_specular_mip_level_for_view);
 
+#ifndef LIGHTMAP
     let irradiance = textureSampleLevel(
         bindings::diffuse_environment_map,
         bindings::environment_map_sampler,
         vec3(N.xy, -N.z),
         0.0).rgb;
+#endif  // LIGHTMAP
 
     let radiance = textureSampleLevel(
         bindings::specular_environment_map,
@@ -117,7 +121,14 @@ fn environment_map_light(
     let Edss = 1.0 - (FssEss + FmsEms);
     let kD = diffuse_color * Edss;
 
+    // If there's a lightmap, ignore the diffuse component of the reflection
+    // probe, so we don't double-count light.
+#ifdef LIGHTMAP
+    out.diffuse = vec3(0.0);
+#else
     out.diffuse = (FmsEms + kD) * irradiance;
+#endif
+
     out.specular = FssEss * radiance;
     return out;
 }
