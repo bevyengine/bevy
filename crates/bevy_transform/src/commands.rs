@@ -6,7 +6,7 @@ use bevy_hierarchy::{PushChild, RemoveParent};
 
 use crate::{GlobalTransform, Transform};
 
-/// Command similar to [`AddChild`], but updating the child transform to keep
+/// Command similar to [`PushChild`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::set_parent_in_place`]
