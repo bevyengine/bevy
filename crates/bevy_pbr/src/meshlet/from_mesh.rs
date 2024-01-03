@@ -6,7 +6,7 @@ use bevy_render::{
 use bevy_utils::thiserror;
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::{borrow::Cow, iter};
+use std::borrow::Cow;
 
 impl MeshletMesh {
     pub fn from_mesh(mesh: &Mesh) -> Result<Self, MeshToMeshletMeshConversionError> {
@@ -37,7 +37,7 @@ impl MeshletMesh {
         )
         .expect("TODO");
 
-        let mut meshopt_meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.0);
+        let meshopt_meshlets = build_meshlets(&indices, &vertices, 64, 124, 0.0);
 
         let meshlet_bounding_spheres = meshopt_meshlets
             .meshlets
@@ -62,14 +62,6 @@ impl MeshletMesh {
                 radius: bounds.radius,
             })
             .collect();
-
-        // TODO: Meshoptimizer seems to pad the buffers themselves?
-        // Buffer copies need to be in multiples of 4 bytes
-        let padding =
-            ((meshopt_meshlets.triangles.len() + 3) & !0x3) - meshopt_meshlets.triangles.len();
-        meshopt_meshlets
-            .triangles
-            .extend(iter::repeat(0).take(padding));
 
         let meshlets = meshopt_meshlets
             .meshlets
