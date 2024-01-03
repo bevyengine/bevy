@@ -47,7 +47,7 @@ pub trait RenderAsset: Asset + Clone {
 
 /// Whether or not to unload the [`RenderAsset`] after extracting it to the render world.
 ///
-/// Unloading the asset saves on memory, as for most cases it is no longer neccesary to keep
+/// Unloading the asset saves on memory, as for most cases it is no longer necessary to keep
 /// it in RAM once it's been uploaded to the GPU's VRAM. However, this means you can no longer
 /// access the asset from the CPU (via the `Assets<T>` resource) once unloaded (without re-loading it).
 ///
@@ -192,7 +192,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
                 changed_assets.insert(*id);
             }
             AssetEvent::Removed { .. } => {}
-            AssetEvent::NoLongerUsed { id } => {
+            AssetEvent::Unused { id } => {
                 changed_assets.remove(id);
                 removed.push(*id);
             }

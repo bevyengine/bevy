@@ -589,7 +589,7 @@ pub fn prepare_sprites(
     for event in &events.images {
         match event {
             AssetEvent::Added { .. } |
-            AssetEvent::NoLongerUsed { .. } |
+            AssetEvent::Unused { .. } |
             // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {

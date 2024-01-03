@@ -818,7 +818,7 @@ pub fn extract_materials<M: Material>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
-            AssetEvent::NoLongerUsed { .. } => {}
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
             }

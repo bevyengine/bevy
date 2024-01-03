@@ -872,21 +872,21 @@ mod tests {
                 id: id_results.d_id,
             },
             AssetEvent::Modified { id: a_id },
-            AssetEvent::NoLongerUsed { id: a_id },
+            AssetEvent::Unused { id: a_id },
             AssetEvent::Removed { id: a_id },
-            AssetEvent::NoLongerUsed {
+            AssetEvent::Unused {
                 id: id_results.b_id,
             },
             AssetEvent::Removed {
                 id: id_results.b_id,
             },
-            AssetEvent::NoLongerUsed {
+            AssetEvent::Unused {
                 id: id_results.c_id,
             },
             AssetEvent::Removed {
                 id: id_results.c_id,
             },
-            AssetEvent::NoLongerUsed {
+            AssetEvent::Unused {
                 id: id_results.d_id,
             },
             AssetEvent::Removed {
@@ -1074,7 +1074,7 @@ mod tests {
         let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
         let expected_events = vec![
             AssetEvent::Added { id },
-            AssetEvent::NoLongerUsed { id },
+            AssetEvent::Unused { id },
             AssetEvent::Removed { id },
         ];
         assert_eq!(events, expected_events);

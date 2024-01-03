@@ -498,7 +498,7 @@ impl<A: Asset> Assets<A> {
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 
-            assets.queued_events.push(AssetEvent::NoLongerUsed { id });
+            assets.queued_events.push(AssetEvent::Unused { id });
 
             if drop_event.asset_server_managed {
                 let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
