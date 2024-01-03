@@ -1,5 +1,5 @@
 #import bevy_pbr::{
-    meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_instance_material_ids, view, get_meshlet_index, unpack_meshlet_vertex},
+    meshlet_bindings::{visible_thread_ids, meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_instance_material_ids, view, get_meshlet_index, unpack_meshlet_vertex},
     mesh_functions::mesh_position_local_to_world,
 }
 #import bevy_render::maths::affine_to_square
@@ -23,11 +23,24 @@ struct FragmentOutput {
 #endif
 
 @vertex
-fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
-    let thread_id = cull_output >> 8u;
+fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+    let thread_id = visible_thread_ids[vertex_index / 378u];
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
-    let index_id = extractBits(cull_output, 0u, 8u);
+    let index_id = vertex_index % 378u;
+    if index_id >= meshlet.index_count {
+        return VertexOutput(
+            vec4(0.0 / 0.0),
+#ifdef MESHLET_VISIBILITY_BUFFER_PASS_OUTPUT
+            0u,
+            0u,
+#endif
+#ifdef DEPTH_CLAMP_ORTHO
+            0.0,
+#endif
+        );
+    }
+
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);

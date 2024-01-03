@@ -3,9 +3,8 @@
     meshlet_previous_occlusion,
     meshlet_occlusion,
     meshlet_thread_meshlet_ids,
-    meshlets,
     draw_command_buffer,
-    draw_index_buffer,
+    visible_thread_ids,
     meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
     meshlet_bounding_spheres,
@@ -67,15 +66,10 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     }
 #endif
 
-    // If the meshlet is visible, atomically append its index buffer (packed together with the meshlet ID) to
-    // the index buffer for the rasterization pass to use
+    // If the meshlet is visible, append its ID for the rasterization pass to use, and increase the draw count by 378 vertices (126 triangles, maximum of 1 meshlet)
     if meshlet_visible {
-        let meshlet = meshlets[meshlet_id];
-        let draw_index_buffer_start = atomicAdd(&draw_command_buffer.vertex_count, meshlet.index_count);
-        let packed_thread_id = thread_id.x << 8u;
-        for (var index_id = 0u; index_id < meshlet.index_count; index_id++) {
-            draw_index_buffer[draw_index_buffer_start + index_id] = packed_thread_id | index_id;
-        }
+        let next_open_slot = atomicAdd(&draw_command_buffer.vertex_count, 378u) / 378u;
+        visible_thread_ids[next_open_slot] = thread_id.x;
     }
 
 #ifdef MESHLET_SECOND_CULLING_PASS

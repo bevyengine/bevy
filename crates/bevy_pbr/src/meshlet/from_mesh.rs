@@ -71,22 +71,17 @@ impl MeshletMesh {
             .triangles
             .extend(iter::repeat(0).take(padding));
 
-        let mut total_meshlet_indices = 0;
         let meshlets = meshopt_meshlets
             .meshlets
             .into_iter()
-            .map(|m| {
-                total_meshlet_indices += m.triangle_count as u64 * 3;
-                Meshlet {
-                    start_vertex_id: m.vertex_offset,
-                    start_index_id: m.triangle_offset,
-                    index_count: m.triangle_count * 3,
-                }
+            .map(|m| Meshlet {
+                start_vertex_id: m.vertex_offset,
+                start_index_id: m.triangle_offset,
+                index_count: m.triangle_count * 3,
             })
             .collect();
 
         Ok(Self {
-            total_meshlet_indices,
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshopt_meshlets.vertices.into(),
             indices: meshopt_meshlets.triangles.into(),

@@ -155,10 +155,10 @@ pub fn prepare_meshlet_per_frame_resources(
         .previous_thread_ids
         .write_buffer(&render_device, &render_queue);
 
-    let visibility_buffer_draw_index_buffer = render_device.create_buffer(&BufferDescriptor {
-        label: Some("meshlet_visibility_buffer_draw_index_buffer"),
-        size: 4 * gpu_scene.scene_index_count,
-        usage: BufferUsages::STORAGE | BufferUsages::INDEX,
+    let visibility_buffer_visible_thread_ids = render_device.create_buffer(&BufferDescriptor {
+        label: Some("meshlet_visibility_buffer_visible_thread_ids_buffer"),
+        size: gpu_scene.scene_meshlet_count as u64 * 4,
+        usage: BufferUsages::STORAGE,
         mapped_at_creation: false,
     });
 
@@ -204,11 +204,10 @@ pub fn prepare_meshlet_per_frame_resources(
         let visibility_buffer_draw_command_buffer_first =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_draw_command_buffer_first"),
-                contents: DrawIndexedIndirect {
+                contents: DrawIndirect {
                     vertex_count: 0,
                     instance_count: 1,
-                    base_index: 0,
-                    vertex_offset: 0,
+                    base_vertex: 0,
                     base_instance: 0,
                 }
                 .as_bytes(),
@@ -217,11 +216,10 @@ pub fn prepare_meshlet_per_frame_resources(
         let visibility_buffer_draw_command_buffer_second =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_draw_command_buffer_second"),
-                contents: DrawIndexedIndirect {
+                contents: DrawIndirect {
                     vertex_count: 0,
                     instance_count: 1,
-                    base_index: 0,
-                    vertex_offset: 0,
+                    base_vertex: 0,
                     base_instance: 0,
                 }
                 .as_bytes(),
@@ -301,7 +299,7 @@ pub fn prepare_meshlet_per_frame_resources(
                 .then(|| texture_cache.get(&render_device, visibility_buffer)),
             visibility_buffer_draw_command_buffer_first,
             visibility_buffer_draw_command_buffer_second,
-            visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
+            visibility_buffer_visible_thread_ids: visibility_buffer_visible_thread_ids.clone(),
             depth_pyramid,
             depth_pyramid_mips,
             material_depth_color: (!is_shadow_view)
@@ -341,7 +339,7 @@ pub fn prepare_meshlet_view_bind_groups(
                 .visibility_buffer_draw_command_buffer_first
                 .as_entire_binding(),
             view_resources
-                .visibility_buffer_draw_index_buffer
+                .visibility_buffer_visible_thread_ids
                 .as_entire_binding(),
             view_uniforms.clone(),
         ));
@@ -364,7 +362,7 @@ pub fn prepare_meshlet_view_bind_groups(
                 .visibility_buffer_draw_command_buffer_second
                 .as_entire_binding(),
             view_resources
-                .visibility_buffer_draw_index_buffer
+                .visibility_buffer_visible_thread_ids
                 .as_entire_binding(),
             view_uniforms.clone(),
             &view_resources.depth_pyramid.default_view,
@@ -407,6 +405,9 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene.vertex_ids.binding(),
             gpu_scene.indices.binding(),
             gpu_scene.instance_material_ids.binding().unwrap(),
+            view_resources
+                .visibility_buffer_visible_thread_ids
+                .as_entire_binding(),
             view_uniforms.clone(),
         ));
         let visibility_buffer = render_device.create_bind_group(
@@ -471,10 +472,9 @@ pub struct MeshletGpuScene {
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, (Range<u32>, u64)>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, Range<u32>>,
 
     scene_meshlet_count: u32,
-    scene_index_count: u64,
     next_material_id: u32,
     material_id_lookup: HashMap<UntypedAssetId, u32>,
     material_ids_present_in_scene: HashSet<u32>,
@@ -512,7 +512,6 @@ impl FromWorld for MeshletGpuScene {
             meshlet_mesh_slices: HashMap::new(),
 
             scene_meshlet_count: 0,
-            scene_index_count: 0,
             next_material_id: 0,
             material_id_lookup: HashMap::new(),
             material_ids_present_in_scene: HashSet::new(),
@@ -609,6 +608,7 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                     ),
                 ),
@@ -649,7 +649,6 @@ impl MeshletGpuScene {
     fn reset(&mut self) {
         // TODO: Shrink capacity if saturation is low
         self.scene_meshlet_count = 0;
-        self.scene_index_count = 0;
         self.next_material_id = 0;
         self.material_id_lookup.clear();
         self.material_ids_present_in_scene.clear();
@@ -693,13 +692,10 @@ impl MeshletGpuScene {
             self.meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
 
-            (
-                (meshlets_slice.start as u32 / 12)..(meshlets_slice.end as u32 / 12),
-                meshlet_mesh.total_meshlet_indices,
-            )
+            (meshlets_slice.start as u32 / 12)..(meshlets_slice.end as u32 / 12)
         };
 
-        let (meshlets_slice, index_count) = self
+        let meshlets_slice = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
@@ -708,7 +704,6 @@ impl MeshletGpuScene {
         let current_thread_id_start = self.scene_meshlet_count;
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
-        self.scene_index_count += index_count;
         self.instances.push(instance);
 
         let previous_thread_id_start = self
@@ -778,7 +773,7 @@ pub struct MeshletViewResources {
     pub visibility_buffer: Option<CachedTexture>,
     pub visibility_buffer_draw_command_buffer_first: Buffer,
     pub visibility_buffer_draw_command_buffer_second: Buffer,
-    pub visibility_buffer_draw_index_buffer: Buffer,
+    visibility_buffer_visible_thread_ids: Buffer,
     pub depth_pyramid: CachedTexture,
     pub depth_pyramid_mips: Box<[TextureView]>,
     pub material_depth_color: Option<CachedTexture>,
