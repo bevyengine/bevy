@@ -2,7 +2,7 @@
 //! while preserving [`GlobalTransform`].
 
 use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
-use bevy_hierarchy::{AddChild, RemoveParent};
+use bevy_hierarchy::{PushChild, RemoveParent};
 
 use crate::{GlobalTransform, Transform};
 
@@ -19,7 +19,7 @@ pub struct AddChildInPlace {
 }
 impl Command for AddChildInPlace {
     fn apply(self, world: &mut World) {
-        let hierarchy_command = AddChild {
+        let hierarchy_command = PushChild {
             child: self.child,
             parent: self.parent,
         };
