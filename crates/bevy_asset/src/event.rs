@@ -38,7 +38,7 @@ impl<A: Asset> AssetEvent<A> {
         matches!(self, AssetEvent::Removed { id } if *id == asset_id.into())
     }
 
-    /// Returns `true` if this event is [`AssetEvent::NoLongerUsed`] and matches the given `id`.
+    /// Returns `true` if this event is [`AssetEvent::Unused`] and matches the given `id`.
     pub fn is_no_longer_used(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Unused { id } if *id == asset_id.into())
     }
@@ -58,7 +58,7 @@ impl<A: Asset> Debug for AssetEvent<A> {
             Self::Added { id } => f.debug_struct("Added").field("id", id).finish(),
             Self::Modified { id } => f.debug_struct("Modified").field("id", id).finish(),
             Self::Removed { id } => f.debug_struct("Removed").field("id", id).finish(),
-            Self::Unused { id } => f.debug_struct("NoLongerUsed").field("id", id).finish(),
+            Self::Unused { id } => f.debug_struct("Unused").field("id", id).finish(),
             Self::LoadedWithDependencies { id } => f
                 .debug_struct("LoadedWithDependencies")
                 .field("id", id)
