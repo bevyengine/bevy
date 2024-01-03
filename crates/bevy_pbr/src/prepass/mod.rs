@@ -421,7 +421,7 @@ where
         let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
-            4,
+            5,
             &key.mesh_key,
             &mut shader_defs,
             &mut vertex_attributes,
