@@ -7,14 +7,18 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
-use bevy::{asset::LoadedFolder, prelude::*, render::texture::ImageSampler};
+use bevy::{
+    asset::LoadedFolder,
+    prelude::*,
+    render::{render_asset::RenderAssetPersistencePolicy, texture::ImageSampler},
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // fallback to nearest sampling
         .init_state::<AppState>()
         .add_systems(OnEnter(AppState::Setup), load_textures)
-        .add_systems(Update, check_textures.run_if(in_state(AppState::Setup)))
+        .add_systems(Last, check_textures.run_if(in_state(AppState::Setup)))
         .add_systems(OnEnter(AppState::Finished), setup)
         .run();
 }
@@ -38,7 +42,17 @@ fn check_textures(
     mut next_state: ResMut<NextState<AppState>>,
     rpg_sprite_folder: Res<RpgSpriteFolder>,
     mut events: EventReader<AssetEvent<LoadedFolder>>,
+    mut textures: ResMut<Assets<Image>>,
+    mut image_events: EventReader<AssetEvent<Image>>,
 ) {
+    // Mark loaded images as CPU persistent so that they can be used to build the texture atlas.
+    for image_event in image_events.read() {
+        if let AssetEvent::Added { id } = image_event {
+            let image = textures.get_mut(*id).unwrap();
+            image.cpu_persistent_access = RenderAssetPersistencePolicy::Keep;
+        }
+    }
+
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
     // and that the the font has been loaded by the `FontSystem`.
     for event in events.read() {
