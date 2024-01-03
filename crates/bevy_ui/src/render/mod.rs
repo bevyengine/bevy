@@ -172,7 +172,6 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     uinode_query: Extract<
         Query<
@@ -227,11 +226,6 @@ pub fn extract_atlas_uinodes(
                 // Atlas not present in assets resource (should this warn the user?)
                 continue;
             };
-
-        // Skip loading images
-        if !images.contains(&image) {
-            continue;
-        }
 
         let scale = uinode.size() / atlas_rect.size();
         atlas_rect.min *= scale;
