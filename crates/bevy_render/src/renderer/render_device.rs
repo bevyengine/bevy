@@ -51,6 +51,19 @@ impl RenderDevice {
         self.device.create_shader_module(desc)
     }
 
+    /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code without runtime checks.
+    ///
+    /// # Safety
+    ///
+    /// See: [`wgpu::Device::create_shader_module_unchecked()`].
+    #[inline]
+    pub unsafe fn create_shader_module_unchecked(
+        &self,
+        desc: wgpu::ShaderModuleDescriptor,
+    ) -> wgpu::ShaderModule {
+        self.device.create_shader_module_unchecked(desc)
+    }
+
     /// Check for resource cleanups and mapping callbacks.
     ///
     /// Return `true` if the queue is empty, or `false` if there are more queue

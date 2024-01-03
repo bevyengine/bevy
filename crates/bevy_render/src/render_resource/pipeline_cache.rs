@@ -87,6 +87,7 @@ impl CachedComputePipelineId {
 pub struct CachedPipeline {
     pub descriptor: PipelineDescriptor,
     pub state: CachedPipelineState,
+    pub unchecked: bool,
 }
 
 /// State of a cached pipeline inserted into a [`PipelineCache`].
@@ -251,6 +252,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
+        unchecked: bool,
     ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
@@ -346,7 +348,15 @@ impl ShaderCache {
                 render_device
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
-                let shader_module = render_device.create_shader_module(module_descriptor);
+
+                let shader_module = if unchecked {
+                    // SAFETY: An unchecked pipeline can be queued only through an unsafe interface here, so
+                    //         it's on the user's side earlier to make sure the shader is alright
+                    unsafe { render_device.create_shader_module_unchecked(module_descriptor) }
+                } else {
+                    render_device.create_shader_module(module_descriptor)
+                };
+
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
@@ -596,15 +606,40 @@ impl PipelineCache {
         &self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
+        // SAFETY: We are setting `unchecked` to `false`, that's always safe
+        unsafe { self.queue_render_pipeline_ex(descriptor, false) }
+    }
+
+    /// Like [`Self::queue_render_pipeline()`], but disables runtime checks for the shader.
+    ///
+    /// # Safety
+    ///
+    /// See: [`wgpu::Device::create_shader_module_unchecked()`].
+    pub unsafe fn queue_render_pipeline_unchecked(
+        &self,
+        descriptor: RenderPipelineDescriptor,
+    ) -> CachedRenderPipelineId {
+        self.queue_render_pipeline_ex(descriptor, true)
+    }
+
+    unsafe fn queue_render_pipeline_ex(
+        &self,
+        descriptor: RenderPipelineDescriptor,
+        unchecked: bool,
+    ) -> CachedRenderPipelineId {
         let mut new_pipelines = self
             .new_pipelines
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
+
         let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
+
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
+            unchecked,
         });
+
         id
     }
 
@@ -625,15 +660,40 @@ impl PipelineCache {
         &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
+        // SAFETY: We are setting `unchecked` to `false`, that's always safe
+        unsafe { self.queue_compute_pipeline_ex(descriptor, false) }
+    }
+
+    /// Like [`Self::queue_compute_pipeline()`], but disables runtime checks for the shader.
+    ///
+    /// # Safety
+    ///
+    /// See: [`wgpu::Device::create_shader_module_unchecked()`].
+    pub unsafe fn queue_compute_pipeline_unchecked(
+        &self,
+        descriptor: ComputePipelineDescriptor,
+    ) -> CachedComputePipelineId {
+        self.queue_compute_pipeline_ex(descriptor, true)
+    }
+
+    unsafe fn queue_compute_pipeline_ex(
+        &self,
+        descriptor: ComputePipelineDescriptor,
+        unchecked: bool,
+    ) -> CachedComputePipelineId {
         let mut new_pipelines = self
             .new_pipelines
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
+
         let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
+
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
+            unchecked,
         });
+
         id
     }
 
@@ -657,12 +717,14 @@ impl PipelineCache {
         &mut self,
         id: CachedPipelineId,
         descriptor: &RenderPipelineDescriptor,
+        unchecked: bool,
     ) -> CachedPipelineState {
         let vertex_module = match self.shader_cache.get(
             &self.device,
             id,
             descriptor.vertex.shader.id(),
             &descriptor.vertex.shader_defs,
+            unchecked,
         ) {
             Ok(module) => module,
             Err(err) => {
@@ -676,6 +738,7 @@ impl PipelineCache {
                 id,
                 fragment.shader.id(),
                 &fragment.shader_defs,
+                unchecked,
             ) {
                 Ok(module) => module,
                 Err(err) => {
@@ -742,12 +805,14 @@ impl PipelineCache {
         &mut self,
         id: CachedPipelineId,
         descriptor: &ComputePipelineDescriptor,
+        unchecked: bool,
     ) -> CachedPipelineState {
         let compute_module = match self.shader_cache.get(
             &self.device,
             id,
             descriptor.shader.id(),
             &descriptor.shader_defs,
+            unchecked,
         ) {
             Ok(module) => module,
             Err(err) => {
@@ -807,10 +872,10 @@ impl PipelineCache {
 
             pipeline.state = match &pipeline.descriptor {
                 PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
-                    self.process_render_pipeline(id, descriptor)
+                    self.process_render_pipeline(id, descriptor, pipeline.unchecked)
                 }
                 PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
-                    self.process_compute_pipeline(id, descriptor)
+                    self.process_compute_pipeline(id, descriptor, pipeline.unchecked)
                 }
             };
 
