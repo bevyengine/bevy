@@ -2,6 +2,7 @@ use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_reflect::ReflectDeserialize;
 use bevy_reflect::ReflectSerialize;
+use bevy_reflect::std_traits::ReflectDefault;
 use serde::Deserialize;
 use serde::Serialize;
 use std::ops::Neg;
@@ -13,7 +14,7 @@ use thiserror::Error;
 /// This enum allows specifying values for various [`Style`](crate::Style) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq, Serialize, Deserialize)]
 pub enum Val {
     /// Automatically determine the value based on the context and other [`Style`](crate::Style) properties.
     Auto,
@@ -242,7 +243,7 @@ impl Val {
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq, Serialize, Deserialize)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,
