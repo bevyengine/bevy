@@ -39,7 +39,7 @@ impl<A: Asset> AssetEvent<A> {
     }
 
     /// Returns `true` if this event is [`AssetEvent::Unused`] and matches the given `id`.
-    pub fn is_no_longer_used(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    pub fn is_unused(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Unused { id } if *id == asset_id.into())
     }
 }
