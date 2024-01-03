@@ -1035,7 +1035,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with fixed pixel limit
+    /// Create a `fit-content()` grid track with fixed pixel limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_px<T: From<Self>>(limit: f32) -> T {
@@ -1046,7 +1046,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with percentage limit
+    /// Create a `fit-content()` grid track with percentage limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_percent<T: From<Self>>(limit: f32) -> T {
@@ -1057,7 +1057,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a minmax() grid track
+    /// Create a `minmax()` grid track.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/minmax>
     pub fn minmax<T: From<Self>>(min: MinTrackSizingFunction, max: MaxTrackSizingFunction) -> T {
@@ -1198,7 +1198,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with fixed pixel limit
+    /// Create a repeating set of `fit-content()` grid tracks with fixed pixel limit
     pub fn fit_content_px<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1207,7 +1207,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with percentage limit
+    /// Create a repeating set of `fit-content()` grid tracks with percentage limit
     pub fn fit_content_percent<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1216,7 +1216,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of minmax() grid track
+    /// Create a repeating set of `minmax()` grid track
     pub fn minmax<T: From<Self>>(
         repetition: impl Into<GridTrackRepetition>,
         min: MinTrackSizingFunction,

@@ -5,7 +5,7 @@ use bevy_utils::Duration;
 /// Run condition that is active on a regular time interval, using [`Time`] to advance
 /// the timer. The timer ticks at the rate of [`Time::relative_speed`].
 ///
-/// ```rust,no_run
+/// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use bevy_utils::Duration;
@@ -41,7 +41,7 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// Run condition that is active on a regular time interval, using [`Time<Real>`] to advance
 /// the timer. The timer ticks are not scaled.
 ///
-/// ```rust,no_run
+/// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use bevy_utils::Duration;
