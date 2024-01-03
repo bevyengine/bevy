@@ -25,8 +25,8 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 
-    /// This will be called when the plugin has finished its setup. Useful for plugins that need something
-    /// asynchronous to happen before they can finish their setup, like the initializazion of a renderer.
+    /// Has the plugin finished its setup? This can be useful for plugins that need something
+    /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
     /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
     fn ready(&self, _app: &App) -> bool {
         true
