@@ -15,7 +15,10 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        render_asset::RenderAssetPersistencePolicy,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
@@ -198,6 +201,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
+                RenderAssetPersistencePolicy::Unload,
             ))
         })
         .collect()
