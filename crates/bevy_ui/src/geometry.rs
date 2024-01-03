@@ -1,8 +1,8 @@
 use bevy_math::Vec2;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_reflect::ReflectDeserialize;
 use bevy_reflect::ReflectSerialize;
-use bevy_reflect::std_traits::ReflectDefault;
 use serde::Deserialize;
 use serde::Serialize;
 use std::ops::Neg;

@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
 
