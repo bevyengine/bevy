@@ -366,6 +366,10 @@ fn apply_pbr_lighting(
     let specular_transmitted_environment_light = vec3<f32>(0.0);
 #endif
 
+#ifdef LIGHTMAP
+    indirect_light += in.lightmap_light * diffuse_color;
+#endif
+
     let emissive_light = emissive.rgb * output_color.a;
 
     if specular_transmission > 0.0 {

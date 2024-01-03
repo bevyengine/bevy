@@ -74,7 +74,7 @@ pub fn extract_meshlet_meshes(
         gpu_scene
             .instance_uniforms
             .get_mut()
-            .push(MeshUniform::from(&transforms));
+            .push(MeshUniform::new(&transforms, None));
     }
 }
 

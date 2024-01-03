@@ -100,7 +100,7 @@ pub enum AssetMode {
     ///
     /// When developing an app, you should enable the `asset_processor` cargo feature, which will run the asset processor at startup. This should generally
     /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
-    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.  
+    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.
     ///
     /// [`AssetMeta`]: meta::AssetMeta
     /// [`AssetSource`]: io::AssetSource
@@ -872,12 +872,22 @@ mod tests {
                 id: id_results.d_id,
             },
             AssetEvent::Modified { id: a_id },
+            AssetEvent::Unused { id: a_id },
             AssetEvent::Removed { id: a_id },
-            AssetEvent::Removed {
+            AssetEvent::Unused {
                 id: id_results.b_id,
             },
             AssetEvent::Removed {
+                id: id_results.b_id,
+            },
+            AssetEvent::Unused {
                 id: id_results.c_id,
+            },
+            AssetEvent::Removed {
+                id: id_results.c_id,
+            },
+            AssetEvent::Unused {
+                id: id_results.d_id,
             },
             AssetEvent::Removed {
                 id: id_results.d_id,
@@ -1062,7 +1072,11 @@ mod tests {
         // remove event is emitted
         app.update();
         let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
-        let expected_events = vec![AssetEvent::Added { id }, AssetEvent::Removed { id }];
+        let expected_events = vec![
+            AssetEvent::Added { id },
+            AssetEvent::Unused { id },
+            AssetEvent::Removed { id },
+        ];
         assert_eq!(events, expected_events);
 
         let dep_handle = app.world.resource::<AssetServer>().load(dep_path);

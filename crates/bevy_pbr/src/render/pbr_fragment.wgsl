@@ -8,6 +8,7 @@
     mesh_bindings::mesh,
     mesh_view_bindings::view,
     parallax_mapping::parallaxed_uv,
+    lightmap::lightmap,
 }
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
@@ -231,6 +232,14 @@ fn pbr_input_from_standard_material(
             in.ddy_uv,
 #endif
         );
+#endif
+
+// TODO: Make this work with meshlets
+#ifdef LIGHTMAP
+        pbr_input.lightmap_light = lightmap(
+            in.uv_b,
+            pbr_bindings::material.lightmap_exposure,
+            in.instance_index);
 #endif
     }
 
