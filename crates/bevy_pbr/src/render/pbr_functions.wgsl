@@ -164,7 +164,8 @@ fn apply_pbr_lighting(
 
     let specular_transmissive_color = specular_transmission * in.material.base_color.rgb;
 
-    let occlusion = in.occlusion;
+    let diffuse_occlusion = in.diffuse_occlusion;
+    let specular_occlusion = in.specular_occlusion;
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(in.N, in.V), 0.0001);
@@ -306,7 +307,7 @@ fn apply_pbr_lighting(
     }
 
     // Ambient light (indirect)
-    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
+    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
 
     if diffuse_transmission > 0.0 {
         // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
@@ -316,20 +317,14 @@ fn apply_pbr_lighting(
         // perceptual_roughness = 1.0;
         // NdotV = 1.0;
         // F0 = vec3<f32>(0.0)
-        // occlusion = vec3<f32>(1.0)
+        // diffuse_occlusion = vec3<f32>(1.0)
         transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
     }
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
-    // This is technically not physically corrent. Ambient occlusion should only attenuate the
-    // diffuse term, not the specular term. However, without ray traced or screen space reflections,
-    // the physically correct math will tend to over-brighten specular,as it completely ignores
-    // occlusion. This results in, for example, a wheel in a vehicle's wheel well appearing to glow
-    // because it is not accounting for the fact that light cannot reach the wheel. Thus, ambient
-    // occlusion serves as an imperfect but decent *approximation* of specular occlusion.
-    indirect_light += (environment_light.diffuse + environment_light.specular) * occlusion;
+    indirect_light += (environment_light.diffuse * diffuse_occlusion) + (environment_light.specular * specular_occlusion);
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
@@ -344,7 +339,7 @@ fn apply_pbr_lighting(
         // NdotV = 1.0;
         // R = T // see definition below
         // F0 = vec3<f32>(1.0)
-        // occlusion = 1.0
+        // diffuse_occlusion = 1.0
         //
         // (This one is slightly different from the other light types above, because the environment
         // map light returns both diffuse and specular components separately, and we want to use both)

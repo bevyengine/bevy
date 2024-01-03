@@ -80,7 +80,8 @@ fn standard_material_new() -> StandardMaterial {
 
 struct PbrInput {
     material: StandardMaterial,
-    occlusion: vec3<f32>,
+    diffuse_occlusion: vec3<f32>,
+    specular_occlusion: f32,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
@@ -101,7 +102,8 @@ fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
     pbr_input.material = standard_material_new();
-    pbr_input.occlusion = vec3<f32>(1.0);
+    pbr_input.diffuse_occlusion = vec3<f32>(1.0);
+    pbr_input.specular_occlusion = 1.0;
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
