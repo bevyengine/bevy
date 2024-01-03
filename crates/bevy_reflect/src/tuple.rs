@@ -335,9 +335,13 @@ impl Reflect for DynamicTuple {
         self
     }
 
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn apply(&mut self, value: &dyn Reflect) {
+        tuple_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
     }
 
     #[inline]
@@ -355,13 +359,9 @@ impl Reflect for DynamicTuple {
         ReflectOwned::Tuple(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        tuple_apply(self, value);
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

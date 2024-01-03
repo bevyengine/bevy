@@ -296,7 +296,7 @@ pub fn extract_uinode_borders(
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
-        / ui_scale.0 as f32;
+        / ui_scale.0;
 
     for (node, global_transform, style, border_color, parent, view_visibility, clip) in
         uinode_query.iter()
@@ -390,13 +390,12 @@ pub fn extract_uinode_outlines(
             &GlobalTransform,
             &Outline,
             &ViewVisibility,
-            Option<&Parent>,
+            Option<&CalculatedClip>,
         )>,
     >,
-    clip_query: Query<&CalculatedClip>,
 ) {
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, view_visibility, maybe_parent) in uinode_query.iter() {
+    for (node, global_transform, outline, view_visibility, maybe_clip) in uinode_query.iter() {
         // Skip invisible outlines
         if !view_visibility.get()
             || outline.color.is_fully_transparent()
@@ -404,10 +403,6 @@ pub fn extract_uinode_outlines(
         {
             continue;
         }
-
-        // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
-        let clip =
-            maybe_parent.and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
 
         // Calculate the outline rects.
         let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
@@ -460,7 +455,7 @@ pub fn extract_uinode_outlines(
                         },
                         image,
                         atlas_size: None,
-                        clip,
+                        clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
                     },
@@ -545,7 +540,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    let scale = (ui_scale.0 as f32).recip();
+    let scale = ui_scale.0.recip();
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
@@ -624,11 +619,11 @@ pub fn extract_text_uinodes(
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
 
-    let scale_factor = (windows
+    let scale_factor = windows
         .get_single()
         .map(|window| window.scale_factor())
         .unwrap_or(1.)
-        * ui_scale.0) as f32;
+        * ui_scale.0;
 
     let inverse_scale_factor = scale_factor.recip();
 
@@ -794,6 +789,7 @@ pub fn prepare_uinodes(
     for event in &events.images {
         match event {
             AssetEvent::Added { .. } |
+            AssetEvent::Unused { .. } |
             // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {

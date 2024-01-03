@@ -31,10 +31,11 @@ pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
-pub use instant::{Duration, Instant};
 pub use petgraph;
+pub use smallvec;
 pub use thiserror;
 pub use tracing;
+pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
 #[allow(missing_docs)]
 pub mod nonmax {
@@ -126,11 +127,8 @@ pub struct Hashed<V, H = FixedState> {
 impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
     /// Pre-hashes the given value using the [`BuildHasher`] configured in the [`Hashed`] type.
     pub fn new(value: V) -> Self {
-        let builder = H::default();
-        let mut hasher = builder.build_hasher();
-        value.hash(&mut hasher);
         Self {
-            hash: hasher.finish(),
+            hash: H::default().hash_one(&value),
             value,
             marker: PhantomData,
         }
@@ -191,7 +189,7 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
 /// A [`BuildHasher`] that results in a [`PassHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PassHash;
 
 impl BuildHasher for PassHash {
@@ -210,6 +208,11 @@ pub struct PassHasher {
 }
 
 impl Hasher for PassHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
     fn write(&mut self, _bytes: &[u8]) {
         panic!("can only hash u64 using PassHasher");
     }
@@ -217,11 +220,6 @@ impl Hasher for PassHasher {
     #[inline]
     fn write_u64(&mut self, i: u64) {
         self.hash = i;
-    }
-
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.hash
     }
 }
 
@@ -253,7 +251,7 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 }
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct EntityHash;
 
 impl BuildHasher for EntityHash {
@@ -280,6 +278,11 @@ pub struct EntityHasher {
 }
 
 impl Hasher for EntityHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
     fn write(&mut self, _bytes: &[u8]) {
         panic!("can only hash u64 using EntityHasher");
     }
@@ -315,11 +318,6 @@ impl Hasher for EntityHasher {
 
         // This is `(MAGIC * index + generation) << 32 + index`, in a single instruction.
         self.hash = bits.wrapping_mul(UPPER_PHI);
-    }
-
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.hash
     }
 }
 
@@ -416,4 +414,14 @@ macro_rules! detailed_trace {
             bevy_utils::tracing::trace!($($tts)*);
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    // Check that the HashMaps are Clone if the key/values are Clone
+    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
+    assert_impl_all!(PreHashMap::<u64, usize>: Clone);
 }

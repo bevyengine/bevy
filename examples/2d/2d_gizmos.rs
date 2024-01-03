@@ -61,11 +61,15 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
     );
 }
 
-fn update_config(mut config: ResMut<GizmoConfig>, keyboard: Res<Input<KeyCode>>, time: Res<Time>) {
-    if keyboard.pressed(KeyCode::Right) {
+fn update_config(
+    mut config: ResMut<GizmoConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
     }
 }

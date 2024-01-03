@@ -436,6 +436,7 @@ impl Entities {
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
+    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
@@ -627,6 +628,7 @@ impl Entities {
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
+    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
     pub fn reserve(&mut self, additional: u32) {
         self.verify_flushed();
 
@@ -977,10 +979,10 @@ mod tests {
         // This is intentionally testing `lt` and `ge` as separate functions.
         #![allow(clippy::nonminimal_bool)]
 
-        assert!(Entity::new(123, 456) == Entity::new(123, 456));
-        assert!(Entity::new(123, 789) != Entity::new(123, 456));
-        assert!(Entity::new(123, 456) != Entity::new(123, 789));
-        assert!(Entity::new(123, 456) != Entity::new(456, 123));
+        assert_eq!(Entity::new(123, 456), Entity::new(123, 456));
+        assert_ne!(Entity::new(123, 789), Entity::new(123, 456));
+        assert_ne!(Entity::new(123, 456), Entity::new(123, 789));
+        assert_ne!(Entity::new(123, 456), Entity::new(456, 123));
 
         // ordering is by generation then by index
 

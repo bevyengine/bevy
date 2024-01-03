@@ -27,7 +27,10 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
+        camera::{
+            Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
+            Projection,
+        },
         color::Color,
         mesh::{morph::MorphWeights, shape, Mesh},
         render_resource::Shader,
@@ -71,23 +74,17 @@ pub struct RenderPlugin {
 
 /// The labels of the default App rendering sets.
 ///
-/// The sets run in the order listed, with [`apply_deferred`] inserted between each set.
-///
-/// The `*Flush` sets are assigned to the copy of [`apply_deferred`]
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// The copy of [`apply_deferred`] that runs at the beginning of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
-    /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
-    ManageViewsFlush,
-    /// Queue drawable entities as phase items in [`RenderPhase`](render_phase::RenderPhase)s
+    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
@@ -100,21 +97,15 @@ pub enum RenderSet {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
-    PrepareFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Render`](RenderSet::Render).
-    RenderFlush,
     /// Cleanup render resources here.
     Cleanup,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Cleanup`](RenderSet::Cleanup).
-    CleanupFlush,
 }
 
 /// The main render schedule.
@@ -124,35 +115,21 @@ pub struct Render;
 impl Render {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
-    /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_deferred`] is inserted into each [`*Flush` set](RenderSet).
+    /// The sets defined in this enum are configured to run in order.
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
         let mut schedule = Schedule::new(Self);
 
-        // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_systems((
-            apply_deferred.in_set(ManageViewsFlush),
-            apply_deferred.in_set(PrepareResourcesFlush),
-            apply_deferred.in_set(RenderFlush),
-            apply_deferred.in_set(PrepareFlush),
-            apply_deferred.in_set(CleanupFlush),
-        ));
-
         schedule.configure_sets(
             (
                 ExtractCommands,
                 ManageViews,
-                ManageViewsFlush,
                 Queue,
                 PhaseSort,
                 Prepare,
-                PrepareFlush,
                 Render,
-                RenderFlush,
                 Cleanup,
-                CleanupFlush,
             )
                 .chain(),
         );
@@ -175,7 +152,7 @@ impl Render {
 /// running the next frame while rendering the current frame.
 ///
 /// This schedule is run on the main world, but its buffers are not applied
-/// via [`Schedule::apply_deferred`](Schedule) until it is returned to the render world.
+/// until it is returned to the render world.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
 pub struct ExtractSchedule;
 
@@ -267,6 +244,8 @@ impl Plugin for RenderPlugin {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
                             backends,
                             dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
+                            flags: settings.instance_flags,
+                            gles_minor_version: settings.gles3_minor_version,
                         });
                         // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {

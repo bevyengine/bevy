@@ -62,16 +62,15 @@ image = { version = "0.24", default-features = false }
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
-wgpu = { version = "0.17.1", features = [
+wgpu = { version = "0.18", features = [
   "naga",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "0.13.0", features = ["wgsl-in"] }
-naga_oil = "0.10"
+naga = { version = "0.14.2", features = ["wgsl-in"] }
+naga_oil = "0.11"
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
-smallvec = { version = "1.6", features = ["union", "const_generics"] }
 downcast-rs = "1.2.0"
 thread_local = "1.1"
 thiserror = "1.0"

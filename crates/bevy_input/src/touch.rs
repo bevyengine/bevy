@@ -1,5 +1,6 @@
 //! The touch input functionality.
 
+use bevy_ecs::entity::Entity;
 use bevy_ecs::event::{Event, EventReader};
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
@@ -44,6 +45,8 @@ pub struct TouchInput {
     pub phase: TouchPhase,
     /// The position of the finger on the touchscreen.
     pub position: Vec2,
+    /// The window entity registering the touch.
+    pub window: Entity,
     /// Describes how hard the screen was pressed.
     ///
     /// May be [`None`] if the platform does not support pressure sensitivity.
@@ -408,6 +411,7 @@ mod test {
     #[test]
     fn touch_process() {
         use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_ecs::entity::Entity;
         use bevy_math::Vec2;
 
         let mut touches = Touches::default();
@@ -417,6 +421,7 @@ mod test {
         let touch_event = TouchInput {
             phase: TouchPhase::Started,
             position: Vec2::splat(4.0),
+            window: Entity::PLACEHOLDER,
             force: None,
             id: 4,
         };
@@ -432,6 +437,7 @@ mod test {
         let moved_touch_event = TouchInput {
             phase: TouchPhase::Moved,
             position: Vec2::splat(5.0),
+            window: Entity::PLACEHOLDER,
             force: None,
             id: touch_event.id,
         };
@@ -453,6 +459,7 @@ mod test {
         let cancel_touch_event = TouchInput {
             phase: TouchPhase::Canceled,
             position: Vec2::ONE,
+            window: Entity::PLACEHOLDER,
             force: None,
             id: touch_event.id,
         };
@@ -468,6 +475,7 @@ mod test {
         let end_touch_event = TouchInput {
             phase: TouchPhase::Ended,
             position: Vec2::splat(4.0),
+            window: Entity::PLACEHOLDER,
             force: None,
             id: touch_event.id,
         };
@@ -481,12 +489,13 @@ mod test {
         assert!(touches.pressed.get(&touch_event.id).is_none());
         let touch = touches.just_released.get(&touch_event.id).unwrap();
         // Make sure the position is updated from TouchPhase::Moved and TouchPhase::Ended
-        assert!(touch.previous_position != touch.position);
+        assert_ne!(touch.previous_position, touch.position);
     }
 
     #[test]
     fn touch_pressed() {
         use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_ecs::entity::Entity;
         use bevy_math::Vec2;
 
         let mut touches = Touches::default();
@@ -494,6 +503,7 @@ mod test {
         let touch_event = TouchInput {
             phase: TouchPhase::Started,
             position: Vec2::splat(4.0),
+            window: Entity::PLACEHOLDER,
             force: None,
             id: 4,
         };
@@ -509,6 +519,7 @@ mod test {
     #[test]
     fn touch_released() {
         use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_ecs::entity::Entity;
         use bevy_math::Vec2;
 
         let mut touches = Touches::default();
@@ -516,6 +527,7 @@ mod test {
         let touch_event = TouchInput {
             phase: TouchPhase::Ended,
             position: Vec2::splat(4.0),
+            window: Entity::PLACEHOLDER,
             force: None,
             id: 4,
         };
@@ -531,6 +543,7 @@ mod test {
     #[test]
     fn touch_canceled() {
         use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_ecs::entity::Entity;
         use bevy_math::Vec2;
 
         let mut touches = Touches::default();
@@ -538,6 +551,7 @@ mod test {
         let touch_event = TouchInput {
             phase: TouchPhase::Canceled,
             position: Vec2::splat(4.0),
+            window: Entity::PLACEHOLDER,
             force: None,
             id: 4,
         };

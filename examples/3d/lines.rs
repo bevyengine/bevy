@@ -6,6 +6,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayout, PrimitiveTopology},
+        render_asset::RenderAssetPersistencePolicy,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
@@ -94,11 +95,14 @@ impl From<LineList> for Mesh {
     fn from(line: LineList) -> Self {
         let vertices: Vec<_> = line.lines.into_iter().flat_map(|(a, b)| [a, b]).collect();
 
-        // This tells wgpu that the positions are list of lines
-        // where every pair is a start and end point
-        Mesh::new(PrimitiveTopology::LineList)
-            // Add the vertices positions as an attribute
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
+        Mesh::new(
+            // This tells wgpu that the positions are list of lines
+            // where every pair is a start and end point
+            PrimitiveTopology::LineList,
+            RenderAssetPersistencePolicy::Unload,
+        )
+        // Add the vertices positions as an attribute
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
     }
 }
 
@@ -110,10 +114,13 @@ pub struct LineStrip {
 
 impl From<LineStrip> for Mesh {
     fn from(line: LineStrip) -> Self {
-        // This tells wgpu that the positions are a list of points
-        // where a line will be drawn between each consecutive point
-        Mesh::new(PrimitiveTopology::LineStrip)
-            // Add the point positions as an attribute
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
+        Mesh::new(
+            // This tells wgpu that the positions are a list of points
+            // where a line will be drawn between each consecutive point
+            PrimitiveTopology::LineStrip,
+            RenderAssetPersistencePolicy::Unload,
+        )
+        // Add the point positions as an attribute
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
     }
 }

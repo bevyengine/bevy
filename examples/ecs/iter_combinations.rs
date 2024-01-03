@@ -115,7 +115,7 @@ fn generate_bodies(
                     ),
                     material: materials.add(StandardMaterial {
                         base_color: Color::ORANGE_RED,
-                        emissive: (Color::ORANGE_RED * 2.),
+                        emissive: Color::ORANGE_RED * 2.,
                         ..default()
                     }),
                     ..default()

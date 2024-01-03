@@ -10,6 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+documentation = "https://docs.rs/bevy"
 rust-version = "1.74.0"
 
 [workspace]
@@ -488,13 +489,12 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "pixel_perfect"
-path = "examples/2d/pixel_perfect.rs"
-doc-scrape-examples = true
+name = "pixel_grid_snap"
+path = "examples/2d/pixel_grid_snap.rs"
 
-[package.metadata.example.pixel_perfect]
-name = "Pixel Perfect"
-description = "Demonstrates pixel perfect in 2d"
+[package.metadata.example.pixel_grid_snap]
+name = "Pixel Grid Snapping"
+description = "Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D"
 category = "2D Rendering"
 wasm = true
 
@@ -868,6 +868,17 @@ doc-scrape-examples = true
 [package.metadata.example.wireframe]
 name = "Wireframe"
 description = "Showcases wireframe rendering"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "lightmaps"
+path = "examples/3d/lightmaps.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.lightmaps]
+name = "Lightmaps"
+description = "Rendering a scene with baked lightmaps"
 category = "3D Rendering"
 wasm = false
 

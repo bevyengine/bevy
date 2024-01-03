@@ -267,6 +267,13 @@ fn apply_pbr_lighting(
     // directional lights (direct)
     let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+        // check the directional light render layers intersect the view render layers
+        // note this is not necessary for point and spot lights, as the relevant lights are filtered in `assign_lights_to_clusters`
+        let light = &view_bindings::lights.directional_lights[i];
+        if ((*light).render_layers & view_bindings::view.render_layers) == 0u {
+            continue;
+        }
+
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -349,6 +356,10 @@ fn apply_pbr_lighting(
     // If there's no environment map light, there's no transmitted environment
     // light specular component, so we can just hardcode it to zero.
     let specular_transmitted_environment_light = vec3<f32>(0.0);
+#endif
+
+#ifdef LIGHTMAP
+    indirect_light += in.lightmap_light * diffuse_color;
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;
