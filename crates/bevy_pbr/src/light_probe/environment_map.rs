@@ -61,12 +61,13 @@ use bevy_render::{
     },
     texture::{FallbackImage, Image},
 };
-use std::ops::Deref;
 
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 use bevy_utils::HashMap;
 #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
 use std::num::NonZeroU32;
+#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+use std::ops::Deref;
 
 use crate::LightProbe;
 

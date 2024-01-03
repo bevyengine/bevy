@@ -464,7 +464,6 @@ pub fn queue_material_meshes<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
     render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<(
         &ExtractedView,
