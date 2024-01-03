@@ -72,8 +72,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         var perceptual_roughness: f32 = pbr_input.material.perceptual_roughness;
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 
-        // Use ssao to estimate the specular occlusion. [Lagarde et al., 2014]
-        pbr_input.specular_occlusion =  clamp(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao, 0.0, 1.0);
+        // Use SSAO to estimate the specular occlusion. [Lagarde et al., 2014]
+        pbr_input.specular_occlusion =  saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
 #endif // SCREEN_SPACE_AMBIENT_OCCLUSION
 
         output_color = pbr_functions::apply_pbr_lighting(pbr_input);
