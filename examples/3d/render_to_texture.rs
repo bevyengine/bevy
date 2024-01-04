@@ -5,7 +5,6 @@ use std::f32::consts::PI;
 use bevy::{
     prelude::*,
     render::{
-        camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -103,7 +102,7 @@ fn setup(
             camera: Camera {
                 // render before the "main pass" camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone()),
+                target: image_handle.clone().into(),
                 clear_color: Color::WHITE.into(),
                 ..default()
             },

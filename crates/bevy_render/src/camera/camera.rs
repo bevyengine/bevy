@@ -428,6 +428,12 @@ pub enum RenderTarget {
     TextureView(ManualTextureViewHandle),
 }
 
+impl From<Handle<Image>> for RenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
+        Self::Image(handle)
+    }
+}
+
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
@@ -457,6 +463,16 @@ impl RenderTarget {
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
             RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+        }
+    }
+
+    /// Get a handle to the render target's image,
+    /// or `None` if the render target is another variant.
+    pub fn as_image(&self) -> Option<&Handle<Image>> {
+        if let Self::Image(handle) = self {
+            Some(handle)
+        } else {
+            None
         }
     }
 }
