@@ -72,7 +72,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         var perceptual_roughness: f32 = pbr_input.material.perceptual_roughness;
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 
-        // Use SSAO to estimate the specular occlusion. [Lagarde et al., 2014]
+        // Use SSAO to estimate the specular occlusion.
+        // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"
         pbr_input.specular_occlusion =  saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
 #endif // SCREEN_SPACE_AMBIENT_OCCLUSION
 
