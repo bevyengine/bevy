@@ -11,13 +11,13 @@ use crate::{GlobalTransform, Transform};
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::set_parent_in_place`]
 /// method on [`EntityCommands`] instead.
-pub struct AddChildInPlace {
+pub struct PushChildInPlace {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
-impl Command for AddChildInPlace {
+impl Command for PushChildInPlace {
     fn apply(self, world: &mut World) {
         let hierarchy_command = PushChild {
             child: self.child,
@@ -88,7 +88,7 @@ pub trait BuildChildrenTransformExt {
 impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChildInPlace { child, parent });
+        self.commands().add(PushChildInPlace { child, parent });
         self
     }
 
