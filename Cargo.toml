@@ -289,6 +289,8 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
+meshopt = ["bevy_internal/meshopt"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.12.0", default-features = false }

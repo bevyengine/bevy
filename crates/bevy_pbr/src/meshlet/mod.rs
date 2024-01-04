@@ -1,4 +1,5 @@
 mod asset;
+#[cfg(feature = "meshopt")]
 mod from_mesh;
 mod gpu_scene;
 mod material_draw_nodes;
@@ -13,10 +14,9 @@ pub(crate) use self::{
     material_draw_prepare::prepare_material_meshlet_meshes,
 };
 
-pub use self::{
-    asset::{Meshlet, MeshletBoundingSphere, MeshletMesh},
-    from_mesh::MeshToMeshletMeshConversionError,
-};
+pub use self::asset::{Meshlet, MeshletBoundingSphere, MeshletMesh};
+#[cfg(feature = "meshopt")]
+pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
 use self::{
     asset::MeshletMeshSaverLoad,
