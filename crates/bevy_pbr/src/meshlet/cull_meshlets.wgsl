@@ -27,7 +27,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let model = affine_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
     let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
-    let bounding_sphere_radius = model_scale * bounding_sphere.radius;
+    var bounding_sphere_radius = model_scale * bounding_sphere.radius;
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     var meshlet_visible = true;
@@ -48,6 +48,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     // In the second culling pass, cull against the depth pyramid generated from the first pass
     var aabb: vec4<f32>;
     let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
+    bounding_sphere_radius += 0.04; // TODO: Fudge factor seems to be needed to prevent over-eager culling
     if meshlet_visible && try_project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius, &aabb) {
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
         let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
