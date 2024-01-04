@@ -647,10 +647,10 @@ impl<'w, 's> Commands<'w, 's> {
 /// ```
 pub trait EntityCommand: Send + 'static {
     /// Executes this command for the given [`Entity`].
-    fn apply(self, id: Entity, world: &mut World);
+    fn apply(self, entity: Entity, world: &mut World);
 
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    fn with_entity(self, id: Entity) -> impl Command
+    fn with_entity(self, entity: Entity) -> impl Command
     where
         Self: Sized,
     {
