@@ -982,6 +982,14 @@ impl AssetServer {
             if is_dir {
                 let mut path_stream = reader.read_directory(path.as_ref()).await?;
                 while let Some(child_path) = path_stream.next().await {
+                    if child_path
+                        .file_name()
+                        .and_then(|file_name| file_name.to_str())
+                        .map(|file_name| file_name.starts_with('.'))
+                        .unwrap_or_default()
+                    {
+                        continue;
+                    }
                     if reader.is_directory(&child_path).await? {
                         Box::pin(load_folder(
                             source.clone(),
