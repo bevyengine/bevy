@@ -1,9 +1,8 @@
 //! GPU-driven meshlet-based rendering.
 
 use bevy::{
-    log::info,
     pbr::{
-        meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
+        meshlet::{MaterialMeshletMeshBundle, MeshletPlugin},
         CascadeShadowConfigBuilder,
     },
     prelude::*,
@@ -13,98 +12,74 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(MeshletPlugin)
-        .add_systems(Update, (setup, camera_controller))
+        .add_systems(Startup, setup)
+        .add_systems(Update, camera_controller)
         .run();
 }
 
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut meshlet_meshes: ResMut<Assets<MeshletMesh>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut dragon_meshlet_mesh_handle: Local<Handle<MeshletMesh>>,
-    mut dragon_mesh_handle: Local<Handle<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if dragon_mesh_handle.id() == AssetId::default() {
-        commands.spawn((
-            Camera3dBundle {
-                transform: Transform::from_translation(Vec3::new(1.5658312, 0.3866963, -0.5559159))
-                    .with_rotation(Quat::from_array([
-                        -0.08115417,
-                        0.80237,
-                        0.112162426,
-                        0.580548,
-                    ])),
-                ..default()
-            },
-            EnvironmentMapLight {
-                diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-                specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            },
-            CameraController::default(),
-        ));
-
-        commands.spawn(DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
-            cascade_shadow_config: CascadeShadowConfigBuilder {
-                num_cascades: 1,
-                maximum_distance: 15.0,
-                ..default()
-            }
-            .build(),
-            transform: Transform::from_rotation(Quat::from_euler(
-                EulerRot::ZYX,
-                0.0,
-                PI * -0.15,
-                PI * -0.15,
-            )),
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_translation(Vec3::new(3.630299, 2.1524267, -3.7703536))
+                .with_rotation(Quat::from_array([
+                    -0.10124003,
+                    0.88844854,
+                    0.23672538,
+                    0.3799616,
+                ])),
             ..default()
-        });
+        },
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+        },
+        CameraController::default(),
+    ));
 
-        info!("Loading dragon model...");
-        *dragon_mesh_handle = asset_server.load("models/dragon.glb#Mesh0/Primitive0");
-    }
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            shadows_enabled: true,
+            ..default()
+        },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            num_cascades: 1,
+            maximum_distance: 15.0,
+            ..default()
+        }
+        .build(),
+        transform: Transform::from_rotation(Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            PI * -0.15,
+            PI * -0.15,
+        )),
+        ..default()
+    });
 
-    if dragon_meshlet_mesh_handle.id() == AssetId::default() {
-        if let Some(dragon_mesh) = meshes.get_mut(&*dragon_mesh_handle) {
-            dragon_mesh.insert_attribute(
-                Mesh::ATTRIBUTE_UV_0,
-                vec![[0.0, 0.0]; dragon_mesh.count_vertices()],
-            );
-            dragon_mesh.generate_tangents().unwrap();
-
-            info!("Calculating dragon meshlets...");
-            *dragon_meshlet_mesh_handle =
-                meshlet_meshes.add(MeshletMesh::from_mesh(dragon_mesh).unwrap());
-            info!("Dragon meshlets calculated");
-
+    let dragon_meshlet_mesh_handle = asset_server.load("models/dragon.meshlet_mesh");
+    for x in -2..=2 {
+        for z in -2..=2 {
             commands.spawn(MaterialMeshletMeshBundle {
                 meshlet_mesh: dragon_meshlet_mesh_handle.clone(),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::hex("#ffd891").unwrap(),
-                    metallic: 1.0,
-                    perceptual_roughness: 0.9,
-                    ..default()
-                }),
-                transform: Transform::default().with_rotation(Quat::from_rotation_x(PI / 2.0)),
-                ..default()
-            });
-
-            commands.spawn(MaterialMeshletMeshBundle {
-                meshlet_mesh: dragon_meshlet_mesh_handle.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::hex("#ffc0cb").unwrap(),
-                    perceptual_roughness: 0.1,
+                    base_color: match x {
+                        -2 => Color::hex("#dc2626").unwrap(),
+                        -1 => Color::hex("#ea580c").unwrap(),
+                        0 => Color::hex("#facc15").unwrap(),
+                        1 => Color::hex("#16a34a").unwrap(),
+                        2 => Color::hex("#0284c7").unwrap(),
+                        _ => unreachable!(),
+                    },
+                    perceptual_roughness: (z + 2) as f32 / 4.0,
                     ..default()
                 }),
                 transform: Transform::default()
                     .with_rotation(Quat::from_rotation_x(PI / 2.0))
-                    .with_translation(Vec3::new(1.0, 0.0, 0.0))
-                    .with_scale(Vec3::splat(0.5)),
+                    .with_translation(Vec3::new(x as f32, 0.0, z as f32)),
                 ..default()
             });
         }

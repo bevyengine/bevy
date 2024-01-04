@@ -38,6 +38,7 @@ radsort = "0.1"
 naga_oil = "0.11"
 thread_local = "1.0"
 serde = { version = "1", features = ["derive", "rc"] }
+bincode = "1"
 rayon = "1"
 
 [lints]

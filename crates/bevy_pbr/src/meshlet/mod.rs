@@ -19,6 +19,7 @@ pub use self::{
 };
 
 use self::{
+    asset::MeshletMeshSaverLoad,
     gpu_scene::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
@@ -102,7 +103,9 @@ impl Plugin for MeshletPlugin {
             Shader::from_wgsl
         );
 
-        app.init_asset::<MeshletMesh>().insert_resource(Msaa::Off);
+        app.init_asset::<MeshletMesh>()
+            .register_asset_loader(MeshletMeshSaverLoad)
+            .insert_resource(Msaa::Off);
     }
 
     fn finish(&self, app: &mut App) {

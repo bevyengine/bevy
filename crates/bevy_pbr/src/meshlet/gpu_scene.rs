@@ -3,7 +3,7 @@ use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
 };
-use bevy_asset::{AssetId, Assets, Handle, UntypedAssetId};
+use bevy_asset::{AssetId, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -42,9 +42,10 @@ pub fn extract_meshlet_meshes(
             Has<NotShadowReceiver>,
             Has<NotShadowCaster>,
         )>,
+        Res<AssetServer>,
         ResMut<Assets<MeshletMesh>>,
     )> = SystemState::new(&mut main_world);
-    let (query, mut assets) = system_state.get_mut(&mut main_world);
+    let (query, asset_server, mut assets) = system_state.get_mut(&mut main_world);
 
     gpu_scene.reset();
 
@@ -54,6 +55,12 @@ pub fn extract_meshlet_meshes(
         (instance, handle, transform, previous_transform, not_shadow_receiver, _not_shadow_caster),
     ) in query.iter().enumerate()
     {
+        if asset_server.is_managed(handle.id()) {
+            if !asset_server.is_loaded_with_dependencies(handle.id()) {
+                continue;
+            }
+        }
+
         gpu_scene.queue_meshlet_mesh_upload(instance, handle, &mut assets, instance_index as u32);
 
         let transform = transform.affine();
