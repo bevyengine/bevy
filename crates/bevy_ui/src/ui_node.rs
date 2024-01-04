@@ -1743,7 +1743,7 @@ impl From<RadialGradient> for UiColor {
 impl UiColor {
     /// Is this UiColor visible?
     /// Always returns true for gradient values.
-    pub fn is_visible(&self) -> bool {
+    pub fn is_fully_transparent(&self) -> bool {
         match self {
             Self::Color(color) => color.a() != 0.,
             _ => true,
