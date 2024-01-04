@@ -108,7 +108,7 @@ impl TryFrom<Icosphere> for Mesh {
 
         Ok(Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetPersistencePolicy::Keep,
         )
         .with_indices(Some(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, points)

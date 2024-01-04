@@ -209,7 +209,7 @@ impl TextureAtlasBuilder {
                             self.format.pixel_size() * (current_width * current_height) as usize
                         ],
                         self.format,
-                        RenderAssetPersistencePolicy::Unload,
+                        RenderAssetPersistencePolicy::Keep,
                     );
                     Some(rect_placements)
                 }
