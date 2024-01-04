@@ -1,6 +1,7 @@
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
+pub mod instances;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
