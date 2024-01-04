@@ -175,9 +175,12 @@ fn pbr_input_from_standard_material(
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
         let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
         diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
+
+        // Use the min (most occluded) between screen space and baked AO:
+        let ao = min(diffuse_occlusion.r, ssao);
         // Use SSAO to estimate the specular occlusion.
         // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"
-        specular_occlusion =  saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
+        specular_occlusion =  saturate(pow(NdotV + ao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
 #endif
         pbr_input.diffuse_occlusion = diffuse_occlusion;
         pbr_input.specular_occlusion = specular_occlusion;
