@@ -46,10 +46,12 @@ use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    system::Resource,
     world::FromWorld,
 };
 use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
+use bevy_utils::HashSet;
 use std::{any::TypeId, sync::Arc};
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
@@ -65,7 +67,7 @@ compile_error!(
 /// Supports flexible "modes", such as [`AssetMode::Processed`] and
 /// [`AssetMode::Unprocessed`] that enable using the asset workflow that best suits your project.
 ///
-/// [`AssetSource`]: crate::io::AssetSource
+/// [`AssetSource`]: io::AssetSource
 pub struct AssetPlugin {
     /// The default file path to use (relative to the project root) for unprocessed assets.
     pub file_path: String,
@@ -86,8 +88,8 @@ pub struct AssetPlugin {
 pub enum AssetMode {
     /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
     ///
-    /// [`AssetReader`]: crate::io::AssetReader
-    /// [`AssetSource`]: crate::io::AssetSource
+    /// [`AssetReader`]: io::AssetReader
+    /// [`AssetSource`]: io::AssetSource
     Unprocessed,
     /// Assets will be "pre-processed". This enables assets to be imported / converted / optimized ahead of time.
     ///
@@ -98,12 +100,26 @@ pub enum AssetMode {
     ///
     /// When developing an app, you should enable the `asset_processor` cargo feature, which will run the asset processor at startup. This should generally
     /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
-    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.  
+    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.
     ///
-    /// [`AssetMeta`]: crate::meta::AssetMeta
-    /// [`AssetSource`]: crate::io::AssetSource
-    /// [`AssetReader`]: crate::io::AssetReader
+    /// [`AssetMeta`]: meta::AssetMeta
+    /// [`AssetSource`]: io::AssetSource
+    /// [`AssetReader`]: io::AssetReader
     Processed,
+}
+
+/// Configures how / if meta files will be checked. If an asset's meta file is not checked, the default meta for the asset
+/// will be used.
+// TODO: To avoid breaking Bevy 0.12 users in 0.12.1, this is a Resource. In Bevy 0.13 this should be changed to a field on AssetPlugin (if it is still needed).
+#[derive(Debug, Default, Clone, Resource)]
+pub enum AssetMetaCheck {
+    /// Always check if assets have meta files. If the meta does not exist, the default meta will be used.
+    #[default]
+    Always,
+    /// Only look up meta files for the provided paths. The default meta will be used for any paths not contained in this set.
+    Paths(HashSet<AssetPath<'static>>),
+    /// Never check if assets have meta files and always use the default meta. If meta files exist, they will be ignored and the default meta will be used.
+    Never,
 }
 
 impl Default for AssetPlugin {
@@ -148,9 +164,16 @@ impl Plugin for AssetPlugin {
                 AssetMode::Unprocessed => {
                     let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
                     let sources = builders.build_sources(watch, false);
-                    app.insert_resource(AssetServer::new(
+                    let meta_check = app
+                        .world
+                        .get_resource::<AssetMetaCheck>()
+                        .cloned()
+                        .unwrap_or_else(AssetMetaCheck::default);
+
+                    app.insert_resource(AssetServer::new_with_meta_check(
                         sources,
                         AssetServerMode::Unprocessed,
+                        meta_check,
                         watch,
                     ));
                 }
@@ -166,6 +189,7 @@ impl Plugin for AssetPlugin {
                             sources,
                             processor.server().data.loaders.clone(),
                             AssetServerMode::Processed,
+                            AssetMetaCheck::Always,
                             watch,
                         ))
                         .insert_resource(processor)
@@ -175,9 +199,10 @@ impl Plugin for AssetPlugin {
                     {
                         let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
-                        app.insert_resource(AssetServer::new(
+                        app.insert_resource(AssetServer::new_with_meta_check(
                             sources,
                             AssetServerMode::Processed,
+                            AssetMetaCheck::Always,
                             watch,
                         ));
                     }
@@ -190,9 +215,9 @@ impl Plugin for AssetPlugin {
             .init_asset::<()>()
             .configure_sets(
                 UpdateAssets,
-                TrackAssets.after(server::handle_internal_asset_events),
+                TrackAssets.after(handle_internal_asset_events),
             )
-            .add_systems(UpdateAssets, server::handle_internal_asset_events);
+            .add_systems(UpdateAssets, handle_internal_asset_events);
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(First, UpdateAssets);
@@ -295,6 +320,40 @@ impl AssetApp for App {
         self
     }
 
+    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
+        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+            asset_processor.register_processor(processor);
+        }
+        self
+    }
+
+    fn register_asset_source(
+        &mut self,
+        id: impl Into<AssetSourceId<'static>>,
+        source: AssetSourceBuilder,
+    ) -> &mut Self {
+        let id = id.into();
+        if self.world.get_resource::<AssetServer>().is_some() {
+            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
+        }
+
+        {
+            let mut sources = self
+                .world
+                .get_resource_or_insert_with(AssetSourceBuilders::default);
+            sources.insert(id, source);
+        }
+
+        self
+    }
+
+    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
+        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+            asset_processor.set_default_processor::<P>(extension);
+        }
+        self
+    }
+
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self {
         let loader = L::from_world(&mut self.world);
         self.register_asset_loader(loader)
@@ -345,40 +404,6 @@ impl AssetApp for App {
         self.world
             .resource_mut::<AssetServer>()
             .preregister_loader::<L>(extensions);
-        self
-    }
-
-    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
-            asset_processor.register_processor(processor);
-        }
-        self
-    }
-
-    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
-            asset_processor.set_default_processor::<P>(extension);
-        }
-        self
-    }
-
-    fn register_asset_source(
-        &mut self,
-        id: impl Into<AssetSourceId<'static>>,
-        source: AssetSourceBuilder,
-    ) -> &mut Self {
-        let id = id.into();
-        if self.world.get_resource::<AssetServer>().is_some() {
-            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
-        }
-
-        {
-            let mut sources = self
-                .world
-                .get_resource_or_insert_with(AssetSourceBuilders::default);
-            sources.insert(id, source);
-        }
-
         self
     }
 }
@@ -530,7 +555,7 @@ mod tests {
     fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
-            if (predicate)(&mut app.world).is_some() {
+            if predicate(&mut app.world).is_some() {
                 return;
             }
         }
@@ -847,12 +872,22 @@ mod tests {
                 id: id_results.d_id,
             },
             AssetEvent::Modified { id: a_id },
+            AssetEvent::Unused { id: a_id },
             AssetEvent::Removed { id: a_id },
-            AssetEvent::Removed {
+            AssetEvent::Unused {
                 id: id_results.b_id,
             },
             AssetEvent::Removed {
+                id: id_results.b_id,
+            },
+            AssetEvent::Unused {
                 id: id_results.c_id,
+            },
+            AssetEvent::Removed {
+                id: id_results.c_id,
+            },
+            AssetEvent::Unused {
+                id: id_results.d_id,
             },
             AssetEvent::Removed {
                 id: id_results.d_id,
@@ -1037,7 +1072,11 @@ mod tests {
         // remove event is emitted
         app.update();
         let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
-        let expected_events = vec![AssetEvent::Added { id }, AssetEvent::Removed { id }];
+        let expected_events = vec![
+            AssetEvent::Added { id },
+            AssetEvent::Unused { id },
+            AssetEvent::Removed { id },
+        ];
         assert_eq!(events, expected_events);
 
         let dep_handle = app.world.resource::<AssetServer>().load(dep_path);

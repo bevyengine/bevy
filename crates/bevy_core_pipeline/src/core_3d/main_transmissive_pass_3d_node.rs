@@ -5,9 +5,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
-    render_resource::{
-        Extent3d, LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    },
+    render_resource::{Extent3d, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };
@@ -20,7 +18,7 @@ use std::ops::Range;
 pub struct MainTransmissivePass3dNode;
 
 impl ViewNode for MainTransmissivePass3dNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static Camera3d,
         &'static RenderPhase<Transmissive3d>,
@@ -34,7 +32,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (camera, camera_3d, transmissive_phase, target, transmission, depth): QueryItem<
-            Self::ViewQuery,
+            Self::ViewData,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -44,20 +42,10 @@ impl ViewNode for MainTransmissivePass3dNode {
 
         let render_pass_descriptor = RenderPassDescriptor {
             label: Some("main_transmissive_pass_3d"),
-            // NOTE: The transmissive pass loads the color buffer as well as overwriting it where appropriate.
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: LoadOp::Load,
-                store: true,
-            }))],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &depth.view,
-                // NOTE: The transmissive main pass loads the depth buffer and possibly overwrites it
-                depth_ops: Some(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
+            color_attachments: &[Some(target.get_color_attachment())],
+            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         // Run the transmissive pass, sorted back-to-front

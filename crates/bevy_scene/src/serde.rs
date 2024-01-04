@@ -88,7 +88,7 @@ impl<'a> SceneSerializer<'a> {
 impl<'a> Serialize for SceneSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
         state.serialize_field(
@@ -147,7 +147,7 @@ pub struct EntitySerializer<'a> {
 impl<'a> Serialize for EntitySerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut state = serializer.serialize_struct(ENTITY_STRUCT, 1)?;
         state.serialize_field(
@@ -176,7 +176,7 @@ pub struct SceneMapSerializer<'a> {
 impl<'a> Serialize for SceneMapSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut state = serializer.serialize_map(Some(self.entries.len()))?;
         for reflect in self.entries {
@@ -213,7 +213,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_struct(
             SCENE_STRUCT,
@@ -236,7 +236,29 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         formatter.write_str("scene struct")
     }
 
-    fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let resources = seq
+            .next_element_seed(SceneMapDeserializer {
+                registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
+
+        let entities = seq
+            .next_element_seed(SceneEntitiesDeserializer {
+                type_registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
+
+        Ok(DynamicScene {
+            resources,
+            entities,
+        })
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -271,28 +293,6 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
             entities,
         })
     }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let resources = seq
-            .next_element_seed(SceneMapDeserializer {
-                registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
-
-        let entities = seq
-            .next_element_seed(SceneEntitiesDeserializer {
-                type_registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
-
-        Ok(DynamicScene {
-            resources,
-            entities,
-        })
-    }
 }
 
 /// Handles deserialization for a collection of entities.
@@ -321,7 +321,7 @@ struct SceneEntitiesVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
     type Value = Vec<DynamicEntity>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("map of entities")
     }
 
@@ -355,7 +355,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_struct(
             ENTITY_STRUCT,
@@ -376,11 +376,11 @@ struct SceneEntityVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     type Value = DynamicEntity;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("entities")
     }
 
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
@@ -436,7 +436,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_map(SceneMapVisitor {
             registry: self.registry,
@@ -451,11 +451,25 @@ struct SceneMapVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("map of reflect types")
     }
 
-    fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut dynamic_properties = Vec::new();
+        while let Some(entity) =
+            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
+        {
+            dynamic_properties.push(entity);
+        }
+
+        Ok(dynamic_properties)
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -477,20 +491,6 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
         }
 
         Ok(entries)
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut dynamic_properties = Vec::new();
-        while let Some(entity) =
-            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
-        {
-            dynamic_properties.push(entity);
-        }
-
-        Ok(dynamic_properties)
     }
 }
 

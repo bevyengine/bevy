@@ -5,11 +5,15 @@ use bevy_ecs::prelude::*;
 use bevy_time::{Real, Time};
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
+///
+/// # See also
+///
+/// [`LogDiagnosticsPlugin`](crate::LogDiagnosticsPlugin) to output diagnostics to the console.
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
 
 impl Plugin for FrameTimeDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         app.register_diagnostic(
             Diagnostic::new(Self::FRAME_TIME, "frame_time", 20).with_suffix("ms"),
         )

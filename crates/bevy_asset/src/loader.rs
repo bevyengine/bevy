@@ -97,6 +97,10 @@ where
         })
     }
 
+    fn extensions(&self) -> &[&str] {
+        <L as AssetLoader>::extensions(self)
+    }
+
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
         let meta = AssetMeta::<L, ()>::deserialize(meta)?;
         Ok(Box::new(meta))
@@ -109,10 +113,6 @@ where
         }))
     }
 
-    fn extensions(&self) -> &[&str] {
-        <L as AssetLoader>::extensions(self)
-    }
-
     fn type_name(&self) -> &'static str {
         std::any::type_name::<L>()
     }
@@ -121,12 +121,12 @@ where
         TypeId::of::<L>()
     }
 
-    fn asset_type_id(&self) -> TypeId {
-        TypeId::of::<L::Asset>()
-    }
-
     fn asset_type_name(&self) -> &'static str {
         std::any::type_name::<L::Asset>()
+    }
+
+    fn asset_type_id(&self) -> TypeId {
+        TypeId::of::<L::Asset>()
     }
 }
 
@@ -352,6 +352,13 @@ impl<'a> LoadContext<'a> {
     }
 
     /// This will add the given `asset` as a "labeled [`Asset`]" with the `label` label.
+    ///
+    /// # Warning
+    ///
+    /// This will not assign dependencies to the given `asset`. If adding an asset
+    /// with dependencies generated from calls such as [`LoadContext::load`], use
+    /// [`LoadContext::labeled_asset_scope`] or [`LoadContext::begin_labeled_asset`] to generate a
+    /// new [`LoadContext`] to track the dependencies for the labeled asset.
     ///
     /// See [`AssetPath`] for more on labeled assets.
     pub fn add_labeled_asset<A: Asset>(&mut self, label: String, asset: A) -> Handle<A> {

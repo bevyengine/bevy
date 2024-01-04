@@ -13,8 +13,17 @@
 //! type, it tells the derive macro for `Reflect` to add the following single line to its
 //! [`get_type_registration`] method (see the relevant code[^1]).
 //!
-//! ```ignore
+//! ```
+//! # use bevy_reflect::{FromType, Reflect};
+//! # use bevy_ecs::prelude::{ReflectComponent, Component};
+//! # #[derive(Default, Reflect, Component)]
+//! # struct A;
+//! # impl A {
+//! #   fn foo() {
+//! # let mut registration = bevy_reflect::TypeRegistration::of::<A>();
 //! registration.insert::<ReflectComponent>(FromType::<Self>::from_type());
+//! #   }
+//! # }
 //! ```
 //!
 //! This line adds a `ReflectComponent` to the registration data for the type in question.
@@ -125,7 +134,7 @@ impl ReflectComponent {
         (self.0.from_world)(world)
     }
 
-    /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
+    /// Insert a reflected [`Component`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
         (self.0.insert)(entity, component);
     }

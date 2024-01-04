@@ -151,7 +151,7 @@ impl World {
     ///
     /// ## Running a system
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u8);
@@ -171,7 +171,7 @@ impl World {
     ///
     /// ## Change detection
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct ChangeDetector;
@@ -195,7 +195,7 @@ impl World {
     ///
     /// ## Getting system output
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(Resource)]
@@ -243,7 +243,7 @@ impl World {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u8);
@@ -322,7 +322,7 @@ pub struct RunSystemWithInput<I: 'static> {
 /// Running slow systems can become a bottleneck.
 ///
 /// If the system needs an [`In<_>`](crate::system::In) input value to run, use the
-/// [`crate::system::RunSystemWithInput`] type instead.
+/// [`RunSystemWithInput`] type instead.
 ///
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use

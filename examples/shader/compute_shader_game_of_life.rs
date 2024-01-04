@@ -7,9 +7,10 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
+        render_asset::RenderAssetPersistencePolicy,
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
-        render_resource::*,
+        render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
@@ -48,6 +49,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         TextureDimension::D2,
         &[0, 0, 0, 255],
         TextureFormat::Rgba8Unorm,
+        RenderAssetPersistencePolicy::Unload,
     );
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
@@ -124,22 +126,13 @@ pub struct GameOfLifePipeline {
 
 impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
-        let texture_bind_group_layout =
-            world
-                .resource::<RenderDevice>()
-                .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                    label: None,
-                    entries: &[BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::StorageTexture {
-                            access: StorageTextureAccess::ReadWrite,
-                            format: TextureFormat::Rgba8Unorm,
-                            view_dimension: TextureViewDimension::D2,
-                        },
-                        count: None,
-                    }],
-                });
+        let texture_bind_group_layout = world.resource::<RenderDevice>().create_bind_group_layout(
+            None,
+            &BindGroupLayoutEntries::single(
+                ShaderStages::COMPUTE,
+                texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::ReadWrite),
+            ),
+        );
         let shader = world
             .resource::<AssetServer>()
             .load("shaders/game_of_life.wgsl");

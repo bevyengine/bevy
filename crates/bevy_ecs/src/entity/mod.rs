@@ -327,7 +327,6 @@ impl SparseSetIndex for Entity {
 }
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from
-/// [`Entities::reserve_entities`](crate::entity::Entities::reserve_entities).
 pub struct ReserveEntitiesIterator<'a> {
     // Metas, so we can recover the current generation for anything in the freelist.
     meta: &'a [EntityMeta],
@@ -363,7 +362,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     }
 }
 
-impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
+impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 /// A [`World`]'s internal metadata store on all of its entities.
@@ -437,6 +436,7 @@ impl Entities {
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
+    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
@@ -628,6 +628,7 @@ impl Entities {
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
+    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
     pub fn reserve(&mut self, additional: u32) {
         self.verify_flushed();
 
@@ -978,10 +979,10 @@ mod tests {
         // This is intentionally testing `lt` and `ge` as separate functions.
         #![allow(clippy::nonminimal_bool)]
 
-        assert!(Entity::new(123, 456) == Entity::new(123, 456));
-        assert!(Entity::new(123, 789) != Entity::new(123, 456));
-        assert!(Entity::new(123, 456) != Entity::new(123, 789));
-        assert!(Entity::new(123, 456) != Entity::new(456, 123));
+        assert_eq!(Entity::new(123, 456), Entity::new(123, 456));
+        assert_ne!(Entity::new(123, 789), Entity::new(123, 456));
+        assert_ne!(Entity::new(123, 456), Entity::new(123, 789));
+        assert_ne!(Entity::new(123, 456), Entity::new(456, 123));
 
         // ordering is by generation then by index
 
@@ -997,5 +998,37 @@ mod tests {
         assert!(Entity::new(1, 1) <= Entity::new(2, 1));
         assert!(Entity::new(2, 2) > Entity::new(1, 2));
         assert!(Entity::new(2, 2) >= Entity::new(1, 2));
+    }
+
+    // Feel free to change this test if needed, but it seemed like an important
+    // part of the best-case performance changes in PR#9903.
+    #[test]
+    fn entity_hash_keeps_similar_ids_together() {
+        use std::hash::BuildHasher;
+        let hash = bevy_utils::EntityHash;
+
+        let first_id = 0xC0FFEE << 8;
+        let first_hash = hash.hash_one(Entity::from_raw(first_id));
+
+        for i in 1..=255 {
+            let id = first_id + i;
+            let hash = hash.hash_one(Entity::from_raw(id));
+            assert_eq!(hash.wrapping_sub(first_hash) as u32, i);
+        }
+    }
+
+    #[test]
+    fn entity_hash_id_bitflip_affects_high_7_bits() {
+        use std::hash::BuildHasher;
+        let hash = bevy_utils::EntityHash;
+
+        let first_id = 0xC0FFEE;
+        let first_hash = hash.hash_one(Entity::from_raw(first_id)) >> 57;
+
+        for bit in 0..u32::BITS {
+            let id = first_id ^ (1 << bit);
+            let hash = hash.hash_one(Entity::from_raw(id)) >> 57;
+            assert_ne!(hash, first_hash);
+        }
     }
 }

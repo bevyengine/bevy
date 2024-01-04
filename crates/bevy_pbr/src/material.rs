@@ -87,9 +87,9 @@ use std::marker::PhantomData;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(1) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2) var color_sampler: sampler;
+/// @group(2) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -229,7 +229,7 @@ where
                         prepare_materials::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<Image>),
-                        render::queue_shadows::<M>
+                        queue_shadows::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
@@ -335,7 +335,7 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        descriptor.layout.insert(1, self.material_layout.clone());
+        descriptor.layout.insert(2, self.material_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
         Ok(descriptor)
@@ -368,8 +368,8 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
 type DrawMaterial<M> = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
+    SetMeshBindGroup<1>,
+    SetMaterialBindGroup<M, 2>,
     DrawMesh,
 );
 
@@ -377,8 +377,8 @@ type DrawMaterial<M> = (
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
     type Param = (SRes<RenderMaterials<M>>, SRes<RenderMaterialInstances<M>>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
@@ -404,7 +404,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
 
-const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
+pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
@@ -416,7 +416,7 @@ const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
+pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     match tonemapping {
         Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
@@ -431,7 +431,7 @@ const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     }
 }
 
-const fn screen_space_specular_transmission_pipeline_key(
+pub const fn screen_space_specular_transmission_pipeline_key(
     screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
 ) -> MeshPipelineKey {
     match screen_space_transmissive_blur_quality {
@@ -465,6 +465,7 @@ pub fn queue_material_meshes<M: Material>(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
+    render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -472,7 +473,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
-        Option<&ScreenSpaceAmbientOcclusionSettings>,
+        Has<ScreenSpaceAmbientOcclusionSettings>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -480,7 +481,7 @@ pub fn queue_material_meshes<M: Material>(
             Has<DeferredPrepass>,
         ),
         Option<&Camera3d>,
-        Option<&TemporalJitter>,
+        Has<TemporalJitter>,
         Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
@@ -532,7 +533,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        if temporal_jitter.is_some() {
+        if temporal_jitter {
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
@@ -570,7 +571,7 @@ pub fn queue_material_meshes<M: Material>(
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }
-        if ssao.is_some() {
+        if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
         if let Some(camera_3d) = camera_3d {
@@ -606,7 +607,19 @@ pub fn queue_material_meshes<M: Material>(
             if mesh.morph_targets.is_some() {
                 mesh_key |= MeshPipelineKey::MORPH_TARGETS;
             }
+
+            if material.properties.reads_view_transmission_texture {
+                mesh_key |= MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE;
+            }
+
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+
+            if render_lightmaps
+                .render_lightmaps
+                .contains_key(visible_entity)
+            {
+                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
@@ -809,6 +822,7 @@ pub fn extract_materials<M: Material>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -817,6 +831,7 @@ pub fn extract_materials<M: Material>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
             }

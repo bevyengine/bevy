@@ -12,7 +12,7 @@ use bevy_utils::EntityHashMap;
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::entity::{EntityMapper, MapEntities};
 ///
@@ -30,7 +30,6 @@ use bevy_utils::EntityHashMap;
 /// }
 /// ```
 ///
-/// [`World`]: crate::world::World
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///

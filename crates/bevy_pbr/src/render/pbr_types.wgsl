@@ -17,6 +17,7 @@ struct StandardMaterial {
     alpha_cutoff: f32,
     parallax_depth_scale: f32,
     max_parallax_layer_count: f32,
+    lightmap_exposure: f32,
     max_relief_mapping_search_steps: u32,
     /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
     deferred_lighting_pass_id: u32,
@@ -90,6 +91,7 @@ struct PbrInput {
     // Normalized view vector in world space, pointing from the fragment world position toward the
     // view world position
     V: vec3<f32>,
+    lightmap_light: vec3<f32>,
     is_orthographic: bool,
     flags: u32,
 };
@@ -109,6 +111,8 @@ fn pbr_input_new() -> PbrInput {
 
     pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
     pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
+
+    pbr_input.lightmap_light = vec3<f32>(0.0);
 
     pbr_input.flags = 0u;
 
