@@ -131,7 +131,6 @@ impl Node {
         border: [0.; 4],
         border_radius: [0.; 4],
         position: Vec2::ZERO,
-        stack_index: 0,
     };
 }
 
@@ -145,7 +144,12 @@ impl Default for Node {
 /// * `Val::Auto` is equivalent to `Val::ZERO`
 /// * `Val::Percent` is based on the length of the axis of the node.
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum RelativePositionAxis {
     /// The position is relative to the rectangle's start (left or top edge) on this axes
     /// Positive values translate the point inwards, towards the end, negative values are outside of the rectangle.
@@ -192,7 +196,12 @@ impl From<Val> for RelativePositionAxis {
 /// Position relative to an axis aligned rectangle
 /// Position outside of a rectangle's bounds are valid.
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RelativePosition {
     /// Horizontal position
     pub x: RelativePositionAxis,
@@ -1660,8 +1669,8 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 /// When combined with [`UiImage`], tints the provided texture.
-#[derive(Clone, Debug, Reflect)]
-#[reflect(Default)]
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1700,7 +1709,7 @@ pub struct UiTextureAtlasImage {
     pub flip_y: bool,
 }
 
-#[derive(Clone, PartialEq, Debug, Reflect)]
+#[derive(Clone, Component, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq, Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1742,6 +1751,12 @@ impl UiColor {
     }
 }
 
+impl Default for UiColor {
+    fn default() -> Self {
+        Self::Color(Color::default())
+    }
+}
+
 /// The border color of the UI node.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
@@ -1772,7 +1787,7 @@ impl Default for BorderColor {
 }
 
 #[derive(Component, Copy, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default, Serialize, Deserialize)]
+#[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1954,7 +1969,7 @@ impl Default for ZIndex {
 /// * The value is clamped to between 0 and half the length of the shortest side of the node before being used.
 /// * `Val::AUTO` is resolved to `Val::Px(0.)`.
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2139,7 +2154,7 @@ pub fn deg(angle: f32) -> f32 {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect, Default)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2227,7 +2242,7 @@ pub fn resolve_color_stops(
 }
 
 #[derive(Clone, PartialEq, Debug, Reflect, Component, Default)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2329,7 +2344,7 @@ impl From<Color> for LinearGradient {
 
 /// The radius of a circle, or the lengths of the minor and major axes of an ellipse
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[reflect(PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2371,7 +2386,7 @@ impl From<Val> for RadialGradientExtent {
 }
 
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[reflect(PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2392,7 +2407,7 @@ pub enum RadialGradientShape {
 
 /// Representation of an axis-aligned ellipse.
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq, Serialize, Deserialize)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2406,7 +2421,7 @@ pub struct Ellipse {
 }
 
 #[derive(Clone, PartialEq, Debug, Reflect, Component, Default)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
