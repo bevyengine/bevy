@@ -648,25 +648,13 @@ impl<'w, 's> Commands<'w, 's> {
 pub trait EntityCommand: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, id: Entity, world: &mut World);
+
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    fn with_entity(self, id: Entity) -> WithEntity<Self>
+    fn with_entity(self, id: Entity) -> impl Command
     where
         Self: Sized,
     {
-        WithEntity { cmd: self, id }
-    }
-}
-
-/// Turns an [`EntityCommand`] type into a [`Command`] type.
-pub struct WithEntity<C: EntityCommand> {
-    cmd: C,
-    id: Entity,
-}
-
-impl<C: EntityCommand> Command for WithEntity<C> {
-    #[inline]
-    fn apply(self, world: &mut World) {
-        self.cmd.apply(self.id, world);
+        move |world: &mut World| self.apply(id, world)
     }
 }
 
