@@ -52,7 +52,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
         let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
         let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
-        let depth_level = floor(log2(max(width, height)));
+        let depth_level = ceil(log2(max(width, height)));
         let depth_uv = (aabb.xy + aabb.zw) * 0.5;
 
         let depth_quad_a = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level).x;
