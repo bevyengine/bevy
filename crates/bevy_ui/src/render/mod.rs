@@ -89,10 +89,17 @@ pub fn build_ui_render(app: &mut App) {
                 extract_atlas_uinodes
                     .in_set(RenderUiSystem::ExtractAtlasNode)
                     .after(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
                 #[cfg(feature = "bevy_text")]
-                extract_text_uinodes.after(RenderUiSystem::ExtractAtlasNode),
-                extract_uinode_outlines.after(RenderUiSystem::ExtractAtlasNode),
+                extract_text_uinodes
+                    .in_set(RenderUiSystem::ExtractText)
+                    .after(RenderUiSystem::ExtractAtlasNode),
+                extract_uinode_borders
+                    .in_set(RenderUiSystem::ExtractBorder)
+                    .after(RenderUiSystem::ExtractAtlasNode)
+                    .after(RenderUiSystem::ExtractText),
+                extract_uinode_outlines
+                .in_set(RenderUiSystem::ExtractOutline)
+                .after(RenderUiSystem::ExtractBorder),
             ),
         )
         .add_systems(
@@ -746,7 +753,8 @@ pub fn queue_uinodes(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
-            UiPipelineKey { hdr: view.hdr },
+            UiPipelineKey { 
+                hdr: view.hdr },
         );
         transparent_phase
             .items
