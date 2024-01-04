@@ -654,7 +654,7 @@ pub trait EntityCommand: Send + 'static {
     where
         Self: Sized,
     {
-        move |world: &mut World| self.apply(id, world)
+        move |world: &mut World| self.apply(entity, world)
     }
 }
 
