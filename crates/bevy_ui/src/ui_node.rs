@@ -1,13 +1,12 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Vec2};
+use bevy_math::{Rect, Vec2, vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
-use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
-use std::num::{NonZeroI16, NonZeroU16};
+use bevy_utils::{smallvec::SmallVec, FloatOrd};
+use std::{num::{NonZeroI16, NonZeroU16}, f32::consts::{FRAC_PI_2, PI}};
 use thiserror::Error;
 
 /// Describes the size of a UI node
@@ -32,6 +31,9 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
+    pub(crate) border: [f32; 4],
+    pub(crate) border_radius: [f32; 4],
+    pub(crate) position: Vec2,
 }
 
 impl Node {
@@ -97,6 +99,26 @@ impl Node {
     pub fn outline_width(&self) -> f32 {
         self.outline_width
     }
+
+    #[inline]
+    pub fn position(&self) -> Vec2 {
+        self.position
+    }
+
+    /// Returns the UI node's computed `border_radius`
+    /// in order [top_left, top_right, bottom_right, bottom_left]
+    #[inline]
+    pub fn border_radius(&self) -> [f32; 4] {
+        self.border_radius
+    }
+
+    /// Returns the UI node's computed `border`
+    /// in order [top_left, top, right, bottom]
+    #[inline]
+    pub fn border(&self) -> [f32; 4] {
+        self.border
+    }
+
 }
 
 impl Node {
@@ -106,12 +128,143 @@ impl Node {
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
+        border: [0.; 4],
+        border_radius: [0.; 4],
+        position: Vec2::ZERO,
+        stack_index: 0,
     };
 }
 
 impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+/// Position relative to an axis-aligned rectangle along one of its axis
+/// * `Val::Auto` is equivalent to `Val::ZERO`
+/// * `Val::Percent` is based on the length of the axis of the node.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Serialize, Deserialize)]
+pub enum RelativePositionAxis {
+    /// The position is relative to the rectangle's start (left or top edge) on this axes
+    /// Positive values translate the point inwards, towards the end, negative values are outside of the rectangle.
+    Start(Val),
+    /// The position is relative to the rectangle's center on this axes    
+    /// Positive values transalte to the end, negative to the start.
+    Center(Val),
+    /// The position is relative to the rectangle's start (right or bottom edge) on this axes
+    /// Positive values translate the point inwards, towards the start, negative values are outside of the rectangle.
+    End(Val),
+}
+
+impl Default for RelativePositionAxis {
+    fn default() -> Self {
+        RelativePositionAxis::Center(Val::Auto)
+    }
+}
+
+impl RelativePositionAxis {
+    pub const START: Self = Self::Start(Val::Auto);
+    pub const CENTER: Self = Self::Center(Val::Auto);
+    pub const END: Self = Self::End(Val::Auto);
+    pub const DEFAULT: Self = Self::CENTER;
+
+    /// Resolve a `RectPositionAxis` to a value in logical pixels
+    /// Assumes min <= max
+    pub fn resolve(self, min: f32, max: f32, viewport_size: Vec2) -> f32 {
+        let length = max - min;
+        let (val, point) = match self {
+            RelativePositionAxis::Start(val) => (val, min),
+            RelativePositionAxis::Center(val) => (val, min + 0.5 * length),
+            RelativePositionAxis::End(val) => (-val, max),
+        };
+        point + val.resolve(length, viewport_size).unwrap_or(0.)
+    }
+}
+
+impl From<Val> for RelativePositionAxis {
+    fn from(value: Val) -> Self {
+        Self::Start(value)
+    }
+}
+
+/// Position relative to an axis aligned rectangle
+/// Position outside of a rectangle's bounds are valid.
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq, Serialize, Deserialize)]
+pub struct RelativePosition {
+    /// Horizontal position
+    pub x: RelativePositionAxis,
+    /// Vertical position
+    pub y: RelativePositionAxis,
+}
+
+impl RelativePosition {
+    /// A new `RectPosition` with the given axis values
+    pub const fn new(x: RelativePositionAxis, y: RelativePositionAxis) -> Self {
+        Self { x, y }
+    }
+
+    /// A `RectPosition`with both axis set to the same value
+    pub const fn all(value: RelativePositionAxis) -> Self {
+        Self { x: value, y: value }
+    }
+
+    /// An `RectPosition` relative to the center of the node.
+    pub const fn center(x: Val, y: Val) -> Self {
+        Self {
+            x: RelativePositionAxis::Center(x),
+            y: RelativePositionAxis::Center(y),
+        }
+    }
+
+    /// A `RectPosition` at the center.
+    pub const CENTER: Self = Self::all(RelativePositionAxis::CENTER);
+    /// A `RectPosition` at the top left corner.
+    pub const TOP_LEFT: Self = Self::all(RelativePositionAxis::START);
+    /// A `RectPosition` at the top right corner.
+    pub const TOP_RIGHT: Self = Self::new(RelativePositionAxis::END, RelativePositionAxis::START);
+    /// A `RectPosition` at the bottom right corner.
+    pub const BOTTOM_RIGHT: Self = Self::new(RelativePositionAxis::END, RelativePositionAxis::END);
+    /// A `RectPosition` at the bottom left corner.
+    pub const BOTTOM_LEFT: Self = Self::all(RelativePositionAxis::END);
+    /// A `RectPosition` at the center of the top edge.
+    pub const TOP_CENTER: Self =
+        Self::new(RelativePositionAxis::CENTER, RelativePositionAxis::START);
+    /// A `RectPosition` at the center of the bottom edge.
+    pub const BOTTOM_CENTER: Self =
+        Self::new(RelativePositionAxis::CENTER, RelativePositionAxis::END);
+    /// A `RectPosition` at the center of the left edge.
+    pub const LEFT_CENTER: Self =
+        Self::new(RelativePositionAxis::CENTER, RelativePositionAxis::START);
+    /// A `RectPosition` at the center of the right edge.
+    pub const RIGHT_CENTER: Self =
+        Self::new(RelativePositionAxis::CENTER, RelativePositionAxis::END);
+
+    pub fn resolve(self, rect: Rect, viewport_size: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.x.resolve(rect.min.x, rect.max.x, viewport_size),
+            y: self.y.resolve(rect.min.y, rect.max.y, viewport_size),
+        }
+    }
+}
+
+impl From<Val> for RelativePosition {
+    fn from(val: Val) -> Self {
+        Self {
+            x: RelativePositionAxis::Start(val),
+            y: RelativePositionAxis::CENTER,
+        }
+    }
+}
+
+impl From<(Val, Val)> for RelativePosition {
+    fn from((x, y): (Val, Val)) -> Self {
+        Self::new(
+            RelativePositionAxis::Start(x),
+            RelativePositionAxis::Start(y),
+        )
     }
 }
 
@@ -408,6 +561,38 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
+
+    /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly rounded corners
+    /// or specify different radii for each corner. If a given radius exceeds half the length of the smallest dimension between the node's height or width,
+    /// the radius will calculated as half the smallest dimension.
+    ///
+    /// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest dimension, either width or height.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ui::{Style, UiRect, UiBorderRadius, Val};
+    /// let style = Style {
+    ///     // Set a uniform border radius of 10 logical pixels
+    ///     border_radius: UiBorderRadius::all(Val::Px(10.)),
+    ///     ..Default::default()
+    /// };
+    /// let style = Style {
+    ///     border_radius: UiBorderRadius {
+    ///         // The top left corner will be rounded with a radius of 10 logical pixels.
+    ///         top_left: Val::Px(10.),
+    ///         // Percentage values are based on the node's smallest dimension, either width or height.
+    ///         top_right: Val::Percent(20.),
+    ///         // Viewport coordinates can also be used.
+    ///         bottom_left: Val::Vw(10.),
+    ///         // The bottom right corner will be unrounded.
+    ///         ..Default::default()
+    ///     },
+    ///     ..Default::default()
+    /// };
+    /// ```
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
+    pub border_radius: BorderRadius,
 }
 
 impl Style {
@@ -450,6 +635,7 @@ impl Style {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
+        border_radius: BorderRadius::DEFAULT,
     };
 }
 
@@ -1474,23 +1660,31 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 /// When combined with [`UiImage`], tints the provided texture.
-#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
-pub struct BackgroundColor(pub Color);
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BackgroundColor(pub UiColor);
+
+impl<T> From<T> for BackgroundColor
+where
+    T: Into<UiColor>,
+{
+    fn from(value: T) -> Self {
+        Self(value.into())
+    }
+}
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(Color::WHITE);
+    pub const DEFAULT: Self = Self(UiColor::Color(Color::WHITE));
 }
 
 impl Default for BackgroundColor {
     fn default() -> Self {
         Self::DEFAULT
-    }
-}
-
-impl From<Color> for BackgroundColor {
-    fn from(color: Color) -> Self {
-        Self(color)
     }
 }
 
@@ -1506,19 +1700,69 @@ pub struct UiTextureAtlasImage {
     pub flip_y: bool,
 }
 
-/// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
-pub struct BorderColor(pub Color);
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum UiColor {
+    Color(Color),
+    LinearGradient(LinearGradient),
+    RadialGradient(RadialGradient),
+}
 
-impl From<Color> for BorderColor {
-    fn from(color: Color) -> Self {
-        Self(color)
+impl From<Color> for UiColor {
+    fn from(value: Color) -> Self {
+        Self::Color(value)
+    }
+}
+
+impl From<LinearGradient> for UiColor {
+    fn from(value: LinearGradient) -> Self {
+        Self::LinearGradient(value)
+    }
+}
+
+impl From<RadialGradient> for UiColor {
+    fn from(value: RadialGradient) -> Self {
+        Self::RadialGradient(value)
+    }
+}
+
+impl UiColor {
+    /// Is this UiColor visible?
+    /// Always returns true for gradient values.
+    pub fn is_visible(&self) -> bool {
+        match self {
+            Self::Color(color) => color.a() != 0.,
+            _ => true,
+        }
+    }
+}
+
+/// The border color of the UI node.
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BorderColor(pub UiColor);
+
+impl<T> From<T> for BorderColor
+where
+    T: Into<UiColor>,
+{
+    fn from(value: T) -> Self {
+        Self(value.into())
     }
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+    pub const DEFAULT: Self = BorderColor(UiColor::Color(Color::WHITE));
 }
 
 impl Default for BorderColor {
@@ -1527,8 +1771,29 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// Set the style of an outline
+pub enum OutlineStyle {
+    /// The outline is a solid line
+    #[default]
+    Solid,
+    /// The outline is a dashed line
+    Dashed { dash_length: Val, break_length: Val },
+}
+
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
@@ -1684,9 +1949,573 @@ impl Default for ZIndex {
     }
 }
 
+/// Radii for rounded corner edges.
+/// * A corner set to a 0 value will be right angled.
+/// * The value is clamped to between 0 and half the length of the shortest side of the node before being used.
+/// * `Val::AUTO` is resolved to `Val::Px(0.)`.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BorderRadius {
+    pub top_left: Val,
+    pub top_right: Val,
+    pub bottom_left: Val,
+    pub bottom_right: Val,
+}
+
+impl Default for BorderRadius {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl BorderRadius {
+    pub const DEFAULT: Self = Self::ZERO;
+
+    /// Zero curvature. All the corners will be right angled.
+    pub const ZERO: Self = Self {
+        top_left: Val::Px(0.),
+        top_right: Val::Px(0.),
+        bottom_right: Val::Px(0.),
+        bottom_left: Val::Px(0.),
+    };
+
+    /// Maximum curvature. The Ui Node will take a capsule shape or circular if width and height are equal.
+    pub const MAX: Self = Self {
+        top_left: Val::Px(f32::MAX),
+        top_right: Val::Px(f32::MAX),
+        bottom_right: Val::Px(f32::MAX),
+        bottom_left: Val::Px(f32::MAX),
+    };
+
+    #[inline]
+    /// Set all four corners to the same curvature.
+    pub const fn all(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            bottom_left: radius,
+            bottom_right: radius,
+        }
+    }
+
+    #[inline]
+    pub fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
+        Self {
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+        }
+    }
+
+    #[inline]
+    /// Sets the radii to logical pixel values.
+    pub fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+        Self {
+            top_left: Val::Px(top_left),
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+        }
+    }
+
+    #[inline]
+    /// Sets the radii to percentage values.
+    pub fn percent(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+        Self {
+            top_left: Val::Px(top_left),
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the top left corner.
+    /// Remaining corners will be right-angled.
+    pub fn top_left(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the top right corner.
+    /// Remaining corners will be right-angled.
+    pub fn top_right(radius: Val) -> Self {
+        Self {
+            top_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the bottom right corner.
+    /// Remaining corners will be right-angled.
+    pub fn bottom_right(radius: Val) -> Self {
+        Self {
+            bottom_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the bottom left corner.
+    /// Remaining corners will be right-angled.
+    pub fn bottom_left(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top left and bottom left corners.
+    /// Remaining corners will be right-angled.
+    pub fn left(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            bottom_left: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top right and bottom right corners.
+    /// Remaining corners will be right-angled.
+    pub fn right(radius: Val) -> Self {
+        Self {
+            top_right: radius,
+            bottom_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top left and top right corners.
+    /// Remaining corners will be right-angled.
+    pub fn top(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the bottom left and bottom right corners.
+    /// Remaining corners will be right-angled.
+    pub fn bottom(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            bottom_right: radius,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<BorderRadius> for [Val; 4] {
+    fn from(value: BorderRadius) -> Self {
+        [
+            value.top_left,
+            value.top_right,
+            value.bottom_right,
+            value.bottom_left,
+        ]
+    }
+}
+
+/// Converts an angle from degrees into radians
+///
+/// formula: `angle * PI / 180.`
+pub fn deg(angle: f32) -> f32 {
+    angle * PI / 180.
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, Default)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ColorStop {
+    pub color: Color,
+    pub point: Val,
+}
+
+impl From<Color> for ColorStop {
+    fn from(color: Color) -> Self {
+        Self {
+            color,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<(Color, Val)> for ColorStop {
+    fn from((color, val): (Color, Val)) -> Self {
+        Self { color, point: val }
+    }
+}
+
+pub fn resolve_color_stops(
+    stops: &[ColorStop],
+    len: f32,
+    viewport_size: Vec2,
+) -> Vec<(Color, f32)> {
+    if stops.is_empty() {
+        return vec![];
+    }
+
+    let mut out = stops
+        .iter()
+        .map(|ColorStop { color, point }| {
+            (*color, point.resolve(len, viewport_size).unwrap_or(-1.))
+        })
+        .collect::<Vec<_>>();
+    if out[0].1 < 0.0 {
+        out[0].1 = 0.0;
+    }
+
+    if stops.len() == 1 {
+        out.push(out[0]);
+        return out;
+    }
+
+    let last = out.last_mut().unwrap();
+    if last.1 < 0.0 {
+        last.1 = len;
+    }
+
+    let mut current = 0.;
+    for (_, point) in &mut out {
+        if 0.0 <= *point {
+            if *point < current {
+                *point = current;
+            }
+            current = *point;
+        }
+    }
+
+    let mut i = 1;
+    while i < out.len() - 1 {
+        if out[i].1 < 0.0 {
+            let mut j = i + 1;
+            while out[j].1 < 0.0 {
+                j += 1;
+            }
+            let n = 1 + j - i;
+            let mut s = out[i - 1].1;
+            let d = (out[j].1 - s) / n as f32;
+            while i < j {
+                s += d;
+                out[i].1 = s;
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+#[derive(Clone, PartialEq, Debug, Reflect, Component, Default)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct LinearGradient {
+    pub angle: f32,
+    pub stops: Vec<ColorStop>,
+}
+
+impl LinearGradient {
+    /// Angle for a gradient from bottom to top
+    pub const BOTTOM_TO_TOP: f32 = 0.;
+    /// Angle for a gradient from left to right
+    pub const LEFT_TO_RIGHT: f32 = FRAC_PI_2;
+    /// Angle for a gradient from top to bottom
+    pub const TOP_TO_BOTTOM: f32 = PI;
+    /// Angle for a gradient from right to left
+    pub const RIGHT_TO_LEFT: f32 = 1.5 * PI;
+
+    pub fn simple(angle: f32, start_color: Color, end_color: Color) -> Self {
+        Self {
+            angle,
+            stops: vec![start_color.into(), end_color.into()],
+        }
+    }
+
+    pub fn new(angle: f32, stops: Vec<ColorStop>) -> Self {
+        Self { angle, stops }
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.stops.iter().all(|stop| stop.color.a() == 0.)
+    }
+
+    /// find start point and total length of gradient
+    pub fn resolve_geometry(&self, node_rect: Rect) -> (Vec2, f32) {
+        let x = self.angle.cos();
+        let y = self.angle.sin();
+        let dir = Vec2::new(x, y);
+
+        // return the distance of point `p` from the line defined by point `o` and direction `dir`
+        fn df_line(o: Vec2, dir: Vec2, p: Vec2) -> f32 {
+            // project p onto the the o-dir line and then return the distance between p and the projection.
+            return p.distance(o + dir * (p - o).dot(dir));
+        }
+
+        fn modulo(x: f32, m: f32) -> f32 {
+            return x - m * (x / m).floor();
+        }
+
+        let reduced = modulo(self.angle, 2.0 * PI);
+        let q = (reduced * 2.0 / PI) as i32;
+        let start_point = match q {
+            0 => vec2(-1., 1.) * node_rect.size(),
+            1 => vec2(-1., -1.) * node_rect.size(),
+            2 => vec2(1., -1.) * node_rect.size(),
+            _ => vec2(1., 1.) * node_rect.size(),
+        } * 0.5f32;
+
+        let length = 2.0 * df_line(start_point, dir, Vec2::ZERO);
+        (start_point, length)
+    }
+
+    pub fn bottom_to_top(stops: Vec<ColorStop>) -> LinearGradient {
+        LinearGradient {
+            angle: Self::BOTTOM_TO_TOP,
+            stops,
+        }
+    }
+
+    pub fn left_to_right(stops: Vec<ColorStop>) -> LinearGradient {
+        LinearGradient {
+            angle: Self::LEFT_TO_RIGHT,
+            stops,
+        }
+    }
+
+    pub fn top_to_bottom(stops: Vec<ColorStop>) -> LinearGradient {
+        LinearGradient {
+            angle: Self::TOP_TO_BOTTOM,
+            stops,
+        }
+    }
+
+    pub fn right_to_left(stops: Vec<ColorStop>) -> LinearGradient {
+        LinearGradient {
+            angle: Self::RIGHT_TO_LEFT,
+            stops,
+        }
+    }
+}
+
+impl From<Color> for LinearGradient {
+    fn from(color: Color) -> Self {
+        Self::new(0., vec![color.into(), color.into()])
+    }
+}
+
+/// The radius of a circle, or the lengths of the minor and major axes of an ellipse
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RadialGradientExtent {
+    /// Percentage values are based on the width of the node.
+    Length(Val),
+    /// Circle: The edge of the circle will touch the closest side of the node.
+    /// Ellipse: The edge along this axis will touch the closest side on this axis.
+    #[default]
+    ClosestSide,
+    /// Circle: The edge of the circle will touch the farthest side of the node.
+    /// Ellipse: The edge along this axis will touch the farthest side on this axis.
+    FarthestSide,
+}
+
+impl RadialGradientExtent {
+    pub fn resolve<const N: usize>(self, sides: [f32; N], width: f32, viewport_size: Vec2) -> f32 {
+        match self {
+            RadialGradientExtent::Length(val) => val
+                .resolve(width, viewport_size)
+                .ok()
+                .unwrap_or_else(|| sides.iter().map(|n| FloatOrd(*n)).min().unwrap().0),
+            RadialGradientExtent::ClosestSide => {
+                sides.iter().map(|n| FloatOrd(*n)).min().unwrap().0
+            }
+            RadialGradientExtent::FarthestSide => {
+                sides.iter().map(|n| FloatOrd(*n)).max().unwrap().0
+            }
+        }
+    }
+}
+
+impl From<Val> for RadialGradientExtent {
+    fn from(value: Val) -> Self {
+        Self::Length(value)
+    }
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// The gradient's ending shape
+pub enum RadialGradientShape {
+    /// The shape is a circle
+    Circle(RadialGradientExtent),
+    /// A circle sized so that it exactly meets the closest corner of the node from its center.
+    ClosestCorner,
+    /// A circle sized so that it exactly meets the farthest corner of the node from its center.
+    #[default]
+    FarthestCorner,
+    /// The shape is an ellipse
+    Ellipse(RadialGradientExtent, RadialGradientExtent),
+}
+
+/// Representation of an axis-aligned ellipse.
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Ellipse {
+    /// The center of the ellipse
+    pub center: Vec2,
+    /// The distances from the center of the ellipse to its edge, along its horizontal and vertical axes respectively.
+    pub extents: Vec2,
+}
+
+#[derive(Clone, PartialEq, Debug, Reflect, Component, Default)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct RadialGradient {
+    pub center: RelativePosition,
+    pub shape: RadialGradientShape,
+    pub stops: Vec<ColorStop>,
+}
+
+impl RadialGradient {
+    /// A circular gradient from `start_color` to `end_color` sized using `FarthestCorner``.
+    pub fn simple(start_color: Color, end_color: Color) -> Self {
+        Self {
+            center: RelativePosition::CENTER,
+            shape: RadialGradientShape::default(),
+            stops: vec![start_color.into(), end_color.into()],
+        }
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.stops.iter().all(|stop| stop.color.a() == 0.)
+    }
+
+    pub fn new(
+        center: RelativePosition,
+        shape: RadialGradientShape,
+        stops: Vec<ColorStop>,
+    ) -> Self {
+        Self {
+            center,
+            shape,
+            stops,
+        }
+    }
+
+    /// Resolve the shape and position of the gradient
+    pub fn resolve_geometry(&self, r: Rect, viewport_size: Vec2) -> Ellipse {
+        let center = self.center.resolve(r, viewport_size);
+
+        fn closest(p: f32, a: f32, b: f32) -> f32 {
+            if (p - a).abs() < (p - b).abs() {
+                a
+            } else {
+                b
+            }
+        }
+
+        fn farthest(p: f32, a: f32, b: f32) -> f32 {
+            if (p - a).abs() < (p - b).abs() {
+                b
+            } else {
+                a
+            }
+        }
+
+        fn closest_corner(p: Vec2, r: Rect) -> Vec2 {
+            vec2(
+                closest(p.x, r.min.x, r.max.x),
+                closest(p.y, r.min.y, r.max.x),
+            )
+        }
+
+        fn farthest_corner(p: Vec2, r: Rect) -> Vec2 {
+            vec2(
+                farthest(p.x, r.min.x, r.max.x),
+                farthest(p.y, r.min.y, r.max.y),
+            )
+        }
+
+        let extents = match self.shape {
+            RadialGradientShape::Circle(e) => {
+                let sides = [
+                    (center.x - r.min.x).abs(),
+                    (center.x - r.max.x).abs(),
+                    (center.y - r.min.y).abs(),
+                    (center.y - r.max.y).abs(),
+                ];
+                let radius = e.resolve(sides, r.width(), viewport_size);
+                Vec2::splat(radius)
+            }
+            RadialGradientShape::ClosestCorner => {
+                Vec2::splat(closest_corner(center, r).distance(center))
+            }
+            RadialGradientShape::FarthestCorner => {
+                Vec2::splat(farthest_corner(center, r).distance(center))
+            }
+            RadialGradientShape::Ellipse(w, h) => {
+                let x_sides = [(center.x - r.min.x).abs(), (center.x - r.max.x).abs()];
+                let w = w.resolve(x_sides, r.width(), viewport_size);
+                let y_sides = [(center.y - r.min.y).abs(), (center.y - r.max.y).abs()];
+                let h = h.resolve(y_sides, r.height(), viewport_size);
+                vec2(w, h)
+            }
+        };
+        Ellipse { center, extents }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use bevy_math::Vec2;
+    use bevy_render::color::Color;
+
+    use crate::ColorStop;
     use crate::GridPlacement;
+    use crate::Val;
+    use crate::resolve_color_stops;
 
     #[test]
     fn invalid_grid_placement_values() {
@@ -1713,4 +2542,57 @@ mod tests {
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
+
+    #[test]
+    fn simple_two_stops() {
+        let stops = vec![
+            ColorStop {
+                color: Color::WHITE,
+                point: Val::Auto,
+            },
+            ColorStop {
+                color: Color::BLACK,
+                point: Val::Auto,
+            },
+        ];
+
+        let r = resolve_color_stops(&stops, 1., Vec2::ZERO);
+
+        assert_eq!(r.len(), 2);
+        assert_eq!(r[0].1, 0.0);
+        assert_eq!(r[1].1, 1.0);
+
+        let stops = vec![
+            ColorStop {
+                color: Color::WHITE,
+                point: Val::Auto,
+            },
+            ColorStop {
+                color: Color::RED,
+                point: Val::Auto,
+            },
+            ColorStop {
+                color: Color::GREEN,
+                point: Val::Auto,
+            },
+            ColorStop {
+                color: Color::YELLOW,
+                point: Val::Auto,
+            },
+            ColorStop {
+                color: Color::BLACK,
+                point: Val::Auto,
+            },
+        ];
+
+        let r = resolve_color_stops(&stops, 1., Vec2::ZERO);
+
+        assert_eq!(r.len(), 5);
+        assert_eq!(r[0].1, 0.0);
+        assert_eq!(r[1].1, 0.25);
+        assert_eq!(r[2].1, 0.5);
+        assert_eq!(r[3].1, 0.75);
+        assert_eq!(r[4].1, 1.0);
+    }
 }
+
