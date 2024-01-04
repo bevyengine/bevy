@@ -43,7 +43,7 @@ impl<'a> AssetSourceId<'a> {
     }
 
     /// Returns [`None`] if this is [`AssetSourceId::Default`] and [`Some`] containing the
-    /// the name if this is [`AssetSourceId::Name`].  
+    /// the name if this is [`AssetSourceId::Name`].
     pub fn as_str(&self) -> Option<&str> {
         match self {
             AssetSourceId::Default => None,
@@ -486,7 +486,7 @@ impl AssetSource {
                     sender,
                     file_debounce_wait_time,
                 )
-                .unwrap(),
+                .unwrap_or_else(|e| panic!("Failed to create file watcher: {}", e)),
             ));
             #[cfg(any(
                 not(feature = "file_watcher"),
