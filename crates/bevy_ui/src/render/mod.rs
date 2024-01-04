@@ -60,7 +60,10 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
+    ExtractBorder,
+    ExtractOutline,
     ExtractAtlasNode,
+    ExtractText,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -1004,4 +1007,8 @@ pub fn prepare_uinodes(
         commands.insert_or_spawn_batch(batches);
     }
     extracted_uinodes.uinodes.clear();
+}
+
+pub(crate) fn rect_to_f32_4(r: Rect) -> [f32; 4] {
+    [r.min.x, r.min.y, r.max.x, r.max.y]
 }
