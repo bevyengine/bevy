@@ -210,12 +210,14 @@ pub struct RemoveChildren {
 }
 
 impl Command for RemoveChildren {
-    fn apply(self, world: &mut World) {remove_children(self.parent, &self.children, world);}
+    fn apply(self, world: &mut World) {
+        remove_children(self.parent, &self.children, world);
+    }
 }
 
 ///Command that removes the last Child from an entity
 pub struct PopChild {
-    parent: Entity
+    parent: Entity,
 }
 
 impl Command for PopChild {
@@ -235,11 +237,10 @@ impl Command for PopChild {
     }
 }
 
-
 ///Removes the last nth children specified by the number field
 pub struct PopChildren {
     parent: Entity,
-    number: usize
+    number: usize,
 }
 
 impl Command for PopChildren {
