@@ -10,7 +10,7 @@ use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::{Quat, Vec3};
+use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
@@ -723,7 +723,7 @@ fn apply_animation(
                             let result = morph_start
                                 .iter()
                                 .zip(morph_end)
-                                .map(|(a, b)| *a + lerp * (*b - *a));
+                                .map(|(a, b)| a.lerp(*b, lerp));
                             lerp_morph_weights(morphs.weights_mut(), result, weight);
                         }
                     }
