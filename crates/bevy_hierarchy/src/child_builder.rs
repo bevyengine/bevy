@@ -6,6 +6,7 @@ use bevy_ecs::{
     system::{Command, Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
+use bevy_ecs::change_detection::Mut;
 use bevy_utils::smallvec::{smallvec, SmallVec};
 
 // Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
@@ -210,9 +211,34 @@ pub struct RemoveChildren {
 }
 
 impl Command for RemoveChildren {
+    fn apply(self, world: &mut World) {remove_children(self.parent, &self.children, world);}
+}
+
+///Command that removes the last Child from an entity
+pub struct PopChild {
+    parent: Entity
+}
+
+impl Command for PopChild {
     fn apply(self, world: &mut World) {
-        remove_children(self.parent, &self.children, world);
+        let last_child_id = {
+            let parent = world.entity_mut(self.parent);
+            if let Some(children) = parent.get::<Children>() {
+                children.last().copied()
+            } else {
+                None
+            }
+        };
+
+        if let Some(child_id) = last_child_id {
+            remove_children(self.parent, &[child_id], world);
+        }
     }
+}
+
+pub struct PopChildren {
+    parent: Entity,
+    number: usize
 }
 
 /// Command that clears all children from an entity and removes [`Parent`] component from those
