@@ -166,8 +166,8 @@ fn fit_canvas(
     mut projections: Query<&mut OrthographicProjection, With<OuterCamera>>,
 ) {
     for event in resize_events.read() {
-        let h_scale = event.width / RES_WIDTH as f32;
-        let v_scale = event.height / RES_HEIGHT as f32;
+        let h_scale = event.size.x / RES_WIDTH as f32;
+        let v_scale = event.size.y / RES_HEIGHT as f32;
         let mut projection = projections.single_mut();
         projection.scale = 1. / h_scale.min(v_scale).round();
     }
