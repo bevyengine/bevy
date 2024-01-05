@@ -234,8 +234,7 @@ impl Column {
     }
 
     /// Removes an element from the [`Column`] and returns it and its change detection ticks.
-    /// This does not preserve ordering, but is O(1). Unlike [`Column::swap_remove_and_forget`]
-    /// this does not do any bounds checking.
+    /// This does not preserve ordering, but is O(1) and does not do any bounds checking.
     ///
     /// The element is replaced with the last element in the [`Column`].
     ///
