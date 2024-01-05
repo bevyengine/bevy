@@ -1,6 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, OverflowAxis, Style};
+use crate::{CalculatedClip, Display, OverflowAxis, Style};
 
 use super::Node;
 use bevy_ecs::{
@@ -35,12 +35,17 @@ fn update_clipping(
     children_query: &Query<&Children>,
     node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     entity: Entity,
-    maybe_inherited_clip: Option<Rect>,
+    mut maybe_inherited_clip: Option<Rect>,
 ) {
     let Ok((node, global_transform, style, maybe_calculated_clip)) = node_query.get_mut(entity)
     else {
         return;
     };
+
+    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
+    if style.display == Display::None {
+        maybe_inherited_clip = Some(Rect::default());
+    }
 
     // Update this node's CalculatedClip component
     if let Some(mut calculated_clip) = maybe_calculated_clip {

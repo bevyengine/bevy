@@ -16,26 +16,26 @@ use bevy_ecs::schedule::State;
 /// This type can be used as a resource to keep the current state of an input, by reacting to
 /// events from the input. For a given input value:
 ///
-/// * [`Input::pressed`] will return `true` between a press and a release event.
-/// * [`Input::just_pressed`] will return `true` for one frame after a press event.
-/// * [`Input::just_released`] will return `true` for one frame after a release event.
+/// * [`ButtonInput::pressed`] will return `true` between a press and a release event.
+/// * [`ButtonInput::just_pressed`] will return `true` for one frame after a press event.
+/// * [`ButtonInput::just_released`] will return `true` for one frame after a release event.
 ///
 /// ## Multiple systems
 ///
-/// In case multiple systems are checking for [`Input::just_pressed`] or [`Input::just_released`]
+/// In case multiple systems are checking for [`ButtonInput::just_pressed`] or [`ButtonInput::just_released`]
 /// but only one should react, for example in the case of triggering
 /// [`State`] change, you should consider clearing the input state, either by:
 ///
-/// * Using [`Input::clear_just_pressed`] or [`Input::clear_just_released`] instead.
-/// * Calling [`Input::clear`] or [`Input::reset`] immediately after the state change.
+/// * Using [`ButtonInput::clear_just_pressed`] or [`ButtonInput::clear_just_released`] instead.
+/// * Calling [`ButtonInput::clear`] or [`ButtonInput::reset`] immediately after the state change.
 ///
 /// ## Note
 ///
 /// When adding this resource for a new input type, you should:
 ///
-/// * Call the [`Input::press`] method for each press event.
-/// * Call the [`Input::release`] method for each release event.
-/// * Call the [`Input::clear`] method at each frame start, before processing events.
+/// * Call the [`ButtonInput::press`] method for each press event.
+/// * Call the [`ButtonInput::release`] method for each release event.
+/// * Call the [`ButtonInput::clear`] method at each frame start, before processing events.
 ///
 /// Note: Calling `clear` from a [`ResMut`] will trigger change detection.
 /// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
@@ -45,7 +45,7 @@ use bevy_ecs::schedule::State;
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource, Reflect)]
 #[reflect(Default)]
-pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
+pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that has just been pressed.
@@ -54,7 +54,7 @@ pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     just_released: HashSet<T>,
 }
 
-impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
+impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for ButtonInput<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -64,7 +64,7 @@ impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
     }
 }
 
-impl<T> Input<T>
+impl<T> ButtonInput<T>
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
@@ -84,6 +84,11 @@ where
     /// Returns `true` if any item in `inputs` has been pressed.
     pub fn any_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.pressed(it))
+    }
+
+    /// Returns `true` if all items in `inputs` have been pressed.
+    pub fn all_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().all(|it| self.pressed(it))
     }
 
     /// Registers a release for the given `input`.
@@ -112,7 +117,7 @@ where
 
     /// Clears the `just_pressed` state of the `input` and returns `true` if the `input` has just been pressed.
     ///
-    /// Future calls to [`Input::just_pressed`] for the given input will return false until a new press event occurs.
+    /// Future calls to [`ButtonInput::just_pressed`] for the given input will return false until a new press event occurs.
     pub fn clear_just_pressed(&mut self, input: T) -> bool {
         self.just_pressed.remove(&input)
     }
@@ -129,7 +134,7 @@ where
 
     /// Clears the `just_released` state of the `input` and returns `true` if the `input` has just been released.
     ///
-    /// Future calls to [`Input::just_released`] for the given input will return false until a new release event occurs.
+    /// Future calls to [`ButtonInput::just_released`] for the given input will return false until a new release event occurs.
     pub fn clear_just_released(&mut self, input: T) -> bool {
         self.just_released.remove(&input)
     }
@@ -143,7 +148,7 @@ where
 
     /// Clears the `pressed`, `just_pressed`, and `just_released` data for every input.
     ///
-    /// See also [`Input::clear`] for simulating elapsed time steps.
+    /// See also [`ButtonInput::clear`] for simulating elapsed time steps.
     pub fn reset_all(&mut self) {
         self.pressed.clear();
         self.just_pressed.clear();
@@ -152,7 +157,7 @@ where
 
     /// Clears the `just pressed` and `just released` data for every input.
     ///
-    /// See also [`Input::reset_all`] for a full reset.
+    /// See also [`ButtonInput::reset_all`] for a full reset.
     pub fn clear(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
@@ -178,9 +183,9 @@ where
 mod test {
     use bevy_reflect::TypePath;
 
-    use crate::Input;
+    use crate::ButtonInput;
 
-    /// Used for testing the functionality of [`Input`].
+    /// Used for testing the functionality of [`ButtonInput`].
     #[derive(TypePath, Copy, Clone, Eq, PartialEq, Hash)]
     enum DummyInput {
         Input1,
@@ -189,7 +194,7 @@ mod test {
 
     #[test]
     fn test_press() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         assert!(!input.pressed.contains(&DummyInput::Input1));
         assert!(!input.just_pressed.contains(&DummyInput::Input1));
         input.press(DummyInput::Input1);
@@ -199,7 +204,7 @@ mod test {
 
     #[test]
     fn test_pressed() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         assert!(!input.pressed(DummyInput::Input1));
         input.press(DummyInput::Input1);
         assert!(input.pressed(DummyInput::Input1));
@@ -207,7 +212,7 @@ mod test {
 
     #[test]
     fn test_any_pressed() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         assert!(!input.any_pressed([DummyInput::Input1]));
         assert!(!input.any_pressed([DummyInput::Input2]));
         assert!(!input.any_pressed([DummyInput::Input1, DummyInput::Input2]));
@@ -218,8 +223,21 @@ mod test {
     }
 
     #[test]
+    fn test_all_pressed() {
+        let mut input = ButtonInput::default();
+        assert!(!input.all_pressed([DummyInput::Input1]));
+        assert!(!input.all_pressed([DummyInput::Input2]));
+        assert!(!input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
+        input.press(DummyInput::Input1);
+        assert!(input.all_pressed([DummyInput::Input1]));
+        assert!(!input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
+        input.press(DummyInput::Input2);
+        assert!(input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
+    }
+
+    #[test]
     fn test_release() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         assert!(input.pressed.contains(&DummyInput::Input1));
         assert!(!input.just_released.contains(&DummyInput::Input1));
@@ -230,7 +248,7 @@ mod test {
 
     #[test]
     fn test_release_all() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         input.press(DummyInput::Input2);
         input.release_all();
@@ -241,7 +259,7 @@ mod test {
 
     #[test]
     fn test_just_pressed() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         assert!(!input.just_pressed(DummyInput::Input1));
         input.press(DummyInput::Input1);
         assert!(input.just_pressed(DummyInput::Input1));
@@ -249,7 +267,7 @@ mod test {
 
     #[test]
     fn test_any_just_pressed() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         assert!(!input.any_just_pressed([DummyInput::Input1]));
         assert!(!input.any_just_pressed([DummyInput::Input2]));
         assert!(!input.any_just_pressed([DummyInput::Input1, DummyInput::Input2]));
@@ -261,7 +279,7 @@ mod test {
 
     #[test]
     fn test_clear_just_pressed() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         assert!(input.just_pressed(DummyInput::Input1));
         input.clear_just_pressed(DummyInput::Input1);
@@ -270,7 +288,7 @@ mod test {
 
     #[test]
     fn test_just_released() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         assert!(!input.just_released(DummyInput::Input1));
         input.release(DummyInput::Input1);
@@ -279,7 +297,7 @@ mod test {
 
     #[test]
     fn test_any_just_released() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         assert!(!input.any_just_released([DummyInput::Input1]));
         assert!(!input.any_just_released([DummyInput::Input2]));
@@ -292,7 +310,7 @@ mod test {
 
     #[test]
     fn test_clear_just_released() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         input.release(DummyInput::Input1);
         assert!(input.just_released(DummyInput::Input1));
@@ -302,7 +320,7 @@ mod test {
 
     #[test]
     fn test_reset() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
 
         // Pressed
         input.press(DummyInput::Input1);
@@ -328,7 +346,7 @@ mod test {
 
     #[test]
     fn test_reset_all() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
 
         input.press(DummyInput::Input1);
         input.press(DummyInput::Input2);
@@ -344,7 +362,7 @@ mod test {
 
     #[test]
     fn test_clear() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
 
         // Pressed
         input.press(DummyInput::Input1);
@@ -370,7 +388,7 @@ mod test {
 
     #[test]
     fn test_get_pressed() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         input.press(DummyInput::Input2);
         let pressed = input.get_pressed();
@@ -382,7 +400,7 @@ mod test {
 
     #[test]
     fn test_get_just_pressed() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         input.press(DummyInput::Input2);
         let just_pressed = input.get_just_pressed();
@@ -394,7 +412,7 @@ mod test {
 
     #[test]
     fn test_get_just_released() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         input.press(DummyInput::Input2);
         input.release(DummyInput::Input1);
@@ -408,7 +426,7 @@ mod test {
 
     #[test]
     fn test_general_input_handling() {
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
 
         // Test pressing
         input.press(DummyInput::Input1);
@@ -453,7 +471,7 @@ mod test {
         assert!(!input.just_released(DummyInput::Input2));
 
         // Set up an `Input` to test resetting
-        let mut input = Input::default();
+        let mut input = ButtonInput::default();
 
         input.press(DummyInput::Input1);
         input.release(DummyInput::Input2);

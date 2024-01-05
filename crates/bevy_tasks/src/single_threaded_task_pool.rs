@@ -171,7 +171,7 @@ impl TaskPool {
     /// the local executor on the main thread as it needs to share time with
     /// other things.
     ///
-    /// ```rust
+    /// ```
     /// use bevy_tasks::TaskPool;
     ///
     /// TaskPool::new().with_local_executor(|local_executor| {
@@ -186,6 +186,9 @@ impl TaskPool {
     }
 }
 
+/// An empty task used in single-threaded contexts.
+///
+/// This does nothing and is therefore safe, and recommended, to ignore.
 #[derive(Debug)]
 pub struct FakeTask;
 

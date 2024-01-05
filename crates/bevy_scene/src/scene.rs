@@ -5,7 +5,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::TypePath;
-use bevy_utils::HashMap;
+use bevy_utils::EntityHashMap;
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -31,7 +31,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<Scene, SceneSpawnError> {
         let mut world = World::new();
-        let mut entity_map = HashMap::default();
+        let mut entity_map = EntityHashMap::default();
         dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
 
         Ok(Self { world })
@@ -57,7 +57,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<InstanceInfo, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
-            entity_map: HashMap::default(),
+            entity_map: EntityHashMap::default(),
         };
 
         let type_registry = type_registry.read();
@@ -96,7 +96,7 @@ impl Scene {
             for scene_entity in archetype.entities() {
                 let entity = *instance_info
                     .entity_map
-                    .entry(scene_entity.entity())
+                    .entry(scene_entity.id())
                     .or_insert_with(|| world.spawn_empty().id());
                 for component_id in archetype.components() {
                     let component_info = self
@@ -117,7 +117,7 @@ impl Scene {
                                 }
                             })
                         })?;
-                    reflect_component.copy(&self.world, world, scene_entity.entity(), entity);
+                    reflect_component.copy(&self.world, world, scene_entity.id(), entity);
                 }
             }
         }

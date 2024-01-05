@@ -2,10 +2,6 @@
 //! change some settings or quit. There is no actual game, it will just display the current
 //! settings for 5 seconds before going back to the menu.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::prelude::*;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
@@ -38,7 +34,7 @@ fn main() {
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
         // Declare the game state, whose starting value is determined by the `Default` trait
-        .add_state::<GameState>()
+        .init_state::<GameState>()
         .add_systems(Startup, setup)
         // Adds the plugins for each state
         .add_plugins((splash::SplashPlugin, menu::MenuPlugin, game::GamePlugin))
@@ -265,7 +261,7 @@ mod menu {
                 // At start, the menu is not enabled. This will be changed in `menu_setup` when
                 // entering the `GameState::Menu` state.
                 // Current screen in the menu is handled by an independent state from `GameState`
-                .add_state::<MenuState>()
+                .init_state::<MenuState>()
                 .add_systems(OnEnter(GameState::Menu), menu_setup)
                 // Systems to handle the main menu screen
                 .add_systems(OnEnter(MenuState::Main), main_menu_setup)
@@ -804,7 +800,9 @@ mod menu {
         for (interaction, menu_button_action) in &interaction_query {
             if *interaction == Interaction::Pressed {
                 match menu_button_action {
-                    MenuButtonAction::Quit => app_exit_events.send(AppExit),
+                    MenuButtonAction::Quit => {
+                        app_exit_events.send(AppExit);
+                    }
                     MenuButtonAction::Play => {
                         game_state.set(GameState::Game);
                         menu_state.set(MenuState::Disabled);

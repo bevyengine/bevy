@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    system::{RunSystem, SystemId},
+    system::{RunSystemWithInput, SystemId},
     world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -52,7 +52,7 @@ pub trait Command: Send + 'static {
     fn apply(self, world: &mut World);
 }
 
-/// A [`Command`] queue to perform impactful changes to the [`World`].
+/// A [`Command`] queue to perform structural changes to the [`World`].
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
@@ -144,6 +144,11 @@ impl<'w, 's> Commands<'w, 's> {
             queue: Deferred(queue),
             entities,
         }
+    }
+
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.queue.append(other);
     }
 
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
@@ -522,9 +527,27 @@ impl<'w, 's> Commands<'w, 's> {
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
     ///
-    /// Calls [`World::run_system`](crate::system::World::run_system).
+    /// Calls [`World::run_system`](World::run_system).
+    ///
+    /// There is no way to get the output of a system when run as a command, because the
+    /// execution of the system happens later. To get the output of a system, use
+    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
     pub fn run_system(&mut self, id: SystemId) {
-        self.queue.push(RunSystem::new(id));
+        self.run_system_with_input(id, ());
+    }
+
+    /// Runs the system corresponding to the given [`SystemId`].
+    /// Systems are ran in an exclusive and single threaded way.
+    /// Running slow systems can become a bottleneck.
+    ///
+    /// Calls [`World::run_system_with_input`](World::run_system_with_input).
+    ///
+    /// There is no way to get the output of a system when run as a command, because the
+    /// execution of the system happens later. To get the output of a system, use
+    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
+    pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
+        self.queue
+            .push(RunSystemWithInput::new_with_input(id, input));
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -789,9 +812,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityWorldMut::remove`](crate::world::EntityWorldMut::remove) for more
-    /// details.
-    ///
     /// # Example
     ///
     /// ```
@@ -836,6 +856,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// Despawns the entity.
     ///
     /// See [`World::despawn`] for more details.
+    ///
+    /// # Note
+    ///
+    /// This won't clean up external references to the entity (such as parent-child relationships
+    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
     ///
     /// # Panics
     ///
@@ -882,6 +907,51 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     pub fn add<C: EntityCommand>(&mut self, command: C) -> &mut Self {
         self.commands.add(command.with_entity(self.entity));
+        self
+    }
+
+    /// Removes all components except the given [`Bundle`] from the entity.
+    ///
+    /// This can also be used to remove all the components from the entity by passing it an empty Bundle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // You can retain a pre-defined Bundle of components,
+    ///         // with this removing only the Defense component
+    ///         .retain::<CombatBundle>()
+    ///         // You can also retain only a single component
+    ///         .retain::<Health>()
+    ///         // And you can remove all the components by passing in an empty Bundle
+    ///         .retain::<()>();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
+    /// ```
+    pub fn retain<T>(&mut self) -> &mut Self
+    where
+        T: Bundle,
+    {
+        self.commands.add(Retain::<T>::new(self.entity));
         self
     }
 
@@ -991,6 +1061,11 @@ where
 
 /// A [`Command`] that despawns a specific entity.
 /// This will emit a warning if the entity does not exist.
+///
+/// # Note
+///
+/// This won't clean up external references to the entity (such as parent-child relationships
+/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
 #[derive(Debug)]
 pub struct Despawn {
     /// The entity that will be despawned.
@@ -1066,6 +1141,37 @@ where
 
 impl<T> Remove<T> {
     /// Creates a [`Command`] which will remove the specified [`Entity`] when applied.
+    pub const fn new(entity: Entity) -> Self {
+        Self {
+            entity,
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// A [`Command`] that removes components from an entity.
+/// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
+/// Any components in the bundle that aren't found on the entity will be ignored.
+#[derive(Debug)]
+pub struct Retain<T> {
+    /// The entity from which the components will be removed.
+    pub entity: Entity,
+    _marker: PhantomData<T>,
+}
+
+impl<T> Command for Retain<T>
+where
+    T: Bundle,
+{
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
+            entity_mut.retain::<T>();
+        }
+    }
+}
+
+impl<T> Retain<T> {
+    /// Creates a [`Command`] which will remove all but the specified components when applied.
     pub const fn new(entity: Entity) -> Self {
         Self {
             entity,
@@ -1191,7 +1297,7 @@ mod tests {
             .spawn((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
-        assert!(world.entities().len() == 1);
+        assert_eq!(world.entities().len(), 1);
         let results = world
             .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
@@ -1301,6 +1407,25 @@ mod tests {
         }
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
+        assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn append() {
+        let mut world = World::default();
+        let mut queue_1 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_1, &world);
+            commands.insert_resource(W(123i32));
+        }
+        let mut queue_2 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_2, &world);
+            commands.insert_resource(W(456.0f64));
+        }
+        queue_1.append(&mut queue_2);
+        queue_1.apply(&mut world);
+        assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
     }
 }

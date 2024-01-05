@@ -51,7 +51,6 @@ impl BlobVec {
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
     /// [`needs_drop`]: core::mem::needs_drop
-    /// [`Drop`]: core::ops::Drop
     pub unsafe fn new(
         item_layout: Layout,
         drop: Option<unsafe fn(OwningPtr<'_>)>,
@@ -62,6 +61,8 @@ impl BlobVec {
         if item_layout.size() == 0 {
             BlobVec {
                 data,
+                // ZST `BlobVec` max size is `usize::MAX`, and `reserve_exact` for ZST assumes
+                // the capacity is always `usize::MAX` and panics if it overflows.
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
@@ -110,20 +111,29 @@ impl BlobVec {
     ///
     /// Note that the allocator may give the collection more space than it requests. Therefore, capacity can not be relied upon
     /// to be precisely minimal.
+    ///
+    /// # Panics
+    ///
+    /// Panics if new capacity overflows `usize`.
     pub fn reserve_exact(&mut self, additional: usize) {
         let available_space = self.capacity - self.len;
-        if available_space < additional && self.item_layout.size() > 0 {
+        if available_space < additional {
             // SAFETY: `available_space < additional`, so `additional - available_space > 0`
             let increment = unsafe { NonZeroUsize::new_unchecked(additional - available_space) };
-            // SAFETY: not called for ZSTs
-            unsafe { self.grow_exact(increment) };
+            self.grow_exact(increment);
         }
     }
 
-    // SAFETY: must not be called for a ZST item layout
-    #[warn(unsafe_op_in_unsafe_fn)] // to allow unsafe blocks in unsafe fn
-    unsafe fn grow_exact(&mut self, increment: NonZeroUsize) {
-        debug_assert!(self.item_layout.size() != 0);
+    /// Grows the capacity by `increment` elements.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows `usize`.
+    /// For ZST it panics unconditionally because ZST `BlobVec` capacity
+    /// is initialized to `usize::MAX` and always stays that way.
+    fn grow_exact(&mut self, increment: NonZeroUsize) {
+        // If we got here with ZST, we requested total capacity > usize::MAX.
+        assert!(self.item_layout.size() != 0, "ZST capacity overflow");
 
         let new_capacity = self.capacity + increment.get();
         let new_layout =
@@ -307,14 +317,14 @@ impl BlobVec {
     /// The removed element is replaced by the last element of the `BlobVec`.
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is < self.len()
+    /// It is the caller's responsibility to ensure that `index` is `< self.len()`.
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
         let drop = self.drop;
         let value = self.swap_remove_and_forget_unchecked(index);
         if let Some(drop) = drop {
-            (drop)(value);
+            drop(value);
         }
     }
 
@@ -473,7 +483,7 @@ mod tests {
     use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;
-    use std::{alloc::Layout, cell::RefCell, rc::Rc};
+    use std::{alloc::Layout, cell::RefCell, mem, rc::Rc};
 
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
@@ -611,6 +621,30 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "ZST capacity overflow")]
+    fn blob_vec_zst_size_overflow() {
+        // SAFETY: no drop is correct drop for `()`.
+        let mut blob_vec = unsafe { BlobVec::new(Layout::new::<()>(), None, 0) };
+
+        assert_eq!(usize::MAX, blob_vec.capacity(), "Self-check");
+
+        // SAFETY: Because `()` is a ZST trivial drop type, and because `BlobVec` capacity
+        //   is always `usize::MAX` for ZSTs, we can arbitrarily set the length
+        //   and still be sound.
+        unsafe {
+            blob_vec.set_len(usize::MAX);
+        }
+
+        // SAFETY: `BlobVec` was initialized for `()`, so it is safe to push `()` to it.
+        unsafe {
+            OwningPtr::make((), |ptr| {
+                // This should panic because len is usize::MAX, remaining capacity is 0.
+                blob_vec.push(ptr);
+            });
+        }
+    }
+
+    #[test]
     fn aligned_zst() {
         // NOTE: This test is explicitly for uncovering potential UB with miri.
 
@@ -627,7 +661,9 @@ mod tests {
         let mut count = 0;
 
         let mut q = world.query::<&Zst>();
-        for &Zst in q.iter(&world) {
+        for zst in q.iter(&world) {
+            // Ensure that the references returned are properly aligned.
+            assert_eq!(zst as *const Zst as usize % mem::align_of::<Zst>(), 0);
             count += 1;
         }
 

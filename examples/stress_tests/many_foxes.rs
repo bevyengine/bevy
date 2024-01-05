@@ -9,7 +9,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowPlugin, WindowResolution},
 };
 
 #[derive(FromArgs, Resource)]
@@ -41,6 +41,8 @@ fn main() {
                 primary_window: Some(Window {
                     title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                     present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
@@ -246,7 +248,7 @@ fn update_fox_rings(
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut animation_player: Query<&mut AnimationPlayer>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
@@ -256,15 +258,15 @@ fn keyboard_animation_control(
         foxes.moving = !foxes.moving;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Up) {
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
         foxes.speed *= 1.25;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Down) {
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
         foxes.speed *= 0.8;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Return) {
+    if keyboard_input.just_pressed(KeyCode::Enter) {
         *current_animation = (*current_animation + 1) % animations.0.len();
     }
 
@@ -277,27 +279,27 @@ fn keyboard_animation_control(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::Up) {
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             let speed = player.speed();
             player.set_speed(speed * 1.25);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Down) {
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             let speed = player.speed();
             player.set_speed(speed * 0.8);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Left) {
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             let elapsed = player.seek_time();
             player.seek_to(elapsed - 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Right) {
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             let elapsed = player.seek_time();
             player.seek_to(elapsed + 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
+        if keyboard_input.just_pressed(KeyCode::Enter) {
             player
                 .play_with_transition(
                     animations.0[*current_animation].clone_weak(),

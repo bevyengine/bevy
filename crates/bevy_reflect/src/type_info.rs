@@ -95,9 +95,8 @@ pub trait Typed: Reflect + TypePath {
 /// it can be more performant. This is because those other methods may require attaining a lock on
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
-/// [`Reflect::get_represented_type_info`]: crate::Reflect::get_represented_type_info
+/// [`Reflect::get_represented_type_info`]: Reflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-/// [`TypeId`]: std::any::TypeId
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {

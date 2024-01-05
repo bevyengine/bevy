@@ -5,7 +5,13 @@ use bevy_log::{debug, info};
 use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_utils::Duration;
 
-/// An App Plugin that logs diagnostics to the console
+/// An App Plugin that logs diagnostics to the console.
+///
+/// Diagnostics are collected by plugins such as
+/// [`FrameTimeDiagnosticsPlugin`](crate::FrameTimeDiagnosticsPlugin)
+/// or can be provided by the user.
+///
+/// When no diagnostics are provided, this plugin does nothing.
 pub struct LogDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,

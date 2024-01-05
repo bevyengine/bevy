@@ -296,7 +296,7 @@ impl RegisterDiagnostic for App {
     ///
     /// Will initialize a [`DiagnosticsStore`] if it doesn't exist.
     ///
-    /// ```rust
+    /// ```
     /// use bevy_app::App;
     /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticId, RegisterDiagnostic};
     ///

@@ -34,6 +34,7 @@ impl RawHandleWrapper {
 // A recommendation for this pattern (and more context) is available here:
 // https://github.com/rust-windowing/raw-window-handle/issues/59
 unsafe impl Send for RawHandleWrapper {}
+// SAFETY: This is safe for the same reasons as the Send impl above.
 unsafe impl Sync for RawHandleWrapper {}
 
 /// A [`RawHandleWrapper`] that cannot be sent across threads.

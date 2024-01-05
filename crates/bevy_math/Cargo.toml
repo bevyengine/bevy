@@ -14,9 +14,14 @@ serde = { version = "1", features = ["derive"], optional = true }
 
 [features]
 serialize = ["dep:serde", "glam/serde"]
+# Enable approx for glam types to approximate floating point equality comparisons and assertions
+approx = ["glam/approx"]
 # Enable interoperation of glam types with mint-compatible libraries
 mint = ["glam/mint"]
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["glam/glam-assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["glam/debug-glam-assert"]
+
+[lints]
+workspace = true

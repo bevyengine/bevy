@@ -1,9 +1,5 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use std::f32::consts::PI;
 
 use bevy::{
@@ -17,6 +13,7 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
+        render_asset::RenderAssetPersistencePolicy,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
     },
@@ -32,7 +29,7 @@ fn main() {
 }
 
 fn modify_aa(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut camera: Query<
         (
             Entity,
@@ -48,14 +45,14 @@ fn modify_aa(
     let mut camera = commands.entity(camera_entity);
 
     // No AA
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
         camera.remove::<TemporalAntiAliasBundle>();
     }
 
     // MSAA
-    if keys.just_pressed(KeyCode::Key2) && *msaa == Msaa::Off {
+    if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
         camera.remove::<Fxaa>();
         camera.remove::<TemporalAntiAliasBundle>();
 
@@ -64,19 +61,19 @@ fn modify_aa(
 
     // MSAA Sample Count
     if *msaa != Msaa::Off {
-        if keys.just_pressed(KeyCode::Q) {
+        if keys.just_pressed(KeyCode::KeyQ) {
             *msaa = Msaa::Sample2;
         }
-        if keys.just_pressed(KeyCode::W) {
+        if keys.just_pressed(KeyCode::KeyW) {
             *msaa = Msaa::Sample4;
         }
-        if keys.just_pressed(KeyCode::E) {
+        if keys.just_pressed(KeyCode::KeyE) {
             *msaa = Msaa::Sample8;
         }
     }
 
     // FXAA
-    if keys.just_pressed(KeyCode::Key3) && fxaa.is_none() {
+    if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
         camera.remove::<TemporalAntiAliasBundle>();
 
@@ -85,30 +82,30 @@ fn modify_aa(
 
     // FXAA Settings
     if let Some(mut fxaa) = fxaa {
-        if keys.just_pressed(KeyCode::Q) {
+        if keys.just_pressed(KeyCode::KeyQ) {
             fxaa.edge_threshold = Sensitivity::Low;
             fxaa.edge_threshold_min = Sensitivity::Low;
         }
-        if keys.just_pressed(KeyCode::W) {
+        if keys.just_pressed(KeyCode::KeyW) {
             fxaa.edge_threshold = Sensitivity::Medium;
             fxaa.edge_threshold_min = Sensitivity::Medium;
         }
-        if keys.just_pressed(KeyCode::E) {
+        if keys.just_pressed(KeyCode::KeyE) {
             fxaa.edge_threshold = Sensitivity::High;
             fxaa.edge_threshold_min = Sensitivity::High;
         }
-        if keys.just_pressed(KeyCode::R) {
+        if keys.just_pressed(KeyCode::KeyR) {
             fxaa.edge_threshold = Sensitivity::Ultra;
             fxaa.edge_threshold_min = Sensitivity::Ultra;
         }
-        if keys.just_pressed(KeyCode::T) {
+        if keys.just_pressed(KeyCode::KeyT) {
             fxaa.edge_threshold = Sensitivity::Extreme;
             fxaa.edge_threshold_min = Sensitivity::Extreme;
         }
     }
 
     // TAA
-    if keys.just_pressed(KeyCode::Key4) && taa.is_none() {
+    if keys.just_pressed(KeyCode::Digit4) && taa.is_none() {
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
 
@@ -117,11 +114,11 @@ fn modify_aa(
 }
 
 fn modify_sharpening(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
 ) {
     for mut cas in &mut query {
-        if keys.just_pressed(KeyCode::Key0) {
+        if keys.just_pressed(KeyCode::Digit0) {
             cas.enabled = !cas.enabled;
         }
         if cas.enabled {
@@ -129,11 +126,11 @@ fn modify_sharpening(
                 cas.sharpening_strength -= 0.1;
                 cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
             }
-            if keys.just_pressed(KeyCode::Equals) {
+            if keys.just_pressed(KeyCode::Equal) {
                 cas.sharpening_strength += 0.1;
                 cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
             }
-            if keys.just_pressed(KeyCode::D) {
+            if keys.just_pressed(KeyCode::KeyD) {
                 cas.denoise = !cas.denoise;
             }
         }
@@ -382,6 +379,7 @@ fn uv_debug_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
+        RenderAssetPersistencePolicy::Unload,
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img

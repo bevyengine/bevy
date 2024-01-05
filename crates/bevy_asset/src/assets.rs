@@ -1,5 +1,7 @@
-use crate as bevy_asset;
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use crate::{self as bevy_asset};
+use crate::{
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, LoadState, UntypedHandle,
+};
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
@@ -87,12 +89,11 @@ pub struct LoadedUntypedAsset {
 // PERF: do we actually need this to be an enum? Can we just use an "invalid" generation instead
 #[derive(Default)]
 enum Entry<A: Asset> {
+    /// None is an indicator that this entry does not have live handles.
     #[default]
     None,
-    Some {
-        value: Option<A>,
-        generation: u32,
-    },
+    /// Some is an indicator that there is a live handle active for the entry at this [`AssetIndex`]
+    Some { value: Option<A>, generation: u32 },
 }
 
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
@@ -151,7 +152,26 @@ impl<A: Asset> DenseAssetStorage<A> {
     }
 
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
-    pub(crate) fn remove(&mut self, index: AssetIndex) -> Option<A> {
+    /// This will recycle the id and allow new entries to be inserted.
+    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<A> {
+        self.remove_internal(index, |dense_storage| {
+            dense_storage.storage[index.index as usize] = Entry::None;
+            dense_storage.allocator.recycle(index);
+        })
+    }
+
+    /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
+    /// This will _not_ recycle the id. New values with the current ID can still be inserted. The ID will
+    /// not be reused until [`DenseAssetStorage::remove_dropped`] is called.
+    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<A> {
+        self.remove_internal(index, |_| {})
+    }
+
+    fn remove_internal(
+        &mut self,
+        index: AssetIndex,
+        removed_action: impl FnOnce(&mut Self),
+    ) -> Option<A> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
             Entry::None => return None,
@@ -166,8 +186,7 @@ impl<A: Asset> DenseAssetStorage<A> {
                 }
             }
         };
-        self.storage[index.index as usize] = Entry::None;
-        self.allocator.recycle(index);
+        removed_action(self);
         value
     }
 
@@ -302,7 +321,7 @@ impl<A: Asset> Assets<A> {
     ) -> &mut A {
         let id: AssetId<A> = id.into();
         if self.get(id).is_none() {
-            self.insert(id, (insert_fn)());
+            self.insert(id, insert_fn());
         }
         self.get_mut(id).unwrap()
     }
@@ -393,9 +412,23 @@ impl<A: Asset> Assets<A> {
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         match id {
-            AssetId::Index { index, .. } => self.dense_storage.remove(index),
+            AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
+    }
+
+    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    pub(crate) fn remove_dropped(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+        let id: AssetId<A> = id.into();
+        let result = match id {
+            AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index),
+            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
+        };
+        if result.is_some() {
+            self.queued_events.push(AssetEvent::Removed { id });
+        }
+        result
     }
 
     /// Returns `true` if there are no assets in this collection.
@@ -453,9 +486,7 @@ impl<A: Asset> Assets<A> {
     }
 
     /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
-    /// [`Handle`] drop events and adds queued [`AssetEvent`] values to their [`Events`] resource.
-    ///
-    /// [`Events`]: bevy_ecs::event::Events
+    /// [`Handle`] drop events.
     pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
@@ -465,19 +496,28 @@ impl<A: Asset> Assets<A> {
         let mut infos = asset_server.data.infos.write();
         let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
-            let id = drop_event.id;
-            if !assets.contains(id.typed()) {
-                not_ready.push(drop_event);
-                continue;
-            }
+            let id = drop_event.id.typed();
+
+            assets.queued_events.push(AssetEvent::Unused { id });
+
             if drop_event.asset_server_managed {
-                if infos.process_handle_drop(id.untyped(TypeId::of::<A>())) {
-                    assets.remove(id.typed());
+                let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
+                if let Some(info) = infos.get(untyped_id) {
+                    if info.load_state == LoadState::Loading
+                        || info.load_state == LoadState::NotLoaded
+                    {
+                        not_ready.push(drop_event);
+                        continue;
+                    }
+                }
+                if infos.process_handle_drop(untyped_id) {
+                    assets.remove_dropped(id);
                 }
             } else {
-                assets.remove(id.typed());
+                assets.remove_dropped(id);
             }
         }
+
         // TODO: this is _extremely_ inefficient find a better fix
         // This will also loop failed assets indefinitely. Is that ok?
         for event in not_ready {

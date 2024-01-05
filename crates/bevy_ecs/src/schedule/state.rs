@@ -5,6 +5,7 @@ use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
+use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
@@ -23,12 +24,12 @@ pub use bevy_ecs_macros::States;
 /// You can access the current state of type `T` with the [`State<T>`] resource,
 /// and the queued state with the [`NextState<T>`] resource.
 ///
-/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Variant>`] schedules,
+/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T::Variant>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::States;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -40,7 +41,7 @@ pub use bevy_ecs_macros::States;
 /// }
 ///
 /// ```
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.
@@ -72,12 +73,8 @@ pub struct OnTransition<S: States> {
 /// [`apply_state_transition::<S>`] system.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
-#[derive(Resource, Default, Debug)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Resource, Default)
-)]
+#[derive(Resource, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct State<S: States>(S);
 
 impl<S: States> State<S> {
@@ -91,6 +88,12 @@ impl<S: States> State<S> {
     /// Get the current state.
     pub fn get(&self) -> &S {
         &self.0
+    }
+}
+
+impl<S: States + FromWorld> FromWorld for State<S> {
+    fn from_world(world: &mut World) -> Self {
+        Self(S::from_world(world))
     }
 }
 
@@ -113,13 +116,19 @@ impl<S: States> Deref for State<S> {
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Debug)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Resource, Default)
 )]
 pub struct NextState<S: States>(pub Option<S>);
+
+impl<S: States> Default for NextState<S> {
+    fn default() -> Self {
+        Self(None)
+    }
+}
 
 impl<S: States> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
