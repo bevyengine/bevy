@@ -8,6 +8,7 @@ use bevy_render::{
     camera::{Camera, CameraRenderGraph, OrthographicProjection},
     extract_component::ExtractComponent,
     view::VisibleEntities,
+    Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -15,7 +16,7 @@ use super::overlay_node::graph;
 
 pub(crate) fn extract_overlay_camera_phases(
     mut commands: Commands,
-    cameras_overlay: Query<(Entity, &Camera), With<CameraOverlay>>,
+    cameras_overlay: Extract<Query<(Entity, &Camera), With<CameraOverlay>>>,
 ) {
     for (entity, camera) in cameras_overlay.iter() {
         if camera.is_active {
