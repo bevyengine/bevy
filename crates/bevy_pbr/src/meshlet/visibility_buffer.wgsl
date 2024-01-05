@@ -23,24 +23,9 @@ struct FragmentOutput {
 #endif
 
 @vertex
-fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    let thread_id = visible_thread_ids[vertex_index / 378u];
+fn vertex(@builtin(instance_index) thread_id: u32, @builtin(vertex_index) index_id: u32) -> VertexOutput {
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
-    let index_id = vertex_index % 378u;
-    if index_id >= meshlet.index_count {
-        return VertexOutput(
-            vec4(0.0 / 0.0),
-#ifdef MESHLET_VISIBILITY_BUFFER_PASS_OUTPUT
-            0u,
-            0u,
-#endif
-#ifdef DEPTH_CLAMP_ORTHO
-            0.0,
-#endif
-        );
-    }
-
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);

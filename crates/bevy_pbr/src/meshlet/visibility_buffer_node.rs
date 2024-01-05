@@ -252,9 +252,12 @@ fn draw_first_pass(
         &[view_offset.offset],
     );
     draw_pass.set_render_pipeline(first_pass_visibility_buffer_pipeline);
-    draw_pass.draw_indirect(
-        &meshlet_view_resources.visibility_buffer_draw_command_buffer_first,
+    draw_pass.multi_draw_indirect_count(
+        &meshlet_view_resources.visibility_buffer_draw_command_buffer,
         0,
+        &meshlet_view_resources.visibility_buffer_draw_count_buffer_first,
+        0,
+        meshlet_view_resources.scene_meshlet_count,
     );
 }
 
@@ -369,9 +372,12 @@ fn draw_second_pass(
         &[view_offset.offset],
     );
     draw_pass.set_render_pipeline(second_pass_visibility_buffer_pipeline);
-    draw_pass.draw_indirect(
-        &meshlet_view_resources.visibility_buffer_draw_command_buffer_second,
+    draw_pass.multi_draw_indirect_count(
+        &meshlet_view_resources.visibility_buffer_draw_command_buffer,
         0,
+        &meshlet_view_resources.visibility_buffer_draw_count_buffer_second,
+        0,
+        meshlet_view_resources.scene_meshlet_count,
     );
 }
 

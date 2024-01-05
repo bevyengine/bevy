@@ -38,7 +38,7 @@ struct MeshletBoundingSphere {
 }
 
 struct DrawIndirect {
-    vertex_count: atomic<u32>,
+    vertex_count: u32,
     instance_count: u32,
     base_vertex: u32,
     base_instance: u32,
@@ -56,8 +56,8 @@ struct DrawIndirect {
 @group(0) @binding(5) var<storage, read> meshlet_previous_occlusion: array<u32>;
 @group(0) @binding(6) var<storage, read_write> meshlet_occlusion: array<u32>;
 @group(0) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
-@group(0) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndirect;
-@group(0) @binding(9) var<storage, read_write> visible_thread_ids: array<u32>;
+@group(0) @binding(8) var<storage, read_write> draw_command_buffer: array<DrawIndirect>;
+@group(0) @binding(9) var<storage, read_write> draw_count_buffer: atomic<u32>;
 @group(0) @binding(10) var<uniform> view: View;
 #ifdef MESHLET_SECOND_CULLING_PASS
 @group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
@@ -70,8 +70,7 @@ struct DrawIndirect {
 @group(0) @binding(5) var<storage, read> meshlet_vertex_ids: array<u32>;
 @group(0) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
 @group(0) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>;
-@group(0) @binding(8) var<storage, read> visible_thread_ids: array<u32>;
-@group(0) @binding(9) var<uniform> view: View;
+@group(0) @binding(8) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];

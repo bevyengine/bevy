@@ -45,10 +45,13 @@ use bevy_ecs::{bundle::Bundle, schedule::IntoSystemConfigs, system::Query};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
     view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::tracing::warn;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
@@ -109,47 +112,60 @@ impl Plugin for MeshletPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(app) = app.get_sub_app_mut(RenderApp) else {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        app.add_render_graph_node::<MeshletVisibilityBufferPassNode>(
-            CORE_3D,
-            MESHLET_VISIBILITY_BUFFER_PASS,
-        )
-        .add_render_graph_node::<ViewNodeRunner<MeshletMainOpaquePass3dNode>>(
-            CORE_3D,
-            MESHLET_MAIN_OPAQUE_PASS_3D,
-        )
-        .add_render_graph_edges(
-            CORE_3D,
-            &[
+        if !render_app
+            .world
+            .resource::<RenderDevice>()
+            .features()
+            .contains(
+                WgpuFeatures::MULTI_DRAW_INDIRECT_COUNT | WgpuFeatures::INDIRECT_FIRST_INSTANCE,
+            )
+        {
+            warn!("MeshletPlugin not loaded. GPU lacks support for WgpuFeatures: MULTI_DRAW_INDIRECT_COUNT | INDIRECT_FIRST_INSTANCE.");
+            return;
+        }
+
+        render_app
+            .add_render_graph_node::<MeshletVisibilityBufferPassNode>(
+                CORE_3D,
                 MESHLET_VISIBILITY_BUFFER_PASS,
-                SHADOW_PASS,
-                PREPASS,
-                DEFERRED_PREPASS,
-                COPY_DEFERRED_LIGHTING_ID,
-                END_PREPASSES,
-                START_MAIN_PASS,
+            )
+            .add_render_graph_node::<ViewNodeRunner<MeshletMainOpaquePass3dNode>>(
+                CORE_3D,
                 MESHLET_MAIN_OPAQUE_PASS_3D,
-                MAIN_OPAQUE_PASS,
-                END_MAIN_PASS,
-            ],
-        )
-        .init_resource::<MeshletGpuScene>()
-        .init_resource::<MeshletPipelines>()
-        .add_systems(ExtractSchedule, extract_meshlet_meshes)
-        .add_systems(
-            Render,
-            (
-                perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
-                prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
-                add_depth_texture_usages
-                    .before(prepare_core_3d_depth_textures)
-                    .in_set(RenderSet::PrepareResources),
-                prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
-            ),
-        );
+            )
+            .add_render_graph_edges(
+                CORE_3D,
+                &[
+                    MESHLET_VISIBILITY_BUFFER_PASS,
+                    SHADOW_PASS,
+                    PREPASS,
+                    DEFERRED_PREPASS,
+                    COPY_DEFERRED_LIGHTING_ID,
+                    END_PREPASSES,
+                    START_MAIN_PASS,
+                    MESHLET_MAIN_OPAQUE_PASS_3D,
+                    MAIN_OPAQUE_PASS,
+                    END_MAIN_PASS,
+                ],
+            )
+            .init_resource::<MeshletGpuScene>()
+            .init_resource::<MeshletPipelines>()
+            .add_systems(ExtractSchedule, extract_meshlet_meshes)
+            .add_systems(
+                Render,
+                (
+                    perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
+                    prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
+                    add_depth_texture_usages
+                        .before(prepare_core_3d_depth_textures)
+                        .in_set(RenderSet::PrepareResources),
+                    prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                ),
+            );
     }
 }
 
