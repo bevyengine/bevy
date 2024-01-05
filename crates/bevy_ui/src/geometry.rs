@@ -1,6 +1,6 @@
-use bevy_math::Vec2;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_window::LogicalSize;
 use std::ops::Neg;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
