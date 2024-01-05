@@ -486,7 +486,7 @@ impl AssetSource {
                     sender,
                     file_debounce_wait_time,
                 )
-                .unwrap_or_else(|e| panic!("Failed to create file watcher: {}", e)),
+                .expect("Failed to create file watcher"),
             ));
             #[cfg(any(
                 not(feature = "file_watcher"),
