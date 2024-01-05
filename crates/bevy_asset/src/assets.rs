@@ -1,5 +1,7 @@
-use crate::{self as bevy_asset, LoadState};
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use crate::{self as bevy_asset};
+use crate::{
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, LoadState, UntypedHandle,
+};
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
@@ -484,9 +486,7 @@ impl<A: Asset> Assets<A> {
     }
 
     /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
-    /// [`Handle`] drop events and adds queued [`AssetEvent`] values to their [`Events`] resource.
-    ///
-    /// [`Events`]: bevy_ecs::event::Events
+    /// [`Handle`] drop events.
     pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
@@ -496,10 +496,13 @@ impl<A: Asset> Assets<A> {
         let mut infos = asset_server.data.infos.write();
         let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
-            let id = drop_event.id;
+            let id = drop_event.id.typed();
+
+            assets.queued_events.push(AssetEvent::Unused { id });
+
             if drop_event.asset_server_managed {
-                let untyped = id.untyped(TypeId::of::<A>());
-                if let Some(info) = infos.get(untyped) {
+                let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
+                if let Some(info) = infos.get(untyped_id) {
                     if info.load_state == LoadState::Loading
                         || info.load_state == LoadState::NotLoaded
                     {
@@ -507,13 +510,14 @@ impl<A: Asset> Assets<A> {
                         continue;
                     }
                 }
-                if infos.process_handle_drop(untyped) {
-                    assets.remove_dropped(id.typed());
+                if infos.process_handle_drop(untyped_id) {
+                    assets.remove_dropped(id);
                 }
             } else {
-                assets.remove_dropped(id.typed());
+                assets.remove_dropped(id);
             }
         }
+
         // TODO: this is _extremely_ inefficient find a better fix
         // This will also loop failed assets indefinitely. Is that ok?
         for event in not_ready {

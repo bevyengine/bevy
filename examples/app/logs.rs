@@ -11,9 +11,31 @@ fn main() {
             // filter: "wgpu=warn,bevy_ecs=info".to_string(),
             ..default()
         }))
+        .add_systems(Startup, setup)
         .add_systems(Update, log_system)
         .add_systems(Update, log_once_system)
+        .add_systems(Update, panic_on_p)
         .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(TextBundle {
+        text: Text::from_section(
+            "Press P to panic",
+            TextStyle {
+                font_size: 60.0,
+                ..default()
+            },
+        ),
+        ..default()
+    });
+}
+
+fn panic_on_p(keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(KeyCode::KeyP) {
+        panic!("P pressed, panicking");
+    }
 }
 
 fn log_system() {

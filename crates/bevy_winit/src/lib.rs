@@ -515,7 +515,11 @@ pub fn winit_runner(mut app: App) {
                             .to_logical(window.resolution.scale_factor() as f64);
                         event_writers
                             .touch_input
-                            .send(converters::convert_touch_input(touch, location));
+                            .send(converters::convert_touch_input(
+                                touch,
+                                location,
+                                window_entity,
+                            ));
                     }
                     WindowEvent::ScaleFactorChanged {
                         scale_factor,
