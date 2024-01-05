@@ -467,7 +467,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
-            cpu_persistent_access: RenderAssetPersistencePolicy::Unload,
+            cpu_persistent_access: RenderAssetPersistencePolicy::Keep,
         }
     }
 }

@@ -124,7 +124,7 @@ impl From<Box> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetPersistencePolicy::Keep,
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -179,7 +179,7 @@ impl From<Quad> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetPersistencePolicy::Keep,
         )
         .with_indices(Some(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
@@ -263,7 +263,7 @@ impl From<Plane> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetPersistencePolicy::Keep,
         )
         .with_indices(Some(Indices::U32(indices)))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
