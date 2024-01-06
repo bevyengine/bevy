@@ -435,18 +435,17 @@ pub fn scene_spawner_system(world: &mut World) {
     });
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::{reflect::AppTypeRegistry, world::World};
     use bevy_ecs::component::Component;
     use bevy_ecs::entity::Entity;
-    use bevy_ecs::query::With;
     use bevy_ecs::prelude::ReflectComponent;
+    use bevy_ecs::query::With;
+    use bevy_ecs::{reflect::AppTypeRegistry, world::World};
 
-    use bevy_reflect::Reflect;
     use crate::DynamicSceneBuilder;
+    use bevy_reflect::Reflect;
 
     #[derive(Reflect, Component, Debug, PartialEq, Eq, Clone, Copy, Default)]
     #[reflect(Component)]
@@ -475,7 +474,9 @@ mod tests {
             .build();
 
         let scene_id = world.resource_mut::<Assets<DynamicScene>>().add(scene);
-        let instance_id = scene_spawner.spawn_dynamic_sync(&mut world, scene_id).unwrap();
+        let instance_id = scene_spawner
+            .spawn_dynamic_sync(&mut world, scene_id)
+            .unwrap();
 
         // verify we spawned exactly one new entity with our expected component
         assert_eq!(world.query::<&A>().iter(&world).len(), 2);
@@ -490,7 +491,10 @@ mod tests {
         assert_ne!(entity, new_entity);
 
         // verify this new entity contains the same data as the original entity
-        let [old_a, new_a] = world.query::<&A>().get_many(&world, [entity, new_entity]).unwrap();
+        let [old_a, new_a] = world
+            .query::<&A>()
+            .get_many(&world, [entity, new_entity])
+            .unwrap();
         assert_eq!(old_a, new_a);
     }
 }
