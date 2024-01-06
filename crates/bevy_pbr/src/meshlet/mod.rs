@@ -78,7 +78,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
-/// ![A render of the Stanford dragon as a MeshletMesh](https://github.com/bevyengine/bevy/blob/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png),
+/// ![A render of the Stanford dragon as a `MeshletMesh`](https://github.com/bevyengine/bevy/blob/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png),
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {

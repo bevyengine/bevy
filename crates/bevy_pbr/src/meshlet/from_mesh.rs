@@ -19,7 +19,7 @@ impl MeshletMesh {
     /// The input mesh must:
     /// 1. Use [`PrimitiveTopology::TriangleList`]
     /// 2. Use indices
-    /// 3. Have the exact following set of vertex attributes: {POSITION, NORMAL, UV_0, TANGENT}
+    /// 3. Have the exact following set of vertex attributes: `{POSITION, NORMAL, UV_0, TANGENT}`
     pub fn from_mesh(mesh: &Mesh) -> Result<Self, MeshToMeshletMeshConversionError> {
         if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
             return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
