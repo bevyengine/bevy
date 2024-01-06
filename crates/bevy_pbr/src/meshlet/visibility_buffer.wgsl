@@ -1,3 +1,5 @@
+/// Vertex/fragment shader for rasterizing meshlets into a visibility buffer.
+
 #import bevy_pbr::{
     meshlet_bindings::{visible_thread_ids, meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_instance_material_ids, view, get_meshlet_index, unpack_meshlet_vertex},
     mesh_functions::mesh_position_local_to_world,

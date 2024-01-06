@@ -9,6 +9,17 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::borrow::Cow;
 
 impl MeshletMesh {
+    /// Process a [`Mesh`] to generate a [`MeshletMesh`].
+    ///
+    /// This process is very slow, and should be done ahead of time, and not at runtime.
+    ///
+    /// This function requires the `meshopt` cargo feature, as it uses [meshoptimizer](https://github.com/zeux/meshoptimizer)
+    /// to generate meshlets.
+    ///
+    /// The input mesh must:
+    /// 1. Use [`PrimitiveTopology::TriangleList`]
+    /// 2. Use indices
+    /// 3. Have the exact following set of vertex attributes: {POSITION, NORMAL, UV_0, TANGENT}
     pub fn from_mesh(mesh: &Mesh) -> Result<Self, MeshToMeshletMeshConversionError> {
         if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
             return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
@@ -83,6 +94,7 @@ impl MeshletMesh {
     }
 }
 
+/// An error produced by [`MeshletMesh::from_mesh`].
 #[derive(thiserror::Error, Debug)]
 pub enum MeshToMeshletMeshConversionError {
     #[error("Mesh primitive topology was not TriangleList")]

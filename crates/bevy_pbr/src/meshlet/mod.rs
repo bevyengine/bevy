@@ -1,3 +1,5 @@
+//! Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] for details.
+
 mod asset;
 #[cfg(feature = "meshopt")]
 mod from_mesh;
@@ -59,6 +61,24 @@ const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(3325134235233421);
 
+/// Provides a plugin for rendering high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
+///
+/// Rendering high-poly meshes with thousands or millions of triangles is extremely expensive in Bevy's standard renderer.
+/// Once pre-processed into a [`MeshletMesh`], this plugin can render these kinds of meshes very efficently via the following method:
+/// * All work is done on the GPU. Minimal CPU processing is required, unlike Bevy's standard renderer.
+/// * Individual meshlets outside of the camera's frustum are culled (unlike Bevy's standard renderer, which can only cull entire meshes).
+/// * All meshlets that were visible last frame (and are in the camea's frustum this frame) get rendered to a depth buffer.
+/// * The depth buffer is then downsampled to form a hierarchical depth buffer.
+/// * All meshlets that were not frustum culled get tested against the depth buffer, and culled if they would not be visible (occlusion culling, which Bevy's standard renderer does not have).
+/// * A visibility buffer is then rendered for the surviving frustum and occlusion culled meshlets. Each pixel of the texture encodes the visible meshlet and triangle IDs.
+/// * For the opaque and prepass phases, one draw per [`Material`] batch is performed, regardless of the amount of entities using that material. The material's fragment shader reads
+///   the meshlet and triangle IDs from the visibility buffer to reconstruct the rendered point on the mesh and shade it.
+///
+/// This plugin requires the [`WgpuFeatures`] `MULTI_DRAW_INDIRECT_COUNT` and `INDIRECT_FIRST_INSTANCE`, which are not supported by all GPUs.
+///
+/// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
+///
+/// ![A render of the Stanford dragon as a MeshletMesh](https://github.com/bevyengine/bevy/blob/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png),
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
@@ -169,6 +189,7 @@ impl Plugin for MeshletPlugin {
     }
 }
 
+/// Sets up dummy shaders for when [`MeshletPlugin`] is not used to prevent shader import errors.
 pub struct MeshletDummyShaderPlugin;
 
 impl Plugin for MeshletDummyShaderPlugin {

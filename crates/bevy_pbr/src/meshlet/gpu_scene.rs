@@ -25,8 +25,8 @@ use std::{
     sync::Arc,
 };
 
-/// Create and queue for uploading to the GPU MeshUniform components for
-/// MeshletMesh entities, as well as queuing uploads for any new MeshletMesh
+/// Create and queue for uploading to the GPU [`MeshUniform`] components for
+/// [`MeshletMesh`] entities, as well as queuing uploads for any new meshlet mesh
 /// assets that have not already been uploaded to the GPU.
 pub fn extract_meshlet_meshes(
     // TODO: Replace main_world when Extract<ResMut<Assets<MeshletMesh>>> is possible
@@ -85,7 +85,7 @@ pub fn extract_meshlet_meshes(
     }
 }
 
-/// Upload all newly queued MeshletMesh asset data from [`extract_meshlet_meshes`] to the GPU.
+/// Upload all newly queued [`MeshletMesh`] asset data from [`extract_meshlet_meshes`] to the GPU.
 pub fn perform_pending_meshlet_mesh_writes(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     render_queue: Res<RenderQueue>,
@@ -108,6 +108,7 @@ pub fn perform_pending_meshlet_mesh_writes(
         .perform_writes(&render_queue, &render_device);
 }
 
+/// TODO: Documentation
 pub fn queue_material_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
@@ -469,6 +470,7 @@ pub fn prepare_meshlet_view_bind_groups(
     }
 }
 
+/// A resource that manages GPU data for rendering [`MeshletMesh`]'s.
 #[derive(Resource)]
 pub struct MeshletGpuScene {
     vertex_data: PersistentGpuBuffer<Arc<[u8]>>,
@@ -665,6 +667,7 @@ impl MeshletGpuScene {
             .for_each(|(_, active)| *active = false);
     }
 
+    /// TODO: Documentation
     fn queue_meshlet_mesh_upload(
         &mut self,
         instance: Entity,
@@ -728,6 +731,7 @@ impl MeshletGpuScene {
         *previous_thread_id_start = (current_thread_id_start, true);
     }
 
+    /// Get the depth value for use with the material depth texture for a given [`Material`] asset.
     pub fn get_material_id(&mut self, material_id: UntypedAssetId) -> u32 {
         *self
             .material_id_lookup

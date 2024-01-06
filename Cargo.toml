@@ -289,6 +289,7 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
+# Enables processing meshes into meshlet meshes for bevy_pbr
 meshopt = ["bevy_internal/meshopt"]
 
 [dependencies]

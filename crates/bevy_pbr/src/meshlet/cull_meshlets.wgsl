@@ -16,6 +16,11 @@
 #endif
 #import bevy_render::maths::affine_to_square
 
+/// Culls individual meshlets in two passes (two pass occlusion culling), and creates draw indirect commands for each surviving meshlet.
+/// 1. The first pass is only frustum culling, and only the meshlets that were visible last frame get rendered.
+/// 2. The second pass then performs both frustum and occlusion culling (using the depth buffer generated from the first pass) for all meshlets,
+///    and stores whether each meshlet was culled for the first pass in the next frame.
+
 @compute
 @workgroup_size(128, 1, 1)
 fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {

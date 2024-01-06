@@ -1,3 +1,5 @@
+/// Functions to be used by materials for reading from a visibility buffer texture.
+
 #define_import_path bevy_pbr::meshlet_visibility_buffer_resolve
 
 #import bevy_pbr::{
@@ -66,6 +68,7 @@ struct VertexOutput {
     meshlet_id: u32,
 }
 
+/// Load the visibility buffer texture and resolve it into a VertexOutput.
 fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let vbuffer = textureLoad(meshlet_visibility_buffer, vec2<i32>(frag_coord.xy), 0).r;
     let thread_id = vbuffer >> 7u;

@@ -2,25 +2,25 @@ use super::{persistent_buffer::PersistentGpuBufferable, Meshlet, MeshletBounding
 use std::sync::Arc;
 
 impl PersistentGpuBufferable for Arc<[u8]> {
-    type ExtraData = ();
+    type Metadata = ();
 
     fn size_in_bytes(&self) -> u64 {
         self.len() as u64
     }
 
-    fn write_bytes_le(&self, _: Self::ExtraData, buffer: &mut Vec<u8>) {
+    fn write_bytes_le(&self, _: Self::Metadata, buffer: &mut Vec<u8>) {
         buffer.extend_from_slice(self);
     }
 }
 
 impl PersistentGpuBufferable for Arc<[u32]> {
-    type ExtraData = u64;
+    type Metadata = u64;
 
     fn size_in_bytes(&self) -> u64 {
         self.len() as u64 * 4
     }
 
-    fn write_bytes_le(&self, offset: Self::ExtraData, buffer: &mut Vec<u8>) {
+    fn write_bytes_le(&self, offset: Self::Metadata, buffer: &mut Vec<u8>) {
         let offset = offset as u32 / 48;
 
         for index in self.iter() {
@@ -31,13 +31,13 @@ impl PersistentGpuBufferable for Arc<[u32]> {
 }
 
 impl PersistentGpuBufferable for Arc<[Meshlet]> {
-    type ExtraData = (u64, u64);
+    type Metadata = (u64, u64);
 
     fn size_in_bytes(&self) -> u64 {
         self.len() as u64 * 12
     }
 
-    fn write_bytes_le(&self, (vertex_offset, index_offset): Self::ExtraData, buffer: &mut Vec<u8>) {
+    fn write_bytes_le(&self, (vertex_offset, index_offset): Self::Metadata, buffer: &mut Vec<u8>) {
         let vertex_offset = vertex_offset as u32 / 4;
         let index_offset = index_offset as u32;
 
@@ -53,13 +53,13 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
 }
 
 impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
-    type ExtraData = ();
+    type Metadata = ();
 
     fn size_in_bytes(&self) -> u64 {
         self.len() as u64 * 16
     }
 
-    fn write_bytes_le(&self, _: Self::ExtraData, buffer: &mut Vec<u8>) {
+    fn write_bytes_le(&self, _: Self::Metadata, buffer: &mut Vec<u8>) {
         buffer.extend_from_slice(bytemuck::cast_slice(self));
     }
 }
