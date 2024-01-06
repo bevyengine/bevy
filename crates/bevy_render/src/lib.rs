@@ -52,7 +52,10 @@ use crate::{
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{finalize_render_system, present_system, render_graph_system, send_time_system, RenderInstance},
+    renderer::{
+        finalize_render_system, present_system, render_graph_system, send_time_system,
+        RenderInstance,
+    },
     settings::RenderCreation,
     view::{ViewPlugin, WindowRenderPlugin},
 };
