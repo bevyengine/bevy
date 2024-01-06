@@ -142,6 +142,7 @@ impl Plugin for WinitPlugin {
         let event_loop = event_loop_builder
             .build()
             .expect("Failed to build event loop");
+        event_loop.set_control_flow(ControlFlow::Wait);
 
         // iOS, macOS, and Android don't like it if you create windows before the event loop is
         // initialized.
@@ -665,15 +666,22 @@ pub fn winit_runner(mut app: App) {
                             &mut app_exit_event_reader,
                             &mut redraw_event_reader,
                         );
+                        if runner_state.redraw_requested {
+                            let (_, winit_windows, _, _) =
+                                event_writer_system_state.get_mut(&mut app.world);
+                            if let Some(window) = winit_windows.get_window(window_entity) {
+                                window.request_redraw();
+                            }
+                        }
                     }
                     _ => {}
                 }
 
                 let mut windows = app.world.query::<(&mut Window, &mut CachedWindow)>();
-                let (window, mut cache) = windows.get_mut(&mut app.world, window_entity).unwrap();
-
-                if window.is_changed() {
-                    cache.window = window.clone();
+                if let Ok((window, mut cache)) = windows.get_mut(&mut app.world, window_entity) {
+                    if window.is_changed() {
+                        cache.window = window.clone();
+                    }
                 }
             }
             Event::DeviceEvent {
@@ -740,13 +748,7 @@ pub fn winit_runner(mut app: App) {
 
                         app.world.entity_mut(entity).insert(wrapper);
                     }
-                    event_loop.set_control_flow(ControlFlow::Poll);
-                }
-            }
-            Event::AboutToWait => {
-                let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
-                for window in winit_windows.windows.values() {
-                    window.request_redraw();
+                    event_loop.set_control_flow(ControlFlow::Wait);
                 }
             }
             _ => (),
@@ -754,6 +756,7 @@ pub fn winit_runner(mut app: App) {
     };
 
     trace!("starting winit event loop");
+    // TODO(clean): the winit docs mention using `spawn` instead of `run` on WASM.
     if let Err(err) = event_loop.run(event_handler) {
         error!("winit event loop returned an error: {err}");
     }
@@ -793,100 +796,105 @@ fn redraw_requested(
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
 ) {
-    if runner_state.active.should_run() {
-        if runner_state.active == ActiveState::WillSuspend {
-            runner_state.active = ActiveState::Suspended;
-            #[cfg(target_os = "android")]
-            {
-                // Remove the `RawHandleWrapper` from the primary window.
-                // This will trigger the surface destruction.
-                let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.single(&app.world);
-                app.world.entity_mut(entity).remove::<RawHandleWrapper>();
-                event_loop.set_control_flow(ControlFlow::Wait);
-            }
+    if !runner_state.active.should_run() {
+        return;
+    }
+    if runner_state.active == ActiveState::WillSuspend {
+        runner_state.active = ActiveState::Suspended;
+        #[cfg(target_os = "android")]
+        {
+            // Remove the `RawHandleWrapper` from the primary window.
+            // This will trigger the surface destruction.
+            let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
+            let entity = query.single(&app.world);
+            app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+            event_loop.set_control_flow(ControlFlow::Wait);
         }
+    }
+    let (config, windows) = focused_windows_state.get(&app.world);
+    let focused = windows.iter().any(|window| window.focused);
+    let should_update = match config.update_mode(focused) {
+        UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
+            // `Reactive`: In order for `event_handler` to have been called, either
+            // we received a window or raw input event, the `wait` elapsed, or a
+            // redraw was requested (by the app or the OS). There are no other
+            // conditions, so we can just return `true` here.
+            true
+        }
+        UpdateMode::ReactiveLowPower { .. } => {
+            runner_state.wait_elapsed
+                || runner_state.redraw_requested
+                || runner_state.window_event_received
+        }
+    };
+
+    if app.plugins_state() == PluginsState::Cleaned && should_update {
+        // reset these on each update
+        runner_state.wait_elapsed = false;
+        runner_state.window_event_received = false;
+        runner_state.redraw_requested = false;
+        runner_state.last_update = Instant::now();
+
+        app.update();
+
+        // decide when to run the next update
         let (config, windows) = focused_windows_state.get(&app.world);
         let focused = windows.iter().any(|window| window.focused);
-        let should_update = match config.update_mode(focused) {
-            UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
-                // `Reactive`: In order for `event_handler` to have been called, either
-                // we received a window or raw input event, the `wait` elapsed, or a
-                // redraw was requested (by the app or the OS). There are no other
-                // conditions, so we can just return `true` here.
-                true
+        match config.update_mode(focused) {
+            UpdateMode::Continuous => {
+                runner_state.redraw_requested = true;
             }
-            UpdateMode::ReactiveLowPower { .. } => {
-                runner_state.wait_elapsed
-                    || runner_state.redraw_requested
-                    || runner_state.window_event_received
-            }
-        };
-
-        if app.plugins_state() == PluginsState::Cleaned && should_update {
-            // reset these on each update
-            runner_state.wait_elapsed = false;
-            runner_state.window_event_received = false;
-            runner_state.redraw_requested = false;
-            runner_state.last_update = Instant::now();
-
-            app.update();
-
-            // decide when to run the next update
-            let (config, windows) = focused_windows_state.get(&app.world);
-            let focused = windows.iter().any(|window| window.focused);
-            match config.update_mode(focused) {
-                UpdateMode::Continuous => {
-                    event_loop.set_control_flow(ControlFlow::Poll);
-                }
-                UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                    if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                        runner_state.scheduled_update = Some(next);
-                        event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                    } else {
-                        runner_state.scheduled_update = None;
-                        event_loop.set_control_flow(ControlFlow::Wait);
-                    }
-                }
-            }
-
-            if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
-                if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                    runner_state.redraw_requested = true;
-                    event_loop.set_control_flow(ControlFlow::Poll);
-                }
-            }
-
-            if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                    event_loop.exit();
+            UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+                // TODO(bug): this is unexpected behavior.
+                // When Reactive, user expects bevy to actually wait that amount of time,
+                // and not potentially infinitely depending on plateform specifics (which this does)
+                // Need to verify the plateform specifics (whether this can occur in
+                // rare-but-possible cases) and replace this with a panic or a log warn!
+                if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                    runner_state.scheduled_update = Some(next);
+                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                } else {
+                    runner_state.scheduled_update = None;
+                    event_loop.set_control_flow(ControlFlow::Wait);
                 }
             }
         }
 
-        // create any new windows
-        // (even if app did not update, some may have been created by plugin setup)
-        let (
-            commands,
-            mut windows,
-            event_writer,
-            winit_windows,
-            adapters,
-            handlers,
-            accessibility_requested,
-        ) = create_window_system_state.get_mut(&mut app.world);
+        if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
+            if redraw_event_reader.read(app_redraw_events).last().is_some() {
+                runner_state.redraw_requested = true;
+            }
+        }
 
-        create_windows(
-            event_loop,
-            commands,
-            windows.iter_mut(),
-            event_writer,
-            winit_windows,
-            adapters,
-            handlers,
-            accessibility_requested,
-        );
-
-        create_window_system_state.apply(&mut app.world);
+        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+            if app_exit_event_reader.read(app_exit_events).last().is_some() {
+                event_loop.exit();
+            }
+        }
     }
+
+    // create any new windows
+    // (even if app did not update, some may have been created by plugin setup)
+    let (
+        commands,
+        mut windows,
+        event_writer,
+        winit_windows,
+        adapters,
+        handlers,
+        accessibility_requested,
+    ) = create_window_system_state.get_mut(&mut app.world);
+
+    create_windows(
+        event_loop,
+        commands,
+        windows.iter_mut(),
+        event_writer,
+        winit_windows,
+        adapters,
+        handlers,
+        accessibility_requested,
+    );
+
+    create_window_system_state.apply(&mut app.world);
 }
