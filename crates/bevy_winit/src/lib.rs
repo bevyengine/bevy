@@ -142,7 +142,6 @@ impl Plugin for WinitPlugin {
         let event_loop = event_loop_builder
             .build()
             .expect("Failed to build event loop");
-        event_loop.set_control_flow(ControlFlow::Wait);
 
         // iOS, macOS, and Android don't like it if you create windows before the event loop is
         // initialized.
@@ -657,7 +656,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::RedrawRequested => {
-                        redraw_requested(
+                        run_app_update_if_should(
                             &mut runner_state,
                             &mut app,
                             &mut focused_windows_state,
@@ -762,24 +761,7 @@ pub fn winit_runner(mut app: App) {
     }
 }
 
-fn react_to_resize(
-    window: &mut Mut<'_, Window>,
-    size: winit::dpi::PhysicalSize<u32>,
-    event_writers: &mut WindowAndInputEventWriters<'_>,
-    window_entity: Entity,
-) {
-    window
-        .resolution
-        .set_physical_resolution(size.width, size.height);
-
-    event_writers.window_resized.send(WindowResized {
-        window: window_entity,
-        width: window.width(),
-        height: window.height(),
-    });
-}
-
-fn redraw_requested(
+fn run_app_update_if_should(
     runner_state: &mut WinitAppRunnerState,
     app: &mut App,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
@@ -814,13 +796,11 @@ fn redraw_requested(
     let (config, windows) = focused_windows_state.get(&app.world);
     let focused = windows.iter().any(|window| window.focused);
     let should_update = match config.update_mode(focused) {
-        UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
-            // `Reactive`: In order for `event_handler` to have been called, either
-            // we received a window or raw input event, the `wait` elapsed, or a
-            // redraw was requested (by the app or the OS). There are no other
-            // conditions, so we can just return `true` here.
-            true
-        }
+        // `Reactive`: In order for `event_handler` to have been called, either
+        // we received a window or raw input event, the `wait` elapsed, or a
+        // redraw was requested (by the app or the OS). There are no other
+        // conditions, so we can just return `true` here.
+        UpdateMode::Continuous | UpdateMode::Reactive { .. } => true,
         UpdateMode::ReactiveLowPower { .. } => {
             runner_state.wait_elapsed
                 || runner_state.redraw_requested
@@ -897,4 +877,21 @@ fn redraw_requested(
     );
 
     create_window_system_state.apply(&mut app.world);
+}
+
+fn react_to_resize(
+    window: &mut Mut<'_, Window>,
+    size: winit::dpi::PhysicalSize<u32>,
+    event_writers: &mut WindowAndInputEventWriters<'_>,
+    window_entity: Entity,
+) {
+    window
+        .resolution
+        .set_physical_resolution(size.width, size.height);
+
+    event_writers.window_resized.send(WindowResized {
+        window: window_entity,
+        width: window.width(),
+        height: window.height(),
+    });
 }
