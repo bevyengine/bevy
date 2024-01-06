@@ -1,19 +1,23 @@
 use bevy::{ecs::schedule::Stepping, prelude::*};
+use bevy_internal::log::LogPlugin;
 
 fn main() {
     let mut app = App::new();
 
-    app.add_systems(
-        Update,
-        (
-            update_system_one,
-            // establish a dependency here to simplify descriptions below
-            update_system_two.after(update_system_one),
-            update_system_three.after(update_system_two),
-            update_system_four,
-        ),
-    )
-    .add_systems(PreUpdate, pre_update_system);
+    app
+        // to display log messages from Stepping resource
+        .add_plugins(LogPlugin::default())
+        .add_systems(
+            Update,
+            (
+                update_system_one,
+                // establish a dependency here to simplify descriptions below
+                update_system_two.after(update_system_one),
+                update_system_three.after(update_system_two),
+                update_system_four,
+            ),
+        )
+        .add_systems(PreUpdate, pre_update_system);
 
     // For the simplicity of this example, we directly modify the `Stepping`
     // resource here and run the systems with `App::update()`.  Each call to
@@ -185,7 +189,7 @@ fn main() {
 }
 
 fn pre_update_system() {
-    println!("▶ pre_update_system -- app.update() called");
+    println!("▶ pre_update_system");
 }
 fn update_system_one() {
     println!("▶ update_system_one");
