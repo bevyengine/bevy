@@ -360,6 +360,7 @@ pub fn winit_runner(mut app: App) {
                 }
             }
         }
+        runner_state.redraw_requested = false;
 
         match event {
             Event::NewEvents(start_cause) => match start_cause {
@@ -656,6 +657,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::RedrawRequested => {
+                        runner_state.redraw_requested = false;
                         run_app_update_if_should(
                             &mut runner_state,
                             &mut app,
@@ -665,13 +667,6 @@ pub fn winit_runner(mut app: App) {
                             &mut app_exit_event_reader,
                             &mut redraw_event_reader,
                         );
-                        if runner_state.redraw_requested {
-                            let (_, winit_windows, _, _) =
-                                event_writer_system_state.get_mut(&mut app.world);
-                            if let Some(window) = winit_windows.get_window(window_entity) {
-                                window.request_redraw();
-                            }
-                        }
                     }
                     _ => {}
                 }
@@ -687,6 +682,7 @@ pub fn winit_runner(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
+                runner_state.redraw_requested = true;
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
@@ -752,6 +748,12 @@ pub fn winit_runner(mut app: App) {
             }
             _ => (),
         }
+        if runner_state.redraw_requested {
+            let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
+            for window in winit_windows.windows.values() {
+                window.request_redraw();
+            }
+        }
     };
 
     trace!("starting winit event loop");
@@ -801,6 +803,8 @@ fn run_app_update_if_should(
         // redraw was requested (by the app or the OS). There are no other
         // conditions, so we can just return `true` here.
         UpdateMode::Continuous | UpdateMode::Reactive { .. } => true,
+        // TODO(bug): This is currently always true since we only run this function
+        // if we received a `RequestRedraw` event.
         UpdateMode::ReactiveLowPower { .. } => {
             runner_state.wait_elapsed
                 || runner_state.redraw_requested
@@ -811,8 +815,6 @@ fn run_app_update_if_should(
     if app.plugins_state() == PluginsState::Cleaned && should_update {
         // reset these on each update
         runner_state.wait_elapsed = false;
-        runner_state.window_event_received = false;
-        runner_state.redraw_requested = false;
         runner_state.last_update = Instant::now();
 
         app.update();
