@@ -19,12 +19,12 @@ use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     Style, UiImage, UiScale, UiTextureAtlasImage, Val,
 };
-use crate::{Outline, UiColor};
+use crate::{Outline, UiColor, resolve_color_stops, OutlineStyle};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_math::Vec3Swizzles;
+use bevy_math::{Vec3Swizzles, vec2};
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
@@ -240,10 +240,11 @@ pub fn extract_atlas_uinodes(
         };
 
         extracted_uinodes.push_node(
-            stack_index,
+            entity,
+            uinode.stack_index as usize,
             uinode.position.into(),
             uinode.size().into(),
-            Some(image),
+            Some(image.id()),
             atlas_rect,
             color,
             uinode.border,
@@ -273,6 +274,7 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<
             (
+                Entity,
                 &Node,
                 &GlobalTransform,
                 &Style,
@@ -288,7 +290,7 @@ pub fn extract_uinode_borders(
 ) {
     let image = AssetId::<Image>::default();
 
-    let ui_logical_viewport_size = windows
+    let viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
         .unwrap_or(Vec2::ZERO)
@@ -296,83 +298,64 @@ pub fn extract_uinode_borders(
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;
 
-    for (node, global_transform, style, border_color, parent, view_visibility, clip) in
+    for (entity, uinode, global_transform, style, border_color, parent, view_visibility, clip) in
         uinode_query.iter()
     {
         // Skip invisible borders
         if !view_visibility.get()
             || border_color.0.is_fully_transparent()
-            || node.size().x <= 0.
-            || node.size().y <= 0.
+            || uinode.size().x <= 0.
+            || uinode.size().y <= 0.
         {
             continue;
         }
 
-        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
-            .map(|parent_node| parent_node.size().x)
-            .unwrap_or(ui_logical_viewport_size.x);
-        let left =
-            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
-        let right =
-            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
-        let top =
-            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
-        let bottom =
-            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
-
-        // Calculate the border rects, ensuring no overlap.
-        // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
-        let max = 0.5 * node.size();
-        let min = -max;
-        let inner_min = min + Vec2::new(left, top);
-        let inner_max = (max - Vec2::new(right, bottom)).max(inner_min);
-        let border_rects = [
-            // Left border
-            Rect {
-                min,
-                max: Vec2::new(inner_min.x, max.y),
-            },
-            // Right border
-            Rect {
-                min: Vec2::new(inner_max.x, min.y),
-                max,
-            },
-            // Top border
-            Rect {
-                min: Vec2::new(inner_min.x, min.y),
-                max: Vec2::new(inner_max.x, inner_min.y),
-            },
-            // Bottom border
-            Rect {
-                min: Vec2::new(inner_min.x, inner_max.y),
-                max: Vec2::new(inner_max.x, max.y),
-            },
-        ];
+        let size = uinode.size();
+        let position = uinode.position();
+        let border = uinode.border;
 
         let transform = global_transform.compute_matrix();
 
-        for edge in border_rects {
-            if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                extracted_uinodes.uinodes.insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        stack_index: node.stack_index,
-                        // This translates the uinode's transform to the center of the current border rectangle
-                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                        color: border_color.0,
-                        rect: Rect {
-                            max: edge.size(),
-                            ..Default::default()
-                        },
-                        image,
-                        atlas_size: None,
-                        clip: clip.map(|clip| clip.clip),
-                        flip_x: false,
-                        flip_y: false,
-                    },
+        
+        match &border_color.0 {
+            UiColor::Color(color) => {
+                extracted_uinodes.push_border(
+                    entity, uinode.stack_index as usize,
+                    position,
+                    size,
+                    *color,
+                    uinode.border,
+                    uinode.border_radius,
+                    clip.map(|clip| clip.clip),
+                );
+            }
+            UiColor::LinearGradient(l) => {
+                let (start_point, length) = l.resolve_geometry(uinode.rect());
+                let stops = resolve_color_stops(&l.stops, length, viewport_size);
+                extracted_uinodes.push_border_with_linear_gradient(
+                    entity, uinode.stack_index as usize,
+                    position,
+                    size,
+                    border,
+                    uinode.border_radius,
+                    start_point,
+                    l.angle,
+                    &stops,
+                    clip.map(|clip| clip.clip),
+                );
+            }
+            UiColor::RadialGradient(r) => {
+                let ellipse = r.resolve_geometry(uinode.rect(), viewport_size);
+                let stops = resolve_color_stops(&r.stops, ellipse.extents.x, viewport_size);
+                extracted_uinodes.push_border_with_radial_gradient(
+                    entity, uinode.stack_index as usize,
+                    position,
+                    size,
+                    border,
+                    uinode.border_radius,
+                    ellipse,
+                    &stops,
+                    clip.map(|clip| clip.clip),
                 );
             }
         }
@@ -384,80 +367,79 @@ pub fn extract_uinode_outlines(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &Outline,
+            Option<&OutlineStyle>,
             &ViewVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, view_visibility, maybe_clip) in uinode_query.iter() {
+    for (entity, uinode, global_transform, outline, maybe_outline_style, view_visibility, maybe_clip) in uinode_query.iter() {
         // Skip invisible outlines
         if !view_visibility.get()
             || outline.color.is_fully_transparent()
-            || node.outline_width == 0.
+            || uinode.outline_width == 0.
         {
             continue;
         }
 
-        // Calculate the outline rects.
-        let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
-        let outer_rect = inner_rect.inset(node.outline_width());
-        let outline_edges = [
-            // Left edge
-            Rect::new(
-                outer_rect.min.x,
-                outer_rect.min.y,
-                inner_rect.min.x,
-                outer_rect.max.y,
-            ),
-            // Right edge
-            Rect::new(
-                inner_rect.max.x,
-                outer_rect.min.y,
-                outer_rect.max.x,
-                outer_rect.max.y,
-            ),
-            // Top edge
-            Rect::new(
-                inner_rect.min.x,
-                outer_rect.min.y,
-                inner_rect.max.x,
-                inner_rect.min.y,
-            ),
-            // Bottom edge
-            Rect::new(
-                inner_rect.min.x,
-                inner_rect.max.y,
-                inner_rect.max.x,
-                outer_rect.max.y,
-            ),
-        ];
-
-        let transform = global_transform.compute_matrix();
-
-        for edge in outline_edges {
-            if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                extracted_uinodes.uinodes.insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        stack_index: node.stack_index,
-                        // This translates the uinode's transform to the center of the current border rectangle
-                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                        color: outline.color,
-                        rect: Rect {
-                            max: edge.size(),
-                            ..Default::default()
-                        },
-                        image,
-                        atlas_size: None,
-                        clip: maybe_clip.map(|clip| clip.clip),
-                        flip_x: false,
-                        flip_y: false,
-                    },
+        match maybe_outline_style.unwrap_or(&OutlineStyle::Solid) {
+            OutlineStyle::Solid => {
+                extracted_uinodes.push_border(
+                    entity,
+                    uinode.stack_index as usize,
+                    uinode.position()
+                        - Vec2::splat(uinode.outline_offset + uinode.outline_width),
+                    uinode.size() + 2. * (uinode.outline_width + uinode.outline_offset),
+                    outline.color,
+                    [uinode.outline_width; 4],
+                    uinode.border_radius.map(|r| {
+                        if r <= 0. {
+                            0.
+                        } else {
+                            r + uinode.outline_offset + uinode.outline_width
+                        }
+                    }),
+                    maybe_clip.map(|clip| clip.clip),
                 );
+            }
+            OutlineStyle::Dashed {
+                dash_length,
+                break_length,
+            } => {
+                let dl = if let Val::Px(dl) = *dash_length {
+                    dl
+                } else {
+                    10.
+                };
+                let bl = if let Val::Px(bl) = *break_length {
+                    bl
+                } else {
+                    dl
+                };
+                extracted_uinodes.push_dashed_border(
+                    entity,
+                    uinode.stack_index as usize,
+                    uinode.position()
+                        - Vec2::splat(uinode.outline_offset + uinode.outline_width),
+                    uinode.size() + 2. * (uinode.outline_width + uinode.outline_offset),
+                    outline.color,
+                    uinode.outline_width,
+                    dl,
+                    bl,
+                    uinode.border_radius.map(|r| {
+                        if r <= 0. {
+                            0.
+                        } else {
+                            r + uinode.outline_offset + uinode.outline_width
+                        }
+                    }),
+                    maybe_clip.map(|clip| clip.clip),
+                )
             }
         }
     }
@@ -466,7 +448,9 @@ pub fn extract_uinode_outlines(
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
-    uinode_query: Extract<
+    ui_scale: Extract<Res<UiScale>>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+        uinode_query: Extract<
         Query<
             (
                 Entity,
@@ -481,6 +465,12 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
+    let viewport_size = windows
+    .get_single()
+    .map(|window| vec2(window.resolution.width(), window.resolution.height()))
+    .unwrap_or(Vec2::ZERO)
+    / ui_scale.0 as f32;
+
     for (entity, uinode, transform, color, maybe_image, view_visibility, clip) in
         uinode_query.iter()
     {
@@ -498,15 +488,15 @@ pub fn extract_uinodes(
             if !images.contains(&image.texture) {
                 continue;
             }
-            (image.texture.id(), image.flip_x, image.flip_y)
+            (Some(image.texture.id()), image.flip_x, image.flip_y)
         } else {
-            (AssetId::default(), false, false)
+            (None, false, false)
         };
 
         match &color.0 {
             UiColor::Color(color) => {
                 extracted_uinodes.push_node(
-                    uinode.stack_index,
+                    entity, uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
                     image,
@@ -521,7 +511,7 @@ pub fn extract_uinodes(
                 let (start_point, length) = l.resolve_geometry(uinode.rect());
                 let stops = resolve_color_stops(&l.stops, length, viewport_size);
                 extracted_uinodes.push_node_with_linear_gradient(
-                    uinode.stack_index,
+                    entity, uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
                     uinode.border,
@@ -536,7 +526,7 @@ pub fn extract_uinodes(
                 let ellipse = r.resolve_geometry(uinode.rect(), viewport_size);
                 let stops = resolve_color_stops(&r.stops, ellipse.extents.x, viewport_size);
                 extracted_uinodes.push_node_with_radial_gradient(
-                    uinode.stack_index,
+                    entity, uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
                     uinode.border(),
@@ -637,6 +627,7 @@ pub fn extract_text_uinodes(
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &Text,
@@ -656,7 +647,7 @@ pub fn extract_text_uinodes(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (uinode, global_transform, text, text_layout_info, view_visibility, clip) in
+    for (entity, uinode, global_transform, text, text_layout_info, view_visibility, clip) in
         uinode_query.iter()
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -664,24 +655,14 @@ pub fn extract_text_uinodes(
             continue;
         }
 
-        let mut affine = global_transform.affine();
+        let node_position =
+        (uinode.position() * scale_factor as f32).round() / scale_factor as f32;
 
-        // Align the text to the nearest physical pixel:
-        // * Translate by minus the text node's half-size
-        //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
-        // * Multiply the logical coordinates by the scale factor to get its position in physical coordinates
-        // * Round the physical position to the nearest physical pixel
-        // * Multiply by the rounded physical position by the inverse scale factor to return to logical coordinates
-        let logical_top_left = affine.translation.xy() - 0.5 * uinode.size();
-        let physical_nearest_pixel = (logical_top_left * scale_factor).round();
-        let logical_top_left_nearest_pixel = physical_nearest_pixel * inverse_scale_factor;
-        affine.translation = logical_top_left_nearest_pixel.extend(0.).into();
-        let transform = Mat4::from(affine);
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
-            position,
+            position: glyph_position,
             atlas_info,
             section_index,
             ..
@@ -691,26 +672,30 @@ pub fn extract_text_uinodes(
                 color = text.sections[*section_index].style.color.as_rgba_linear();
                 current_section = *section_index;
             }
-            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+            if let Some(atlas) = texture_atlases.get(&atlas_info.texture_atlas) {
 
-            let mut rect = atlas.textures[atlas_info.glyph_index];
-            rect.min *= inverse_scale_factor;
-            rect.max *= inverse_scale_factor;
-            extracted_uinodes.uinodes.insert(
-                commands.spawn_empty().id(),
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index,
-                    transform: transform
-                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                    color,
-                    rect,
-                    image: atlas.texture.id(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
-                    clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
-                },
+            let mut uv_rect = atlas.textures[atlas_info.glyph_index];
+            let scaled_glyph_size = uv_rect.size() * inverse_scale_factor;
+            let scaled_glyph_position = *glyph_position * inverse_scale_factor;
+            uv_rect.min /= atlas.size;
+            uv_rect.max /= atlas.size;
+
+            let position = node_position + scaled_glyph_position - 0.5 * scaled_glyph_size;
+
+
+            extracted_uinodes.push_glyph(
+                entity,
+                uinode.stack_index as usize,
+                position,
+                scaled_glyph_size,
+                atlas.texture.id(),
+                color,
+                clip.map(|clip| clip.clip),
+                uv_rect,
             );
+
+            }       
+
         }
     }
 }
