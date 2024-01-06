@@ -55,10 +55,10 @@ pub fn extract_meshlet_meshes(
         (instance, handle, transform, previous_transform, not_shadow_receiver, _not_shadow_caster),
     ) in query.iter().enumerate()
     {
-        if asset_server.is_managed(handle.id()) {
-            if !asset_server.is_loaded_with_dependencies(handle.id()) {
-                continue;
-            }
+        if asset_server.is_managed(handle.id())
+            && !asset_server.is_loaded_with_dependencies(handle.id())
+        {
+            continue;
         }
 
         gpu_scene.queue_meshlet_mesh_upload(instance, handle, &mut assets, instance_index as u32);
