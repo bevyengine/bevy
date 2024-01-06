@@ -10,8 +10,8 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
-#[cfg(feature = "debug")]
-mod debug_overlay;
+#[cfg(feature = "debug_layout")]
+pub mod debug_overlay;
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]

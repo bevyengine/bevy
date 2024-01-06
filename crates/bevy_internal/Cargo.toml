@@ -146,7 +146,7 @@ file_watcher = ["bevy_asset?/file_watcher"]
 embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 # Enable the bevy_ui debug overlay
-bevy_ui_debug = ["bevy_ui?/debug"]
+bevy_ui_debug = ["bevy_ui?/debug_layout"]
 
 [dependencies]
 # bevy
