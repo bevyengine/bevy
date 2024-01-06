@@ -160,6 +160,8 @@ impl Plugin for UiPlugin {
                     .before(Assets::<Image>::track_assets),
             ),
         );
+        #[cfg(feature = "debug_layout")]
+        app.add_plugins(debug_overlay::DebugUiPlugin);
 
         #[cfg(feature = "bevy_text")]
         app.add_plugins(accessibility::AccessibilityPlugin);

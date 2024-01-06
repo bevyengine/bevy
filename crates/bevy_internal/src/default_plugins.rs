@@ -99,10 +99,6 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_ui")]
         {
             group = group.add(bevy_ui::UiPlugin);
-            #[cfg(feature = "bevy_ui_debug")]
-            {
-                group = group.add(bevy_ui::debug_overlay::DebugUiPlugin::default());
-            }
         }
 
         #[cfg(feature = "bevy_pbr")]
