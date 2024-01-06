@@ -1,8 +1,8 @@
+pub mod extracted;
+pub mod instances;
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
-pub mod instances;
-pub mod extracted;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
@@ -14,11 +14,12 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
-use crate::Outline;
+use crate::extracted::ExtractedUiNodes;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     Style, UiImage, UiScale, UiTextureAtlasImage, Val,
 };
+use crate::{Outline, UiColor};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -101,8 +102,8 @@ pub fn build_ui_render(app: &mut App) {
                     .after(RenderUiSystem::ExtractAtlasNode)
                     .after(RenderUiSystem::ExtractText),
                 extract_uinode_outlines
-                .in_set(RenderUiSystem::ExtractOutline)
-                .after(RenderUiSystem::ExtractBorder),
+                    .in_set(RenderUiSystem::ExtractOutline)
+                    .after(RenderUiSystem::ExtractBorder),
             ),
         )
         .add_systems(
@@ -165,23 +166,6 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     let mut ui_graph = RenderGraph::default();
     ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
     ui_graph
-}
-
-pub struct ExtractedUiNode {
-    pub stack_index: u32,
-    pub transform: Mat4,
-    pub color: Color,
-    pub rect: Rect,
-    pub image: AssetId<Image>,
-    pub atlas_size: Option<Vec2>,
-    pub clip: Option<Rect>,
-    pub flip_x: bool,
-    pub flip_y: bool,
-}
-
-#[derive(Resource, Default)]
-pub struct ExtractedUiNodes {
-    pub uinodes: EntityHashMap<Entity, ExtractedUiNode>,
 }
 
 pub fn extract_atlas_uinodes(
@@ -247,24 +231,24 @@ pub fn extract_atlas_uinodes(
             continue;
         }
 
-        let scale = uinode.size() / atlas_rect.size();
-        atlas_rect.min *= scale;
-        atlas_rect.max *= scale;
-        atlas_size *= scale;
+        atlas_rect.min /= atlas_size;
+        atlas_rect.max /= atlas_size;
 
-        extracted_uinodes.uinodes.insert(
-            entity,
-            ExtractedUiNode {
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: atlas_rect,
-                clip: clip.map(|clip| clip.clip),
-                image: image.id(),
-                atlas_size: Some(atlas_size),
-                flip_x: atlas_image.flip_x,
-                flip_y: atlas_image.flip_y,
-            },
+        let color = match &color.0 {
+            UiColor::Color(color) => *color,
+            _ => Color::NONE,
+        };
+
+        extracted_uinodes.push_node(
+            stack_index,
+            uinode.position.into(),
+            uinode.size().into(),
+            Some(image),
+            atlas_rect,
+            color,
+            uinode.border,
+            uinode.border_radius,
+            clip.map(|clip| clip.clip),
         );
     }
 }
@@ -501,7 +485,11 @@ pub fn extract_uinodes(
         uinode_query.iter()
     {
         // Skip invisible and completely transparent nodes
-        if !view_visibility.get() || color.0.is_fully_transparent() {
+        if !view_visibility.get()
+            || color.0.is_fully_transparent()
+            || uinode.size().x <= 0.
+            || uinode.size().y <= 0.
+        {
             continue;
         }
 
@@ -515,23 +503,50 @@ pub fn extract_uinodes(
             (AssetId::default(), false, false)
         };
 
-        extracted_uinodes.uinodes.insert(
-            entity,
-            ExtractedUiNode {
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix(),
-                color: color.0,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
-                clip: clip.map(|clip| clip.clip),
-                image,
-                atlas_size: None,
-                flip_x,
-                flip_y,
-            },
-        );
+        match &color.0 {
+            UiColor::Color(color) => {
+                extracted_uinodes.push_node(
+                    uinode.stack_index,
+                    uinode.position,
+                    uinode.size(),
+                    image,
+                    Rect::new(0.0, 0.0, 1.0, 1.0),
+                    *color,
+                    uinode.border,
+                    uinode.border_radius,
+                    clip.map(|clip| clip.clip),
+                );
+            }
+            UiColor::LinearGradient(l) => {
+                let (start_point, length) = l.resolve_geometry(uinode.rect());
+                let stops = resolve_color_stops(&l.stops, length, viewport_size);
+                extracted_uinodes.push_node_with_linear_gradient(
+                    uinode.stack_index,
+                    uinode.position,
+                    uinode.size(),
+                    uinode.border,
+                    uinode.border_radius,
+                    start_point,
+                    l.angle,
+                    &stops,
+                    clip.map(|clip| clip.clip),
+                );
+            }
+            UiColor::RadialGradient(r) => {
+                let ellipse = r.resolve_geometry(uinode.rect(), viewport_size);
+                let stops = resolve_color_stops(&r.stops, ellipse.extents.x, viewport_size);
+                extracted_uinodes.push_node_with_radial_gradient(
+                    uinode.stack_index,
+                    uinode.position,
+                    uinode.size(),
+                    uinode.border(),
+                    uinode.border_radius,
+                    ellipse,
+                    &stops,
+                    clip.map(|clip| clip.clip),
+                );
+            }
+        }
     }
 }
 
@@ -761,8 +776,8 @@ pub fn queue_uinodes(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
-            UiPipelineKey { 
-                hdr: view.hdr, 
+            UiPipelineKey {
+                hdr: view.hdr,
                 clip: false,
                 specialization: UiPipelineSpecialization::Node,
             },

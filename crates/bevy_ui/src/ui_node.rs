@@ -1,12 +1,15 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Vec2, vec2};
+use bevy_math::{vec2, Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{smallvec::SmallVec, FloatOrd};
-use std::{num::{NonZeroI16, NonZeroU16}, f32::consts::{FRAC_PI_2, PI}};
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    num::{NonZeroI16, NonZeroU16},
+};
 use thiserror::Error;
 
 /// Describes the size of a UI node
@@ -118,7 +121,6 @@ impl Node {
     pub fn border(&self) -> [f32; 4] {
         self.border
     }
-
 }
 
 impl Node {
@@ -2527,10 +2529,10 @@ mod tests {
     use bevy_math::Vec2;
     use bevy_render::color::Color;
 
+    use crate::resolve_color_stops;
     use crate::ColorStop;
     use crate::GridPlacement;
     use crate::Val;
-    use crate::resolve_color_stops;
 
     #[test]
     fn invalid_grid_placement_values() {
@@ -2610,4 +2612,3 @@ mod tests {
         assert_eq!(r[4].1, 1.0);
     }
 }
-

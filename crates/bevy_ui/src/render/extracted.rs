@@ -5,19 +5,25 @@ use bevy_math::Vec4;
 use bevy_render::color::Color;
 use bevy_render::texture::Image;
 
+use super::*;
 use crate::instances::ExtractedInstance;
 use crate::instances::NodeInstance;
 use crate::instances::TextInstance;
-use crate::prelude::*;
-use super::*;
 use crate::instances::*;
+use crate::prelude::*;
 
 use super::TEXTURED_QUAD;
 use super::UNTEXTURED_QUAD;
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: Vec<ExtractedItem>,
+    pub uinodes: EntityHashMap<Entity, ExtractedItem>,
+}
+
+impl ExtractedUiNodes {
+    pub fn push(&mut self, entity: Entity, item: ExtractedItem) {
+        self.uinodes.insert(entity, item);
+    }
 }
 
 pub struct ExtractedItem {
@@ -47,6 +53,7 @@ pub(crate) fn rect_to_f32_4(r: Rect) -> [f32; 4] {
 impl ExtractedUiNodes {
     pub fn push_glyph(
         &mut self,
+        entity: Entity,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -65,12 +72,12 @@ impl ExtractedUiNodes {
             uv_size,
             color,
         };
-        self.uinodes
-            .push(ExtractedItem::new(stack_index, image, (i, clip)));
+        self.push(entity, ExtractedItem::new(stack_index, image, (i, clip)));
     }
 
     pub fn push_node(
         &mut self,
+        entity: Entity,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -102,12 +109,12 @@ impl ExtractedUiNodes {
             radius,
             flags,
         };
-        self.uinodes
-            .push(ExtractedItem::new(stack_index, image, (i, clip)));
+        self.push(entity, ExtractedItem::new(stack_index, image, (i, clip)));
     }
 
     pub fn push_border(
         &mut self,
+        entity: Entity,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -130,15 +137,15 @@ impl ExtractedUiNodes {
             radius,
             flags,
         };
-        self.uinodes.push(ExtractedItem::new(
-            stack_index,
-            AssetId::default(),
-            (i, clip),
-        ));
+        self.push(
+            entity,
+            ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
+        );
     }
 
     pub fn push_dashed_border(
         &mut self,
+        entity: Entity,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -159,15 +166,15 @@ impl ExtractedUiNodes {
             dash_length,
             break_length,
         };
-        self.uinodes.push(ExtractedItem::new(
-            stack_index,
-            AssetId::default(),
-            (i, clip),
-        ));
+        self.push(
+            entity,
+            ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
+        );
     }
 
     pub fn push_border_with_linear_gradient(
         &mut self,
+        entity: Entity,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -207,16 +214,16 @@ impl ExtractedUiNodes {
                 end_len: end.1,
                 end_color: end.0.as_linear_rgba_f32(),
             };
-            self.uinodes.push(ExtractedItem::new(
-                stack_index,
-                AssetId::default(),
-                (i, clip),
-            ));
+            self.push(
+                entity,
+                ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
+            );
         }
     }
 
     pub fn push_border_with_radial_gradient(
         &mut self,
+        entity: Entity,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -258,16 +265,16 @@ impl ExtractedUiNodes {
                 end_len: end.1,
                 end_color: end.0.as_linear_rgba_f32(),
             };
-            self.uinodes.push(ExtractedItem::new(
-                stack_index,
-                AssetId::default(),
-                (i, clip),
-            ));
+            self.push(
+                entity,
+                ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
+            );
         }
     }
 
     pub fn push_node_with_linear_gradient(
         &mut self,
+        entity: Entity,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -306,13 +313,16 @@ impl ExtractedUiNodes {
                 end_len: end.1,
                 end_color: end.0.as_linear_rgba_f32(),
             };
-            self.uinodes
-                .push(ExtractedItem::new(stack_index, image.clone(), (i, clip)));
+            self.push(
+                entity,
+                ExtractedItem::new(stack_index, image.clone(), (i, clip)),
+            );
         }
     }
 
     pub fn push_node_with_radial_gradient(
         &mut self,
+        entity: Entity,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -351,11 +361,10 @@ impl ExtractedUiNodes {
                 end_len: end.1,
                 end_color: end.0.as_linear_rgba_f32(),
             };
-            self.uinodes.push(ExtractedItem::new(
-                stack_index,
-                AssetId::default(),
-                (i, clip),
-            ));
+            self.push(
+                entity,
+                ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
+            );
         }
     }
 }
