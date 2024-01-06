@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 pub mod instances;
+pub mod extracted;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
@@ -43,6 +44,8 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
+
+use self::instances::BatchType;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -732,12 +735,17 @@ pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component)]
 pub struct UiBatch {
+    pub batch_type: BatchType,
     pub range: Range<u32>,
     pub image: AssetId<Image>,
+    pub stack_index: u32,
 }
 
-const TEXTURED_QUAD: u32 = 0;
-const UNTEXTURED_QUAD: u32 = 1;
+const UNTEXTURED_QUAD: u32 = 0;
+const TEXTURED_QUAD: u32 = 1;
+const BORDERED: u32 = 32;
+const FILL_START: u32 = 64;
+const FILL_END: u32 = 128;
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
@@ -754,7 +762,10 @@ pub fn queue_uinodes(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey { 
-                hdr: view.hdr },
+                hdr: view.hdr, 
+                clip: false,
+                specialization: UiPipelineSpecialization::Node,
+            },
         );
         transparent_phase
             .items
