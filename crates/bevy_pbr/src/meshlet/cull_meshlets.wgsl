@@ -12,7 +12,7 @@
     view,
 }
 #ifdef MESHLET_SECOND_CULLING_PASS
-#import bevy_pbr::meshlet_bindings::{depth_pyramid, depth_pyramid_sampler}
+#import bevy_pbr::meshlet_bindings::depth_pyramid
 #endif
 #import bevy_render::maths::affine_to_square
 
@@ -53,13 +53,13 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
         let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
         let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
-        let depth_level = ceil(log2(max(width, height)));
-        let depth_uv = (aabb.xy + aabb.zw) * 0.5;
+        let depth_level = i32(ceil(log2(max(width, height)))); // TODO: Naga dosen't like this being a u32
+        let aabb_top_left = vec2<u32>(aabb.xy * depth_pyramid_size);
 
-        let depth_quad_a = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level).x;
-        let depth_quad_b = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(1i, 0i)).x;
-        let depth_quad_c = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(0i, 1i)).x;
-        let depth_quad_d = textureSampleLevel(depth_pyramid, depth_pyramid_sampler, depth_uv, depth_level, vec2(1i, 1i)).x;
+        let depth_quad_a = textureLoad(depth_pyramid, aabb_top_left, depth_level).x;
+        let depth_quad_b = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 0u), depth_level).x;
+        let depth_quad_c = textureLoad(depth_pyramid, aabb_top_left + vec2(0u, 1u), depth_level).x;
+        let depth_quad_d = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 1u), depth_level).x;
         let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
 
         let sphere_depth = -view.projection[3][2] / (bounding_sphere_center_view_space.z + bounding_sphere_radius);

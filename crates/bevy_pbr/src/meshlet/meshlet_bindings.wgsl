@@ -61,7 +61,6 @@ struct DrawIndirect {
 @group(0) @binding(10) var<uniform> view: View;
 #ifdef MESHLET_SECOND_CULLING_PASS
 @group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
-@group(0) @binding(12) var depth_pyramid_sampler: sampler;
 #endif
 #endif
 

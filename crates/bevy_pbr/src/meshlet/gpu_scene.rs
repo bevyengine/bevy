@@ -236,8 +236,8 @@ pub fn prepare_meshlet_per_frame_resources(
 
         let depth_size = Extent3d {
             // If not a power of 2, round down to the nearest power of 2 to ensure depth is conservative
-            width: (1 << (31 - view.viewport.z.leading_zeros())) / 2,
-            height: (1 << (31 - view.viewport.w.leading_zeros())) / 2,
+            width: 1 << (31 - view.viewport.z.leading_zeros()),
+            height: 1 << (31 - view.viewport.w.leading_zeros()),
             depth_or_array_layers: 1,
         };
         let depth_mip_count = depth_size.width.max(depth_size.height).ilog2() + 1;
@@ -374,7 +374,6 @@ pub fn prepare_meshlet_view_bind_groups(
                 .as_entire_binding(),
             view_uniforms.clone(),
             &view_resources.depth_pyramid.default_view,
-            &gpu_scene.depth_pyramid_sampler,
         ));
         let culling_second = render_device.create_bind_group(
             "meshlet_culling_second_bind_group",
@@ -586,7 +585,6 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                         texture_2d(TextureSampleType::Float { filterable: false }),
-                        sampler(SamplerBindingType::NonFiltering),
                     ),
                 ),
             ),
