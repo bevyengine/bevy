@@ -70,17 +70,26 @@ struct DebugOverlayCamera;
 
 /// The debug overlay options.
 #[derive(Resource, Clone, Default)]
-pub struct Options {
+pub struct DebugOptions {
     /// Whether the overlay is enabled.
     pub enabled: bool,
     /// The inputs used by the debug overlay.
     pub input_map: InputMap,
     layout_gizmos_camera: Option<Entity>,
 }
-
+impl DebugOptions {
+    fn new(key: &KeyCode) -> Self {
+        Self {
+            input_map: InputMap {
+                toggle_key: key.clone(),
+            },
+            ..Default::default()
+        }
+    }
+}
 fn update_debug_camera(
     mut gizmo_config: ResMut<GizmoConfig>,
-    mut options: ResMut<Options>,
+    mut options: ResMut<DebugOptions>,
     mut cmds: Commands,
     mut debug_cams: Query<&mut Camera, With<DebugOverlayCamera>>,
 ) {
@@ -183,7 +192,7 @@ fn outline_roots(
     roots: Query<(Entity, &GlobalTransform, &Node), Without<Parent>>,
     window: Query<&Window, With<PrimaryWindow>>,
     nonprimary_windows: Query<&Window, Without<PrimaryWindow>>,
-    options: Res<Options>,
+    options: Res<DebugOptions>,
 ) {
     if !options.enabled {
         return;
@@ -220,18 +229,28 @@ fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
 /// cameras.
 ///
 /// disabling the plugin will give you back gizmo control.
-pub struct DebugUiPlugin;
+pub struct DebugUiPlugin {
+    pub toggle_key: KeyCode,
+}
+impl Default for DebugUiPlugin {
+    fn default() -> Self {
+        Self {
+            toggle_key: KeyCode::F9,
+        }
+    }
+}
 impl Plugin for DebugUiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Options>().add_systems(
-            PostUpdate,
-            (
-                toggle_overlay,
-                update_debug_camera,
-                outline_roots.after(TransformSystem::TransformPropagate),
-            )
-                .chain(),
-        );
+        app.insert_resource(DebugOptions::new(&self.toggle_key))
+            .add_systems(
+                PostUpdate,
+                (
+                    toggle_overlay,
+                    update_debug_camera,
+                    outline_roots.after(TransformSystem::TransformPropagate),
+                )
+                    .chain(),
+            );
     }
     fn finish(&self, _app: &mut App) {
         info!(
@@ -239,7 +258,8 @@ impl Plugin for DebugUiPlugin {
             ----------------------------------------------\n\
             \n\
             This will show the outline of UI nodes.\n\
-            Press `F9` to switch between debug mods."
+            Press {:?} to cycle between debug modes.",
+            self.toggle_key
         );
     }
 }
