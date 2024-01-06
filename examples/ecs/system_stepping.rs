@@ -1,5 +1,4 @@
-use bevy::{ecs::schedule::Stepping, prelude::*};
-use bevy_internal::log::LogPlugin;
+use bevy::{ecs::schedule::Stepping, log::LogPlugin, prelude::*};
 
 fn main() {
     let mut app = App::new();
