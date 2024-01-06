@@ -52,7 +52,7 @@ use crate::{
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    renderer::{finalize_render_system, present_system, render_graph_system, send_time_system, RenderInstance},
     settings::RenderCreation,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -424,9 +424,13 @@ unsafe fn initialize_render_app(app: &mut App) {
                 // is running in parallel with the main app.
                 apply_extract_commands.in_set(RenderSet::ExtractCommands),
                 (
-                    PipelineCache::process_pipeline_queue_system.before(render_system),
-                    render_system,
+                    PipelineCache::process_pipeline_queue_system,
+                    render_graph_system,
+                    present_system,
+                    finalize_render_system,
+                    send_time_system,
                 )
+                    .chain()
                     .in_set(RenderSet::Render),
                 World::clear_entities.in_set(RenderSet::Cleanup),
             ),

@@ -22,7 +22,7 @@ use wgpu::{
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World) {
+pub fn render_graph_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
@@ -53,40 +53,47 @@ pub fn render_system(world: &mut World) {
 
         panic!("Error running render graph: {e}");
     }
+}
 
-    {
-        let _span = info_span!("present_frames").entered();
+/// Presents the frame in all extracted windows.
+pub fn present_system(world: &mut World) {
+    let _span = info_span!("present_frames").entered();
 
-        // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
-        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
-        let view_entities = world
-            .query_filtered::<Entity, With<ViewTarget>>()
-            .iter(world)
-            .collect::<Vec<_>>();
-        for view_entity in view_entities {
-            world.entity_mut(view_entity).remove::<ViewTarget>();
-        }
-
-        let mut windows = world.resource_mut::<ExtractedWindows>();
-        for window in windows.values_mut() {
-            if let Some(wrapped_texture) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = wrapped_texture.try_unwrap() {
-                    surface_texture.present();
-                }
-            }
-        }
-
-        #[cfg(feature = "tracing-tracy")]
-        bevy_utils::tracing::event!(
-            bevy_utils::tracing::Level::INFO,
-            message = "finished frame",
-            tracy.frame_mark = true
-        );
+    // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
+    // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
+    let view_entities = world
+        .query_filtered::<Entity, With<ViewTarget>>()
+        .iter(world)
+        .collect::<Vec<_>>();
+    for view_entity in view_entities {
+        world.entity_mut(view_entity).remove::<ViewTarget>();
     }
 
-    crate::view::screenshot::collect_screenshots(world);
+    let mut windows = world.resource_mut::<ExtractedWindows>();
+    for window in windows.values_mut() {
+        if let Some(wrapped_texture) = window.swap_chain_texture.take() {
+            if let Some(surface_texture) = wrapped_texture.try_unwrap() {
+                surface_texture.present();
+            }
+        }
+    }
 
-    // update the time and send it to the app world
+    #[cfg(feature = "tracing-tracy")]
+    bevy_utils::tracing::event!(
+        bevy_utils::tracing::Level::INFO,
+        message = "finished frame",
+        tracy.frame_mark = true
+    );
+}
+
+/// Finalizes any post-rendering rendering tasks.
+/// - Collects screenshots.
+pub fn finalize_render_system(world: &mut World) {
+    crate::view::screenshot::collect_screenshots(world);
+}
+
+/// Updates the time and sends it to the app world.
+pub fn send_time_system(world: &mut World) {
     let time_sender = world.resource::<TimeSender>();
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
         match error {
