@@ -77,11 +77,9 @@ pub struct DebugOptions {
     layout_gizmos_camera: Option<Entity>,
 }
 impl DebugOptions {
-    fn new(key: &KeyCode) -> Self {
+    fn new(key: KeyCode) -> Self {
         Self {
-            input_map: InputMap {
-                toggle_key: key.clone(),
-            },
+            input_map: InputMap { toggle_key: key },
             ..Default::default()
         }
     }
@@ -203,7 +201,7 @@ fn outline_roots(
         );
     }
     let scale_factor = Window::scale_factor;
-    let window_scale = window.get_single().map_or(1., scale_factor) as f32;
+    let window_scale = window.get_single().map_or(1., scale_factor);
     let line_width = outline.gizmo_config.line_width / window_scale;
     let mut draw = InsetGizmo::new(draw, cam, line_width);
     for (entity, trans, node) in &roots {
@@ -240,7 +238,7 @@ impl Default for DebugUiPlugin {
 }
 impl Plugin for DebugUiPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(DebugOptions::new(&self.toggle_key))
+        app.insert_resource(DebugOptions::new(self.toggle_key))
             .add_systems(
                 PostUpdate,
                 (
