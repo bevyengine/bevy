@@ -49,43 +49,24 @@ impl LayoutRect {
     }
 }
 
-/// The inputs used by the `bevy_ui` debug overlay.
-#[derive(Clone)]
-pub struct InputMap {
-    /// The key used for enabling/disabling the debug overlay, default is [`KeyCode::F9`].
-    pub toggle_key: KeyCode,
-}
-impl Default for InputMap {
-    fn default() -> Self {
-        InputMap {
-            toggle_key: KeyCode::F9,
-        }
-    }
-}
-
 #[derive(Component, Debug, Clone, Default)]
 struct DebugOverlayCamera;
 
 /// The debug overlay options.
 #[derive(Resource, Clone, Default)]
-pub struct DebugOptions {
+pub struct UiDebugOptions {
     /// Whether the overlay is enabled.
     pub enabled: bool,
-    /// The inputs used by the debug overlay.
-    pub input_map: InputMap,
     layout_gizmos_camera: Option<Entity>,
 }
-impl DebugOptions {
-    fn new(key: KeyCode) -> Self {
-        Self {
-            input_map: InputMap { toggle_key: key },
-            ..Default::default()
-        }
+impl UiDebugOptions {
+    pub fn toggle(&mut self) {
+        self.enabled = !self.enabled;
     }
 }
 fn update_debug_camera(
     mut gizmo_config: ResMut<GizmoConfig>,
-    mut options: ResMut<DebugOptions>,
+    mut options: ResMut<UiDebugOptions>,
     mut cmds: Commands,
     mut debug_cams: Query<&mut Camera, With<DebugOverlayCamera>>,
 ) {
@@ -134,19 +115,6 @@ fn update_debug_camera(
     }
 }
 
-fn toggle_overlay(input: Res<ButtonInput<KeyCode>>, mut options: ResMut<DebugOptions>) {
-    let map = &options.input_map;
-    if input.just_pressed(map.toggle_key) {
-        options.enabled = !options.enabled;
-        let mode = if options.enabled {
-            "Enabled"
-        } else {
-            "Disabled"
-        };
-        info!("{mode} UI node preview");
-    }
-}
-
 fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Entity) {
     let Ok(to_iter) = outline.children.get(this_entity) else {
         return;
@@ -188,7 +156,7 @@ fn outline_roots(
     roots: Query<(Entity, &GlobalTransform, &Node), Without<Parent>>,
     window: Query<&Window, With<PrimaryWindow>>,
     nonprimary_windows: Query<&Window, Without<PrimaryWindow>>,
-    options: Res<DebugOptions>,
+    options: Res<UiDebugOptions>,
 ) {
     if !options.enabled {
         return;
@@ -225,37 +193,16 @@ fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
 /// cameras.
 ///
 /// disabling the plugin will give you back gizmo control.
-pub struct DebugUiPlugin {
-    pub toggle_key: KeyCode,
-}
-impl Default for DebugUiPlugin {
-    fn default() -> Self {
-        Self {
-            toggle_key: KeyCode::F9,
-        }
-    }
-}
+pub struct DebugUiPlugin;
 impl Plugin for DebugUiPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(DebugOptions::new(self.toggle_key))
-            .add_systems(
-                PostUpdate,
-                (
-                    toggle_overlay,
-                    update_debug_camera,
-                    outline_roots.after(TransformSystem::TransformPropagate),
-                )
-                    .chain(),
-            );
-    }
-    fn finish(&self, _app: &mut App) {
-        info!(
-            "The bevy_ui debug overlay is active!\n\
-            ----------------------------------------------\n\
-            \n\
-            This will show the outline of UI nodes.\n\
-            Press {:?} to cycle between debug modes.",
-            self.toggle_key
+        app.init_resource::<UiDebugOptions>().add_systems(
+            PostUpdate,
+            (
+                update_debug_camera,
+                outline_roots.after(TransformSystem::TransformPropagate),
+            )
+                .chain(),
         );
     }
 }
