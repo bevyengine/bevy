@@ -1,14 +1,14 @@
 //! A visual representation of UI node sizes.
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_core::Name;
-use bevy_core_pipeline::clear_color::ClearColorConfig;
-use bevy_core_pipeline::core_2d::{Camera2d, Camera2dBundle};
+use bevy_core_pipeline::core_2d::Camera2dBundle;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_gizmos::prelude::{GizmoConfig, Gizmos};
 use bevy_hierarchy::{Children, Parent};
-use bevy_input::prelude::{Input, KeyCode};
+use bevy_input::prelude::{ButtonInput, KeyCode};
 use bevy_log::{info, warn};
 use bevy_math::{Vec2, Vec3Swizzles};
+use bevy_render::camera::ClearColorConfig;
 use bevy_render::{prelude::*, view::RenderLayers};
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
 use bevy_utils::default;
@@ -108,10 +108,8 @@ fn update_debug_camera(
                     },
                     camera: Camera {
                         order: LAYOUT_DEBUG_CAMERA_ORDER,
-                        ..default()
-                    },
-                    camera_2d: Camera2d {
                         clear_color: ClearColorConfig::None,
+                        ..default()
                     },
                     ..default()
                 },
@@ -131,7 +129,7 @@ fn update_debug_camera(
     }
 }
 
-fn toggle_overlay(input: Res<Input<KeyCode>>, mut options: ResMut<Options>) {
+fn toggle_overlay(input: Res<ButtonInput<KeyCode>>, mut options: ResMut<DebugOptions>) {
     let map = &options.input_map;
     if input.just_pressed(map.toggle_key) {
         options.enabled = !options.enabled;
