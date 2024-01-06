@@ -1,4 +1,7 @@
-use crate::mesh::{Indices, Mesh};
+use crate::{
+    mesh::{Indices, Mesh},
+    render_asset::RenderAssetPersistencePolicy,
+};
 use wgpu::PrimitiveTopology;
 
 /// A cylinder which stands on the XZ plane
@@ -118,10 +121,13 @@ impl From<Cylinder> for Mesh {
         build_cap(true);
         build_cap(false);
 
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_indices(Some(Indices::U32(indices)))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetPersistencePolicy::Keep,
+        )
+        .with_indices(Some(Indices::U32(indices)))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }

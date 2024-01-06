@@ -5,7 +5,6 @@ use std::f32::consts::PI;
 use bevy::{
     prelude::*,
     render::{
-        camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -100,14 +99,11 @@ fn setup(
 
     commands.spawn((
         Camera3dBundle {
-            camera_3d: Camera3d {
-                clear_color: Color::WHITE.into(),
-                ..default()
-            },
             camera: Camera {
                 // render before the "main pass" camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone()),
+                target: image_handle.clone().into(),
+                clear_color: Color::WHITE.into(),
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))

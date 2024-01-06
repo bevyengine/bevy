@@ -462,6 +462,9 @@ pub struct StandardMaterial {
     /// Default is `16.0`.
     pub max_parallax_layer_count: f32,
 
+    /// The exposure (brightness) level of the lightmap, if present.
+    pub lightmap_exposure: f32,
+
     /// Render method used for opaque materials. (Where `alpha_mode` is [`AlphaMode::Opaque`] or [`AlphaMode::Mask`])
     pub opaque_render_method: OpaqueRendererMethod,
 
@@ -513,6 +516,7 @@ impl Default for StandardMaterial {
             depth_map: None,
             parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
+            lightmap_exposure: 1.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             opaque_render_method: OpaqueRendererMethod::Auto,
             deferred_lighting_pass_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID,
@@ -549,27 +553,27 @@ bitflags::bitflags! {
     /// This is accessible in the shader in the [`StandardMaterialUniform`]
     #[repr(transparent)]
     pub struct StandardMaterialFlags: u32 {
-        const BASE_COLOR_TEXTURE         = (1 << 0);
-        const EMISSIVE_TEXTURE           = (1 << 1);
-        const METALLIC_ROUGHNESS_TEXTURE = (1 << 2);
-        const OCCLUSION_TEXTURE          = (1 << 3);
-        const DOUBLE_SIDED               = (1 << 4);
-        const UNLIT                      = (1 << 5);
-        const TWO_COMPONENT_NORMAL_MAP   = (1 << 6);
-        const FLIP_NORMAL_MAP_Y          = (1 << 7);
-        const FOG_ENABLED                = (1 << 8);
-        const DEPTH_MAP                  = (1 << 9); // Used for parallax mapping
-        const SPECULAR_TRANSMISSION_TEXTURE = (1 << 10);
-        const THICKNESS_TEXTURE          = (1 << 11);
-        const DIFFUSE_TRANSMISSION_TEXTURE = (1 << 12);
-        const ATTENUATION_ENABLED        = (1 << 13);
-        const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
-        const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
-        const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
-        const ALPHA_MODE_BLEND           = (2 << Self::ALPHA_MODE_SHIFT_BITS);                          //
-        const ALPHA_MODE_PREMULTIPLIED   = (3 << Self::ALPHA_MODE_SHIFT_BITS);                          //
-        const ALPHA_MODE_ADD             = (4 << Self::ALPHA_MODE_SHIFT_BITS);                          //   Right now only values 0–5 are used, which still gives
-        const ALPHA_MODE_MULTIPLY        = (5 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← us "room" for two more modes without adding more bits
+        const BASE_COLOR_TEXTURE         = 1 << 0;
+        const EMISSIVE_TEXTURE           = 1 << 1;
+        const METALLIC_ROUGHNESS_TEXTURE = 1 << 2;
+        const OCCLUSION_TEXTURE          = 1 << 3;
+        const DOUBLE_SIDED               = 1 << 4;
+        const UNLIT                      = 1 << 5;
+        const TWO_COMPONENT_NORMAL_MAP   = 1 << 6;
+        const FLIP_NORMAL_MAP_Y          = 1 << 7;
+        const FOG_ENABLED                = 1 << 8;
+        const DEPTH_MAP                  = 1 << 9; // Used for parallax mapping
+        const SPECULAR_TRANSMISSION_TEXTURE = 1 << 10;
+        const THICKNESS_TEXTURE          = 1 << 11;
+        const DIFFUSE_TRANSMISSION_TEXTURE = 1 << 12;
+        const ATTENUATION_ENABLED        = 1 << 13;
+        const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
+        const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
+        const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
+        const ALPHA_MODE_BLEND           = 2 << Self::ALPHA_MODE_SHIFT_BITS;                          //
+        const ALPHA_MODE_PREMULTIPLIED   = 3 << Self::ALPHA_MODE_SHIFT_BITS;                          //
+        const ALPHA_MODE_ADD             = 4 << Self::ALPHA_MODE_SHIFT_BITS;                          //   Right now only values 0–5 are used, which still gives
+        const ALPHA_MODE_MULTIPLY        = 5 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← us "room" for two more modes without adding more bits
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -621,6 +625,8 @@ pub struct StandardMaterialUniform {
     /// If your `parallax_depth_scale` is >0.1 and you are seeing jaggy edges,
     /// increase this value. However, this incurs a performance cost.
     pub max_parallax_layer_count: f32,
+    /// The exposure (brightness) level of the lightmap, if present.
+    pub lightmap_exposure: f32,
     /// Using [`ParallaxMappingMethod::Relief`], how many additional
     /// steps to use at most to find the depth value.
     pub max_relief_mapping_search_steps: u32,
@@ -720,6 +726,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,
             max_parallax_layer_count: self.max_parallax_layer_count,
+            lightmap_exposure: self.lightmap_exposure,
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
             deferred_lighting_pass_id: self.deferred_lighting_pass_id as u32,
         }
@@ -750,6 +757,50 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 }
 
 impl Material for StandardMaterial {
+    fn fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.into()
+    }
+
+    #[inline]
+    fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
+    }
+
+    #[inline]
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
+        match self.opaque_render_method {
+            // For now, diffuse transmission doesn't work under deferred rendering as we don't pack
+            // the required data into the GBuffer. If this material is set to `Auto`, we report it as
+            // `Forward` so that it's rendered correctly, even when the `DefaultOpaqueRendererMethod`
+            // is set to `Deferred`.
+            //
+            // If the developer explicitly sets the `OpaqueRendererMethod` to `Deferred`, we assume
+            // they know what they're doing and don't override it.
+            OpaqueRendererMethod::Auto if self.diffuse_transmission > 0.0 => {
+                OpaqueRendererMethod::Forward
+            }
+            other => other,
+        }
+    }
+
+    #[inline]
+    fn depth_bias(&self) -> f32 {
+        self.depth_bias
+    }
+
+    #[inline]
+    fn reads_view_transmission_texture(&self) -> bool {
+        self.specular_transmission > 0.0
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        PBR_PREPASS_SHADER_HANDLE.into()
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.into()
+    }
+
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
@@ -774,49 +825,5 @@ impl Material for StandardMaterial {
             depth_stencil.bias.constant = key.bind_group_data.depth_bias;
         }
         Ok(())
-    }
-
-    fn prepass_fragment_shader() -> ShaderRef {
-        PBR_PREPASS_SHADER_HANDLE.into()
-    }
-
-    fn deferred_fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
-    }
-
-    fn fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
-    }
-
-    #[inline]
-    fn alpha_mode(&self) -> AlphaMode {
-        self.alpha_mode
-    }
-
-    #[inline]
-    fn depth_bias(&self) -> f32 {
-        self.depth_bias
-    }
-
-    #[inline]
-    fn reads_view_transmission_texture(&self) -> bool {
-        self.specular_transmission > 0.0
-    }
-
-    #[inline]
-    fn opaque_render_method(&self) -> OpaqueRendererMethod {
-        match self.opaque_render_method {
-            // For now, diffuse transmission doesn't work under deferred rendering as we don't pack
-            // the required data into the GBuffer. If this material is set to `Auto`, we report it as
-            // `Forward` so that it's rendered correctly, even when the `DefaultOpaqueRendererMethod`
-            // is set to `Deferred`.
-            //
-            // If the developer explicitly sets the `OpaqueRendererMethod` to `Deferred`, we assume
-            // they know what they're doing and don't override it.
-            OpaqueRendererMethod::Auto if self.diffuse_transmission > 0.0 => {
-                OpaqueRendererMethod::Forward
-            }
-            other => other,
-        }
     }
 }

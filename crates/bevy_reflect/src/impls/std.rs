@@ -80,6 +80,7 @@ impl_reflect_value!(isize(
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_type_path!(str);
+impl_type_path!(::bevy_utils::EntityHash);
 impl_reflect_value!(::alloc::string::String(
     Debug,
     Hash,
@@ -1162,23 +1163,6 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
         self.to_mut().get_mut(index).map(|x| x as &mut dyn Reflect)
     }
 
-    fn len(&self) -> usize {
-        self.as_ref().len()
-    }
-
-    fn iter(&self) -> ListIter {
-        ListIter::new(self)
-    }
-
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
-        #[allow(clippy::unnecessary_to_owned)]
-        self.into_owned()
-            .into_iter()
-            .map(|value| value.clone_value())
-            .collect()
-    }
-
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
         let value = element.take::<T>().unwrap_or_else(|value| {
             T::from_reflect(&*value).unwrap_or_else(|| {
@@ -1210,9 +1194,30 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
             .pop()
             .map(|value| Box::new(value) as Box<dyn Reflect>)
     }
+
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
+        #[allow(clippy::unnecessary_to_owned)]
+        self.into_owned()
+            .into_iter()
+            .map(|value| value.clone_value())
+            .collect()
+    }
 }
 
 impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -1269,10 +1274,6 @@ impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
-
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
 }
 
 impl<T: FromReflect + Clone + TypePath> Typed for Cow<'static, [T]> {
@@ -1295,7 +1296,7 @@ impl<T: FromReflect + Clone + TypePath> FromReflect for Cow<'static, [T]> {
             for field in ref_list.iter() {
                 temp_vec.push(T::from_reflect(field)?);
             }
-            temp_vec.try_into().ok()
+            Some(temp_vec.into())
         } else {
             None
         }
@@ -1513,8 +1514,8 @@ mod tests {
         Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
-    use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
+    use bevy_utils::{EntityHashMap, HashMap};
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
 
@@ -1722,5 +1723,13 @@ mod tests {
         let path = Path::new("hello_world.rs");
         let output = <&'static Path as FromReflect>::from_reflect(&path).unwrap();
         assert_eq!(path, output);
+    }
+
+    #[test]
+    fn entity_hashmap_should_impl_reflect() {
+        let entity_map = bevy_utils::EntityHashMap::<i32, i32>::default();
+        let entity_map_type_info =
+            <EntityHashMap<_, _> as Reflect>::get_represented_type_info(&entity_map);
+        assert!(entity_map_type_info.is_some());
     }
 }

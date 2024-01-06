@@ -878,11 +878,11 @@ impl AssetProcessor {
                                     state_is_valid = false;
                                 };
                                 let Ok(source) = self.get_source(path.source()) else {
-                                    (unrecoverable_err)(&"AssetSource does not exist");
+                                    unrecoverable_err(&"AssetSource does not exist");
                                     continue;
                                 };
                                 let Ok(processed_writer) = source.processed_writer() else {
-                                    (unrecoverable_err)(&"AssetSource does not have a processed AssetWriter registered");
+                                    unrecoverable_err(&"AssetSource does not have a processed AssetWriter registered");
                                     continue;
                                 };
 
@@ -891,7 +891,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)(&err);
+                                                unrecoverable_err(&err);
                                             }
                                         }
                                     }
@@ -901,7 +901,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)(&err);
+                                                unrecoverable_err(&err);
                                             }
                                         }
                                     }

@@ -7,6 +7,7 @@ mod environment_map;
 mod extended_material;
 mod fog;
 mod light;
+mod lightmap;
 mod material;
 mod parallax;
 mod pbr_material;
@@ -20,6 +21,7 @@ pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
+pub use lightmap::*;
 pub use material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -258,6 +260,7 @@ impl Plugin for PbrPlugin {
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                LightmapPlugin,
             ))
             .configure_sets(
                 PostUpdate,

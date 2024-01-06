@@ -4,7 +4,7 @@ use std::hash::Hash;
 
 /// Stateful run condition that can be toggled via a input press using [`ButtonInput::just_pressed`].
 ///
-/// ```rust,no_run
+/// ```no_run
 /// use bevy::prelude::*;
 /// use bevy::input::common_conditions::input_toggle_active;
 ///
@@ -22,7 +22,7 @@ use std::hash::Hash;
 ///
 /// If you want other systems to be able to access whether the toggled state is active,
 /// you should use a custom resource or a state for that:
-/// ```rust,no_run
+/// ```no_run
 /// use bevy::prelude::*;
 /// use bevy::input::common_conditions::input_just_pressed;
 ///
@@ -71,7 +71,7 @@ where
 
 /// Run condition that is active if [`ButtonInput::just_pressed`] is true for the given input.
 ///
-/// ```rust,no_run
+/// ```no_run
 /// use bevy::prelude::*;
 /// use bevy::input::common_conditions::input_just_pressed;
 /// fn main() {

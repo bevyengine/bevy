@@ -1,6 +1,6 @@
 //! Renders two 3d passes to the same window from different perspectives.
 
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -47,13 +47,10 @@ fn setup(
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(10.0, 10., -5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        camera_3d: Camera3d {
-            clear_color: ClearColorConfig::None,
-            ..default()
-        },
         camera: Camera {
             // renders after / on top of the main camera
             order: 1,
+            clear_color: ClearColorConfig::None,
             ..default()
         },
         ..default()
