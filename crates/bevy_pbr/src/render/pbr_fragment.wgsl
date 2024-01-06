@@ -173,6 +173,7 @@ fn pbr_input_from_standard_material(
         }
 #endif
         // scale thickness, accounting for non-uniform scaling (e.g. a “squished” mesh)
+        // TODO: Meshlet support
 #ifndef MESHLET_MESH_MATERIAL_PASS
         thickness *= length(
             (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
