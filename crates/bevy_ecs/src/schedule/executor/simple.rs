@@ -33,13 +33,13 @@ impl SystemExecutor for SimpleExecutor {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        _skip_systems: Option<FixedBitSet>,
+        #[allow(unused_variables)] skip_systems: Option<FixedBitSet>,
         world: &mut World,
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
         #[cfg(feature = "bevy_debug_stepping")]
-        if let Some(skipped_systems) = _skip_systems {
+        if let Some(skipped_systems) = skip_systems {
             // mark skipped systems as completed
             self.completed_systems |= &skipped_systems;
         }

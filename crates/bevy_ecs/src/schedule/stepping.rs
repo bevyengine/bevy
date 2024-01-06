@@ -780,19 +780,23 @@ impl ScheduleState {
                         skip.insert(i);
                     }
                 }
-                // If we're continuing, and we encounter a breakpoint we want
-                // to stop before executing the system.  So we skip this system,
-                // and set the action to waiting.  Note that we do not move the
-                // cursor.  As a result, the next time we continue, if the
-                // first system is a Break we run it anyway.  This allows the
-                // user to continue, hit a breakpoint to stop before running
-                // the system, then continue again to run the system with the
-                // breakpoint.
+                // If we're continuing, and we encounter a breakpoint we may
+                // want to stop before executing the system.  To do this we
+                // skip this system and set the action to Waiting.
+                //
+                // Note: if the cursor is pointing at this system, we will run
+                // it anyway.  This allows the user to continue, hit a
+                // breakpoint, then continue again to run the breakpoint system
+                // and any following systems.
                 (Action::Continue, SystemBehavior::Break) => {
                     if i != start {
-                        debug_assert!(pos == i);
                         skip.insert(i);
-                        action = Action::Waiting;
+
+                        // stop running systems if the breakpoint isn't the
+                        // system under the cursor.
+                        if i > start {
+                            action = Action::Waiting;
+                        }
                     }
                 }
                 // should have never gotten into this method if stepping is
@@ -842,6 +846,7 @@ mod tests {
 
     fn first_system() {}
     fn second_system() {}
+    fn third_system() {}
 
     fn setup() -> (Schedule, World) {
         let mut world = World::new();
@@ -1118,6 +1123,31 @@ mod tests {
         assert_schedule_runs!(&schedule, &mut stepping, second_system);
         stepping.continue_frame();
         assert_schedule_runs!(&schedule, &mut stepping, first_system);
+    }
+
+    /// regression test for issue encountered while writing `system_stepping`
+    /// example
+    #[test]
+    fn continue_step_continue_with_breakpoint() {
+        let mut world = World::new();
+        let mut schedule = Schedule::new(TestSchedule);
+        schedule.add_systems((first_system, second_system, third_system).chain());
+        schedule.initialize(&mut world).unwrap();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .set_breakpoint(TestSchedule, second_system);
+
+        stepping.continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, first_system);
+
+        stepping.step_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
+
+        stepping.continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, third_system);
     }
 
     #[test]

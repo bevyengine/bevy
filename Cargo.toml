@@ -1463,6 +1463,17 @@ description = "Illustrates creating custom system parameters with `SystemParam`"
 category = "ECS (Entity Component System)"
 wasm = false
 
+[[example]]
+name = "system_stepping"
+path = "examples/ecs/system_stepping.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_stepping]
+name = "System Stepping"
+description = "Demonstrate stepping through systems in order of execution"
+category = "ECS (Entity Component System)"
+wasm = false
+
 # Time
 [[example]]
 name = "time"
