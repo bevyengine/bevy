@@ -559,20 +559,21 @@ impl Stepping {
         // the schedule with the current stepping action.  If this is not the
         // cursor schedule, we'll run the schedule with the waiting action.
         let cursor = self.cursor;
-        let (list, next_system) = if index == cursor.schedule {
-            let o = state.skipped_systems(schedule, cursor.system, self.action);
+        let (skip_list, next_system) = if index == cursor.schedule {
+            let (skip_list, next_system) =
+                state.skipped_systems(schedule, cursor.system, self.action);
 
             // if we just stepped this schedule, then we'll switch the action
             // to be waiting
             if self.action == Action::Step {
                 self.action = Action::Waiting;
             }
-            o
+            (skip_list, next_system)
         } else {
             // we're not supposed to run any systems in this schedule, so pull
             // the skip list, but ignore any changes it makes to the cursor.
-            let (skip, _) = state.skipped_systems(schedule, 0, Action::Waiting);
-            (skip, Some(cursor.system))
+            let (skip_list, _) = state.skipped_systems(schedule, 0, Action::Waiting);
+            (skip_list, Some(cursor.system))
         };
 
         // update the stepping frame cursor based on if there are any systems
@@ -595,7 +596,7 @@ impl Stepping {
             }
         }
 
-        Some(list)
+        Some(skip_list)
     }
 }
 
@@ -653,6 +654,7 @@ impl ScheduleState {
     // clear all system behaviors
     fn clear_behaviors(&mut self) {
         self.behaviors.clear();
+        self.behavior_updates.clear();
         self.first = None;
     }
 
@@ -733,8 +735,6 @@ impl ScheduleState {
                 _system.name()
             );
 
-            // suppress this clippy warning; we want to keep the arms split to
-            // clearly document whats going on.
             match (action, behavior) {
                 // regardless of which action we're performing, if the system
                 // is marked as NeverRun, add it to the skip list.
@@ -856,6 +856,41 @@ mod tests {
         (schedule, world)
     }
 
+    // Helper for verifying skip_lists are equal, and if not, printing a human
+    // readable message.
+    macro_rules! assert_skip_list_eq {
+        ($actual:expr, $expected:expr, $system_names:expr) => {
+            let actual = $actual;
+            let expected = $expected;
+            let systems: &Vec<&str> = $system_names;
+
+            if (actual != expected) {
+                use std::fmt::Write as _;
+
+                // mismatch, let's construct a human-readable message of what
+                // was returned
+                let mut msg = format!(
+                    "Schedule:\n    {:9} {:16}{:6} {:6} {:6}\n",
+                    "index", "name", "expect", "actual", "result"
+                );
+                for (i, name) in systems.iter().enumerate() {
+                    let _ = write!(msg, "    system[{:1}] {:16}", i, name);
+                    match (expected.contains(i), actual.contains(i)) {
+                        (true, true) => msg.push_str("skip   skip   pass\n"),
+                        (true, false) => {
+                            msg.push_str("skip   run    FAILED; system should not have run\n")
+                        }
+                        (false, true) => {
+                            msg.push_str("run    skip   FAILED; system should have run\n")
+                        }
+                        (false, false) => msg.push_str("run    run    pass\n"),
+                    }
+                }
+                assert_eq!(actual, expected, "{}", msg);
+            }
+        };
+    }
+
     // Helper for verifying that a set of systems will be run for a given skip
     // list
     macro_rules! assert_systems_run {
@@ -887,28 +922,12 @@ mod tests {
                 None => FixedBitSet::with_capacity(systems.len()),
                 Some(b) => b,
             };
+            let system_names: Vec<&str> = systems
+                .iter()
+                .map(|(_,n)| n.rsplit_once("::").unwrap().1)
+                .collect();
 
-            if (actual != expected) {
-                use std::fmt::Write as _;
-
-                // mismatch, let's construct a human-readable message of what
-                // was returned
-                let mut msg = format!("Schedule:\n    {:9} {:16}{:6} {:6} {:6}\n",
-                    "index", "name", "expect", "actual", "result");
-                for (i, (_, full_name)) in systems.iter().enumerate() {
-                    let (_, name) = full_name.rsplit_once("::").unwrap();
-                    let _ = write!(msg, "    system[{:1}] {:16}", i, name);
-                    match (expected.contains(i), actual.contains(i)) {
-                        (true, true) => msg.push_str("skip   skip   pass\n"),
-                        (true, false) =>
-                            msg.push_str("skip   run    FAILED; system should not have run\n"),
-                        (false, true) =>
-                            msg.push_str("run    skip   FAILED; system should have run\n"),
-                        (false, false) => msg.push_str("run    run    pass\n"),
-                    }
-                }
-                assert_eq!(actual, expected, "{}", msg);
-            }
+            assert_skip_list_eq!(actual, expected, &system_names);
         };
     }
 
@@ -1205,6 +1224,44 @@ mod tests {
         assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
     }
 
+    /// This was discovered in code-review, ensure that `clear_schedule` also
+    /// clears any pending changes too.
+    #[test]
+    fn set_behavior_then_clear_schedule() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+
+        stepping.never_run(TestSchedule, first_system);
+        stepping.clear_schedule(TestSchedule);
+        stepping.continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    /// Ensure that if they `clear_schedule` then make further changes to the
+    /// schedule, those changes after the clear are applied.
+    #[test]
+    fn clear_schedule_then_set_behavior() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+
+        stepping.clear_schedule(TestSchedule);
+        stepping.never_run(TestSchedule, first_system);
+        stepping.continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
+    }
+
     // Schedules such as FixedUpdate can be called multiple times in a single
     // render frame.  Ensure we only run steppable systems the first time the
     // schedule is run
@@ -1219,7 +1276,7 @@ mod tests {
             .always_run(TestSchedule, second_system)
             .continue_frame();
 
-        // start a new frame, then run the schedule three times; first system
+        // start a new frame, then run the schedule two times; first system
         // should only run on the first one
         stepping.next_frame();
         assert_systems_run!(
@@ -1241,11 +1298,102 @@ mod tests {
         let mut stepping = Stepping::new();
         stepping.add_schedule(TestSchedule).enable().step_frame();
 
-        // start a new frame, then run the schedule three times; first system
+        // start a new frame, then run the schedule two times; first system
         // should only run on the first one
         stepping.next_frame();
         assert_systems_run!(&schedule, stepping.skipped_systems(&schedule), first_system);
         assert_systems_run!(&schedule, stepping.skipped_systems(&schedule),);
+    }
+
+    #[test]
+    fn step_duplicate_systems() {
+        let mut world = World::new();
+        let mut schedule = Schedule::new(TestSchedule);
+        schedule.add_systems((first_system, first_system, second_system).chain());
+        schedule.initialize(&mut world).unwrap();
+
+        let mut stepping = Stepping::new();
+        stepping.add_schedule(TestSchedule).enable();
+
+        // needed for assert_skip_list_eq!
+        let system_names = vec!["first_system", "first_system", "second_system"];
+        // we're going to step three times, and each system in order should run
+        // only once
+        for system_index in 0..3 {
+            // build the skip list by setting all bits, then clearing our the
+            // one system that should run this step
+            let mut expected = FixedBitSet::with_capacity(3);
+            expected.set_range(.., true);
+            expected.set(system_index, false);
+
+            // step the frame and get the skip list
+            stepping.step_frame();
+            stepping.next_frame();
+            let skip_list = stepping
+                .skipped_systems(&schedule)
+                .expect("TestSchedule has been added to Stepping");
+
+            assert_skip_list_eq!(skip_list, expected, &system_names);
+        }
+    }
+
+    #[test]
+    fn step_run_if_false() {
+        let mut world = World::new();
+        let mut schedule = Schedule::new(TestSchedule);
+
+        // This needs to be a system test to confirm the interaction between
+        // the skip list and system conditions in Schedule::run().  That means
+        // all of our systems need real bodies that do things.
+        //
+        // first system will be configured as `run_if(|| false)`, so it can
+        // just panic if called
+        let first_system = move || panic!("first_system should not be run");
+
+        // The second system, we need to know when it has been called, so we'll
+        // add a resource for tracking if it has been run.  The system will
+        // increment the run count.
+        #[derive(Resource)]
+        struct RunCount(usize);
+        world.insert_resource(RunCount(0));
+        let second_system = |mut run_count: ResMut<RunCount>| {
+            println!("I have run!");
+            run_count.0 += 1;
+        };
+
+        // build our schedule; first_system should never run, followed by
+        // second_system.
+        schedule.add_systems((first_system.run_if(|| false), second_system).chain());
+        schedule.initialize(&mut world).unwrap();
+
+        // set up stepping
+        let mut stepping = Stepping::new();
+        stepping.add_schedule(TestSchedule).enable();
+        world.insert_resource(stepping);
+
+        // if we step, and the run condition is false, we should not run
+        // second_system.  The stepping cursor is at first_system, and if
+        // first_system wasn't able to run, that's ok.
+        let mut stepping = world.resource_mut::<Stepping>();
+        stepping.step_frame();
+        stepping.next_frame();
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<RunCount>().0,
+            0,
+            "second_system should not have run"
+        );
+
+        // now on the next step, second_system should run
+        let mut stepping = world.resource_mut::<Stepping>();
+        stepping.step_frame();
+        stepping.next_frame();
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<RunCount>().0,
+            1,
+            "second_system should have run"
+        );
     }
 
     #[test]
@@ -1269,7 +1417,7 @@ mod tests {
     fn schedules() {
         let mut world = World::new();
 
-        // build & initialize three schedules
+        // build & initialize a few schedules
         let mut schedule_a = Schedule::new(TestScheduleA);
         schedule_a.initialize(&mut world).unwrap();
         let mut schedule_b = Schedule::new(TestScheduleB);
@@ -1279,7 +1427,7 @@ mod tests {
         let mut schedule_d = Schedule::new(TestScheduleD);
         schedule_d.initialize(&mut world).unwrap();
 
-        // setup stepping and add all three schedules
+        // setup stepping and add all the schedules
         let mut stepping = Stepping::new();
         stepping
             .add_schedule(TestScheduleA)
@@ -1332,7 +1480,7 @@ mod tests {
         schedule_b.add_systems((|| {}, || {}, || {}, || {}).chain());
         schedule_b.initialize(&mut world).unwrap();
 
-        // setup stepping and add all three schedules
+        // setup stepping and add all schedules
         let mut stepping = Stepping::new();
         stepping
             .add_schedule(TestScheduleA)
