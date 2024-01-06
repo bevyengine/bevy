@@ -22,6 +22,8 @@ use std::sync::Arc;
 /// See also [`super::MaterialMeshletMeshBundle`].
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
+    /// The total amount of indices in the overall mesh (sum of meshlet index_counts).
+    pub total_meshlet_indices: u64,
     /// Raw vertex data bytes for the overall mesh.
     pub vertex_data: Arc<[u8]>,
     /// Indices into `vertex_data`.

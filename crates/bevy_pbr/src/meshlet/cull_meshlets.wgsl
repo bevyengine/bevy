@@ -1,11 +1,11 @@
 #import bevy_pbr::meshlet_bindings::{
-    meshlets,
     meshlet_previous_thread_ids,
     meshlet_previous_occlusion,
     meshlet_occlusion,
     meshlet_thread_meshlet_ids,
+    meshlets,
     draw_command_buffer,
-    draw_count_buffer,
+    draw_index_buffer,
     meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
     meshlet_bounding_spheres,
@@ -72,11 +72,15 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     }
 #endif
 
-    // If the meshlet is visible, append a draw command to the indirect draw buffer
+    // If the meshlet is visible, atomically append its index buffer (packed together with the meshlet ID) to
+    // the index buffer for the rasterization pass to use
     if meshlet_visible {
-        let next_open_slot = atomicAdd(&draw_count_buffer, 1u);
-        draw_command_buffer[next_open_slot].vertex_count = meshlets[meshlet_id].index_count;
-        draw_command_buffer[next_open_slot].base_instance = thread_id.x;
+        let meshlet = meshlets[meshlet_id];
+        let draw_index_buffer_start = atomicAdd(&draw_command_buffer.vertex_count, meshlet.index_count);
+        let packed_thread_id = thread_id.x << 8u;
+        for (var index_id = 0u; index_id < meshlet.index_count; index_id++) {
+            draw_index_buffer[draw_index_buffer_start + index_id] = packed_thread_id | index_id;
+        }
     }
 
 #ifdef MESHLET_SECOND_CULLING_PASS

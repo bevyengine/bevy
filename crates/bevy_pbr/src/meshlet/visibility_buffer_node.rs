@@ -246,18 +246,22 @@ fn draw_first_pass(
         draw_pass.set_camera_viewport(viewport);
     }
 
+    draw_pass.set_index_buffer(
+        meshlet_view_resources
+            .visibility_buffer_draw_index_buffer
+            .slice(..),
+        0,
+        IndexFormat::Uint32,
+    );
     draw_pass.set_bind_group(
         0,
         &meshlet_view_bind_groups.visibility_buffer,
         &[view_offset.offset],
     );
     draw_pass.set_render_pipeline(first_pass_visibility_buffer_pipeline);
-    draw_pass.multi_draw_indirect_count(
-        &meshlet_view_resources.visibility_buffer_draw_command_buffer,
+    draw_pass.draw_indexed_indirect(
+        &meshlet_view_resources.visibility_buffer_draw_command_buffer_first,
         0,
-        &meshlet_view_resources.visibility_buffer_draw_count_buffer_first,
-        0,
-        meshlet_view_resources.scene_meshlet_count,
     );
 }
 
@@ -366,18 +370,22 @@ fn draw_second_pass(
         draw_pass.set_camera_viewport(viewport);
     }
 
+    draw_pass.set_index_buffer(
+        meshlet_view_resources
+            .visibility_buffer_draw_index_buffer
+            .slice(..),
+        0,
+        IndexFormat::Uint32,
+    );
     draw_pass.set_bind_group(
         0,
         &meshlet_view_bind_groups.visibility_buffer,
         &[view_offset.offset],
     );
     draw_pass.set_render_pipeline(second_pass_visibility_buffer_pipeline);
-    draw_pass.multi_draw_indirect_count(
-        &meshlet_view_resources.visibility_buffer_draw_command_buffer,
+    draw_pass.draw_indexed_indirect(
+        &meshlet_view_resources.visibility_buffer_draw_command_buffer_second,
         0,
-        &meshlet_view_resources.visibility_buffer_draw_count_buffer_second,
-        0,
-        meshlet_view_resources.scene_meshlet_count,
     );
 }
 

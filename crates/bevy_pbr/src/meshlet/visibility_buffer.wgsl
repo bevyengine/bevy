@@ -1,7 +1,7 @@
 /// Vertex/fragment shader for rasterizing meshlets into a visibility buffer.
 
 #import bevy_pbr::{
-    meshlet_bindings::{visible_thread_ids, meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_instance_material_ids, view, get_meshlet_index, unpack_meshlet_vertex},
+    meshlet_bindings::{meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, meshlet_instance_material_ids, view, get_meshlet_index, unpack_meshlet_vertex},
     mesh_functions::mesh_position_local_to_world,
 }
 #import bevy_render::maths::affine_to_square
@@ -25,9 +25,11 @@ struct FragmentOutput {
 #endif
 
 @vertex
-fn vertex(@builtin(instance_index) thread_id: u32, @builtin(vertex_index) index_id: u32) -> VertexOutput {
+fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
+    let thread_id = cull_output >> 8u;
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
+    let index_id = extractBits(cull_output, 0u, 8u);
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);

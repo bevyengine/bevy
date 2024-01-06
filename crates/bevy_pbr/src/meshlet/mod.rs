@@ -47,13 +47,10 @@ use bevy_ecs::{bundle::Bundle, schedule::IntoSystemConfigs, system::Query};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
-    renderer::RenderDevice,
-    settings::WgpuFeatures,
     view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::warn;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
@@ -70,13 +67,13 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// * All meshlets that were visible last frame (and are in the camea's frustum this frame) get rendered to a depth buffer.
 /// * The depth buffer is then downsampled to form a hierarchical depth buffer.
 /// * All meshlets that were not frustum culled get tested against the depth buffer, and culled if they would not be visible (occlusion culling, which Bevy's standard renderer does not have).
-/// * A visibility buffer is then rendered for the surviving frustum and occlusion culled meshlets. Each pixel of the texture encodes the visible meshlet and triangle IDs.
+/// * A visibility buffer is then rendered for the surviving frustum and occlusion culled meshlets. Each pixel of the texture encodes the visible meshlet and triangle ID.
 /// * For the opaque and prepass phases, one draw per [`Material`] batch is performed, regardless of the amount of entities using that material. The material's fragment shader reads
 ///   the meshlet and triangle IDs from the visibility buffer to reconstruct the rendered point on the mesh and shade it.
 ///
-/// This plugin requires the [`WgpuFeatures`] `MULTI_DRAW_INDIRECT_COUNT` and `INDIRECT_FIRST_INSTANCE`, which are not supported by all GPUs.
-///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
+///
+/// This plugin does not work on WebGL2.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://github.com/bevyengine/bevy/blob/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png).
 pub struct MeshletPlugin;
@@ -135,18 +132,6 @@ impl Plugin for MeshletPlugin {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        if !render_app
-            .world
-            .resource::<RenderDevice>()
-            .features()
-            .contains(
-                WgpuFeatures::MULTI_DRAW_INDIRECT_COUNT | WgpuFeatures::INDIRECT_FIRST_INSTANCE,
-            )
-        {
-            warn!("MeshletPlugin not loaded. GPU lacks support for WgpuFeatures: MULTI_DRAW_INDIRECT_COUNT | INDIRECT_FIRST_INSTANCE.");
-            return;
-        }
 
         render_app
             .add_render_graph_node::<MeshletVisibilityBufferPassNode>(

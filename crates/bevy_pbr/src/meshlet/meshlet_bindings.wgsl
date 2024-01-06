@@ -37,10 +37,11 @@ struct MeshletBoundingSphere {
     radius: f32,
 }
 
-struct DrawIndirect {
-    vertex_count: u32,
+struct DrawIndexedIndirect {
+    vertex_count: atomic<u32>,
     instance_count: u32,
-    base_vertex: u32,
+    base_index: u32,
+    vertex_offset: u32,
     base_instance: u32,
 }
 
@@ -56,8 +57,8 @@ struct DrawIndirect {
 @group(0) @binding(5) var<storage, read> meshlet_previous_occlusion: array<u32>;
 @group(0) @binding(6) var<storage, read_write> meshlet_occlusion: array<u32>;
 @group(0) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
-@group(0) @binding(8) var<storage, read_write> draw_command_buffer: array<DrawIndirect>;
-@group(0) @binding(9) var<storage, read_write> draw_count_buffer: atomic<u32>;
+@group(0) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
+@group(0) @binding(9) var<storage, read_write> draw_index_buffer: array<u32>;
 @group(0) @binding(10) var<uniform> view: View;
 #ifdef MESHLET_SECOND_CULLING_PASS
 @group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
