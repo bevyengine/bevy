@@ -27,16 +27,15 @@ pub struct MeshletPipelines {
     write_index_buffer: CachedComputePipelineId,
     downsample_depth: CachedRenderPipelineId,
     visibility_buffer_raster: CachedRenderPipelineId,
-    visibility_buffer_raster_with_output: CachedRenderPipelineId,
-    visibility_buffer_raster_depth_clamp_ortho: CachedRenderPipelineId,
+    visibility_buffer_raster_depth_only: CachedRenderPipelineId,
+    visibility_buffer_raster_depth_only_clamp_ortho: CachedRenderPipelineId,
     copy_material_depth: CachedRenderPipelineId,
 }
 
 impl FromWorld for MeshletPipelines {
     fn from_world(world: &mut World) -> Self {
         let gpu_scene = world.resource::<MeshletGpuScene>();
-        let cull_first_layout = gpu_scene.culling_first_bind_group_layout();
-        let cull_second_layout = gpu_scene.culling_second_bind_group_layout();
+        let cull_layout = gpu_scene.culling_bind_group_layout();
         let write_index_buffer_layout = gpu_scene.write_index_buffer_bind_group_layout();
         let downsample_depth_layout = gpu_scene.downsample_depth_bind_group_layout();
         let visibility_buffer_layout = gpu_scene.visibility_buffer_raster_bind_group_layout();
@@ -46,19 +45,16 @@ impl FromWorld for MeshletPipelines {
         Self {
             cull_first: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("meshlet_culling_first_pipeline".into()),
-                layout: vec![cull_first_layout],
+                layout: vec![cull_layout.clone()],
                 push_constant_ranges: vec![],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
-                shader_defs: vec![
-                    "MESHLET_CULLING_PASS".into(),
-                    "MESHLET_FIRST_CULLING_PASS".into(),
-                ],
+                shader_defs: vec!["MESHLET_CULLING_PASS".into()],
                 entry_point: "cull_meshlets".into(),
             }),
 
             cull_second: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("meshlet_culling_second_pipeline".into()),
-                layout: vec![cull_second_layout],
+                layout: vec![cull_layout],
                 push_constant_ranges: vec![],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
@@ -103,38 +99,6 @@ impl FromWorld for MeshletPipelines {
             visibility_buffer_raster: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
                     label: Some("meshlet_visibility_buffer_raster_pipeline".into()),
-                    layout: vec![visibility_buffer_layout.clone()],
-                    push_constant_ranges: vec![],
-                    vertex: VertexState {
-                        shader: MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
-                        shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
-                        entry_point: "vertex".into(),
-                        buffers: vec![],
-                    },
-                    primitive: PrimitiveState {
-                        topology: PrimitiveTopology::TriangleList,
-                        strip_index_format: None,
-                        front_face: FrontFace::Ccw,
-                        cull_mode: None,
-                        unclipped_depth: false,
-                        polygon_mode: PolygonMode::Fill,
-                        conservative: false,
-                    },
-                    depth_stencil: Some(DepthStencilState {
-                        format: CORE_3D_DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: CompareFunction::GreaterEqual,
-                        stencil: StencilState::default(),
-                        bias: DepthBiasState::default(),
-                    }),
-                    multisample: MultisampleState::default(),
-                    fragment: None,
-                },
-            ),
-
-            visibility_buffer_raster_with_output: pipeline_cache.queue_render_pipeline(
-                RenderPipelineDescriptor {
-                    label: Some("meshlet_visibility_buffer_raster_with_output_pipeline".into()),
                     layout: vec![visibility_buffer_layout.clone()],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
@@ -186,9 +150,41 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_raster_depth_clamp_ortho: pipeline_cache.queue_render_pipeline(
+            visibility_buffer_raster_depth_only: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
-                    label: Some("visibility_buffer_raster_depth_clamp_ortho_pipeline".into()),
+                    label: Some("meshlet_visibility_buffer_raster_depth_only_pipeline".into()),
+                    layout: vec![visibility_buffer_layout.clone()],
+                    push_constant_ranges: vec![],
+                    vertex: VertexState {
+                        shader: MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+                        shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
+                        entry_point: "vertex".into(),
+                        buffers: vec![],
+                    },
+                    primitive: PrimitiveState {
+                        topology: PrimitiveTopology::TriangleList,
+                        strip_index_format: None,
+                        front_face: FrontFace::Ccw,
+                        cull_mode: None,
+                        unclipped_depth: false,
+                        polygon_mode: PolygonMode::Fill,
+                        conservative: false,
+                    },
+                    depth_stencil: Some(DepthStencilState {
+                        format: CORE_3D_DEPTH_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: CompareFunction::GreaterEqual,
+                        stencil: StencilState::default(),
+                        bias: DepthBiasState::default(),
+                    }),
+                    multisample: MultisampleState::default(),
+                    fragment: None,
+                },
+            ),
+
+            visibility_buffer_raster_depth_only_clamp_ortho: pipeline_cache.queue_render_pipeline(
+                RenderPipelineDescriptor {
+                    label: Some("visibility_buffer_raster_depth_only_clamp_ortho_pipeline".into()),
                     layout: vec![visibility_buffer_layout],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
@@ -275,9 +271,9 @@ impl MeshletPipelines {
             pipeline_cache.get_compute_pipeline(pipeline.write_index_buffer)?,
             pipeline_cache.get_render_pipeline(pipeline.downsample_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster)?,
-            pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster_with_output)?,
+            pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster_depth_only)?,
             pipeline_cache
-                .get_render_pipeline(pipeline.visibility_buffer_raster_depth_clamp_ortho)?,
+                .get_render_pipeline(pipeline.visibility_buffer_raster_depth_only_clamp_ortho)?,
             pipeline_cache.get_render_pipeline(pipeline.copy_material_depth)?,
         ))
     }

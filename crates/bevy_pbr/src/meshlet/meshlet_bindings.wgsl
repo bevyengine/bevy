@@ -51,12 +51,10 @@ struct DrawIndexedIndirect {
 @group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>;
 @group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
 @group(0) @binding(4) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // packed bool's
-@group(0) @binding(5) var<uniform> view: View;
-#endif
-
-#ifdef MESHLET_FIRST_CULLING_PASS
-@group(0) @binding(6) var<storage, read> meshlet_previous_thread_ids: array<u32>;
-@group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // packed bool's
+@group(0) @binding(5) var<storage, read> meshlet_previous_thread_ids: array<u32>;
+@group(0) @binding(6) var<storage, read> meshlet_previous_occlusion: array<u32>; // packed bool's
+@group(0) @binding(7) var<uniform> view: View;
+@group(0) @binding(8) var depth_pyramid: texture_2d<f32>;
 
 fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
     let previous_thread_id = meshlet_previous_thread_ids[thread_id];
@@ -64,10 +62,6 @@ fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
     let bit_offset = previous_thread_id % 32u;
     return bool(extractBits(packed_occlusion, bit_offset, 1u));
 }
-#endif
-
-#ifdef MESHLET_SECOND_CULLING_PASS
-@group(0) @binding(6) var depth_pyramid: texture_2d<f32>;
 #endif
 
 #ifdef MESHLET_WRITE_INDEX_BUFFER_PASS

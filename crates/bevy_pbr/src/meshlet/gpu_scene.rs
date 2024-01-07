@@ -342,28 +342,14 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             view_resources.occlusion_buffer.as_entire_binding(),
-            view_uniforms.clone(),
             gpu_scene.previous_thread_ids.binding().unwrap(),
             view_resources.previous_occlusion_buffer.as_entire_binding(),
-        ));
-        let culling_first = render_device.create_bind_group(
-            "meshlet_culling_first_bind_group",
-            &gpu_scene.culling_first_bind_group_layout,
-            &entries,
-        );
-
-        let entries = BindGroupEntries::sequential((
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.meshlet_bounding_spheres.binding(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
-            gpu_scene.instance_uniforms.binding().unwrap(),
-            view_resources.occlusion_buffer.as_entire_binding(),
             view_uniforms.clone(),
             &view_resources.depth_pyramid.default_view,
         ));
-        let culling_second = render_device.create_bind_group(
-            "meshlet_culling_second_bind_group",
-            &gpu_scene.culling_second_bind_group_layout,
+        let culling = render_device.create_bind_group(
+            "meshlet_culling_bind_group",
+            &gpu_scene.culling_bind_group_layout,
             &entries,
         );
 
@@ -479,8 +465,7 @@ pub fn prepare_meshlet_view_bind_groups(
             });
 
         commands.entity(view_entity).insert(MeshletViewBindGroups {
-            culling_first,
-            culling_second,
+            culling,
             write_index_buffer_first,
             write_index_buffer_second,
             downsample_depth,
@@ -515,8 +500,7 @@ pub struct MeshletGpuScene {
     previous_thread_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
     previous_occlusion_buffers: EntityHashMap<Entity, Buffer>,
 
-    culling_first_bind_group_layout: BindGroupLayout,
-    culling_second_bind_group_layout: BindGroupLayout,
+    culling_bind_group_layout: BindGroupLayout,
     write_index_buffer_bind_group_layout: BindGroupLayout,
     visibility_buffer_raster_bind_group_layout: BindGroupLayout,
     downsample_depth_bind_group_layout: BindGroupLayout,
@@ -575,8 +559,8 @@ impl FromWorld for MeshletGpuScene {
             previous_occlusion_buffers: EntityHashMap::default(),
 
             // TODO: Buffer min sizes
-            culling_first_bind_group_layout: render_device.create_bind_group_layout(
-                "meshlet_culling_first_bind_group_layout",
+            culling_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
                     (
@@ -585,22 +569,8 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
-                        uniform_buffer::<ViewUniform>(true),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
-                    ),
-                ),
-            ),
-            culling_second_bind_group_layout: render_device.create_bind_group_layout(
-                "meshlet_culling_second_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::COMPUTE,
-                    (
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                     ),
@@ -780,12 +750,8 @@ impl MeshletGpuScene {
         self.material_ids_present_in_scene.contains(material_id)
     }
 
-    pub fn culling_first_bind_group_layout(&self) -> BindGroupLayout {
-        self.culling_first_bind_group_layout.clone()
-    }
-
-    pub fn culling_second_bind_group_layout(&self) -> BindGroupLayout {
-        self.culling_second_bind_group_layout.clone()
+    pub fn culling_bind_group_layout(&self) -> BindGroupLayout {
+        self.culling_bind_group_layout.clone()
     }
 
     pub fn write_index_buffer_bind_group_layout(&self) -> BindGroupLayout {
@@ -826,8 +792,7 @@ pub struct MeshletViewResources {
 
 #[derive(Component)]
 pub struct MeshletViewBindGroups {
-    pub culling_first: BindGroup,
-    pub culling_second: BindGroup,
+    pub culling: BindGroup,
     pub write_index_buffer_first: BindGroup,
     pub write_index_buffer_second: BindGroup,
     pub downsample_depth: Box<[BindGroup]>,
