@@ -10,7 +10,7 @@ use syn::{parenthesized, Attribute, Generics, Path};
 ///
 /// This takes the form:
 ///
-/// ```ignore
+/// ```ignore (Method expecting TokenStream is better represented with raw tokens)
 /// // Standard
 /// ::my_crate::foo::Bar(TraitA, TraitB)
 ///

@@ -152,7 +152,7 @@ fn queue_node_for_update(
     window_children: &mut Vec<NodeId>,
 ) {
     let should_push = if let Some(parent) = parent {
-        node_entities.contains(parent.get())
+        !node_entities.contains(parent.get())
     } else {
         true
     };

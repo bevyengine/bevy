@@ -29,7 +29,7 @@ pub(crate) enum ReflectDerive<'a> {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// #[derive(Reflect)]
 /// //                          traits
 /// //        |----------------------------------------|
@@ -54,7 +54,7 @@ pub(crate) struct ReflectMeta<'a> {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// #[derive(Reflect)]
 /// #[reflect(PartialEq, Serialize, Deserialize, Default)]
 /// struct ThingThatImReflecting<T1, T2, T3> {
@@ -73,7 +73,7 @@ pub(crate) struct ReflectStruct<'a> {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// #[derive(Reflect)]
 /// #[reflect(PartialEq, Serialize, Deserialize, Default)]
 /// enum ThingThatImReflecting<T1, T2, T3> {
@@ -573,7 +573,7 @@ impl<'a> EnumVariant<'a> {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```ignore  (bevy_reflect is not accessible from this crate)
 /// # use syn::parse_quote;
 /// # use bevy_reflect_derive::ReflectTypePath;
 /// let path: syn::Path = parse_quote!(::core::marker::PhantomData)?;

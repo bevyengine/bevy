@@ -18,7 +18,13 @@ pub(crate) fn get_bevy_reflect_path() -> Path {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use proc_macro2::Ident;
+/// # // We can't import this method because of its visibility.
+/// # fn get_reflect_ident(name: &str) -> Ident {
+/// #     let reflected = format!("Reflect{name}");
+/// #     Ident::new(&reflected, proc_macro2::Span::call_site())
+/// # }
 /// let reflected: Ident = get_reflect_ident("Hash");
 /// assert_eq!("ReflectHash", reflected.to_string());
 /// ```
@@ -132,9 +138,9 @@ impl WhereClauseOptions {
                 let custom_bounds = active_bounds(field).map(|bounds| quote!(+ #bounds));
 
                 let bounds = if is_from_reflect {
-                    quote!(#bevy_reflect_path::FromReflect + #bevy_reflect_path::TypePath #custom_bounds)
+                    quote!(#bevy_reflect_path::FromReflect #custom_bounds)
                 } else {
-                    quote!(#bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath #custom_bounds)
+                    quote!(#bevy_reflect_path::Reflect #custom_bounds)
                 };
 
                 (ty, bounds)
@@ -195,7 +201,7 @@ impl WhereClauseOptions {
 /// # Example
 ///
 /// The struct:
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// #[derive(Reflect)]
 /// struct Foo<T, U> {
 ///     a: T,
@@ -206,7 +212,7 @@ impl WhereClauseOptions {
 /// will have active types: `[T]` and ignored types: `[U]`
 ///
 /// The `extend_where_clause` function will yield the following `where` clause:
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// where
 ///     T: Reflect,  // active_trait_bounds
 ///     U: Any + Send + Sync,  // ignored_trait_bounds

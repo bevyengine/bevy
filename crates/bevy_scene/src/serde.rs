@@ -236,6 +236,28 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         formatter.write_str("scene struct")
     }
 
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let resources = seq
+            .next_element_seed(SceneMapDeserializer {
+                registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
+
+        let entities = seq
+            .next_element_seed(SceneEntitiesDeserializer {
+                type_registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
+
+        Ok(DynamicScene {
+            resources,
+            entities,
+        })
+    }
+
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
@@ -265,28 +287,6 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
 
         let resources = resources.ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
         let entities = entities.ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
-
-        Ok(DynamicScene {
-            resources,
-            entities,
-        })
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let resources = seq
-            .next_element_seed(SceneMapDeserializer {
-                registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
-
-        let entities = seq
-            .next_element_seed(SceneEntitiesDeserializer {
-                type_registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
 
         Ok(DynamicScene {
             resources,
@@ -455,6 +455,20 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
         formatter.write_str("map of reflect types")
     }
 
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut dynamic_properties = Vec::new();
+        while let Some(entity) =
+            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
+        {
+            dynamic_properties.push(entity);
+        }
+
+        Ok(dynamic_properties)
+    }
+
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
@@ -477,20 +491,6 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
         }
 
         Ok(entries)
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut dynamic_properties = Vec::new();
-        while let Some(entity) =
-            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
-        {
-            dynamic_properties.push(entity);
-        }
-
-        Ok(dynamic_properties)
     }
 }
 

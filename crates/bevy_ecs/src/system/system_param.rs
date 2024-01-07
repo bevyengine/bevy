@@ -18,7 +18,6 @@ pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
-    borrow::Cow,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -1286,69 +1285,6 @@ unsafe impl SystemParam for SystemChangeTick {
         }
     }
 }
-
-/// Name of the system that corresponds to this [`crate::system::SystemState`].
-///
-/// This is not a reliable identifier, it is more so useful for debugging
-/// purposes of finding where a system parameter is being used incorrectly.
-#[derive(Debug)]
-pub struct SystemName<'s>(&'s str);
-
-impl<'s> SystemName<'s> {
-    /// Gets the name of the system.
-    pub fn name(&self) -> &str {
-        self.0
-    }
-}
-
-impl<'s> Deref for SystemName<'s> {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        self.name()
-    }
-}
-
-impl<'s> AsRef<str> for SystemName<'s> {
-    fn as_ref(&self) -> &str {
-        self.name()
-    }
-}
-
-impl<'s> From<SystemName<'s>> for &'s str {
-    fn from(name: SystemName<'s>) -> &'s str {
-        name.0
-    }
-}
-
-impl<'s> std::fmt::Display for SystemName<'s> {
-    #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name(), f)
-    }
-}
-
-// SAFETY: no component value access
-unsafe impl SystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'w, 's> = SystemName<'s>;
-
-    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        name: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell<'w>,
-        _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        SystemName(name)
-    }
-}
-
-// SAFETY: Only reads internal system state
-unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
 
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {

@@ -178,7 +178,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // Caller assures `index` in range of the current archetype.
             if !F::filter_fetch(
                 &mut self.cursor.filter,
-                archetype_entity.entity(),
+                archetype_entity.id(),
                 archetype_entity.table_row(),
             ) {
                 continue;
@@ -188,7 +188,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // Caller assures `index` in range of the current archetype.
             let item = D::fetch(
                 &mut self.cursor.fetch,
-                archetype_entity.entity(),
+                archetype_entity.id(),
                 archetype_entity.table_row(),
             );
 
@@ -719,7 +719,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let archetype_entity = self.archetype_entities.get_unchecked(index);
                 Some(D::fetch(
                     &mut self.fetch,
-                    archetype_entity.entity(),
+                    archetype_entity.id(),
                     archetype_entity.table_row(),
                 ))
             }
@@ -817,7 +817,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let archetype_entity = self.archetype_entities.get_unchecked(self.current_row);
                 if !F::filter_fetch(
                     &mut self.filter,
-                    archetype_entity.entity(),
+                    archetype_entity.id(),
                     archetype_entity.table_row(),
                 ) {
                     self.current_row += 1;
@@ -831,7 +831,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // - fetch is only called once for each `archetype_entity`.
                 let item = D::fetch(
                     &mut self.fetch,
-                    archetype_entity.entity(),
+                    archetype_entity.id(),
                     archetype_entity.table_row(),
                 );
                 self.current_row += 1;
