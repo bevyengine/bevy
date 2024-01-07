@@ -1,25 +1,22 @@
 #import bevy_pbr::meshlet_bindings::{
-    meshlet_previous_thread_ids,
-    meshlet_previous_occlusion,
-    meshlet_occlusion,
     meshlet_thread_meshlet_ids,
-    meshlets,
-    draw_command_buffer,
-    draw_index_buffer,
+    meshlet_bounding_spheres,
     meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
-    meshlet_bounding_spheres,
+    meshlet_occlusion,
     view,
 }
+#ifdef MESHLET_FIRST_CULLING_PASS
+#import bevy_pbr::meshlet_bindings::get_meshlet_previous_occlusion
+#endif
 #ifdef MESHLET_SECOND_CULLING_PASS
 #import bevy_pbr::meshlet_bindings::depth_pyramid
 #endif
 #import bevy_render::maths::affine_to_square
 
-/// Culls individual meshlets in two passes (two pass occlusion culling), and creates draw indirect commands for each surviving meshlet.
-/// 1. The first pass is only frustum culling, and only the meshlets that were visible last frame get rendered.
-/// 2. The second pass then performs both frustum and occlusion culling (using the depth buffer generated from the first pass) for all meshlets,
-///    and stores whether each meshlet was culled for the first pass in the next frame.
+/// Culls individual meshlets (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which meshlets survived.
+/// 1. The first pass is only frustum culling, and all meshlets that were not visible last frame are culled.
+/// 2. The second pass then performs both frustum and occlusion culling (using the depth buffer generated from the first pass) for all meshlet.
 
 @compute
 @workgroup_size(128, 1, 1)
@@ -35,12 +32,10 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
     let bounding_sphere_radius = model_scale * bounding_sphere.radius;
 
-#ifdef MESHLET_SECOND_CULLING_PASS
     var meshlet_visible = true;
-#else
+#ifdef MESHLET_FIRST_CULLING_PASS
     // In the first culling pass, cull all meshlets that were not visible last frame
-    let previous_thread_id = meshlet_previous_thread_ids[thread_id.x];
-    var meshlet_visible = bool(meshlet_previous_occlusion[previous_thread_id]);
+    meshlet_visible = get_meshlet_previous_occlusion(thread_id.x);
 #endif
 
     // Frustum culling
@@ -72,21 +67,9 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     }
 #endif
 
-    // If the meshlet is visible, atomically append its index buffer (packed together with the meshlet ID) to
-    // the index buffer for the rasterization pass to use
-    if meshlet_visible {
-        let meshlet = meshlets[meshlet_id];
-        let draw_index_buffer_start = atomicAdd(&draw_command_buffer.vertex_count, meshlet.index_count);
-        let packed_thread_id = thread_id.x << 8u;
-        for (var index_id = 0u; index_id < meshlet.index_count; index_id++) {
-            draw_index_buffer[draw_index_buffer_start + index_id] = packed_thread_id | index_id;
-        }
-    }
-
-#ifdef MESHLET_SECOND_CULLING_PASS
-    // In the second culling pass, write out the visible meshlets for the first culling pass of the next frame
-    meshlet_occlusion[thread_id.x] = u32(meshlet_visible);
-#endif
+    // Write the bitmask of whether or not the meshlet was culled
+    let occlusion_bit = u32(meshlet_visible) << (thread_id.x % 32u);
+    atomicOr(&meshlet_occlusion[thread_id.x / 32u], occlusion_bit);
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds

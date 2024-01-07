@@ -55,10 +55,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let (
-            Some(gpu_scene),
+            Some(meshlet_gpu_scene),
             Some(pipeline_cache),
-            Some(material_depth),
-            Some(material_draw_bind_group),
+            Some(meshlet_material_depth),
+            Some(meshlet_material_draw_bind_group),
         ) = (
             world.get_resource::<MeshletGpuScene>(),
             world.get_resource::<PipelineCache>(),
@@ -73,7 +73,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             label: Some(draw_3d_graph::node::MESHLET_MAIN_OPAQUE_PASS_3D),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &material_depth.default_view,
+                view: &meshlet_material_depth.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
                     store: StoreOp::Discard,
@@ -96,12 +96,12 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 view_fog_offset.offset,
             ],
         );
-        render_pass.set_bind_group(1, material_draw_bind_group, &[]);
+        render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
 
         for (material_id, material_pipeline_id, material_bind_group) in
             &meshlet_view_materials.opaque_pass
         {
-            if gpu_scene.material_present_in_scene(material_id) {
+            if meshlet_gpu_scene.material_present_in_scene(material_id) {
                 if let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {

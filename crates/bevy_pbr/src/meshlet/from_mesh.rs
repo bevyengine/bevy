@@ -48,7 +48,7 @@ impl MeshletMesh {
         )
         .expect("TODO");
 
-        let meshopt_meshlets = build_meshlets(&indices, &vertices, 64, 84, 0.0);
+        let meshopt_meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
 
         let meshlet_bounding_spheres = meshopt_meshlets
             .meshlets
@@ -83,7 +83,7 @@ impl MeshletMesh {
                 Meshlet {
                     start_vertex_id: m.vertex_offset,
                     start_index_id: m.triangle_offset,
-                    index_count: m.triangle_count * 3,
+                    triangle_count: m.triangle_count,
                 }
             })
             .collect();

@@ -44,8 +44,8 @@ pub struct Meshlet {
     pub start_vertex_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
     pub start_index_id: u32,
-    /// The amount of indices in this meshlet (meshlet triangle count * 3).
-    pub index_count: u32,
+    /// The amount of triangles in this meshlet.
+    pub triangle_count: u32,
 }
 
 /// A spherical bounding volume used for culling a [`Meshlet`].

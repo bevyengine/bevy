@@ -9,7 +9,7 @@ mod material_draw_prepare;
 mod persistent_buffer;
 mod persistent_buffer_impls;
 mod pipelines;
-mod visibility_buffer_node;
+mod visibility_buffer_raster_node;
 
 pub(crate) use self::{
     gpu_scene::{queue_material_meshlet_meshes, MeshletGpuScene},
@@ -31,10 +31,12 @@ use self::{
     },
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
-        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
+        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+        MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
     },
-    visibility_buffer_node::{
-        draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_PASS, MeshletVisibilityBufferPassNode,
+    visibility_buffer_raster_node::{
+        draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
+        MeshletVisibilityBufferRasterPassNode,
     },
 };
 use crate::{draw_3d_graph::node::SHADOW_PASS, Material};
@@ -100,14 +102,20 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
+            MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
+            "write_index_buffer.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
             "downsample_depth.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
-            MESHLET_VISIBILITY_BUFFER_SHADER_HANDLE,
-            "visibility_buffer.wgsl",
+            MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+            "visibility_buffer_raster.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -134,9 +142,9 @@ impl Plugin for MeshletPlugin {
         };
 
         render_app
-            .add_render_graph_node::<MeshletVisibilityBufferPassNode>(
+            .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(
                 CORE_3D,
-                MESHLET_VISIBILITY_BUFFER_PASS,
+                MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
             )
             .add_render_graph_node::<ViewNodeRunner<MeshletMainOpaquePass3dNode>>(
                 CORE_3D,
@@ -145,7 +153,7 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 CORE_3D,
                 &[
-                    MESHLET_VISIBILITY_BUFFER_PASS,
+                    MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
                     SHADOW_PASS,
                     PREPASS,
                     DEFERRED_PREPASS,

@@ -186,7 +186,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
         let occlusion_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("meshlet_occlusion_buffer"),
-            size: gpu_scene.scene_meshlet_count as u64 * 4,
+            size: ((gpu_scene.scene_meshlet_count + 31) / 32) as u64 * 4,
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
@@ -337,21 +337,14 @@ pub fn prepare_meshlet_view_bind_groups(
 
     for (view_entity, view_resources, view_depth) in &views {
         let entries = BindGroupEntries::sequential((
-            gpu_scene.meshlets.binding(),
-            gpu_scene.instance_uniforms.binding().unwrap(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.meshlet_bounding_spheres.binding(),
+            gpu_scene.thread_instance_ids.binding().unwrap(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
+            view_resources.occlusion_buffer.as_entire_binding(),
+            view_uniforms.clone(),
             gpu_scene.previous_thread_ids.binding().unwrap(),
             view_resources.previous_occlusion_buffer.as_entire_binding(),
-            view_resources.occlusion_buffer.as_entire_binding(),
-            gpu_scene.meshlet_bounding_spheres.binding(),
-            view_resources
-                .visibility_buffer_draw_command_buffer_first
-                .as_entire_binding(),
-            view_resources
-                .visibility_buffer_draw_index_buffer
-                .as_entire_binding(),
-            view_uniforms.clone(),
         ));
         let culling_first = render_device.create_bind_group(
             "meshlet_culling_first_bind_group",
@@ -360,26 +353,51 @@ pub fn prepare_meshlet_view_bind_groups(
         );
 
         let entries = BindGroupEntries::sequential((
-            gpu_scene.meshlets.binding(),
-            gpu_scene.instance_uniforms.binding().unwrap(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.previous_thread_ids.binding().unwrap(),
-            view_resources.previous_occlusion_buffer.as_entire_binding(),
-            view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            view_resources
-                .visibility_buffer_draw_command_buffer_second
-                .as_entire_binding(),
-            view_resources
-                .visibility_buffer_draw_index_buffer
-                .as_entire_binding(),
+            gpu_scene.thread_instance_ids.binding().unwrap(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
+            view_resources.occlusion_buffer.as_entire_binding(),
             view_uniforms.clone(),
             &view_resources.depth_pyramid.default_view,
         ));
         let culling_second = render_device.create_bind_group(
             "meshlet_culling_second_bind_group",
             &gpu_scene.culling_second_bind_group_layout,
+            &entries,
+        );
+
+        let entries = BindGroupEntries::sequential((
+            view_resources.occlusion_buffer.as_entire_binding(),
+            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.meshlets.binding(),
+            view_resources
+                .visibility_buffer_draw_command_buffer_first
+                .as_entire_binding(),
+            view_resources
+                .visibility_buffer_draw_index_buffer
+                .as_entire_binding(),
+        ));
+        let write_index_buffer_first = render_device.create_bind_group(
+            "meshlet_write_index_buffer_first_bind_group",
+            &gpu_scene.write_index_buffer_bind_group_layout,
+            &entries,
+        );
+
+        let entries = BindGroupEntries::sequential((
+            view_resources.occlusion_buffer.as_entire_binding(),
+            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.meshlets.binding(),
+            view_resources
+                .visibility_buffer_draw_command_buffer_second
+                .as_entire_binding(),
+            view_resources
+                .visibility_buffer_draw_index_buffer
+                .as_entire_binding(),
+        ));
+        let write_index_buffer_second = render_device.create_bind_group(
+            "meshlet_write_index_buffer_second_bind_group",
+            &gpu_scene.write_index_buffer_bind_group_layout,
             &entries,
         );
 
@@ -406,19 +424,19 @@ pub fn prepare_meshlet_view_bind_groups(
             .collect();
 
         let entries = BindGroupEntries::sequential((
-            gpu_scene.meshlets.binding(),
-            gpu_scene.instance_uniforms.binding().unwrap(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.vertex_data.binding(),
-            gpu_scene.vertex_ids.binding(),
+            gpu_scene.meshlets.binding(),
             gpu_scene.indices.binding(),
+            gpu_scene.vertex_ids.binding(),
+            gpu_scene.vertex_data.binding(),
+            gpu_scene.thread_instance_ids.binding().unwrap(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.instance_material_ids.binding().unwrap(),
             view_uniforms.clone(),
         ));
-        let visibility_buffer = render_device.create_bind_group(
-            "meshlet_visibility_buffer_bind_group",
-            &gpu_scene.visibility_buffer_bind_group_layout,
+        let visibility_buffer_raster = render_device.create_bind_group(
+            "meshlet_visibility_raster_buffer_bind_group",
+            &gpu_scene.visibility_buffer_raster_bind_group_layout,
             &entries,
         );
 
@@ -444,14 +462,14 @@ pub fn prepare_meshlet_view_bind_groups(
             .as_ref()
             .map(|visibility_buffer| {
                 let entries = BindGroupEntries::sequential((
-                    gpu_scene.meshlets.binding(),
-                    gpu_scene.instance_uniforms.binding().unwrap(),
-                    gpu_scene.thread_instance_ids.binding().unwrap(),
-                    gpu_scene.thread_meshlet_ids.binding().unwrap(),
-                    gpu_scene.vertex_data.binding(),
-                    gpu_scene.vertex_ids.binding(),
-                    gpu_scene.indices.binding(),
                     &visibility_buffer.default_view,
+                    gpu_scene.thread_meshlet_ids.binding().unwrap(),
+                    gpu_scene.meshlets.binding(),
+                    gpu_scene.indices.binding(),
+                    gpu_scene.vertex_ids.binding(),
+                    gpu_scene.vertex_data.binding(),
+                    gpu_scene.thread_instance_ids.binding().unwrap(),
+                    gpu_scene.instance_uniforms.binding().unwrap(),
                 ));
                 render_device.create_bind_group(
                     "meshlet_mesh_material_draw_bind_group",
@@ -463,8 +481,10 @@ pub fn prepare_meshlet_view_bind_groups(
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             culling_first,
             culling_second,
+            write_index_buffer_first,
+            write_index_buffer_second,
             downsample_depth,
-            visibility_buffer,
+            visibility_buffer_raster,
             copy_material_depth,
             material_draw,
         });
@@ -497,7 +517,8 @@ pub struct MeshletGpuScene {
 
     culling_first_bind_group_layout: BindGroupLayout,
     culling_second_bind_group_layout: BindGroupLayout,
-    visibility_buffer_bind_group_layout: BindGroupLayout,
+    write_index_buffer_bind_group_layout: BindGroupLayout,
+    visibility_buffer_raster_bind_group_layout: BindGroupLayout,
     downsample_depth_bind_group_layout: BindGroupLayout,
     copy_material_depth_bind_group_layout: BindGroupLayout,
     material_draw_bind_group_layout: BindGroupLayout,
@@ -563,13 +584,10 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_sized(false, None),
                         storage_buffer_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                     ),
                 ),
             ),
@@ -582,14 +600,22 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_sized(false, None),
                         storage_buffer_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                         texture_2d(TextureSampleType::Float { filterable: false }),
+                    ),
+                ),
+            ),
+            write_index_buffer_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_write_index_buffer_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::COMPUTE,
+                    (
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_sized(false, None),
+                        storage_buffer_sized(false, None),
                     ),
                 ),
             ),
@@ -603,8 +629,8 @@ impl FromWorld for MeshletGpuScene {
                     ),
                 ),
             ),
-            visibility_buffer_bind_group_layout: render_device.create_bind_group_layout(
-                "meshlet_visibility_buffer_bind_group_layout",
+            visibility_buffer_raster_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_visibility_buffer_raster_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::VERTEX,
                     (
@@ -632,14 +658,14 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
                     (
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
                         texture_2d(TextureSampleType::Uint),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                     ),
                 ),
             ),
@@ -762,12 +788,16 @@ impl MeshletGpuScene {
         self.culling_second_bind_group_layout.clone()
     }
 
+    pub fn write_index_buffer_bind_group_layout(&self) -> BindGroupLayout {
+        self.write_index_buffer_bind_group_layout.clone()
+    }
+
     pub fn downsample_depth_bind_group_layout(&self) -> BindGroupLayout {
         self.downsample_depth_bind_group_layout.clone()
     }
 
-    pub fn visibility_buffer_bind_group_layout(&self) -> BindGroupLayout {
-        self.visibility_buffer_bind_group_layout.clone()
+    pub fn visibility_buffer_raster_bind_group_layout(&self) -> BindGroupLayout {
+        self.visibility_buffer_raster_bind_group_layout.clone()
     }
 
     pub fn copy_material_depth_bind_group_layout(&self) -> BindGroupLayout {
@@ -798,8 +828,10 @@ pub struct MeshletViewResources {
 pub struct MeshletViewBindGroups {
     pub culling_first: BindGroup,
     pub culling_second: BindGroup,
+    pub write_index_buffer_first: BindGroup,
+    pub write_index_buffer_second: BindGroup,
     pub downsample_depth: Box<[BindGroup]>,
-    pub visibility_buffer: BindGroup,
+    pub visibility_buffer_raster: BindGroup,
     pub copy_material_depth: Option<BindGroup>,
     pub material_draw: Option<BindGroup>,
 }

@@ -29,7 +29,7 @@ fn unpack_meshlet_vertex(packed: PackedMeshletVertex) -> MeshletVertex {
 struct Meshlet {
     start_vertex_id: u32,
     start_index_id: u32,
-    index_count: u32,
+    triangle_count: u32,
 }
 
 struct MeshletBoundingSphere {
@@ -45,30 +45,54 @@ struct DrawIndexedIndirect {
     base_instance: u32,
 }
 
-#ifdef MESHLET_BIND_GROUP
-@group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlets: array<Meshlet>;
-@group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
-@group(#{MESHLET_BIND_GROUP}) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>;
-@group(#{MESHLET_BIND_GROUP}) @binding(3) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
-#endif
-
 #ifdef MESHLET_CULLING_PASS
-@group(0) @binding(4) var<storage, read> meshlet_previous_thread_ids: array<u32>;
-@group(0) @binding(5) var<storage, read> meshlet_previous_occlusion: array<u32>;
-@group(0) @binding(6) var<storage, read_write> meshlet_occlusion: array<u32>;
-@group(0) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
-@group(0) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
-@group(0) @binding(9) var<storage, read_write> draw_index_buffer: array<u32>;
-@group(0) @binding(10) var<uniform> view: View;
-#ifdef MESHLET_SECOND_CULLING_PASS
-@group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
-#endif
+@group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
+@group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
+@group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>;
+@group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
+@group(0) @binding(4) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // packed bool's
+@group(0) @binding(5) var<uniform> view: View;
 #endif
 
-#ifdef MESHLET_VISIBILITY_BUFFER_PASS
+#ifdef MESHLET_FIRST_CULLING_PASS
+@group(0) @binding(6) var<storage, read> meshlet_previous_thread_ids: array<u32>;
+@group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // packed bool's
+
+fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
+    let previous_thread_id = meshlet_previous_thread_ids[thread_id];
+    let packed_occlusion = meshlet_previous_occlusion[previous_thread_id / 32u];
+    let bit_offset = previous_thread_id % 32u;
+    return bool(extractBits(packed_occlusion, bit_offset, 1u));
+}
+#endif
+
+#ifdef MESHLET_SECOND_CULLING_PASS
+@group(0) @binding(6) var depth_pyramid: texture_2d<f32>;
+#endif
+
+#ifdef MESHLET_WRITE_INDEX_BUFFER_PASS
+var<push_constant> thread_offset: u32;
+@group(0) @binding(0) var<storage, read> meshlet_occlusion: array<u32>; // packed bool's
+@group(0) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
+@group(0) @binding(2) var<storage, read> meshlets: array<Meshlet>;
+@group(0) @binding(3) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
+@group(0) @binding(4) var<storage, read_write> draw_index_buffer: array<u32>;
+
+fn get_meshlet_occlusion(thread_id: u32) -> bool {
+    let packed_occlusion = meshlet_occlusion[thread_id / 32u];
+    let bit_offset = thread_id % 32u;
+    return bool(extractBits(packed_occlusion, bit_offset, 1u));
+}
+#endif
+
+#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS
+@group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
+@group(0) @binding(1) var<storage, read> meshlets: array<Meshlet>;
+@group(0) @binding(2) var<storage, read> meshlet_indices: array<u32>; // packed u8's
+@group(0) @binding(3) var<storage, read> meshlet_vertex_ids: array<u32>;
 @group(0) @binding(4) var<storage, read> meshlet_vertex_data: array<PackedMeshletVertex>;
-@group(0) @binding(5) var<storage, read> meshlet_vertex_ids: array<u32>;
-@group(0) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
+@group(0) @binding(5) var<storage, read> meshlet_thread_instance_ids: array<u32>;
+@group(0) @binding(6) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
 @group(0) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>;
 @group(0) @binding(8) var<uniform> view: View;
 
@@ -80,10 +104,14 @@ fn get_meshlet_index(index_id: u32) -> u32 {
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
-@group(1) @binding(4) var<storage, read> meshlet_vertex_data: array<PackedMeshletVertex>;
-@group(1) @binding(5) var<storage, read> meshlet_vertex_ids: array<u32>;
-@group(1) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
-@group(1) @binding(7) var meshlet_visibility_buffer: texture_2d<u32>;
+@group(1) @binding(0) var meshlet_visibility_buffer: texture_2d<u32>;
+@group(1) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
+@group(1) @binding(2) var<storage, read> meshlets: array<Meshlet>;
+@group(1) @binding(3) var<storage, read> meshlet_indices: array<u32>; // packed u8's
+@group(1) @binding(4) var<storage, read> meshlet_vertex_ids: array<u32>;
+@group(1) @binding(5) var<storage, read> meshlet_vertex_data: array<PackedMeshletVertex>;
+@group(1) @binding(6) var<storage, read> meshlet_thread_instance_ids: array<u32>;
+@group(1) @binding(7) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
 
 fn get_meshlet_index(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];

@@ -201,11 +201,7 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
                 .fragment
                 .expect("TODO")
                 .shader_defs;
-            shader_defs.extend_from_slice(&[
-                "MESHLET_MESH_MATERIAL_PASS".into(),
-                ShaderDefVal::UInt("MESHLET_BIND_GROUP".into(), 1),
-                "MATERIAL_BIND_GROUP_2".into(),
-            ]);
+            shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
 
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: Some("meshlet_material_draw".into()),
