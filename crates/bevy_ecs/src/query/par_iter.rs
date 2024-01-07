@@ -109,6 +109,114 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
+        self.fold_impl(move |(), x| func(x));
+    }
+
+    /// Run `func` on each query result in parallel, collecting the result.
+    ///
+    /// This function output is deterministic. The function may be a bit expensive because
+    /// it allocates a `Vec` for each batch.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    pub fn map_collect<R, C, FN>(self, func: FN) -> C
+    where
+        R: Send + 'static,
+        C: FromIterator<R>,
+        FN: Fn(QueryItem<'w, D>) -> R + Send + Sync + Clone,
+    {
+        self.filter_map_collect(move |x| Some(func(x)))
+    }
+
+    /// Run `func` on each query result in parallel, collecting the result.
+    ///
+    /// This function output is deterministic. The function may be a bit expensive because
+    /// it allocates a `Vec` for each batch.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    pub fn filter_map_collect<R, C, FN>(self, func: FN) -> C
+    where
+        R: Send + 'static,
+        C: FromIterator<R>,
+        FN: Fn(QueryItem<'w, D>) -> Option<R> + Send + Sync + Clone,
+    {
+        self.flat_map_collect(func)
+    }
+
+    /// Run `func` on each query result in parallel, collecting the result.
+    ///
+    /// This function output is deterministic. The function may be a bit expensive because
+    /// it allocates a `Vec` for each batch.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    pub fn flat_map_collect<R, I, C, FN>(self, func: FN) -> C
+    where
+        R: Send + 'static,
+        I: IntoIterator<Item = R>,
+        C: FromIterator<R>,
+        FN: Fn(QueryItem<'w, D>) -> I + Send + Sync + Clone,
+    {
+        let vecs = self.fold_impl::<Vec<R>, _>(move |mut acc, x| {
+            acc.extend(func(x));
+            acc
+        });
+
+        // Compute total length. Because collect will likely want to reserve capacity,
+        // it is cheaper to do sum the lengths here than collect which would have to
+        // resize multiple times and over-allocate.
+        let mut len = Some(0usize);
+        for vec in &vecs {
+            len = len.and_then(|len| len.checked_add(vec.len()));
+        }
+
+        // Override the size hint.
+        struct IterWithSizeHint<I: Iterator> {
+            iter: I,
+            rem: usize,
+        }
+
+        impl<I: Iterator> Iterator for IterWithSizeHint<I> {
+            type Item = I::Item;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let next = self.iter.next()?;
+                self.rem -= 1;
+                Some(next)
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                (self.rem, Some(self.rem))
+            }
+        }
+
+        match len {
+            Some(len) => IterWithSizeHint {
+                iter: vecs.into_iter().flatten(),
+                rem: len,
+            }
+            .collect(),
+            None => vecs.into_iter().flatten().collect(),
+        }
+    }
+
+    /// Common implementation of `for_each` and `filter_map_collect`.
+    #[inline]
+    fn fold_impl<B, FN>(self, func: FN) -> Vec<B>
+    where
+        B: Default + Send + 'static,
+        FN: Fn(B, QueryItem<'w, D>) -> B + Send + Sync + Clone,
+    {
         #[cfg(any(target = "wasm32", not(feature = "multi-threaded")))]
         {
             // SAFETY:
@@ -118,9 +226,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
             // at the same time.
             unsafe {
-                self.state
+                let one = self
+                    .state
                     .iter_unchecked_manual(self.world, self.last_run, self.this_run)
-                    .for_each(func);
+                    .fold(B::default(), func);
+                vec![one]
             }
         }
         #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
@@ -129,22 +239,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             if thread_count <= 1 {
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state
+                    let one = self
+                        .state
                         .iter_unchecked_manual(self.world, self.last_run, self.this_run)
-                        .for_each(func);
+                        .fold(B::default(), func);
+                    vec![one]
                 }
             } else {
                 // Need a batch size of at least 1.
                 let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.par_for_each_unchecked_manual(
+                    self.state.par_fold_unchecked_manual(
                         self.world,
                         batch_size,
                         func,
                         self.last_run,
                         self.this_run,
-                    );
+                    )
                 }
             }
         }
@@ -186,5 +298,43 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             self.batching_strategy.batch_size_limits.start,
             self.batching_strategy.batch_size_limits.end,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use crate::entity::Entity;
+    use crate::query::With;
+    use crate::world::World;
+    use bevy_ecs_macros::Component;
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
+
+    #[test]
+    fn test_map_collect() {
+        ComputeTaskPool::get_or_init(TaskPool::default);
+
+        #[derive(Component)]
+        struct ComponentA(usize);
+        #[derive(Component)]
+        struct ComponentB(usize);
+
+        let mut world = World::default();
+
+        for i in 0..100 {
+            if i % 2 == 0 {
+                world.spawn(ComponentA(i));
+            } else {
+                world.spawn((ComponentA(i), ComponentB(i)));
+            }
+        }
+
+        let mut state = world.query_filtered::<Entity, With<ComponentA>>();
+        let entities: Vec<Entity> = state.iter(&world).collect();
+
+        let mut state = world.query_filtered::<Entity, With<ComponentA>>();
+        let par_entities: Vec<Entity> = state.par_iter(&world).map_collect(|x| x);
+
+        assert_eq!(par_entities, entities);
     }
 }

@@ -1101,9 +1101,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
-    pub(crate) unsafe fn par_for_each_unchecked_manual<
+    pub(crate) unsafe fn par_fold_unchecked_manual<
         'w,
-        FN: Fn(D::Item<'w>) + Send + Sync + Clone,
+        B: Default + Send + 'static,
+        FN: Fn(B, D::Item<'w>) -> B + Send + Sync + Clone,
     >(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -1111,7 +1112,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         func: FN,
         last_run: Tick,
         this_run: Tick,
-    ) {
+    ) -> Vec<B> {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
@@ -1138,7 +1139,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                                 .debug_checked_unwrap();
                             let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_in_table_range(&mut func, table, batch);
+                                .fold_over_table_range(B::default(), &mut func, table, batch)
                         });
                         offset += batch_size;
                     }
@@ -1162,13 +1163,18 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                                 world.archetypes().get(*archetype_id).debug_checked_unwrap();
                             let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_in_archetype_range(&mut func, archetype, batch);
+                                .fold_over_archetype_range(
+                                    B::default(),
+                                    &mut func,
+                                    archetype,
+                                    batch,
+                                )
                         });
                         offset += batch_size;
                     }
                 }
             }
-        });
+        })
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching
