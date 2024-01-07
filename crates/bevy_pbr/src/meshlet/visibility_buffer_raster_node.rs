@@ -101,7 +101,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         cull_pass(
             "meshlet_culling_first_pass",
             render_context,
-            &meshlet_view_bind_groups,
+            meshlet_view_bind_groups,
             view_offset,
             culling_first_pipeline,
             culling_workgroups,
@@ -134,7 +134,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         cull_pass(
             "meshlet_culling_second_pass",
             render_context,
-            &meshlet_view_bind_groups,
+            meshlet_view_bind_groups,
             view_offset,
             culling_second_pipeline,
             culling_workgroups,
@@ -192,7 +192,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             cull_pass(
                 "meshlet_culling_first_pass",
                 render_context,
-                &meshlet_view_bind_groups,
+                meshlet_view_bind_groups,
                 view_offset,
                 culling_first_pipeline,
                 culling_workgroups,
@@ -225,7 +225,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             cull_pass(
                 "meshlet_culling_second_pass",
                 render_context,
-                &meshlet_view_bind_groups,
+                meshlet_view_bind_groups,
                 view_offset,
                 culling_second_pipeline,
                 culling_workgroups,
@@ -301,6 +301,7 @@ fn write_index_buffer_pass(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn raster_pass(
     label: &'static str,
     render_context: &mut RenderContext,
