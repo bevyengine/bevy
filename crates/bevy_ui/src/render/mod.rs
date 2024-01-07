@@ -46,7 +46,7 @@ use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
-use self::instances::BatchType;
+use self::instances::{BatchType, UiInstanceBuffer, UiInstanceBuffers, ExtractedInstance};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -711,16 +711,32 @@ struct UiVertex {
 
 #[derive(Resource)]
 pub struct UiMeta {
-    vertices: BufferVec<UiVertex>,
-    view_bind_group: Option<BindGroup>,
+    pub view_bind_group: Option<BindGroup>,
+    pub index_buffer: BufferVec<u32>,
+    pub instance_buffers: UiInstanceBuffers,
 }
 
 impl Default for UiMeta {
     fn default() -> Self {
         Self {
-            vertices: BufferVec::new(BufferUsages::VERTEX),
             view_bind_group: None,
+            index_buffer: BufferVec::<u32>::new(BufferUsages::INDEX),
+            instance_buffers: Default::default(),
         }
+    }
+}
+
+impl UiMeta {
+    fn clear_instance_buffers(&mut self) {
+        self.instance_buffers.clear_all();
+    }
+
+    fn write_instance_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+        self.instance_buffers.write_all(render_device, render_queue);
+    }
+
+    fn push(&mut self, item: &ExtractedInstance) {
+        item.push(&mut self.instance_buffers);
     }
 }
 
@@ -823,7 +839,7 @@ pub fn prepare_uinodes(
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
-        ui_meta.vertices.clear();
+        ui_meta.clear_instance_buffers();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_view_bind_group",
             &ui_pipeline.view_layout,
@@ -852,8 +868,10 @@ pub fn prepare_uinodes(
                             batch_image_handle = extracted_uinode.image;
 
                             let new_batch = UiBatch {
-                                range: index..index,
-                                image: extracted_uinode.image,
+                                batch_type: extracted_uinode.instance.get_type(),
+                                image: extracted_uinode.image.clone(),
+                                stack_index: extracted_uinode.stack_index,
+                                range: index - 1..index,
                             };
 
                             batches.push((item.entity, new_batch));
