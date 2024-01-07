@@ -372,7 +372,7 @@ impl RenderAsset for LineGizmo {
     type Param = SRes<RenderDevice>;
 
     fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
-        RenderAssetPersistencePolicy::Unload
+        RenderAssetPersistencePolicy::Keep
     }
 
     fn prepare_asset(

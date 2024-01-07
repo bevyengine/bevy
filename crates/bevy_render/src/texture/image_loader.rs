@@ -67,7 +67,7 @@ impl Default for ImageLoaderSettings {
             format: ImageFormatSetting::default(),
             is_srgb: true,
             sampler: ImageSampler::Default,
-            cpu_persistent_access: RenderAssetPersistencePolicy::Unload,
+            cpu_persistent_access: RenderAssetPersistencePolicy::Keep,
         }
     }
 }

@@ -161,14 +161,14 @@ fn clear_children(parent: Entity, world: &mut World) {
 
 /// Command that adds a child to an entity.
 #[derive(Debug)]
-pub struct AddChild {
+pub struct PushChild {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
 
-impl Command for AddChild {
+impl Command for PushChild {
     fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).add_child(self.child);
     }
@@ -433,7 +433,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         if child == parent {
             panic!("Cannot add entity as a child of itself.");
         }
-        self.commands().add(AddChild { child, parent });
+        self.commands().add(PushChild { child, parent });
         self
     }
 
@@ -460,7 +460,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         if child == parent {
             panic!("Cannot set parent to itself");
         }
-        self.commands().add(AddChild { child, parent });
+        self.commands().add(PushChild { child, parent });
         self
     }
 
