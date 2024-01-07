@@ -7,6 +7,19 @@ use crate::Vec3;
 pub struct Direction3d(Vec3);
 
 impl Direction3d {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec3::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec3::Y);
+    /// A unit vector pointing along the positive Z axis.
+    pub const Z: Self = Self(Vec3::Z);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec3::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec3::NEG_Y);
+    /// A unit vector pointing along the negative Z axis.
+    pub const NEG_Z: Self = Self(Vec3::NEG_Z);
+
     /// Create a direction from a finite, nonzero [`Vec3`].
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -55,6 +68,13 @@ impl std::ops::Deref for Direction3d {
     type Target = Vec3;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl std::ops::Neg for Direction3d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
     }
 }
 
@@ -384,10 +404,7 @@ mod test {
 
     #[test]
     fn direction_creation() {
-        assert_eq!(
-            Direction3d::new(Vec3::X * 12.5),
-            Ok(Direction3d::from_normalized(Vec3::X))
-        );
+        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
         assert_eq!(
             Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)

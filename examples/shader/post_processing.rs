@@ -305,7 +305,7 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 5.0))
                 .looking_at(Vec3::default(), Vec3::Y),
-            camera_3d: Camera3d {
+            camera: Camera {
                 clear_color: Color::WHITE.into(),
                 ..default()
             },

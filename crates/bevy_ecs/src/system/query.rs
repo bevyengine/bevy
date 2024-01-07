@@ -903,7 +903,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// This method panics if there is a query mismatch or a non-existing entity.
     ///
     /// # Examples
-    /// ```rust, no_run
+    /// ``` no_run
     /// use bevy_ecs::prelude::*;
     ///
     /// #[derive(Component)]
@@ -1011,7 +1011,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Examples
     ///
-    /// ```rust, no_run
+    /// ``` no_run
     /// use bevy_ecs::prelude::*;
     ///
     /// #[derive(Component)]

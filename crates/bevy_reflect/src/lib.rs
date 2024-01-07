@@ -1557,7 +1557,7 @@ mod tests {
             ///
             /// # Example
             ///
-            /// ```ignore
+            /// ```ignore (This is only used for a unit test, no need to doc test)
             /// let some_struct = SomeStruct;
             /// ```
             #[derive(Reflect)]
@@ -1900,16 +1900,16 @@ bevy_reflect::tests::Test {
                 })
             }
 
+            fn type_ident() -> Option<&'static str> {
+                Some("Foo")
+            }
+
             fn crate_name() -> Option<&'static str> {
                 Some("bevy_reflect")
             }
 
             fn module_path() -> Option<&'static str> {
                 Some("bevy_reflect::tests")
-            }
-
-            fn type_ident() -> Option<&'static str> {
-                Some("Foo")
             }
         }
 

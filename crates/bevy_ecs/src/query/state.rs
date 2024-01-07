@@ -306,7 +306,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     /// use bevy_ecs::query::QueryEntityError;
     ///
@@ -376,7 +376,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     /// use bevy_ecs::query::QueryEntityError;
     ///
@@ -996,7 +996,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    /// `iter()` method, but cannot be chained like a normal [`Iterator`].
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
     ///
@@ -1024,7 +1024,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    /// `iter()` method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Safety
     ///
@@ -1086,7 +1086,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
     /// the current change tick are given. This is faster than the equivalent
-    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    /// `iter()` method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Panics
     /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
