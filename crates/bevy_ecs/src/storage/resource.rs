@@ -207,7 +207,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         // SAFETY: We've already validated that the row is present.
         let res = unsafe { self.data.swap_remove_and_forget_unchecked(Self::ROW) };
         // SAFETY: This function is being called through an exclusive mutable reference to Self, which
-        // should make it sound to read these ticks.
+        // makes it sound to read these ticks.
         unsafe {
             Some((
                 res,
