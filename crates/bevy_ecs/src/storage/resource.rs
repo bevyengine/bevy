@@ -151,6 +151,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: Tick) {
         if self.is_present() {
             self.validate_access();
+            // SAFETY: The caller ensures that the provided value is valid for the underlying type and
+            // is properly initialized. We've ensured that a value is already present and previously
+            // initialized.
             self.data.replace_unchecked(Self::ROW, value);
         } else {
             if !SEND {
@@ -179,6 +182,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     ) {
         if self.is_present() {
             self.validate_access();
+            // SAFETY: The caller ensures that the provided value is valid for the underlying type and
+            // is properly initialized. We've ensured that a value is already present and previously
+            // initialized.
             self.data.replace_unchecked(Self::ROW, value);
         } else {
             if !SEND {
