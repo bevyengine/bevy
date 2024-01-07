@@ -1052,7 +1052,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let Some(bind_group) = bind_groups.get(mesh.mesh_asset_id, is_skinned, is_morphed) else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
-                It should be set by the queue_mesh_bind_group system.\n\
+                It should be set by the prepare_mesh_bind_group system.\n\
                 This is a bevy bug! Please open an issue."
             );
             return RenderCommandResult::Failure;
