@@ -1,10 +1,11 @@
 #import bevy_pbr::meshlet_bindings::{
-    thread_offset,
+    constants,
     meshlet_thread_meshlet_ids,
     meshlets,
     draw_command_buffer,
     draw_index_buffer,
     get_meshlet_occlusion,
+    get_meshlet_previous_occlusion,
 }
 
 var<workgroup> draw_index_buffer_start_workgroup: u32;
@@ -15,11 +16,16 @@ var<workgroup> draw_index_buffer_start_workgroup: u32;
 @workgroup_size(64, 1, 1)
 fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(local_invocation_index) triangle_id: u32) {
     // Calculate the scene meshlet ID for this workgroup
-    let thread_id = workgroup_id.x + thread_offset;
+    let thread_id = workgroup_id.x + constants.thread_offset;
     if thread_id >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
     // If the meshlet was culled, then we don't need to draw it
     if !get_meshlet_occlusion(thread_id) { return; }
+
+    // If the meshlet was drawn in the first pass, and this is the second pass, then we don't need to draw it
+    if bool(constants.second_pass) {
+        if get_meshlet_previous_occlusion(thread_id) { return; }
+    }
 
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];

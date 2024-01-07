@@ -107,7 +107,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             culling_workgroups,
         );
         write_index_buffer_pass(
-            "meshlet_write_index_buffer_first_pass",
+            true,
             render_context,
             &meshlet_view_bind_groups.write_index_buffer_first,
             write_index_buffer_pipeline,
@@ -115,7 +115,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             max_workgroups_per_dispatch,
         );
         raster_pass(
-            "meshlet_visibility_buffer_raster_first_pass",
+            true,
             render_context,
             meshlet_view_resources,
             &meshlet_view_resources.visibility_buffer_draw_command_buffer_first,
@@ -140,7 +140,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             culling_workgroups,
         );
         write_index_buffer_pass(
-            "meshlet_write_index_buffer_second_pass",
+            false,
             render_context,
             &meshlet_view_bind_groups.write_index_buffer_second,
             write_index_buffer_pipeline,
@@ -148,7 +148,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             max_workgroups_per_dispatch,
         );
         raster_pass(
-            "meshlet_visibility_buffer_raster_second_pass",
+            false,
             render_context,
             meshlet_view_resources,
             &meshlet_view_resources.visibility_buffer_draw_command_buffer_second,
@@ -198,7 +198,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 culling_workgroups,
             );
             write_index_buffer_pass(
-                "meshlet_write_index_buffer_first_pass",
+                true,
                 render_context,
                 &meshlet_view_bind_groups.write_index_buffer_first,
                 write_index_buffer_pipeline,
@@ -206,7 +206,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 max_workgroups_per_dispatch,
             );
             raster_pass(
-                "meshlet_visibility_buffer_raster_first_pass",
+                true,
                 render_context,
                 meshlet_view_resources,
                 &meshlet_view_resources.visibility_buffer_draw_command_buffer_first,
@@ -231,7 +231,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 culling_workgroups,
             );
             write_index_buffer_pass(
-                "meshlet_write_index_buffer_second_pass",
+                false,
                 render_context,
                 &meshlet_view_bind_groups.write_index_buffer_second,
                 write_index_buffer_pipeline,
@@ -239,7 +239,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 max_workgroups_per_dispatch,
             );
             raster_pass(
-                "meshlet_visibility_buffer_raster_second_pass",
+                false,
                 render_context,
                 meshlet_view_resources,
                 &meshlet_view_resources.visibility_buffer_draw_command_buffer_second,
@@ -275,7 +275,7 @@ fn cull_pass(
 }
 
 fn write_index_buffer_pass(
-    label: &'static str,
+    first_pass: bool,
     render_context: &mut RenderContext,
     write_index_buffer_bind_group: &BindGroup,
     write_index_buffer_pipeline: &ComputePipeline,
@@ -284,16 +284,21 @@ fn write_index_buffer_pass(
 ) {
     let command_encoder = render_context.command_encoder();
     let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-        label: Some(label),
+        label: Some(if first_pass {
+            "meshlet_write_index_buffer_first_pass"
+        } else {
+            "meshlet_write_index_buffer_second_pass"
+        }),
         timestamp_writes: None,
     });
     cull_pass.set_bind_group(0, write_index_buffer_bind_group, &[]);
     cull_pass.set_pipeline(write_index_buffer_pipeline);
+    cull_pass.set_push_constants(0, &[0, 0, 0, (!first_pass) as u8]);
 
     let mut dispatched_so_far: u32 = 0;
     while scene_meshlet_count > 0 {
         let dispatch_size = scene_meshlet_count.min(max_workgroups_per_dispatch);
-        cull_pass.set_push_constants(0, &dispatched_so_far.to_le_bytes());
+        cull_pass.set_push_constants(4, &dispatched_so_far.to_le_bytes());
         cull_pass.dispatch_workgroups(dispatch_size, 1, 1);
 
         dispatched_so_far += dispatch_size;
@@ -303,7 +308,7 @@ fn write_index_buffer_pass(
 
 #[allow(clippy::too_many_arguments)]
 fn raster_pass(
-    label: &'static str,
+    first_pass: bool,
     render_context: &mut RenderContext,
     meshlet_view_resources: &MeshletViewResources,
     visibility_buffer_draw_command_buffer: &Buffer,
@@ -318,12 +323,17 @@ fn raster_pass(
         meshlet_view_resources.visibility_buffer.as_ref(),
         meshlet_view_resources.material_depth_color.as_ref(),
     ) {
+        let load = if first_pass {
+            LoadOp::Clear(Color::BLACK.into())
+        } else {
+            LoadOp::Load
+        };
         color_attachments_filled = [
             Some(RenderPassColorAttachment {
                 view: &visibility_buffer.default_view,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Color::BLACK.into()),
+                    load,
                     store: StoreOp::Store,
                 },
             }),
@@ -331,7 +341,7 @@ fn raster_pass(
                 view: &material_depth_color.default_view,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Color::BLACK.into()),
+                    load,
                     store: StoreOp::Store,
                 },
             }),
@@ -339,7 +349,11 @@ fn raster_pass(
     }
 
     let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-        label: Some(label),
+        label: Some(if first_pass {
+            "meshlet_visibility_buffer_raster_first_pass"
+        } else {
+            "meshlet_visibility_buffer_raster_second_pass"
+        }),
         color_attachments: if color_attachments_filled[0].is_none() {
             &[]
         } else {

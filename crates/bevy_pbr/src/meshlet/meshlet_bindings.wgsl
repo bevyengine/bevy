@@ -65,16 +65,30 @@ fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
 #endif
 
 #ifdef MESHLET_WRITE_INDEX_BUFFER_PASS
-var<push_constant> thread_offset: u32;
+struct PushConstants {
+    second_pass: u32,
+    thread_offset: u32,
+}
+
+var<push_constant> constants: PushConstants;
 @group(0) @binding(0) var<storage, read> meshlet_occlusion: array<u32>; // packed bool's
 @group(0) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
-@group(0) @binding(2) var<storage, read> meshlets: array<Meshlet>;
-@group(0) @binding(3) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
-@group(0) @binding(4) var<storage, read_write> draw_index_buffer: array<u32>;
+@group(0) @binding(2) var<storage, read> meshlet_previous_thread_ids: array<u32>;
+@group(0) @binding(3) var<storage, read> meshlet_previous_occlusion: array<u32>; // packed bool's
+@group(0) @binding(4) var<storage, read> meshlets: array<Meshlet>;
+@group(0) @binding(5) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
+@group(0) @binding(6) var<storage, read_write> draw_index_buffer: array<u32>;
 
 fn get_meshlet_occlusion(thread_id: u32) -> bool {
     let packed_occlusion = meshlet_occlusion[thread_id / 32u];
     let bit_offset = thread_id % 32u;
+    return bool(extractBits(packed_occlusion, bit_offset, 1u));
+}
+
+fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
+    let previous_thread_id = meshlet_previous_thread_ids[thread_id];
+    let packed_occlusion = meshlet_previous_occlusion[previous_thread_id / 32u];
+    let bit_offset = previous_thread_id % 32u;
     return bool(extractBits(packed_occlusion, bit_offset, 1u));
 }
 #endif

@@ -356,6 +356,8 @@ pub fn prepare_meshlet_view_bind_groups(
         let entries = BindGroupEntries::sequential((
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.previous_thread_ids.binding().unwrap(),
+            view_resources.previous_occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             view_resources
                 .visibility_buffer_draw_command_buffer_first
@@ -373,6 +375,8 @@ pub fn prepare_meshlet_view_bind_groups(
         let entries = BindGroupEntries::sequential((
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene.previous_thread_ids.binding().unwrap(),
+            view_resources.previous_occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             view_resources
                 .visibility_buffer_draw_command_buffer_second
@@ -581,6 +585,8 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
                     (
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
