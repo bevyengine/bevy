@@ -37,13 +37,13 @@ fn setup(
     });
 
     let shapes = [
-        meshes.add(shape::Cube::default().into()),
-        meshes.add(shape::Box::default().into()),
-        meshes.add(shape::Capsule::default().into()),
-        meshes.add(shape::Torus::default().into()),
-        meshes.add(shape::Cylinder::default().into()),
-        meshes.add(shape::Icosphere::default().try_into().unwrap()),
-        meshes.add(shape::UVSphere::default().into()),
+        meshes.add(shape::Cube::default()),
+        meshes.add(shape::Box::default()),
+        meshes.add(shape::Capsule::default()),
+        meshes.add(shape::Torus::default()),
+        meshes.add(shape::Cylinder::default()),
+        meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
+        meshes.add(shape::UVSphere::default()),
     ];
 
     let num_shapes = shapes.len();
@@ -78,8 +78,8 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
-        material: materials.add(Color::SILVER.into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0)),
+        material: materials.add(Color::SILVER),
         ..default()
     });
 

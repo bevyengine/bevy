@@ -103,16 +103,16 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0)),
         material: forward_mat_h.clone(),
         ..default()
     });
 
-    let cube_h = meshes.add(Mesh::from(shape::Cube { size: 0.1 }));
-    let sphere_h = meshes.add(Mesh::from(shape::UVSphere {
+    let cube_h = meshes.add(shape::Cube { size: 0.1 });
+    let sphere_h = meshes.add(shape::UVSphere {
         radius: 0.125,
         ..default()
-    }));
+    });
 
     // Cubes
     commands.spawn(PbrBundle {
@@ -196,7 +196,7 @@ fn setup(
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            mesh: meshes.add(shape::Box::default()),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("888888").unwrap(),
                 unlit: true,

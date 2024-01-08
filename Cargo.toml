@@ -1297,11 +1297,6 @@ description = "Full guide to Bevy's ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
-[[example]]
-name = "apply_deferred"
-path = "examples/ecs/apply_deferred.rs"
-doc-scrape-examples = true
-
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
 description = "Show how to use `apply_deferred` system"
@@ -2463,6 +2458,17 @@ doc-scrape-examples = true
 name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
+
+[[example]]
+name = "reflection_probes"
+path = "examples/3d/reflection_probes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.reflection_probes]
+name = "Reflection Probes"
+description = "Demonstrates reflection probes"
+category = "3D Rendering"
+wasm = false
 
 [package.metadata.example.fallback_image]
 hidden = true

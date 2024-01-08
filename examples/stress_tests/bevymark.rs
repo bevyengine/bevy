@@ -209,9 +209,7 @@ fn setup(
         textures,
         materials,
         quad: meshes
-            .add(Mesh::from(shape::Quad::new(Vec2::splat(
-                BIRD_TEXTURE_SIZE as f32,
-            ))))
+            .add(shape::Quad::new(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
         color_rng: StdRng::seed_from_u64(42),
         material_rng: StdRng::seed_from_u64(42),

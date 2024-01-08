@@ -18,7 +18,7 @@ fn setup(
 
     // Circle
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(50.).into()).into(),
+        mesh: meshes.add(shape::Circle::new(50.)).into(),
         material: materials.add(ColorMaterial::from(Color::PURPLE)),
         transform: Transform::from_translation(Vec3::new(-150., 0., 0.)),
         ..default()
@@ -37,9 +37,7 @@ fn setup(
 
     // Quad
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes
-            .add(shape::Quad::new(Vec2::new(50., 100.)).into())
-            .into(),
+        mesh: meshes.add(shape::Quad::new(Vec2::new(50., 100.))).into(),
         material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
         transform: Transform::from_translation(Vec3::new(50., 0., 0.)),
         ..default()
@@ -47,7 +45,7 @@ fn setup(
 
     // Hexagon
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::RegularPolygon::new(50., 6).into()).into(),
+        mesh: meshes.add(shape::RegularPolygon::new(50., 6)).into(),
         material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
         transform: Transform::from_translation(Vec3::new(150., 0., 0.)),
         ..default()

@@ -134,6 +134,7 @@ Example | Description
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+[Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
@@ -219,7 +220,6 @@ Example | Description
 
 Example | Description
 --- | ---
-[Apply System Buffers](../examples/ecs/apply_deferred.rs) | Show how to use `apply_deferred` system
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS

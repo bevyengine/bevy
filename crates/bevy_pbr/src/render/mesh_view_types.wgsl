@@ -109,3 +109,22 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>, 1024u>,
 };
 #endif
+
+struct ReflectionProbe {
+    // This is stored as the transpose in order to save space in this structure.
+    // It'll be transposed in the `environment_map_light` function.
+    inverse_transpose_transform: mat3x4<f32>,
+    cubemap_index: i32,
+};
+
+struct LightProbes {
+    // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
+    reflection_probes: array<ReflectionProbe, 8u>,
+    reflection_probe_count: i32,
+    // The index of the view environment map cubemap binding, or -1 if there's
+    // no such cubemap.
+    view_cubemap_index: i32,
+    // The smallest valid mipmap level for the specular environment cubemap
+    // associated with the view.
+    smallest_specular_mip_level_for_view: u32,
+};

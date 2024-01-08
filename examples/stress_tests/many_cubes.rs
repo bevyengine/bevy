@@ -104,7 +104,7 @@ fn setup(
     let images = images.into_inner();
     let material_assets = material_assets.into_inner();
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(shape::Cube { size: 1.0 });
 
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);

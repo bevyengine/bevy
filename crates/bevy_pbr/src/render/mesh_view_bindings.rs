@@ -17,7 +17,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
-    texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, FallbackImageZero, Image},
+    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
 
@@ -27,9 +27,10 @@ use bevy_render::render_resource::binding_types::texture_cube;
 use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
 
 use crate::{
-    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, MeshPipeline, MeshPipelineKey, ScreenSpaceAmbientOcclusionTextures,
-    ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    environment_map::{self, RenderViewBindGroupEntries, RenderViewEnvironmentMaps},
+    prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
+    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey,
+    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
 };
 
 #[derive(Clone)]
@@ -234,9 +235,11 @@ fn layout_entries(
             (9, uniform_buffer::<GlobalsUniform>(false)),
             // Fog
             (10, uniform_buffer::<GpuFog>(true)),
+            // Light probes
+            (11, uniform_buffer::<LightProbesUniform>(true)),
             // Screen space ambient occlusion texture
             (
-                11,
+                12,
                 texture_2d(TextureSampleType::Float { filterable: false }),
             ),
         ),
@@ -245,16 +248,16 @@ fn layout_entries(
     // EnvironmentMapLight
     let environment_map_entries = environment_map::get_bind_group_layout_entries();
     entries = entries.extend_with_indices((
-        (12, environment_map_entries[0]),
-        (13, environment_map_entries[1]),
-        (14, environment_map_entries[2]),
+        (13, environment_map_entries[0]),
+        (14, environment_map_entries[1]),
+        (15, environment_map_entries[2]),
     ));
 
     // Tonemapping
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
     entries = entries.extend_with_indices((
-        (15, tonemapping_lut_entries[0]),
-        (16, tonemapping_lut_entries[1]),
+        (16, tonemapping_lut_entries[0]),
+        (17, tonemapping_lut_entries[1]),
     ));
 
     // Prepass
@@ -264,7 +267,7 @@ fn layout_entries(
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
-            .zip([17, 18, 19, 20])
+            .zip([18, 19, 20, 21])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -275,10 +278,10 @@ fn layout_entries(
     // View Transmission Texture
     entries = entries.extend_with_indices((
         (
-            21,
+            22,
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),
-        (22, sampler(SamplerBindingType::Filtering)),
+        (23, sampler(SamplerBindingType::Filtering)),
     ));
 
     entries.to_vec()
@@ -331,18 +334,19 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&ScreenSpaceAmbientOcclusionTextures>,
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
-        Option<&EnvironmentMapLight>,
         &Tonemapping,
+        Option<&RenderViewEnvironmentMaps>,
     )>,
-    (images, mut fallback_images, fallback_cubemap, fallback_image_zero): (
+    (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<Image>>,
         FallbackImageMsaa,
-        Res<FallbackImageCubemap>,
+        Res<FallbackImage>,
         Res<FallbackImageZero>,
     ),
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
+    light_probes_buffer: Res<LightProbesBuffer>,
 ) {
     if let (
         Some(view_binding),
@@ -350,12 +354,14 @@ pub fn prepare_mesh_view_bind_groups(
         Some(point_light_binding),
         Some(globals),
         Some(fog_binding),
+        Some(light_probes_binding),
     ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
         fog_meta.gpu_fogs.binding(),
+        light_probes_buffer.binding(),
     ) {
         for (
             entity,
@@ -364,8 +370,8 @@ pub fn prepare_mesh_view_bind_groups(
             ssao_textures,
             prepass_textures,
             transmission_texture,
-            environment_map,
             tonemapping,
+            render_view_environment_maps,
         ) in &views
         {
             let fallback_ssao = fallback_images
@@ -393,19 +399,23 @@ pub fn prepare_mesh_view_bind_groups(
                 (8, cluster_bindings.offsets_and_counts_binding().unwrap()),
                 (9, globals.clone()),
                 (10, fog_binding.clone()),
-                (11, ssao_view),
+                (11, light_probes_binding.clone()),
+                (12, ssao_view),
             ));
 
-            let env_map_bindings =
-                environment_map::get_bindings(environment_map, &images, &fallback_cubemap);
+            let bind_group_entries = RenderViewBindGroupEntries::get(
+                render_view_environment_maps,
+                &images,
+                &fallback_image,
+            );
             entries = entries.extend_with_indices((
-                (12, env_map_bindings.0),
-                (13, env_map_bindings.1),
-                (14, env_map_bindings.2),
+                (13, bind_group_entries.diffuse_texture_views()),
+                (14, bind_group_entries.specular_texture_views()),
+                (15, bind_group_entries.sampler),
             ));
 
             let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
-            entries = entries.extend_with_indices(((15, lut_bindings.0), (16, lut_bindings.1)));
+            entries = entries.extend_with_indices(((16, lut_bindings.0), (17, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling
             let prepass_bindings;
@@ -415,7 +425,7 @@ pub fn prepare_mesh_view_bind_groups(
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
-                    .zip([17, 18, 19, 20])
+                    .zip([18, 19, 20, 21])
                     .flat_map(|(b, i)| b.map(|b| (b, i)))
                 {
                     entries = entries.extend_with_indices(((index, binding),));
@@ -431,7 +441,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .unwrap_or(&fallback_image_zero.sampler);
 
             entries =
-                entries.extend_with_indices(((21, transmission_view), (22, transmission_sampler)));
+                entries.extend_with_indices(((22, transmission_view), (23, transmission_sampler)));
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),

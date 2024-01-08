@@ -5,7 +5,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel,
+        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -368,6 +368,7 @@ impl App {
         if !self.world.contains_resource::<State<S>>() {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
+                .add_event::<StateTransitionEvent<S>>()
                 .add_systems(
                     StateTransition,
                     (
@@ -403,6 +404,7 @@ impl App {
     pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
         self.insert_resource(State::new(state))
             .init_resource::<NextState<S>>()
+            .add_event::<StateTransitionEvent<S>>()
             .add_systems(
                 StateTransition,
                 (
