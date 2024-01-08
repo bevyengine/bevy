@@ -303,6 +303,7 @@ bytemuck = "1.7"
 futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
+bevy_test_utils = { path = "crates/bevy_test_utils", version = "0.0.0" }
 
 [[example]]
 name = "hello_world"

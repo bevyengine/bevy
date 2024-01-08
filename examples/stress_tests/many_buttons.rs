@@ -5,6 +5,7 @@ use bevy::{
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
+use bevy_test_utils::BenchmarkPlugin;
 
 const FONT_SIZE: f32 = 7.0;
 
@@ -54,6 +55,7 @@ fn main() {
             }),
             ..default()
         }),
+        BenchmarkPlugin,
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))

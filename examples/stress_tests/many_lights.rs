@@ -11,6 +11,7 @@ use bevy::{
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
+use bevy_test_utils::BenchmarkPlugin;
 use rand::{thread_rng, Rng};
 
 fn main() {
@@ -26,6 +27,7 @@ fn main() {
                 }),
                 ..default()
             }),
+            BenchmarkPlugin,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,

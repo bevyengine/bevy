@@ -11,6 +11,7 @@ use bevy::{
     text::{BreakLineOn, Text2dBounds},
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
+use bevy_test_utils::BenchmarkPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -23,6 +24,7 @@ fn main() {
             }),
             ..default()
         }),
+        BenchmarkPlugin,
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))
