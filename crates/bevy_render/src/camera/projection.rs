@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
@@ -192,7 +193,7 @@ impl Default for PerspectiveProjection {
     }
 }
 
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
     /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
@@ -213,6 +214,60 @@ pub enum ScalingMode {
     /// Keep the projection's width constant; height will be adjusted to match aspect ratio.
     /// The argument is the desired width of the projection in world units.
     FixedHorizontal(f32),
+}
+
+impl Mul<f32> for ScalingMode {
+    type Output = ScalingMode;
+
+    /// Scale the `ScalingMode`. For example, multiplying by 2 makes the viewport twice as large.
+    fn mul(self, rhs: f32) -> ScalingMode {
+        match self {
+            ScalingMode::Fixed { width, height } => ScalingMode::Fixed {
+                width: width * rhs,
+                height: height * rhs,
+            },
+            ScalingMode::WindowSize(pixels_per_world_unit) => {
+                ScalingMode::WindowSize(pixels_per_world_unit / rhs)
+            }
+            ScalingMode::AutoMin {
+                min_width,
+                min_height,
+            } => ScalingMode::AutoMin {
+                min_width: min_width * rhs,
+                min_height: min_height * rhs,
+            },
+            ScalingMode::AutoMax {
+                max_width,
+                max_height,
+            } => ScalingMode::AutoMax {
+                max_width: max_width * rhs,
+                max_height: max_height * rhs,
+            },
+            ScalingMode::FixedVertical(size) => ScalingMode::FixedVertical(size * rhs),
+            ScalingMode::FixedHorizontal(size) => ScalingMode::FixedHorizontal(size * rhs),
+        }
+    }
+}
+
+impl MulAssign<f32> for ScalingMode {
+    fn mul_assign(&mut self, rhs: f32) {
+        *self = *self * rhs;
+    }
+}
+
+impl Div<f32> for ScalingMode {
+    type Output = ScalingMode;
+
+    /// Scale the `ScalingMode`. For example, dividing by 2 makes the viewport half as large.
+    fn div(self, rhs: f32) -> ScalingMode {
+        self * (1.0 / rhs)
+    }
+}
+
+impl DivAssign<f32> for ScalingMode {
+    fn div_assign(&mut self, rhs: f32) {
+        *self = *self / rhs;
+    }
 }
 
 /// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
