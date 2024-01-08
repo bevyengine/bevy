@@ -259,7 +259,7 @@ pub fn prepare_windows(
                     // NOTE: On some OSes this MUST be called from the main thread.
                     // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
                     render_instance
-                        .create_surface(&window.handle.get_handle())
+                        .create_surface_from_raw(&window.handle.get_handle())
                         .expect("Failed to create wgpu surface")
                 };
                 let caps = surface.get_capabilities(&render_adapter);

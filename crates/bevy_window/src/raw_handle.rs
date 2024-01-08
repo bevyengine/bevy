@@ -1,11 +1,8 @@
 use bevy_ecs::prelude::Component;
 use raw_window_handle::{
     HandleError,
-    // HasWindowHandle, WindowHandle, HasDisplayHandle, DisplayHandle,
-    HasRawDisplayHandle,
-    HasRawWindowHandle,
     RawDisplayHandle,
-    RawWindowHandle,
+    RawWindowHandle, WindowHandle, HasWindowHandle, DisplayHandle, HasDisplayHandle,
 };
 
 /// A wrapper over [`RawWindowHandle`] and [`RawDisplayHandle`] that allows us to safely pass it across threads.
@@ -57,17 +54,14 @@ pub struct ThreadLockedRawWindowHandleWrapper(pub RawHandleWrapper);
 // as the `raw_window_handle` method is safe. We cannot guarantee that all calls
 // of this method are correct (as it may be off the main thread on an incompatible platform),
 // and so exposing a safe method to get a [`RawWindowHandle`] directly would be UB.
-unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
-    fn raw_window_handle(&self) -> Result<RawWindowHandle, HandleError> {
-        Ok(self.0.window_handle)
+impl HasWindowHandle for ThreadLockedRawWindowHandleWrapper {
+    fn window_handle(&self) -> Result<WindowHandle, HandleError> {
+        // TODO: Unsure if this is the same safety as before
+        // TODO: Can we make this safe now that wgpu supports safe surface creation with
+        // raw-window-handle 0.6?
+        Ok(unsafe { WindowHandle::borrow_raw(self.0.window_handle) })
     }
 }
-
-// impl HasWindowHandle for ThreadLockedRawWindowHandleWrapper {
-//     fn window_handle(&self) -> Result<WindowHandle, HandleError> {
-//         Ok(self.0.window_handle)
-//     }
-// }
 
 // SAFETY: the caller has validated that this is a valid context to get [`RawDisplayHandle`]
 // as otherwise an instance of this type could not have been constructed
@@ -75,14 +69,11 @@ unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
 // as the `raw_display_handle` method is safe. We cannot guarantee that all calls
 // of this method are correct (as it may be off the main thread on an incompatible platform),
 // and so exposing a safe method to get a [`RawDisplayHandle`] directly would be UB.
-unsafe impl HasRawDisplayHandle for ThreadLockedRawWindowHandleWrapper {
-    fn raw_display_handle(&self) -> Result<RawDisplayHandle, HandleError> {
-        Ok(self.0.display_handle)
+impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
+    fn display_handle(&self) -> Result<DisplayHandle, HandleError> {
+        // TODO: Unsure if this is the same safety as before
+        // TODO: Can we make this safe now that wgpu supports safe surface creation with
+        // raw-window-handle 0.6?
+        Ok(unsafe { DisplayHandle::borrow_raw(self.0.display_handle.into()) })
     }
 }
-
-// impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
-//     fn display_handle(&self) -> Result<DisplayHandle, HandleError> {
-//         Ok(self.0.display_handle.into())
-//     }
-// }

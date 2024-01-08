@@ -12,8 +12,8 @@ use bevy_utils::{
     EntityHashMap,
 };
 use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
+use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
@@ -74,8 +74,8 @@ pub(crate) fn create_windows<'a>(
         commands
             .entity(entity)
             .insert(RawHandleWrapper {
-                window_handle: winit_window.raw_window_handle().unwrap(),
-                display_handle: winit_window.raw_display_handle().unwrap(),
+                window_handle: winit_window.window_handle().unwrap().as_raw(),
+                display_handle: winit_window.display_handle().unwrap().as_raw(),
             })
             .insert(CachedWindow {
                 window: window.clone(),
