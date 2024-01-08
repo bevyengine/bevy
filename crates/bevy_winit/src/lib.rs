@@ -46,7 +46,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 pub use winit::platform::android::activity as android_activity;
 
 use winit::{
-    event::{self, DeviceEvent, Event, StartCause, WindowEvent},
+    event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
@@ -364,42 +364,13 @@ pub fn winit_runner(mut app: App) {
         runner_state.redraw_requested = false;
 
         match event {
-            Event::NewEvents(start_cause) => match start_cause {
-                StartCause::Init => {
-                    #[cfg(any(target_os = "ios", target_os = "macos"))]
-                    {
-                        let (
-                            commands,
-                            mut windows,
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                        ) = create_window_system_state.get_mut(&mut app.world);
-
-                        create_windows(
-                            event_loop,
-                            commands,
-                            windows.iter_mut(),
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                        );
-
-                        create_window_system_state.apply(&mut app.world);
-                    }
+            Event::NewEvents(_) => {
+                if let Some(t) = runner_state.scheduled_update {
+                    let now = Instant::now();
+                    let remaining = t.checked_duration_since(now).unwrap_or(Duration::ZERO);
+                    runner_state.wait_elapsed = remaining.is_zero();
                 }
-                _ => {
-                    if let Some(t) = runner_state.scheduled_update {
-                        let now = Instant::now();
-                        let remaining = t.checked_duration_since(now).unwrap_or(Duration::ZERO);
-                        runner_state.wait_elapsed = remaining.is_zero();
-                    }
-                }
-            },
+            }
             Event::WindowEvent {
                 event, window_id, ..
             } => {
