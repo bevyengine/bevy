@@ -565,7 +565,7 @@ impl<'s> GizmoPrimitive3d<Sphere, SphereDetails> for Gizmos<'s> {
                     start.extend(0.0),
                     sign * radius * Vec3::Z,
                     Vec3::ZERO,
-                    segments,
+                    segments / 2,
                 )
             })
         });
@@ -935,7 +935,7 @@ impl<'s> GizmoPrimitive3d<Capsule, Capsule3dDetails> for Gizmos<'s> {
                     start.extend(sign * half_length),
                     sign * (half_length + radius) * Vec3::Z,
                     sign * half_length * Vec3::Z,
-                    segments,
+                    segments / 2,
                 )
             })
         });
