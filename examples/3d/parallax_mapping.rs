@@ -234,11 +234,10 @@ fn setup(
         .with_children(|commands| {
             // represent the light source as a sphere
             let mesh = meshes.add(
-                shape::Icosphere {
+                Mesh::try_from(shape::Icosphere {
                     radius: 0.05,
                     subdivisions: 3,
-                }
-                .try_into()
+                })
                 .unwrap(),
             );
             commands.spawn(PbrBundle { mesh, ..default() });
@@ -246,13 +245,10 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            shape::Plane {
-                size: 10.0,
-                subdivisions: 0,
-            }
-            .into(),
-        ),
+        mesh: meshes.add(shape::Plane {
+            size: 10.0,
+            subdivisions: 0,
+        }),
         material: materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.

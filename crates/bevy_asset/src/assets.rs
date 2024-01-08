@@ -361,9 +361,9 @@ impl<A: Asset> Assets<A> {
 
     /// Adds the given `asset` and allocates a new strong [`Handle`] for it.
     #[inline]
-    pub fn add(&mut self, asset: A) -> Handle<A> {
+    pub fn add(&mut self, asset: impl Into<A>) -> Handle<A> {
         let index = self.dense_storage.allocator.reserve();
-        self.insert_with_index(index, asset).unwrap();
+        self.insert_with_index(index, asset.into()).unwrap();
         Handle::Strong(
             self.handle_provider
                 .get_handle(index.into(), false, None, None),

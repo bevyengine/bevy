@@ -28,12 +28,12 @@ fn setup(
 ) {
     // Spawn a list of lines with start and end points for each lines
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(LineList {
+        mesh: meshes.add(LineList {
             lines: vec![
                 (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
                 (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             ],
-        })),
+        }),
         transform: Transform::from_xyz(-1.5, 0.0, 0.0),
         material: materials.add(LineMaterial {
             color: Color::GREEN,
@@ -43,13 +43,13 @@ fn setup(
 
     // Spawn a line strip that goes from point to point
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(LineStrip {
+        mesh: meshes.add(LineStrip {
             points: vec![
                 Vec3::ZERO,
                 Vec3::new(1.0, 1.0, 0.0),
                 Vec3::new(1.0, 0.0, 0.0),
             ],
-        })),
+        }),
         transform: Transform::from_xyz(0.5, 0.0, 0.0),
         material: materials.add(LineMaterial { color: Color::BLUE }),
         ..default()
