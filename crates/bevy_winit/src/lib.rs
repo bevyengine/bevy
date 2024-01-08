@@ -858,8 +858,7 @@ fn run_app_update_if_should(
         app.update();
 
         // decide when to run the next update
-        let (config, windows) = focused_windows_state.get(&app.world);
-        let focused = windows.iter().any(|window| window.focused);
+        let (config, _) = focused_windows_state.get(&app.world);
         match config.update_mode(focused) {
             UpdateMode::Continuous => {
                 runner_state.redraw_requested = true;
