@@ -54,7 +54,7 @@ pub struct LoadTransformAndSave<
 > {
     transformer: T,
     saver: S,
-    marker: PhantomData<PhantomData<fn() -> L>>,
+    marker: PhantomData<fn() -> L>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
