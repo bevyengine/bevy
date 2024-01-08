@@ -5,15 +5,16 @@
 
 use std::time::Duration;
 
+use rand::Rng;
+
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::LogDiagnosticsPlugin,
     math::Quat,
     prelude::*,
     render::camera::Camera,
     window::{PresentMode, WindowResolution},
 };
-
-use rand::Rng;
+use bevy_test_utils::BenchmarkPlugin;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
@@ -22,7 +23,7 @@ fn main() {
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugins((
             LogDiagnosticsPlugin::default(),
-            FrameTimeDiagnosticsPlugin,
+            BenchmarkPlugin,
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,

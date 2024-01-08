@@ -5,12 +5,14 @@ use std::f32::consts::PI;
 use std::time::Duration;
 
 use argh::FromArgs;
+
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::LogDiagnosticsPlugin,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
+use bevy_test_utils::BenchmarkPlugin;
 
 #[derive(FromArgs, Resource)]
 /// `many_foxes` stress test
@@ -47,7 +49,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            BenchmarkPlugin,
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(Foxes {

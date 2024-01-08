@@ -7,13 +7,14 @@
 //! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
 //! in multiple batches, reducing performance but useful for testing.
 
+use rand::Rng;
+
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::LogDiagnosticsPlugin,
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
-
-use rand::Rng;
+use bevy_test_utils::BenchmarkPlugin;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
@@ -30,7 +31,7 @@ fn main() {
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugins((
             LogDiagnosticsPlugin::default(),
-            FrameTimeDiagnosticsPlugin,
+            BenchmarkPlugin,
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,

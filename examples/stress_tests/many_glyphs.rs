@@ -6,11 +6,12 @@
 //! To recompute all text each frame run
 //! `cargo run --example many_glyphs --release recompute-text`
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::LogDiagnosticsPlugin,
     prelude::*,
     text::{BreakLineOn, Text2dBounds},
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
+use bevy_test_utils::BenchmarkPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -23,7 +24,7 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
+        BenchmarkPlugin,
         LogDiagnosticsPlugin::default(),
     ))
     .add_systems(Startup, setup);

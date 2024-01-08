@@ -1,10 +1,12 @@
 /// General UI benchmark that stress tests layouting, text, interaction and rendering
 use argh::FromArgs;
+
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
+use bevy_internal::diagnostic::LogDiagnosticsPlugin;
+use bevy_test_utils::BenchmarkPlugin;
 
 const FONT_SIZE: f32 = 7.0;
 
@@ -54,8 +56,8 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
+        BenchmarkPlugin,
     ))
     .add_systems(Update, button_system);
 

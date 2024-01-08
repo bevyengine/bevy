@@ -3,15 +3,17 @@
 
 use std::f64::consts::PI;
 
+use rand::{thread_rng, Rng};
+
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::LogDiagnosticsPlugin,
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowPlugin, WindowResolution},
 };
-use rand::{thread_rng, Rng};
+use bevy_test_utils::BenchmarkPlugin;
 
 fn main() {
     App::new()
@@ -26,7 +28,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            BenchmarkPlugin,
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
         ))

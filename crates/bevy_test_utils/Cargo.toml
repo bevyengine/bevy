@@ -1,0 +1,15 @@
+[package]
+name = "bevy_test_utils"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Utilities for self-testing Bevy"
+
+[dependencies]
+bevy_app = { path = "../bevy_app" }
+bevy_ecs = { path = "../bevy_ecs" }
+bevy_log = { path = "../bevy_log" }
+bevy_time = { path = "../bevy_time" }
+
+[lints]
+workspace = true
