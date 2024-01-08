@@ -13,8 +13,11 @@ use bevy_utils::Duration;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(Update, tick.run_if(on_timer(Duration::from_secs(1))))
-///         .run();
+///         .add_systems(
+///             Update,
+///             tick.run_if(on_timer(Duration::from_secs(1))),
+///         )
+///     .run();
 /// }
 /// fn tick() {
 ///     // ran once a second
@@ -38,8 +41,9 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
     }
 }
 
-/// Run condition that is active on a regular time interval, using [`Time<Real>`] to advance
-/// the timer. The timer ticks are not scaled.
+/// Run condition that is active on a regular time interval,
+/// using [`Time<Real>`] to advance the timer.
+/// The timer ticks are not scaled.
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
@@ -49,7 +53,10 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(Update, tick.run_if(on_real_timer(Duration::from_secs(1))))
+///         .add_systems(
+///             Update,
+///             tick.run_if(on_real_timer(Duration::from_secs(1))),
+///         )
 ///         .run();
 /// }
 /// fn tick() {
@@ -74,10 +81,133 @@ pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool 
     }
 }
 
+/// Run condition that is active *once* after the specified delay,
+/// using [`Time`] to advance the timer.
+/// The timer ticks at the rate of [`Time::relative_speed`].
+///
+/// ```rust,no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_utils::Duration;
+/// # use bevy_time::common_conditions::once_after_delay;
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             tick.run_if(once_after_delay(Duration::from_secs(1))),
+///         )
+///     .run();
+/// }
+/// fn tick() {
+///     // ran once, after a second
+/// }
+/// ```
+pub fn once_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
+    let mut timer = Timer::new(duration, TimerMode::Once);
+    move |time: Res<Time>| {
+        timer.tick(time.delta());
+        timer.just_finished()
+    }
+}
+
+/// Run condition that is active *once* after the specified delay,
+/// using [`Time<Real>`] to advance the timer.
+/// The timer ticks are not scaled.
+///
+/// ```rust,no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_utils::Duration;
+/// # use bevy_time::common_conditions::once_after_delay;
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             tick.run_if(once_after_delay(Duration::from_secs(1))),
+///         )
+///     .run();
+/// }
+/// fn tick() {
+///     // ran once, after a second
+/// }
+/// ```
+pub fn once_after_real_delay(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool + Clone {
+    let mut timer = Timer::new(duration, crate::TimerMode::Once);
+    move |time: Res<Time<Real>>| {
+        timer.tick(time.delta());
+        timer.just_finished()
+    }
+}
+
+/// Run condition that is active *indefinitely* after the specified delay,
+/// using [`Time`] to advance the timer.
+/// The timer ticks at the rate of [`Time::relative_speed`].
+///
+/// ```rust,no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_utils::Duration;
+/// # use bevy_time::common_conditions::repeating_after_delay;
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             tick.run_if(repeating_after_delay(Duration::from_secs(1))),
+///         )
+///     .run();
+/// }
+/// fn tick() {
+///     // ran every frame, after a second
+/// }
+/// ```
+pub fn repeating_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
+    let mut timer = Timer::new(duration, TimerMode::Once);
+    move |time: Res<Time>| {
+        timer.tick(time.delta());
+        timer.finished()
+    }
+}
+
+/// Run condition that is active *indefinitely* after the specified delay,
+/// using [`Time<Real>`] to advance the timer.
+/// The timer ticks are not scaled.
+///
+/// ```rust,no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_utils::Duration;
+/// # use bevy_time::common_conditions::repeating_after_real_delay;
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             tick.run_if(repeating_after_real_delay(Duration::from_secs(1))),
+///         )
+///     .run();
+/// }
+/// fn tick() {
+///     // ran every frame, after a second
+/// }
+/// ```
+pub fn repeating_after_real_delay(
+    duration: Duration,
+) -> impl FnMut(Res<Time<Real>>) -> bool + Clone {
+    let mut timer = Timer::new(duration, TimerMode::Once);
+    move |time: Res<Time<Real>>| {
+        timer.tick(time.delta());
+        timer.finished()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
+    use std::time::Duration;
 
     fn test_system() {}
 
