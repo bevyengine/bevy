@@ -743,6 +743,7 @@ pub fn winit_runner(mut app: App) {
                     }
                 }
                 runner_state.active = ActiveState::Active;
+                runner_state.redraw_requested = true;
                 #[cfg(target_os = "android")]
                 {
                     // Get windows that are cached but without raw handles. Those window were already created, but got their
