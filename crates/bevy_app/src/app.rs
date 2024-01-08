@@ -5,7 +5,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel,
+        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -99,7 +99,7 @@ impl Debug for App {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// # use bevy_app::{App, AppLabel, SubApp, Main};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
@@ -278,7 +278,7 @@ impl App {
     ///
     /// # `run()` might not return
     ///
-    /// Calls to [`App::run()`] might never return.
+    /// Calls to [`App::run()`] will never return on iOS and Web.
     ///
     /// In simple and *headless* applications, one can expect that execution will
     /// proceed, normally, after calling [`run()`](App::run()) but this is not the case for
@@ -289,10 +289,7 @@ impl App {
     /// window is closed and that event loop terminates – behavior of processes that
     /// do not is often platform dependent or undocumented.
     ///
-    /// By default, *Bevy* uses the `winit` crate for window creation. See
-    /// [`WinitSettings::return_from_run`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run)
-    /// for further discussion of this topic and for a mechanism to require that [`App::run()`]
-    /// *does* return – albeit one that carries its own caveats and disclaimers.
+    /// By default, *Bevy* uses the `winit` crate for window creation.
     ///
     /// # Panics
     ///
@@ -351,6 +348,10 @@ impl App {
         self.plugins_state = PluginsState::Cleaned;
     }
 
+    /// Initializes a [`State`] with standard starting values.
+    ///
+    /// If the [`State`] already exists, nothing happens.
+    ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
     /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
@@ -363,9 +364,47 @@ impl App {
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
-    pub fn add_state<S: States>(&mut self) -> &mut Self {
-        self.init_resource::<State<S>>()
+    pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
+        if !self.world.contains_resource::<State<S>>() {
+            self.init_resource::<State<S>>()
+                .init_resource::<NextState<S>>()
+                .add_event::<StateTransitionEvent<S>>()
+                .add_systems(
+                    StateTransition,
+                    (
+                        run_enter_schedule::<S>.run_if(run_once_condition()),
+                        apply_state_transition::<S>,
+                    )
+                        .chain(),
+                );
+        }
+
+        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
+        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
+        // gracefully if they aren't present.
+
+        self
+    }
+
+    /// Inserts a specific [`State`] to the current [`App`] and
+    /// overrides any [`State`] previously added of the same type.
+    ///
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
+    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
+    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
+    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
+    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
+    /// initial state.
+    ///
+    /// If you would like to control how other systems run based on the current state,
+    /// you can emulate this behavior using the [`in_state`] [`Condition`].
+    ///
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by adding the [`apply_state_transition`] system manually.
+    pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
+        self.insert_resource(State::new(state))
             .init_resource::<NextState<S>>()
+            .add_event::<StateTransitionEvent<S>>()
             .add_systems(
                 StateTransition,
                 (
@@ -641,7 +680,7 @@ impl App {
     /// This vector will be length zero if no plugins of that type have been added.
     /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # #[derive(Default)]
     /// # struct ImagePlugin {
@@ -718,8 +757,8 @@ impl App {
 
     /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
     /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
-    /// ```rust,ignore
-    /// #[derive(Reflect)]
+    /// ```ignore (No serde "derive" feature)
+    /// #[derive(Component, Serialize, Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
     ///
@@ -739,7 +778,7 @@ impl App {
     /// this method can be used to insert additional type data.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use bevy_app::App;
     /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
     ///
@@ -893,7 +932,7 @@ impl App {
     ///
     /// ## Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
@@ -931,7 +970,7 @@ impl App {
     ///
     /// ## Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
@@ -1071,7 +1110,7 @@ mod tests {
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
-        app.add_state::<AppState>()
+        app.init_state::<AppState>()
             .add_systems(OnEnter(AppState::MainMenu), (foo, bar));
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
@@ -1082,7 +1121,7 @@ mod tests {
     fn add_systems_should_create_schedule_if_it_does_not_exist2() {
         let mut app = App::new();
         app.add_systems(OnEnter(AppState::MainMenu), (foo, bar))
-            .add_state::<AppState>();
+            .init_state::<AppState>();
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);

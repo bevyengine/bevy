@@ -2,9 +2,11 @@
 // ! assign a custom UV mapping for a custom texture,
 // ! and how to change the UV mapping at run-time.
 use bevy::prelude::*;
-use bevy::render::mesh::Indices;
-use bevy::render::mesh::VertexAttributeValues;
-use bevy::render::render_resource::PrimitiveTopology;
+use bevy::render::{
+    mesh::{Indices, VertexAttributeValues},
+    render_asset::RenderAssetPersistencePolicy,
+    render_resource::PrimitiveTopology,
+};
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
@@ -96,22 +98,22 @@ fn input_handler(
         let mesh = meshes.get_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
     }
-    if keyboard_input.pressed(KeyCode::X) {
+    if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
             transform.rotate_x(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::Y) {
+    if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
             transform.rotate_y(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::Z) {
+    if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
             transform.rotate_z(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::R) {
+    if keyboard_input.pressed(KeyCode::KeyR) {
         for mut transform in &mut query {
             transform.look_to(Vec3::NEG_Z, Vec3::Y);
         }
@@ -120,7 +122,8 @@ fn input_handler(
 
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
-    Mesh::new(PrimitiveTopology::TriangleList)
+    // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Keep)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.

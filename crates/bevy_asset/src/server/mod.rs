@@ -487,9 +487,16 @@ impl AssetServer {
                     match loaded_asset.labeled_assets.get(&label) {
                         Some(labeled_asset) => labeled_asset.handle.clone(),
                         None => {
+                            let mut all_labels: Vec<String> = loaded_asset
+                                .labeled_assets
+                                .keys()
+                                .map(|s| (**s).to_owned())
+                                .collect();
+                            all_labels.sort_unstable();
                             return Err(AssetLoadError::MissingLabel {
                                 base_path,
                                 label: label.to_string(),
+                                all_labels,
                             });
                         }
                     }
@@ -1138,10 +1145,15 @@ pub enum AssetLoadError {
         loader_name: &'static str,
         error: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
-    #[error("The file at '{base_path}' does not contain the labeled asset '{label}'.")]
+    #[error("The file at '{}' does not contain the labeled asset '{}'; it contains the following {} assets: {}",
+            base_path,
+            label,
+            all_labels.len(),
+            all_labels.iter().map(|l| format!("'{}'", l)).collect::<Vec<_>>().join(", "))]
     MissingLabel {
         base_path: AssetPath<'static>,
         label: String,
+        all_labels: Vec<String>,
     },
 }
 

@@ -9,12 +9,11 @@
 pub mod accessibility;
 mod converters;
 mod system;
-#[cfg(target_arch = "wasm32")]
-mod web_resize;
 mod winit_config;
 mod winit_windows;
 
 use bevy_a11y::AccessibilityRequested;
+use bevy_utils::{Duration, Instant};
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 pub use winit_config::*;
 pub use winit_windows::*;
@@ -32,10 +31,7 @@ use bevy_input::{
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use bevy_utils::{
-    tracing::{trace, warn},
-    Duration, Instant,
-};
+use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
@@ -57,8 +53,6 @@ use winit::{
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionHandlers};
 
 use crate::converters::convert_winit_theme;
-#[cfg(target_arch = "wasm32")]
-use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
 /// [`AndroidApp`] provides an interface to query the application state as well as monitor events
 /// (for example lifecycle and input events).
@@ -145,10 +139,9 @@ impl Plugin for WinitPlugin {
 
         app.add_plugins(AccessKitPlugin);
 
-        #[cfg(target_arch = "wasm32")]
-        app.add_plugins(CanvasParentResizePlugin);
-
-        let event_loop = event_loop_builder.build();
+        let event_loop = event_loop_builder
+            .build()
+            .expect("Failed to build event loop");
 
         // iOS, macOS, and Android don't like it if you create windows before the event loop is
         // initialized.
@@ -181,7 +174,6 @@ impl Plugin for WinitPlugin {
                 NonSendMut<AccessKitAdapters>,
                 ResMut<WinitActionHandlers>,
                 ResMut<AccessibilityRequested>,
-                ResMut<CanvasParentResizeEventChannel>,
             )> = SystemState::from_world(&mut app.world);
 
             #[cfg(not(target_arch = "wasm32"))]
@@ -204,7 +196,6 @@ impl Plugin for WinitPlugin {
                 adapters,
                 handlers,
                 accessibility_requested,
-                event_channel,
             ) = create_window_system_state.get_mut(&mut app.world);
 
             create_windows(
@@ -216,8 +207,6 @@ impl Plugin for WinitPlugin {
                 adapters,
                 handlers,
                 accessibility_requested,
-                #[cfg(target_arch = "wasm32")]
-                event_channel,
             );
 
             create_window_system_state.apply(&mut app.world);
@@ -227,46 +216,6 @@ impl Plugin for WinitPlugin {
         // be inserted as a resource here to pass it onto the runner.
         app.insert_non_send_resource(event_loop);
     }
-}
-
-fn run<F, T>(event_loop: EventLoop<T>, event_handler: F) -> !
-where
-    F: 'static + FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
-{
-    event_loop.run(event_handler)
-}
-
-#[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-))]
-fn run_return<F, T>(event_loop: &mut EventLoop<T>, event_handler: F)
-where
-    F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
-{
-    use winit::platform::run_return::EventLoopExtRunReturn;
-    event_loop.run_return(event_handler);
-}
-
-#[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-)))]
-fn run_return<F, T>(_event_loop: &mut EventLoop<T>, _event_handler: F)
-where
-    F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
-{
-    panic!("Run return is not supported on this platform!")
 }
 
 #[derive(SystemParam)]
@@ -356,12 +305,10 @@ pub fn winit_runner(mut app: App) {
         app.cleanup();
     }
 
-    let mut event_loop = app
+    let event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()
         .unwrap();
-
-    let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
 
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
@@ -382,7 +329,6 @@ pub fn winit_runner(mut app: App) {
         NonSend<AccessKitAdapters>,
     )> = SystemState::new(&mut app.world);
 
-    #[cfg(not(target_arch = "wasm32"))]
     let mut create_window_system_state: SystemState<(
         Commands,
         Query<(Entity, &mut Window), Added<Window>>,
@@ -391,24 +337,10 @@ pub fn winit_runner(mut app: App) {
         NonSendMut<AccessKitAdapters>,
         ResMut<WinitActionHandlers>,
         ResMut<AccessibilityRequested>,
-    )> = SystemState::from_world(&mut app.world);
-
-    #[cfg(target_arch = "wasm32")]
-    let mut create_window_system_state: SystemState<(
-        Commands,
-        Query<(Entity, &mut Window), Added<Window>>,
-        EventWriter<WindowCreated>,
-        NonSendMut<WinitWindows>,
-        NonSendMut<AccessKitAdapters>,
-        ResMut<WinitActionHandlers>,
-        ResMut<AccessibilityRequested>,
-        ResMut<CanvasParentResizeEventChannel>,
     )> = SystemState::from_world(&mut app.world);
 
     // setup up the event loop
-    let event_handler = move |event: Event<()>,
-                              event_loop: &EventLoopWindowTarget<()>,
-                              control_flow: &mut ControlFlow| {
+    let event_handler = move |event: Event<()>, event_loop: &EventLoopWindowTarget<()>| {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
@@ -423,18 +355,18 @@ pub fn winit_runner(mut app: App) {
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
                 if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                    *control_flow = ControlFlow::Exit;
+                    event_loop.exit();
                     return;
                 }
             }
         }
+        runner_state.redraw_requested = false;
 
         match event {
             Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
                     #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
-                        #[cfg(not(target_arch = "wasm32"))]
                         let (
                             commands,
                             mut windows,
@@ -443,18 +375,6 @@ pub fn winit_runner(mut app: App) {
                             adapters,
                             handlers,
                             accessibility_requested,
-                        ) = create_window_system_state.get_mut(&mut app.world);
-
-                        #[cfg(target_arch = "wasm32")]
-                        let (
-                            commands,
-                            mut windows,
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                            event_channel,
                         ) = create_window_system_state.get_mut(&mut app.world);
 
                         create_windows(
@@ -466,8 +386,6 @@ pub fn winit_runner(mut app: App) {
                             adapters,
                             handlers,
                             accessibility_requested,
-                            #[cfg(target_arch = "wasm32")]
-                            event_channel,
                         );
 
                         create_window_system_state.apply(&mut app.world);
@@ -495,7 +413,7 @@ pub fn winit_runner(mut app: App) {
                     return;
                 };
 
-                let Ok((mut window, mut cache)) = windows.get_mut(window_entity) else {
+                let Ok((mut window, _)) = windows.get_mut(window_entity) else {
                     warn!(
                         "Window {:?} is missing `Window` component, skipping event {:?}",
                         window_entity, event
@@ -507,11 +425,7 @@ pub fn winit_runner(mut app: App) {
                 // the engine.
                 if let Some(adapter) = access_kit_adapters.get(&window_entity) {
                     if let Some(window) = winit_windows.get_window(window_entity) {
-                        // Somewhat surprisingly, this call has meaningful side effects
-                        // See https://github.com/AccessKit/accesskit/issues/300
-                        // AccessKit might later need to filter events based on this, but we currently do not.
-                        // See https://github.com/bevyengine/bevy/pull/10239#issuecomment-1775572176
-                        let _ = adapter.on_event(window, &event);
+                        adapter.process_event(window, &event);
                     }
                 }
 
@@ -519,15 +433,7 @@ pub fn winit_runner(mut app: App) {
 
                 match event {
                     WindowEvent::Resized(size) => {
-                        window
-                            .resolution
-                            .set_physical_resolution(size.width, size.height);
-
-                        event_writers.window_resized.send(WindowResized {
-                            window: window_entity,
-                            width: window.width(),
-                            height: window.height(),
-                        });
+                        react_to_resize(&mut window, size, &mut event_writers, window_entity);
                     }
                     WindowEvent::CloseRequested => {
                         event_writers
@@ -536,10 +442,18 @@ pub fn winit_runner(mut app: App) {
                                 window: window_entity,
                             });
                     }
-                    WindowEvent::KeyboardInput { ref input, .. } => {
-                        event_writers
-                            .keyboard_input
-                            .send(converters::convert_keyboard_input(input, window_entity));
+                    WindowEvent::KeyboardInput { ref event, .. } => {
+                        if event.state.is_pressed() {
+                            if let Some(char) = &event.text {
+                                event_writers.character_input.send(ReceivedCharacter {
+                                    window: window_entity,
+                                    char: char.clone(),
+                                });
+                            }
+                        }
+                        let keyboard_event =
+                            converters::convert_keyboard_input(event, window_entity);
+                        event_writers.keyboard_input.send(keyboard_event);
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let physical_position = DVec2::new(position.x, position.y);
@@ -602,17 +516,15 @@ pub fn winit_runner(mut app: App) {
                             .to_logical(window.resolution.scale_factor() as f64);
                         event_writers
                             .touch_input
-                            .send(converters::convert_touch_input(touch, location));
-                    }
-                    WindowEvent::ReceivedCharacter(char) => {
-                        event_writers.character_input.send(ReceivedCharacter {
-                            window: window_entity,
-                            char,
-                        });
+                            .send(converters::convert_touch_input(
+                                touch,
+                                location,
+                                window_entity,
+                            ));
                     }
                     WindowEvent::ScaleFactorChanged {
                         scale_factor,
-                        new_inner_size,
+                        mut inner_size_writer,
                     } => {
                         event_writers.window_backend_scale_factor_changed.send(
                             WindowBackendScaleFactorChanged {
@@ -625,13 +537,22 @@ pub fn winit_runner(mut app: App) {
                         window.resolution.set_scale_factor(scale_factor as f32);
                         let new_factor = window.resolution.scale_factor();
 
+                        let mut new_inner_size = winit::dpi::PhysicalSize::new(
+                            window.physical_width(),
+                            window.physical_height(),
+                        );
                         if let Some(forced_factor) = window.resolution.scale_factor_override() {
                             // This window is overriding the OS-suggested DPI, so its physical size
                             // should be set based on the overriding value. Its logical size already
                             // incorporates any resize constraints.
-                            *new_inner_size =
+                            let maybe_new_inner_size =
                                 winit::dpi::LogicalSize::new(window.width(), window.height())
                                     .to_physical::<u32>(forced_factor as f64);
+                            if let Err(err) = inner_size_writer.request_inner_size(new_inner_size) {
+                                warn!("Winit Failed to resize the window: {err}");
+                            } else {
+                                new_inner_size = maybe_new_inner_size;
+                            }
                         } else if approx::relative_ne!(new_factor, prior_factor) {
                             event_writers.window_scale_factor_changed.send(
                                 WindowScaleFactorChanged {
@@ -640,7 +561,6 @@ pub fn winit_runner(mut app: App) {
                                 },
                             );
                         }
-
                         let new_logical_width = new_inner_size.width as f32 / new_factor;
                         let new_logical_height = new_inner_size.height as f32 / new_factor;
                         if approx::relative_ne!(window.width(), new_logical_width)
@@ -736,17 +656,33 @@ pub fn winit_runner(mut app: App) {
                             window: window_entity,
                         });
                     }
+                    WindowEvent::RedrawRequested => {
+                        runner_state.redraw_requested = false;
+                        run_app_update_if_should(
+                            &mut runner_state,
+                            &mut app,
+                            &mut focused_windows_state,
+                            event_loop,
+                            &mut create_window_system_state,
+                            &mut app_exit_event_reader,
+                            &mut redraw_event_reader,
+                        );
+                    }
                     _ => {}
                 }
 
-                if window.is_changed() {
-                    cache.window = window.clone();
+                let mut windows = app.world.query::<(&mut Window, &mut CachedWindow)>();
+                if let Ok((window, mut cache)) = windows.get_mut(&mut app.world, window_entity) {
+                    if window.is_changed() {
+                        cache.window = window.clone();
+                    }
                 }
             }
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
+                runner_state.redraw_requested = true;
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
@@ -807,132 +743,157 @@ pub fn winit_runner(mut app: App) {
 
                         app.world.entity_mut(entity).insert(wrapper);
                     }
-                    *control_flow = ControlFlow::Poll;
-                }
-            }
-            Event::MainEventsCleared => {
-                if runner_state.active.should_run() {
-                    if runner_state.active == ActiveState::WillSuspend {
-                        runner_state.active = ActiveState::Suspended;
-                        #[cfg(target_os = "android")]
-                        {
-                            // Remove the `RawHandleWrapper` from the primary window.
-                            // This will trigger the surface destruction.
-                            let mut query =
-                                app.world.query_filtered::<Entity, With<PrimaryWindow>>();
-                            let entity = query.single(&app.world);
-                            app.world.entity_mut(entity).remove::<RawHandleWrapper>();
-                            *control_flow = ControlFlow::Wait;
-                        }
-                    }
-                    let (config, windows) = focused_windows_state.get(&app.world);
-                    let focused = windows.iter().any(|window| window.focused);
-                    let should_update = match config.update_mode(focused) {
-                        UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
-                            // `Reactive`: In order for `event_handler` to have been called, either
-                            // we received a window or raw input event, the `wait` elapsed, or a
-                            // redraw was requested (by the app or the OS). There are no other
-                            // conditions, so we can just return `true` here.
-                            true
-                        }
-                        UpdateMode::ReactiveLowPower { .. } => {
-                            runner_state.wait_elapsed
-                                || runner_state.redraw_requested
-                                || runner_state.window_event_received
-                        }
-                    };
-
-                    if app.plugins_state() == PluginsState::Cleaned && should_update {
-                        // reset these on each update
-                        runner_state.wait_elapsed = false;
-                        runner_state.window_event_received = false;
-                        runner_state.redraw_requested = false;
-                        runner_state.last_update = Instant::now();
-
-                        app.update();
-
-                        // decide when to run the next update
-                        let (config, windows) = focused_windows_state.get(&app.world);
-                        let focused = windows.iter().any(|window| window.focused);
-                        match config.update_mode(focused) {
-                            UpdateMode::Continuous => *control_flow = ControlFlow::Poll,
-                            UpdateMode::Reactive { wait }
-                            | UpdateMode::ReactiveLowPower { wait } => {
-                                if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                                    runner_state.scheduled_update = Some(next);
-                                    *control_flow = ControlFlow::WaitUntil(next);
-                                } else {
-                                    runner_state.scheduled_update = None;
-                                    *control_flow = ControlFlow::Wait;
-                                }
-                            }
-                        }
-
-                        if let Some(app_redraw_events) =
-                            app.world.get_resource::<Events<RequestRedraw>>()
-                        {
-                            if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                                runner_state.redraw_requested = true;
-                                *control_flow = ControlFlow::Poll;
-                            }
-                        }
-
-                        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                            if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                                *control_flow = ControlFlow::Exit;
-                            }
-                        }
-                    }
-
-                    // create any new windows
-                    // (even if app did not update, some may have been created by plugin setup)
-                    #[cfg(not(target_arch = "wasm32"))]
-                    let (
-                        commands,
-                        mut windows,
-                        event_writer,
-                        winit_windows,
-                        adapters,
-                        handlers,
-                        accessibility_requested,
-                    ) = create_window_system_state.get_mut(&mut app.world);
-
-                    #[cfg(target_arch = "wasm32")]
-                    let (
-                        commands,
-                        mut windows,
-                        event_writer,
-                        winit_windows,
-                        adapters,
-                        handlers,
-                        accessibility_requested,
-                        event_channel,
-                    ) = create_window_system_state.get_mut(&mut app.world);
-
-                    create_windows(
-                        event_loop,
-                        commands,
-                        windows.iter_mut(),
-                        event_writer,
-                        winit_windows,
-                        adapters,
-                        handlers,
-                        accessibility_requested,
-                        #[cfg(target_arch = "wasm32")]
-                        event_channel,
-                    );
-
-                    create_window_system_state.apply(&mut app.world);
+                    event_loop.set_control_flow(ControlFlow::Wait);
                 }
             }
             _ => (),
         }
+        if runner_state.redraw_requested {
+            let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
+            for window in winit_windows.windows.values() {
+                window.request_redraw();
+            }
+        }
     };
 
     trace!("starting winit event loop");
-    if return_from_run {
-        run_return(&mut event_loop, event_handler);
-    } else {
-        run(event_loop, event_handler);
+    // TODO(clean): the winit docs mention using `spawn` instead of `run` on WASM.
+    if let Err(err) = event_loop.run(event_handler) {
+        error!("winit event loop returned an error: {err}");
     }
+}
+
+fn run_app_update_if_should(
+    runner_state: &mut WinitAppRunnerState,
+    app: &mut App,
+    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
+    event_loop: &EventLoopWindowTarget<()>,
+    create_window_system_state: &mut SystemState<(
+        Commands,
+        Query<(Entity, &mut Window), Added<Window>>,
+        EventWriter<WindowCreated>,
+        NonSendMut<WinitWindows>,
+        NonSendMut<AccessKitAdapters>,
+        ResMut<WinitActionHandlers>,
+        ResMut<AccessibilityRequested>,
+    )>,
+    app_exit_event_reader: &mut ManualEventReader<AppExit>,
+    redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
+) {
+    if !runner_state.active.should_run() {
+        return;
+    }
+    if runner_state.active == ActiveState::WillSuspend {
+        runner_state.active = ActiveState::Suspended;
+        #[cfg(target_os = "android")]
+        {
+            // Remove the `RawHandleWrapper` from the primary window.
+            // This will trigger the surface destruction.
+            let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
+            let entity = query.single(&app.world);
+            app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+            event_loop.set_control_flow(ControlFlow::Wait);
+        }
+    }
+    let (config, windows) = focused_windows_state.get(&app.world);
+    let focused = windows.iter().any(|window| window.focused);
+    let should_update = match config.update_mode(focused) {
+        // `Reactive`: In order for `event_handler` to have been called, either
+        // we received a window or raw input event, the `wait` elapsed, or a
+        // redraw was requested (by the app or the OS). There are no other
+        // conditions, so we can just return `true` here.
+        UpdateMode::Continuous | UpdateMode::Reactive { .. } => true,
+        // TODO(bug): This is currently always true since we only run this function
+        // if we received a `RequestRedraw` event.
+        UpdateMode::ReactiveLowPower { .. } => {
+            runner_state.wait_elapsed
+                || runner_state.redraw_requested
+                || runner_state.window_event_received
+        }
+    };
+
+    if app.plugins_state() == PluginsState::Cleaned && should_update {
+        // reset these on each update
+        runner_state.wait_elapsed = false;
+        runner_state.last_update = Instant::now();
+
+        app.update();
+
+        // decide when to run the next update
+        let (config, windows) = focused_windows_state.get(&app.world);
+        let focused = windows.iter().any(|window| window.focused);
+        match config.update_mode(focused) {
+            UpdateMode::Continuous => {
+                runner_state.redraw_requested = true;
+            }
+            UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+                // TODO(bug): this is unexpected behavior.
+                // When Reactive, user expects bevy to actually wait that amount of time,
+                // and not potentially infinitely depending on plateform specifics (which this does)
+                // Need to verify the plateform specifics (whether this can occur in
+                // rare-but-possible cases) and replace this with a panic or a log warn!
+                if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                    runner_state.scheduled_update = Some(next);
+                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                } else {
+                    runner_state.scheduled_update = None;
+                    event_loop.set_control_flow(ControlFlow::Wait);
+                }
+            }
+        }
+
+        if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
+            if redraw_event_reader.read(app_redraw_events).last().is_some() {
+                runner_state.redraw_requested = true;
+            }
+        }
+
+        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+            if app_exit_event_reader.read(app_exit_events).last().is_some() {
+                event_loop.exit();
+            }
+        }
+    }
+
+    // create any new windows
+    // (even if app did not update, some may have been created by plugin setup)
+    let (
+        commands,
+        mut windows,
+        event_writer,
+        winit_windows,
+        adapters,
+        handlers,
+        accessibility_requested,
+    ) = create_window_system_state.get_mut(&mut app.world);
+
+    create_windows(
+        event_loop,
+        commands,
+        windows.iter_mut(),
+        event_writer,
+        winit_windows,
+        adapters,
+        handlers,
+        accessibility_requested,
+    );
+
+    create_window_system_state.apply(&mut app.world);
+}
+
+fn react_to_resize(
+    window: &mut Mut<'_, Window>,
+    size: winit::dpi::PhysicalSize<u32>,
+    event_writers: &mut WindowAndInputEventWriters<'_>,
+    window_entity: Entity,
+) {
+    window
+        .resolution
+        .set_physical_resolution(size.width, size.height);
+
+    event_writers.window_resized.send(WindowResized {
+        window: window_entity,
+        width: window.width(),
+        height: window.height(),
+    });
 }

@@ -77,8 +77,8 @@ impl<'w, 's> EarPositions<'w, 's> {
             .unwrap_or_else(|| {
                 let settings = SpatialListener::default();
                 (
-                    (settings.left_ear_offset * self.scale.0),
-                    (settings.right_ear_offset * self.scale.0),
+                    settings.left_ear_offset * self.scale.0,
+                    settings.right_ear_offset * self.scale.0,
                 )
             });
 

@@ -27,7 +27,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// ## Examples
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_render::Extract;
 /// # #[derive(Component)]

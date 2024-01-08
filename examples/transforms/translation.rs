@@ -40,8 +40,8 @@ fn setup(
     let entity_spawn = Vec3::ZERO;
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::WHITE.into()),
+            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            material: materials.add(Color::WHITE),
             transform: Transform::from_translation(entity_spawn),
             ..default()
         },
