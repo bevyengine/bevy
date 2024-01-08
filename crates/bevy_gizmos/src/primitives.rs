@@ -31,6 +31,7 @@ pub trait GizmoPrimitive3d<P: Primitive3d, D: PrimitiveDetailFor<P>> {
 // Direction 2D
 
 /// Extra data used to draw [`Direction2d`] via [`Gizmos`]
+#[derive(Default)]
 pub struct Direction2dDetails {
     /// position of the start of the arrow
     pub position: Vec2,
@@ -54,6 +55,7 @@ impl<'s> GizmoPrimitive2d<Direction2d, Direction2dDetails> for Gizmos<'s> {
 // Circle 2D
 
 /// Details for rendering a 2D circle via [`Gizmos`].
+#[derive(Default)]
 pub struct Circle2dDetails {
     /// Position of the center of the circle.
     pub center: Vec2,
@@ -72,6 +74,7 @@ impl<'s> GizmoPrimitive2d<Circle, Circle2dDetails> for Gizmos<'s> {
 // Ellipse 2D
 
 /// Details for rendering a 2D ellipse via [`Gizmos`].
+#[derive(Default)]
 pub struct Ellipse2dDetails {
     /// Position of the center of the ellipse.
     pub center: Vec2,
@@ -90,6 +93,7 @@ impl<'s> GizmoPrimitive2d<Ellipse, Ellipse2dDetails> for Gizmos<'s> {
 // Line 2D
 
 /// Details for rendering a 2D line via [`Gizmos`].
+#[derive(Default)]
 pub struct Line2dDetails {
     /// Starting position of the line.
     pub start_position: Vec2,
@@ -125,6 +129,7 @@ impl<'s> GizmoPrimitive2d<Line2d, Line2dDetails> for Gizmos<'s> {
 // Plane 2D
 
 /// Details for rendering a 2D plane via [`Gizmos`].
+#[derive(Default)]
 pub struct Plane2dDetails {
     /// Starting position of the normal of the plane.
     pub normal_position: Vec2,
@@ -160,6 +165,7 @@ impl<'s> GizmoPrimitive2d<Plane2d, Plane2dDetails> for Gizmos<'s> {
 // Segment 2D
 
 /// Details for rendering a 2D line segment via [`Gizmos`].
+#[derive(Default)]
 pub struct Segment2dDetails {
     /// Starting position of the line segment.
     pub start_position: Vec2,
@@ -181,6 +187,7 @@ impl<'s> GizmoPrimitive2d<Segment2d, Segment2dDetails> for Gizmos<'s> {
 }
 
 /// Details for rendering a 2D line segment via [`Gizmos`].
+#[derive(Default)]
 pub struct Segment2dArrowDetails {
     /// Starting position of the line segment.
     pub start_position: Vec2,
@@ -204,6 +211,7 @@ impl<'s> GizmoPrimitive2d<Segment2d, Segment2dArrowDetails> for Gizmos<'s> {
 // Polyline 2D
 
 /// Details for rendering a 2D polyline via [`Gizmos`].
+#[derive(Default)]
 pub struct Polyline2dDetails {
     /// Offset for all the vertices of the polyline. If the polyline starts at `Vec2::ZERO`, this is
     /// also the starting point of the polyline.
@@ -240,6 +248,7 @@ impl<'s, const N: usize> GizmoPrimitive2d<Polyline2d<N>, Polyline2dDetails> for 
 // value
 
 /// Details for rendering a 2D boxed polyline via [`Gizmos`].
+#[derive(Default)]
 pub struct BoxedPolylineDetails {
     /// Offset for all the vertices of the boxed polyline. If the polyline starts at `Vec2::ZERO`, this is
     /// also the starting point of the polyline.
@@ -291,6 +300,7 @@ impl<'s> GizmoPrimitive2d<BoxedPolyline2d, BoxedPolylineDetails> for Gizmos<'s> 
 // means that primitive.first != primitive.last
 
 /// Details for rendering a 2D triangle via [`Gizmos`].
+#[derive(Default)]
 pub struct TriangleDetails {
     /// Offset for all the vertices of the triangle. If the triangle starts at `Vec2::ZERO`, this is
     /// also the starting point of the triangle.
@@ -327,6 +337,7 @@ impl<'s> GizmoPrimitive2d<Triangle2d, TriangleDetails> for Gizmos<'s> {
 // Rectangle 2D
 
 /// Details for rendering a 2D rectangle via [`Gizmos`].
+#[derive(Default)]
 pub struct RectangleDetails {
     /// Offset for all the vertices of the rectangle. If the rectangle starts at `Vec2::ZERO`, this is
     /// also the starting point of the rectangle.
@@ -369,6 +380,7 @@ impl<'s> GizmoPrimitive2d<Rectangle, RectangleDetails> for Gizmos<'s> {
 // Polygon 2D
 
 /// Details for rendering a 2D polygon via [`Gizmos`].
+#[derive(Default)]
 pub struct PolygonDetails {
     /// Offset for all the vertices of the polygon. If the polygon starts at `Vec2::ZERO`, this is
     /// also the starting point of the polygon.
@@ -409,6 +421,7 @@ impl<'s, const N: usize> GizmoPrimitive2d<Polygon<N>, PolygonDetails> for Gizmos
 // BoxedPolygon 2D
 
 /// Details for rendering a 2D boxed polygon via [`Gizmos`].
+#[derive(Default)]
 pub struct BoxedPolygonDetails {
     /// Offset for all the vertices of the boxed polygon. If the boxed polygon starts at
     /// `Vec2::ZERO`, this is also the starting point of the boxed polygon.
@@ -444,6 +457,7 @@ impl<'s> GizmoPrimitive2d<BoxedPolygon, BoxedPolygonDetails> for Gizmos<'s> {
 // RegularPolygon 2D
 
 /// Details for rendering a 2D regular polygon via [`Gizmos`].
+#[derive(Default)]
 pub struct RegularPolygonDetails {
     /// Offset for all the vertices of the regular polygon. If the regular polygon starts at `Vec2::ZERO`, this is
     /// also the starting point of the regular polygon.
@@ -453,16 +467,6 @@ pub struct RegularPolygonDetails {
     pub rotation: f32,
     /// Color of the regular polygon.
     pub color: Color,
-}
-
-impl Default for RegularPolygonDetails {
-    fn default() -> Self {
-        Self {
-            translation: Vec2::ZERO,
-            rotation: 0.0,
-            color: Color::default(),
-        }
-    }
 }
 
 impl PrimitiveDetailFor<RegularPolygon> for RegularPolygonDetails {}
@@ -493,9 +497,12 @@ impl<'s> GizmoPrimitive2d<RegularPolygon, RegularPolygonDetails> for Gizmos<'s> 
     }
 }
 
+// ======== 3D ==========
+
 // Direction 3D
 
 /// Details for rendering a 3D direction arrow via [`Gizmos`].
+#[derive(Default)]
 pub struct Direction3dDetails {
     /// Starting position of the arrow in 3D space.
     pub position: Vec3,
@@ -526,10 +533,21 @@ pub struct SphereDetails {
     pub rotation: Quat,
     /// Color of the sphere.
     pub color: Color,
-    /// Number of segments used to approximate the sphere geometry.
+    /// Number of segments used to approximate the sphere geometry. Defaults to `5`
     pub segments: usize,
 }
 impl PrimitiveDetailFor<Sphere> for SphereDetails {}
+
+impl Default for SphereDetails {
+    fn default() -> Self {
+        Self {
+            center: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
 
 impl<'s> GizmoPrimitive3d<Sphere, SphereDetails> for Gizmos<'s> {
     fn primitive_3d(&mut self, primitive: Sphere, detail: SphereDetails) {
@@ -562,6 +580,7 @@ impl<'s> GizmoPrimitive3d<Sphere, SphereDetails> for Gizmos<'s> {
 // Plane 3D
 
 /// Details for rendering a 3D plane via [`Gizmos`].
+#[derive(Default)]
 pub struct Plane3dDetails {
     /// Position of the point on the plane from which the normal emanates.
     pub normal_position: Vec3,
@@ -604,6 +623,7 @@ impl<'s> GizmoPrimitive3d<Plane3d, Plane3dDetails> for Gizmos<'s> {
 // Line 3D
 
 /// Details for rendering a 3D line via [`Gizmos`].
+#[derive(Default)]
 pub struct Line3dDetails {
     /// Starting position of the line.
     pub start_position: Vec3,
@@ -636,6 +656,7 @@ impl<'s> GizmoPrimitive3d<Line3d, Line3dDetails> for Gizmos<'s> {
 // Segment 3D
 
 /// Details for rendering a 3D line segment via [`Gizmos`].
+#[derive(Default)]
 pub struct Segment3dDetails {
     /// Starting position of the line segment.
     pub start_position: Vec3,
@@ -663,6 +684,7 @@ impl<'s> GizmoPrimitive3d<Segment3d, Segment3dDetails> for Gizmos<'s> {
 // Polyline 3D
 
 /// Details for rendering a 3D polyline via [`Gizmos`].
+#[derive(Default)]
 pub struct Polyline3dDetails {
     /// Translation applied to all vertices of the polyline.
     pub translation: Vec3,
@@ -692,6 +714,7 @@ impl<'s, const N: usize> GizmoPrimitive3d<Polyline3d<N>, Polyline3dDetails> for 
 // BoxedPolyline 3D
 
 /// Details for rendering a 3D boxed polyline via [`Gizmos`].
+#[derive(Default)]
 pub struct BoxedPolyline3dDetails {
     /// Translation applied to all vertices of the enclosed polyline.
     pub translation: Vec3,
@@ -723,6 +746,7 @@ impl<'s> GizmoPrimitive3d<BoxedPolyline3d, BoxedPolyline3dDetails> for Gizmos<'s
 // Cuboid 3D
 
 /// Details for rendering a 3D cuboid via [`Gizmos`].
+#[derive(Default)]
 pub struct Cuboid3dDetails {
     /// Center position of the cuboid.
     pub center: Vec3,
@@ -782,14 +806,25 @@ impl<'s> GizmoPrimitive3d<Cuboid, Cuboid3dDetails> for Gizmos<'s> {
 pub struct Cylinder3dDetails {
     /// Center position of the cylinder.
     pub center: Vec3,
-    /// Normal vector indicating the orientation of the cylinder.
+    /// Normal vector indicating the orientation of the cylinder. Defaults to `Vec3::Z`
     pub normal: Vec3,
     /// Color of the cylinder.
     pub color: Color,
-    /// Number of segments used to approximate the cylinder geometry.
+    /// Number of segments used to approximate the cylinder geometry. Defaults to `5`
     pub segments: usize,
 }
 impl PrimitiveDetailFor<Cylinder> for Cylinder3dDetails {}
+
+impl Default for Cylinder3dDetails {
+    fn default() -> Self {
+        Self {
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
 
 impl<'s> GizmoPrimitive3d<Cylinder, Cylinder3dDetails> for Gizmos<'s> {
     fn primitive_3d(&mut self, primitive: Cylinder, detail: Cylinder3dDetails) {
@@ -847,14 +882,25 @@ impl<'s> GizmoPrimitive3d<Cylinder, Cylinder3dDetails> for Gizmos<'s> {
 pub struct Capsule3dDetails {
     /// Center position of the capsule.
     pub center: Vec3,
-    /// Normal vector indicating the orientation of the capsule.
+    /// Normal vector indicating the orientation of the capsule. Defaults to `Vec3::Z`
     pub normal: Vec3,
     /// Color of the capsule.
     pub color: Color,
-    /// Number of segments used to approximate the capsule geometry.
+    /// Number of segments used to approximate the capsule geometry. Defaults to `5`
     pub segments: usize,
 }
 impl PrimitiveDetailFor<Capsule> for Capsule3dDetails {}
+
+impl Default for Capsule3dDetails {
+    fn default() -> Self {
+        Self {
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
 
 impl<'s> GizmoPrimitive3d<Capsule, Capsule3dDetails> for Gizmos<'s> {
     fn primitive_3d(&mut self, primitive: Capsule, detail: Capsule3dDetails) {
@@ -915,14 +961,25 @@ impl<'s> GizmoPrimitive3d<Capsule, Capsule3dDetails> for Gizmos<'s> {
 pub struct Cone3dDetails {
     /// Center of the base of the cone.
     pub center: Vec3,
-    /// Normal vector indicating the orientation of the cone.
+    /// Normal vector indicating the orientation of the cone. Defaults to `Vec3::Z`
     pub normal: Vec3,
     /// Color of the cone.
     pub color: Color,
-    /// Number of segments used to approximate the cone geometry.
+    /// Number of segments used to approximate the cone geometry. Defaults to `5`
     pub segments: usize,
 }
 impl PrimitiveDetailFor<Cone> for Cone3dDetails {}
+
+impl Default for Cone3dDetails {
+    fn default() -> Self {
+        Self {
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
 
 impl<'s> GizmoPrimitive3d<Cone, Cone3dDetails> for Gizmos<'s> {
     fn primitive_3d(&mut self, primitive: Cone, detail: Cone3dDetails) {
@@ -960,14 +1017,25 @@ impl<'s> GizmoPrimitive3d<Cone, Cone3dDetails> for Gizmos<'s> {
 pub struct ConicalFrustum3dDetails {
     /// Center of the base circle of the conical frustum.
     pub center: Vec3,
-    /// Normal vector indicating the orientation of the conical frustum.
+    /// Normal vector indicating the orientation of the conical frustum. Defaults to `Vec3::Z`
     pub normal: Vec3,
     /// Color of the conical frustum.
     pub color: Color,
-    /// Number of segments used to approximate the curved surfaces.
+    /// Number of segments used to approximate the curved surfaces. Defaults to `5`
     pub segments: usize,
 }
 impl PrimitiveDetailFor<ConicalFrustum> for ConicalFrustum3dDetails {}
+
+impl Default for ConicalFrustum3dDetails {
+    fn default() -> Self {
+        Self {
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
 
 impl<'s> GizmoPrimitive3d<ConicalFrustum, ConicalFrustum3dDetails> for Gizmos<'s> {
     fn primitive_3d(&mut self, primitive: ConicalFrustum, detail: ConicalFrustum3dDetails) {
@@ -1019,16 +1087,28 @@ impl<'s> GizmoPrimitive3d<ConicalFrustum, ConicalFrustum3dDetails> for Gizmos<'s
 pub struct Torus3dDetails {
     /// Center of the torus.
     pub center: Vec3,
-    /// Normal vector indicating the orientation of the torus.
+    /// Normal vector indicating the orientation of the torus. Defaults to `Vec3::Z`
     pub normal: Vec3,
     /// Color of the torus.
     pub color: Color,
-    /// Number of segments in the minor (tube) direction.
+    /// Number of segments in the minor (tube) direction. Defaults to `5`
     pub minor_segments: usize,
-    /// Number of segments in the major (ring) direction.
+    /// Number of segments in the major (ring) direction. Defaults to `5`
     pub major_segments: usize,
 }
 impl PrimitiveDetailFor<Torus> for Torus3dDetails {}
+
+impl Default for Torus3dDetails {
+    fn default() -> Self {
+        Self {
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            minor_segments: 5,
+            major_segments: 5,
+        }
+    }
+}
 
 impl<'s> GizmoPrimitive3d<Torus, Torus3dDetails> for Gizmos<'s> {
     fn primitive_3d(&mut self, primitive: Torus, detail: Torus3dDetails) {
