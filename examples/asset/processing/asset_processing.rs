@@ -1,12 +1,14 @@
-//! This example illustrates how to define custom `AssetLoader`s and `AssetSaver`s, how to configure them, and how to register asset processors.
+//! This example illustrates how to define custom `AssetLoader`s, `AssetTransfomers`, and `AssetSaver`s, how to configure them, and how to register asset processors.
+//! In this example we have two asset types, Text and CoolText.
 
 use bevy::{
     asset::{
         embedded_asset,
         io::{Reader, Writer},
-        processor::LoadAndSave,
+        processor::LoadTransformAndSave,
         ron,
         saver::{AssetSaver, SavedAsset},
+        transformer::AssetTransformer,
         AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
     },
     prelude::*,
@@ -14,6 +16,7 @@ use bevy::{
     utils::{thiserror, BoxedFuture},
 };
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use thiserror::Error;
 
 fn main() {
@@ -59,10 +62,10 @@ impl Plugin for TextPlugin {
             .init_asset::<Text>()
             .register_asset_loader(CoolTextLoader)
             .register_asset_loader(TextLoader)
-            .register_asset_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>(
-                LoadAndSave::from(CoolTextSaver),
+            .register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(
+                LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver),
             )
-            .set_default_asset_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>("cool.ron");
+            .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
     }
 }
 
@@ -133,9 +136,7 @@ enum CoolTextLoaderError {
 
 impl AssetLoader for CoolTextLoader {
     type Asset = CoolText;
-
     type Settings = ();
-
     type Error = CoolTextLoaderError;
 
     fn load<'a>(
@@ -170,16 +171,37 @@ impl AssetLoader for CoolTextLoader {
     }
 }
 
-struct CoolTextSaver;
+#[derive(Default)]
+struct CoolTextTransformer;
 
 #[derive(Default, Serialize, Deserialize)]
-pub struct CoolTextSaverSettings {
+pub struct CoolTextTransformerSettings {
     appended: String,
 }
 
+impl AssetTransformer for CoolTextTransformer {
+    type AssetInput = CoolText;
+    type AssetOutput = CoolText;
+    type Settings = CoolTextTransformerSettings;
+    type Error = Infallible;
+
+    fn transform<'a>(
+        &'a self,
+        asset: Self::AssetInput,
+        settings: &'a Self::Settings,
+    ) -> Result<Self::AssetOutput, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        Ok(CoolText {
+            text: format!("{}{}", asset.text, settings.appended),
+            dependencies: asset.dependencies.clone(),
+        })
+    }
+}
+
+struct CoolTextSaver;
+
 impl AssetSaver for CoolTextSaver {
     type Asset = CoolText;
-    type Settings = CoolTextSaverSettings;
+    type Settings = ();
     type OutputLoader = TextLoader;
     type Error = std::io::Error;
 
@@ -190,8 +212,7 @@ impl AssetSaver for CoolTextSaver {
         settings: &'a Self::Settings,
     ) -> BoxedFuture<'a, Result<TextSettings, Self::Error>> {
         Box::pin(async move {
-            let text = format!("{}{}", asset.text.clone(), settings.appended);
-            writer.write_all(text.as_bytes()).await?;
+            writer.write_all(asset.text.as_bytes()).await?;
             Ok(TextSettings::default())
         })
     }

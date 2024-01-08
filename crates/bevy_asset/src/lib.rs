@@ -2,6 +2,7 @@ pub mod io;
 pub mod meta;
 pub mod processor;
 pub mod saver;
+pub mod transformer;
 
 pub mod prelude {
     #[doc(hidden)]
