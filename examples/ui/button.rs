@@ -35,17 +35,17 @@ fn button_system(
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = Color::RED;
+                border_color.0 = Color::RED.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                border_color.0 = Color::WHITE.into();
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+                border_color.0 = Color::BLACK.into();
             }
         }
     }
@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: BorderColor(Color::BLACK),
+                    border_color: Color::BLACK.into(),
                     background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })

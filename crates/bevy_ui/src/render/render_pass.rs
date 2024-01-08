@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor, StoreOp},
+    render_resource::{CachedRenderPipelineId, RenderPassDescriptor, IndexFormat},
     renderer::*,
     view::*,
 };
@@ -210,8 +210,135 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(batch.range.clone(), 0..1);
+        let ui_meta = ui_meta.into_inner();
+        pass.set_index_buffer(
+            ui_meta.index_buffer.buffer().unwrap().slice(..),
+            0,
+            IndexFormat::Uint32,
+        );
+        match batch.batch_type {
+            super::BatchType::Node => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .node
+                        .unclipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::Text => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .text
+                        .unclipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::CNode => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .node
+                        .clipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::CText => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .text
+                        .clipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::LinearGradient => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .linear_gradient
+                        .unclipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::CLinearGradient => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .linear_gradient
+                        .clipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::RadialGradient => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .radial_gradient
+                        .unclipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::CRadialGradient => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .radial_gradient
+                        .clipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::DashedBorder => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .dashed_border
+                        .unclipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+            super::BatchType::CDashedBorder => {
+                pass.set_vertex_buffer(
+                    0,
+                    ui_meta
+                        .instance_buffers
+                        .dashed_border
+                        .clipped
+                        .buffer()
+                        .unwrap()
+                        .slice(..),
+                );
+            }
+        };
+        pass.draw_indexed(0..6, 0, batch.range.clone());
         RenderCommandResult::Success
     }
 }

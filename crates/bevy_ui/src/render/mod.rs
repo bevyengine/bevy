@@ -1,4 +1,4 @@
-pub mod extracted;
+pub mod extracted_nodes;
 pub mod instances;
 mod pipeline;
 mod render_pass;
@@ -13,8 +13,9 @@ use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
+use instances::*;
 
-use crate::extracted::ExtractedUiNodes;
+use crate::extracted_nodes::ExtractedUiNodes;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     Style, UiImage, UiScale, UiTextureAtlasImage, Val,
@@ -24,8 +25,8 @@ use crate::{Outline, UiColor, resolve_color_stops, OutlineStyle};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_math::{Vec3Swizzles, vec2};
-use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::vec2;
+use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3};
 use bevy_render::{
     camera::Camera,
     color::Color,
@@ -46,7 +47,8 @@ use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
-use self::instances::{BatchType, UiInstanceBuffer, UiInstanceBuffers, ExtractedInstance};
+use self::extracted_nodes::ExtractedItem;
+use self::instances::{BatchType, UiInstanceBuffer, UiInstanceBuffers, ExtractedInstance, ClippedInstance};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -684,7 +686,7 @@ pub fn extract_text_uinodes(
 
 
             extracted_uinodes.push_glyph(
-                entity,
+                commands.spawn_empty().id(),
                 uinode.stack_index as usize,
                 position,
                 scaled_glyph_size,
@@ -773,8 +775,9 @@ pub fn queue_uinodes(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
+
     for (view, mut transparent_phase) in &mut views {
-        let pipeline = pipelines.specialize(
+        let node_pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
@@ -783,11 +786,127 @@ pub fn queue_uinodes(
                 specialization: UiPipelineSpecialization::Node,
             },
         );
+        let clipped_node_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: true,
+                specialization: UiPipelineSpecialization::Node,
+            },
+        );
+        let text_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: false,
+                specialization: UiPipelineSpecialization::Text,
+            },
+        );
+        let clipped_text_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: true,
+                specialization: UiPipelineSpecialization::Text,
+            },
+        );
+        let linear_gradient_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: false,
+                specialization: UiPipelineSpecialization::LinearGradient,
+            },
+        );
+        let clipped_linear_gradient_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: true,
+                specialization: UiPipelineSpecialization::LinearGradient,
+            },
+        );
+
+        let radial_gradient_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: false,
+                specialization: UiPipelineSpecialization::RadialGradient,
+            },
+        );
+        let clipped_radial_gradient_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: true,
+                specialization: UiPipelineSpecialization::RadialGradient,
+            },
+        );
+        let dashed_border_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: false,
+                specialization: UiPipelineSpecialization::DashedBorder,
+            },
+        );
+        let clipped_dashed_border_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: true,
+                specialization: UiPipelineSpecialization::DashedBorder,
+            },
+        );
+        
         transparent_phase
             .items
             .reserve(extracted_uinodes.uinodes.len());
 
         for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
+            let pipeline = match extracted_uinode.instance {
+                ExtractedInstance::Node(..) => {
+                    node_pipeline
+                },
+                ExtractedInstance::Text(..) => {
+                    text_pipeline
+                },
+                ExtractedInstance::LinearGradient(..) => {
+                    linear_gradient_pipeline
+                },
+                ExtractedInstance::RadialGradient(..) => {
+                    radial_gradient_pipeline
+                },
+                ExtractedInstance::DashedBorder(..) => {
+                    dashed_border_pipeline
+                },
+                ExtractedInstance::CNode(..) => {
+                    clipped_node_pipeline
+                },
+                ExtractedInstance::CText(..) => {
+                    clipped_text_pipeline
+                },
+                ExtractedInstance::CLinearGradient(..) => {
+                    clipped_linear_gradient_pipeline
+                },
+                ExtractedInstance::CRadialGradient(..) => {
+                    clipped_radial_gradient_pipeline
+                },
+                ExtractedInstance::CDashedBorder(..) => {
+                    clipped_dashed_border_pipeline
+                },
+                
+            };
             transparent_phase.add(TransparentUi {
                 draw_function,
                 pipeline,
@@ -840,11 +959,13 @@ pub fn prepare_uinodes(
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.clear_instance_buffers();
+        let mut instance_counters = InstanceCounters::default();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_view_bind_group",
             &ui_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
         ));
+
 
         // Vertex buffer index
         let mut index = 0;
@@ -855,8 +976,10 @@ pub fn prepare_uinodes(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
+                    let index = instance_counters.increment(extracted_uinode.instance.get_type());
                     let mut existing_batch = batches.last_mut();
-
+                    ui_meta.push(&extracted_uinode.instance);
+                    
                     if batch_image_handle == AssetId::invalid()
                         || existing_batch.is_none()
                         || (batch_image_handle != AssetId::default()
@@ -919,129 +1042,44 @@ pub fn prepare_uinodes(
                         }
                     }
 
-                    let mode = if extracted_uinode.image != AssetId::default() {
-                        TEXTURED_QUAD
-                    } else {
-                        UNTEXTURED_QUAD
-                    };
+                    
 
-                    let mut uinode_rect = extracted_uinode.rect;
-
-                    let rect_size = uinode_rect.size().extend(1.0);
-
-                    // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        (extracted_uinode.transform * (pos * rect_size).extend(1.)).xyz()
-                    });
-
-                    // Calculate the effect of clipping
-                    // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
-                        [
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[0].x, 0.),
-                                f32::max(clip.min.y - positions[0].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[1].x, 0.),
-                                f32::max(clip.min.y - positions[1].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[2].x, 0.),
-                                f32::min(clip.max.y - positions[2].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[3].x, 0.),
-                                f32::min(clip.max.y - positions[3].y, 0.),
-                            ),
-                        ]
-                    } else {
-                        [Vec2::ZERO; 4]
-                    };
-
-                    let positions_clipped = [
-                        positions[0] + positions_diff[0].extend(0.),
-                        positions[1] + positions_diff[1].extend(0.),
-                        positions[2] + positions_diff[2].extend(0.),
-                        positions[3] + positions_diff[3].extend(0.),
-                    ];
-
-                    let transformed_rect_size =
-                        extracted_uinode.transform.transform_vector3(rect_size);
-
-                    // Don't try to cull nodes that have a rotation
-                    // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                    // In those two cases, the culling check can proceed normally as corners will be on
-                    // horizontal / vertical lines
-                    // For all other angles, bypass the culling check
-                    // This does not properly handles all rotations on all axis
-                    if extracted_uinode.transform.x_axis[1] == 0.0 {
-                        // Cull nodes that are completely clipped
-                        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-                        {
-                            continue;
-                        }
-                    }
-                    let uvs = if mode == UNTEXTURED_QUAD {
-                        [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-                    } else {
-                        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-                        if extracted_uinode.flip_x {
-                            std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-                            positions_diff[0].x *= -1.;
-                            positions_diff[1].x *= -1.;
-                            positions_diff[2].x *= -1.;
-                            positions_diff[3].x *= -1.;
-                        }
-                        if extracted_uinode.flip_y {
-                            std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                            positions_diff[0].y *= -1.;
-                            positions_diff[1].y *= -1.;
-                            positions_diff[2].y *= -1.;
-                            positions_diff[3].y *= -1.;
-                        }
-                        [
-                            Vec2::new(
-                                uinode_rect.min.x + positions_diff[0].x,
-                                uinode_rect.min.y + positions_diff[0].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.max.x + positions_diff[1].x,
-                                uinode_rect.min.y + positions_diff[1].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.max.x + positions_diff[2].x,
-                                uinode_rect.max.y + positions_diff[2].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.min.x + positions_diff[3].x,
-                                uinode_rect.max.y + positions_diff[3].y,
-                            ),
-                        ]
-                        .map(|pos| pos / atlas_extent)
-                    };
-
-                    let color = extracted_uinode.color.as_linear_rgba_f32();
-                    for i in QUAD_INDICES {
-                        ui_meta.vertices.push(UiVertex {
-                            position: positions_clipped[i].into(),
-                            uv: uvs[i].into(),
-                            color,
-                            mode,
-                        });
-                    }
-                    index += QUAD_INDICES.len() as u32;
-                    existing_batch.unwrap().1.range.end = index;
-                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
+                    
                 } else {
                     batch_image_handle = AssetId::invalid();
                 }
             }
         }
-        ui_meta.vertices.write_buffer(&render_device, &render_queue);
+
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
+    }
+
+    
+    ui_meta.write_instance_buffers(&render_device, &render_queue);
+
+    if ui_meta.index_buffer.len() != 6 {
+        ui_meta.index_buffer.clear();
+
+        // NOTE: This code is creating 6 indices pointing to 4 vertices.
+        // The vertices form the corners of a quad based on their two least significant bits.
+        // 10   11
+        //
+        // 00   01
+        // The sprite shader can then use the two least significant bits as the vertex index.
+        // The rest of the properties to transform the vertex positions and UVs (which are
+        // implicit) are baked into the instance transform, and UV offset and scale.
+        // See bevy_sprite/src/render/sprite.wgsl for the details.
+        ui_meta.index_buffer.push(2);
+        ui_meta.index_buffer.push(0);
+        ui_meta.index_buffer.push(1);
+        ui_meta.index_buffer.push(1);
+        ui_meta.index_buffer.push(3);
+        ui_meta.index_buffer.push(2);
+
+        ui_meta
+            .index_buffer
+            .write_buffer(&render_device, &render_queue);
     }
     extracted_uinodes.uinodes.clear();
 }

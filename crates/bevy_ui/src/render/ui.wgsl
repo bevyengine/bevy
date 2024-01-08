@@ -1,4 +1,4 @@
-#import bevy_render::view  View
+#import bevy_render::view::View
 
 const PI: f32 = 3.14159265358979323846;
 
