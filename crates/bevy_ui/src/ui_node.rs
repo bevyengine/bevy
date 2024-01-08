@@ -1752,7 +1752,7 @@ impl UiColor {
     /// Always returns true for gradient values.
     pub fn is_fully_transparent(&self) -> bool {
         match self {
-            Self::Color(color) => color.a() != 0.,
+            Self::Color(color) => color.a() <= 0.,
             _ => true,
         }
     }

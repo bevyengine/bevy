@@ -5,8 +5,6 @@ mod render_pass;
 mod ui_material_pipeline;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_hierarchy::Parent;
-use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
@@ -18,7 +16,7 @@ use instances::*;
 use crate::extracted_nodes::ExtractedUiNodes;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
-    Style, UiImage, UiScale, UiTextureAtlasImage, Val,
+    UiImage, UiScale, UiTextureAtlasImage, Val,
 };
 use crate::{Outline, UiColor, resolve_color_stops, OutlineStyle};
 
@@ -47,8 +45,7 @@ use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
-use self::extracted_nodes::ExtractedItem;
-use self::instances::{BatchType, UiInstanceBuffer, UiInstanceBuffers, ExtractedInstance, ClippedInstance};
+use self::instances::{BatchType, UiInstanceBuffers, ExtractedInstance};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -193,7 +190,7 @@ pub fn extract_atlas_uinodes(
     for (
         entity,
         uinode,
-        transform,
+        _transform,
         color,
         view_visibility,
         clip,
@@ -206,7 +203,7 @@ pub fn extract_atlas_uinodes(
             continue;
         }
 
-        let (mut atlas_rect, mut atlas_size, image) =
+        let (mut atlas_rect, atlas_size, image) =
             if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
                 let atlas_rect = *texture_atlas
                     .textures
@@ -276,22 +273,15 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<
             (
-                Entity,
                 &Node,
-                &GlobalTransform,
-                &Style,
                 &BorderColor,
-                Option<&Parent>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
             ),
             Without<ContentSize>,
         >,
     >,
-    node_query: Extract<Query<&Node>>,
 ) {
-    let image = AssetId::<Image>::default();
-
     let viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
@@ -300,7 +290,7 @@ pub fn extract_uinode_borders(
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;
 
-    for (entity, uinode, global_transform, style, border_color, parent, view_visibility, clip) in
+    for (uinode, border_color, view_visibility, clip) in
         uinode_query.iter()
     {
         // Skip invisible borders
@@ -316,9 +306,9 @@ pub fn extract_uinode_borders(
         let position = uinode.position();
         let border = uinode.border;
 
-        let transform = global_transform.compute_matrix();
 
-        
+
+        let entity = commands.spawn_empty().id();
         match &border_color.0 {
             UiColor::Color(color) => {
                 extracted_uinodes.push_border(
@@ -369,9 +359,7 @@ pub fn extract_uinode_outlines(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
-            Entity,
             &Node,
-            &GlobalTransform,
             &Outline,
             Option<&OutlineStyle>,
             &ViewVisibility,
@@ -379,8 +367,7 @@ pub fn extract_uinode_outlines(
         )>,
     >,
 ) {
-    let image = AssetId::<Image>::default();
-    for (entity, uinode, global_transform, outline, maybe_outline_style, view_visibility, maybe_clip) in uinode_query.iter() {
+    for (uinode, outline, maybe_outline_style, view_visibility, maybe_clip) in uinode_query.iter() {
         // Skip invisible outlines
         if !view_visibility.get()
             || outline.color.is_fully_transparent()
@@ -388,6 +375,7 @@ pub fn extract_uinode_outlines(
         {
             continue;
         }
+        let entity = commands.spawn_empty().id();
 
         match maybe_outline_style.unwrap_or(&OutlineStyle::Solid) {
             OutlineStyle::Solid => {
@@ -457,7 +445,6 @@ pub fn extract_uinodes(
             (
                 Entity,
                 &Node,
-                &GlobalTransform,
                 &BackgroundColor,
                 Option<&UiImage>,
                 &ViewVisibility,
@@ -473,9 +460,10 @@ pub fn extract_uinodes(
     .unwrap_or(Vec2::ZERO)
     / ui_scale.0 as f32;
 
-    for (entity, uinode, transform, color, maybe_image, view_visibility, clip) in
+    for (entity, uinode, color, maybe_image, view_visibility, clip) in
         uinode_query.iter()
     {
+        dbg!(entity);
         // Skip invisible and completely transparent nodes
         if !view_visibility.get()
             || color.0.is_fully_transparent()
@@ -485,7 +473,7 @@ pub fn extract_uinodes(
             continue;
         }
 
-        let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+        let (image, _flip_x, _flip_y) = if let Some(image) = maybe_image {
             // Skip loading images
             if !images.contains(&image.texture) {
                 continue;
@@ -497,6 +485,9 @@ pub fn extract_uinodes(
 
         match &color.0 {
             UiColor::Color(color) => {
+                dbg!(color);
+                dbg!(uinode.position);
+                dbg!(uinode.size());
                 extracted_uinodes.push_node(
                     entity, uinode.stack_index as usize,
                     uinode.position,
@@ -649,7 +640,7 @@ pub fn extract_text_uinodes(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, uinode, global_transform, text, text_layout_info, view_visibility, clip) in
+    for (_entity, uinode, _global_transform, text, text_layout_info, view_visibility, clip) in
         uinode_query.iter()
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -968,9 +959,7 @@ pub fn prepare_uinodes(
 
 
         // Vertex buffer index
-        let mut index = 0;
         for mut ui_phase in &mut phases {
-            let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
 
             for item_index in 0..ui_phase.items.len() {
@@ -987,7 +976,6 @@ pub fn prepare_uinodes(
                             && batch_image_handle != extracted_uinode.image)
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
-                            batch_item_index = item_index;
                             batch_image_handle = extracted_uinode.image;
 
                             let new_batch = UiBatch {
@@ -1012,8 +1000,6 @@ pub fn prepare_uinodes(
                                         )),
                                     )
                                 });
-
-                            existing_batch = batches.last_mut();
                         } else {
                             continue;
                         }
