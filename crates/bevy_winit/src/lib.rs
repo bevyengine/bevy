@@ -682,7 +682,6 @@ pub fn winit_runner(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
-                runner_state.redraw_requested = true;
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
