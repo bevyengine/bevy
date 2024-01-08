@@ -1283,11 +1283,6 @@ description = "Full guide to Bevy's ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
-[[example]]
-name = "apply_deferred"
-path = "examples/ecs/apply_deferred.rs"
-doc-scrape-examples = true
-
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
 description = "Show how to use `apply_deferred` system"
