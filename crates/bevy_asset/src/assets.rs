@@ -299,6 +299,11 @@ impl<A: Asset> Assets<A> {
         self.handle_provider.clone()
     }
 
+    /// Reserves a new [`Handle`] for an asset that will be stored in this collection.
+    pub fn reserve_handle(&self) -> Handle<A> {
+        self.handle_provider.reserve_handle().typed::<A>()
+    }
+
     /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for `id`, it will be replaced.
     pub fn insert(&mut self, id: impl Into<AssetId<A>>, asset: A) {
         let id: AssetId<A> = id.into();
