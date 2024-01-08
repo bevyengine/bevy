@@ -33,7 +33,7 @@ fn setup(
         ..default()
     });
 
-    let mesh = meshes.add(Plane::from_size(2.0).into());
+    let mesh = meshes.add(Plane::from_size(2.0));
     for i in 0..360 {
         let color = Color::hsl(i as f32, 1.0, 0.5);
         commands.spawn(PbrBundle {
