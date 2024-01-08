@@ -1,6 +1,8 @@
 use crate::{entity::Entity, world::World};
 use bevy_utils::EntityHashMap;
 
+use super::inc_generation_by;
+
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
 /// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
@@ -69,7 +71,7 @@ impl<'m> EntityMapper<'m> {
 
         // this new entity reference is specifically designed to never represent any living entity
         let new = Entity {
-            generation: self.dead_start.generation + self.generations,
+            generation: inc_generation_by(self.dead_start.generation, self.generations),
             index: self.dead_start.index,
         };
         self.generations += 1;
@@ -146,7 +148,7 @@ mod tests {
         let mut world = World::new();
         let mut mapper = EntityMapper::new(&mut map, &mut world);
 
-        let mapped_ent = Entity::new(FIRST_IDX, 0);
+        let mapped_ent = Entity::from_raw(FIRST_IDX);
         let dead_ref = mapper.get_or_reserve(mapped_ent);
 
         assert_eq!(
@@ -155,7 +157,7 @@ mod tests {
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.get_or_reserve(Entity::new(SECOND_IDX, 0)).index(),
+            mapper.get_or_reserve(Entity::from_raw(SECOND_IDX)).index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -173,7 +175,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = EntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.get_or_reserve(Entity::new(0, 0))
+            mapper.get_or_reserve(Entity::from_raw(0))
         });
 
         // Next allocated entity should be a further generation on the same index
