@@ -361,9 +361,18 @@ pub fn winit_runner(mut app: App) {
                 }
             }
         }
-        runner_state.redraw_requested = false;
 
         match event {
+            Event::AboutToWait => {
+                if runner_state.redraw_requested {
+                    let (_, winit_windows, _, _) =
+                        event_writer_system_state.get_mut(&mut app.world);
+                    for window in winit_windows.windows.values() {
+                        window.request_redraw();
+                    }
+                }
+                runner_state.redraw_requested = false;
+            }
             Event::NewEvents(_) => {
                 if let Some(t) = runner_state.scheduled_update {
                     let now = Instant::now();
@@ -757,12 +766,6 @@ pub fn winit_runner(mut app: App) {
                 }
             }
             _ => (),
-        }
-        if runner_state.redraw_requested {
-            let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
-            for window in winit_windows.windows.values() {
-                window.request_redraw();
-            }
         }
     };
 
