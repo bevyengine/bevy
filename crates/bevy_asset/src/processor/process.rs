@@ -18,7 +18,7 @@ use thiserror::Error;
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
 /// and then writes the final processed bytes with [`Writer`]. The resulting bytes must be loadable with the given [`Process::OutputLoader`].
 ///
-/// This is a "low level", maximally flexible interface. Most use cases are better served by the [`LoadAndSave`] implementation
+/// This is a "low level", maximally flexible interface. Most use cases are better served by the [`LoadTransformAndSave`] implementation
 /// of [`Process`].
 pub trait Process: Send + Sync + Sized + 'static {
     /// The configuration / settings used to process the asset. This will be stored in the [`AssetMeta`] and is user-configurable per-asset.
