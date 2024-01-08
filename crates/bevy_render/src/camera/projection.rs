@@ -255,11 +255,16 @@ pub struct OrthographicProjection {
     ///
     /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
-    /// Scales the projection in world units.
+    /// Scales the projection.
     ///
     /// As scale increases, the apparent size of objects decreases, and vice versa.
     ///
-    /// Defaults to `1.0`
+    /// Note: scaling can be set by [`scaling_mode`](Self::scaling_mode) as well.
+    /// This parameter scales on top of that.
+    ///
+    /// This property is particularly useful in implementing zoom functionality.
+    ///
+    /// Defaults to `1.0`.
     pub scale: f32,
     /// The area that the projection covers relative to `viewport_origin`.
     ///
