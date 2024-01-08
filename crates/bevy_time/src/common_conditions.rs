@@ -1,4 +1,4 @@
-use crate::{Real, Time, Timer};
+use crate::{Real, Time, Timer, TimerMode};
 use bevy_ecs::system::Res;
 use bevy_utils::Duration;
 
@@ -34,7 +34,7 @@ use bevy_utils::Duration;
 /// [`Timer::times_finished_this_tick`] to address the problem mentioned above), or
 /// use fixed timesteps that allow systems to run multiple times per frame.
 pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
-    let mut timer = Timer::new(duration, crate::TimerMode::Repeating);
+    let mut timer = Timer::new(duration, TimerMode::Repeating);
     move |time: Res<Time>| {
         timer.tick(time.delta());
         timer.just_finished()
@@ -74,7 +74,7 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// [`Timer::times_finished_this_tick`] to address the problem mentioned above), or
 /// use fixed timesteps that allow systems to run multiple times per frame.
 pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool + Clone {
-    let mut timer = Timer::new(duration, crate::TimerMode::Repeating);
+    let mut timer = Timer::new(duration, TimerMode::Repeating);
     move |time: Res<Time<Real>>| {
         timer.tick(time.delta());
         timer.just_finished()
@@ -100,11 +100,11 @@ pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool 
 ///     .run();
 /// }
 /// fn tick() {
-///     // ran once a second
+///     // ran once, after a second
 /// }
 /// ```
 pub fn once_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
-    let mut timer = Timer::new(duration, crate::TimerMode::Once);
+    let mut timer = Timer::new(duration, TimerMode::Once);
     move |time: Res<Time>| {
         timer.tick(time.delta());
         timer.just_finished()
@@ -130,7 +130,7 @@ pub fn once_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + C
 ///     .run();
 /// }
 /// fn tick() {
-///     // ran once a second
+///     // ran once, after a second
 /// }
 /// ```
 pub fn once_after_real_delay(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool + Clone {
@@ -160,11 +160,11 @@ pub fn once_after_real_delay(duration: Duration) -> impl FnMut(Res<Time<Real>>) 
 ///     .run();
 /// }
 /// fn tick() {
-///     // ran once a second
+///     // ran every frame, after a second
 /// }
 /// ```
 pub fn repeating_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
-    let mut timer = Timer::new(duration, crate::TimerMode::Once);
+    let mut timer = Timer::new(duration, TimerMode::Once);
     move |time: Res<Time>| {
         timer.tick(time.delta());
         timer.finished()
@@ -190,13 +190,13 @@ pub fn repeating_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> boo
 ///     .run();
 /// }
 /// fn tick() {
-///     // ran once a second
+///     // ran every frame, after a second
 /// }
 /// ```
 pub fn repeating_after_real_delay(
     duration: Duration,
 ) -> impl FnMut(Res<Time<Real>>) -> bool + Clone {
-    let mut timer = Timer::new(duration, crate::TimerMode::Once);
+    let mut timer = Timer::new(duration, TimerMode::Once);
     move |time: Res<Time<Real>>| {
         timer.tick(time.delta());
         timer.finished()
