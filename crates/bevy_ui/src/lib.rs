@@ -68,7 +68,7 @@ pub enum UiSystem {
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
     /// After this label, node outline widths have been updated
-    Outlines,
+    Borders,
 }
 
 /// The current scale of the UI.
@@ -125,10 +125,14 @@ impl Plugin for UiPlugin {
             .register_type::<UiTextureAtlasImage>()
             .register_type::<Val>()
             .register_type::<BorderColor>()
+            .register_type::<BorderRadius>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
-            .register_type::<Outline>()
+            .register_type::<UiColor>()
+            .register_type::<RelativePosition>()
+            .register_type::<RelativePositionAxis>()
+            .register_type::<Ellipse>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
@@ -183,8 +187,8 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                resolve_outlines_system
-                    .in_set(UiSystem::Outlines)
+                resolve_border_and_outlines_system
+                    .in_set(UiSystem::Borders)
                     .after(UiSystem::Layout),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),

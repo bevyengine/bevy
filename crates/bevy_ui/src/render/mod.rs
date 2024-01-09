@@ -379,6 +379,7 @@ pub fn extract_uinode_outlines(
 
         match maybe_outline_style.unwrap_or(&OutlineStyle::Solid) {
             OutlineStyle::Solid => {
+                println!("solid outline");
                 extracted_uinodes.push_border(
                     entity,
                     uinode.stack_index as usize,
@@ -400,6 +401,7 @@ pub fn extract_uinode_outlines(
                 dash_length,
                 break_length,
             } => {
+                println!("dashed outline");
                 let dl = if let Val::Px(dl) = *dash_length {
                     dl
                 } else {

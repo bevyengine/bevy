@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Outline, Style, UiScale};
+use crate::{ContentSize, Node, Outline, Style, UiScale, UiRect, BorderRadius, Val};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec4, Vec4Swizzles};
 use bevy_transform::components::Transform;
 use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
@@ -393,33 +393,33 @@ pub fn ui_layout_system(
     }
 }
 
-/// Resolve and update the widths of Node outlines
-pub fn resolve_outlines_system(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
-    mut outlines_query: Query<(&Outline, &mut Node)>,
-) {
-    let viewport_size = primary_window
-        .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO)
-        / ui_scale.0;
+// /// Resolve and update the widths of Node outlines
+// pub fn resolve_outlines_system(
+//     primary_window: Query<&Window, With<PrimaryWindow>>,
+//     ui_scale: Res<UiScale>,
+//     mut outlines_query: Query<(&Outline, &mut Node)>,
+// ) {
+//     let viewport_size = primary_window
+//         .get_single()
+//         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+//         .unwrap_or(Vec2::ZERO)
+//         / ui_scale.0;
 
-    for (outline, mut node) in outlines_query.iter_mut() {
-        let node = node.bypass_change_detection();
-        node.outline_width = outline
-            .width
-            .resolve(node.size().x, viewport_size)
-            .unwrap_or(0.)
-            .max(0.);
+//     for (outline, mut node) in outlines_query.iter_mut() {
+//         let node = node.bypass_change_detection();
+//         node.outline_width = outline
+//             .width
+//             .resolve(node.size().x, viewport_size)
+//             .unwrap_or(0.)
+//             .max(0.);
 
-        node.outline_offset = outline
-            .offset
-            .resolve(node.size().x, viewport_size)
-            .unwrap_or(0.)
-            .max(0.);
-    }
-}
+//         node.outline_offset = outline
+//             .offset
+//             .resolve(node.size().x, viewport_size)
+//             .unwrap_or(0.)
+//             .max(0.);
+//     }
+// }
 
 #[inline]
 /// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
@@ -447,6 +447,129 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
         x: round_ties_up(value.x),
         y: round_ties_up(value.y),
     }
+}
+
+pub fn compute_border(
+    border: UiRect,
+    border_radius: BorderRadius,
+    node_size: Vec2,
+    viewport_size: Vec2,
+) -> ([f32; 4], [f32; 4]) {
+    let computed_border = [
+        resolve_border_thickness(border.left, viewport_size),
+        resolve_border_thickness(border.top, viewport_size),
+        resolve_border_thickness(border.right, viewport_size),
+        resolve_border_thickness(border.bottom, viewport_size),
+    ];
+    let computed_border_radius = resolve_border_radius(&border_radius, node_size, viewport_size);
+    let clamped_computed_border_radius =
+        clamp_radius(computed_border_radius, node_size, computed_border.into());
+    (computed_border, clamped_computed_border_radius)
+}
+
+/// Resolve and update the widths of Node outlines
+pub fn resolve_border_and_outlines_system(
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    mut outlines_query: Query<(Option<&Outline>, &Style, &mut Node)>,
+) {
+    let viewport_size = primary_window
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO)
+        / ui_scale.0 as f32;
+
+    for (outline, style, mut node) in outlines_query.iter_mut() {
+        let node = node.bypass_change_detection();
+        let (outline_width, outline_offset): (f32, f32) = outline
+            .and_then(|outline| {
+                outline
+                    .width
+                    .resolve(node.size().x, viewport_size)
+                    .ok()
+                    .map(|width| {
+                        let vs = (
+                            width,
+                            outline
+                                .offset
+                                .resolve(node.size().x, viewport_size)
+                                .ok()
+                                .unwrap_or(0.),
+                        );
+                        vs
+                    })
+            })
+            .unwrap_or((0., 0.));
+        node.outline_width = outline_width.max(0.);
+        node.outline_offset = outline_offset.max(0.);
+        node.border_radius =
+            resolve_border_radius(&style.border_radius, node.calculated_size, viewport_size);
+        node.border = [
+            resolve_border_thickness(style.border.left, viewport_size),
+            resolve_border_thickness(style.border.top, viewport_size),
+            resolve_border_thickness(style.border.right, viewport_size),
+            resolve_border_thickness(style.border.bottom, viewport_size),
+        ];
+        node.border_radius =
+            resolve_border_radius(&style.border_radius, node.calculated_size, viewport_size);
+        node.border = [
+            resolve_border_thickness(style.border.left, viewport_size),
+            resolve_border_thickness(style.border.top, viewport_size),
+            resolve_border_thickness(style.border.right, viewport_size),
+            resolve_border_thickness(style.border.bottom, viewport_size),
+        ];
+    }
+}
+
+fn resolve_border_thickness(value: Val, viewport_size: Vec2) -> f32 {
+    match value {
+        Val::Auto => 0.,
+        Val::Px(px) => px.max(0.),
+        Val::Percent(_) => 0.,
+        Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+        Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+        Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+        Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
+    }
+}
+
+#[inline]
+fn resolve_border_radius(&values: &BorderRadius, node_size: Vec2, viewport_size: Vec2) -> [f32; 4] {
+    let max_radius = 0.5 * node_size.min_element();
+    <[Val; 4]>::from(values).map(|value| {
+        match value {
+            Val::Auto => 0.,
+            Val::Px(px) => px,
+            Val::Percent(percent) => node_size.x * percent / 100.,
+            Val::Vw(percent) => viewport_size.x * percent / 100.,
+            Val::Vh(percent) => viewport_size.y * percent / 100.,
+            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
+            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
+        }
+        .clamp(0., max_radius)
+    })
+}
+
+#[inline]
+fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
+    let s = 0.5 * size + offset;
+    let sm = s.x.min(s.y);
+    return r.min(sm);
+}
+
+#[inline]
+fn clamp_radius(
+    [top_left, top_right, bottom_right, bottom_left]: [f32; 4],
+    size: Vec2,
+    border: Vec4,
+) -> [f32; 4] {
+    let s = size - border.xy() - border.zw();
+    [
+        clamp_corner(top_left, s, border.xy()),
+        clamp_corner(top_right, s, border.zy()),
+        clamp_corner(bottom_right, s, border.zw()),
+        clamp_corner(bottom_left, s, border.xw()),
+    ]
 }
 
 #[cfg(test)]

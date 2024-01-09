@@ -17,21 +17,21 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                flex_grow: 1.,
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
-            background_color: Color::BLACK.into(),
             ..Default::default()
         })
         .with_children(|builder| {
             builder.spawn((
                 NodeBundle {
                     style: Style {
-                        width: Val::Percent(50.),
-                        height: Val::Percent(50.),
-                        border_radius: BorderRadius::all(Val::Percent(10.)),
+                        width: Val::Px(500.),
+                        height: Val::Px(500.),
+                        border_radius: BorderRadius::all(Val::Px(10.)),
                         ..Default::default()
                     },
                     background_color: Color::GREEN.into(),
