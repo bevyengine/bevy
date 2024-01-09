@@ -466,14 +466,12 @@ pub fn extract_uinodes(
             || uinode.size().x <= 0.
             || uinode.size().y <= 0.
         {
-            println!("\t skipped {entity:?}");
             continue;
         }
 
         let (image, _flip_x, _flip_y) = if let Some(image) = maybe_image {
             // Skip loading images
             if !images.contains(&image.texture) {
-                println!("image not found for {entity:?}");
                 continue;
             }
             (Some(image.texture.id()), image.flip_x, image.flip_y)
@@ -483,9 +481,6 @@ pub fn extract_uinodes(
 
         match &color.0 {
             UiColor::Color(color) => {
-                dbg!(color);
-                dbg!(uinode.position);
-                dbg!(uinode.size());
                 extracted_uinodes.push_node(
                     entity,
                     uinode.stack_index as usize,
@@ -500,10 +495,6 @@ pub fn extract_uinodes(
                 );
             }
             UiColor::LinearGradient(l) => {
-                println!("linear gradient");
-                dbg!(l);
-                dbg!(uinode.position);
-                dbg!(uinode.size());
                 let (start_point, length) = l.resolve_geometry(uinode.rect());
                 let stops = resolve_color_stops(&l.stops, length, viewport_size);
                 extracted_uinodes.push_node_with_linear_gradient(
@@ -952,10 +943,15 @@ pub fn prepare_uinodes(
         for mut ui_phase in &mut phases {
             let mut batch_image_handle = AssetId::invalid();
             let mut batch_item_index = 0;
+            let mut previous_batch_type = BatchType::Node;
             for phase_item_index in 0..ui_phase.items.len() {
                 dbg!(phase_item_index);
                 let phase_item = &mut ui_phase.items[phase_item_index];
+                let current_batch_type = phase_item.batch_type;
                 println!("\t phase item: {:?} -> {:?}", phase_item.sort_key, phase_item.batch_type);
+                if current_batch_type != previous_batch_type {
+                    println!("batch type changed");
+                }
 
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&phase_item.entity) {
                     let index = instance_counters.increment(extracted_uinode.instance.get_type());
@@ -963,6 +959,7 @@ pub fn prepare_uinodes(
                     ui_meta.push(&extracted_uinode.instance);
                     println!();
                     if batch_image_handle == AssetId::invalid()
+                        || current_batch_type != previous_batch_type
                         || existing_batch.is_none()
                         || (batch_image_handle != AssetId::default()
                             && extracted_uinode.image != AssetId::default()
@@ -1035,10 +1032,16 @@ pub fn prepare_uinodes(
                         }
                     }
                     batches.last_mut().unwrap().1.range.end = index;
+                    let b = batches.last().unwrap();
+                    println!("current batch: entity: {:?}, type: {:?}, range: {:?}", b.0, b.1.batch_type, b.1.range);
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
+                    println!("ui phase item index: {}, range: {:?}", batch_item_index, ui_phase.items[batch_item_index].batch_range());
                 } else {
+                    println!("Phase item not extracted uinode, end batch");
                     batch_image_handle = AssetId::invalid();
                 }
+                previous_batch_type = current_batch_type;
+                println!("\nEND PHASE ITEM: {phase_item_index}\n");
             }
         }
 

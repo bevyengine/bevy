@@ -750,6 +750,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 .items
                 .reserve(extracted_uinodes.uinodes.len());
             transparent_phase.add(TransparentUi {
+                batch_type: instances::BatchType::Node,
                 draw_function,
                 pipeline,
                 entity: *entity,
