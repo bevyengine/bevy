@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use std::f32::consts::{FRAC_PI_2, TAU};
 
 use bevy_math::primitives::{
     BoxedPolygon, BoxedPolyline2d, BoxedPolyline3d, Capsule, Circle, Cone, ConicalFrustum, Cuboid,
@@ -560,11 +560,15 @@ impl<'s> GizmoPrimitive3d<Sphere, SphereDetails> for Gizmos<'s> {
         let Sphere { radius } = primitive;
         let base_circle = circle_lines(radius, segments).map(|ps| ps.map(|p| p.extend(0.0)));
         let vertical_circles = [-1.0, 1.0].into_iter().flat_map(|sign| {
-            circle_coordinates(radius, segments).flat_map(move |start| {
-                shortest_arc_3d(
-                    start.extend(0.0),
-                    sign * radius * Vec3::Z,
+            circle_coordinates(radius, segments).flat_map(move |from| {
+                let axis = from.perp().extend(0.0);
+                let from = from.extend(0.0);
+                arc3d(
                     Vec3::ZERO,
+                    axis,
+                    from,
+                    sign * FRAC_PI_2,
+                    radius,
                     segments / 2,
                 )
             })
@@ -930,13 +934,18 @@ impl<'s> GizmoPrimitive3d<Capsule, Capsule3dDetails> for Gizmos<'s> {
         let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
 
         let caps = [1.0, -1.0].into_iter().flat_map(|sign| {
-            circle_coordinates(radius, segments).flat_map(move |start| {
-                shortest_arc_3d(
-                    start.extend(sign * half_length),
-                    sign * (half_length + radius) * Vec3::Z,
-                    sign * half_length * Vec3::Z,
+            circle_coordinates(radius, segments).flat_map(move |from| {
+                let axis = from.perp().extend(0.0);
+                let from = from.extend(0.0);
+                arc3d(
+                    Vec3::ZERO,
+                    axis,
+                    from,
+                    -sign * FRAC_PI_2,
+                    radius,
                     segments / 2,
                 )
+                .map(move |ps| ps.map(|p| p + sign * Vec3::Z * half_length))
             })
         });
 
@@ -1200,43 +1209,30 @@ fn circle_lines(radius: f32, segments: usize) -> impl Iterator<Item = [Vec2; 2]>
 
 // helpers - arc
 
-// this draws the shortest arc between two points in 3d given a center of the arc. Since it's the
-// shortest arc, that means that:
-//   - any arc spanning more than PI will be inverted to it's shorter counter part the other way
-//   around
-//   - the arc spanning exactly PI is kind of ambigious since it could go both ways around the
-//   circle depending on how the angle is determined internally
-//
-// In those situations, calculate another point which is located on the arc and use the `arc_3d`
-// function instead
-fn shortest_arc_3d(
-    start: Vec3,
-    end: Vec3,
+fn arc3d(
     center: Vec3,
+    rotation_axis: Vec3,
+    from: Vec3,
+    angle: f32,
+    radius: f32,
     segments: usize,
 ) -> impl Iterator<Item = [Vec3; 2]> {
-    // https://math.stackexchange.com/a/329816
+    // drawing arcs bigger than 360.0 degrees or smaller than -360.0 degrees makes no sense since
+    // we won't see the overlap
+    let angle = angle.clamp(-360.0, 360.0);
+    (from - center)
+        .try_normalize()
+        .into_iter()
+        .flat_map(move |dir| {
+            let start_point = dir * radius;
 
-    let u = start - center;
-    let v = end - center;
-    let alpha = u.angle_between(v);
-
-    (0..)
-        .map(|p| [p, p + 1])
-        .map(move |ps| {
-            ps.map(|k| (k as f32 * alpha) / segments as f32)
-                .map(|theta| center + ((alpha - theta).sin() * u + theta.sin() * v) / alpha.sin())
+            (0..segments).map(|n| [n, n + 1]).map(move |ps| {
+                ps.map(|frac| frac as f32 / segments as f32)
+                    .map(|percentage| {
+                        Quat::from_axis_angle(rotation_axis, percentage * angle)
+                            .mul_vec3(start_point)
+                    })
+                    .map(|p| p + center)
+            })
         })
-        .take(segments)
-}
-
-fn arc_3d(
-    start: Vec3,
-    middle: Vec3,
-    end: Vec3,
-    center: Vec3,
-    segments: usize,
-) -> impl Iterator<Item = [Vec3; 2]> {
-    shortest_arc_3d(start, middle, center, segments)
-        .chain(shortest_arc_3d(middle, end, center, segments))
 }
