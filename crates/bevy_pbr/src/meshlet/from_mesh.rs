@@ -46,7 +46,7 @@ impl MeshletMesh {
             vertex_buffer_layout.layout().array_stride as usize,
             0,
         )
-        .expect("TODO");
+        .unwrap();
 
         let meshopt_meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
 

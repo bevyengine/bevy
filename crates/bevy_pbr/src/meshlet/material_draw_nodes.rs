@@ -3,7 +3,9 @@ use super::{
     material_draw_prepare::MeshletViewMaterials,
     MeshletGpuScene,
 };
-use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
+use crate::{
+    MeshViewBindGroup, ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+};
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -32,6 +34,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
+        &'static ViewLightProbesUniformOffset,
         &'static MeshletViewMaterials,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -45,9 +48,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             camera,
             target,
             mesh_view_bind_group,
-            view_offset,
+            view_uniform_offset,
             view_lights_offset,
             view_fog_offset,
+            view_light_probes_offset,
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
@@ -91,9 +95,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             0,
             &mesh_view_bind_group.value,
             &[
-                view_offset.offset,
+                view_uniform_offset.offset,
                 view_lights_offset.offset,
                 view_fog_offset.offset,
+                **view_light_probes_offset,
             ],
         );
         render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);

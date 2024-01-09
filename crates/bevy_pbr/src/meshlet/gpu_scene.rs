@@ -4,6 +4,7 @@ use crate::{
     PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
 };
 use bevy_asset::{AssetId, AssetServer, Assets, Handle, UntypedAssetId};
+use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -108,32 +109,28 @@ pub fn perform_pending_meshlet_mesh_writes(
         .perform_writes(&render_queue, &render_device);
 }
 
+// TODO: Ideally we could parallelize this system, both between different materials, and the loop over instances
 /// TODO: Documentation
 pub fn queue_material_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
 ) {
     let gpu_scene = gpu_scene.deref_mut();
-    for instance in &gpu_scene.instances {
-        let material_asset_id = render_material_instances
-            .get(instance)
-            .expect("TODO")
-            .untyped();
 
-        let material_id = *gpu_scene
-            .material_id_lookup
-            .get(&material_asset_id)
-            .expect("TODO: Will this error ever occur?");
-
-        gpu_scene.material_ids_present_in_scene.insert(material_id);
-        gpu_scene.instance_material_ids.get_mut().push(material_id);
+    for (i, instance) in gpu_scene.instances.iter().enumerate() {
+        if let Some(material_asset_id) = render_material_instances.get(instance) {
+            let material_asset_id = material_asset_id.untyped();
+            if let Some(material_id) = gpu_scene.material_id_lookup.get(&material_asset_id) {
+                gpu_scene.material_ids_present_in_scene.insert(*material_id);
+                gpu_scene.instance_material_ids.get_mut()[i] = *material_id;
+            }
+        }
     }
 }
 
 pub fn prepare_meshlet_per_frame_resources(
     mut gpu_scene: ResMut<MeshletGpuScene>,
-    // TODO: Scope to 3d cameras or shadow views
-    views: Query<(Entity, &ExtractedView, Has<ShadowView>)>,
+    views: Query<(Entity, &ExtractedView, AnyOf<(&Camera3d, &ShadowView)>)>,
     mut texture_cache: ResMut<TextureCache>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
@@ -170,7 +167,7 @@ pub fn prepare_meshlet_per_frame_resources(
         mapped_at_creation: false,
     });
 
-    for (view_entity, view, is_shadow_view) in &views {
+    for (view_entity, view, (_, shadow_view)) in &views {
         let previous_occlusion_buffer = gpu_scene
             .previous_occlusion_buffers
             .get(&view_entity)
@@ -301,20 +298,21 @@ pub fn prepare_meshlet_per_frame_resources(
             view_formats: &[],
         };
 
+        let not_shadow_view = shadow_view.is_none();
         commands.entity(view_entity).insert(MeshletViewResources {
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
             previous_occlusion_buffer,
             occlusion_buffer,
-            visibility_buffer: (!is_shadow_view)
+            visibility_buffer: not_shadow_view
                 .then(|| texture_cache.get(&render_device, visibility_buffer)),
             visibility_buffer_draw_command_buffer_first,
             visibility_buffer_draw_command_buffer_second,
             visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
             depth_pyramid,
             depth_pyramid_mips,
-            material_depth_color: (!is_shadow_view)
+            material_depth_color: not_shadow_view
                 .then(|| texture_cache.get(&render_device, material_depth_color)),
-            material_depth: (!is_shadow_view)
+            material_depth: not_shadow_view
                 .then(|| texture_cache.get(&render_device, material_depth)),
         });
     }
@@ -709,6 +707,9 @@ impl MeshletGpuScene {
             )
         };
 
+        self.instances.push(instance);
+        self.instance_material_ids.get_mut().push(0);
+
         let (meshlets_slice, index_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
@@ -719,7 +720,6 @@ impl MeshletGpuScene {
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
         self.scene_index_count += index_count;
-        self.instances.push(instance);
 
         let previous_thread_id_start = self
             .previous_thread_id_starts

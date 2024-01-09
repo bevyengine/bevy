@@ -235,7 +235,7 @@ fn pbr_input_from_standard_material(
         );
 #endif
 
-// TODO: Make this work with meshlets
+// TODO: Meshlet support
 #ifdef LIGHTMAP
         pbr_input.lightmap_light = lightmap(
             in.uv_b,

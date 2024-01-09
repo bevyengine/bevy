@@ -2,6 +2,7 @@ use super::{MeshletGpuScene, MESHLET_MESH_MATERIAL_SHADER_HANDLE};
 use crate::{environment_map::RenderViewEnvironmentMaps, *};
 use bevy_asset::AssetServer;
 use bevy_core_pipeline::{
+    core_3d::Camera3d,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -31,24 +32,26 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     asset_server: Res<AssetServer>,
-    // TODO: Scope to 3d cameras
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&ShadowFilteringMethod>,
-        Has<ScreenSpaceAmbientOcclusionSettings>,
+    views: Query<
         (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
+            Entity,
+            &ExtractedView,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+            Option<&ShadowFilteringMethod>,
+            Has<ScreenSpaceAmbientOcclusionSettings>,
+            (
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
+                Has<DeferredPrepass>,
+            ),
+            Has<TemporalJitter>,
+            Option<&Projection>,
+            Has<RenderViewEnvironmentMaps>,
         ),
-        Has<TemporalJitter>,
-        Option<&Projection>,
-        Has<RenderViewEnvironmentMaps>,
-    )>,
+        With<Camera3d>,
+    >,
     mut commands: Commands,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -189,8 +192,8 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
 
             let mut shader_defs = material_pipeline_descriptor
                 .fragment
-                .expect("TODO")
-                .shader_defs;
+                .map(|fragment| fragment.shader_defs)
+                .unwrap_or_default();
             shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
 
             let pipeline_descriptor = RenderPipelineDescriptor {
