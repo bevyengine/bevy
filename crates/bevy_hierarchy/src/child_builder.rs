@@ -224,11 +224,7 @@ impl Command for PopChild {
     fn apply(self, world: &mut World) {
         let last_child_id = {
             let parent = world.entity_mut(self.parent);
-            if let Some(children) = parent.get::<Children>() {
-                children.last().copied()
-            } else {
-                None
-            }
+            parent.get::<Children>().map(|children| children.last().copied())
         };
 
         if let Some(child_id) = last_child_id {
