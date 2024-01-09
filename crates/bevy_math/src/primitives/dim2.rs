@@ -21,20 +21,20 @@ impl Direction2d {
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
     pub fn new(value: Vec2) -> Result<Self, InvalidDirectionError> {
-        value.try_normalize().map(Self).map_or_else(
-            || {
-                if value.is_nan() {
-                    Err(InvalidDirectionError::NaN)
-                } else if !value.is_finite() {
-                    // If the direction is non-finite but also not NaN, it must be infinite
-                    Err(InvalidDirectionError::Infinite)
-                } else {
-                    // If the direction is invalid but neither NaN nor infinite, it must be zero
-                    Err(InvalidDirectionError::Zero)
-                }
-            },
-            Ok,
-        )
+        Self::new_and_length(value).map(|(dir, _)| dir)
+    }
+
+    /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new_and_length(value: Vec2) -> Result<(Self, f32), InvalidDirectionError> {
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
+
+        direction
+            .map(|dir| (Self(dir), length))
+            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
     }
 
     /// Create a direction from its `x` and `y` components.
@@ -403,6 +403,10 @@ mod tests {
         assert_eq!(
             Direction2d::new(Vec2::new(f32::NAN, 0.0)),
             Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(
+            Direction2d::new_and_length(Vec2::X * 6.5),
+            Ok((Direction2d::from_normalized(Vec2::X), 6.5))
         );
     }
 

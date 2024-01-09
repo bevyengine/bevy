@@ -1,5 +1,5 @@
 use crate::{
-    line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo,
+    line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, GizmoRenderSystem, LineGizmo,
     LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
@@ -8,7 +8,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 
 use bevy_ecs::{
     prelude::Entity,
-    schedule::IntoSystemConfigs,
+    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -34,10 +34,14 @@ impl Plugin for LineGizmo2dPlugin {
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
+            .configure_sets(
+                Render,
+                GizmoRenderSystem::QueueLineGizmos2d.in_set(RenderSet::Queue),
+            )
             .add_systems(
                 Render,
                 queue_line_gizmos_2d
-                    .in_set(RenderSet::Queue)
+                    .in_set(GizmoRenderSystem::QueueLineGizmos2d)
                     .after(prepare_assets::<LineGizmo>),
             );
     }

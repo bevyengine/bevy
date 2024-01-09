@@ -23,6 +23,17 @@ use bevy_ecs::{
 /// * [`Update`]
 /// * [`PostUpdate`]
 /// * [`Last`]
+///
+/// # Rendering
+///
+/// Note rendering is not executed in the main schedule by default.
+/// Instead, rendering is performed in a separate [`SubApp`](crate::app::SubApp)
+/// which exchanges data with the main app in between the main schedule runs.
+///
+/// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
+///
+/// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
+/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Main;
 

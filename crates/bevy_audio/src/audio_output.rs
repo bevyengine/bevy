@@ -291,7 +291,7 @@ pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
 
 /// Updates spatial audio sinks when emitter positions change.
 pub(crate) fn update_emitter_positions(
-    mut emitters: Query<(&mut GlobalTransform, &SpatialAudioSink), Changed<GlobalTransform>>,
+    mut emitters: Query<(&GlobalTransform, &SpatialAudioSink), Changed<GlobalTransform>>,
     spatial_scale: Res<SpatialScale>,
 ) {
     for (transform, sink) in emitters.iter_mut() {

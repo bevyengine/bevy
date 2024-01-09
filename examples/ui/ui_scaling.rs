@@ -113,8 +113,8 @@ impl TargetScale {
 
     fn current_scale(&self) -> f32 {
         let completion = self.target_time.fraction();
-        let multiplier = ease_in_expo(completion);
-        self.start_scale + (self.target_scale - self.start_scale) * multiplier
+        let t = ease_in_expo(completion);
+        self.start_scale.lerp(self.target_scale, t)
     }
 
     fn tick(&mut self, delta: Duration) -> &Self {

@@ -123,7 +123,7 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             // Add the Name component, and the animation player
@@ -142,8 +142,8 @@ fn setup(
                 p.spawn((
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                        material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
+                        mesh: meshes.add(shape::Cube { size: 0.5 }),
+                        material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
                         ..default()
                     },
                     // Add the Name component

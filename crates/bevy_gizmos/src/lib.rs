@@ -15,6 +15,17 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+/// Label for the the render systems handling the
+#[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum GizmoRenderSystem {
+    /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
+    #[cfg(feature = "bevy_sprite")]
+    QueueLineGizmos2d,
+    /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
+    #[cfg(feature = "bevy_pbr")]
+    QueueLineGizmos3d,
+}
+
 pub mod arcs;
 pub mod arrows;
 pub mod circles;
@@ -40,7 +51,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{ROQueryItem, Without},
     reflect::{ReflectComponent, ReflectResource},
-    schedule::IntoSystemConfigs,
+    schedule::{IntoSystemConfigs, SystemSet},
     system::{
         lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
