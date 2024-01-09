@@ -76,7 +76,7 @@ impl std::hash::Hasher for NoOpTypeIdHasher {
     }
 
     fn write_u64(&mut self, i: u64) {
-        self.0 = i
+        self.0 = i;
     }
 }
 
