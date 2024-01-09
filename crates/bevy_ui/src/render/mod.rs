@@ -9,17 +9,17 @@ use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
+use instances::*;
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
-use instances::*;
 
 use crate::extracted_nodes::ExtractedUiNodes;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     UiImage, UiScale, UiTextureAtlasImage, Val,
 };
-use crate::{Outline, UiColor, resolve_color_stops, OutlineStyle};
+use crate::{resolve_color_stops, Outline, OutlineStyle, UiColor};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -46,7 +46,7 @@ use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
-use self::instances::{BatchType, UiInstanceBuffers, ExtractedInstance};
+use self::instances::{BatchType, ExtractedInstance, UiInstanceBuffers};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -291,9 +291,7 @@ pub fn extract_uinode_borders(
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;
 
-    for (uinode, border_color, view_visibility, clip) in
-        uinode_query.iter()
-    {
+    for (uinode, border_color, view_visibility, clip) in uinode_query.iter() {
         // Skip invisible borders
         if !view_visibility.get()
             || border_color.0.is_fully_transparent()
@@ -307,13 +305,12 @@ pub fn extract_uinode_borders(
         let position = uinode.position();
         let border = uinode.border;
 
-
-
         let entity = commands.spawn_empty().id();
         match &border_color.0 {
             UiColor::Color(color) => {
                 extracted_uinodes.push_border(
-                    entity, uinode.stack_index as usize,
+                    entity,
+                    uinode.stack_index as usize,
                     position,
                     size,
                     *color,
@@ -326,7 +323,8 @@ pub fn extract_uinode_borders(
                 let (start_point, length) = l.resolve_geometry(uinode.rect());
                 let stops = resolve_color_stops(&l.stops, length, viewport_size);
                 extracted_uinodes.push_border_with_linear_gradient(
-                    entity, uinode.stack_index as usize,
+                    entity,
+                    uinode.stack_index as usize,
                     position,
                     size,
                     border,
@@ -341,7 +339,8 @@ pub fn extract_uinode_borders(
                 let ellipse = r.resolve_geometry(uinode.rect(), viewport_size);
                 let stops = resolve_color_stops(&r.stops, ellipse.extents.x, viewport_size);
                 extracted_uinodes.push_border_with_radial_gradient(
-                    entity, uinode.stack_index as usize,
+                    entity,
+                    uinode.stack_index as usize,
                     position,
                     size,
                     border,
@@ -383,8 +382,7 @@ pub fn extract_uinode_outlines(
                 extracted_uinodes.push_border(
                     entity,
                     uinode.stack_index as usize,
-                    uinode.position()
-                        - Vec2::splat(uinode.outline_offset + uinode.outline_width),
+                    uinode.position() - Vec2::splat(uinode.outline_offset + uinode.outline_width),
                     uinode.size() + 2. * (uinode.outline_width + uinode.outline_offset),
                     outline.color,
                     [uinode.outline_width; 4],
@@ -415,8 +413,7 @@ pub fn extract_uinode_outlines(
                 extracted_uinodes.push_dashed_border(
                     entity,
                     uinode.stack_index as usize,
-                    uinode.position()
-                        - Vec2::splat(uinode.outline_offset + uinode.outline_width),
+                    uinode.position() - Vec2::splat(uinode.outline_offset + uinode.outline_width),
                     uinode.size() + 2. * (uinode.outline_width + uinode.outline_offset),
                     outline.color,
                     uinode.outline_width,
@@ -441,7 +438,7 @@ pub fn extract_uinodes(
     images: Extract<Res<Assets<Image>>>,
     ui_scale: Extract<Res<UiScale>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-        uinode_query: Extract<
+    uinode_query: Extract<
         Query<
             (
                 Entity,
@@ -456,14 +453,12 @@ pub fn extract_uinodes(
     >,
 ) {
     let viewport_size = windows
-    .get_single()
-    .map(|window| vec2(window.resolution.width(), window.resolution.height()))
-    .unwrap_or(Vec2::ZERO)
-    / ui_scale.0 as f32;
+        .get_single()
+        .map(|window| vec2(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO)
+        / ui_scale.0 as f32;
 
-    for (entity, uinode, color, maybe_image, view_visibility, clip) in
-        uinode_query.iter()
-    {
+    for (entity, uinode, color, maybe_image, view_visibility, clip) in uinode_query.iter() {
         dbg!(entity);
         // Skip invisible and completely transparent nodes
         if !view_visibility.get()
@@ -471,13 +466,14 @@ pub fn extract_uinodes(
             || uinode.size().x <= 0.
             || uinode.size().y <= 0.
         {
-            println!("skipped");
+            println!("\t skipped {entity:?}");
             continue;
         }
 
         let (image, _flip_x, _flip_y) = if let Some(image) = maybe_image {
             // Skip loading images
             if !images.contains(&image.texture) {
+                println!("image not found for {entity:?}");
                 continue;
             }
             (Some(image.texture.id()), image.flip_x, image.flip_y)
@@ -491,7 +487,8 @@ pub fn extract_uinodes(
                 dbg!(uinode.position);
                 dbg!(uinode.size());
                 extracted_uinodes.push_node(
-                    entity, uinode.stack_index as usize,
+                    entity,
+                    uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
                     image,
@@ -510,7 +507,8 @@ pub fn extract_uinodes(
                 let (start_point, length) = l.resolve_geometry(uinode.rect());
                 let stops = resolve_color_stops(&l.stops, length, viewport_size);
                 extracted_uinodes.push_node_with_linear_gradient(
-                    entity, uinode.stack_index as usize,
+                    entity,
+                    uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
                     uinode.border,
@@ -525,7 +523,8 @@ pub fn extract_uinodes(
                 let ellipse = r.resolve_geometry(uinode.rect(), viewport_size);
                 let stops = resolve_color_stops(&r.stops, ellipse.extents.x, viewport_size);
                 extracted_uinodes.push_node_with_radial_gradient(
-                    entity, uinode.stack_index as usize,
+                    entity,
+                    uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
                     uinode.border(),
@@ -654,9 +653,7 @@ pub fn extract_text_uinodes(
             continue;
         }
 
-        let node_position =
-        (uinode.position() * scale_factor as f32).round() / scale_factor as f32;
-
+        let node_position = (uinode.position() * scale_factor as f32).round() / scale_factor as f32;
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
@@ -672,29 +669,25 @@ pub fn extract_text_uinodes(
                 current_section = *section_index;
             }
             if let Some(atlas) = texture_atlases.get(&atlas_info.texture_atlas) {
+                let mut uv_rect = atlas.textures[atlas_info.glyph_index];
+                let scaled_glyph_size = uv_rect.size() * inverse_scale_factor;
+                let scaled_glyph_position = *glyph_position * inverse_scale_factor;
+                uv_rect.min /= atlas.size;
+                uv_rect.max /= atlas.size;
 
-            let mut uv_rect = atlas.textures[atlas_info.glyph_index];
-            let scaled_glyph_size = uv_rect.size() * inverse_scale_factor;
-            let scaled_glyph_position = *glyph_position * inverse_scale_factor;
-            uv_rect.min /= atlas.size;
-            uv_rect.max /= atlas.size;
+                let position = node_position + scaled_glyph_position - 0.5 * scaled_glyph_size;
 
-            let position = node_position + scaled_glyph_position - 0.5 * scaled_glyph_size;
-
-
-            extracted_uinodes.push_glyph(
-                commands.spawn_empty().id(),
-                uinode.stack_index as usize,
-                position,
-                scaled_glyph_size,
-                atlas.texture.id(),
-                color,
-                clip.map(|clip| clip.clip),
-                uv_rect,
-            );
-
-            }       
-
+                extracted_uinodes.push_glyph(
+                    commands.spawn_empty().id(),
+                    uinode.stack_index as usize,
+                    position,
+                    scaled_glyph_size,
+                    atlas.texture.id(),
+                    color,
+                    clip.map(|clip| clip.clip),
+                    uv_rect,
+                );
+            }
         }
     }
 }
@@ -771,9 +764,14 @@ pub fn queue_uinodes(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
+    println!("* QUEUE *");
     let draw_function = draw_functions.read().id::<DrawUi>();
 
     for (view, mut transparent_phase) in &mut views {
+        println!();
+        println!("\tVIEW");
+        println!();
+
         let node_pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
@@ -865,44 +863,25 @@ pub fn queue_uinodes(
                 specialization: UiPipelineSpecialization::DashedBorder,
             },
         );
-        
+
         transparent_phase
             .items
             .reserve(extracted_uinodes.uinodes.len());
 
-        for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
+        println!("transparent phase items capacity = {}", transparent_phase.items.capacity());
+
+        for (i, (entity, extracted_uinode)) in extracted_uinodes.uinodes.iter().enumerate() {
             let pipeline = match extracted_uinode.instance {
-                ExtractedInstance::Node(..) => {
-                    node_pipeline
-                },
-                ExtractedInstance::Text(..) => {
-                    text_pipeline
-                },
-                ExtractedInstance::LinearGradient(..) => {
-                    linear_gradient_pipeline
-                },
-                ExtractedInstance::RadialGradient(..) => {
-                    radial_gradient_pipeline
-                },
-                ExtractedInstance::DashedBorder(..) => {
-                    dashed_border_pipeline
-                },
-                ExtractedInstance::CNode(..) => {
-                    clipped_node_pipeline
-                },
-                ExtractedInstance::CText(..) => {
-                    clipped_text_pipeline
-                },
-                ExtractedInstance::CLinearGradient(..) => {
-                    clipped_linear_gradient_pipeline
-                },
-                ExtractedInstance::CRadialGradient(..) => {
-                    clipped_radial_gradient_pipeline
-                },
-                ExtractedInstance::CDashedBorder(..) => {
-                    clipped_dashed_border_pipeline
-                },
-                
+                ExtractedInstance::Node(..) => node_pipeline,
+                ExtractedInstance::Text(..) => text_pipeline,
+                ExtractedInstance::LinearGradient(..) => linear_gradient_pipeline,
+                ExtractedInstance::RadialGradient(..) => radial_gradient_pipeline,
+                ExtractedInstance::DashedBorder(..) => dashed_border_pipeline,
+                ExtractedInstance::CNode(..) => clipped_node_pipeline,
+                ExtractedInstance::CText(..) => clipped_text_pipeline,
+                ExtractedInstance::CLinearGradient(..) => clipped_linear_gradient_pipeline,
+                ExtractedInstance::CRadialGradient(..) => clipped_radial_gradient_pipeline,
+                ExtractedInstance::CDashedBorder(..) => clipped_dashed_border_pipeline,
             };
             transparent_phase.add(TransparentUi {
                 draw_function,
@@ -916,6 +895,10 @@ pub fn queue_uinodes(
                 batch_range: 0..0,
                 dynamic_offset: None,
             });
+            println!(
+                "\t [{i}] entity {entity:?} -> {:?}",
+                extracted_uinode.instance.get_type()
+            );
         }
     }
 }
@@ -964,7 +947,6 @@ pub fn prepare_uinodes(
             &BindGroupEntries::single(view_binding),
         ));
 
-
         // Vertex buffer index
         for mut ui_phase in &mut phases {
             let mut batch_image_handle = AssetId::invalid();
@@ -987,7 +969,10 @@ pub fn prepare_uinodes(
                             batch_image_handle = extracted_uinode.image;
                             if let Some((entity, batch)) = &existing_batch {
                                 println!("* End old batch *");
-                                println!("\t entity: {entity:?}, type: {:?}, range: {:?}", batch.batch_type, batch.range);
+                                println!(
+                                    "\t entity: {entity:?}, type: {:?}, range: {:?}",
+                                    batch.batch_type, batch.range
+                                );
                             } else {
                                 println!("* No previous batch *");
                             }
@@ -999,7 +984,10 @@ pub fn prepare_uinodes(
                                 range: index - 1..index,
                             };
                             println!("* New batch *");
-                            println!("\t entity: {:?}, type: {:?}, range: {:?}", item.entity, new_batch.batch_type, new_batch.range);
+                            println!(
+                                "\t entity: {:?}, type: {:?}, range: {:?}",
+                                item.entity, new_batch.batch_type, new_batch.range
+                            );
                             batches.push((item.entity, new_batch));
 
                             image_bind_groups
@@ -1044,8 +1032,6 @@ pub fn prepare_uinodes(
                     }
                     batches.last_mut().unwrap().1.range.end = index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
-
-                    
                 } else {
                     batch_image_handle = AssetId::invalid();
                 }
@@ -1056,7 +1042,6 @@ pub fn prepare_uinodes(
         commands.insert_or_spawn_batch(batches);
     }
 
-    
     ui_meta.write_instance_buffers(&render_device, &render_queue);
 
     if ui_meta.index_buffer.len() != 6 {
