@@ -227,8 +227,10 @@ impl Command for PopChild {
             parent.get::<Children>().map(|children| children.last().copied())
         };
 
-        if let Some(child_id) = last_child_id {
-            remove_children(self.parent, &[child_id], world);
+        if let Some(optional_child_id) = last_child_id {
+            if let Some(child_id) = optional_child_id {
+                remove_children(self.parent, &[child_id], world);
+            }
         }
     }
 }
