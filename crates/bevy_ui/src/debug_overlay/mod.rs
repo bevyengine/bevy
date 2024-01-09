@@ -7,6 +7,7 @@ use bevy_gizmos::prelude::{GizmoConfig, Gizmos};
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::{Vec2, Vec3Swizzles};
+use bevy_render::view::VisibilitySystems;
 use bevy_render::{camera::ClearColorConfig, prelude::*, view::RenderLayers};
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
 use bevy_utils::default;
@@ -119,9 +120,16 @@ fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Ent
     let Ok(to_iter) = outline.children.get(this_entity) else {
         return;
     };
+
     for (entity, trans, node, style, children) in outline.nodes.iter_many(to_iter) {
         if style.is_none() || style.is_some_and(|s| matches!(s.display, Display::None)) {
             continue;
+        }
+
+        if let Ok(view_visibility) = outline.view_visibility.get(entity) {
+            if !view_visibility.get() {
+                continue;
+            }
         }
         let rect = LayoutRect::new(trans, node);
         outline_node(entity, rect, draw);
@@ -145,6 +153,7 @@ struct OutlineParam<'w, 's> {
     gizmo_config: Res<'w, GizmoConfig>,
     children: Query<'w, 's, &'static Children>,
     nodes: Query<'w, 's, NodesQuery>,
+    view_visibility: Query<'w, 's, &'static ViewVisibility>,
 }
 
 type CameraQuery<'w, 's> = Query<'w, 's, &'static Camera, With<DebugOverlayCamera>>;
@@ -153,7 +162,7 @@ fn outline_roots(
     outline: OutlineParam,
     draw: Gizmos,
     cam: CameraQuery,
-    roots: Query<(Entity, &GlobalTransform, &Node), Without<Parent>>,
+    roots: Query<(Entity, &GlobalTransform, &Node, Option<&ViewVisibility>), Without<Parent>>,
     window: Query<&Window, With<PrimaryWindow>>,
     nonprimary_windows: Query<&Window, Without<PrimaryWindow>>,
     options: Res<UiDebugOptions>,
@@ -171,7 +180,13 @@ fn outline_roots(
     let window_scale = window.get_single().map_or(1., scale_factor);
     let line_width = outline.gizmo_config.line_width / window_scale;
     let mut draw = InsetGizmo::new(draw, cam, line_width);
-    for (entity, trans, node) in &roots {
+    for (entity, trans, node, view_visibility) in &roots {
+        if let Some(view_visibility) = view_visibility {
+            // If the entity isn't visible, we will not drawn any lines.
+            if !view_visibility.get() {
+                continue;
+            }
+        }
         let rect = LayoutRect::new(trans, node);
         outline_node(entity, rect, &mut draw);
         outline_nodes(&outline, &mut draw, entity);
@@ -200,7 +215,9 @@ impl Plugin for DebugUiPlugin {
             PostUpdate,
             (
                 update_debug_camera,
-                outline_roots.after(TransformSystem::TransformPropagate),
+                outline_roots
+                    .after(TransformSystem::TransformPropagate)
+                    .before(VisibilitySystems::VisibilityPropagate),
             )
                 .chain(),
         );
