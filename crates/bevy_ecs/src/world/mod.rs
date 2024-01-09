@@ -35,6 +35,7 @@ use std::{
 };
 mod identifier;
 
+use crate::non_unique_resource::NonUniqueResourceRef;
 pub use identifier::WorldId;
 
 use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -1438,6 +1439,19 @@ impl World {
         Some(resource.id())
     }
 
+    /// Allocate new non-unique resource of given type. The resource is initially unset.
+    pub fn new_non_unique_resource<T: Send + Sync + 'static>(&mut self) -> NonUniqueResourceRef<T> {
+        let component_id = self.components.init_non_unique_resource::<T>();
+        let archetype_component_count = &mut self.archetypes.archetype_component_count;
+        let archetype_component_id = ArchetypeComponentId::new(*archetype_component_count);
+        *archetype_component_count += 1;
+        self.storages.non_unique_resources.new_with(
+            component_id,
+            &self.components,
+            archetype_component_id,
+        )
+    }
+
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs, either spawns each [`Entity`] with the given
     /// bundle (if the entity does not exist), or inserts the [`Bundle`] (if the entity already exists).
     /// This is faster than doing equivalent operations one-by-one.
@@ -1832,6 +1846,7 @@ impl World {
             ref mut sparse_sets,
             ref mut resources,
             ref mut non_send_resources,
+            ref mut non_unique_resources,
         } = self.storages;
 
         #[cfg(feature = "trace")]
@@ -1840,6 +1855,7 @@ impl World {
         sparse_sets.check_change_ticks(change_tick);
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
+        non_unique_resources.check_change_ticks(change_tick);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);

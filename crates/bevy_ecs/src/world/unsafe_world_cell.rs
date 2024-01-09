@@ -2,7 +2,11 @@
 
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, Ref, World, WorldId};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
+
+use bevy_ptr::Ptr;
+
+use crate::storage::TableRow;
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
@@ -16,8 +20,8 @@ use crate::{
     storage::{Column, ComponentSparseSet, Storages},
     system::Resource,
 };
-use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
+
+use super::{Mut, Ref, World, WorldId};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -565,6 +569,21 @@ impl<'w> UnsafeWorldCell<'w> {
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()
+    }
+
+    #[inline]
+    pub(crate) unsafe fn get_non_unique_resource_by_id(
+        self,
+        component_id: ComponentId,
+        index: TableRow,
+    ) -> Ptr<'w> {
+        // SAFETY: we only access data that the caller has ensured is unaliased and `self`
+        //  has permission to access.
+        unsafe {
+            self.storages()
+                .non_unique_resources
+                .get(component_id, index)
+        }
     }
 }
 

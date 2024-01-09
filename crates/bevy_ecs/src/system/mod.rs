@@ -147,7 +147,7 @@ use crate::world::World;
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
-pub trait IntoSystem<In, Out, Marker>: Sized {
+pub trait IntoSystem<In, Out, Marker>: Sized + 'static {
     /// The type of [`System`] that this instance converts into.
     type System: System<In = In, Out = Out>;
 
