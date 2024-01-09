@@ -1753,7 +1753,7 @@ impl UiColor {
     pub fn is_fully_transparent(&self) -> bool {
         match self {
             Self::Color(color) => color.a() <= 0.,
-            _ => true,
+            _ => false,
         }
     }
 }

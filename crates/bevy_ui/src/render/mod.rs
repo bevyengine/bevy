@@ -471,6 +471,7 @@ pub fn extract_uinodes(
             || uinode.size().x <= 0.
             || uinode.size().y <= 0.
         {
+            println!("skipped");
             continue;
         }
 
@@ -502,6 +503,10 @@ pub fn extract_uinodes(
                 );
             }
             UiColor::LinearGradient(l) => {
+                println!("linear gradient");
+                dbg!(l);
+                dbg!(uinode.position);
+                dbg!(uinode.size());
                 let (start_point, length) = l.resolve_geometry(uinode.rect());
                 let stops = resolve_color_stops(&l.stops, length, viewport_size);
                 extracted_uinodes.push_node_with_linear_gradient(
