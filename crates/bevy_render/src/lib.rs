@@ -6,6 +6,7 @@ extern crate core;
 pub mod batching;
 pub mod camera;
 pub mod color;
+pub mod deterministic;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -48,6 +49,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
+use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
@@ -67,6 +69,13 @@ use std::{
 };
 
 /// Contains the default Bevy rendering backend based on wgpu.
+///
+/// Rendering is done in a [`SubApp`], which exchanges data with the main app
+/// between main schedule iterations.
+///
+/// Rendering can be executed between iterations of the main schedule,
+/// or it can be executed in parallel with main schedule when
+/// [`PipelinedRenderingPlugin`](pipelined_rendering::PipelinedRenderingPlugin) is enabled.
 #[derive(Default)]
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
@@ -209,6 +218,8 @@ pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(106653563
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
+        app.init_resource::<DeterministicRenderingConfig>();
+
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 

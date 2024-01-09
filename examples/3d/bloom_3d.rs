@@ -56,11 +56,10 @@ fn setup_scene(
     });
 
     let mesh = meshes.add(
-        shape::Icosphere {
+        Mesh::try_from(shape::Icosphere {
             radius: 0.5,
             subdivisions: 5,
-        }
-        .try_into()
+        })
         .unwrap(),
     );
 

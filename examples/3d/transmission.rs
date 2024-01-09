@@ -76,22 +76,22 @@ fn setup(
         .unwrap(),
     );
 
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.7 }));
+    let cube_mesh = meshes.add(shape::Cube { size: 0.7 });
 
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
+    let plane_mesh = meshes.add(shape::Plane::from_size(2.0));
 
-    let cylinder_mesh = meshes.add(Mesh::from(shape::Cylinder {
+    let cylinder_mesh = meshes.add(shape::Cylinder {
         radius: 0.5,
         height: 2.0,
         resolution: 50,
         segments: 1,
-    }));
+    });
 
     // Cube #1
     commands.spawn((
         PbrBundle {
             mesh: cube_mesh.clone(),
-            material: materials.add(StandardMaterial { ..default() }),
+            material: materials.add(StandardMaterial::default()),
             transform: Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 1.4,
@@ -111,7 +111,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: cube_mesh,
-            material: materials.add(StandardMaterial { ..default() }),
+            material: materials.add(StandardMaterial::default()),
             transform: Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 0.4,

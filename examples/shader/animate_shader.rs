@@ -21,7 +21,7 @@ fn setup(
 ) {
     // cube
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {}),
         ..default()

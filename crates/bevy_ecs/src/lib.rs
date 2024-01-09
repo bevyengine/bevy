@@ -40,7 +40,7 @@ pub mod prelude {
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
-            OnTransition, Schedule, Schedules, State, States, SystemSet,
+            OnTransition, Schedule, Schedules, State, StateTransitionEvent, States, SystemSet,
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
@@ -1559,7 +1559,7 @@ mod tests {
         let e4 = world_b.spawn(A(4)).id();
         assert_eq!(
             e4,
-            Entity::new(3, 0),
+            Entity::from_raw(3),
             "new entity is created immediately after world_a's max entity"
         );
         assert!(world_b.get::<A>(e1).is_none());
@@ -1590,7 +1590,7 @@ mod tests {
             "spawning into existing `world_b` entities works"
         );
 
-        let e4_mismatched_generation = Entity::new(3, 1);
+        let e4_mismatched_generation = Entity::new(3, 2).unwrap();
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1606,7 +1606,7 @@ mod tests {
             "failed mismatched spawn doesn't change existing entity"
         );
 
-        let high_non_existent_entity = Entity::new(6, 0);
+        let high_non_existent_entity = Entity::from_raw(6);
         world_b
             .get_or_spawn(high_non_existent_entity)
             .unwrap()
@@ -1617,7 +1617,7 @@ mod tests {
             "inserting into newly allocated high / non-continuous entity id works"
         );
 
-        let high_non_existent_but_reserved_entity = Entity::new(5, 0);
+        let high_non_existent_but_reserved_entity = Entity::from_raw(5);
         assert!(
             world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
             "entities between high-newly allocated entity and continuous block of existing entities don't exist"
@@ -1633,10 +1633,10 @@ mod tests {
         assert_eq!(
             reserved_entities,
             vec![
-                Entity::new(5, 0),
-                Entity::new(4, 0),
-                Entity::new(7, 0),
-                Entity::new(8, 0),
+                Entity::from_raw(5),
+                Entity::from_raw(4),
+                Entity::from_raw(7),
+                Entity::from_raw(8),
             ],
             "space between original entities and high entities is used for new entity ids"
         );
@@ -1685,7 +1685,7 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::new(e2.index(), 1);
+        let invalid_e2 = Entity::new(e2.index(), 2).unwrap();
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 

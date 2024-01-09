@@ -10,7 +10,7 @@ use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::{Quat, Vec3};
+use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
@@ -593,7 +593,7 @@ fn run_animation_player(
 fn lerp_morph_weights(weights: &mut [f32], keyframe: impl Iterator<Item = f32>, key_lerp: f32) {
     let zipped = weights.iter_mut().zip(keyframe);
     for (morph_weight, keyframe) in zipped {
-        *morph_weight += (keyframe - *morph_weight) * key_lerp;
+        *morph_weight = morph_weight.lerp(keyframe, key_lerp);
     }
 }
 
@@ -721,7 +721,7 @@ fn apply_animation(
                 };
                 let ts_start = curve.keyframe_timestamps[step_start];
                 let ts_end = curve.keyframe_timestamps[step_start + 1];
-                let lerp = (animation.seek_time - ts_start) / (ts_end - ts_start);
+                let lerp = f32::inverse_lerp(ts_start, ts_end, animation.seek_time);
 
                 apply_keyframe(
                     curve,
@@ -844,7 +844,7 @@ fn apply_keyframe(
                 let result = morph_start
                     .iter()
                     .zip(morph_end)
-                    .map(|(a, b)| *a + lerp * (*b - *a));
+                    .map(|(a, b)| a.lerp(*b, lerp));
                 lerp_morph_weights(morphs.weights_mut(), result, weight);
             }
         }

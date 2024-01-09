@@ -132,10 +132,10 @@ impl BlobVec {
     /// For ZST it panics unconditionally because ZST `BlobVec` capacity
     /// is initialized to `usize::MAX` and always stays that way.
     fn grow_exact(&mut self, increment: NonZeroUsize) {
-        // If we got here with ZST, we requested total capacity > usize::MAX.
-        assert!(self.item_layout.size() != 0, "ZST capacity overflow");
-
-        let new_capacity = self.capacity + increment.get();
+        let new_capacity = self
+            .capacity
+            .checked_add(increment.get())
+            .expect("capacity overflow");
         let new_layout =
             array_layout(&self.item_layout, new_capacity).expect("array layout should be valid");
         let new_data = if self.capacity == 0 {
@@ -621,7 +621,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "ZST capacity overflow")]
+    #[should_panic(expected = "capacity overflow")]
     fn blob_vec_zst_size_overflow() {
         // SAFETY: no drop is correct drop for `()`.
         let mut blob_vec = unsafe { BlobVec::new(Layout::new::<()>(), None, 0) };
@@ -642,6 +642,24 @@ mod tests {
                 blob_vec.push(ptr);
             });
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn blob_vec_capacity_overflow() {
+        // SAFETY: no drop is correct drop for `u32`.
+        let mut blob_vec = unsafe { BlobVec::new(Layout::new::<u32>(), None, 0) };
+
+        assert_eq!(0, blob_vec.capacity(), "Self-check");
+
+        OwningPtr::make(17u32, |ptr| {
+            // SAFETY: we push the value of correct type.
+            unsafe {
+                blob_vec.push(ptr);
+            }
+        });
+
+        blob_vec.reserve_exact(usize::MAX);
     }
 
     #[test]

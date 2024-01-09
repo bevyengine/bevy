@@ -5,7 +5,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel,
+        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -368,6 +368,7 @@ impl App {
         if !self.world.contains_resource::<State<S>>() {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
+                .add_event::<StateTransitionEvent<S>>()
                 .add_systems(
                     StateTransition,
                     (
@@ -403,6 +404,7 @@ impl App {
     pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
         self.insert_resource(State::new(state))
             .init_resource::<NextState<S>>()
+            .add_event::<StateTransitionEvent<S>>()
             .add_systems(
                 StateTransition,
                 (
@@ -996,6 +998,38 @@ impl App {
     /// ```
     pub fn allow_ambiguous_resource<T: Resource>(&mut self) -> &mut Self {
         self.world.allow_ambiguous_resource::<T>();
+        self
+    }
+
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
+    ///
+    /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
+    /// However, sometimes two independant plugins `A` and `B` are reported as ambiguous, which you
+    /// can only supress as the consumer of both.
+    #[track_caller]
+    pub fn ignore_ambiguity<M1, M2, S1, S2>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        a: S1,
+        b: S2,
+    ) -> &mut Self
+    where
+        S1: IntoSystemSet<M1>,
+        S2: IntoSystemSet<M2>,
+    {
+        let schedule = schedule.intern();
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(schedule) {
+            let schedule: &mut Schedule = schedule;
+            schedule.ignore_ambiguity(a, b);
+        } else {
+            let mut new_schedule = Schedule::new(schedule);
+            new_schedule.ignore_ambiguity(a, b);
+            schedules.insert(new_schedule);
+        }
+
         self
     }
 }
