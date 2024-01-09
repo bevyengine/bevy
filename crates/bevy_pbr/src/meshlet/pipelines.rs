@@ -19,7 +19,6 @@ pub const MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE: Handle<Shader> =
 pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(8325134235233421);
 
-// TODO: See if unchecked shaders give better performance
 #[derive(Resource)]
 pub struct MeshletPipelines {
     cull_first: CachedComputePipelineId,
