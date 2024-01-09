@@ -217,14 +217,17 @@ impl Command for RemoveChildren {
 
 /// Command that removes the last [`Child`] from an entity
 pub struct PopChild {
-    parent: Entity,
+    /// The parent from whom the last child should be removed
+    pub parent: Entity,
 }
 
 impl Command for PopChild {
     fn apply(self, world: &mut World) {
         let last_child_id = {
             let parent = world.entity_mut(self.parent);
-            parent.get::<Children>().map(|children| children.last().copied())
+            parent
+                .get::<Children>()
+                .map(|children| children.last().copied())
         };
 
         if let Some(optional_child_id) = last_child_id {
@@ -237,7 +240,9 @@ impl Command for PopChild {
 
 /// Removes the last `n`-th children specified by the `pop_count` field
 pub struct PopChildren {
+    /// The Parent whose children are to be removed
     pub parent: Entity,
+    /// The number of children to be removed
     pub pop_count: usize,
 }
 
@@ -249,7 +254,7 @@ impl Command for PopChildren {
         };
 
         let entities = children[(children.len() - self.pop_count)..].to_vec();
-        
+
         remove_children(self.parent, &entities, world);
     }
 }
