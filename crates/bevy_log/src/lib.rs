@@ -15,6 +15,10 @@ mod once;
 
 #[cfg(feature = "trace")]
 use std::panic;
+use std::{
+    sync::{Arc, Mutex},
+    time::SystemTime,
+};
 
 #[cfg(target_os = "android")]
 mod android_tracing;
@@ -34,16 +38,21 @@ pub mod prelude {
     pub use crate::{debug_once, error_once, info_once, trace_once, warn_once};
 }
 
+use bevy_ecs::{
+    event::{Event, EventWriter},
+    system::{Res, Resource},
+};
+use bevy_utils::tracing::Subscriber;
 pub use bevy_utils::tracing::{
     debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     Level,
 };
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
-use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
+use tracing_subscriber::{field::Visit, layer::Layer, prelude::*, registry::Registry, EnvFilter};
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -128,7 +137,17 @@ impl Plugin for LogPlugin {
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
-        let subscriber = Registry::default().with(filter_layer);
+
+        // Log events
+        let log_events = LogEvents::default();
+        let log_event_resource = LogEventResource(log_events.clone());
+        let log_event_layer = LogEventLayer(log_events);
+
+        app.insert_resource(log_event_resource)
+            .add_event::<LogEvent>()
+            .add_systems(Update, transfer_log_events);
+
+        let subscriber = Registry::default().with(filter_layer).with(log_event_layer);
 
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
@@ -206,6 +225,102 @@ impl Plugin for LogPlugin {
             (true, _) => warn!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
             (_, true) => warn!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
             _ => (),
+        }
+    }
+}
+
+/// A [`tracing`](bevy_utils::tracing) log message event.
+///
+/// This event is helpful for creating custom log viewing systems such as consoles and terminals.
+#[derive(Event, Debug, Clone)]
+pub struct LogEvent {
+    /// The message contents.
+    pub message: String,
+    /// The name of the span described by this metadata.
+    pub name: &'static str,
+    /// The part of the system that the span that this metadata describes
+    /// occurred in.
+    pub target: &'static str,
+
+    /// The level of verbosity of the described span.
+    pub level: Level,
+
+    /// The name of the Rust module where the span occurred, or `None` if this
+    /// could not be determined.
+    pub module_path: Option<&'static str>,
+
+    /// The name of the source code file where the span occurred, or `None` if
+    /// this could not be determined.
+    pub file: Option<&'static str>,
+
+    /// The line number in the source code file where the span occurred, or
+    /// `None` if this could not be determined.
+    pub line: Option<u32>,
+
+    /// The time the log occurred.
+    /// It is recommended to use a third-party crate like
+    /// [chrono](https://crates.io/crates/chrono) to format the [`SystemTime`].
+    pub time: SystemTime,
+}
+
+/// Transfers information from the [`LogEventResource`] resource to [`Events<LogEvent>`](bevy_ecs::event::Events<LogEvent>).
+fn transfer_log_events(handler: Res<LogEventResource>, mut log_events: EventWriter<LogEvent>) {
+    let events = &mut *handler.0.lock().unwrap();
+    if !events.is_empty() {
+        log_events.send_batch(std::mem::take(events));
+    }
+}
+
+/// This type holds an [`Arc`], of which there are 2 instances.
+/// One in the ECS (stored in [`LogEventResource`]), and one in the [`LogEventLayer`].
+///
+/// This allows the [`LogEventLayer`] to send [`LogEvent`]s to [`LogEventResource`].
+type LogEvents = Arc<Mutex<Vec<LogEvent>>>;
+
+/// This resource temporarily stores [`LogEvent`]s before they are
+/// written to [`EventWriter<LogEvent>`] by [`transfer_log_events`].
+///
+/// Read the docs of [`LogEvents`] for more.
+#[derive(Resource)]
+struct LogEventResource(LogEvents);
+
+/// A tracing [`Layer`] that captures log events and saves them to [`LogEventResource`] via [`LogEvents`].
+struct LogEventLayer(LogEvents);
+impl<S: Subscriber> Layer<S> for LogEventLayer {
+    fn on_event(
+        &self,
+        event: &bevy_utils::tracing::Event<'_>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
+        let mut message = None;
+        event.record(&mut LogEventVisitor(&mut message));
+        if let Some(message) = message {
+            let metadata = event.metadata();
+            self.0.lock().unwrap().push(LogEvent {
+                message,
+                name: metadata.name(),
+                target: metadata.target(),
+                level: *metadata.level(),
+                module_path: metadata.module_path(),
+                file: metadata.file(),
+                line: metadata.line(),
+                time: SystemTime::now(),
+            });
+        }
+    }
+}
+
+/// A [`Visit`]or that records log events that are transfered to [`LogEventLayer`].
+struct LogEventVisitor<'a>(&'a mut Option<String>);
+impl<'a> Visit for LogEventVisitor<'a> {
+    fn record_debug(
+        &mut self,
+        field: &bevy_utils::tracing::field::Field,
+        value: &dyn std::fmt::Debug,
+    ) {
+        // Only log out messages
+        if field.name() == "message" {
+            *self.0 = Some(format!("{value:?}"));
         }
     }
 }
