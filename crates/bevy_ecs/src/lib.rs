@@ -58,7 +58,7 @@ type TypeIdMap<V> =
 
 #[doc(hidden)]
 #[derive(Default)]
-pub struct NoOpTypeIdHasher(u64);
+struct NoOpTypeIdHasher(u64);
 
 // TypeId already contains a high-quality hash, so skip re-hashing that hash.
 impl std::hash::Hasher for NoOpTypeIdHasher {
