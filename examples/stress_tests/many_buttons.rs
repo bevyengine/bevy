@@ -94,9 +94,9 @@ fn button_system(
     >,
 ) {
     for (interaction, mut button_color, IdleColor(idle_color)) in interaction_query.iter_mut() {
-        *button_color = match interaction {
+        button_color.0 = match interaction {
             Interaction::Hovered => Color::ORANGE_RED.into(),
-            _ => *idle_color,
+            _ => idle_color.0.clone().into(),
         };
     }
 }
@@ -237,7 +237,7 @@ fn spawn_button(
                 border,
                 ..default()
             },
-            background_color,
+            background_color: background_color.clone(),
             border_color,
             ..default()
         },
