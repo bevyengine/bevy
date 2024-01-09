@@ -4,9 +4,20 @@ use std::f32::consts::PI;
 
 use bevy::math::primitives::Direction3d;
 use bevy::prelude::*;
+use bevy_internal::gizmos::primitives::{
+    Capsule3dDetails, Cone3dDetails, ConicalFrustum3dDetails, Cuboid3dDetails, Cylinder3dDetails,
+    GizmoPrimitive3d, Line3dDetails, Plane3dDetails, Segment3dDetails, SphereDetails,
+    Torus3dDetails,
+};
+use bevy_internal::prelude::primitives::{
+    Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d, Segment3d,
+    Sphere, Torus,
+};
 
 fn main() {
     App::new()
+        .insert_state(PrimitiveState::Nothing)
+        .init_resource::<PrimitiveSegments>()
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
@@ -17,6 +28,61 @@ fn main() {
 // We can create our own gizmo config group!
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyRoundGizmos {}
+
+#[derive(Debug, Clone, Resource)]
+pub struct PrimitiveSegments(usize);
+impl Default for PrimitiveSegments {
+    fn default() -> Self {
+        Self(10)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+enum PrimitiveState {
+    Nothing,
+    Sphere,
+    Plane,
+    Line,
+    LineSegment,
+    Cuboid,
+    Cylinder,
+    Capsule,
+    Cone,
+    ConicalFrustum,
+    Torus,
+}
+
+impl PrimitiveState {
+    pub fn from_raw(n: u8) -> Self {
+        match n {
+            1 => Self::Sphere,
+            2 => Self::Plane,
+            3 => Self::Line,
+            4 => Self::LineSegment,
+            5 => Self::Cuboid,
+            6 => Self::Cylinder,
+            7 => Self::Capsule,
+            8 => Self::Cone,
+            9 => Self::ConicalFrustum,
+            10 => Self::Torus,
+            _ => Self::Nothing,
+        }
+    }
+
+    pub fn count() -> u8 {
+        11
+    }
+
+    pub fn next(self) -> Self {
+        let next = (self as u8 + 1) % Self::count();
+        Self::from_raw(next)
+    }
+
+    pub fn last(self) -> Self {
+        let next = (self as u8 + (Self::count() - 1)) % Self::count();
+        Self::from_raw(next)
+    }
+}
 
 fn setup(
     mut commands: Commands,
@@ -74,7 +140,13 @@ fn setup(
     );
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Time>) {
+fn system(
+    mut gizmos: Gizmos,
+    mut my_gizmos: Gizmos<MyRoundGizmos>,
+    time: Res<Time>,
+    primitive_state: Res<State<PrimitiveState>>,
+    segments: Res<PrimitiveSegments>,
+) {
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         Color::BLACK,
@@ -117,6 +189,129 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
         .circle_segments(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, Color::YELLOW);
+
+    let angle = time.elapsed_seconds().to_radians() * 10.0;
+    let center = Quat::from_axis_angle(Vec3::Z, angle) * Vec3::X;
+    let normal = (Quat::from_axis_angle(Vec3::ONE, angle) * Vec3::Y).normalize();
+    let rotation = Quat::from_rotation_arc(Vec3::Y, normal);
+    let segments = segments.0;
+    match primitive_state.get() {
+        PrimitiveState::Nothing => {}
+        PrimitiveState::Sphere => gizmos.primitive_3d(
+            Sphere { radius: 1.0 },
+            SphereDetails {
+                center,
+                rotation,
+                segments,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::Plane => gizmos.primitive_3d(
+            Plane3d {
+                normal: Direction3d::new(Vec3::Y).unwrap(),
+            },
+            Plane3dDetails {
+                normal_position: center,
+                rotation,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::Line => gizmos.primitive_3d(
+            Line3d {
+                direction: Direction3d::new(Vec3::X).unwrap(),
+            },
+            Line3dDetails {
+                start_position: center,
+                rotation,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::LineSegment => gizmos.primitive_3d(
+            Segment3d {
+                direction: Direction3d::new(Vec3::X).unwrap(),
+                half_length: 1.0,
+            },
+            Segment3dDetails {
+                start_position: center,
+                rotation,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::Cuboid => gizmos.primitive_3d(
+            Cuboid {
+                half_size: Vec3::new(1.0, 0.5, 2.0),
+            },
+            Cuboid3dDetails {
+                center,
+                rotation,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::Cylinder => gizmos.primitive_3d(
+            Cylinder {
+                radius: 1.0,
+                half_height: 1.0,
+            },
+            Cylinder3dDetails {
+                center,
+                normal,
+                segments,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::Capsule => gizmos.primitive_3d(
+            Capsule {
+                radius: 1.0,
+                half_length: 1.0,
+            },
+            Capsule3dDetails {
+                center,
+                normal,
+                segments,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::Cone => gizmos.primitive_3d(
+            Cone {
+                radius: 1.0,
+                height: 1.0,
+            },
+            Cone3dDetails {
+                center,
+                normal,
+                segments,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::ConicalFrustum => gizmos.primitive_3d(
+            ConicalFrustum {
+                radius_top: 0.5,
+                radius_bottom: 1.0,
+                height: 1.0,
+            },
+            ConicalFrustum3dDetails {
+                center,
+                normal,
+                segments,
+                ..Default::default()
+            },
+        ),
+        PrimitiveState::Torus => {
+            gizmos.primitive_3d(
+                Torus {
+                    minor_radius: 0.3,
+                    major_radius: 1.0,
+                },
+                Torus3dDetails {
+                    center,
+                    normal,
+                    minor_segments: (segments / 4).max(1),
+                    major_segments: segments,
+                    ..Default::default()
+                },
+            );
+        }
+    }
 }
 
 fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
@@ -129,6 +324,9 @@ fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
+    primitive_state: Res<State<PrimitiveState>>,
+    mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
+    mut segments: ResMut<PrimitiveSegments>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
@@ -174,5 +372,17 @@ fn update_config(
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+    }
+    if keyboard.just_pressed(KeyCode::ArrowUp) {
+        next_primitive_state.set(primitive_state.get().next());
+    }
+    if keyboard.just_pressed(KeyCode::ArrowDown) {
+        next_primitive_state.set(primitive_state.get().last());
+    }
+    if keyboard.just_pressed(KeyCode::KeyM) {
+        segments.0 += 1;
+    }
+    if keyboard.just_pressed(KeyCode::KeyN) {
+        segments.0 -= 1;
     }
 }
