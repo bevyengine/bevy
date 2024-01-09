@@ -215,7 +215,7 @@ impl Command for RemoveChildren {
     }
 }
 
-///Command that removes the last Child from an entity
+/// Command that removes the last [`Child`] from an entity
 pub struct PopChild {
     parent: Entity,
 }
