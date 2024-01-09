@@ -57,6 +57,10 @@ pub struct LoadTransformAndSave<
     marker: PhantomData<fn() -> L>,
 }
 
+/// Settings for the [`LoadTransformAndSave`] [`Process::Settings`] implementation.
+///
+/// `LoaderSettings` corresponds to [`AssetLoader::Settings`], `TransformerSettings` corresponds to [`AssetTransformer::Settings`],
+/// and `SaverSettings` corresponds to [`AssetSaver::Settings`].
 #[derive(Serialize, Deserialize, Default)]
 pub struct LoadTransformAndSaveSettings<LoaderSettings, TransformerSettings, SaverSettings> {
     /// The [`AssetLoader::Settings`] for [`LoadTransformAndSave`].
@@ -65,52 +69,6 @@ pub struct LoadTransformAndSaveSettings<LoaderSettings, TransformerSettings, Sav
     pub transformer_settings: TransformerSettings,
     /// The [`AssetSaver::Settings`] for [`LoadTransformAndSave`].
     pub saver_settings: SaverSettings,
-}
-
-impl<
-        Loader: AssetLoader,
-        T: AssetTransformer<AssetInput = Loader::Asset>,
-        Saver: AssetSaver<Asset = T::AssetOutput>,
-    > Process for LoadTransformAndSave<Loader, T, Saver>
-{
-    type Settings = LoadTransformAndSaveSettings<Loader::Settings, T::Settings, Saver::Settings>;
-    type OutputLoader = Saver::OutputLoader;
-
-    fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext,
-        meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
-        Box::pin(async move {
-            let AssetAction::Process { settings, .. } = meta.asset else {
-                return Err(ProcessError::WrongMetaType);
-            };
-            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-                loader: std::any::type_name::<Loader>().to_string(),
-                settings: settings.loader_settings,
-            });
-            let loaded_asset = context
-                .load_source_asset(loader_meta)
-                .await?
-                .take::<Loader::Asset>()
-                .expect("Asset type is known");
-            let transformed_asset = self
-                .transformer
-                .transform(loaded_asset, &settings.transformer_settings)?;
-            let loaded_transformed_asset =
-                ErasedLoadedAsset::from(LoadedAsset::from(transformed_asset));
-            let saved_asset =
-                SavedAsset::<T::AssetOutput>::from_loaded(&loaded_transformed_asset).unwrap();
-
-            let output_settings = self
-                .saver
-                .save(writer, saved_asset, &settings.saver_settings)
-                .await
-                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
-            Ok(output_settings)
-        })
-    }
 }
 
 impl<
@@ -142,38 +100,6 @@ pub struct LoadAndSave<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> {
     marker: PhantomData<fn() -> L>,
 }
 
-impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
-    for LoadAndSave<Loader, Saver>
-{
-    type Settings = LoadAndSaveSettings<Loader::Settings, Saver::Settings>;
-    type OutputLoader = Saver::OutputLoader;
-
-    fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext,
-        meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
-        Box::pin(async move {
-            let AssetAction::Process { settings, .. } = meta.asset else {
-                return Err(ProcessError::WrongMetaType);
-            };
-            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-                loader: std::any::type_name::<Loader>().to_string(),
-                settings: settings.loader_settings,
-            });
-            let loaded_asset = context.load_source_asset(loader_meta).await?;
-            let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
-            let output_settings = self
-                .saver
-                .save(writer, saved_asset, &settings.saver_settings)
-                .await
-                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
-            Ok(output_settings)
-        })
-    }
-}
-
 impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S> for LoadAndSave<L, S> {
     fn from(value: S) -> Self {
         LoadAndSave {
@@ -183,6 +109,9 @@ impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S> for LoadAndSave<L,
     }
 }
 
+/// Settings for the [`LoadAndSave`] [`Process::Settings`] implementation.
+///
+/// `LoaderSettings` corresponds to [`AssetLoader::Settings`] and `SaverSettings` corresponds to [`AssetSaver::Settings`].
 #[derive(Serialize, Deserialize, Default)]
 pub struct LoadAndSaveSettings<LoaderSettings, SaverSettings> {
     /// The [`AssetLoader::Settings`] for [`LoadAndSave`].
@@ -231,6 +160,84 @@ pub enum ProcessError {
     AssetSaveError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
+}
+
+impl<
+        Loader: AssetLoader,
+        T: AssetTransformer<AssetInput = Loader::Asset>,
+        Saver: AssetSaver<Asset = T::AssetOutput>,
+    > Process for LoadTransformAndSave<Loader, T, Saver>
+{
+    type Settings = LoadTransformAndSaveSettings<Loader::Settings, T::Settings, Saver::Settings>;
+    type OutputLoader = Saver::OutputLoader;
+
+    fn process<'a>(
+        &'a self,
+        context: &'a mut ProcessContext,
+        meta: AssetMeta<(), Self>,
+        writer: &'a mut Writer,
+    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
+        Box::pin(async move {
+            let AssetAction::Process { settings, .. } = meta.asset else {
+                return Err(ProcessError::WrongMetaType);
+            };
+            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+                loader: std::any::type_name::<Loader>().to_string(),
+                settings: settings.loader_settings,
+            });
+            let loaded_asset = context
+                .load_source_asset(loader_meta)
+                .await?
+                .take::<Loader::Asset>()
+                .expect("Asset type is known");
+            let transformed_asset = self
+                .transformer
+                .transform(loaded_asset, &settings.transformer_settings)?;
+            let loaded_transformed_asset =
+                ErasedLoadedAsset::from(LoadedAsset::from(transformed_asset));
+            let saved_asset =
+                SavedAsset::<T::AssetOutput>::from_loaded(&loaded_transformed_asset).unwrap();
+
+            let output_settings = self
+                .saver
+                .save(writer, saved_asset, &settings.saver_settings)
+                .await
+                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
+            Ok(output_settings)
+        })
+    }
+}
+
+impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
+    for LoadAndSave<Loader, Saver>
+{
+    type Settings = LoadAndSaveSettings<Loader::Settings, Saver::Settings>;
+    type OutputLoader = Saver::OutputLoader;
+
+    fn process<'a>(
+        &'a self,
+        context: &'a mut ProcessContext,
+        meta: AssetMeta<(), Self>,
+        writer: &'a mut Writer,
+    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
+        Box::pin(async move {
+            let AssetAction::Process { settings, .. } = meta.asset else {
+                return Err(ProcessError::WrongMetaType);
+            };
+            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+                loader: std::any::type_name::<Loader>().to_string(),
+                settings: settings.loader_settings,
+            });
+            let loaded_asset = context.load_source_asset(loader_meta).await?;
+            let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
+            let output_settings = self
+                .saver
+                .save(writer, saved_asset, &settings.saver_settings)
+                .await
+                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
+            Ok(output_settings)
+        })
+    }
 }
 
 /// A type-erased variant of [`Process`] that enables interacting with processor implementations without knowing
