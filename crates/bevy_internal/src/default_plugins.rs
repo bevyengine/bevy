@@ -151,6 +151,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             bevy_ui::ui_layout_system,
         );
 
+        #[cfg(feature = "bevy_render")]
         if let Ok(render_app) = app.get_sub_app_mut(bevy_render::RenderApp) {
             #[cfg(all(feature = "bevy_gizmos", feature = "bevy_sprite"))]
             {
