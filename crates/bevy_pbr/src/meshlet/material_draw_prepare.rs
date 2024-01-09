@@ -1,15 +1,13 @@
 use super::{MeshletGpuScene, MESHLET_MESH_MATERIAL_SHADER_HANDLE};
-use crate::*;
+use crate::{environment_map::RenderViewEnvironmentMaps, *};
 use bevy_asset::AssetServer;
 use bevy_core_pipeline::{
-    core_3d::Camera3d,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_render::{
     camera::{Projection, TemporalJitter},
     mesh::{InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout},
-    render_asset::RenderAssets,
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
@@ -32,7 +30,6 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
     mesh_pipeline: Res<MeshPipeline>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
     asset_server: Res<AssetServer>,
     // TODO: Scope to 3d cameras
     views: Query<(
@@ -40,7 +37,6 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
         &ExtractedView,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
         Has<ScreenSpaceAmbientOcclusionSettings>,
         (
@@ -49,9 +45,9 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
         ),
-        Option<&Camera3d>,
         Has<TemporalJitter>,
         Option<&Projection>,
+        Has<RenderViewEnvironmentMaps>,
     )>,
     mut commands: Commands,
 ) where
@@ -62,13 +58,12 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
         view,
         tonemapping,
         dither,
-        environment_map,
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-        camera_3d,
         temporal_jitter,
         projection,
+        has_environment_maps,
     ) in &views
     {
         let mut opaque_pass_material_map = Vec::new();
@@ -130,8 +125,7 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-        if environment_map_loaded {
+        if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 
@@ -168,11 +162,7 @@ pub fn prepare_material_meshlet_meshes<M: Material>(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
-        if let Some(camera_3d) = camera_3d {
-            view_key |= screen_space_specular_transmission_pipeline_key(
-                camera_3d.screen_space_specular_transmission_quality,
-            );
-        }
+        // TODO: Lightmaps
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
