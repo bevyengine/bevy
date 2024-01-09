@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 use std::time::Duration;
 
 use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy_internal::gltf::GltfLoaderSettings;
 
 fn main() {
     App::new()
@@ -31,6 +32,12 @@ fn setup(
 ) {
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
+        asset_server.load_with_settings(
+            "models/animated/Fox.glb#Animation/Survey",
+            |s: &mut GltfLoaderSettings| {
+                s.label_by_name = true;
+            },
+        ),
         asset_server.load("models/animated/Fox.glb#Animation2"),
         asset_server.load("models/animated/Fox.glb#Animation1"),
         asset_server.load("models/animated/Fox.glb#Animation0"),

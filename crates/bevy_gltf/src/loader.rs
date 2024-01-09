@@ -131,6 +131,10 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
+    /// If true, the loader will label nested assets by name if available.
+    /// If no name exists for an asset, the asset will be labeled with asset
+    /// type and index (example: GltfMesh0).
+    pub label_by_name: bool,
 }
 
 impl Default for GltfLoaderSettings {
@@ -139,6 +143,7 @@ impl Default for GltfLoaderSettings {
             load_meshes: true,
             load_cameras: true,
             load_lights: true,
+            label_by_name: false,
         }
     }
 }
@@ -273,11 +278,20 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
                 }
             }
-            let handle = load_context
-                .add_labeled_asset(format!("Animation{}", animation.index()), animation_clip);
-            if let Some(name) = animation.name() {
+
+            let handle = if let Some(name) = animation.name() {
+                let label = if settings.label_by_name {
+                    format!("Animation/{}", name)
+                } else {
+                    format!("Animation{}", animation.index())
+                };
+                let handle = load_context.add_labeled_asset(label, animation_clip);
                 named_animations.insert(name.to_string(), handle.clone());
-            }
+                handle
+            } else {
+                load_context
+                    .add_labeled_asset(format!("Animation{}", animation.index()), animation_clip)
+            };
             animations.push(handle);
         }
         (animations, named_animations, animation_roots)
@@ -387,7 +401,7 @@ async fn load_gltf<'a, 'b, 'c>(
     for gltf_mesh in gltf.meshes() {
         let mut primitives = vec![];
         for primitive in gltf_mesh.primitives() {
-            let primitive_label = primitive_label(&gltf_mesh, &primitive);
+            let primitive_label = primitive_label(&gltf_mesh, &primitive, settings.label_by_name);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
             let mut mesh = Mesh::new(primitive_topology, RenderAssetPersistencePolicy::Keep);
@@ -498,7 +512,7 @@ async fn load_gltf<'a, 'b, 'c>(
         }
 
         let handle = load_context.add_labeled_asset(
-            mesh_label(&gltf_mesh),
+            mesh_label(&gltf_mesh, settings.label_by_name),
             super::GltfMesh {
                 primitives,
                 extras: get_gltf_extras(gltf_mesh.extras()),
@@ -513,7 +527,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut nodes_intermediate = vec![];
     let mut named_nodes_intermediate = HashMap::default();
     for node in gltf.nodes() {
-        let node_label = node_label(&node);
+        let node_label = node_label(&node, settings.label_by_name);
         nodes_intermediate.push((
             node_label,
             GltfNode {
@@ -570,7 +584,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 .collect();
 
             load_context.add_labeled_asset(
-                skin_label(&gltf_skin),
+                skin_label(&gltf_skin, settings.label_by_name),
                 SkinnedMeshInverseBindposes::from(inverse_bindposes),
             )
         })
@@ -648,7 +662,8 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
         let loaded_scene = scene_load_context.finish(Scene::new(world), None);
-        let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
+        let scene_handle = load_context
+            .add_loaded_labeled_asset(scene_label(&scene, settings.label_by_name), loaded_scene);
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.to_string(), scene_handle.clone());
@@ -997,7 +1012,8 @@ fn load_node(
                         load_material(&material, load_context, is_scale_inverted);
                     }
 
-                    let primitive_label = primitive_label(&mesh, &primitive);
+                    let primitive_label =
+                        primitive_label(&mesh, &primitive, settings.label_by_name);
                     let bounds = primitive.bounding_box();
 
                     let mut mesh_entity = parent.spawn(PbrBundle {
@@ -1144,7 +1160,10 @@ fn load_node(
 
     if settings.load_meshes {
         if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
-            let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
+            let primitive_label = mesh
+                .primitives()
+                .next()
+                .map(|p| primitive_label(&mesh, &p, settings.label_by_name));
             let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
             node.insert(MorphWeights::new(weights, first_mesh)?);
         }
@@ -1158,13 +1177,19 @@ fn load_node(
 }
 
 /// Returns the label for the `mesh`.
-fn mesh_label(mesh: &gltf::Mesh) -> String {
-    format!("Mesh{}", mesh.index())
+fn mesh_label(mesh: &gltf::Mesh, use_name: bool) -> String {
+    match (use_name, mesh.name()) {
+        (true, Some(name)) => format!("Mesh/{}", name),
+        (true, None) | (false, _) => format!("Mesh{}", mesh.index()),
+    }
 }
 
 /// Returns the label for the `mesh` and `primitive`.
-fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
-    format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
+fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive, use_name: bool) -> String {
+    match (use_name, mesh.name()) {
+        (true, Some(name)) => format!("Mesh/{}.{}", name, primitive.index()),
+        (true, None) | (false, _) => format!("Mesh{}/Primitive{}", mesh.index(), primitive.index()),
+    }
 }
 
 fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
@@ -1226,17 +1251,26 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 }
 
 /// Returns the label for the `node`.
-fn node_label(node: &Node) -> String {
-    format!("Node{}", node.index())
+fn node_label(node: &Node, use_name: bool) -> String {
+    match (use_name, node.name()) {
+        (true, Some(name)) => format!("Node/{}", name),
+        (true, None) | (false, _) => format!("Node{}", node.index()),
+    }
 }
 
 /// Returns the label for the `scene`.
-fn scene_label(scene: &gltf::Scene) -> String {
-    format!("Scene{}", scene.index())
+fn scene_label(scene: &gltf::Scene, use_name: bool) -> String {
+    match (use_name, scene.name()) {
+        (true, Some(name)) => format!("Scene/{}", name),
+        (true, None) | (false, _) => format!("Scene{}", scene.index()),
+    }
 }
 
-fn skin_label(skin: &gltf::Skin) -> String {
-    format!("Skin{}", skin.index())
+fn skin_label(skin: &gltf::Skin, use_name: bool) -> String {
+    match (use_name, skin.name()) {
+        (true, Some(name)) => format!("Skin/{}", name),
+        (true, None) | (false, _) => format!("Skin{}", skin.index()),
+    }
 }
 
 /// Extracts the texture sampler data from the glTF texture.
