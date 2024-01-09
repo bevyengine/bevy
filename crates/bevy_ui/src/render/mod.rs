@@ -5,6 +5,7 @@ mod render_pass;
 mod ui_material_pipeline;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{render_resource::BindGroupEntries, ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
@@ -934,6 +935,7 @@ pub fn prepare_uinodes(
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
 ) {
+    println!("* prepare *");
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
@@ -961,14 +963,14 @@ pub fn prepare_uinodes(
         // Vertex buffer index
         for mut ui_phase in &mut phases {
             let mut batch_image_handle = AssetId::invalid();
-
+            let mut batch_item_index = 0;
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
                     let index = instance_counters.increment(extracted_uinode.instance.get_type());
                     let mut existing_batch = batches.last_mut();
                     ui_meta.push(&extracted_uinode.instance);
-                    
+                    println!();
                     if batch_image_handle == AssetId::invalid()
                         || existing_batch.is_none()
                         || (batch_image_handle != AssetId::default()
@@ -976,15 +978,23 @@ pub fn prepare_uinodes(
                             && batch_image_handle != extracted_uinode.image)
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
+                            batch_item_index = item_index;
                             batch_image_handle = extracted_uinode.image;
-
+                            if let Some((entity, batch)) = &existing_batch {
+                                println!("* End old batch *");
+                                println!("\t entity: {entity:?}, type: {:?}, range: {:?}", batch.batch_type, batch.range);
+                            } else {
+                                println!("* No previous batch *");
+                            }
+                            println!();
                             let new_batch = UiBatch {
                                 batch_type: extracted_uinode.instance.get_type(),
                                 image: extracted_uinode.image.clone(),
                                 stack_index: extracted_uinode.stack_index,
                                 range: index - 1..index,
                             };
-
+                            println!("* New batch *");
+                            println!("\t entity: {:?}, type: {:?}, range: {:?}", item.entity, new_batch.batch_type, new_batch.range);
                             batches.push((item.entity, new_batch));
 
                             image_bind_groups
@@ -1027,8 +1037,8 @@ pub fn prepare_uinodes(
                             continue;
                         }
                     }
-
-                    
+                    batches.last_mut().unwrap().1.range.end = index;
+                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
 
                     
                 } else {

@@ -351,14 +351,18 @@ pub fn ui_layout_system(
 
             let rounded_location =
                 round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+            let rounded_absolute_location = round_layout_coords(absolute_location);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
                 node.calculated_size = rounded_size;
                 node.unrounded_size = layout_size;
             }
-            if transform.translation.truncate() != rounded_location {
+            if transform.translation.truncate() != rounded_location
+                || node.position() != rounded_absolute_location
+            {
                 transform.translation = rounded_location.extend(0.);
+                node.bypass_change_detection().position = rounded_absolute_location;
             }
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
