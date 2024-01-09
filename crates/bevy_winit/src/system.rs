@@ -86,17 +86,21 @@ pub(crate) fn create_windows<F: QueryFilter + 'static>(
         #[cfg(target_arch = "wasm32")]
         {
             if window.fit_canvas_to_parent {
-                let canvas: HtmlCanvasElement = web_sys::window()
-                    .unwrap()
-                    .document()
-                    .unwrap()
-                    .query_selector("canvas")
-                    .unwrap()
-                    .unwrap()
-                    .unchecked_into();
-                let style = canvas.style();
-                style.set_property("width", "100%").unwrap();
-                style.set_property("height", "100%").unwrap();
+                if let raw_window_handle::RawWindowHandle::Web(handle) =
+                    winit_window.raw_window_handle()
+                {
+                    let canvas: HtmlCanvasElement = web_sys::window()
+                        .unwrap()
+                        .document()
+                        .unwrap()
+                        .query_selector(&format!("canvas[data-raw-handle=\"{}\"]", handle.id))
+                        .unwrap()
+                        .unwrap()
+                        .unchecked_into();
+                    let style = canvas.style();
+                    style.set_property("width", "100%").unwrap();
+                    style.set_property("height", "100%").unwrap();
+                }
             }
         }
         window_created_events.send(WindowCreated { window: entity });
