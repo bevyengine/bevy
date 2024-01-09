@@ -130,6 +130,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
+                .allow_ambiguous_resource::<GpuArrayBuffer<MeshUniform>>()
                 .add_systems(
                     ExtractSchedule,
                     (extract_meshes, extract_skins, extract_morphs),
