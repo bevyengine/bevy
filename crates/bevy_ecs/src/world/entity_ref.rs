@@ -190,7 +190,7 @@ impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
 
 /// Provides mutable access to a single entity and all of its components.
 ///
-/// Contrast with [`EntityWorldMut`], with allows adding and removing components,
+/// Contrast with [`EntityWorldMut`], which allows adding and removing components,
 /// despawning the entity, and provides mutable access to the entire world.
 /// Because of this, `EntityWorldMut` cannot coexist with any other world accesses.
 ///
@@ -1812,7 +1812,7 @@ mod tests {
         assert!(res.is_err());
 
         // Ensure that the location has been properly updated.
-        assert!(entity.location() != old_location);
+        assert_ne!(entity.location(), old_location);
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7805

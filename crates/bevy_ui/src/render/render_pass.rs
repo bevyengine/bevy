@@ -10,7 +10,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor, StoreOp},
+    render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
     renderer::*,
     view::*,
 };
@@ -76,10 +76,7 @@ impl Node for UiPassNode {
         };
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
-                load: LoadOp::Load,
-                store: StoreOp::Store,
-            }))],
+            color_attachments: &[Some(target.get_unsampled_color_attachment())],
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,

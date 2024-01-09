@@ -111,7 +111,7 @@ impl SystemMeta {
 /// # Example
 ///
 /// Basic usage:
-/// ```rust
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
@@ -144,7 +144,7 @@ impl SystemMeta {
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
 /// ```
 /// Caching:
-/// ```rust
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
@@ -520,7 +520,7 @@ where
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+        assert_eq!(self.world_id, Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let old_generation =
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
@@ -576,7 +576,7 @@ where
 ///
 /// To create something like [`PipeSystem`], but in entirely safe code.
 ///
-/// ```rust
+/// ```
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;

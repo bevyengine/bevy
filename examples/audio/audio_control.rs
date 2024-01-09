@@ -45,7 +45,7 @@ fn volume(
     music_controller: Query<&AudioSink, With<MyMusic>>,
 ) {
     if let Ok(sink) = music_controller.get_single() {
-        if keyboard_input.just_pressed(KeyCode::Plus) {
+        if keyboard_input.just_pressed(KeyCode::Equal) {
             sink.set_volume(sink.volume() + 0.1);
         } else if keyboard_input.just_pressed(KeyCode::Minus) {
             sink.set_volume(sink.volume() - 0.1);

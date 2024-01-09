@@ -216,7 +216,7 @@ fn queue_text(
 /// ## World Resources
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
-/// It does not modify or observe existing ones.
+/// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,

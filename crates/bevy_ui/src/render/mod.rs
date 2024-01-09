@@ -74,6 +74,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
+        .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
@@ -577,7 +578,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    let scale = (ui_scale.0).recip();
+    let scale = ui_scale.0.recip();
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
@@ -832,6 +833,7 @@ pub fn prepare_uinodes(
     for event in &events.images {
         match event {
             AssetEvent::Added { .. } |
+            AssetEvent::Unused { .. } |
             // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {

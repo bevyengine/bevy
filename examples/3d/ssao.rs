@@ -48,30 +48,30 @@ fn setup(
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 1.0),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         material,
         transform: Transform::from_xyz(1.0, 0.0, 0.0),
         ..default()
     });
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
+            mesh: meshes.add(shape::UVSphere {
                 radius: 0.4,
                 sectors: 72,
                 stacks: 36,
-            })),
+            }),
             material: materials.add(StandardMaterial {
                 base_color: Color::rgb(0.4, 0.4, 0.4),
                 perceptual_roughness: 1.0,
@@ -136,25 +136,25 @@ fn update(
     let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
 
     let mut commands = commands.entity(camera_entity);
-    if keycode.just_pressed(KeyCode::Key1) {
+    if keycode.just_pressed(KeyCode::Digit1) {
         commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
     }
-    if keycode.just_pressed(KeyCode::Key2) {
+    if keycode.just_pressed(KeyCode::Digit2) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
         });
     }
-    if keycode.just_pressed(KeyCode::Key3) {
+    if keycode.just_pressed(KeyCode::Digit3) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
         });
     }
-    if keycode.just_pressed(KeyCode::Key4) {
+    if keycode.just_pressed(KeyCode::Digit4) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
         });
     }
-    if keycode.just_pressed(KeyCode::Key5) {
+    if keycode.just_pressed(KeyCode::Digit5) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
         });

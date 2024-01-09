@@ -22,6 +22,7 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::Aabb,
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{Face, PrimitiveTopology},
     texture::{
         CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
@@ -120,7 +121,7 @@ pub struct GltfLoader {
 ///     |s: &mut GltfLoaderSettings| {
 ///         s.load_cameras = false;
 ///     }
-/// );    
+/// );
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
@@ -205,7 +206,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::Keyframes;
+        use bevy_animation::{Interpolation, Keyframes};
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
         let mut named_animations = HashMap::default();
@@ -213,12 +214,10 @@ async fn load_gltf<'a, 'b, 'c>(
         for animation in gltf.animations() {
             let mut animation_clip = bevy_animation::AnimationClip::default();
             for channel in animation.channels() {
-                match channel.sampler().interpolation() {
-                    gltf::animation::Interpolation::Linear => (),
-                    other => warn!(
-                        "Animation interpolation {:?} is not supported, will use linear",
-                        other
-                    ),
+                let interpolation = match channel.sampler().interpolation() {
+                    gltf::animation::Interpolation::Linear => Interpolation::Linear,
+                    gltf::animation::Interpolation::Step => Interpolation::Step,
+                    gltf::animation::Interpolation::CubicSpline => Interpolation::CubicSpline,
                 };
                 let node = channel.target().node();
                 let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
@@ -264,6 +263,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         bevy_animation::VariableCurve {
                             keyframe_timestamps,
                             keyframes,
+                            interpolation,
                         },
                     );
                 } else {
@@ -390,7 +390,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology);
+            let mut mesh = Mesh::new(primitive_topology, RenderAssetPersistencePolicy::Keep);
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
@@ -434,6 +434,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
+                        RenderAssetPersistencePolicy::Keep,
                     )?;
                     let handle =
                         load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
@@ -725,6 +726,7 @@ async fn load_image<'a, 'b>(
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
+                RenderAssetPersistencePolicy::Keep,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -746,6 +748,7 @@ async fn load_image<'a, 'b>(
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
+                        RenderAssetPersistencePolicy::Keep,
                     )?,
                     label: texture_label(&gltf_texture),
                 })
@@ -893,7 +896,7 @@ fn load_material(
 }
 
 /// Loads a glTF node.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::result_large_err)]
 fn load_node(
     gltf_node: &Node,
     world_builder: &mut WorldChildBuilder,
@@ -1291,6 +1294,7 @@ fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
 }
 
 /// Maps the `primitive_topology` form glTF to `wgpu`.
+#[allow(clippy::result_large_err)]
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
@@ -1448,7 +1452,7 @@ impl<'a> DataUri<'a> {
 
     fn decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
         if self.base64 {
-            base64::decode(self.data)
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, self.data)
         } else {
             Ok(self.data.as_bytes().to_owned())
         }

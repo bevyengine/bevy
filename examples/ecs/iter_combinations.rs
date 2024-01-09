@@ -76,14 +76,11 @@ fn generate_bodies(
                     ..default()
                 },
                 mesh: mesh.clone(),
-                material: materials.add(
-                    Color::rgb(
-                        rng.gen_range(color_range.clone()),
-                        rng.gen_range(color_range.clone()),
-                        rng.gen_range(color_range.clone()),
-                    )
-                    .into(),
-                ),
+                material: materials.add(Color::rgb(
+                    rng.gen_range(color_range.clone()),
+                    rng.gen_range(color_range.clone()),
+                    rng.gen_range(color_range.clone()),
+                )),
                 ..default()
             },
             mass: Mass(mass_value),
@@ -115,7 +112,7 @@ fn generate_bodies(
                     ),
                     material: materials.add(StandardMaterial {
                         base_color: Color::ORANGE_RED,
-                        emissive: (Color::ORANGE_RED * 2.),
+                        emissive: Color::ORANGE_RED * 2.,
                         ..default()
                     }),
                     ..default()

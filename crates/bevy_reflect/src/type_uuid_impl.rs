@@ -2,8 +2,10 @@ use crate::TypeUuid;
 use crate::{self as bevy_reflect, __macro_exports::generate_composite_uuid};
 use bevy_reflect_derive::impl_type_uuid;
 use bevy_utils::{all_tuples, Duration, HashMap, HashSet, Instant, Uuid};
+
 #[cfg(feature = "smallvec")]
-use smallvec::SmallVec;
+use bevy_utils::{smallvec, smallvec::SmallVec};
+
 #[cfg(any(unix, windows))]
 use std::ffi::OsString;
 use std::{
