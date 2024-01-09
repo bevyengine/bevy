@@ -5,7 +5,8 @@ use bevy_math::{vec2, Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{smallvec::SmallVec, FloatOrd};
+use bevy_utils::FloatOrd;
+use smallvec::SmallVec;
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     num::{NonZeroI16, NonZeroU16},

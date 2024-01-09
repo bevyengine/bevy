@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, IndexFormat, RenderPassDescriptor},
+    render_resource::{CachedRenderPipelineId, IndexFormat, RenderPassDescriptor, LoadOp, StoreOp, Operations},
     renderer::*,
     view::*,
 };
