@@ -279,25 +279,6 @@ impl<'s> GizmoPrimitive2d<BoxedPolyline2d, BoxedPolylineDetails> for Gizmos<'s> 
 }
 
 // Triangle 2D
-//
-// NOTE: to self: it's a bit ambigious at the moment how the shapes are defined. We should define /
-// document somewhere whether polygons are expected to be closed/open by default. One other
-// possibility would be to handle this via some extra struct and make the user specify what they
-// provide, e.g.
-//
-// ```rust
-// enum Closedness {
-//   Closed,
-//   Open
-// }
-// ```
-//
-// but then we would also write code in the hot paths of gizmos that optionally handle these
-// configurations. It might be preemtive optimization to not go that route on the other hand as
-// well
-//
-// For now I'll assume that all of the primitives are provided in an open configurations. That
-// means that primitive.first != primitive.last
 
 /// Details for rendering a 2D triangle via [`Gizmos`].
 #[derive(Default)]
@@ -400,6 +381,9 @@ impl<'s, const N: usize> GizmoPrimitive2d<Polygon<N>, PolygonDetails> for Gizmos
             rotation,
             color,
         } = detail;
+
+        // we could prevent this kind of check if we would say its consensus to specify polygons
+        // with/without a closing point
         let closing_point = {
             let last = primitive.vertices.last();
             (primitive.vertices.first() != last)
@@ -407,6 +391,7 @@ impl<'s, const N: usize> GizmoPrimitive2d<Polygon<N>, PolygonDetails> for Gizmos
                 .flatten()
                 .cloned()
         };
+
         self.linestrip_2d(
             primitive
                 .vertices
@@ -755,8 +740,6 @@ impl<'s> GizmoPrimitive3d<Cuboid, Cuboid3dDetails> for Gizmos<'s> {
             rotation,
             color,
         } = detail;
-        // NOTE: half extends sould probably be a UVec3 similarly the Rectangle should probably use
-        // UVec2 to prevent negative sizes
         let [half_extend_x, half_extend_y, half_extend_z] = primitive.half_extents.to_array();
 
         let vertices @ [a, b, c, d, e, f, g, h] = [
@@ -1079,29 +1062,21 @@ impl<'s> GizmoPrimitive3d<Torus, Torus3dDetails> for Gizmos<'s> {
 
         let affine = rotate_then_translate_3d(rotation, center);
         circle_coordinates(major_radius, major_segments)
-            .map(|p| {
+            .flat_map(|p| {
                 let translation = affine(p.extend(0.0));
-                let axis1 = normal.normalize();
-                let axis2 = (translation - center).normalize();
-                let desired_facing_direction = axis1.cross(axis2).normalize();
-                let local_rotation = Quat::from_rotation_arc(Vec3::Z, desired_facing_direction);
-                (translation, local_rotation)
+                let dir_to_translation = (translation - center).normalize();
+                let rotation_axis = normal.cross(dir_to_translation).normalize();
+                [dir_to_translation, normal, -dir_to_translation, -normal]
+                    .map(|dir| dir * minor_radius)
+                    .map(|offset| translation + offset)
+                    .map(|point| (point, translation, rotation_axis))
             })
-            .for_each(|(translation, rotation)| {
-                draw_circle(
-                    self,
-                    minor_radius,
-                    minor_segments,
-                    rotation,
-                    translation,
-                    color,
-                );
+            .for_each(|(from, center, rotation_axis)| {
+                self.arc_3d(center, rotation_axis, from, FRAC_PI_2, minor_radius, color)
+                    .segments(minor_segments);
             });
     }
 }
-// note that I'm not sure wether the last few impls are optimal yet. I just kinda
-// hacked this together to have something which is working
-
 // helpers - affine transform
 
 fn rotate_then_translate_2d(rotation: f32, translation: Vec2) -> impl Fn(Vec2) -> Vec2 {
