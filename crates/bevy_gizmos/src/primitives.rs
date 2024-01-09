@@ -558,26 +558,13 @@ impl<'s> GizmoPrimitive3d<Sphere, SphereDetails> for Gizmos<'s> {
             segments,
         } = detail;
         let Sphere { radius } = primitive;
-        let base_circle = circle_lines(radius, segments).map(|ps| ps.map(|p| p.extend(0.0)));
-        let vertical_circles = [-1.0, 1.0].into_iter().flat_map(|sign| {
-            circle_coordinates(radius, segments).flat_map(move |from| {
-                let axis = from.perp().extend(0.0);
-                let from = from.extend(0.0);
-                arc3d(
-                    Vec3::ZERO,
-                    axis,
-                    from,
-                    sign * FRAC_PI_2,
-                    radius,
-                    segments / 2,
-                )
-            })
-        });
 
-        base_circle
-            .chain(vertical_circles)
-            .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
-            .for_each(|[start, end]| self.line(start, end, color));
+        // draw two caps, one for the "upper half" and one for the "lower" half of the sphere
+        [-1.0, 1.0]
+            .into_iter()
+            .for_each(|sign| draw_cap(self, radius, segments, rotation, center, sign, color));
+
+        draw_circle(self, radius, segments, rotation, center, color);
     }
 }
 
@@ -843,40 +830,20 @@ impl<'s> GizmoPrimitive3d<Cylinder, Cylinder3dDetails> for Gizmos<'s> {
             half_height,
         } = primitive;
 
-        fn cylinder_vertical_lines(
-            radius: f32,
-            segments: usize,
-            half_height: f32,
-        ) -> impl Iterator<Item = [Vec3; 2]> {
-            circle_coordinates(radius, segments).map(move |point_2d| {
-                [1.0, -1.0]
-                    .map(|sign| sign * half_height)
-                    .map(|height| point_2d.extend(height))
-            })
-        }
-
-        fn cylinder_circle_lines(
-            radius: f32,
-            segments: usize,
-            half_height: f32,
-        ) -> impl Iterator<Item = [Vec3; 2]> {
-            circle_lines(radius, segments)
-                .chain(circle_coordinates(radius, segments).map(|p| [p, Vec2::ZERO]))
-                .map(move |ps| ps.map(|p| p.extend(half_height)))
-        }
-
-        let top_lines = cylinder_circle_lines(radius, segments, half_height);
-        let bottom_lines = cylinder_circle_lines(radius, segments, -half_height);
-        let vertical_lines = cylinder_vertical_lines(radius, segments, half_height);
-
         let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-        top_lines
-            .chain(bottom_lines)
-            .chain(vertical_lines)
-            .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
-            .for_each(|[start, end]| {
-                self.line(start, end, color);
-            });
+
+        [-1.0, 1.0].into_iter().for_each(|sign| {
+            draw_circle(
+                self,
+                radius,
+                segments,
+                rotation,
+                center + sign * half_height * normal,
+                color,
+            );
+        });
+
+        draw_cylinder_vertical_lines(self, radius, segments, half_height, rotation, center, color);
     }
 }
 
@@ -919,48 +886,17 @@ impl<'s> GizmoPrimitive3d<Capsule, Capsule3dDetails> for Gizmos<'s> {
             half_length,
         } = primitive;
 
-        fn cylinder_vertical_lines(
-            radius: f32,
-            segments: usize,
-            half_height: f32,
-        ) -> impl Iterator<Item = [Vec3; 2]> {
-            circle_coordinates(radius, segments).map(move |point_2d| {
-                [1.0, -1.0]
-                    .map(|sign| sign * half_height)
-                    .map(|height| point_2d.extend(height))
-            })
-        }
-
         let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
 
-        let caps = [1.0, -1.0].into_iter().flat_map(|sign| {
-            circle_coordinates(radius, segments).flat_map(move |from| {
-                let axis = from.perp().extend(0.0);
-                let from = from.extend(0.0);
-                arc3d(
-                    Vec3::ZERO,
-                    axis,
-                    from,
-                    -sign * FRAC_PI_2,
-                    radius,
-                    segments / 2,
-                )
-                .map(move |ps| ps.map(|p| p + sign * Vec3::Z * half_length))
-            })
+        [1.0, -1.0].into_iter().for_each(|sign| {
+            // use "-" here since rotation is ccw and otherwise the caps would face the wrong way
+            // around
+            let center = center - sign * half_length * normal;
+            draw_cap(self, radius, segments, rotation, center, sign, color);
+            draw_circle(self, radius, segments, rotation, center, color);
         });
 
-        let vertical_lines = cylinder_vertical_lines(radius, segments, half_length);
-
-        let circle_lines = [1.0, -1.0].into_iter().flat_map(|sign| {
-            circle_lines(radius, segments).map(move |ps| ps.map(|p| p.extend(sign * half_length)))
-        });
-
-        caps.chain(circle_lines)
-            .chain(vertical_lines)
-            .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
-            .for_each(|[start, end]| {
-                self.line(start, end, color);
-            });
+        draw_cylinder_vertical_lines(self, radius, segments, half_length, rotation, center, color);
     }
 }
 
@@ -1000,19 +936,12 @@ impl<'s> GizmoPrimitive3d<Cone, Cone3dDetails> for Gizmos<'s> {
         } = detail;
         let Cone { radius, height } = primitive;
 
-        fn cone_lines(
-            radius: f32,
-            segments: usize,
-            height: f32,
-        ) -> impl Iterator<Item = [Vec3; 2]> {
-            let circle_points = circle_lines(radius, segments).map(|ps| ps.map(|p| p.extend(0.0)));
-            let cone_pointy_lines = circle_coordinates(radius, segments)
-                .map(move |p| [p.extend(0.0), Vec2::ZERO.extend(height)]);
-            circle_points.chain(cone_pointy_lines)
-        }
-
         let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-        cone_lines(radius, segments, height)
+
+        draw_circle(self, radius, segments, rotation, center, color);
+
+        circle_coordinates(radius, segments)
+            .map(move |p| [p.extend(0.0), Vec2::ZERO.extend(height)])
             .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
             .for_each(|[start, end]| {
                 self.line(start, end, color);
@@ -1060,29 +989,24 @@ impl<'s> GizmoPrimitive3d<ConicalFrustum, ConicalFrustum3dDetails> for Gizmos<'s
             height,
         } = primitive;
 
-        fn cone_frustum_lines(
-            radius_bottom: f32,
-            radius_top: f32,
-            segments: usize,
-            height: f32,
-        ) -> impl Iterator<Item = [Vec3; 2]> {
-            let top_circle_points =
-                circle_lines(radius_top, segments).map(move |ps| ps.map(|p| p.extend(height)));
-            let bottom_circle_points =
-                circle_lines(radius_bottom, segments).map(move |ps| ps.map(|p| p.extend(0.0)));
-
-            let connecting_lines = circle_coordinates(radius_top, segments)
-                .map(move |p| p.extend(height))
-                .zip(circle_coordinates(radius_bottom, segments).map(|p| p.extend(0.0)))
-                .map(|(start, end)| [start, end]);
-
-            top_circle_points
-                .chain(bottom_circle_points)
-                .chain(connecting_lines)
-        }
-
         let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-        cone_frustum_lines(radius_bottom, radius_top, segments, height)
+        [(radius_top, height), (radius_bottom, 0.0)]
+            .into_iter()
+            .for_each(|(radius, height)| {
+                draw_circle(
+                    self,
+                    radius,
+                    segments,
+                    rotation,
+                    center + height * normal,
+                    color,
+                );
+            });
+
+        circle_coordinates(radius_top, segments)
+            .map(move |p| p.extend(height))
+            .zip(circle_coordinates(radius_bottom, segments).map(|p| p.extend(0.0)))
+            .map(|(start, end)| [start, end])
             .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
             .for_each(|[start, end]| {
                 self.line(start, end, color);
@@ -1133,41 +1057,45 @@ impl<'s> GizmoPrimitive3d<Torus, Torus3dDetails> for Gizmos<'s> {
             major_radius,
         } = primitive;
 
-        fn torus_big_rings(
-            minor_radius: f32,
-            major_radius: f32,
-            segments: usize,
-        ) -> impl Iterator<Item = [Vec3; 2]> {
-            [
-                (major_radius - minor_radius, 0.0),
-                (major_radius + minor_radius, 0.0),
-                (major_radius, minor_radius),
-                (major_radius, -minor_radius),
-            ]
-            .into_iter()
-            .flat_map(move |(radius, height)| {
-                circle_lines(radius, segments).map(move |ps| ps.map(|p| p.extend(height)))
-            })
-        }
-
         let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-        let big_rings = torus_big_rings(minor_radius, major_radius, major_segments);
 
-        let small_rings = circle_coordinates(major_radius, major_segments).flat_map(|p| {
-            let translation = p.extend(0.0);
-            let normal_3d = p.perp().extend(0.0);
-            let rotation = Quat::from_rotation_arc(Vec3::Z, normal_3d);
-            circle_lines(minor_radius, minor_segments).map(move |ps| {
-                ps.map(|p| p.extend(0.0))
-                    .map(rotate_then_translate_3d(rotation, translation))
-            })
+        [
+            (major_radius - minor_radius, 0.0),
+            (major_radius + minor_radius, 0.0),
+            (major_radius, minor_radius),
+            (major_radius, -minor_radius),
+        ]
+        .into_iter()
+        .for_each(|(radius, height)| {
+            draw_circle(
+                self,
+                radius,
+                major_segments,
+                rotation,
+                center + height * normal,
+                color,
+            );
         });
 
-        big_rings
-            .chain(small_rings)
-            .map(move |ps| ps.map(rotate_then_translate_3d(rotation, center)))
-            .for_each(|[start, end]| {
-                self.line(start, end, color);
+        let affine = rotate_then_translate_3d(rotation, center);
+        circle_coordinates(major_radius, major_segments)
+            .map(|p| {
+                let translation = affine(p.extend(0.0));
+                let axis1 = normal.normalize();
+                let axis2 = (translation - center).normalize();
+                let desired_facing_direction = axis1.cross(axis2).normalize();
+                let local_rotation = Quat::from_rotation_arc(Vec3::Z, desired_facing_direction);
+                (translation, local_rotation)
+            })
+            .for_each(|(translation, rotation)| {
+                draw_circle(
+                    self,
+                    minor_radius,
+                    minor_segments,
+                    rotation,
+                    translation,
+                    color,
+                );
             });
     }
 }
@@ -1198,41 +1126,70 @@ fn circle_coordinates(radius: f32, segments: usize) -> impl Iterator<Item = Vec2
         .take(segments)
 }
 
-fn circle_lines(radius: f32, segments: usize) -> impl Iterator<Item = [Vec2; 2]> {
-    (0..)
-        .map(|p| [p, p + 1])
-        .map(move |ps| {
-            ps.map(move |nth_point| single_circle_coordinate(radius, segments, nth_point, 1.0))
-        })
-        .take(segments)
-}
+// helper - drawing
 
-// helpers - arc
-
-fn arc3d(
-    center: Vec3,
-    rotation_axis: Vec3,
-    from: Vec3,
-    angle: f32,
+fn draw_cap(
+    gizmos: &mut Gizmos,
     radius: f32,
     segments: usize,
-) -> impl Iterator<Item = [Vec3; 2]> {
-    // drawing arcs bigger than 360.0 degrees or smaller than -360.0 degrees makes no sense since
-    // we won't see the overlap
-    let angle = angle.clamp(-360.0, 360.0);
-    (from - center)
-        .try_normalize()
-        .into_iter()
-        .flat_map(move |dir| {
-            let start_point = dir * radius;
+    rotation: Quat,
+    center: Vec3,
+    sign: f32,
+    color: Color,
+) {
+    let up = rotation * Vec3::Z;
+    circle_coordinates(radius, segments)
+        .map(|p| p.extend(0.0))
+        .map(rotate_then_translate_3d(rotation, center))
+        .for_each(|from| {
+            // we need to figure out the local rotation axis for each arc which is 90
+            // degree perpendicular to the (from - center) vector
+            let rotation_axis = {
+                let dir = from - center;
+                let rot = Quat::from_axis_angle(up, FRAC_PI_2);
+                rot * dir
+            };
 
-            (0..segments).map(|n| [n, n + 1]).map(move |ps| {
-                ps.map(|frac| frac as f32 / segments as f32)
-                    .map(|percentage| {
-                        Quat::from_axis_angle(rotation_axis, percentage * angle)
-                            .mul_vec3(start_point)
-                    })
-                    .map(|p| p + center)
-            })
+            gizmos
+                .arc_3d(center, rotation_axis, from, sign * FRAC_PI_2, radius, color)
+                .segments(segments / 2);
+        });
+}
+
+fn draw_circle(
+    gizmos: &mut Gizmos,
+    radius: f32,
+    segments: usize,
+    rotation: Quat,
+    translation: Vec3,
+    color: Color,
+) {
+    let positions = (0..=segments)
+        .map(|frac| frac as f32 / segments as f32)
+        .map(|percentage| percentage * TAU)
+        .map(|angle| Vec2::from(angle.sin_cos()) * radius)
+        .map(|p| p.extend(0.0))
+        .map(rotate_then_translate_3d(rotation, translation));
+    gizmos.linestrip(positions, color);
+}
+
+fn draw_cylinder_vertical_lines(
+    gizmos: &mut Gizmos,
+    radius: f32,
+    segments: usize,
+    half_height: f32,
+    rotation: Quat,
+    center: Vec3,
+    color: Color,
+) {
+    circle_coordinates(radius, segments)
+        .map(move |point_2d| {
+            [1.0, -1.0]
+                .map(|sign| sign * half_height)
+                .map(|height| point_2d.extend(height))
         })
+        .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
+        .for_each(|[start, end]| {
+            gizmos.line(start, end, color);
+        });
 }
