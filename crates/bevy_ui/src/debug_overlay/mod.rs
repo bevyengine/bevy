@@ -14,7 +14,7 @@ use bevy_utils::default;
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::prelude::UiCameraConfig;
-use crate::{Display, Node, Style};
+use crate::{Display, Node, Style, UiScale};
 use inset::InsetGizmo;
 
 mod inset;
@@ -40,10 +40,10 @@ struct LayoutRect {
 }
 
 impl LayoutRect {
-    fn new(trans: &GlobalTransform, node: &Node) -> Self {
+    fn new(trans: &GlobalTransform, node: &Node, scale: f32) -> Self {
         let mut this = Self {
-            pos: trans.translation().xy(),
-            size: node.size(),
+            pos: trans.translation().xy() * scale,
+            size: node.size() * scale,
         };
         this.pos -= this.size / 2.;
         this
@@ -116,7 +116,7 @@ fn update_debug_camera(
     }
 }
 
-fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Entity) {
+fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Entity, scale: f32) {
     let Ok(to_iter) = outline.children.get(this_entity) else {
         return;
     };
@@ -131,10 +131,10 @@ fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Ent
                 continue;
             }
         }
-        let rect = LayoutRect::new(trans, node);
+        let rect = LayoutRect::new(trans, node, scale);
         outline_node(entity, rect, draw);
         if children.is_some() {
-            outline_nodes(outline, draw, entity);
+            outline_nodes(outline, draw, entity, scale);
         }
         draw.clear_scope(rect);
     }
@@ -166,6 +166,7 @@ fn outline_roots(
     window: Query<&Window, With<PrimaryWindow>>,
     nonprimary_windows: Query<&Window, Without<PrimaryWindow>>,
     options: Res<UiDebugOptions>,
+    ui_scale: Res<UiScale>,
 ) {
     if !options.enabled {
         return;
@@ -176,8 +177,10 @@ fn outline_roots(
             you might notice gaps between container lines"
         );
     }
-    let scale_factor = Window::scale_factor;
-    let window_scale = window.get_single().map_or(1., scale_factor);
+    let window_scale = window.get_single().map_or(1., Window::scale_factor);
+    let scale_factor = window_scale * ui_scale.0;
+
+    // We let the line be defined by the window scale alone
     let line_width = outline.gizmo_config.line_width / window_scale;
     let mut draw = InsetGizmo::new(draw, cam, line_width);
     for (entity, trans, node, view_visibility) in &roots {
@@ -187,9 +190,9 @@ fn outline_roots(
                 continue;
             }
         }
-        let rect = LayoutRect::new(trans, node);
+        let rect = LayoutRect::new(trans, node, scale_factor);
         outline_node(entity, rect, &mut draw);
-        outline_nodes(&outline, &mut draw, entity);
+        outline_nodes(&outline, &mut draw, entity, scale_factor);
     }
 }
 fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
