@@ -215,7 +215,7 @@ impl Command for RemoveChildren {
     }
 }
 
-/// Command that removes the last [`Child`] from an entity
+/// Command that removes the last child from an entity
 pub struct PopChild {
     /// The parent from whom the last child should be removed
     pub parent: Entity,
@@ -230,8 +230,8 @@ impl Command for PopChild {
                 .map(|children| children.last().copied())
         };
 
-        if let Some(optional_child_id) = last_child_id {
-            if let Some(child_id) = optional_child_id {
+        if let Some(child_id) = last_child_id {
+            if let Some(child_id) = child_id {
                 remove_children(self.parent, &[child_id], world);
             }
         }
