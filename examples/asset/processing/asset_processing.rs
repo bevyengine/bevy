@@ -1,5 +1,4 @@
 //! This example illustrates how to define custom `AssetLoader`s, `AssetTransfomers`, and `AssetSaver`s, how to configure them, and how to register asset processors.
-//! In this example we have two asset types, Text and CoolText.
 
 use bevy::{
     asset::{
@@ -209,7 +208,7 @@ impl AssetSaver for CoolTextSaver {
         &'a self,
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
-        settings: &'a Self::Settings,
+        _settings: &'a Self::Settings,
     ) -> BoxedFuture<'a, Result<TextSettings, Self::Error>> {
         Box::pin(async move {
             writer.write_all(asset.text.as_bytes()).await?;

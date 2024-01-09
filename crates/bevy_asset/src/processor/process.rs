@@ -128,6 +128,69 @@ impl<
     }
 }
 
+/// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then
+/// saves that `L` asset using the `S` [`AssetSaver`].
+///
+/// This is a specialized use case of [`LoadTransformAndSave`] and is useful where there is no asset manipulation
+/// such as when compressing assets.
+///
+/// This uses [`LoadAndSaveSettings`] to configure the processor.
+///
+/// [`Asset`]: crate::Asset
+pub struct LoadAndSave<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> {
+    saver: S,
+    marker: PhantomData<fn() -> L>,
+}
+
+impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
+    for LoadAndSave<Loader, Saver>
+{
+    type Settings = LoadAndSaveSettings<Loader::Settings, Saver::Settings>;
+    type OutputLoader = Saver::OutputLoader;
+
+    fn process<'a>(
+        &'a self,
+        context: &'a mut ProcessContext,
+        meta: AssetMeta<(), Self>,
+        writer: &'a mut Writer,
+    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
+        Box::pin(async move {
+            let AssetAction::Process { settings, .. } = meta.asset else {
+                return Err(ProcessError::WrongMetaType);
+            };
+            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+                loader: std::any::type_name::<Loader>().to_string(),
+                settings: settings.loader_settings,
+            });
+            let loaded_asset = context.load_source_asset(loader_meta).await?;
+            let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
+            let output_settings = self
+                .saver
+                .save(writer, saved_asset, &settings.saver_settings)
+                .await
+                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
+            Ok(output_settings)
+        })
+    }
+}
+
+impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S> for LoadAndSave<L, S> {
+    fn from(value: S) -> Self {
+        LoadAndSave {
+            saver: value,
+            marker: PhantomData,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct LoadAndSaveSettings<LoaderSettings, SaverSettings> {
+    /// The [`AssetLoader::Settings`] for [`LoadAndSave`].
+    pub loader_settings: LoaderSettings,
+    /// The [`AssetSaver::Settings`] for [`LoadAndSave`].
+    pub saver_settings: SaverSettings,
+}
+
 /// An error that is encountered during [`Process::process`].
 #[derive(Error, Debug)]
 pub enum ProcessError {
