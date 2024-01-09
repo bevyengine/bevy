@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::UiCameraConfig, DefaultCameraView};
+use crate::{prelude::UiCameraConfig, DefaultCameraView, instances::BatchType};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -90,6 +90,7 @@ impl Node for UiPassNode {
 }
 
 pub struct TransparentUi {
+    pub batch_type: BatchType,
     pub sort_key: (FloatOrd, u32),
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,

@@ -884,6 +884,7 @@ pub fn queue_uinodes(
                 ExtractedInstance::CDashedBorder(..) => clipped_dashed_border_pipeline,
             };
             transparent_phase.add(TransparentUi {
+                batch_type: extracted_uinode.instance.get_type(),
                 draw_function,
                 pipeline,
                 entity: *entity,
@@ -951,9 +952,12 @@ pub fn prepare_uinodes(
         for mut ui_phase in &mut phases {
             let mut batch_image_handle = AssetId::invalid();
             let mut batch_item_index = 0;
-            for item_index in 0..ui_phase.items.len() {
-                let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
+            for phase_item_index in 0..ui_phase.items.len() {
+                dbg!(phase_item_index);
+                let phase_item = &mut ui_phase.items[phase_item_index];
+                println!("\t phase item: {:?} -> {:?}", phase_item.sort_key, phase_item.batch_type);
+
+                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&phase_item.entity) {
                     let index = instance_counters.increment(extracted_uinode.instance.get_type());
                     let mut existing_batch = batches.last_mut();
                     ui_meta.push(&extracted_uinode.instance);
@@ -965,7 +969,7 @@ pub fn prepare_uinodes(
                             && batch_image_handle != extracted_uinode.image)
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
-                            batch_item_index = item_index;
+                            batch_item_index = phase_item_index;
                             batch_image_handle = extracted_uinode.image;
                             if let Some((entity, batch)) = &existing_batch {
                                 println!("* End old batch *");
@@ -986,9 +990,9 @@ pub fn prepare_uinodes(
                             println!("* New batch *");
                             println!(
                                 "\t entity: {:?}, type: {:?}, range: {:?}",
-                                item.entity, new_batch.batch_type, new_batch.range
+                                phase_item.entity, new_batch.batch_type, new_batch.range
                             );
-                            batches.push((item.entity, new_batch));
+                            batches.push((phase_item.entity, new_batch));
 
                             image_bind_groups
                                 .values
