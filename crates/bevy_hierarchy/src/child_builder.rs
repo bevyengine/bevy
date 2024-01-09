@@ -237,32 +237,22 @@ impl Command for PopChild {
     }
 }
 
-///Removes the last nth children specified by the number field
+/// Removes the last `n`-th children specified by the `pop_count` field
 pub struct PopChildren {
-    parent: Entity,
-    number: usize,
+    pub parent: Entity,
+    pub pop_count: usize,
 }
 
 impl Command for PopChildren {
     fn apply(self, world: &mut World) {
-        let mut children_left_to_kill = self.number;
+        let parent = world.entity_mut(self.parent);
+        let Some(children) = parent.get::<Children>() else {
+            return;
+        };
 
-        while children_left_to_kill != 0 {
-            let last_child_id = {
-                let parent = world.entity_mut(self.parent);
-                if let Some(children) = parent.get::<Children>() {
-                    children.last().copied()
-                } else {
-                    return;
-                }
-            };
-
-            if let Some(child_id) = last_child_id {
-                remove_children(self.parent, &[child_id], world);
-            }
-
-            children_left_to_kill -= 1;
-        }
+        let entities = children[(children.len() - self.pop_count)..].to_vec();
+        
+        remove_children(self.parent, &entities, world);
     }
 }
 
