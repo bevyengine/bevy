@@ -34,7 +34,7 @@ fn setup(mut commands: Commands) {
                         border_radius: BorderRadius::all(Val::Percent(10.)),
                         ..Default::default()
                     },
-                    background_color: Color::BLACK.into(),
+                    background_color: Color::GREEN.into(),
                     ..Default::default()
                 },
                 Outline {

@@ -2127,6 +2127,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "dashed_outlines"
+path = "examples/ui/dashed_outlines.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dashed_outlines]
+name = "Dashed Outlines"
+description = "Demonstrates how to create a node with a dashed outline"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 doc-scrape-examples = true
@@ -2289,6 +2300,28 @@ doc-scrape-examples = true
 [package.metadata.example.z_index]
 name = "UI Z-Index"
 description = "Demonstrates how to control the relative depth (z-position) of UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "gradients"
+path = "examples/ui/gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gradients]
+name = "UI"
+description = "Gradients example"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "radial_gradients"
+path = "examples/ui/radial_gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.radial_gradients]
+name = "Radial Gradients example"
+description = "Radial gradients example"
 category = "UI (User Interface)"
 wasm = true
 
