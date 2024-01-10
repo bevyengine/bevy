@@ -42,7 +42,12 @@ pub use map_entities::*;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    identifier::{error::IdentifierError, kinds::IdKind, masks::{IdentifierMask, HIGH_MASK}, Identifier},
+    identifier::{
+        error::IdentifierError,
+        kinds::IdKind,
+        masks::{IdentifierMask, HIGH_MASK},
+        Identifier,
+    },
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
