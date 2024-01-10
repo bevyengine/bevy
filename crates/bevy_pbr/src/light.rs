@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{
+    AspectRatio, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
@@ -13,7 +15,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{tracing::warn, HashMap};
 
 use crate::*;
@@ -631,7 +633,6 @@ pub enum ShadowFilteringMethod {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,
-    AddClustersFlush,
     AssignLightsToClusters,
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
@@ -733,7 +734,8 @@ impl ClusterConfig {
             ClusterConfig::FixedZ {
                 total, z_slices, ..
             } => {
-                let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
+                let aspect_ratio: f32 =
+                    AspectRatio::from_pixels(screen_size.x, screen_size.y).into();
                 let mut z_slices = *z_slices;
                 if *total < z_slices {
                     warn!("ClusterConfig has more z-slices than total clusters!");
@@ -1154,6 +1156,7 @@ pub(crate) struct PointLightAssignmentData {
     range: f32,
     shadows_enabled: bool,
     spot_light_angle: Option<f32>,
+    render_layers: RenderLayers,
 }
 
 impl PointLightAssignmentData {
@@ -1194,10 +1197,23 @@ pub(crate) fn assign_lights_to_clusters(
         &Frustum,
         &ClusterConfig,
         &mut Clusters,
+        Option<&RenderLayers>,
         Option<&mut VisiblePointLights>,
     )>,
-    point_lights_query: Query<(Entity, &GlobalTransform, &PointLight, &ViewVisibility)>,
-    spot_lights_query: Query<(Entity, &GlobalTransform, &SpotLight, &ViewVisibility)>,
+    point_lights_query: Query<(
+        Entity,
+        &GlobalTransform,
+        &PointLight,
+        Option<&RenderLayers>,
+        &ViewVisibility,
+    )>,
+    spot_lights_query: Query<(
+        Entity,
+        &GlobalTransform,
+        &SpotLight,
+        Option<&RenderLayers>,
+        &ViewVisibility,
+    )>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_point_lights_warning_emitted: Local<bool>,
@@ -1215,12 +1231,15 @@ pub(crate) fn assign_lights_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, point_light, _visibility)| PointLightAssignmentData {
-                    entity,
-                    transform: GlobalTransform::from_translation(transform.translation()),
-                    shadows_enabled: point_light.shadows_enabled,
-                    range: point_light.range,
-                    spot_light_angle: None,
+                |(entity, transform, point_light, maybe_layers, _visibility)| {
+                    PointLightAssignmentData {
+                        entity,
+                        transform: GlobalTransform::from_translation(transform.translation()),
+                        shadows_enabled: point_light.shadows_enabled,
+                        range: point_light.range,
+                        spot_light_angle: None,
+                        render_layers: maybe_layers.copied().unwrap_or_default(),
+                    }
                 },
             ),
     );
@@ -1229,12 +1248,15 @@ pub(crate) fn assign_lights_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, spot_light, _visibility)| PointLightAssignmentData {
-                    entity,
-                    transform: *transform,
-                    shadows_enabled: spot_light.shadows_enabled,
-                    range: spot_light.range,
-                    spot_light_angle: Some(spot_light.outer_angle),
+                |(entity, transform, spot_light, maybe_layers, _visibility)| {
+                    PointLightAssignmentData {
+                        entity,
+                        transform: *transform,
+                        shadows_enabled: spot_light.shadows_enabled,
+                        range: spot_light.range,
+                        spot_light_angle: Some(spot_light.outer_angle),
+                        render_layers: maybe_layers.copied().unwrap_or_default(),
+                    }
                 },
             ),
     );
@@ -1264,7 +1286,7 @@ pub(crate) fn assign_lights_to_clusters(
         // check each light against each view's frustum, keep only those that affect at least one of our views
         let frusta: Vec<_> = views
             .iter()
-            .map(|(_, _, _, frustum, _, _, _)| *frustum)
+            .map(|(_, _, _, frustum, _, _, _, _)| *frustum)
             .collect();
         let mut lights_in_view_count = 0;
         lights.retain(|light| {
@@ -1296,9 +1318,18 @@ pub(crate) fn assign_lights_to_clusters(
         lights.truncate(MAX_UNIFORM_BUFFER_POINT_LIGHTS);
     }
 
-    for (view_entity, camera_transform, camera, frustum, config, clusters, mut visible_lights) in
-        &mut views
+    for (
+        view_entity,
+        camera_transform,
+        camera,
+        frustum,
+        config,
+        clusters,
+        maybe_layers,
+        mut visible_lights,
+    ) in &mut views
     {
+        let view_layers = maybe_layers.copied().unwrap_or_default();
         let clusters = clusters.into_inner();
 
         if matches!(config, ClusterConfig::None) {
@@ -1520,6 +1551,11 @@ pub(crate) fn assign_lights_to_clusters(
 
         let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
             for light in &lights {
+                // check if the light layers overlap the view layers
+                if !view_layers.intersects(&light.render_layers) {
+                    continue;
+                }
+
                 let light_sphere = light.sphere();
 
                 // Check if the light is within the view frustum

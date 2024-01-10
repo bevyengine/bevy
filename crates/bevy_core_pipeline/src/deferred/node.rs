@@ -2,23 +2,20 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 
+use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{
-        LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-        RenderPassDescriptor,
-    },
+    render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use crate::core_3d::{Camera3d, Camera3dDepthLoadOp};
-use crate::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures};
+use crate::prepass::ViewPrepassTextures;
 
 use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 
@@ -29,16 +26,12 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 pub struct DeferredGBufferPrepassNode;
 
 impl ViewNode for DeferredGBufferPrepassNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3dDeferred>,
         &'static RenderPhase<AlphaMask3dDeferred>,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
-        &'static Camera3d,
-        Option<&'static DepthPrepass>,
-        Option<&'static NormalPrepass>,
-        Option<&'static MotionVectorPrepass>,
     );
 
     fn run(
@@ -51,11 +44,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             alpha_mask_deferred_phase,
             view_depth_texture,
             view_prepass_textures,
-            camera_3d,
-            depth_prepass,
-            normal_prepass,
-            motion_vector_prepass,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -65,37 +54,14 @@ impl ViewNode for DeferredGBufferPrepassNode {
             view_prepass_textures
                 .normal
                 .as_ref()
-                .map(|view_normals_texture| RenderPassColorAttachment {
-                    view: &view_normals_texture.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: if normal_prepass.is_some() {
-                            // Load if the normal_prepass has already run.
-                            // The prepass will have already cleared this for the current frame.
-                            LoadOp::Load
-                        } else {
-                            LoadOp::Clear(Color::BLACK.into())
-                        },
-                        store: true,
-                    },
-                }),
+                .map(|normals_texture| normals_texture.get_attachment()),
         );
-        color_attachments.push(view_prepass_textures.motion_vectors.as_ref().map(
-            |view_motion_vectors_texture| RenderPassColorAttachment {
-                view: &view_motion_vectors_texture.default_view,
-                resolve_target: None,
-                ops: Operations {
-                    load: if motion_vector_prepass.is_some() {
-                        // Load if the motion_vector_prepass has already run.
-                        // The prepass will have already cleared this for the current frame.
-                        LoadOp::Load
-                    } else {
-                        LoadOp::Clear(Color::BLACK.into())
-                    },
-                    store: true,
-                },
-            },
-        ));
+        color_attachments.push(
+            view_prepass_textures
+                .motion_vectors
+                .as_ref()
+                .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
+        );
 
         // If we clear the deferred texture with LoadOp::Clear(Default::default()) we get these errors:
         // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment format.
@@ -105,7 +71,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         if let Some(deferred_texture) = &view_prepass_textures.deferred {
             render_context.command_encoder().clear_texture(
-                &deferred_texture.texture,
+                &deferred_texture.texture.texture,
                 &bevy_render::render_resource::ImageSubresourceRange::default(),
             );
         }
@@ -114,16 +80,20 @@ impl ViewNode for DeferredGBufferPrepassNode {
             view_prepass_textures
                 .deferred
                 .as_ref()
-                .map(|deferred_texture| RenderPassColorAttachment {
-                    view: &deferred_texture.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-                        load: LoadOp::Load,
-                        #[cfg(not(all(feature = "webgl", target_arch = "wasm32")))]
-                        load: LoadOp::Clear(Default::default()),
-                        store: true,
-                    },
+                .map(|deferred_texture| {
+                    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                    {
+                        RenderPassColorAttachment {
+                            view: &deferred_texture.texture.default_view,
+                            resolve_target: None,
+                            ops: Operations {
+                                load: LoadOp::Load,
+                                store: StoreOp::Store,
+                            },
+                        }
+                    }
+                    #[cfg(not(all(feature = "webgl", target_arch = "wasm32")))]
+                    deferred_texture.get_attachment()
                 }),
         );
 
@@ -135,8 +105,8 @@ impl ViewNode for DeferredGBufferPrepassNode {
                     view: &deferred_lighting_pass_id.default_view,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(Default::default()),
-                        store: true,
+                        load: LoadOp::Clear(Color::BLACK.into()),
+                        store: StoreOp::Store,
                     },
                 }),
         );
@@ -151,24 +121,9 @@ impl ViewNode for DeferredGBufferPrepassNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("deferred"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &view_depth_texture.view,
-                    depth_ops: Some(Operations {
-                        load: if depth_prepass.is_some()
-                            || normal_prepass.is_some()
-                            || motion_vector_prepass.is_some()
-                        {
-                            // If any prepass runs, it will generate a depth buffer so we should use it.
-                            Camera3dDepthLoadOp::Load
-                        } else {
-                            // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                            camera_3d.depth_load_op.clone()
-                        }
-                        .into(),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: Some(view_depth_texture.get_attachment(StoreOp::Store)),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {
@@ -195,7 +150,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             // Copy depth buffer to texture.
             render_context.command_encoder().copy_texture_to_texture(
                 view_depth_texture.texture.as_image_copy(),
-                prepass_depth_texture.texture.as_image_copy(),
+                prepass_depth_texture.texture.texture.as_image_copy(),
                 view_prepass_textures.size,
             );
         }

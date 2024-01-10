@@ -82,7 +82,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         },
     );
 
-    let type_path_impl = impl_type_path(reflect_struct.meta(), &where_clause_options);
+    let type_path_impl = impl_type_path(reflect_struct.meta());
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()

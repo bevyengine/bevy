@@ -5,8 +5,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
-use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
+use bevy_utils::smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
@@ -57,10 +56,10 @@ impl Node {
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
     #[inline]
-    pub fn physical_size(&self, scale_factor: f64, ui_scale: f64) -> Vec2 {
+    pub fn physical_size(&self, scale_factor: f32, ui_scale: f32) -> Vec2 {
         Vec2::new(
-            (self.calculated_size.x as f64 * scale_factor * ui_scale) as f32,
-            (self.calculated_size.y as f64 * scale_factor * ui_scale) as f32,
+            self.calculated_size.x * scale_factor * ui_scale,
+            self.calculated_size.y * scale_factor * ui_scale,
         )
     }
 
@@ -75,18 +74,18 @@ impl Node {
     pub fn physical_rect(
         &self,
         transform: &GlobalTransform,
-        scale_factor: f64,
-        ui_scale: f64,
+        scale_factor: f32,
+        ui_scale: f32,
     ) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
             min: Vec2::new(
-                (rect.min.x as f64 * scale_factor * ui_scale) as f32,
-                (rect.min.y as f64 * scale_factor * ui_scale) as f32,
+                rect.min.x * scale_factor * ui_scale,
+                rect.min.y * scale_factor * ui_scale,
             ),
             max: Vec2::new(
-                (rect.max.x as f64 * scale_factor * ui_scale) as f32,
-                (rect.max.y as f64 * scale_factor * ui_scale) as f32,
+                rect.max.x * scale_factor * ui_scale,
+                rect.max.y * scale_factor * ui_scale,
             ),
         }
     }
@@ -133,8 +132,13 @@ impl Default for Node {
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
-#[derive(Component, Clone, PartialEq, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Style {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
@@ -464,8 +468,13 @@ impl Default for Style {
 /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -502,8 +511,13 @@ impl Default for AlignItems {
 /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -534,8 +548,13 @@ impl Default for JustifyItems {
 /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignSelf {
     /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
     Auto,
@@ -572,8 +591,13 @@ impl Default for AlignSelf {
 /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifySelf {
     /// Use the parent node's [`JustifyItems`] value to determine how this item should be aligned.
     Auto,
@@ -604,8 +628,13 @@ impl Default for JustifySelf {
 /// - For CSS Grid containers, controls alignment of grid rows.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -646,8 +675,13 @@ impl Default for AlignContent {
 /// - For CSS Grid containers, controls alignment of grid columns.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -686,8 +720,13 @@ impl Default for JustifyContent {
 /// Defines the text direction.
 ///
 /// For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Direction {
     /// Inherit from parent node.
     Inherit,
@@ -710,8 +749,13 @@ impl Default for Direction {
 /// Defines the layout model used by this node.
 ///
 /// Part of the [`Style`] component.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Display {
     /// Use Flexbox layout model to determine the position of this [`Node`].
     Flex,
@@ -735,8 +779,13 @@ impl Default for Display {
 }
 
 /// Defines how flexbox items are ordered within a flexbox
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FlexDirection {
     /// Same way as text direction along the main axis.
     Row,
@@ -759,8 +808,13 @@ impl Default for FlexDirection {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Overflow {
     /// Whether to show or clip overflowing items on the x axis
     pub x: OverflowAxis,
@@ -819,8 +873,13 @@ impl Default for Overflow {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
@@ -844,8 +903,13 @@ impl Default for OverflowAxis {
 }
 
 /// The strategy used to position this node
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value.
     Relative,
@@ -864,8 +928,13 @@ impl Default for PositionType {
 }
 
 /// Defines if flexbox items appear on a single line or on multiple lines
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FlexWrap {
     /// Single line, will overflow if needed.
     NoWrap,
@@ -893,8 +962,13 @@ impl Default for FlexWrap {
 /// Defaults to [`GridAutoFlow::Row`].
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum GridAutoFlow {
     /// Items are placed by filling each row in turn, adding new rows as necessary.
     Row,
@@ -916,8 +990,13 @@ impl Default for GridAutoFlow {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect_value(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect_value(Serialize, Deserialize)
+)]
 pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed pixel value
     Px(f32),
@@ -931,8 +1010,13 @@ pub enum MinTrackSizingFunction {
     Auto,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect_value(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect_value(Serialize, Deserialize)
+)]
 pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed pixel value
     Px(f32),
@@ -957,8 +1041,13 @@ pub enum MaxTrackSizingFunction {
 
 /// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
 /// See below for the different "track sizing functions" you can specify.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GridTrack {
     pub(crate) min_sizing_function: MinTrackSizingFunction,
     pub(crate) max_sizing_function: MaxTrackSizingFunction,
@@ -1035,7 +1124,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with fixed pixel limit
+    /// Create a `fit-content()` grid track with fixed pixel limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_px<T: From<Self>>(limit: f32) -> T {
@@ -1046,7 +1135,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with percentage limit
+    /// Create a `fit-content()` grid track with percentage limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_percent<T: From<Self>>(limit: f32) -> T {
@@ -1057,7 +1146,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a minmax() grid track
+    /// Create a `minmax()` grid track.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/minmax>
     pub fn minmax<T: From<Self>>(min: MinTrackSizingFunction, max: MaxTrackSizingFunction) -> T {
@@ -1075,8 +1164,13 @@ impl Default for GridTrack {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// How many times to repeat a repeated grid track
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat>
@@ -1125,8 +1219,13 @@ impl From<usize> for GridTrackRepetition {
 /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
 /// then all tracks (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RepeatedGridTrack {
     pub(crate) repetition: GridTrackRepetition,
     pub(crate) tracks: SmallVec<[GridTrack; 1]>,
@@ -1198,7 +1297,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with fixed pixel limit
+    /// Create a repeating set of `fit-content()` grid tracks with fixed pixel limit
     pub fn fit_content_px<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1207,7 +1306,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with percentage limit
+    /// Create a repeating set of `fit-content()` grid tracks with percentage limit
     pub fn fit_content_percent<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1216,7 +1315,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of minmax() grid track
+    /// Create a repeating set of `minmax()` grid track
     pub fn minmax<T: From<Self>>(
         repetition: impl Into<GridTrackRepetition>,
         min: MinTrackSizingFunction,
@@ -1275,8 +1374,13 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// Represents the position of a grid item in a single axis.
 ///
 /// There are 3 fields which may be set:
@@ -1474,8 +1578,13 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 /// When combined with [`UiImage`], tints the provided texture.
-#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
@@ -1507,8 +1616,13 @@ pub struct UiTextureAtlasImage {
 }
 
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct BorderColor(pub Color);
 
 impl From<Color> for BorderColor {
@@ -1527,8 +1641,13 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
@@ -1649,7 +1768,7 @@ impl From<Handle<Image>> for UiImage {
 
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: Rect,
@@ -1669,7 +1788,7 @@ pub struct CalculatedClip {
 ///
 /// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
     Local(i32),

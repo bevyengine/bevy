@@ -7,6 +7,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
+    color::Color,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::BindGroupEntries,
     renderer::RenderContext,
@@ -60,12 +61,17 @@ impl Node for MsaaWritebackNode {
     fn update(&mut self, world: &mut World) {
         self.cameras.update_archetypes(world);
     }
+
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if *world.resource::<Msaa>() == Msaa::Off {
+            return Ok(());
+        }
+
         let view_entity = graph.view_entity();
         if let Ok((target, blit_pipeline_id)) = self.cameras.get_manual(world, view_entity) {
             let blit_pipeline = world.resource::<BlitPipeline>();
@@ -81,14 +87,21 @@ impl Node for MsaaWritebackNode {
 
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("msaa_writeback"),
-                // The target's "resolve target" is the "destination" in post_process
+                // The target's "resolve target" is the "destination" in post_process.
                 // We will indirectly write the results to the "destination" using
                 // the MSAA resolve step.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Clear(Default::default()),
-                    store: true,
-                }))],
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    // If MSAA is enabled, then the sampled texture will always exist
+                    view: target.sampled_main_texture_view().unwrap(),
+                    resolve_target: Some(post_process.destination),
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK.into()),
+                        store: StoreOp::Store,
+                    },
+                })],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
 
             let bind_group = render_context.render_device().create_bind_group(
@@ -105,6 +118,7 @@ impl Node for MsaaWritebackNode {
             render_pass.set_bind_group(0, &bind_group, &[]);
             render_pass.draw(0..3, 0..1);
         }
+
         Ok(())
     }
 }

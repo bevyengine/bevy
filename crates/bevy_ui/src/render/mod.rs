@@ -74,6 +74,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
+        .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
@@ -296,7 +297,7 @@ pub fn extract_uinode_borders(
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
-        / ui_scale.0 as f32;
+        / ui_scale.0;
 
     for (node, global_transform, style, border_color, parent, view_visibility, clip) in
         uinode_query.iter()
@@ -540,7 +541,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    let scale = (ui_scale.0 as f32).recip();
+    let scale = ui_scale.0.recip();
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
@@ -619,11 +620,11 @@ pub fn extract_text_uinodes(
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
 
-    let scale_factor = (windows
+    let scale_factor = windows
         .get_single()
         .map(|window| window.scale_factor())
         .unwrap_or(1.)
-        * ui_scale.0) as f32;
+        * ui_scale.0;
 
     let inverse_scale_factor = scale_factor.recip();
 
@@ -789,6 +790,7 @@ pub fn prepare_uinodes(
     for event in &events.images {
         match event {
             AssetEvent::Added { .. } |
+            AssetEvent::Unused { .. } |
             // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {

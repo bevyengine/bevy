@@ -17,8 +17,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// - **Component references.**
 ///   Fetches a component by reference (immutably or mutably).
-/// - **`WorldQueryData` tuples.**
-///   If every element of a tuple implements `WorldQueryData`, then the tuple itself also implements the same trait.
+/// - **`QueryData` tuples.**
+///   If every element of a tuple implements `QueryData`, then the tuple itself also implements the same trait.
 ///   This enables a single `Query` to access multiple components.
 ///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
 ///   but nesting of tuples allows infinite `WorldQuery`s.
@@ -39,8 +39,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// # Trait derivation
 ///
-/// Query design can be easily structured by deriving `WorldQueryData` for custom types.
-/// Despite the added complexity, this approach has several advantages over using `WorldQueryData` tuples.
+/// Query design can be easily structured by deriving `QueryData` for custom types.
+/// Despite the added complexity, this approach has several advantages over using `QueryData` tuples.
 /// The most relevant improvements are:
 ///
 /// - Reusability across multiple systems.
@@ -49,18 +49,18 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - Methods can be implemented for the query items.
 /// - There is no hardcoded limit on the number of elements.
 ///
-/// This trait can only be derived for structs, if each field also implements `WorldQueryData`.
+/// This trait can only be derived for structs, if each field also implements `QueryData`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQueryData;
+/// use bevy_ecs::query::QueryData;
 /// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// # #[derive(Component)]
 /// # struct ComponentB;
 ///
-/// #[derive(WorldQueryData)]
+/// #[derive(QueryData)]
 /// struct MyQuery {
 ///     entity: Entity,
 ///     // It is required that all reference lifetimes are explicitly annotated, just like in any
@@ -90,33 +90,33 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// ## Adding mutable references
 ///
-/// Simply adding mutable references to a derived `WorldQueryData` will result in a compilation error:
+/// Simply adding mutable references to a derived `QueryData` will result in a compilation error:
 ///
 /// ```compile_fail
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::WorldQueryData;
+/// # use bevy_ecs::query::QueryData;
 /// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// #
-/// #[derive(WorldQueryData)]
+/// #[derive(QueryData)]
 /// struct CustomQuery {
 ///     component_a: &'static mut ComponentA,
 /// }
 /// ```
 ///
-/// To grant mutable access to components, the struct must be marked with the `#[world_query_data(mutable)]` attribute.
+/// To grant mutable access to components, the struct must be marked with the `#[query_data(mutable)]` attribute.
 /// This will also create three more structs that will be used for accessing the query immutably (see table above).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::WorldQueryData;
+/// # use bevy_ecs::query::QueryData;
 /// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// #
-/// #[derive(WorldQueryData)]
-/// #[world_query_data(mutable)]
+/// #[derive(QueryData)]
+/// #[query_data(mutable)]
 /// struct CustomQuery {
 ///     component_a: &'static mut ComponentA,
 /// }
@@ -130,7 +130,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::WorldQueryData;
+/// # use bevy_ecs::query::QueryData;
 /// #
 /// #[derive(Component)]
 /// struct Health(f32);
@@ -138,8 +138,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// #[derive(Component)]
 /// struct Buff(f32);
 ///
-/// #[derive(WorldQueryData)]
-/// #[world_query_data(mutable)]
+/// #[derive(QueryData)]
+/// #[query_data(mutable)]
 /// struct HealthQuery {
 ///     health: &'static mut Health,
 ///     buff: Option<&'static mut Buff>,
@@ -179,19 +179,19 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// ## Deriving traits for query items
 ///
-/// The `WorldQueryData` derive macro does not automatically implement the traits of the struct to the query item types.
-/// Something similar can be done by using the `#[world_query_data(derive(...))]` attribute.
+/// The `QueryData` derive macro does not automatically implement the traits of the struct to the query item types.
+/// Something similar can be done by using the `#[query_data(derive(...))]` attribute.
 /// This will apply the listed derivable traits to the query item structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::WorldQueryData;
+/// # use bevy_ecs::query::QueryData;
 /// #
 /// # #[derive(Component, Debug)]
 /// # struct ComponentA;
 /// #
-/// #[derive(WorldQueryData)]
-/// #[world_query_data(mutable, derive(Debug))]
+/// #[derive(QueryData)]
+/// #[query_data(mutable, derive(Debug))]
 /// struct CustomQuery {
 ///     component_a: &'static ComponentA,
 /// }
@@ -205,12 +205,12 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// ## Query composition
 ///
-/// It is possible to use any `WorldQueryData` as a field of another one.
-/// This means that a `WorldQueryData` can also be used as a subquery, potentially in multiple places.
+/// It is possible to use any `QueryData` as a field of another one.
+/// This means that a `QueryData` can also be used as a subquery, potentially in multiple places.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::WorldQueryData;
+/// # use bevy_ecs::query::QueryData;
 /// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
@@ -219,13 +219,13 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// # #[derive(Component)]
 /// # struct ComponentC;
 /// #
-/// #[derive(WorldQueryData)]
+/// #[derive(QueryData)]
 /// struct SubQuery {
 ///     component_a: &'static ComponentA,
 ///     component_b: &'static ComponentB,
 /// }
 ///
-/// #[derive(WorldQueryData)]
+/// #[derive(QueryData)]
 /// struct MyQuery {
 ///     subquery: SubQuery,
 ///     component_c: &'static ComponentC,
@@ -235,13 +235,13 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// # Generic Queries
 ///
 /// When writing generic code, it is often necessary to use [`PhantomData`]
-/// to constrain type parameters. Since `WorldQueryData` is implemented for all
+/// to constrain type parameters. Since `QueryData` is implemented for all
 /// `PhantomData<T>` types, this pattern can be used with this macro.
 ///
 /// ```
-/// # use bevy_ecs::{prelude::*, query::WorldQueryData};
+/// # use bevy_ecs::{prelude::*, query::QueryData};
 /// # use std::marker::PhantomData;
-/// #[derive(WorldQueryData)]
+/// #[derive(QueryData)]
 /// pub struct GenericQuery<T> {
 ///     id: Entity,
 ///     marker: PhantomData<T>,
@@ -257,36 +257,34 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// [`Query`]: crate::system::Query
 /// [`ReadOnly`]: Self::ReadOnly
-pub unsafe trait WorldQueryData: WorldQuery {
-    /// The read-only variant of this [`WorldQueryData`], which satisfies the [`ReadOnlyWorldQueryData`] trait.
-    type ReadOnly: ReadOnlyWorldQueryData<State = <Self as WorldQuery>::State>;
+pub unsafe trait QueryData: WorldQuery {
+    /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
+    type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 }
 
-/// A [`WorldQueryData`] that is read only.
+/// A [`QueryData`] that is read only.
 ///
 /// # Safety
 ///
-/// This must only be implemented for read-only [`WorldQueryData`]'s.
-pub unsafe trait ReadOnlyWorldQueryData: WorldQueryData<ReadOnly = Self> {}
+/// This must only be implemented for read-only [`QueryData`]'s.
+pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
-/// The read-only variant of the item type returned when a [`WorldQueryData`] is iterated over immutably
-pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as WorldQueryData>::ReadOnly>;
+/// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
+pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for Entity {
-    type Fetch<'w> = ();
     type Item<'w> = Entity;
+    type Fetch<'w> = ();
     type State = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
-
-    const IS_DENSE: bool = true;
 
     unsafe fn init_fetch<'w>(
         _world: UnsafeWorldCell<'w>,
@@ -295,6 +293,8 @@ unsafe impl WorldQuery for Entity {
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
     }
+
+    const IS_DENSE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -338,27 +338,25 @@ unsafe impl WorldQuery for Entity {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl WorldQueryData for Entity {
+unsafe impl QueryData for Entity {
     type ReadOnly = Self;
 }
 
 /// SAFETY: access is read only
-unsafe impl ReadOnlyWorldQueryData for Entity {}
+unsafe impl ReadOnlyQueryData for Entity {}
 
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
 /// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
 /// Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
-    type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityRef<'w>;
+    type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
-
-    const IS_DENSE: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -368,6 +366,8 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     ) -> Self::Fetch<'w> {
         world
     }
+
+    const IS_DENSE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -423,24 +423,22 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'a> WorldQueryData for EntityRef<'a> {
+unsafe impl<'a> QueryData for EntityRef<'a> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: access is read only
-unsafe impl ReadOnlyWorldQueryData for EntityRef<'_> {}
+unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityMut<'a> {
-    type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityMut<'w>;
+    type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
-
-    const IS_DENSE: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -450,6 +448,8 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     ) -> Self::Fetch<'w> {
         world
     }
+
+    const IS_DENSE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -505,7 +505,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 }
 
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
-unsafe impl<'a> WorldQueryData for EntityMut<'a> {
+unsafe impl<'a> QueryData for EntityMut<'a> {
     type ReadOnly = EntityRef<'a>;
 }
 
@@ -530,20 +530,13 @@ impl<T> Copy for ReadFetch<'_, T> {}
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for &T {
-    type Fetch<'w> = ReadFetch<'w, T>;
     type Item<'w> = &'w T;
+    type Fetch<'w> = ReadFetch<'w, T>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
         item
     }
-
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -567,6 +560,13 @@ unsafe impl<T: Component> WorldQuery for &T {
             }),
         }
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -651,12 +651,12 @@ unsafe impl<T: Component> WorldQuery for &T {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<T: Component> WorldQueryData for &T {
+unsafe impl<T: Component> QueryData for &T {
     type ReadOnly = Self;
 }
 
 /// SAFETY: access is read only
-unsafe impl<T: Component> ReadOnlyWorldQueryData for &T {}
+unsafe impl<T: Component> ReadOnlyQueryData for &T {}
 
 #[doc(hidden)]
 pub struct RefFetch<'w, T> {
@@ -686,20 +686,13 @@ impl<T> Copy for RefFetch<'_, T> {}
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
-    type Fetch<'w> = RefFetch<'w, T>;
     type Item<'w> = Ref<'w, T>;
+    type Fetch<'w> = RefFetch<'w, T>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Ref<'wlong, T>) -> Ref<'wshort, T> {
         item
     }
-
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -722,6 +715,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             this_run,
         }
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -818,12 +818,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'__w, T: Component> WorldQueryData for Ref<'__w, T> {
+unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: access is read only
-unsafe impl<'__w, T: Component> ReadOnlyWorldQueryData for Ref<'__w, T> {}
+unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
 #[doc(hidden)]
 pub struct WriteFetch<'w, T> {
@@ -853,20 +853,13 @@ impl<T> Copy for WriteFetch<'_, T> {}
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
-    type Fetch<'w> = WriteFetch<'w, T>;
     type Item<'w> = Mut<'w, T>;
+    type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
         item
     }
-
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -889,6 +882,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             this_run,
         }
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -985,7 +985,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component> WorldQueryData for &'__w mut T {
+unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
 }
 
@@ -1009,15 +1009,13 @@ impl<T: WorldQuery> Clone for OptionFetch<'_, T> {
 /// This is sound because `update_component_access` and `update_archetype_component_access` add the same accesses as `T`.
 /// Filters are unchanged.
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
-    type Fetch<'w> = OptionFetch<'w, T>;
     type Item<'w> = Option<T::Item<'w>>;
+    type Fetch<'w> = OptionFetch<'w, T>;
     type State = T::State;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item.map(T::shrink)
     }
-
-    const IS_DENSE: bool = T::IS_DENSE;
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -1031,6 +1029,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
             matches: false,
         }
     }
+
+    const IS_DENSE: bool = T::IS_DENSE;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1102,17 +1102,27 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
-unsafe impl<T: WorldQueryData> WorldQueryData for Option<T> {
+unsafe impl<T: QueryData> QueryData for Option<T> {
     type ReadOnly = Option<T::ReadOnly>;
 }
 
 /// SAFETY: [`OptionFetch`] is read only because `T` is read only
-unsafe impl<T: ReadOnlyWorldQueryData> ReadOnlyWorldQueryData for Option<T> {}
+unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 
 /// Returns a bool that describes if an entity has the component `T`.
 ///
 /// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities
 /// have the component `T`  but don't actually care about the component's value.
+///
+/// # Footguns
+///
+/// Note that a `Query<Has<T>>` will match all existing entities.
+/// Beware! Even if it matches all entities, it doesn't mean that `query.get(entity)`
+/// will always return `Ok(bool)`.
+///
+/// In the case of a non-existent entity, such as a despawned one, it will return `Err`.
+/// A workaround is to replace `query.get(entity).unwrap()` by
+/// `query.get(entity).unwrap_or_default()`.
 ///
 /// # Examples
 ///
@@ -1168,20 +1178,13 @@ pub struct Has<T>(PhantomData<T>);
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl<T: Component> WorldQuery for Has<T> {
-    type Fetch<'w> = bool;
     type Item<'w> = bool;
+    type Fetch<'w> = bool;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
-
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -1192,6 +1195,13 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     ) -> Self::Fetch<'w> {
         false
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1242,12 +1252,12 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<T: Component> WorldQueryData for Has<T> {
+unsafe impl<T: Component> QueryData for Has<T> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: [`Has`] is read only
-unsafe impl<T: Component> ReadOnlyWorldQueryData for Has<T> {}
+unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
@@ -1256,18 +1266,18 @@ unsafe impl<T: Component> ReadOnlyWorldQueryData for Has<T> {}
 /// Entities are guaranteed to have at least one of the components in `T`.
 pub struct AnyOf<T>(PhantomData<T>);
 
-macro_rules! impl_tuple_world_query_data {
+macro_rules! impl_tuple_query_data {
     ($(($name: ident, $state: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         // SAFETY: defers to soundness `$name: WorldQuery` impl
-        unsafe impl<$($name: WorldQueryData),*> WorldQueryData for ($($name,)*) {
+        unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
             type ReadOnly = ($($name::ReadOnly,)*);
         }
 
         /// SAFETY: each item in the tuple is read only
-        unsafe impl<$($name: ReadOnlyWorldQueryData),*> ReadOnlyWorldQueryData for ($($name,)*) {}
+        unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 
     };
 }
@@ -1387,55 +1397,55 @@ macro_rules! impl_anytuple_fetch {
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
-        unsafe impl<$($name: WorldQueryData),*> WorldQueryData for AnyOf<($($name,)*)> {
+        unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
         }
 
         /// SAFETY: each item in the tuple is read only
-        unsafe impl<$($name: ReadOnlyWorldQueryData),*> ReadOnlyWorldQueryData for AnyOf<($($name,)*)> {}
+        unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
     };
 }
 
-all_tuples!(impl_tuple_world_query_data, 0, 15, F, S);
+all_tuples!(impl_tuple_query_data, 0, 15, F, S);
 all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 
-/// [`WorldQuery`] used to nullify queries by turning `Query<Q>` into `Query<NopWorldQuery<Q>>`
+/// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
 /// This will rarely be useful to consumers of `bevy_ecs`.
-pub struct NopWorldQuery<Q: WorldQueryData>(PhantomData<Q>);
+pub struct NopWorldQuery<D: QueryData>(PhantomData<D>);
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
-unsafe impl<Q: WorldQueryData> WorldQuery for NopWorldQuery<Q> {
-    type Fetch<'w> = ();
+unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     type Item<'w> = ();
-    type State = Q::State;
+    type Fetch<'w> = ();
+    type State = D::State;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: ()) {}
-
-    const IS_DENSE: bool = Q::IS_DENSE;
 
     #[inline(always)]
     unsafe fn init_fetch(
         _world: UnsafeWorldCell,
-        _state: &Q::State,
+        _state: &D::State,
         _last_run: Tick,
         _this_run: Tick,
     ) {
     }
 
+    const IS_DENSE: bool = D::IS_DENSE;
+
     #[inline(always)]
     unsafe fn set_archetype(
         _fetch: &mut (),
-        _state: &Q::State,
+        _state: &D::State,
         _archetype: &Archetype,
         _tables: &Table,
     ) {
     }
 
     #[inline(always)]
-    unsafe fn set_table<'w>(_fetch: &mut (), _state: &Q::State, _table: &Table) {}
+    unsafe fn set_table<'w>(_fetch: &mut (), _state: &D::State, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -1445,34 +1455,34 @@ unsafe impl<Q: WorldQueryData> WorldQuery for NopWorldQuery<Q> {
     ) -> Self::Item<'w> {
     }
 
-    fn update_component_access(_state: &Q::State, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &D::State, _access: &mut FilteredAccess<ComponentId>) {}
 
     fn update_archetype_component_access(
-        _state: &Q::State,
+        _state: &D::State,
         _archetype: &Archetype,
         _access: &mut Access<ArchetypeComponentId>,
     ) {
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        Q::init_state(world)
+        D::init_state(world)
     }
 
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        Q::matches_component_set(state, set_contains_id)
+        D::matches_component_set(state, set_contains_id)
     }
 }
 
 /// SAFETY: `Self::ReadOnly` is `Self`
-unsafe impl<Q: WorldQueryData> WorldQueryData for NopWorldQuery<Q> {
+unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: `NopFetch` never accesses any data
-unsafe impl<Q: WorldQueryData> ReadOnlyWorldQueryData for NopWorldQuery<Q> {}
+unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
@@ -1535,16 +1545,16 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 }
 
 /// SAFETY: `Self::ReadOnly` is `Self`
-unsafe impl<T: ?Sized> WorldQueryData for PhantomData<T> {
+unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: `PhantomData` never accesses any world data.
-unsafe impl<T: ?Sized> ReadOnlyWorldQueryData for PhantomData<T> {}
+unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs_macros::WorldQueryData;
+    use bevy_ecs_macros::QueryData;
 
     use super::*;
     use crate::{
@@ -1561,16 +1571,16 @@ mod tests {
     // Tests that each variant of struct can be used as a `WorldQuery`.
     #[test]
     fn world_query_struct_variants() {
-        #[derive(WorldQueryData)]
+        #[derive(QueryData)]
         pub struct NamedQuery {
             id: Entity,
             a: &'static A,
         }
 
-        #[derive(WorldQueryData)]
+        #[derive(QueryData)]
         pub struct TupleQuery(&'static A, &'static B);
 
-        #[derive(WorldQueryData)]
+        #[derive(QueryData)]
         pub struct UnitQuery;
 
         fn my_system(_: Query<(NamedQuery, TupleQuery, UnitQuery)>) {}
@@ -1581,7 +1591,7 @@ mod tests {
     // Compile test for https://github.com/bevyengine/bevy/pull/8030.
     #[test]
     fn world_query_phantom_data() {
-        #[derive(WorldQueryData)]
+        #[derive(QueryData)]
         pub struct IgnoredQuery<Marker> {
             id: Entity,
             _marker: PhantomData<Marker>,
@@ -1599,16 +1609,16 @@ mod tests {
         mod private {
             use super::*;
 
-            #[derive(WorldQueryData)]
-            #[world_query_data(mutable)]
-            pub struct Q {
+            #[derive(QueryData)]
+            #[query_data(mutable)]
+            pub struct D {
                 pub a: &'static mut A,
             }
         }
 
-        let _ = private::QReadOnly { a: &A };
+        let _ = private::DReadOnly { a: &A };
 
-        fn my_system(query: Query<private::Q>) {
+        fn my_system(query: Query<private::D>) {
             for q in &query {
                 let _ = &q.a;
             }
@@ -1624,7 +1634,7 @@ mod tests {
     fn world_query_metadata_collision() {
         // The metadata types generated would be named `ClientState` and `ClientFetch`,
         // but they should rename themselves to avoid conflicts.
-        #[derive(WorldQueryData)]
+        #[derive(QueryData)]
         pub struct Client<S: ClientState> {
             pub state: &'static S,
             pub fetch: &'static ClientFetch,

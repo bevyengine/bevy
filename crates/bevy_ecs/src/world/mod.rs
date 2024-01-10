@@ -18,7 +18,7 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
-    query::{DebugCheckedUnwrap, QueryEntityError, QueryState, WorldQueryData, WorldQueryFilter},
+    query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -207,7 +207,7 @@ impl World {
     /// Returns [`None`] if the `Component` type has not yet been initialized within
     /// the `World` using [`World::init_component`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -507,7 +507,7 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(|(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.entity();
+                    let entity = archetype_entity.id();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
@@ -536,7 +536,7 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(move |(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.entity();
+                    let entity = archetype_entity.id();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
@@ -852,6 +852,12 @@ impl World {
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Component`]s. Returns `true` if the `entity` is successfully despawned and `false` if
     /// the `entity` does not exist.
+    ///
+    /// # Note
+    ///
+    /// This won't clean up external references to the entity (such as parent-child relationships
+    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
     ///
@@ -922,7 +928,7 @@ impl World {
         self.last_change_tick = self.increment_change_tick();
     }
 
-    /// Returns [`QueryState`] for the given [`WorldQueryData`], which is used to efficiently
+    /// Returns [`QueryState`] for the given [`QueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
@@ -985,11 +991,11 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<Q: WorldQueryData>(&mut self) -> QueryState<Q, ()> {
-        self.query_filtered::<Q, ()>()
+    pub fn query<D: QueryData>(&mut self) -> QueryState<D, ()> {
+        self.query_filtered::<D, ()>()
     }
 
-    /// Returns [`QueryState`] for the given filtered [`WorldQueryData`], which is used to efficiently
+    /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
@@ -1009,7 +1015,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<Q: WorldQueryData, F: WorldQueryFilter>(&mut self) -> QueryState<Q, F> {
+    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
         QueryState::new(self)
     }
 
@@ -1180,8 +1186,8 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Return's `true` if a resource of type `R` exists and was added since the world's
-    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    /// Returns `true` if a resource of type `R` exists and was added since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
     /// - When called from an exclusive system, this will check for additions since the system last ran.
@@ -1190,13 +1196,31 @@ impl World {
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .and_then(|component_id| self.storages.resources.get(component_id)?.get_ticks())
-            .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
+            .map(|component_id| self.is_resource_added_by_id(component_id))
             .unwrap_or(false)
     }
 
-    /// Return's `true` if a resource of type `R` exists and was modified since the world's
-    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    /// Returns `true` if a resource with id `component_id` exists and was added since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
+    ///
+    /// This means that:
+    /// - When called from an exclusive system, this will check for additions since the system last ran.
+    /// - When called elsewhere, this will check for additions since the last time that [`World::clear_trackers`]
+    ///   was called.
+    pub fn is_resource_added_by_id(&self, component_id: ComponentId) -> bool {
+        self.storages
+            .resources
+            .get(component_id)
+            .and_then(|resource| {
+                resource
+                    .get_ticks()
+                    .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
+            })
+            .unwrap_or(false)
+    }
+
+    /// Returns `true` if a resource of type `R` exists and was modified since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
     /// - When called from an exclusive system, this will check for changes since the system last ran.
@@ -1205,8 +1229,26 @@ impl World {
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .and_then(|component_id| self.storages.resources.get(component_id)?.get_ticks())
-            .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
+            .map(|component_id| self.is_resource_changed_by_id(component_id))
+            .unwrap_or(false)
+    }
+
+    /// Returns `true` if a resource with id `component_id` exists and was modified since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
+    ///
+    /// This means that:
+    /// - When called from an exclusive system, this will check for changes since the system last ran.
+    /// - When called elsewhere, this will check for changes since the last time that [`World::clear_trackers`]
+    ///   was called.
+    pub fn is_resource_changed_by_id(&self, component_id: ComponentId) -> bool {
+        self.storages
+            .resources
+            .get(component_id)
+            .and_then(|resource| {
+                resource
+                    .get_ticks()
+                    .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
+            })
             .unwrap_or(false)
     }
 
@@ -1225,8 +1267,8 @@ impl World {
         match self.get_resource() {
             Some(x) => x,
             None => panic!(
-                "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -1249,8 +1291,8 @@ impl World {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -1320,8 +1362,8 @@ impl World {
         match self.get_non_send_resource() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
+                "Requested non-send resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             ),
@@ -1342,8 +1384,8 @@ impl World {
         match self.get_non_send_resource_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
+                "Requested non-send resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<R>()
             ),

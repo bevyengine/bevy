@@ -1,4 +1,7 @@
-use crate::mesh::{Indices, Mesh};
+use crate::{
+    mesh::{Indices, Mesh},
+    render_asset::RenderAssetPersistencePolicy,
+};
 use wgpu::PrimitiveTopology;
 
 /// A regular polygon in the `XY` plane
@@ -50,14 +53,19 @@ impl From<RegularPolygon> for Mesh {
 
         let mut indices = Vec::with_capacity((sides - 2) * 3);
         for i in 1..(sides as u32 - 1) {
+            // Vertices are generated in CW order above, hence the reversed indices here
+            // to emit triangle vertices in CCW order.
             indices.extend_from_slice(&[0, i + 1, i]);
         }
 
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_indices(Some(Indices::U32(indices)))
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetPersistencePolicy::Keep,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_indices(Some(Indices::U32(indices)))
     }
 }
 

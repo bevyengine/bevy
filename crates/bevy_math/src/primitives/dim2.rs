@@ -7,28 +7,45 @@ use crate::Vec2;
 pub struct Direction2d(Vec2);
 
 impl Direction2d {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec2::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec2::Y);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec2::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec2::NEG_Y);
+
     /// Create a direction from a finite, nonzero [`Vec2`].
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
     pub fn new(value: Vec2) -> Result<Self, InvalidDirectionError> {
-        value.try_normalize().map(Self).map_or_else(
-            || {
-                if value.is_nan() {
-                    Err(InvalidDirectionError::NaN)
-                } else if !value.is_finite() {
-                    // If the direction is non-finite but also not NaN, it must be infinite
-                    Err(InvalidDirectionError::Infinite)
-                } else {
-                    // If the direction is invalid but neither NaN nor infinite, it must be zero
-                    Err(InvalidDirectionError::Zero)
-                }
-            },
-            Ok,
-        )
+        Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
-    /// Create a direction from a [`Vec2`] that is already normalized
+    /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new_and_length(value: Vec2) -> Result<(Self, f32), InvalidDirectionError> {
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
+
+        direction
+            .map(|dir| (Self(dir), length))
+            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
+    }
+
+    /// Create a direction from its `x` and `y` components.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
+        Self::new(Vec2::new(x, y))
+    }
+
+    /// Create a direction from a [`Vec2`] that is already normalized.
     pub fn from_normalized(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
@@ -47,6 +64,13 @@ impl std::ops::Deref for Direction2d {
     type Target = Vec2;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl std::ops::Neg for Direction2d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
     }
 }
 
@@ -363,25 +387,26 @@ mod tests {
 
     #[test]
     fn direction_creation() {
-        assert_eq!(
-            Direction2d::new(Vec2::X * 12.5),
-            Ok(Direction2d::from_normalized(Vec2::X))
-        );
+        assert_eq!(Direction2d::new(Vec2::X * 12.5), Ok(Direction2d::X));
         assert_eq!(
             Direction2d::new(Vec2::new(0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::INFINITY, 0.0)),
+            Direction2d::new(Vec2::new(f32::INFINITY, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::NEG_INFINITY, 0.0)),
+            Direction2d::new(Vec2::new(f32::NEG_INFINITY, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction2d::new(Vec2::new(std::f32::NAN, 0.0)),
+            Direction2d::new(Vec2::new(f32::NAN, 0.0)),
             Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(
+            Direction2d::new_and_length(Vec2::X * 6.5),
+            Ok((Direction2d::from_normalized(Vec2::X), 6.5))
         );
     }
 

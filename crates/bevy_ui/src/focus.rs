@@ -3,19 +3,21 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     prelude::{Component, With},
-    query::WorldQueryData,
+    query::QueryData,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
 
+use bevy_utils::smallvec::SmallVec;
 use bevy_window::{PrimaryWindow, Window};
-use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Describes what type of input interaction has occurred for a UI node.
 ///
@@ -31,8 +33,13 @@ use smallvec::SmallVec;
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Interaction {
     /// The node has been pressed.
     ///
@@ -59,8 +66,13 @@ impl Default for Interaction {
 
 ///
 /// It can be used alongside interaction to get the position of the press.
-#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RelativeCursorPosition {
     /// Visible area of the Node relative to the size of the entire Node.
     pub normalized_visible_node_rect: Rect,
@@ -79,8 +91,13 @@ impl RelativeCursorPosition {
 }
 
 /// Describes whether the node should block interactions with lower nodes
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FocusPolicy {
     /// Blocks interaction
     Block,
@@ -105,8 +122,8 @@ pub struct State {
 }
 
 /// Main query for [`ui_focus_system`]
-#[derive(WorldQueryData)]
-#[world_query_data(mutable)]
+#[derive(QueryData)]
+#[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,
@@ -181,7 +198,7 @@ pub fn ui_focus_system(
         .or_else(|| touches_input.first_pressed_position())
         // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
         // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|cursor_position| cursor_position / ui_scale.0 as f32);
+        .map(|cursor_position| cursor_position / ui_scale.0);
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`

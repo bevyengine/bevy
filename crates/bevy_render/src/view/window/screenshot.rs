@@ -14,6 +14,7 @@ use wgpu::{
 
 use crate::{
     prelude::{Image, Shader},
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
         CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
@@ -290,10 +291,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
                 pass.set_pipeline(pipeline);
                 pass.set_bind_group(0, &memory.bind_group, &[]);
@@ -361,6 +364,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
+                    RenderAssetPersistencePolicy::Unload,
                 ));
             };
 

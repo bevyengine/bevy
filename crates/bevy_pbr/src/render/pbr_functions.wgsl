@@ -267,6 +267,13 @@ fn apply_pbr_lighting(
     // directional lights (direct)
     let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+        // check the directional light render layers intersect the view render layers
+        // note this is not necessary for point and spot lights, as the relevant lights are filtered in `assign_lights_to_clusters`
+        let light = &view_bindings::lights.directional_lights[i];
+        if ((*light).render_layers & view_bindings::view.render_layers) == 0u {
+            continue;
+        }
+
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -315,7 +322,16 @@ fn apply_pbr_lighting(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
+    let environment_light = environment_map::environment_map_light(
+        perceptual_roughness,
+        roughness,
+        diffuse_color,
+        NdotV,
+        f_ab,
+        in.N,
+        R,
+        F0,
+        in.world_position.xyz);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 
     // we'll use the specular component of the transmitted environment
@@ -341,7 +357,16 @@ fn apply_pbr_lighting(
             refract(in.V, -in.N, 1.0 / ior) * thickness // add refracted vector scaled by thickness, towards exit point
         ); // normalize to find exit point view vector
 
-        let transmitted_environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, vec3<f32>(1.0), 1.0, f_ab, -in.N, T, vec3<f32>(1.0));
+        let transmitted_environment_light = bevy_pbr::environment_map::environment_map_light(
+            perceptual_roughness,
+            roughness,
+            vec3<f32>(1.0),
+            1.0,
+            f_ab,
+            -in.N,
+            T,
+            vec3<f32>(1.0),
+            in.world_position.xyz);
         transmitted_light += transmitted_environment_light.diffuse * diffuse_transmissive_color;
         specular_transmitted_environment_light = transmitted_environment_light.specular * specular_transmissive_color;
     }
@@ -349,6 +374,10 @@ fn apply_pbr_lighting(
     // If there's no environment map light, there's no transmitted environment
     // light specular component, so we can just hardcode it to zero.
     let specular_transmitted_environment_light = vec3<f32>(0.0);
+#endif
+
+#ifdef LIGHTMAP
+    indirect_light += in.lightmap_light * diffuse_color;
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;

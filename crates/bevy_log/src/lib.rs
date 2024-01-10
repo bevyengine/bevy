@@ -118,7 +118,7 @@ impl Plugin for LogPlugin {
         {
             let old_handler = panic::take_hook();
             panic::set_hook(Box::new(move |infos| {
-                println!("{}", tracing_error::SpanTrace::capture());
+                eprintln!("{}", tracing_error::SpanTrace::capture());
                 old_handler(infos);
             }));
         }

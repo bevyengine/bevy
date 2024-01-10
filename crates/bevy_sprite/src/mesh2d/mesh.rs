@@ -339,14 +339,14 @@ impl Mesh2dPipeline {
 
 impl GetBatchData for Mesh2dPipeline {
     type Param = SRes<RenderMesh2dInstances>;
-    type Query = Entity;
-    type QueryFilter = With<Mesh2d>;
+    type Data = Entity;
+    type Filter = With<Mesh2d>;
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Query>,
+        entity: &QueryItem<Self::Data>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
@@ -369,9 +369,9 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = (1 << 0);
-        const TONEMAP_IN_SHADER                 = (1 << 1);
-        const DEBAND_DITHER                     = (1 << 2);
+        const HDR                               = 1 << 0;
+        const TONEMAP_IN_SHADER                 = 1 << 1;
+        const DEBAND_DITHER                     = 1 << 2;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -617,13 +617,13 @@ pub fn prepare_mesh2d_view_bind_groups(
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
     type Param = ();
-    type ViewWorldQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
-    type ItemWorldQuery = ();
+    type ViewData = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewData>,
         _view: (),
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -637,8 +637,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
 pub struct SetMesh2dBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     type Param = SRes<Mesh2dBindGroup>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
@@ -666,8 +666,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMesh2dInstances>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(

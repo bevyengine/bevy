@@ -121,10 +121,10 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const COLORED                           = (1 << 0);
-        const HDR                               = (1 << 1);
-        const TONEMAP_IN_SHADER                 = (1 << 2);
-        const DEBAND_DITHER                     = (1 << 3);
+        const COLORED                           = 1 << 0;
+        const HDR                               = 1 << 1;
+        const TONEMAP_IN_SHADER                 = 1 << 2;
+        const DEBAND_DITHER                     = 1 << 3;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -588,8 +588,9 @@ pub fn prepare_sprites(
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
-            AssetEvent::Added {..} |
-            // images don't have dependencies
+            AssetEvent::Added { .. } |
+            AssetEvent::Unused { .. } |
+            // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
                 image_bind_groups.values.remove(id);
@@ -756,6 +757,7 @@ pub fn prepare_sprites(
     }
 }
 
+/// [`RenderCommand`] for sprite rendering.
 pub type DrawSprite = (
     SetItemPipeline,
     SetSpriteViewBindGroup<0>,
@@ -766,8 +768,8 @@ pub type DrawSprite = (
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = SRes<SpriteMeta>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
+    type ViewData = Read<ViewUniformOffset>;
+    type ItemData = ();
 
     fn render<'w>(
         _item: &P,
@@ -787,8 +789,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<ImageBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+    type ViewData = ();
+    type ItemData = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
@@ -814,8 +816,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+    type ViewData = ();
+    type ItemData = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,

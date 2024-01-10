@@ -197,6 +197,10 @@ impl ShaderCache {
             }
         }
 
+        // TODO: Check if this is supported, though I'm not sure if bevy works without this feature?
+        // We can't compile for native at least without it.
+        capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
         #[cfg(not(debug_assertions))]
@@ -844,6 +848,7 @@ impl PipelineCache {
         mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
+            #[allow(clippy::match_same_arms)]
             match event {
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
@@ -851,6 +856,7 @@ impl PipelineCache {
                     }
                 }
                 AssetEvent::Removed { id } => cache.remove_shader(*id),
+                AssetEvent::Unused { .. } => {}
                 AssetEvent::LoadedWithDependencies { .. } => {
                     // TODO: handle this
                 }

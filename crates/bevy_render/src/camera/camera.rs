@@ -32,7 +32,7 @@ use bevy_window::{
 use std::{borrow::Cow, ops::Range};
 use wgpu::{BlendState, LoadOp, TextureFormat};
 
-use super::Projection;
+use super::{ClearColorConfig, Projection};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -65,10 +65,13 @@ impl Default for Viewport {
 /// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
-    /// The physical size of this render target (ignores scale factor).
+    /// The physical size of this render target (in physical pixels, ignoring scale factor).
     pub physical_size: UVec2,
     /// The scale factor of this render target.
-    pub scale_factor: f64,
+    ///
+    /// When rendering to a window, typically it is a value greater or equal than 1.0,
+    /// representing the ratio between the size of the window in physical pixels and the logical size of the window.
+    pub scale_factor: f32,
 }
 
 /// Holds internally computed [`Camera`] values.
@@ -118,6 +121,8 @@ pub struct Camera {
     /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
     /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
+    /// The clear color operation to perform on the render target.
+    pub clear_color: ClearColorConfig,
 }
 
 impl Default for Camera {
@@ -131,6 +136,7 @@ impl Default for Camera {
             output_mode: Default::default(),
             hdr: false,
             msaa_writeback: true,
+            clear_color: Default::default(),
         }
     }
 }
@@ -140,7 +146,7 @@ impl Camera {
     #[inline]
     pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
         let scale = self.computed.target_info.as_ref()?.scale_factor;
-        Some((physical_size.as_dvec2() / scale).as_vec2())
+        Some(physical_size.as_vec2() / scale)
     }
 
     /// The rendered physical bounds [`URect`] of the camera. If the `viewport` field is
@@ -190,7 +196,8 @@ impl Camera {
             .or_else(|| self.logical_target_size())
     }
 
-    /// The physical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
+    /// The physical size of this camera's viewport (in physical pixels).
+    /// If the `viewport` field is set to [`Some`], this
     /// will be the size of that custom viewport. Otherwise it will default to the full physical size of
     /// the current [`RenderTarget`].
     /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
@@ -213,7 +220,8 @@ impl Camera {
             .and_then(|t| self.to_logical(t.physical_size))
     }
 
-    /// The full physical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
+    /// The full physical size of this camera's [`RenderTarget`] (in physical pixels),
+    /// ignoring custom `viewport` configuration.
     /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
     /// For logic that requires the size of the actually rendered area, prefer [`Camera::physical_viewport_size`].
     #[inline]
@@ -425,6 +433,12 @@ pub enum RenderTarget {
     TextureView(ManualTextureViewHandle),
 }
 
+impl From<Handle<Image>> for RenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
+        Self::Image(handle)
+    }
+}
+
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
@@ -454,6 +468,16 @@ impl RenderTarget {
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
             RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+        }
+    }
+
+    /// Get a handle to the render target's image,
+    /// or `None` if the render target is another variant.
+    pub fn as_image(&self) -> Option<&Handle<Image>> {
+        if let Self::Image(handle) = self {
+            Some(handle)
+        } else {
+            None
         }
     }
 }
@@ -632,6 +656,7 @@ pub struct ExtractedCamera {
     pub order: isize,
     pub output_mode: CameraOutputMode,
     pub msaa_writeback: bool,
+    pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
 }
 
@@ -701,6 +726,7 @@ pub fn extract_cameras(
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
+                    clear_color: camera.clear_color.clone(),
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
                 },
