@@ -80,7 +80,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin requires support for [push constants](WgpuFeatures#associatedconstant.PUSH_CONSTANTS), and will not work on web platforms.
 ///
-/// ![A render of the Stanford dragon as a `MeshletMesh`](https://github.com/bevyengine/bevy/blob/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png).
+/// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/meshlet/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
