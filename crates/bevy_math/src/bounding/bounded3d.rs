@@ -203,6 +203,12 @@ impl BoundingSphere {
             sphere: Sphere { radius },
         }
     }
+
+    /// Get the radius of the bounding sphere
+    #[inline(always)]
+    pub fn radius(&self) -> f32 {
+        self.sphere.radius
+    }
 }
 
 impl BoundingVolume for BoundingSphere {
@@ -216,17 +222,17 @@ impl BoundingVolume for BoundingSphere {
 
     #[inline(always)]
     fn half_size(&self) -> Self::HalfSize {
-        self.sphere.radius
+        self.radius()
     }
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        2. * std::f32::consts::PI * self.half_size() * self.half_size()
+        2. * std::f32::consts::PI * self.radius() * self.radius()
     }
 
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
-        let diff = self.half_size() - other.half_size();
+        let diff = self.radius() - other.radius();
         self.center.distance_squared(other.center) <= diff.powi(2).copysign(diff)
     }
 
@@ -234,16 +240,16 @@ impl BoundingVolume for BoundingSphere {
     fn merge(&self, other: &Self) -> Self {
         let diff = other.center - self.center;
         let length = diff.length();
-        if self.half_size() >= length + other.half_size() {
+        if self.radius() >= length + other.radius() {
             return self.clone();
         }
-        if other.half_size() >= length + self.half_size() {
+        if other.radius() >= length + self.radius() {
             return other.clone();
         }
         let dir = diff / length;
         Self::new(
-            (self.center + other.center) / 2. + dir * ((other.half_size() - self.half_size()) / 2.),
-            (length + self.half_size() + other.half_size()) / 2.,
+            (self.center + other.center) / 2. + dir * ((other.radius() - self.radius()) / 2.),
+            (length + self.radius() + other.radius()) / 2.,
         )
     }
 
@@ -253,7 +259,7 @@ impl BoundingVolume for BoundingSphere {
         Self {
             center: self.center,
             sphere: Sphere {
-                radius: self.half_size() + amount,
+                radius: self.radius() + amount,
             },
         }
     }
@@ -261,11 +267,11 @@ impl BoundingVolume for BoundingSphere {
     #[inline(always)]
     fn shrink(&self, amount: Self::HalfSize) -> Self {
         debug_assert!(amount >= 0.);
-        debug_assert!(self.half_size() >= amount);
+        debug_assert!(self.radius() >= amount);
         Self {
             center: self.center,
             sphere: Sphere {
-                radius: self.half_size() - amount,
+                radius: self.radius() - amount,
             },
         }
     }
@@ -306,7 +312,7 @@ mod bounding_sphere_tests {
         let b = BoundingSphere::new(Vec3::new(1., 1., -4.), 1.);
         let merged = a.merge(&b);
         assert!((merged.center - Vec3::new(1., 1., 0.5)).length() < std::f32::EPSILON);
-        assert!((merged.half_size() - 5.5).abs() < std::f32::EPSILON);
+        assert!((merged.radius() - 5.5).abs() < std::f32::EPSILON);
         assert!(merged.contains(&a));
         assert!(merged.contains(&b));
         assert!(!a.contains(&merged));
@@ -317,13 +323,13 @@ mod bounding_sphere_tests {
         assert!(a.contains(&b));
         let merged = a.merge(&b);
         assert_eq!(merged.center, a.center);
-        assert_eq!(merged.half_size(), a.half_size());
+        assert_eq!(merged.radius(), a.radius());
 
         // When two circles are at the same point, we use the bigger radius
         let b = BoundingSphere::new(Vec3::ONE, 6.);
         let merged = a.merge(&b);
         assert_eq!(merged.center, a.center);
-        assert_eq!(merged.half_size(), b.half_size());
+        assert_eq!(merged.radius(), b.radius());
     }
 
     #[test]
@@ -331,14 +337,14 @@ mod bounding_sphere_tests {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let merged = a.merge(&a);
         assert_eq!(merged.center, a.center);
-        assert_eq!(merged.half_size(), a.half_size());
+        assert_eq!(merged.radius(), a.radius());
     }
 
     #[test]
     fn grow() {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let padded = a.grow(1.25);
-        assert!((padded.half_size() - 6.25).abs() < std::f32::EPSILON);
+        assert!((padded.radius() - 6.25).abs() < std::f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -347,7 +353,7 @@ mod bounding_sphere_tests {
     fn shrink() {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let shrunk = a.shrink(0.5);
-        assert!((shrunk.half_size() - 4.5).abs() < std::f32::EPSILON);
+        assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }

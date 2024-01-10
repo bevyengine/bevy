@@ -225,7 +225,7 @@ impl BoundingVolume for BoundingCircle {
 
     #[inline(always)]
     fn half_size(&self) -> Self::HalfSize {
-        self.circle.radius
+        self.radius()
     }
 
     #[inline(always)]
