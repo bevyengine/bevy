@@ -45,10 +45,9 @@ use crate::prelude::UiCameraConfig;
 #[cfg(feature = "bevy_text")]
 use crate::widget::TextFlags;
 use bevy_app::prelude::*;
-use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{extract_component::ExtractComponentPlugin, texture::Image, RenderApp};
+use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
@@ -152,16 +151,26 @@ impl Plugin for UiPlugin {
                     // Potential conflict: `Assets<Image>`
                     // Since both systems will only ever insert new [`Image`] assets,
                     // they will never observe each other's effects.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
+                    .ambiguous_with(bevy_text::update_text2d_layout)
+                    // We assume Text is on disjoint UI entities to UiImage and UiTextureAtlasImage
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(widget::update_image_content_size_system)
+                    .ambiguous_with(widget::update_atlas_content_size_system),
                 widget::text_system
                     .after(UiSystem::Layout)
-                    .before(Assets::<Image>::track_assets),
+                    .after(bevy_text::remove_dropped_font_atlas_sets)
+                    // Text2d and bevy_ui text are entirely on separate entities
+                    .ambiguous_with(bevy_text::update_text2d_layout),
             ),
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
-            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
+            let system = widget::update_image_content_size_system
+                .before(UiSystem::Layout)
+                // We assume UiImage, UiTextureAtlasImage are disjoint UI entities
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                .ambiguous_with(widget::update_atlas_content_size_system);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -185,8 +194,17 @@ impl Plugin for UiPlugin {
                     .before(TransformSystem::TransformPropagate),
                 resolve_outlines_system
                     .in_set(UiSystem::Outlines)
-                    .after(UiSystem::Layout),
-                ui_stack_system.in_set(UiSystem::Stack),
+                    .after(UiSystem::Layout)
+                    // clipping doesn't care about outlines
+                    .ambiguous_with(update_clipping_system)
+                    .ambiguous_with(widget::text_system),
+                ui_stack_system
+                    .in_set(UiSystem::Stack)
+                    // the systems don't care about stack index
+                    .ambiguous_with(update_clipping_system)
+                    .ambiguous_with(resolve_outlines_system)
+                    .ambiguous_with(ui_layout_system)
+                    .ambiguous_with(widget::text_system),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
         );

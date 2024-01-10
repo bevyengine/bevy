@@ -46,7 +46,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 pub use winit::platform::android::activity as android_activity;
 
 use winit::{
-    event::{self, DeviceEvent, Event, StartCause, WindowEvent},
+    event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
@@ -352,6 +352,7 @@ pub fn winit_runner(mut app: App) {
                 app.finish();
                 app.cleanup();
             }
+            runner_state.redraw_requested = true;
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
                 if app_exit_event_reader.read(app_exit_events).last().is_some() {
@@ -360,45 +361,25 @@ pub fn winit_runner(mut app: App) {
                 }
             }
         }
-        runner_state.redraw_requested = false;
 
         match event {
-            Event::NewEvents(start_cause) => match start_cause {
-                StartCause::Init => {
-                    #[cfg(any(target_os = "ios", target_os = "macos"))]
-                    {
-                        let (
-                            commands,
-                            mut windows,
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                        ) = create_window_system_state.get_mut(&mut app.world);
-
-                        create_windows(
-                            event_loop,
-                            commands,
-                            windows.iter_mut(),
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                        );
-
-                        create_window_system_state.apply(&mut app.world);
+            Event::AboutToWait => {
+                if runner_state.redraw_requested {
+                    let (_, winit_windows, _, _) =
+                        event_writer_system_state.get_mut(&mut app.world);
+                    for window in winit_windows.windows.values() {
+                        window.request_redraw();
                     }
                 }
-                _ => {
-                    if let Some(t) = runner_state.scheduled_update {
-                        let now = Instant::now();
-                        let remaining = t.checked_duration_since(now).unwrap_or(Duration::ZERO);
-                        runner_state.wait_elapsed = remaining.is_zero();
-                    }
+                runner_state.redraw_requested = false;
+            }
+            Event::NewEvents(_) => {
+                if let Some(t) = runner_state.scheduled_update {
+                    let now = Instant::now();
+                    let remaining = t.checked_duration_since(now).unwrap_or(Duration::ZERO);
+                    runner_state.wait_elapsed = remaining.is_zero();
                 }
-            },
+            }
             Event::WindowEvent {
                 event, window_id, ..
             } => {
@@ -682,7 +663,6 @@ pub fn winit_runner(mut app: App) {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
-                runner_state.redraw_requested = true;
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 event_writers.mouse_motion.send(MouseMotion {
                     delta: Vec2::new(x as f32, y as f32),
@@ -696,6 +676,44 @@ pub fn winit_runner(mut app: App) {
                 runner_state.active = ActiveState::WillSuspend;
             }
             Event::Resumed => {
+                #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
+                {
+                    if runner_state.active == ActiveState::NotYetStarted {
+                        let mut create_window_system_state: SystemState<(
+                            Commands,
+                            Query<(Entity, &mut Window)>,
+                            EventWriter<WindowCreated>,
+                            NonSendMut<WinitWindows>,
+                            NonSendMut<AccessKitAdapters>,
+                            ResMut<WinitActionHandlers>,
+                            ResMut<AccessibilityRequested>,
+                        )> = SystemState::from_world(&mut app.world);
+
+                        let (
+                            commands,
+                            mut windows,
+                            event_writer,
+                            winit_windows,
+                            adapters,
+                            handlers,
+                            accessibility_requested,
+                        ) = create_window_system_state.get_mut(&mut app.world);
+
+                        create_windows(
+                            &event_loop,
+                            commands,
+                            windows.iter_mut(),
+                            event_writer,
+                            winit_windows,
+                            adapters,
+                            handlers,
+                            accessibility_requested,
+                        );
+
+                        create_window_system_state.apply(&mut app.world);
+                    }
+                }
+
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
                 match runner_state.active {
                     ActiveState::NotYetStarted => {
@@ -706,6 +724,7 @@ pub fn winit_runner(mut app: App) {
                     }
                 }
                 runner_state.active = ActiveState::Active;
+                runner_state.redraw_requested = true;
                 #[cfg(target_os = "android")]
                 {
                     // Get windows that are cached but without raw handles. Those window were already created, but got their
@@ -747,12 +766,6 @@ pub fn winit_runner(mut app: App) {
                 }
             }
             _ => (),
-        }
-        if runner_state.redraw_requested {
-            let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
-            for window in winit_windows.windows.values() {
-                window.request_redraw();
-            }
         }
     };
 
@@ -820,8 +833,7 @@ fn run_app_update_if_should(
         app.update();
 
         // decide when to run the next update
-        let (config, windows) = focused_windows_state.get(&app.world);
-        let focused = windows.iter().any(|window| window.focused);
+        let (config, _) = focused_windows_state.get(&app.world);
         match config.update_mode(focused) {
             UpdateMode::Continuous => {
                 runner_state.redraw_requested = true;
