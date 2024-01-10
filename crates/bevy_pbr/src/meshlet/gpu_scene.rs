@@ -160,36 +160,54 @@ pub fn prepare_meshlet_per_frame_resources(
         .previous_thread_ids
         .write_buffer(&render_device, &render_queue);
 
-    let visibility_buffer_draw_index_buffer = render_device.create_buffer(&BufferDescriptor {
-        label: Some("meshlet_visibility_buffer_draw_index_buffer"),
-        size: 4 * gpu_scene.scene_index_count,
-        usage: BufferUsages::STORAGE | BufferUsages::INDEX,
-        mapped_at_creation: false,
-    });
+    let needed_buffer_size = 4 * gpu_scene.scene_index_count;
+    let visibility_buffer_draw_index_buffer =
+        match &mut gpu_scene.visibility_buffer_draw_index_buffer {
+            Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
+            slot => {
+                let buffer = render_device.create_buffer(&BufferDescriptor {
+                    label: Some("meshlet_visibility_buffer_draw_index_buffer"),
+                    size: needed_buffer_size,
+                    usage: BufferUsages::STORAGE | BufferUsages::INDEX,
+                    mapped_at_creation: false,
+                });
+                *slot = Some(buffer.clone());
+                buffer
+            }
+        };
 
     for (view_entity, view, (_, shadow_view)) in &views {
-        let previous_occlusion_buffer = gpu_scene
-            .previous_occlusion_buffers
-            .get(&view_entity)
-            .map(Buffer::clone)
-            .unwrap_or_else(|| {
-                render_device.create_buffer(&BufferDescriptor {
-                    label: Some("meshlet_occlusion_buffer"),
-                    size: 4,
-                    usage: BufferUsages::STORAGE,
-                    mapped_at_creation: false,
-                })
-            });
-
-        let occlusion_buffer = render_device.create_buffer(&BufferDescriptor {
-            label: Some("meshlet_occlusion_buffer"),
-            size: ((gpu_scene.scene_meshlet_count + 31) / 32) as u64 * 4,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-        gpu_scene
-            .previous_occlusion_buffers
-            .insert(view_entity, occlusion_buffer.clone());
+        let needed_buffer_size = ((gpu_scene.scene_meshlet_count + 31) / 32) as u64 * 4;
+        let create_occlusion_buffer = || {
+            render_device.create_buffer(&BufferDescriptor {
+                label: Some("meshlet_occlusion_buffer"),
+                size: needed_buffer_size,
+                usage: BufferUsages::STORAGE,
+                mapped_at_creation: false,
+            })
+        };
+        let (previous_occlusion_buffer, occlusion_buffer) =
+            match gpu_scene.previous_occlusion_buffers.get_mut(&view_entity) {
+                Some((buffer_a, buffer_b)) if buffer_b.size() >= needed_buffer_size => {
+                    (buffer_a.clone(), buffer_b.clone())
+                }
+                Some((buffer_a, buffer_b)) => {
+                    *buffer_b = create_occlusion_buffer();
+                    (buffer_a.clone(), buffer_b.clone())
+                }
+                None => {
+                    let buffer_a = create_occlusion_buffer();
+                    let buffer_b = create_occlusion_buffer();
+                    gpu_scene
+                        .previous_occlusion_buffers
+                        .insert(view_entity, (buffer_a.clone(), buffer_b.clone()));
+                    (buffer_a, buffer_b)
+                }
+            };
+        gpu_scene.previous_occlusion_buffers.insert(
+            view_entity,
+            (occlusion_buffer.clone(), previous_occlusion_buffer.clone()),
+        );
 
         let visibility_buffer = TextureDescriptor {
             label: Some("meshlet_visibility_buffer"),
@@ -500,7 +518,8 @@ pub struct MeshletGpuScene {
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
     previous_thread_ids: StorageBuffer<Vec<u32>>,
     previous_thread_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
-    previous_occlusion_buffers: EntityHashMap<Entity, Buffer>,
+    previous_occlusion_buffers: EntityHashMap<Entity, (Buffer, Buffer)>,
+    visibility_buffer_draw_index_buffer: Option<Buffer>,
 
     culling_bind_group_layout: BindGroupLayout,
     write_index_buffer_bind_group_layout: BindGroupLayout,
@@ -559,6 +578,7 @@ impl FromWorld for MeshletGpuScene {
             },
             previous_thread_id_starts: HashMap::new(),
             previous_occlusion_buffers: EntityHashMap::default(),
+            visibility_buffer_draw_index_buffer: None,
 
             // TODO: Buffer min sizes
             culling_bind_group_layout: render_device.create_bind_group_layout(
