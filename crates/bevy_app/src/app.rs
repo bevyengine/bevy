@@ -743,6 +743,9 @@ impl App {
     /// [`PluginGroup`]:super::PluginGroup
     #[track_caller]
     pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
+        if self.building_plugin_depth > 0 {
+            panic!("Plugins cannot be added within plugins.");
+        }
         if matches!(
             self.plugins_state(),
             PluginsState::Cleaned | PluginsState::Finished
