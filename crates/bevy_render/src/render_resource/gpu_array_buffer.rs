@@ -71,7 +71,8 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.write_buffer(device, queue),
             GpuArrayBuffer::Storage((buffer, vec)) => {
-                buffer.set(mem::take(vec));
+                std::mem::swap(vec, buffer.get_mut());
+                vec.clear();
                 buffer.write_buffer(device, queue);
             }
         }
