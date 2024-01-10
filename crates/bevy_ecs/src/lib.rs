@@ -66,13 +66,11 @@ impl std::hash::Hasher for NoOpTypeIdHasher {
         self.0
     }
 
-    fn write(&mut self, bytes: &[u8]) {
+    fn write(&mut self, _bytes: &[u8]) {
         // This will never be called: TypeId always just calls write_u64 once!
         // This is unlikely to ever change, but as it isn't officially guaranteed,
-        // here's a fallback (which can be very low quality).
-        self.0 = bytes.iter().fold(self.0, |hash, b| {
-            hash.rotate_left(8).wrapping_add(*b as u64)
-        });
+        // panicking will let us detect this as fast as possible.
+        unimplemented!("Hashing of std::any::TypeId changed");
     }
 
     fn write_u64(&mut self, i: u64) {
