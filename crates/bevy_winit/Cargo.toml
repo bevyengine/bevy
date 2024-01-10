@@ -43,15 +43,8 @@ winit = { version = "0.29", default-features = false, features = [
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3", features = [
-  # features used by fit_canvas_to_parent
-  "CssStyleDeclaration",
-  "Document",
-  "HtmlCanvasElement",
-  "Window",
-  #
-] }
 wasm-bindgen = { version = "0.2" }
+web-sys = "0.3"
 crossbeam-channel = "0.5"
 
 [package.metadata.docs.rs]

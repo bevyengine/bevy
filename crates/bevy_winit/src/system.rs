@@ -18,7 +18,7 @@ use winit::{
 };
 
 #[cfg(target_arch = "wasm32")]
-use {wasm_bindgen::JsCast, web_sys::HtmlCanvasElement};
+use winit::platform::web::WindowExtWebSys;
 
 use crate::{
     converters::{
@@ -86,21 +86,12 @@ pub(crate) fn create_windows<F: QueryFilter + 'static>(
         #[cfg(target_arch = "wasm32")]
         {
             if window.fit_canvas_to_parent {
-                if let raw_window_handle::RawWindowHandle::Web(handle) =
-                    winit_window.raw_window_handle()
-                {
-                    let canvas: HtmlCanvasElement = web_sys::window()
-                        .unwrap()
-                        .document()
-                        .unwrap()
-                        .query_selector(&format!("canvas[data-raw-handle=\"{}\"]", handle.id))
-                        .unwrap()
-                        .unwrap()
-                        .unchecked_into();
-                    let style = canvas.style();
-                    style.set_property("width", "100%").unwrap();
-                    style.set_property("height", "100%").unwrap();
-                }
+                let canvas = winit_window
+                    .canvas()
+                    .expect("window.canvas() can only be called in main thread.");
+                let style = canvas.style();
+                style.set_property("width", "100%").unwrap();
+                style.set_property("height", "100%").unwrap();
             }
         }
         window_created_events.send(WindowCreated { window: entity });
