@@ -5,17 +5,17 @@ use crate::prelude::{Quat, Vec3};
 pub trait Bounded3d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d;
-    /// Get a bounding sphere for the shape
-    fn bounding_sphere(&self, translation: Vec3) -> BoundingSphere;
+    /// Get a bounding sphere for the shape with the given translation and rotation
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere;
 }
 
 /// A 3D axis-aligned bounding box
 #[derive(Clone, Debug)]
 pub struct Aabb3d {
     /// The minimum point of the box
-    min: Vec3,
+    pub min: Vec3,
     /// The maximum point of the box
-    max: Vec3,
+    pub max: Vec3,
 }
 
 impl BoundingVolume for Aabb3d {
@@ -189,9 +189,9 @@ use crate::primitives::Sphere;
 #[derive(Clone, Debug)]
 pub struct BoundingSphere {
     /// The center of the bounding sphere
-    center: Vec3,
+    pub center: Vec3,
     /// The sphere
-    sphere: Sphere,
+    pub sphere: Sphere,
 }
 
 impl BoundingSphere {

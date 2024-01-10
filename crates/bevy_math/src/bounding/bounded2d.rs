@@ -7,7 +7,8 @@ pub trait Bounded2d {
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d;
     /// Get a bounding circle for the shape
-    fn bounding_circle(&self, translation: Vec2) -> BoundingCircle;
+    /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
+    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle;
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
