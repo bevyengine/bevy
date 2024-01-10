@@ -5,7 +5,7 @@ use super::kinds::IdKind;
 /// Mask for extracting the value portion of a 32-bit high segment. This
 /// yields 31-bits of total value, as the final bit (the most significant)
 /// is reserved as a flag bit. Can be negated to extract the flag bit.
-const HIGH_MASK: u32 = 0x7FFF_FFFF;
+pub(crate) const HIGH_MASK: u32 = 0x7FFF_FFFF;
 
 /// Abstraction over masks needed to extract values/components of an [`super::Identifier`].
 pub(crate) struct IdentifierMask;

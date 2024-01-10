@@ -42,7 +42,7 @@ pub use map_entities::*;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    identifier::{error::IdentifierError, kinds::IdKind, masks::IdentifierMask, Identifier},
+    identifier::{error::IdentifierError, kinds::IdKind, masks::{IdentifierMask, HIGH_MASK}, Identifier},
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
@@ -189,8 +189,12 @@ pub(crate) enum AllocAtWithoutReplacement {
 }
 
 impl Entity {
+    /// Construct an [`Entity`] from a raw `index` value and a non-zero `generation` value.
+    /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
     #[inline(always)]
     pub(crate) const fn from_raw_and_generation(index: u32, generation: NonZeroU32) -> Entity {
+        debug_assert!(generation.get() <= HIGH_MASK);
+
         Self { index, generation }
     }
 
