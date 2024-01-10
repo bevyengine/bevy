@@ -1,4 +1,8 @@
-use crate::{entity::Entity, identifier::masks::IdentifierMask, world::World};
+use crate::{
+    entity::Entity,
+    identifier::masks::{IdentifierMask, HIGH_MASK},
+    world::World,
+};
 use bevy_utils::EntityHashMap;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
@@ -72,7 +76,9 @@ impl<'m> EntityMapper<'m> {
             self.dead_start.index(),
             IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
         );
-        self.generations += 1;
+
+        // Prevent generations counter from being a greater value than HIGH_MASK.
+        self.generations = (self.generations + 1) & HIGH_MASK;
 
         self.map.insert(entity, new);
 
