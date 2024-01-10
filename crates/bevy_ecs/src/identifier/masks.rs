@@ -2,9 +2,6 @@ use std::num::NonZeroU32;
 
 use super::kinds::IdKind;
 
-/// Mask for extracting the lower 32-bit segment of a `u64` value. Can be
-/// negated to extract the higher 32-bit segment.
-const LOW_MASK: u64 = 0x0000_0000_FFFF_FFFF;
 /// Mask for extracting the value portion of a 32-bit high segment. This
 /// yields 31-bits of total value, as the final bit (the most significant)
 /// is reserved as a flag bit. Can be negated to extract the flag bit.
@@ -17,13 +14,15 @@ impl IdentifierMask {
     /// Returns the low component from a `u64` value
     #[inline(always)]
     pub(crate) const fn get_low(value: u64) -> u32 {
-        (value & LOW_MASK) as u32
+        // This will truncate to the lowest 32 bits
+        value as u32
     }
 
     /// Returns the high component from a `u64` value
     #[inline(always)]
     pub(crate) const fn get_high(value: u64) -> u32 {
-        ((value & !LOW_MASK) >> u32::BITS) as u32
+        // This will discard the lowest 32 bits
+        (value >> u32::BITS) as u32
     }
 
     /// Pack a low and high `u32` values into a single `u64` value.

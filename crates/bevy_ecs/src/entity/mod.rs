@@ -190,7 +190,7 @@ pub(crate) enum AllocAtWithoutReplacement {
 
 impl Entity {
     #[inline(always)]
-    pub(crate) const fn new(index: u32, generation: NonZeroU32) -> Entity {
+    pub(crate) const fn from_raw_and_generation(index: u32, generation: NonZeroU32) -> Entity {
         Self { index, generation }
     }
 
@@ -244,7 +244,7 @@ impl Entity {
     /// a component.
     #[inline(always)]
     pub const fn from_raw(index: u32) -> Entity {
-        Self::new(index, NonZeroU32::MIN)
+        Self::from_raw_and_generation(index, NonZeroU32::MIN)
     }
 
     /// Convert to a form convenient for passing outside of rust.
@@ -389,7 +389,9 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.index_iter
             .next()
-            .map(|&index| Entity::new(index, self.meta[index as usize].generation))
+            .map(|&index| {
+                Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+            })
             .or_else(|| self.index_range.next().map(Entity::from_raw))
     }
 
@@ -525,7 +527,7 @@ impl Entities {
         if n > 0 {
             // Allocate from the freelist.
             let index = self.pending[(n - 1) as usize];
-            Entity::new(index, self.meta[index as usize].generation)
+            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
         } else {
             // Grab a new ID, outside the range of `meta.len()`. `flush()` must
             // eventually be called to make it valid.
@@ -553,7 +555,7 @@ impl Entities {
         if let Some(index) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::new(index, self.meta[index as usize].generation)
+            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
         } else {
             let index = u32::try_from(self.meta.len()).expect("too many entities");
             self.meta.push(EntityMeta::EMPTY);
@@ -751,7 +753,7 @@ impl Entities {
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
         let idu = index as usize;
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
-            Some(Entity::new(index, generation))
+            Some(Entity::from_raw_and_generation(index, generation))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
@@ -789,7 +791,7 @@ impl Entities {
             self.len += -current_free_cursor as u32;
             for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
                 init(
-                    Entity::new(index as u32, meta.generation),
+                    Entity::from_raw_and_generation(index as u32, meta.generation),
                     &mut meta.location,
                 );
             }
@@ -801,7 +803,10 @@ impl Entities {
         self.len += (self.pending.len() - new_free_cursor) as u32;
         for index in self.pending.drain(new_free_cursor..) {
             let meta = &mut self.meta[index as usize];
-            init(Entity::new(index, meta.generation), &mut meta.location);
+            init(
+                Entity::from_raw_and_generation(index, meta.generation),
+                &mut meta.location,
+            );
         }
     }
 
@@ -932,7 +937,7 @@ mod tests {
     #[test]
     fn entity_bits_roundtrip() {
         // Generation cannot be greater than 0x7FFF_FFFF else it will be an invalid Entity id
-        let e = Entity::new(0xDEADBEEF, NonZeroU32::new(0x5AADF00D).unwrap());
+        let e = Entity::from_raw_and_generation(0xDEADBEEF, NonZeroU32::new(0x5AADF00D).unwrap());
         assert_eq!(Entity::from_bits(e.to_bits()), e);
     }
 
@@ -1005,31 +1010,72 @@ mod tests {
         assert!(next_entity.generation() > entity.generation() + GENERATIONS);
     }
 
-    #[rustfmt::skip]
     #[test]
     fn entity_comparison() {
         // This is intentionally testing `lt` and `ge` as separate functions.
         #![allow(clippy::nonminimal_bool)]
 
-        assert_eq!( Entity::new(123, NonZeroU32::new(456).unwrap()), Entity::new(123, NonZeroU32::new(456).unwrap()) );
-        assert_ne!( Entity::new(123, NonZeroU32::new(789).unwrap()), Entity::new(123, NonZeroU32::new(456).unwrap()) );
-        assert_ne!(Entity::new(123, NonZeroU32::new(456).unwrap()), Entity::new(123, NonZeroU32::new(789).unwrap()));
-        assert_ne!(Entity::new(123, NonZeroU32::new(456).unwrap()), Entity::new(456, NonZeroU32::new(123).unwrap()));
+        assert_eq!(
+            Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap()),
+            Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
+        );
+        assert_ne!(
+            Entity::from_raw_and_generation(123, NonZeroU32::new(789).unwrap()),
+            Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
+        );
+        assert_ne!(
+            Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap()),
+            Entity::from_raw_and_generation(123, NonZeroU32::new(789).unwrap())
+        );
+        assert_ne!(
+            Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap()),
+            Entity::from_raw_and_generation(456, NonZeroU32::new(123).unwrap())
+        );
 
         // ordering is by generation then by index
 
-        assert!(Entity::new(123, NonZeroU32::new(456).unwrap()) >= Entity::new(123, NonZeroU32::new(456).unwrap()));
-        assert!(Entity::new(123, NonZeroU32::new(456).unwrap()) <= Entity::new(123, NonZeroU32::new(456).unwrap()));
-        assert!(!(Entity::new(123, NonZeroU32::new(456).unwrap()) < Entity::new(123, NonZeroU32::new(456).unwrap())));
-        assert!(!(Entity::new(123, NonZeroU32::new(456).unwrap()) > Entity::new(123, NonZeroU32::new(456).unwrap())));
+        assert!(
+            Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
+                >= Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
+        );
+        assert!(
+            Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
+                <= Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
+        );
+        assert!(
+            !(Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
+                < Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap()))
+        );
+        assert!(
+            !(Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
+                > Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap()))
+        );
 
-        assert!(Entity::new(9, NonZeroU32::new(1).unwrap()) < Entity::new(1, NonZeroU32::new(9).unwrap()));
-        assert!(Entity::new(1, NonZeroU32::new(9).unwrap()) > Entity::new(9, NonZeroU32::new(1).unwrap()));
+        assert!(
+            Entity::from_raw_and_generation(9, NonZeroU32::new(1).unwrap())
+                < Entity::from_raw_and_generation(1, NonZeroU32::new(9).unwrap())
+        );
+        assert!(
+            Entity::from_raw_and_generation(1, NonZeroU32::new(9).unwrap())
+                > Entity::from_raw_and_generation(9, NonZeroU32::new(1).unwrap())
+        );
 
-        assert!(Entity::new(1, NonZeroU32::new(1).unwrap()) < Entity::new(2, NonZeroU32::new(1).unwrap()));
-        assert!(Entity::new(1, NonZeroU32::new(1).unwrap()) <= Entity::new(2, NonZeroU32::new(1).unwrap()));
-        assert!(Entity::new(2, NonZeroU32::new(2).unwrap()) > Entity::new(1, NonZeroU32::new(2).unwrap()));
-        assert!(Entity::new(2, NonZeroU32::new(2).unwrap()) >= Entity::new(1, NonZeroU32::new(2).unwrap()));
+        assert!(
+            Entity::from_raw_and_generation(1, NonZeroU32::new(1).unwrap())
+                < Entity::from_raw_and_generation(2, NonZeroU32::new(1).unwrap())
+        );
+        assert!(
+            Entity::from_raw_and_generation(1, NonZeroU32::new(1).unwrap())
+                <= Entity::from_raw_and_generation(2, NonZeroU32::new(1).unwrap())
+        );
+        assert!(
+            Entity::from_raw_and_generation(2, NonZeroU32::new(2).unwrap())
+                > Entity::from_raw_and_generation(1, NonZeroU32::new(2).unwrap())
+        );
+        assert!(
+            Entity::from_raw_and_generation(2, NonZeroU32::new(2).unwrap())
+                >= Entity::from_raw_and_generation(1, NonZeroU32::new(2).unwrap())
+        );
     }
 
     // Feel free to change this test if needed, but it seemed like an important

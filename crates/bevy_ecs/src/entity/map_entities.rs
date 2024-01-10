@@ -68,7 +68,7 @@ impl<'m> EntityMapper<'m> {
         }
 
         // this new entity reference is specifically designed to never represent any living entity
-        let new = Entity::new(
+        let new = Entity::from_raw_and_generation(
             self.dead_start.index(),
             IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
         );
