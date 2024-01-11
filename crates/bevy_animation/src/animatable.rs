@@ -1,5 +1,4 @@
 use crate::util;
-use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
@@ -101,34 +100,6 @@ impl Animatable for bool {
             .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
             .map(|input| input.value)
             .unwrap_or(false)
-    }
-}
-
-impl<T: Asset> Animatable for Handle<T> {
-    #[inline]
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
-        util::step_unclamped(a.clone_weak(), b.clone_weak(), t)
-    }
-
-    #[inline]
-    fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
-        inputs
-            .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
-            .map(|input| input.value)
-            .expect("Attempted to blend Handle with zero inputs.")
-    }
-
-    fn post_process(&mut self, world: &World) {
-        // Upgrade weak handles into strong ones.
-        if self.is_strong() {
-            return;
-        }
-        *self = world
-            .get_resource::<Assets<T>>()
-            .expect(
-                "Attempted to animate a Handle<T> without the corresponding Assets<T> resource.",
-            )
-            .get_handle(self.id());
     }
 }
 
