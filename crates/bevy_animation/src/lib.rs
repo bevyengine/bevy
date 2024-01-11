@@ -639,39 +639,6 @@ fn apply_animation(
     parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
-    /// Sets the [`Transform`] value to exactly the value it has at the provided keyframe.
-    fn set_transform_to_keyframe(
-        curve: &VariableCurve,
-        transform: &mut Mut<'_, Transform>,
-        weight: f32,
-        morphs: &mut Option<Mut<'_, MorphWeights>>,
-        keyframe: usize,
-    ) {
-        match &curve.keyframes {
-            Keyframes::Rotation(keyframes) => {
-                transform.rotation = transform.rotation.slerp(keyframes[keyframe], weight);
-            }
-            Keyframes::Translation(keyframes) => {
-                transform.translation = transform.translation.lerp(keyframes[keyframe], weight);
-            }
-            Keyframes::Scale(keyframes) => {
-                transform.scale = transform.scale.lerp(keyframes[keyframe], weight);
-            }
-            Keyframes::Weights(keyframes) => {
-                if let Some(morphs) = morphs {
-                    let target_count = morphs.weights().len();
-                    lerp_morph_weights(
-                        morphs.weights_mut(),
-                        get_keyframe(target_count, keyframes, keyframe)
-                            .iter()
-                            .copied(),
-                        weight,
-                    );
-                }
-            }
-        }
-    }
-
     if let Some(animation_clip) = animations.get(&animation.animation_clip) {
         // We don't return early because seek_to() may have been called on the animation player.
         animation.update(
@@ -790,6 +757,39 @@ fn apply_animation(
 
         if !any_path_found {
             warn!("Animation player on {root:?} did not match any entity paths.");
+        }
+    }
+}
+
+/// Sets the [`Transform`] value to exactly the value it has at the provided keyframe.
+fn set_transform_to_keyframe(
+    curve: &VariableCurve,
+    transform: &mut Mut<'_, Transform>,
+    weight: f32,
+    morphs: &mut Option<Mut<'_, MorphWeights>>,
+    keyframe: usize,
+) {
+    match &curve.keyframes {
+        Keyframes::Rotation(keyframes) => {
+            transform.rotation = transform.rotation.slerp(keyframes[keyframe], weight);
+        }
+        Keyframes::Translation(keyframes) => {
+            transform.translation = transform.translation.lerp(keyframes[keyframe], weight);
+        }
+        Keyframes::Scale(keyframes) => {
+            transform.scale = transform.scale.lerp(keyframes[keyframe], weight);
+        }
+        Keyframes::Weights(keyframes) => {
+            if let Some(morphs) = morphs {
+                let target_count = morphs.weights().len();
+                lerp_morph_weights(
+                    morphs.weights_mut(),
+                    get_keyframe(target_count, keyframes, keyframe)
+                        .iter()
+                        .copied(),
+                    weight,
+                );
+            }
         }
     }
 }
