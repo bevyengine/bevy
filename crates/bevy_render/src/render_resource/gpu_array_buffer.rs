@@ -72,6 +72,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
             GpuArrayBuffer::Uniform(buffer) => buffer.write_buffer(device, queue),
             GpuArrayBuffer::Storage((buffer, vec)) => {
                 std::mem::swap(vec, buffer.get_mut());
+                // TODO: shrink vector size to save memory when it's not needed
                 vec.clear();
                 buffer.write_buffer(device, queue);
             }
