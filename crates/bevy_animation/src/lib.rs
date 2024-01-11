@@ -65,6 +65,43 @@ pub struct VariableCurve {
     pub interpolation: Interpolation,
 }
 
+impl VariableCurve {
+    /// Find the index of the keyframe at or before the current time.
+    ///
+    /// Returns [`None`] if the curve is finished or not yet started.
+    pub fn find_current_keyframe(&self, seek_time: f32) -> Option<usize> {
+        // An Ok(keyframe_index) result means an exact result was found by binary search
+        // An Err result means the keyframe was not found, and the index is the keyframe
+        // PERF: finding the current keyframe can be optimised
+        let search_result = self
+            .keyframe_timestamps
+            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
+
+        // We want to find the index of the keyframe before the current time
+        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
+        let step_start = match search_result {
+            // An exact match was found, and it is the last or second last keyframe.
+            // This means that the curve is finished.
+            Ok(n) if n >= self.keyframe_timestamps.len() - 1 => return None,
+            // An exact match was found, and it is not the last or second last keyframe.
+            Ok(i) => i,
+            // No exact match was found, and the curve is not yet started.
+            // This occurs because the binary search returns the index of where we could insert a value
+            // without disrupting the order of the vector.
+            // If the value is less than the first element, the index will be 0.
+            Err(0) => return None,
+            // No exact match was found, and the curve is finished.
+            Err(n) if n > self.keyframe_timestamps.len() - 1 => return None,
+            // No exact match was found
+            Err(i) => i - 1,
+        };
+
+        assert!(step_start + 1 <= self.keyframe_timestamps.len());
+
+        Some(step_start)
+    }
+}
+
 /// Interpolation method to use between keyframes.
 #[derive(Reflect, Clone, Debug)]
 pub enum Interpolation {
@@ -710,35 +747,10 @@ fn apply_animation(
             }
 
             // Find the current keyframe
-
-            // Attempt to find the keyframe at or before the current time
-            // An Ok(keyframe_index) result means an exact result was found by binary search
-            // An Err result means the keyframe was not found, and the index is the keyframe
-            // PERF: finding the current keyframe can be optimised
-            let search_result = curve
-                .keyframe_timestamps
-                .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap());
-
-            // We want to find the index of the keyframe before the current time
-            // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
-            let step_start = match search_result {
-                // An exact match was found, and it is the last or second last keyframe.
-                // This means that the curve is finished.
-                Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue,
-                // An exact match was found, and it is not the last or second last keyframe.
-                Ok(i) => i,
-                // No exact match was found, and the curve is not yet started.
-                // This occurs because the binary search returns the index of where we could insert a value
-                // without disrupting the order of the vector.
-                // If the value is less than the first element, the index will be 0.
-                Err(0) => continue,
-                // No exact match was found, and the curve is finished.
-                Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue,
-                // No exact match was found
-                Err(i) => i - 1,
+            let step_start = match curve.find_current_keyframe(animation.seek_time) {
+                Some(keyframe) => keyframe,
+                None => continue,
             };
-
-            assert!(step_start + 1 <= curve.keyframe_timestamps.len());
 
             let timestamp_start = curve.keyframe_timestamps[step_start];
             let timestamp_end = curve.keyframe_timestamps[step_start + 1];
