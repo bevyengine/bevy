@@ -16,471 +16,17 @@ use crate::prelude::Gizmos;
 /// [`Gizmos`] to associate specific information with each primitive when rendering.
 pub trait PrimitiveDetailFor<P> {}
 
-/// A trait for rendering 2D geometric primitives (`P`) with associated details (`D`) with [`Gizmos`].
-pub trait GizmoPrimitive2d<P: Primitive2d, D: PrimitiveDetailFor<P>> {
-    /// Renders a 2D primitive with its associated details.
-    fn primitive_2d(&mut self, primitive: P, detail: D);
-}
-
 /// A trait for rendering 3D geometric primitives (`P`) with associated details (`D`) with [`Gizmos`].
 pub trait GizmoPrimitive3d<P: Primitive3d, D: PrimitiveDetailFor<P>> {
     /// Renders a 3D primitive with its associated details.
     fn primitive_3d(&mut self, primitive: P, detail: D);
 }
 
-// Direction 2D
-
-/// Extra data used to draw [`Direction2d`] via [`Gizmos`]
-#[derive(Default)]
-pub struct Direction2dDetails {
-    /// position of the start of the arrow
-    pub position: Vec2,
-    /// color of the arrow
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Direction2d> for Direction2dDetails {}
-
-impl<'s> GizmoPrimitive2d<Direction2d, Direction2dDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Direction2d, detail: Direction2dDetails) {
-        let Direction2dDetails {
-            position: start,
-            color,
-        } = detail;
-        let dir = primitive;
-        let end = start + *dir;
-        self.arrow_2d(start, end, color);
-    }
-}
-
-// Circle 2D
-
-/// Details for rendering a 2D circle via [`Gizmos`].
-#[derive(Default)]
-pub struct Circle2dDetails {
-    /// Position of the center of the circle.
-    pub center: Vec2,
-    /// Color of the circle.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Circle> for Circle2dDetails {}
-
-impl<'s> GizmoPrimitive2d<Circle, Circle2dDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Circle, detail: Circle2dDetails) {
-        let Circle2dDetails { center, color } = detail;
-        self.circle_2d(center, primitive.radius, color);
-    }
-}
-
-// Ellipse 2D
-
-/// Details for rendering a 2D ellipse via [`Gizmos`].
-#[derive(Default)]
-pub struct Ellipse2dDetails {
-    /// Position of the center of the ellipse.
-    pub center: Vec2,
-    /// Color of the ellipse.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Ellipse> for Ellipse2dDetails {}
-
-impl<'s> GizmoPrimitive2d<Ellipse, Ellipse2dDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Ellipse, detail: Ellipse2dDetails) {
-        let Ellipse2dDetails { center, color } = detail;
-        self.ellipse_2d(center, primitive.half_width, primitive.half_height, color);
-    }
-}
-
-// Line 2D
-
-/// Details for rendering a 2D line via [`Gizmos`].
-#[derive(Default)]
-pub struct Line2dDetails {
-    /// Starting position of the line.
-    pub start_position: Vec2,
-    /// Color of the line.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Line2d> for Line2dDetails {}
-
-impl<'s> GizmoPrimitive2d<Line2d, Line2dDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Line2d, detail: Line2dDetails) {
-        let Line2dDetails {
-            start_position,
-            color,
-        } = detail;
-        self.primitive_2d(
-            primitive.direction,
-            Direction2dDetails {
-                position: start_position,
-                color,
-            },
-        );
-        let line_dir = primitive.direction;
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            self.line_2d(
-                start_position,
-                start_position + sign * line_dir.clamp_length(1000.0, 1000.0),
-                color,
-            );
-        });
-    }
-}
-
-// Plane 2D
-
-/// Details for rendering a 2D plane via [`Gizmos`].
-#[derive(Default)]
-pub struct Plane2dDetails {
-    /// Starting position of the normal of the plane.
-    pub normal_position: Vec2,
-    /// Color of the plane.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Plane2d> for Plane2dDetails {}
-
-impl<'s> GizmoPrimitive2d<Plane2d, Plane2dDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Plane2d, detail: Plane2dDetails) {
-        let Plane2dDetails {
-            normal_position,
-            color,
-        } = detail;
-        // normal
-        let normal_details = Direction2dDetails {
-            position: normal_position,
-            color,
-        };
-        self.primitive_2d(primitive.normal, normal_details);
-
-        // plane line
-        let direction = Direction2d::from_normalized(primitive.normal.perp());
-        let plane_line = Line2d { direction };
-        let plane_line_details = Line2dDetails {
-            start_position: normal_position,
-            color,
-        };
-        self.primitive_2d(plane_line, plane_line_details);
-    }
-}
-
-// Segment 2D
-
-/// Details for rendering a 2D line segment via [`Gizmos`].
-#[derive(Default)]
-pub struct Segment2dDetails {
-    /// Starting position of the line segment.
-    pub start_position: Vec2,
-    /// Color of the line segment.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Segment2d> for Segment2dDetails {}
-
-impl<'s> GizmoPrimitive2d<Segment2d, Segment2dDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Segment2d, detail: Segment2dDetails) {
-        let Segment2dDetails {
-            start_position,
-            color,
-        } = detail;
-        let start = start_position;
-        let end = start_position + *primitive.direction * 2.0 * primitive.half_length;
-        self.line_2d(start, end, color);
-    }
-}
-
-/// Details for rendering a 2D line segment via [`Gizmos`].
-#[derive(Default)]
-pub struct Segment2dArrowDetails {
-    /// Starting position of the line segment.
-    pub start_position: Vec2,
-    /// Color of the line segment.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Segment2d> for Segment2dArrowDetails {}
-
-impl<'s> GizmoPrimitive2d<Segment2d, Segment2dArrowDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Segment2d, detail: Segment2dArrowDetails) {
-        let Segment2dArrowDetails {
-            start_position,
-            color,
-        } = detail;
-        let start = start_position;
-        let end = start_position + *primitive.direction * 2.0 * primitive.half_length;
-        self.arrow_2d(start, end, color);
-    }
-}
-
-// Polyline 2D
-
-/// Details for rendering a 2D polyline via [`Gizmos`].
-#[derive(Default)]
-pub struct Polyline2dDetails {
-    /// Offset for all the vertices of the polyline. If the polyline starts at `Vec2::ZERO`, this is
-    /// also the starting point of the polyline.
-    pub translation: Vec2,
-    /// Rotation of the polyline around the origin (`Vec2::ZERO`) given in radians with ccw
-    /// orientaion.
-    pub rotation: f32,
-    /// Color of the polyline.
-    pub color: Color,
-}
-impl<const N: usize> PrimitiveDetailFor<Polyline2d<N>> for Polyline2dDetails {}
-
-impl<'s, const N: usize> GizmoPrimitive2d<Polyline2d<N>, Polyline2dDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Polyline2d<N>, detail: Polyline2dDetails) {
-        let Polyline2dDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-        self.linestrip_2d(
-            primitive
-                .vertices
-                .into_iter()
-                .map(rotate_then_translate_2d(rotation, translation)),
-            color,
-        );
-    }
-}
-
 // BoxedPolyline 2D
-//
-// not sure here yet, maybe we should use a reference to some of the primitives instead since
+
+// NOTE: not sure here yet, maybe we should use a reference to some of the primitives instead since
 // cloning all the vertices for drawing might defeat its purpose if we pass in the primitive by
 // value
-
-/// Details for rendering a 2D boxed polyline via [`Gizmos`].
-#[derive(Default)]
-pub struct BoxedPolylineDetails {
-    /// Offset for all the vertices of the boxed polyline. If the polyline starts at `Vec2::ZERO`, this is
-    /// also the starting point of the polyline.
-    pub translation: Vec2,
-    /// Rotation of the boxed polyline around the origin (`Vec2::ZERO`) given in radians with ccw
-    /// orientation.
-    pub rotation: f32,
-    /// Color of the boxed polyline.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<BoxedPolyline2d> for BoxedPolylineDetails {}
-
-impl<'s> GizmoPrimitive2d<BoxedPolyline2d, BoxedPolylineDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: BoxedPolyline2d, detail: BoxedPolylineDetails) {
-        let BoxedPolylineDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-        self.linestrip_2d(
-            primitive
-                .vertices
-                .iter()
-                .map(|v| rotate_then_translate_2d(rotation, translation)(*v)),
-            color,
-        );
-    }
-}
-
-// Triangle 2D
-
-/// Details for rendering a 2D triangle via [`Gizmos`].
-#[derive(Default)]
-pub struct TriangleDetails {
-    /// Offset for all the vertices of the triangle. If the triangle starts at `Vec2::ZERO`, this is
-    /// also the starting point of the triangle.
-    pub translation: Vec2,
-    /// Rotation of the triangle around the origin (`Vec2::ZERO`) given in radians with ccw
-    /// orientation.
-    pub rotation: f32,
-    /// Color of the triangle.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Triangle2d> for TriangleDetails {}
-
-impl<'s> GizmoPrimitive2d<Triangle2d, TriangleDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Triangle2d, detail: TriangleDetails) {
-        let TriangleDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-        let [a, b, c] = primitive.vertices;
-        self.primitive_2d(
-            Polyline2d {
-                vertices: [a, b, c, a],
-            },
-            Polyline2dDetails {
-                translation,
-                rotation,
-                color,
-            },
-        );
-    }
-}
-
-// Rectangle 2D
-
-/// Details for rendering a 2D rectangle via [`Gizmos`].
-#[derive(Default)]
-pub struct RectangleDetails {
-    /// Offset for all the vertices of the rectangle. If the rectangle starts at `Vec2::ZERO`, this is
-    /// also the starting point of the rectangle.
-    pub translation: Vec2,
-    /// Rotation of the rectangle around the origin (`Vec2::ZERO`) given in radians with ccw
-    /// orientation.
-    pub rotation: f32,
-    /// Color of the rectangle.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Rectangle> for RectangleDetails {}
-
-impl<'s> GizmoPrimitive2d<Rectangle, RectangleDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Rectangle, detail: RectangleDetails) {
-        let RectangleDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-        let [a, b, c, d] =
-            [(1.0, 1.0), (1.0, -1.0), (-1.0, -1.0), (-1.0, 1.0)].map(|(sign_x, sign_y)| {
-                Vec2::new(
-                    primitive.half_width * sign_x,
-                    primitive.half_height * sign_y,
-                )
-            });
-        self.primitive_2d(
-            Polyline2d {
-                vertices: [a, b, c, d, a],
-            },
-            Polyline2dDetails {
-                translation,
-                rotation,
-                color,
-            },
-        );
-    }
-}
-
-// Polygon 2D
-
-/// Details for rendering a 2D polygon via [`Gizmos`].
-#[derive(Default)]
-pub struct PolygonDetails {
-    /// Offset for all the vertices of the polygon. If the polygon starts at `Vec2::ZERO`, this is
-    /// also the starting point of the polygon.
-    pub translation: Vec2,
-    /// Rotation of the polygon around the origin (`Vec2::ZERO`) given in radians with ccw
-    /// orientation.
-    pub rotation: f32,
-    /// Color of the polygon.
-    pub color: Color,
-}
-impl<const N: usize> PrimitiveDetailFor<Polygon<N>> for PolygonDetails {}
-
-impl<'s, const N: usize> GizmoPrimitive2d<Polygon<N>, PolygonDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: Polygon<N>, detail: PolygonDetails) {
-        let PolygonDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-
-        // we could prevent this kind of check if we would say its consensus to specify polygons
-        // with/without a closing point
-        let closing_point = {
-            let last = primitive.vertices.last();
-            (primitive.vertices.first() != last)
-                .then_some(last)
-                .flatten()
-                .cloned()
-        };
-
-        self.linestrip_2d(
-            primitive
-                .vertices
-                .into_iter()
-                .chain(closing_point)
-                .map(rotate_then_translate_2d(rotation, translation)),
-            color,
-        );
-    }
-}
-
-// BoxedPolygon 2D
-
-/// Details for rendering a 2D boxed polygon via [`Gizmos`].
-#[derive(Default)]
-pub struct BoxedPolygonDetails {
-    /// Offset for all the vertices of the boxed polygon. If the boxed polygon starts at
-    /// `Vec2::ZERO`, this is also the starting point of the boxed polygon.
-    pub translation: Vec2,
-    /// Rotation of the boxed polygon around the origin (`Vec2::ZERO`) given in radians with ccw
-    /// orientation.
-    pub rotation: f32,
-    /// Color of the boxed polygon.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<BoxedPolygon> for BoxedPolygonDetails {}
-
-impl<'s> GizmoPrimitive2d<BoxedPolygon, BoxedPolygonDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: BoxedPolygon, detail: BoxedPolygonDetails) {
-        let BoxedPolygonDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-        let closing_point = primitive.vertices.last().cloned();
-        self.linestrip_2d(
-            primitive
-                .vertices
-                .iter()
-                .cloned()
-                .chain(closing_point)
-                .map(|vertex| rotate_then_translate_2d(rotation, translation)(vertex)),
-            color,
-        );
-    }
-}
-
-// RegularPolygon 2D
-
-/// Details for rendering a 2D regular polygon via [`Gizmos`].
-#[derive(Default)]
-pub struct RegularPolygonDetails {
-    /// Offset for all the vertices of the regular polygon. If the regular polygon starts at `Vec2::ZERO`, this is
-    /// also the starting point of the regular polygon.
-    pub translation: Vec2,
-    /// Rotation of the regular polygon around the origin (`Vec2::ZERO`) given in radians with ccw
-    /// orientation.
-    pub rotation: f32,
-    /// Color of the regular polygon.
-    pub color: Color,
-}
-
-impl PrimitiveDetailFor<RegularPolygon> for RegularPolygonDetails {}
-
-impl<'s> GizmoPrimitive2d<RegularPolygon, RegularPolygonDetails> for Gizmos<'s> {
-    fn primitive_2d(&mut self, primitive: RegularPolygon, detail: RegularPolygonDetails) {
-        let RegularPolygonDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-
-        fn regular_polygon_inner(radius: f32, segments: usize) -> impl Iterator<Item = [Vec2; 2]> {
-            (0..segments + 1).map(|i| [i, i + 1]).map(move |vals| {
-                vals.map(|i| {
-                    let angle = i as f32 * TAU / segments as f32;
-                    let (x, y) = angle.sin_cos();
-                    Vec2::new(x, y) * radius
-                })
-            })
-        }
-
-        regular_polygon_inner(primitive.circumcircle.radius, primitive.sides)
-            .map(|vertices| vertices.map(rotate_then_translate_2d(rotation, translation)))
-            .for_each(|[start, end]| {
-                self.line_2d(start, end, color);
-            });
-    }
-}
 
 // ======== 3D ==========
 
@@ -1077,6 +623,771 @@ impl<'s> GizmoPrimitive3d<Torus, Torus3dDetails> for Gizmos<'s> {
             });
     }
 }
+
+/// A trait for rendering 2D geometric primitives (`P`) with [`Gizmos`].
+pub trait GizmoPrimitive2d<'s, P: Primitive2d> {
+    /// The output of `primitive_2d`. This is a builder to set non-default values.
+    type Output<'a>
+    where
+        Self: 's,
+        's: 'a;
+
+    /// Renders a 2D primitive with its associated details.
+    fn primitive_2d<'a>(&'s mut self, primitive: P) -> Self::Output<'a>;
+}
+
+// direction 2d
+
+/// Builder for configuring the drawing options of [`Direction2d`].
+pub struct Direction2dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    direction: Direction2d, // direction the arrow points to
+
+    position: Vec2, // position of the start of the arrow
+    color: Color,   // color of the arrow
+}
+
+impl<'a, 's> Direction2dBuilder<'a, 's> {
+    /// set the position of the start of the arrow
+    pub fn position(mut self, position: Vec2) -> Self {
+        self.position = position;
+        self
+    }
+
+    /// set the color of the arrow
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, Direction2d> for Gizmos<'s> {
+    type Output<'a> = Direction2dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Direction2d) -> Self::Output<'a> {
+        Direction2dBuilder {
+            gizmos: self,
+            direction: primitive,
+            position: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl Drop for Direction2dBuilder<'_, '_> {
+    fn drop(&mut self) {
+        let start = self.position;
+        let end = self.position + *self.direction;
+        self.gizmos.arrow_2d(start, end, self.color);
+    }
+}
+
+// circle 2d
+
+/// Builder for configuring the drawing options of [`Circle`].
+pub struct Circle2dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    radius: f32, // 2D circle to be rendered
+
+    center: Vec2, // position of the center of the circle
+    color: Color, // color of the circle
+}
+
+impl<'a, 's> Circle2dBuilder<'a, 's> {
+    /// Set the position of the center of the circle.
+    pub fn center(mut self, center: Vec2) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the color of the circle.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, Circle> for Gizmos<'s> {
+    type Output<'a> = Circle2dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Circle) -> Self::Output<'a> {
+        Circle2dBuilder {
+            gizmos: self,
+            radius: primitive.radius,
+            center: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl Drop for Circle2dBuilder<'_, '_> {
+    fn drop(&mut self) {
+        self.gizmos.circle_2d(self.center, self.radius, self.color);
+    }
+}
+
+// ellipse 2d
+
+/// Builder for configuring the drawing options of [`Ellipse`].
+pub struct Ellipse2dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    half_width: f32,  // Half-width of the ellipse
+    half_height: f32, // Half-height of the ellipse
+
+    center: Vec2, // Position of the center of the ellipse
+    color: Color, // Color of the ellipse
+}
+
+impl<'a, 's> Ellipse2dBuilder<'a, 's> {
+    /// Set the position of the center of the ellipse.
+    pub fn center(mut self, center: Vec2) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the color of the ellipse.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, Ellipse> for Gizmos<'s> {
+    type Output<'a> = Ellipse2dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Ellipse) -> Self::Output<'a> {
+        Ellipse2dBuilder {
+            gizmos: self,
+            half_width: primitive.half_width,
+            half_height: primitive.half_height,
+            center: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl Drop for Ellipse2dBuilder<'_, '_> {
+    fn drop(&mut self) {
+        self.gizmos
+            .ellipse_2d(self.center, self.half_width, self.half_height, self.color);
+    }
+}
+
+// line 2d
+
+/// Builder for configuring the drawing options of [`Line2d`].
+pub struct Line2dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    direction: Direction2d, // Direction of the line
+
+    start_position: Vec2, // Starting position of the line
+    color: Color,         // Color of the line
+}
+
+impl<'a, 's> Line2dBuilder<'a, 's> {
+    /// Set the starting position of the line.
+    pub fn start_position(mut self, start_position: Vec2) -> Self {
+        self.start_position = start_position;
+        self
+    }
+
+    /// Set the color of the line.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, Line2d> for Gizmos<'s> {
+    type Output<'a> = Line2dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Line2d) -> Self::Output<'a> {
+        Line2dBuilder {
+            gizmos: self,
+            direction: primitive.direction,
+            start_position: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl Drop for Line2dBuilder<'_, '_> {
+    fn drop(&mut self) {
+        let start = self.start_position;
+        let end = self.start_position + *self.direction;
+        self.gizmos.arrow_2d(start, end, self.color);
+
+        [1.0, -1.0].into_iter().for_each(|sign| {
+            self.gizmos.line_2d(
+                self.start_position,
+                self.start_position + sign * self.direction.clamp_length(1000.0, 1000.0),
+                self.color,
+            );
+        });
+    }
+}
+
+// plane 2d
+
+/// Builder for configuring the drawing options of [`Plane2d`].
+pub struct Plane2dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    normal: Direction2d, // Normal of the plane
+
+    normal_position: Vec2, // Starting position of the normal of the plane
+    color: Color,          // Color of the plane
+}
+
+impl<'a, 's> Plane2dBuilder<'a, 's> {
+    /// Set the starting position of the normal of the plane.
+    pub fn normal_position(mut self, normal_position: Vec2) -> Self {
+        self.normal_position = normal_position;
+        self
+    }
+
+    /// Set the color of the plane.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, Plane2d> for Gizmos<'s> {
+    type Output<'a> = Plane2dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Plane2d) -> Self::Output<'a> {
+        Plane2dBuilder {
+            gizmos: self,
+            normal: primitive.normal,
+            normal_position: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl Drop for Plane2dBuilder<'_, '_> {
+    fn drop(&mut self) {
+        // normal
+        let start = self.normal_position;
+        let end = self.normal_position + *self.normal;
+        self.gizmos.arrow_2d(start, end, self.color);
+
+        // plane line
+        let direction = Direction2d::from_normalized(self.normal.perp());
+        [1.0, -1.0].into_iter().for_each(|sign| {
+            self.gizmos.line_2d(
+                self.normal_position,
+                self.normal_position + sign * direction.clamp_length(1000.0, 1000.0),
+                self.color,
+            );
+        });
+    }
+}
+
+// segment 2d
+
+/// Builder for configuring the drawing options of [`Segment2d`].
+pub struct Segment2dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    direction: Direction2d, // Direction of the line segment
+    half_length: f32,       // Half-length of the line segment
+
+    draw_arrow: bool,     // decides whether to draw just a line or an arrow
+    start_position: Vec2, // Starting position of the line segment
+    color: Color,         // Color of the line segment
+}
+
+impl<'a, 's> Segment2dBuilder<'a, 's> {
+    /// Set the drawing mode of the line (arrow vs. plain line)
+    pub fn draw_arrow(mut self, is_enabled: bool) -> Self {
+        self.draw_arrow = is_enabled;
+        self
+    }
+
+    /// Set the starting position of the line segment.
+    pub fn start_position(mut self, start_position: Vec2) -> Self {
+        self.start_position = start_position;
+        self
+    }
+
+    /// Set the color of the line segment.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, Segment2d> for Gizmos<'s> {
+    type Output<'a> = Segment2dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Segment2d) -> Self::Output<'a> {
+        Segment2dBuilder {
+            gizmos: self,
+            direction: primitive.direction,
+            half_length: primitive.half_length,
+            draw_arrow: Default::default(),
+            start_position: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl Drop for Segment2dBuilder<'_, '_> {
+    fn drop(&mut self) {
+        let start = self.start_position;
+        let end = self.start_position + *self.direction * 2.0 * self.half_length;
+        if self.draw_arrow {
+            self.gizmos.arrow_2d(start, end, self.color);
+        } else {
+            self.gizmos.line_2d(start, end, self.color);
+        }
+    }
+}
+
+// polyline 2d
+
+/// Builder for configuring the drawing options of [`Polyline2d`].
+pub struct Polyline2dBuilder<'a, 's, const N: usize> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    vertices: [Vec2; N], // Vertices of the polyline
+
+    translation: Vec2, // Offset for all the vertices of the polyline
+    rotation: f32,     // Rotation of the polyline around the origin in radians
+    color: Color,      // Color of the polyline
+}
+
+impl<'a, 's, const N: usize> Polyline2dBuilder<'a, 's, N> {
+    /// Set the offset for all the vertices of the polyline.
+    pub fn translation(mut self, translation: Vec2) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the polyline around the origin in radians.
+    pub fn rotation(mut self, rotation: f32) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the polyline.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s, const N: usize> GizmoPrimitive2d<'s, Polyline2d<N>> for Gizmos<'s> {
+    type Output<'a> = Polyline2dBuilder<'a, 's, N> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Polyline2d<N>) -> Self::Output<'a> {
+        Polyline2dBuilder {
+            gizmos: self,
+            vertices: primitive.vertices,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<const N: usize> Drop for Polyline2dBuilder<'_, '_, N> {
+    fn drop(&mut self) {
+        self.gizmos.linestrip_2d(
+            self.vertices
+                .iter()
+                .copied()
+                .map(rotate_then_translate_2d(self.rotation, self.translation)),
+            self.color,
+        );
+    }
+}
+
+// boxed polyline 2d
+
+/// Builder for configuring the drawing options of [`BoxedPolyline2d`].
+pub struct BoxedPolylineBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    vertices: Box<[Vec2]>, // Vertices of the boxed polyline
+
+    translation: Vec2, // Offset for all the vertices of the boxed polyline
+    rotation: f32,     // Rotation of the boxed polyline around the origin in radians
+    color: Color,      // Color of the boxed polyline
+}
+
+impl<'a, 's> BoxedPolylineBuilder<'a, 's> {
+    /// Set the offset for all the vertices of the boxed polyline.
+    pub fn translation(mut self, translation: Vec2) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the boxed polyline around the origin in radians.
+    pub fn rotation(mut self, rotation: f32) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the boxed polyline.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, BoxedPolyline2d> for Gizmos<'s> {
+    type Output<'a> = BoxedPolylineBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: BoxedPolyline2d) -> Self::Output<'a> {
+        BoxedPolylineBuilder {
+            gizmos: self,
+            vertices: primitive.vertices,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for BoxedPolylineBuilder<'_, 's> {
+    fn drop(&mut self) {
+        self.gizmos.linestrip_2d(
+            self.vertices
+                .iter()
+                .copied()
+                .map(rotate_then_translate_2d(self.rotation, self.translation)),
+            self.color,
+        );
+    }
+}
+
+// triangle 2d
+
+/// Builder for configuring the drawing options of [`Triangle2d`].
+pub struct TriangleBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    vertices: [Vec2; 3], // Vertices of the triangle
+
+    translation: Vec2, // Offset for all the vertices of the triangle
+    rotation: f32,     // Rotation of the triangle around the origin in radians
+    color: Color,      // Color of the triangle
+}
+
+impl<'a, 's> TriangleBuilder<'a, 's> {
+    /// Set the offset for all the vertices of the triangle.
+    pub fn translation(mut self, translation: Vec2) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the triangle around the origin in radians.
+    pub fn rotation(mut self, rotation: f32) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the triangle.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, Triangle2d> for Gizmos<'s> {
+    type Output<'a> = TriangleBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Triangle2d) -> Self::Output<'a> {
+        TriangleBuilder {
+            gizmos: self,
+            vertices: primitive.vertices,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for TriangleBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let [a, b, c] = self.vertices;
+        let positions = [a, b, c, a].map(rotate_then_translate_2d(self.rotation, self.translation));
+        self.gizmos.linestrip_2d(positions, self.color);
+    }
+}
+
+// rectangle 2d
+
+/// Builder for configuring the drawing options of [`Rectangle`].
+pub struct RectangleBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    half_width: f32,  // Half-width of the rectangle
+    half_height: f32, // Half-height of the rectangle
+
+    translation: Vec2, // Offset for all the vertices of the rectangle
+    rotation: f32,     // Rotation of the rectangle around the origin in radians
+    color: Color,      // Color of the rectangle
+}
+
+impl<'a, 's> RectangleBuilder<'a, 's> {
+    /// Set the half-width of the rectangle.
+    pub fn half_width(mut self, half_width: f32) -> Self {
+        self.half_width = half_width;
+        self
+    }
+
+    /// Set the half-height of the rectangle.
+    pub fn half_height(mut self, half_height: f32) -> Self {
+        self.half_height = half_height;
+        self
+    }
+
+    /// Set the offset for all the vertices of the rectangle.
+    pub fn translation(mut self, translation: Vec2) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the rectangle around the origin in radians.
+    pub fn rotation(mut self, rotation: f32) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the rectangle.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, Rectangle> for Gizmos<'s> {
+    type Output<'a> = RectangleBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Rectangle) -> Self::Output<'a> {
+        RectangleBuilder {
+            gizmos: self,
+            half_width: primitive.half_width,
+            half_height: primitive.half_height,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl Drop for RectangleBuilder<'_, '_> {
+    fn drop(&mut self) {
+        let [a, b, c, d] = [(1.0, 1.0), (1.0, -1.0), (-1.0, -1.0), (-1.0, 1.0)]
+            .map(|(sign_x, sign_y)| Vec2::new(self.half_width * sign_x, self.half_height * sign_y));
+        let positions =
+            [a, b, c, d, a].map(rotate_then_translate_2d(self.rotation, self.translation));
+        self.gizmos.linestrip_2d(positions, self.color);
+    }
+}
+
+// polygon 2d
+
+/// Builder for configuring the drawing options of [`Polygon`].
+pub struct PolygonBuilder<'a, 's, const N: usize> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    vertices: [Vec2; N], // Vertices of the polygon
+
+    translation: Vec2, // Offset for all the vertices of the polygon
+    rotation: f32,     // Rotation of the polygon around the origin in radians
+    color: Color,      // Color of the polygon
+}
+
+impl<'a, 's, const N: usize> PolygonBuilder<'a, 's, N> {
+    /// Set the offset for all the vertices of the polygon.
+    pub fn translation(mut self, translation: Vec2) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the polygon around the origin in radians.
+    pub fn rotation(mut self, rotation: f32) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the polygon.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s, const N: usize> GizmoPrimitive2d<'s, Polygon<N>> for Gizmos<'s> {
+    type Output<'a> = PolygonBuilder<'a, 's, N> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: Polygon<N>) -> Self::Output<'a> {
+        PolygonBuilder {
+            gizmos: self,
+            vertices: primitive.vertices,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<const N: usize> Drop for PolygonBuilder<'_, '_, N> {
+    fn drop(&mut self) {
+        // Check if the polygon needs a closing point
+        let closing_point = {
+            let last = self.vertices.last();
+            (self.vertices.first() != last)
+                .then_some(last)
+                .flatten()
+                .cloned()
+        };
+
+        self.gizmos.linestrip_2d(
+            self.vertices
+                .iter()
+                .copied()
+                .chain(closing_point)
+                .map(rotate_then_translate_2d(self.rotation, self.translation)),
+            self.color,
+        );
+    }
+}
+
+// boxed polygon 2d
+
+/// Builder for configuring the drawing options of [`BoxedPolygon`].
+pub struct BoxedPolygonBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    vertices: Box<[Vec2]>, // Vertices of the boxed polygon
+
+    translation: Vec2, // Offset for all the vertices of the boxed polygon
+    rotation: f32,     // Rotation of the boxed polygon around the origin in radians
+    color: Color,      // Color of the boxed polygon
+}
+
+impl<'a, 's> BoxedPolygonBuilder<'a, 's> {
+    /// Set the offset for all the vertices of the boxed polygon.
+    pub fn translation(mut self, translation: Vec2) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the boxed polygon around the origin in radians.
+    pub fn rotation(mut self, rotation: f32) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the boxed polygon.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, BoxedPolygon> for Gizmos<'s> {
+    type Output<'a> = BoxedPolygonBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: BoxedPolygon) -> Self::Output<'a> {
+        BoxedPolygonBuilder {
+            gizmos: self,
+            vertices: primitive.vertices,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for BoxedPolygonBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let closing_point = {
+            let last = self.vertices.last();
+            (self.vertices.first() != last)
+                .then_some(last)
+                .flatten()
+                .cloned()
+        };
+        self.gizmos.linestrip_2d(
+            self.vertices
+                .iter()
+                .copied()
+                .chain(closing_point)
+                .map(rotate_then_translate_2d(self.rotation, self.translation)),
+            self.color,
+        );
+    }
+}
+
+// regular polygon 2d
+
+/// Builder for configuring the drawing options of [`RegularPolygon`].
+pub struct RegularPolygonBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    circumcircle_radius: f32, // Radius of the circumcircle of the regular polygon
+    sides: usize,             // Number of sides of the regular polygon
+
+    translation: Vec2, // Offset for all the vertices of the regular polygon
+    rotation: f32,     // Rotation of the regular polygon around the origin in radians
+    color: Color,      // Color of the regular polygon
+}
+
+impl<'a, 's> RegularPolygonBuilder<'a, 's> {
+    /// Set the offset for all the vertices of the regular polygon.
+    pub fn translation(mut self, translation: Vec2) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the regular polygon around the origin in radians.
+    pub fn rotation(mut self, rotation: f32) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the regular polygon.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive2d<'s, RegularPolygon> for Gizmos<'s> {
+    type Output<'a> = RegularPolygonBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_2d<'a>(&'s mut self, primitive: RegularPolygon) -> Self::Output<'a> {
+        RegularPolygonBuilder {
+            gizmos: self,
+            circumcircle_radius: primitive.circumcircle.radius,
+            sides: primitive.sides,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for RegularPolygonBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let points = (0..=self.sides)
+            .map(|p| single_circle_coordinate(self.circumcircle_radius, self.sides, p, 1.0))
+            .map(rotate_then_translate_2d(self.rotation, self.translation));
+        self.gizmos.linestrip_2d(points, self.color);
+    }
+}
+
 // helpers - affine transform
 
 fn rotate_then_translate_2d(rotation: f32, translation: Vec2) -> impl Fn(Vec2) -> Vec2 {
