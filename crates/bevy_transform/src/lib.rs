@@ -17,7 +17,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PluginGroup};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_math::{Affine3A, Mat4, Vec3};
@@ -100,7 +100,6 @@ impl Plugin for TransformPlugin {
 
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
-            .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
             .configure_sets(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
@@ -131,6 +130,18 @@ impl Plugin for TransformPlugin {
                     propagate_transforms.in_set(PropagateTransformsSet),
                 ),
             );
+    }
+}
+
+/// Collects together all the plugins needed to make transformations work properly.
+pub struct TransformPluginGroup;
+
+impl PluginGroup for TransformPluginGroup {
+    fn build(self, set: &mut PluginSet) {
+        set.add_plugins((
+            TransformPlugin,
+            ValidParentCheckPlugin::<GlobalTransform>::default(),
+        ));
     }
 }
 

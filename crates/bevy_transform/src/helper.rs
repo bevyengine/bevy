@@ -90,7 +90,7 @@ mod tests {
     use crate::{
         components::{GlobalTransform, Transform},
         helper::TransformHelper,
-        TransformBundle, TransformPlugin,
+        TransformBundle, TransformPluginGroup,
     };
 
     #[test]
@@ -116,7 +116,7 @@ mod tests {
 
     fn match_transform_propagation_systems_inner(transforms: Vec<Transform>) {
         let mut app = App::new();
-        app.add_plugins(TransformPlugin);
+        app.add_plugins(TransformPluginGroup);
 
         let mut entity = None;
 

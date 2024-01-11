@@ -44,7 +44,7 @@ impl PluginGroup for DefaultPlugins {
             bevy_core::TypeRegistrationPlugin,
             bevy_core::FrameCountPlugin,
             bevy_time::TimePlugin,
-            bevy_transform::TransformPlugin,
+            bevy_transform::TransformPluginGroup,
             bevy_hierarchy::HierarchyPlugin,
             bevy_diagnostic::DiagnosticsPlugin,
             bevy_input::InputPlugin,
@@ -64,7 +64,7 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_winit")]
         {
-            set.add_plugins(bevy_winit::WinitPlugin::default());
+            set.add_plugins(bevy_winit::WinitPluginGroup::default());
         }
 
         #[cfg(feature = "bevy_render")]
